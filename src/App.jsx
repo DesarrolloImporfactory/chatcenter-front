@@ -29,7 +29,7 @@ function App() {
          */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/registro" element={<Register />} />
         <Route path="*" element={<h1>Esta ruta no existe</h1>} />
       </Routes>
       <Footer />
