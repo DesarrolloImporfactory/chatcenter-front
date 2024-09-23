@@ -1,0 +1,35 @@
+name: Deploy React In Nginx
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: 🎉 Deploy React App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: 🔧 Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Puedes especificar la versión de Node.js aquí
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: 🛠️ Build the React app
+        run: npm run build
+
+      - name: 📂 Sync build folder to the server
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
