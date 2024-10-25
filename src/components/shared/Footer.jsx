@@ -3,7 +3,7 @@ import "./styles/footer.css";
 
 export const Footer = () => {
   return (
-    <footer className="sticky top-[100vh]">
+    <footer className="md:fixed py-2 md:bottom-0 md:left-0">
       <div className="">
         <p>Copyright &copy; 2024 IMPORSUIT</p>
       </div>

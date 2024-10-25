@@ -12,6 +12,9 @@ import Header from "./components/shared/Header";
 import { Footer } from "./components/shared/Footer";
 import { renewThunk } from "./store/slices/user.slice";
 
+import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
+import Chat from "./pages/chat/Chat";
+
 function App() {
   const dispatch = useDispatch();
 
@@ -20,19 +23,19 @@ function App() {
   }, []);
 
   return (
-    <div className="appflex flex-col h-screen bg-gray-100  ">
-      <Header />
-      <Routes>
-        {/* <Route element={<ProtectedRoutes />}>
-         
-        </Route>
-         */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/registro" element={<Register />} />
-        <Route path="*" element={<h1>Esta ruta no existe</h1>} />
-      </Routes>
-      <Footer />
+    <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
+      <div className="flex-grow">
+        <Routes>
+          <Route element={<ProtectedRoutes />}>
+            <Route path="/" element={<Home />} />
+          </Route>
+          <Route path="/login" element={<Login />} />
+          <Route path="/registro" element={<Register />} />
+
+          <Route path="*" element={<h1>Esta ruta no existe</h1>} />
+          <Route path="/chat" element={<Chat />} />
+        </Routes>
+      </div>
     </div>
   );
 }

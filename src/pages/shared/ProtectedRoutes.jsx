@@ -1,20 +1,10 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { useEffect } from "react";
-import { useDispatch } from "react-redux";
-import { getMyPostsThunk } from "../../store/slices/myPosts.slice";
 
 const ProtectedRoutes = () => {
-  const dispatch = useDispatch();
-  useEffect(() => {
-    dispatch(getMyPostsThunk());
-  }, []);
-
-  if (localStorage.getItem("token")) {
-    return <Outlet />;
-  } else {
+  const token = localStorage.getItem("token");
+  if (!token || token === "" || token === null || token === "undefined") {
     return <Navigate to="/login" />;
   }
-
   return <Outlet />;
 };
 
