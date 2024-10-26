@@ -30,6 +30,8 @@ const Chat = () => {
 
   const dispatch = useDispatch();
 
+  const [seRecibioMensaje, setSeRecibioMensaje] = useState(false);
+
   const [dataAdmin, setDataAdmin] = useState(null);
 
   const [userData, setUserData] = useState(null);
@@ -331,11 +333,22 @@ const Chat = () => {
         setDataAdmin(data);
       });
 
+      socketRef.current.on("RECEIVED_MESSAGE", (data) => {
+        setSeRecibioMensaje(true);
+      });
+
       socketRef.current.on("CHATS", (data) => {
         setMensajesAcumulados(data);
       });
     }
   }, [isSocketConnected && userData]);
+
+  useEffect(() => {
+    if (seRecibioMensaje) {
+      socketRef.current.emit("GET_CHATS", userData.plataforma);
+      setSeRecibioMensaje(false);
+    }
+  }, [seRecibioMensaje]);
 
   useEffect(() => {
     if (selectedChat && userData && isSocketConnected) {
