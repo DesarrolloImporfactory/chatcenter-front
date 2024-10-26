@@ -1,13 +1,13 @@
 import React from "react";
 import { useState, useRef, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { set, useForm } from "react-hook-form";
 import { addNumberThunk } from "../../store/slices/number.slice";
 import { useDispatch } from "react-redux";
 import EmojiPicker from "emoji-picker-react";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
-import { es } from "date-fns/locale"; // Importa el locale para español
+import { da, es } from "date-fns/locale"; // Importa el locale para español
 
 const Chat = () => {
   const formatFecha = (fechaISO) => {
@@ -29,6 +29,8 @@ const Chat = () => {
   };
 
   const dispatch = useDispatch();
+
+  const [dataAdmin, setDataAdmin] = useState(null);
 
   const [userData, setUserData] = useState(null);
 
@@ -70,6 +72,18 @@ const Chat = () => {
 
   const [mensajesOrdenados, setMensajesOrdenados] = useState([]);
 
+  const [isCommandActive, setIsCommandActive] = useState(false); // Estado para el cuadro de opciones
+
+  const [isChatBlocked, setIsChatBlocked] = useState(false); // Estado para bloquear el chat
+
+  const [menuSearchTerm, setMenuSearchTerm] = useState(""); // Estado para el término de búsqueda
+
+  const [searchResults, setSearchResults] = useState([]); // Estado para almacenar los resultados de la búsqueda
+
+  const handleMenuSearchChange = (e) => {
+    setMenuSearchTerm(e.target.value);
+  };
+
   const getOrderedChats = () => {
     const todosLosMensajes = chatMessages.flatMap((chat) => chat.mensajes);
     return todosLosMensajes.sort((a, b) => {
@@ -77,6 +91,18 @@ const Chat = () => {
       const fechaB = new Date(b.created_at);
       return fechaA - fechaB;
     });
+  };
+
+  const handleOptionSelect = (option) => {
+    setMensaje(option); // Pon el texto seleccionado en el campo de entrada
+    setIsCommandActive(false); // Cierra el cuadro de opciones
+    setIsChatBlocked(false); // Desbloquea el chat
+
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus(); // Enfoca el input de mensaje
+      }
+    }, 100); // Asegurarse de que el input esté montado
   };
 
   const endOfMessagesRef = useRef(null);
@@ -153,6 +179,25 @@ const Chat = () => {
     console.log("Mensaje enviado:", mensaje, file);
     setMensaje("");
     setFile(null);
+
+    // Enviar el mensaje al servidor de WebSockets
+    socketRef.current.emit("SEND_MESSAGE", {
+      mensaje,
+      tipo_mensaje: file ? "document" : "text",
+      to: selectedChat.celular_cliente,
+      id_plataforma: userData.plataforma,
+      file,
+      dataAdmin,
+    });
+
+    socketRef.current.on("MESSAGE_RESPONSE", (data) => {
+      console.log(data);
+    });
+
+    // Cleanup para evitar múltiples listeners
+    return () => {
+      socketRef.current.off("UPDATE_CHAT");
+    };
   };
 
   const handleSendAudio = (blob) => {
@@ -209,6 +254,27 @@ const Chat = () => {
   });
 
   const socketRef = useRef(null);
+  const inputSearchRef = useRef(null);
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setMensaje(value);
+
+    // Detecta si el texto es solo "/" y no hay texto previo
+    if (value === "/" && mensaje.length === 0) {
+      setIsCommandActive(true);
+      setIsChatBlocked(true); // Bloquea el chat
+
+      // Enfocar directamente en el input de búsqueda del menú si está disponible
+      setTimeout(() => {
+        if (inputSearchRef.current) {
+          inputSearchRef.current.focus();
+        }
+      }, 100); // Asegurarse de que el input esté montado
+    } else {
+      setIsCommandActive(false);
+    }
+  };
+
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -260,9 +326,13 @@ const Chat = () => {
       socketRef.current.emit("GET_CHATS", userData.plataforma);
       socketRef.current.on("USER_ADDED", (data) => {});
 
+      socketRef.current.emit("GET_DATA_ADMIN", userData.plataforma);
+      socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
+        setDataAdmin(data);
+      });
+
       socketRef.current.on("CHATS", (data) => {
         setMensajesAcumulados(data);
-        console.log(data);
       });
     }
   }, [isSocketConnected && userData]);
@@ -309,6 +379,56 @@ const Chat = () => {
       setMensajesOrdenados([]); // Asegúrate de limpiar mensajesOrdenados si chatMessages está vacío
     }
   }, [chatMessages]);
+
+  // useEffect para ejecutar la búsqueda cuando cambia el término de búsqueda
+  useEffect(() => {
+    if (menuSearchTerm.trim().length > 0) {
+      // Si hay algo en el término de búsqueda, realiza la búsqueda en el socket
+      socketRef.current.emit("GET_TEMPLATES", {
+        id_plataforma: userData.plataforma,
+        palabraClave: menuSearchTerm,
+      });
+
+      // Escuchar los resultados de la búsqueda del socket
+      socketRef.current.on("TEMPLATES_RESPONSE", (data) => {
+        setSearchResults(data); // Actualiza el estado con los resultados recibidos
+      });
+
+      // Limpieza para eliminar el listener cuando cambie el término de búsqueda
+      return () => {
+        socketRef.current.off("TEMPLATES_RESPONSE");
+      };
+    } else {
+      // Si el campo de búsqueda está vacío, limpia los resultados
+      setSearchResults([]);
+    }
+  }, [menuSearchTerm]);
+
+  useEffect(() => {
+    if (isSocketConnected && selectedChat) {
+      // Escuchar el evento UPDATE_CHAT
+      const handleUpdateChat = (data) => {
+        const { chatId, message } = data;
+        if (selectedChat && chatId === selectedChat.celular_cliente) {
+          setMensajesOrdenados((prevMessages) => [
+            ...prevMessages,
+            message.mensajeNuevo,
+          ]);
+          setTimeout(() => {
+            scrollToBottom();
+          }, 200);
+        }
+      };
+
+      // Añadir el listener
+      socketRef.current.on("UPDATE_CHAT", handleUpdateChat);
+
+      // Cleanup: remover el listener cuando el componente se desmonte o cambie el chat seleccionado
+      return () => {
+        socketRef.current.off("UPDATE_CHAT", handleUpdateChat);
+      };
+    }
+  }, [isSocketConnected, selectedChat]);
 
   return (
     <div className="grid sm:grid-cols-4">
@@ -418,7 +538,7 @@ const Chat = () => {
           </div>
           <ul className="">
             {/* Todos los mensajes filtrados */}
-            {filteredChats.map((mensaje) => (
+            {filteredChats.map((mensaje, index) => (
               <li
                 key={mensaje.id}
                 className={`flex items-center justify-between p-2 hover:bg-gray-200 ${
@@ -477,7 +597,7 @@ const Chat = () => {
           <div className="flex flex-col flex-grow p-4 space-y-5 max-h-[calc(100vh_-_200px)]  overflow-y-auto">
             {mensajesOrdenados.map((mensaje) => (
               <div
-                key={mensaje.id}
+                key={mensaje.id + Math.random()}
                 className={`flex ${
                   mensaje.rol_mensaje === 1 ? "justify-end" : "justify-start"
                 }`}
@@ -489,7 +609,7 @@ const Chat = () => {
                       : "bg-white"
                   } rounded-lg min-w-[20%] shadow-md max-w-[70%] relative`}
                 >
-                  <p className="text-sm">
+                  <span className="text-sm">
                     {mensaje.tipo_mensaje === "text" ? (
                       mensaje.texto_mensaje.includes("{{") &&
                       mensaje.ruta_archivo ? (
@@ -617,7 +737,7 @@ const Chat = () => {
                     ) : (
                       "Mensaje no reconocido" + mensaje.tipo_mensaje + " 1"
                     )}
-                  </p>
+                  </span>
                   <span
                     className={`absolute bottom-1 ${
                       mensaje.rol_mensaje === 1 ? "text-white" : "text-gray-500"
@@ -636,6 +756,7 @@ const Chat = () => {
             <button
               onClick={() => setEmojiOpen(!emojiOpen)}
               className="border rounded-full p-2"
+              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
             >
               😊
             </button>
@@ -647,16 +768,59 @@ const Chat = () => {
             <input
               type="text"
               value={mensaje}
-              onChange={(e) => setMensaje(e.target.value)}
+              onChange={handleInputChange}
               placeholder="Escribe un mensaje..."
               className="flex-1 p-2 border rounded"
               ref={inputRef}
+              id="mensaje"
+              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
             />
+
+            {/* Mostrar el cuadro de opciones si se ha activado el comando */}
+            {/* Mostrar el cuadro de opciones si se ha activado el comando */}
+            {isCommandActive && (
+              <div className="absolute bottom-20 left-0 bg-white border rounded shadow-lg p-4 z-50 w-full max-w-md">
+                {/* Buscador */}
+                <input
+                  type="text"
+                  value={menuSearchTerm}
+                  onChange={handleMenuSearchChange}
+                  placeholder="Buscar opciones..."
+                  className="w-full p-2 mb-4 border rounded"
+                  ref={inputSearchRef}
+                />
+
+                {/* Resultados de la búsqueda */}
+                <ul className="space-y-2">
+                  {searchResults.length > 0 ? (
+                    searchResults.map((result, index) => (
+                      <li
+                        key={index}
+                        onClick={() => handleOptionSelect(result.mensaje)}
+                        className="cursor-pointer hover:bg-gray-200 p-2 rounded"
+                      >
+                        {/* Aquí accedes a propiedades específicas del objeto */}
+                        <div>
+                          <strong>Atajo:</strong> {result.atajo}
+                        </div>
+                        <div>
+                          <strong>Mensaje:</strong> {result.mensaje}
+                        </div>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-gray-500">No hay resultados</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
             <input
               type="file"
               onChange={handleFileChange}
               className="hidden"
               id="file-upload"
+              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
             />
             <label htmlFor="file-upload" className="cursor-pointer">
               <i className="bx bx-upload text-2xl"></i>
@@ -672,6 +836,7 @@ const Chat = () => {
               className={`${
                 grabando ? "bg-red-500" : "bg-blue-500"
               } text-white px-4 py-2 rounded`}
+              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
             >
               {mensaje || file ? (
                 <i className="bx bx-send"></i>
@@ -684,6 +849,7 @@ const Chat = () => {
           </div>
         </div>
       </div>
+
       {/* Opciones adicionales con animación */}
       {opciones && (
         <div
