@@ -334,6 +334,7 @@ const Chat = () => {
       });
 
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
+        console.log("XD", data);
         setSeRecibioMensaje(true);
       });
 
