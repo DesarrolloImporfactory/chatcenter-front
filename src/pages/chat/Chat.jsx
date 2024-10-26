@@ -307,8 +307,9 @@ const Chat = () => {
       setUserData(decoded); // Guardamos los datos en el estado
 
       // Conectar al servidor de WebSockets
-      const socket = io("http://44.215.62.184:3000", {
-        transports: ["websocket"],
+      const socket = io("https://chat.imporfactory.app", {
+        transports: ["websocket", "polling"],
+        secure: true,
       });
       socket.on("connect", () => {
         console.log("Conectado al servidor de WebSockets");
