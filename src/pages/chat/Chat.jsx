@@ -8,6 +8,11 @@ import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
 import { da, es } from "date-fns/locale"; // Importa el locale para español
+import Cabecera from "../../components/chat/Cabecera";
+import { Sidebar } from "../../components/chat/Sidebar";
+import ChatPrincipal from "../../components/chat/ChatPrincipal";
+import DatosUsuario from "../../components/chat/DatosUsuario";
+import Modales from "../../components/chat/Modales";
 
 const Chat = () => {
   const formatFecha = (fechaISO) => {
@@ -453,480 +458,66 @@ const Chat = () => {
 
   return (
     <div className="grid sm:grid-cols-4">
-      <div className="flex items-center justify-between p-4 bg-blue-500">
-        {/* Botón de opciones */}
-        <div className="grid place-content-center">
-          <button>
-            <i className="bx text-2xl bx-dots-vertical-rounded text-white"></i>
-          </button>
-        </div>
-        {/* Imagen y Nombre */}
-        <div className="flex items-center space-x-3">
-          <div className="text-end">
-            <span className="block text-white font-medium">
-              {" "}
-              {userData?.nombre ?? "Tony Plaza"}
-            </span>
-            <span className="text-sm text-white ">
-              {" "}
-              {userData?.cargo == 1 ? "Administrador" : "Vendedor"}
-            </span>
-          </div>
-          <img
-            className="rounded-full w-12 h-12 bg-white"
-            src="https://new.imporsuitpro.com/public/img/img.png"
-            alt="Profile"
-          />
-        </div>
-      </div>
-
-      {/* Chat titulo */}
-      <div
-        className={`${
-          opciones == true ? "col-span-2 bg-white" : "col-span-3 bg-white"
-        }`}
-      >
-        <div className="flex justify-between items-center space-x-3 p-4">
-          {/* Imagen, nombre y telefono */}
-          <div className="flex gap-2">
-            <img
-              className="rounded-full w-12 h-12"
-              src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
-              alt="Profile"
-            />
-            <div>
-              <span className="block text-black font-medium">
-                {chatMessages.length > 0 && selectedChat
-                  ? chatMessages.find((chat) => chat.id === selectedChat.id)
-                      ?.nombre_cliente
-                  : "SELECCIONE UN CHAT"}
-              </span>
-              <span className="text-sm text-black ">
-                {chatMessages.length > 0 && selectedChat
-                  ? "+" +
-                    chatMessages.find((chat) => chat.id === selectedChat.id)
-                      ?.celular_cliente
-                  : "-------"}
-              </span>
-            </div>
-          </div>
-          {/* opciones */}
-          <div className="flex items-center justify-between text-xl gap-4 p-4">
-            <button onClick={handleOpciones}>
-              <i className="bx bx-info-circle"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-      {/* datos del chat */}
-      {opciones && (
-        <div
-          className={`col-span-1 bg-[#171931] text-white animate-slide-in ${
-            animateOut ? "animate-slide-out" : "animate-slide-in"
-          }`}
-        >
-          <div className="flex justify-center p-4">
-            <div className="flex text-center justify-center">
-              <span>Datos del Usuario</span>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Cabecera */}
+      <Cabecera
+        userData={userData}
+        chatMessages={chatMessages}
+        opciones={opciones}
+        handleOpciones={handleOpciones}
+        selectedChat={selectedChat}
+        animateOut={animateOut}
+      />
       {/* Historial de chats */}
-      <div className=" bg-white overflow-y-auto h-[calc(100vh_-_130px)]">
-        <div className="p-4">
-          {/* Buscador */}
-          <div className="flex items-center gap-2">
-            <div className="flex w-full items-center gap-2">
-              <input
-                type="text"
-                placeholder="Buscar"
-                className="w-full p-2 border rounded"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <i
-                onClick={setNumeroModal}
-                className="bg-blue-500 text-white rounded hover:cursor-pointer hover:bg-blue-400 text-2xl p-1 bx bx-plus-circle"
-              ></i>
-            </div>
-          </div>
-          <ul className="">
-            {/* Todos los mensajes filtrados */}
-            {filteredChats.map((mensaje, index) => (
-              <li
-                key={mensaje.id}
-                className={`flex items-center justify-between p-2 hover:bg-gray-200 ${
-                  selectedChat === mensaje ? "bg-gray-200" : ""
-                }`}
-                onClick={() => handleSelectChat(mensaje)}
-              >
-                <div className="flex items-center space-x-3 relative w-full sm:w-auto">
-                  <img
-                    className="rounded-full w-10 h-10 sm:w-12 sm:h-12"
-                    src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
-                    alt="Profile"
-                  />
-                  <div className="flex-1 min-w-0">
-                    {/* Acortar el nombre del cliente */}
-                    <span className="block text-black font-medium truncate">
-                      {acortarTexto(mensaje.nombre_cliente, 10, 25)}
-                    </span>
-                    {/* Acortar el número de teléfono */}
-                    <span className="text-xs sm:text-sm text-black truncate">
-                      {acortarTexto(mensaje.celular_cliente, 10, 15)}
-                    </span>
-                    {/* Acortar el texto del mensaje */}
-                    <span className="block text-xs sm:text-sm text-gray-600 truncate">
-                      {mensaje.texto_mensaje?.length > chatTemporales
-                        ? mensaje.texto_mensaje.includes("{{") &&
-                          mensaje.ruta_archivo
-                          ? mensaje.texto_mensaje
-                              .replace(/\{\{(.*?)\}\}/g, (match, key) => {
-                                // Parsear la ruta_archivo que contiene el JSON con los valores
-                                const valores = JSON.parse(
-                                  mensaje.ruta_archivo
-                                );
-                                // Retornar el valor si existe, de lo contrario dejar el placeholder
-                                return valores[key.trim()] || match;
-                              })
-                              .substring(0, chatTemporales) + "..."
-                          : mensaje.texto_mensaje.substring(0, chatTemporales) +
-                            "..."
-                        : mensaje.texto_mensaje}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end justify-between ml-2 sm:ml-4">
-                  {/* Hora del mensaje */}
-                  <span className="text-xs sm:text-sm text-gray-600">
-                    {formatFecha(mensaje.mensaje_created_at)}
-                  </span>
-
-                  {/* Mensajes acumulados */}
-                  {mensaje.mensajes_pendientes > 0 && (
-                    <span className="mt-1 w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {mensaje.mensajes_pendientes}
-                    </span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <Sidebar
+        filteredChats={filteredChats}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        setNumeroModal={setNumeroModal}
+        handleSelectChat={handleSelectChat}
+        acortarTexto={acortarTexto}
+        selectedChat={selectedChat}
+        chatTemporales={chatTemporales}
+        formatFecha={formatFecha}
+      />
       {/* todos los mensajes */}
-      {/* Área del Chat */}
-      <div
-        className={` ${
-          opciones ? "col-span-2" : "col-span-3"
-        } bg-gray-100 relative `}
-      >
-        <div className="flex flex-col h-[calc(100vh_-_130px)] relative">
-          {/* Mensajes */}
-          <div className="flex flex-col flex-grow p-4 space-y-5 max-h-[calc(100vh_-_200px)]  overflow-y-auto">
-            {mensajesOrdenados.map((mensaje) => (
-              <div
-                key={mensaje.id + Math.random()}
-                className={`flex ${
-                  mensaje.rol_mensaje === 1 ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`p-4 ${
-                    mensaje.rol_mensaje === 1
-                      ? "bg-blue-500 text-white"
-                      : "bg-white"
-                  } rounded-lg min-w-[20%] shadow-md max-w-[70%] relative`}
-                >
-                  <span className="text-sm">
-                    {mensaje.tipo_mensaje === "text" ? (
-                      mensaje.texto_mensaje.includes("{{") &&
-                      mensaje.ruta_archivo ? (
-                        <p>
-                          {mensaje.texto_mensaje.replace(
-                            /\{\{(.*?)\}\}/g,
-                            (match, key) => {
-                              // Parsear la ruta_archivo que contiene el JSON con los valores
-                              const valores = JSON.parse(mensaje.ruta_archivo);
-                              // Retornar el valor si existe, de lo contrario dejar el placeholder
-                              return valores[key.trim()] || match;
-                            }
-                          )}
-                        </p>
-                      ) : (
-                        <p>{mensaje.texto_mensaje}</p>
-                      )
-                    ) : mensaje.tipo_mensaje === "audio" ? (
-                      <audio
-                        controls
-                        src={
-                          "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
-                        }
-                      ></audio>
-                    ) : mensaje.tipo_mensaje === "image" ? (
-                      <img
-                        className="w-40 h-40"
-                        src={
-                          "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
-                        }
-                        alt="Imagen"
-                      />
-                    ) : mensaje.tipo_mensaje === "document" ? (
-                      <div className="p-2">
-                        <a
-                          href={`https://new.imporsuitpro.com/${
-                            JSON.parse(mensaje.ruta_archivo).ruta
-                          }`} // Ajusta la URL base a tu dominio
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-gray-600 grid grid-cols-[auto_1fr_auto] items-center justify-end gap-1"
-                        >
-                          <span className="text-xl">
-                            <i className="bx bx-file"></i>
-                          </span>
-                          <span className="truncate">
-                            {JSON.parse(mensaje.ruta_archivo).nombre}
-                          </span>
-                          <span className="truncate text-2xl">
-                            <i className="bx bx-download"></i>
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {(
-                              JSON.parse(mensaje.ruta_archivo).size / 1024
-                            ).toFixed(2) > 1024 // Convertir a KB o MB
-                              ? (
-                                  JSON.parse(mensaje.ruta_archivo).size /
-                                  1024 /
-                                  1024
-                                ).toFixed(2) + " MB"
-                              : (
-                                  JSON.parse(mensaje.ruta_archivo).size / 1024
-                                ).toFixed(2) + " KB"}
-                          </span>
-
-                          <span className="text-sm text-gray-500 ">
-                            {" • " +
-                              JSON.parse(mensaje.ruta_archivo).nombre.split(
-                                "."
-                              )[
-                                JSON.parse(mensaje.ruta_archivo).nombre.split(
-                                  "."
-                                ).length - 1
-                              ]}
-                          </span>
-                        </a>
-                      </div>
-                    ) : mensaje.tipo_mensaje === "video" ? (
-                      <video
-                        className="w-40 h-40"
-                        controls
-                        src={
-                          "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
-                        }
-                      ></video>
-                    ) : mensaje.tipo_mensaje === "location" ? (
-                      (() => {
-                        try {
-                          const locationData = JSON.parse(
-                            mensaje.texto_mensaje
-                          );
-                          const { latitude, longitud } = locationData;
-
-                          return (
-                            <div className="w-full h-64">
-                              <iframe
-                                title="Mapa de ubicación"
-                                width="100%"
-                                height="100%"
-                                frameBorder="0"
-                                style={{ border: 0 }}
-                                src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDGulcdBtz_Mydtmu432GtzJz82J_yb-rs&q=${latitude},${longitud}&zoom=15`}
-                                allowFullScreen
-                              ></iframe>
-                              <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${latitude},${longitud}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-500 underline"
-                              >
-                                Ver ubicación en Google Maps
-                              </a>
-                            </div>
-                          );
-                        } catch (error) {
-                          console.error(
-                            "Error al parsear la ubicación:",
-                            error
-                          );
-                          return <p>Error al mostrar la ubicación.</p>;
-                        }
-                      })()
-                    ) : mensaje.tipo_mensaje === "button" ? (
-                      mensaje.texto_mensaje
-                    ) : (
-                      "Mensaje no reconocido" + mensaje.tipo_mensaje + " 1"
-                    )}
-                  </span>
-                  <span
-                    className={`absolute bottom-1 ${
-                      mensaje.rol_mensaje === 1 ? "text-white" : "text-gray-500"
-                    } right-2 text-xs`}
-                  >
-                    {formatFecha(mensaje.created_at)}
-                  </span>
-                </div>
-              </div>
-            ))}
-            <div ref={endOfMessagesRef}></div>
-          </div>
-
-          {/* Campo para enviar mensajes */}
-          <div className="flex items-center gap-2 p-4 w-full border-t bg-white absolute bottom-0 left-0">
-            <button
-              onClick={() => setEmojiOpen(!emojiOpen)}
-              className="border rounded-full p-2"
-              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
-            >
-              😊
-            </button>
-            {emojiOpen && (
-              <div className="absolute bottom-16" ref={emojiPickerRef}>
-                <EmojiPicker onEmojiClick={handleEmojiClick} />
-              </div>
-            )}
-            <input
-              type="text"
-              value={mensaje}
-              onChange={handleInputChange}
-              placeholder="Escribe un mensaje..."
-              className="flex-1 p-2 border rounded"
-              ref={inputRef}
-              id="mensaje"
-              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
-            />
-
-            {/* Mostrar el cuadro de opciones si se ha activado el comando */}
-            {/* Mostrar el cuadro de opciones si se ha activado el comando */}
-            {isCommandActive && (
-              <div className="absolute bottom-20 left-0 bg-white border rounded shadow-lg p-4 z-50 w-full max-w-md">
-                {/* Buscador */}
-                <input
-                  type="text"
-                  value={menuSearchTerm}
-                  onChange={handleMenuSearchChange}
-                  placeholder="Buscar opciones..."
-                  className="w-full p-2 mb-4 border rounded"
-                  ref={inputSearchRef}
-                />
-
-                {/* Resultados de la búsqueda */}
-                <ul className="space-y-2">
-                  {searchResults.length > 0 ? (
-                    searchResults.map((result, index) => (
-                      <li
-                        key={index}
-                        onClick={() => handleOptionSelect(result.mensaje)}
-                        className="cursor-pointer hover:bg-gray-200 p-2 rounded"
-                      >
-                        {/* Aquí accedes a propiedades específicas del objeto */}
-                        <div>
-                          <strong>Atajo:</strong> {result.atajo}
-                        </div>
-                        <div>
-                          <strong>Mensaje:</strong> {result.mensaje}
-                        </div>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-gray-500">No hay resultados</li>
-                  )}
-                </ul>
-              </div>
-            )}
-
-            <input
-              type="file"
-              onChange={handleFileChange}
-              className="hidden"
-              id="file-upload"
-              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <i className="bx bx-upload text-2xl"></i>
-            </label>
-            <button
-              onClick={
-                mensaje || file
-                  ? handleSendMessage
-                  : grabando
-                  ? stopRecording
-                  : startRecording
-              }
-              className={`${
-                grabando ? "bg-red-500" : "bg-blue-500"
-              } text-white px-4 py-2 rounded`}
-              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
-            >
-              {mensaje || file ? (
-                <i className="bx bx-send"></i>
-              ) : grabando ? (
-                <i className="bx bx-stop"></i>
-              ) : (
-                <i className="bx bx-microphone"></i>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
+      <ChatPrincipal
+        mensajesOrdenados={mensajesOrdenados}
+        opciones={opciones}
+        endOfMessagesRef={endOfMessagesRef}
+        mensaje={mensaje}
+        handleInputChange={handleInputChange}
+        inputRef={inputRef}
+        handleSendMessage={handleSendMessage}
+        handleFileChange={handleFileChange}
+        grabando={grabando}
+        startRecording={startRecording}
+        stopRecording={stopRecording}
+        file={file}
+        setEmojiOpen={setEmojiOpen}
+        emojiOpen={emojiOpen}
+        emojiPickerRef={emojiPickerRef}
+        handleEmojiClick={handleEmojiClick}
+        isChatBlocked={isChatBlocked}
+        isCommandActive={isCommandActive}
+        formatFecha={formatFecha}
+        menuSearchTerm={menuSearchTerm}
+        handleMenuSearchChange={handleMenuSearchChange}
+        inputSearchRef={inputSearchRef}
+        searchResults={searchResults}
+        handleOptionSelect={handleOptionSelect}
+      />
 
       {/* Opciones adicionales con animación */}
-      {opciones && (
-        <div
-          className={`col-span-1 bg-[#171931] text-white p-4 ${
-            animateOut ? "animate-slide-out" : "animate-slide-in"
-          }`}
-        >
-          <h2 className="font-medium mb-4">Opciones</h2>
-          <p>Detalles adicionales sobre el chat o usuario.</p>
-        </div>
-      )}
+      <DatosUsuario opciones={opciones} animateOut={animateOut} />
 
       {/* MODALES */}
-
-      {/* Modal de numero */}
-      {numeroModal && (
-        <div className="fixed inset-0 z-10 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg">
-            <h2 className="text-xl font-medium">Agregar número</h2>
-            <form
-              className="grid items-center gap-2 my-4"
-              onSubmit={handleSubmit(handleNumeroModalForm)}
-            >
-              <input
-                type="text"
-                placeholder="Número de teléfono"
-                className="p-2 border rounded"
-                {...register("numero", {
-                  required: "El número es obligatorio",
-                })}
-              />
-            </form>
-            <div className="flex  gap-3">
-              <button className="bg-blue-500 text-white px-4 py-2 rounded">
-                Agregar
-              </button>
-              <button
-                onClick={handleNumeroModal}
-                className="bg-red-500 text-white px-4 py-2 rounded"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modales
+        numeroModal={numeroModal}
+        handleSubmit={handleSubmit}
+        register={register}
+        handleNumeroModal={handleNumeroModal}
+        handleNumeroModalForm={handleNumeroModalForm}
+      />
     </div>
   );
 };
