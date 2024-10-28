@@ -288,6 +288,11 @@ const Chat = () => {
     }
   };
 
+  const handleInputChange_numeroCliente = (e) => {
+    const value = e.target.value;
+    setMensaje(value);
+  };
+
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -516,6 +521,7 @@ const Chat = () => {
         handleSubmit={handleSubmit}
         register={register}
         handleNumeroModal={handleNumeroModal}
+        handleInputChange_numeroCliente={handleInputChange_numeroCliente}
         handleNumeroModalForm={handleNumeroModalForm}
       />
     </div>

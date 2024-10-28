@@ -19,6 +19,7 @@ const Modales = ({
               <input
                 type="text"
                 placeholder="Número de teléfono"
+                onChange={handleInputChange_numeroCliente}
                 className="p-2 border rounded"
                 {...register("numero", {
                   required: "El número es obligatorio",
