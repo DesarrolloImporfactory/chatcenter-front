@@ -33,6 +33,7 @@ const Login = () => {
         </span>
         <hr />
         <h1 className="text-4xl font-bold my-2">¡Bienvenido!</h1>
+
         <p className="text-lg mb-4">
           Gestiona tus mensajes de WhatsApp de forma rápida y eficiente,
           optimizando tus ventas y potenciando tu estrategia de marketing.

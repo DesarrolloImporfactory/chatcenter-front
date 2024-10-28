@@ -177,6 +177,12 @@ const Chat = () => {
     setFile(e.target.files[0]);
   };
 
+  const acortarTexto = (texto, limiteMovil, limiteDesktop) => {
+    // Determina el límite basado en el tamaño de la pantalla
+    const limite = window.innerWidth <= 640 ? limiteMovil : limiteDesktop;
+    return texto.length > limite ? texto.substring(0, limite) + "..." : texto;
+  };
+
   const handleSendMessage = () => {
     console.log("Mensaje enviado:", mensaje, file);
     setMensaje("");
@@ -307,7 +313,7 @@ const Chat = () => {
       setUserData(decoded); // Guardamos los datos en el estado
 
       // Conectar al servidor de WebSockets
-      const socket = io("https://chat.imporfactory.app", {
+      const socket = io(import.meta.env.VITE_socket, {
         transports: ["websocket", "polling"],
         secure: true,
       });
@@ -481,6 +487,7 @@ const Chat = () => {
         }`}
       >
         <div className="flex justify-between items-center space-x-3 p-4">
+          {/* Imagen, nombre y telefono */}
           <div className="flex gap-2">
             <img
               className="rounded-full w-12 h-12"
@@ -505,12 +512,6 @@ const Chat = () => {
           </div>
           {/* opciones */}
           <div className="flex items-center justify-between text-xl gap-4 p-4">
-            <button>
-              <i className="bx bx-phone"></i>
-            </button>
-            <button>
-              <i className="bx bx-video"></i>
-            </button>
             <button onClick={handleOpciones}>
               <i className="bx bx-info-circle"></i>
             </button>
@@ -561,36 +562,51 @@ const Chat = () => {
                 }`}
                 onClick={() => handleSelectChat(mensaje)}
               >
-                <div className="flex items-center space-x-3 relative">
+                <div className="flex items-center space-x-3 relative w-full sm:w-auto">
                   <img
-                    className="rounded-full w-12 h-12"
+                    className="rounded-full w-10 h-10 sm:w-12 sm:h-12"
                     src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
                     alt="Profile"
                   />
-                  <div className="">
-                    <span className="block text-black font-medium">
-                      {mensaje.nombre_cliente}
+                  <div className="flex-1 min-w-0">
+                    {/* Acortar el nombre del cliente */}
+                    <span className="block text-black font-medium truncate">
+                      {acortarTexto(mensaje.nombre_cliente, 10, 25)}
                     </span>
-                    <span className="text-sm text-black ">
-                      {mensaje.celular_cliente}
+                    {/* Acortar el número de teléfono */}
+                    <span className="text-xs sm:text-sm text-black truncate">
+                      {acortarTexto(mensaje.celular_cliente, 10, 15)}
                     </span>
-                    <span className="block text-sm text-gray-600">
+                    {/* Acortar el texto del mensaje */}
+                    <span className="block text-xs sm:text-sm text-gray-600 truncate">
                       {mensaje.texto_mensaje?.length > chatTemporales
-                        ? mensaje.texto_mensaje.substring(0, chatTemporales) +
-                          "..."
+                        ? mensaje.texto_mensaje.includes("{{") &&
+                          mensaje.ruta_archivo
+                          ? mensaje.texto_mensaje
+                              .replace(/\{\{(.*?)\}\}/g, (match, key) => {
+                                // Parsear la ruta_archivo que contiene el JSON con los valores
+                                const valores = JSON.parse(
+                                  mensaje.ruta_archivo
+                                );
+                                // Retornar el valor si existe, de lo contrario dejar el placeholder
+                                return valores[key.trim()] || match;
+                              })
+                              .substring(0, chatTemporales) + "..."
+                          : mensaje.texto_mensaje.substring(0, chatTemporales) +
+                            "..."
                         : mensaje.texto_mensaje}
                     </span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end">
+                <div className="flex flex-col items-end justify-between ml-2 sm:ml-4">
                   {/* Hora del mensaje */}
-                  <span className="text-sm text-gray-600">
+                  <span className="text-xs sm:text-sm text-gray-600">
                     {formatFecha(mensaje.mensaje_created_at)}
                   </span>
 
                   {/* Mensajes acumulados */}
                   {mensaje.mensajes_pendientes > 0 && (
-                    <span className="mt-1 w-6 h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+                    <span className="mt-1 w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
                       {mensaje.mensajes_pendientes}
                     </span>
                   )}
