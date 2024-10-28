@@ -255,6 +255,9 @@ const Chat = () => {
     // Establece el chat seleccionado y asegúrate de limpiar los mensajes anteriores
     setChatMessages([]); // Limpia los mensajes anteriores para evitar inconsistencias
     setSelectedChat(chat);
+    socketRef.current.on("SEEN_MESSAGE", (data) => {
+      setSeRecibioMensaje(true);
+    });
   };
 
   const filteredChats = mensajesAcumulados.filter((mensaje) => {
