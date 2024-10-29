@@ -103,6 +103,7 @@ const Chat = () => {
   };
 
   const handleInputChange_numeroCliente = (e) => {
+    console.log("xd");
     setMenuSearchTermNumeroCliente(e.target.value);
   };
 
@@ -473,7 +474,7 @@ const Chat = () => {
       // Emitir el evento al servidor
       socketRef.current.emit("GET_CELLPHONES", {
         id_plataforma: userData.plataforma,
-        palabraClave: menuSearchTermNumeroCliente,
+        texto: menuSearchTermNumeroCliente,
       });
 
       // Escuchar los resultados de la búsqueda del socket

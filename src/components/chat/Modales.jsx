@@ -27,8 +27,8 @@ const Modales = ({
               <input
                 type="text"
                 placeholder="Número de teléfono"
-                value={menuSearchTermNumeroCliente}
-                onChange={handleInputChange_numeroCliente}
+                id="numeroAdd"
+                onInput={handleInputChange_numeroCliente}
                 ref={inputRefNumeroTelefono}
                 className="p-2 border rounded"
                 {...register("numero", {
@@ -38,26 +38,28 @@ const Modales = ({
 
               {/* Resultados de la búsqueda numeros clientes */}
               <ul className="space-y-2">
-                  {searchResultsNumeroCliente.length > 0  && seleccionado? (
-                    searchResultsNumeroCliente.map((result, index) => (
-                      <li
-                        key={index}
-                        onClick={() => handleOptionSelectNumeroTelefono(result.mensaje)}
-                        className="cursor-pointer hover:bg-gray-200 p-2 rounded"
-                      >
-                        {/* Aquí accedes a propiedades específicas del objeto */}
-                        <div>
-                          <strong>Atajo:</strong> {result.atajo}
-                        </div>
-                        <div>
-                          <strong>Mensaje:</strong> {result.mensaje}
-                        </div>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-gray-500">No hay resultados</li>
-                  )}
-                </ul>
+                {searchResultsNumeroCliente.length > 0 && seleccionado ? (
+                  searchResultsNumeroCliente.map((result, index) => (
+                    <li
+                      key={index}
+                      onClick={() =>
+                        handleOptionSelectNumeroTelefono(result.mensaje)
+                      }
+                      className="cursor-pointer hover:bg-gray-200 p-2 rounded"
+                    >
+                      {/* Aquí accedes a propiedades específicas del objeto */}
+                      <div>
+                        <strong>Atajo:</strong> {result.atajo}
+                      </div>
+                      <div>
+                        <strong>Mensaje:</strong> {result.mensaje}
+                      </div>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-gray-500">No hay resultados</li>
+                )}
+              </ul>
             </form>
             <div className="flex  gap-3">
               <button className="bg-blue-500 text-white px-4 py-2 rounded">
