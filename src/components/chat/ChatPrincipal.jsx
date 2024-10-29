@@ -24,6 +24,12 @@ const ChatPrincipal = ({
   searchResults,
   handleOptionSelect,
 }) => {
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !isChatBlocked && mensaje.trim()) {
+      e.preventDefault(); // Evita el salto de línea en el input
+      handleSendMessage(); // Llama a la función de envío de mensaje
+    }
+  };
   return (
     <>
       <div
@@ -173,6 +179,8 @@ const ChatPrincipal = ({
                       })()
                     ) : mensaje.tipo_mensaje === "button" ? (
                       mensaje.texto_mensaje
+                    ) : mensaje.tipo_mensaje === "reaction" ? (
+                      mensaje.texto_mensaje
                     ) : (
                       "Mensaje no reconocido" + mensaje.tipo_mensaje + " 1"
                     )}
@@ -208,6 +216,7 @@ const ChatPrincipal = ({
               type="text"
               value={mensaje}
               onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
               placeholder="Escribe un mensaje..."
               className="flex-1 p-2 border rounded"
               ref={inputRef}

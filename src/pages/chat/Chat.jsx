@@ -87,13 +87,16 @@ const Chat = () => {
 
   const [searchResults, setSearchResults] = useState([]); // Estado para almacenar los resultados de la búsqueda
 
-  const [menuSearchTermNumeroCliente, setMenuSearchTermNumeroCliente] = useState(""); // Estado para el término de búsqueda numero Cliente
+  const [menuSearchTermNumeroCliente, setMenuSearchTermNumeroCliente] =
+    useState(""); // Estado para el término de búsqueda numero Cliente
 
-  const [searchResultsNumeroCliente, setSearchResultsNumeroCliente] = useState([]); // Estado para almacenar los resultados de la búsqueda numero Cliente
+  const [searchResultsNumeroCliente, setSearchResultsNumeroCliente] = useState(
+    []
+  ); // Estado para almacenar los resultados de la búsqueda numero Cliente
 
   const inputRefNumeroTelefono = useRef(null); // Referencia al input de mensaje numero telefono
 
-  const [seleccionado,setSeleccionado] = useState(false); // para la condicion del buscar numero Telefono
+  const [seleccionado, setSeleccionado] = useState(false); // para la condicion del buscar numero Telefono
 
   const handleMenuSearchChange = (e) => {
     setMenuSearchTerm(e.target.value);
@@ -231,6 +234,7 @@ const Chat = () => {
     });
 
     // Cleanup para evitar múltiples listeners
+
     return () => {
       socketRef.current.off("UPDATE_CHAT");
     };
@@ -455,25 +459,31 @@ const Chat = () => {
 
   // useEffect para ejecutar la búsqueda cuando cambia el término de búsqueda telefono
   useEffect(() => {
-    console.log("useEffect activado con menuSearchTermNumeroCliente:", menuSearchTermNumeroCliente);
-    
+    console.log(
+      "useEffect activado con menuSearchTermNumeroCliente:",
+      menuSearchTermNumeroCliente
+    );
+
     if (menuSearchTermNumeroCliente.trim().length > 0) {
-      console.log("Emitiendo búsqueda de celulares con el término:", menuSearchTermNumeroCliente);
-  
+      console.log(
+        "Emitiendo búsqueda de celulares con el término:",
+        menuSearchTermNumeroCliente
+      );
+
       // Emitir el evento al servidor
       socketRef.current.emit("GET_CELLPHONES", {
         id_plataforma: userData.plataforma,
         palabraClave: menuSearchTermNumeroCliente,
       });
-  
+
       // Escuchar los resultados de la búsqueda del socket
       const handleDataResponse = (data) => {
         console.log("Datos recibidos de DATA_CELLPHONE_RESPONSE:", data);
         setSearchResultsNumeroCliente(data);
       };
-  
+
       socketRef.current.on("DATA_CELLPHONE_RESPONSE", handleDataResponse);
-  
+
       // Limpieza para eliminar el listener
       return () => {
         socketRef.current.off("DATA_CELLPHONE_RESPONSE", handleDataResponse);
@@ -484,7 +494,6 @@ const Chat = () => {
       setSearchResultsNumeroCliente([]);
     }
   }, [menuSearchTermNumeroCliente]);
-  
 
   useEffect(() => {
     if (isSocketConnected && selectedChat) {
