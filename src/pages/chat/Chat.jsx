@@ -87,8 +87,20 @@ const Chat = () => {
 
   const [searchResults, setSearchResults] = useState([]); // Estado para almacenar los resultados de la búsqueda
 
+  const [menuSearchTermNumeroCliente, setMenuSearchTermNumeroCliente] = useState(""); // Estado para el término de búsqueda numero Cliente
+
+  const [searchResultsNumeroCliente, setSearchResultsNumeroCliente] = useState([]); // Estado para almacenar los resultados de la búsqueda numero Cliente
+
+  const inputRefNumeroTelefono = useRef(null); // Referencia al input de mensaje numero telefono
+
+  const [seleccionado,setSeleccionado] = useState(false); // para la condicion del buscar numero Telefono
+
   const handleMenuSearchChange = (e) => {
     setMenuSearchTerm(e.target.value);
+  };
+
+  const handleInputChange_numeroCliente = (e) => {
+    setMenuSearchTermNumeroCliente(e.target.value);
   };
 
   const getOrderedChats = () => {
@@ -108,6 +120,17 @@ const Chat = () => {
     setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus(); // Enfoca el input de mensaje
+      }
+    }, 100); // Asegurarse de que el input esté montado
+  };
+
+  const handleOptionSelectNumeroTelefono = (option) => {
+    setSeleccionado(true); // Pon el texto seleccionado en el campo de entrada
+    setMenuSearchTermNumeroCliente(option);
+
+    setTimeout(() => {
+      if (inputRefNumeroTelefono.current) {
+        inputRefNumeroTelefono.current.focus(); // Enfoca el input de mensaje
       }
     }, 100); // Asegurarse de que el input esté montado
   };
@@ -255,9 +278,6 @@ const Chat = () => {
     // Establece el chat seleccionado y asegúrate de limpiar los mensajes anteriores
     setChatMessages([]); // Limpia los mensajes anteriores para evitar inconsistencias
     setSelectedChat(chat);
-    socketRef.current.on("SEEN_MESSAGE", (data) => {
-      setSeRecibioMensaje(true);
-    });
   };
 
   const filteredChats = mensajesAcumulados.filter((mensaje) => {
@@ -289,11 +309,6 @@ const Chat = () => {
     } else {
       setIsCommandActive(false);
     }
-  };
-
-  const handleInputChange_numeroCliente = (e) => {
-    const value = e.target.value;
-    setMensaje(value);
   };
 
   useEffect(() => {
@@ -438,6 +453,39 @@ const Chat = () => {
     }
   }, [menuSearchTerm]);
 
+  // useEffect para ejecutar la búsqueda cuando cambia el término de búsqueda telefono
+  useEffect(() => {
+    console.log("useEffect activado con menuSearchTermNumeroCliente:", menuSearchTermNumeroCliente);
+    
+    if (menuSearchTermNumeroCliente.trim().length > 0) {
+      console.log("Emitiendo búsqueda de celulares con el término:", menuSearchTermNumeroCliente);
+  
+      // Emitir el evento al servidor
+      socketRef.current.emit("GET_CELLPHONES", {
+        id_plataforma: userData.plataforma,
+        palabraClave: menuSearchTermNumeroCliente,
+      });
+  
+      // Escuchar los resultados de la búsqueda del socket
+      const handleDataResponse = (data) => {
+        console.log("Datos recibidos de DATA_CELLPHONE_RESPONSE:", data);
+        setSearchResultsNumeroCliente(data);
+      };
+  
+      socketRef.current.on("DATA_CELLPHONE_RESPONSE", handleDataResponse);
+  
+      // Limpieza para eliminar el listener
+      return () => {
+        socketRef.current.off("DATA_CELLPHONE_RESPONSE", handleDataResponse);
+        console.log("Listener DATA_CELLPHONE_RESPONSE removido");
+      };
+    } else {
+      console.log("Campo de búsqueda vacío, limpiando resultados.");
+      setSearchResultsNumeroCliente([]);
+    }
+  }, [menuSearchTermNumeroCliente]);
+  
+
   useEffect(() => {
     if (isSocketConnected && selectedChat) {
       // Escuchar el evento UPDATE_CHAT
@@ -524,8 +572,12 @@ const Chat = () => {
         handleSubmit={handleSubmit}
         register={register}
         handleNumeroModal={handleNumeroModal}
+        seleccionado={seleccionado}
+        menuSearchTermNumeroCliente={menuSearchTermNumeroCliente}
+        searchResultsNumeroCliente={searchResultsNumeroCliente}
         handleInputChange_numeroCliente={handleInputChange_numeroCliente}
         handleNumeroModalForm={handleNumeroModalForm}
+        handleOptionSelectNumeroTelefono={handleOptionSelectNumeroTelefono}
       />
     </div>
   );
