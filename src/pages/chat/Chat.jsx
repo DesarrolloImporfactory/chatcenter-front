@@ -35,6 +35,9 @@ const Chat = () => {
 
   const dispatch = useDispatch();
 
+  const [provincias, setProvincias] = useState([]);
+  const [facturasChatSeleccionado, setFacturasChatSeleccionado] = useState([]);
+
   const [seRecibioMensaje, setSeRecibioMensaje] = useState(false);
 
   const [dataAdmin, setDataAdmin] = useState(null);
@@ -418,10 +421,18 @@ const Chat = () => {
         /* funcion cargar templates */
         cargarTemplates(data); // Llamar a cargarTemplates cuando el socket esté conectado
       });
+      socketRef.current.emit("GET_PROVINCIAS", userData.plataforma);
+      socketRef.current.on("DATA_PROVINCIAS_RESPONSE", (data) => {
+        setProvincias(data);
+      });
 
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
         console.log("XD", data);
         setSeRecibioMensaje(true);
+      });
+
+      socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
+        setFacturasChatSeleccionado(data);
       });
 
       socketRef.current.on("CHATS", (data) => {
@@ -453,7 +464,10 @@ const Chat = () => {
         const orderedMessages = getOrderedChats();
         setMensajesOrdenados(orderedMessages);
       };
-
+      socketRef.current.emit("GET_FACTURAS", {
+        id_plataforma: userData.plataforma,
+        telefono: selectedChat.celular_cliente,
+      });
       // Escuchar la respuesta del socket
       socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
 
@@ -605,10 +619,14 @@ const Chat = () => {
         searchResults={searchResults}
         handleOptionSelect={handleOptionSelect}
       />
-
       {/* Opciones adicionales con animación */}
-      <DatosUsuario opciones={opciones} animateOut={animateOut} />
-
+      <DatosUsuario
+        opciones={opciones}
+        animateOut={animateOut}
+        facturasChatSeleccionado={facturasChatSeleccionado}
+        provincias={provincias}
+        socketRef={socketRef}
+      />
       {/* MODALES */}
       <Modales
         numeroModal={numeroModal}
@@ -624,9 +642,9 @@ const Chat = () => {
         handleOptionSelectNumeroTelefono={handleOptionSelectNumeroTelefono}
         templates={templates}
         dataAdmin={dataAdmin}
-        handleSelectPhoneNumber = {handleSelectPhoneNumber}
-        selectedPhoneNumber = {selectedPhoneNumber}
-        userData = {userData}
+        handleSelectPhoneNumber={handleSelectPhoneNumber}
+        selectedPhoneNumber={selectedPhoneNumber}
+        userData={userData}
       />
     </div>
   );

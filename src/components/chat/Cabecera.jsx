@@ -82,7 +82,7 @@ const Cabecera = ({
         >
           <div className="flex justify-center p-4">
             <div className="flex text-center justify-center">
-              <span>Datos del Usuario</span>
+              <span>Historial de Pedidos</span>
             </div>
           </div>
         </div>
