@@ -98,13 +98,23 @@ const Chat = () => {
 
   const [seleccionado, setSeleccionado] = useState(false); // para la condicion del buscar numero Telefono
 
+  const [templates, setTemplates] = useState([]);
+
+  const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
+
   const handleMenuSearchChange = (e) => {
     setMenuSearchTerm(e.target.value);
   };
 
   const handleInputChange_numeroCliente = (e) => {
-    console.log("xd");
+    setSeleccionado(false);
     setMenuSearchTermNumeroCliente(e.target.value);
+  };
+
+  // Manejar la selección del número de teléfono y activar la sección de templates
+  const handleSelectPhoneNumber = (phoneNumber) => {
+    setSelectedPhoneNumber(phoneNumber);
+    setSeleccionado(true);
   };
 
   const getOrderedChats = () => {
@@ -159,13 +169,18 @@ const Chat = () => {
     }
   };
 
-  const handleNumeroModal = () => setNumeroModal(!numeroModal);
+  const handleNumeroModal = () => {
+    setNumeroModal(!numeroModal);
+    setSeleccionado(false);
+  };
 
   const {
     handleSubmit,
     register,
     formState: { errors },
   } = useForm();
+
+  const handleSubmit_template = () => {};
 
   const handleNumeroModalForm = (data) => {
     dispatch(addNumberThunk(data));
@@ -362,6 +377,34 @@ const Chat = () => {
     }
   }, []);
 
+  const cargarTemplates = async (data) => {
+    console.log(data);
+    const wabaId = data.id_whatsapp;
+    const accessToken = data.token;
+
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/v17.0/${wabaId}/message_templates`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error al obtener templates: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setTemplates(data.data); // Guardamos los templates en el estado
+    } catch (error) {
+      console.error("Error al cargar los templates:", error);
+    }
+  };
+
   useEffect(() => {
     if (isSocketConnected && userData) {
       socketRef.current.emit("ADD_USER", userData);
@@ -371,6 +414,9 @@ const Chat = () => {
       socketRef.current.emit("GET_DATA_ADMIN", userData.plataforma);
       socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
         setDataAdmin(data);
+
+        /* funcion cargar templates */
+        cargarTemplates(data); // Llamar a cargarTemplates cuando el socket esté conectado
       });
 
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
@@ -460,17 +506,7 @@ const Chat = () => {
 
   // useEffect para ejecutar la búsqueda cuando cambia el término de búsqueda telefono
   useEffect(() => {
-    console.log(
-      "useEffect activado con menuSearchTermNumeroCliente:",
-      menuSearchTermNumeroCliente
-    );
-
-    if (menuSearchTermNumeroCliente.trim().length > 0) {
-      console.log(
-        "Emitiendo búsqueda de celulares con el término:",
-        menuSearchTermNumeroCliente
-      );
-
+    if (menuSearchTermNumeroCliente.length > 0) {
       // Emitir el evento al servidor
       socketRef.current.emit("GET_CELLPHONES", {
         id_plataforma: userData.plataforma,
@@ -479,7 +515,6 @@ const Chat = () => {
 
       // Escuchar los resultados de la búsqueda del socket
       const handleDataResponse = (data) => {
-        console.log("Datos recibidos de DATA_CELLPHONE_RESPONSE:", data);
         setSearchResultsNumeroCliente(data);
       };
 
@@ -488,10 +523,8 @@ const Chat = () => {
       // Limpieza para eliminar el listener
       return () => {
         socketRef.current.off("DATA_CELLPHONE_RESPONSE", handleDataResponse);
-        console.log("Listener DATA_CELLPHONE_RESPONSE removido");
       };
     } else {
-      console.log("Campo de búsqueda vacío, limpiando resultados.");
       setSearchResultsNumeroCliente([]);
     }
   }, [menuSearchTermNumeroCliente]);
@@ -580,6 +613,7 @@ const Chat = () => {
       <Modales
         numeroModal={numeroModal}
         handleSubmit={handleSubmit}
+        handleSubmit_template={handleSubmit_template}
         register={register}
         handleNumeroModal={handleNumeroModal}
         seleccionado={seleccionado}
@@ -588,6 +622,11 @@ const Chat = () => {
         handleInputChange_numeroCliente={handleInputChange_numeroCliente}
         handleNumeroModalForm={handleNumeroModalForm}
         handleOptionSelectNumeroTelefono={handleOptionSelectNumeroTelefono}
+        templates={templates}
+        dataAdmin={dataAdmin}
+        handleSelectPhoneNumber = {handleSelectPhoneNumber}
+        selectedPhoneNumber = {selectedPhoneNumber}
+        userData = {userData}
       />
     </div>
   );
