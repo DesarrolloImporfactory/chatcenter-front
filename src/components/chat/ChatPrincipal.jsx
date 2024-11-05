@@ -1,3 +1,5 @@
+import { useState, useRef, useEffect } from "react";
+
 const ChatPrincipal = ({
   mensajesOrdenados,
   opciones,
@@ -6,7 +8,6 @@ const ChatPrincipal = ({
   handleInputChange,
   inputRef,
   handleSendMessage,
-  handleFileChange,
   grabando,
   startRecording,
   stopRecording,
@@ -23,7 +24,12 @@ const ChatPrincipal = ({
   inputSearchRef,
   searchResults,
   handleOptionSelect,
+  isMenuOpen,
+  setIsMenuOpen,
+  handleModal_enviarArchivos,
 }) => {
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !isChatBlocked && mensaje.trim()) {
       e.preventDefault(); // Evita el salto de línea en el input
@@ -221,6 +227,31 @@ const ChatPrincipal = ({
                 <EmojiPicker onEmojiClick={handleEmojiClick} />
               </div>
             )}
+
+            {isMenuOpen && (
+              <div className="absolute bottom-[70%] left-[5%] bg-white border rounded shadow-lg p-2 w-32 z-50">
+                <ul className="flex flex-col space-y-2 text-sm">
+                  <li className="cursor-pointer hover:bg-gray-200 p-1 rounded" onClick={()=> handleModal_enviarArchivos("Video")}>
+                    Video
+                  </li>
+                  <li className="cursor-pointer hover:bg-gray-200 p-1 rounded" onClick={()=> handleModal_enviarArchivos("Imagen")}>
+                    Imagen
+                  </li>
+                  <li className="cursor-pointer hover:bg-gray-200 p-1 rounded"onClick={()=> handleModal_enviarArchivos("Documento")}>
+                    Documento
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            <label
+              htmlFor="file-upload"
+              className="cursor-pointer"
+              onClick={toggleMenu}
+            >
+              <i className="bx bx-plus text-2xl"></i>
+            </label>
+
             <input
               type="text"
               value={mensaje}
@@ -272,16 +303,6 @@ const ChatPrincipal = ({
               </div>
             )}
 
-            <input
-              type="file"
-              onChange={handleFileChange}
-              className="hidden"
-              id="file-upload"
-              disabled={isChatBlocked} // Desactiva si el chat está bloqueado
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <i className="bx bx-upload text-2xl"></i>
-            </label>
             <button
               onClick={
                 mensaje || file

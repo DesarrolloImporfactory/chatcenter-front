@@ -105,6 +105,12 @@ const Chat = () => {
 
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
 
+  /* modal de enviar archivos */
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [modal_enviarArchivos, setModal_enviarArchivos] = useState(false);
+  const [tipo_modalEnviarArchivo, setTipo_modalEnviarArchivo] = useState("");
+  /* final modal de enviar arhivos */
+
   const handleMenuSearchChange = (e) => {
     setMenuSearchTerm(e.target.value);
   };
@@ -193,6 +199,14 @@ const Chat = () => {
     });
   };
 
+  /* abrir y cerrar modal enviar archivo */
+  const handleModal_enviarArchivos = (tipo) => {
+    setModal_enviarArchivos(!modal_enviarArchivos);
+    setTipo_modalEnviarArchivo(tipo);
+    setIsMenuOpen(false)
+  };
+  /* fin abrir y cerrar modal enviar archivo */
+
   const handleEmojiClick = (emoji) => {
     const input = inputRef.current;
     const cursorPos = input.selectionStart; // Posición actual del cursor
@@ -221,10 +235,6 @@ const Chat = () => {
     ) {
       setEmojiOpen(false);
     }
-  };
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
   };
 
   const acortarTexto = (texto, limiteMovil, limiteDesktop) => {
@@ -601,7 +611,6 @@ const Chat = () => {
         handleInputChange={handleInputChange}
         inputRef={inputRef}
         handleSendMessage={handleSendMessage}
-        handleFileChange={handleFileChange}
         grabando={grabando}
         startRecording={startRecording}
         stopRecording={stopRecording}
@@ -618,6 +627,9 @@ const Chat = () => {
         inputSearchRef={inputSearchRef}
         searchResults={searchResults}
         handleOptionSelect={handleOptionSelect}
+        isMenuOpen={isMenuOpen}
+        setIsMenuOpen={setIsMenuOpen}
+        handleModal_enviarArchivos={handleModal_enviarArchivos}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
@@ -645,6 +657,10 @@ const Chat = () => {
         handleSelectPhoneNumber={handleSelectPhoneNumber}
         selectedPhoneNumber={selectedPhoneNumber}
         userData={userData}
+        
+        tipo_modalEnviarArchivo={tipo_modalEnviarArchivo}
+        modal_enviarArchivos={modal_enviarArchivos}
+        handleModal_enviarArchivos={handleModal_enviarArchivos}
       />
     </div>
   );

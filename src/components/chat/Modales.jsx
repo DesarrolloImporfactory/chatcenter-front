@@ -17,6 +17,9 @@ const Modales = ({
   handleSelectPhoneNumber,
   selectedPhoneNumber,
   userData,
+  modal_enviarArchivos,
+  tipo_modalEnviarArchivo,
+  handleModal_enviarArchivos,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -399,6 +402,76 @@ const Modales = ({
                 Añadir
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {modal_enviarArchivos && (
+        <div className="fixed inset-0 z-10 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded-lg max-h-[80%] w-full max-w-md overflow-y-auto">
+            <h2 className="text-xl font-medium mb-4">Agregar número</h2>
+
+            {tipo_modalEnviarArchivo === "Imagen" && (
+              <div>
+                <h2 className="text-lg font-medium mb-2">Imágenes</h2>
+
+                {/* Botón para subir imágenes */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="mb-4"
+                />
+
+                {/* Previsualización de imágenes subidas */}
+                <div className="space-y-4">
+                  {imagenes.map((img, index) => (
+                    <div key={img.id} className="relative">
+                      <img
+                        src={img.id}
+                        alt="Previsualización"
+                        className="w-32 h-32 object-cover rounded border"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Añade un comentario"
+                        value={img.caption}
+                        onChange={(e) =>
+                          handleCaptionChange(index, e.target.value)
+                        }
+                        className="w-full mt-2 p-1 border rounded text-sm"
+                      />
+                    </div>
+                  ))}
+
+                  {/* Botón para añadir más imágenes */}
+                  <label className="flex items-center justify-center w-32 h-32 border rounded cursor-pointer text-blue-500">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <i className="bx bx-plus text-3xl"></i>
+                  </label>
+                </div>
+
+                {/* Botón de enviar */}
+                <button className="bg-blue-500 text-white px-4 py-2 rounded mt-4 w-full">
+                  Enviar
+                </button>
+              </div>
+            )}
+
+            {/* Botón para cerrar el modal */}
+            <button
+              onClick={() => handleModal_enviarArchivos("")}
+              className="bg-red-500 text-white px-4 py-2 rounded mt-2 w-full"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}
