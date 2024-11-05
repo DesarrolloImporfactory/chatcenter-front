@@ -203,7 +203,7 @@ const Chat = () => {
   const handleModal_enviarArchivos = (tipo) => {
     setModal_enviarArchivos(!modal_enviarArchivos);
     setTipo_modalEnviarArchivo(tipo);
-    setIsMenuOpen(false)
+    setIsMenuOpen(false);
   };
   /* fin abrir y cerrar modal enviar archivo */
 
@@ -638,6 +638,7 @@ const Chat = () => {
         facturasChatSeleccionado={facturasChatSeleccionado}
         provincias={provincias}
         socketRef={socketRef}
+        userData={userData}
       />
       {/* MODALES */}
       <Modales
@@ -657,7 +658,6 @@ const Chat = () => {
         handleSelectPhoneNumber={handleSelectPhoneNumber}
         selectedPhoneNumber={selectedPhoneNumber}
         userData={userData}
-        
         tipo_modalEnviarArchivo={tipo_modalEnviarArchivo}
         modal_enviarArchivos={modal_enviarArchivos}
         handleModal_enviarArchivos={handleModal_enviarArchivos}
