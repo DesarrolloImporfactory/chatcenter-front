@@ -181,6 +181,15 @@ const ChatPrincipal = ({
                       mensaje.texto_mensaje
                     ) : mensaje.tipo_mensaje === "reaction" ? (
                       mensaje.texto_mensaje
+                    ) : mensaje.tipo_mensaje === "sticker" ? (
+                      <img
+                        className="w-40 h-40"
+                        src={
+                          "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
+                        }
+                        alt="Sticker"
+                        loop
+                      />
                     ) : (
                       "Mensaje no reconocido" + mensaje.tipo_mensaje + " 1"
                     )}
