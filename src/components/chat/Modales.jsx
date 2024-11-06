@@ -20,6 +20,7 @@ const Modales = ({
   modal_enviarArchivos,
   tipo_modalEnviarArchivo,
   handleModal_enviarArchivos,
+  selectedChat,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -31,6 +32,144 @@ const Modales = ({
   const [isAddNumberModalOpen, setIsAddNumberModalOpen] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
+
+  /* seccion modal enviar archivo */
+  const [imagenes, setImagenes] = useState([]);
+  const [imagenSeleccionada, setImagenSeleccionada] = useState(null);
+
+  const handleImageUpload = (event) => {
+    const files = Array.from(event.target.files);
+    const newImages = files.map((file) => ({
+      id: URL.createObjectURL(file),
+      file,
+      caption: "", // Para almacenar una nota debajo de cada imagen
+    }));
+    setImagenes((prev) => [...prev, ...newImages]);
+    if (!imagenSeleccionada) setImagenSeleccionada(newImages[0]); // Selecciona la primera imagen subida como la activa
+  };
+
+  const handleCaptionChange = (value) => {
+    if (imagenSeleccionada) {
+      setImagenSeleccionada({ ...imagenSeleccionada, caption: value });
+      setImagenes((prev) =>
+        prev.map((img) =>
+          img.id === imagenSeleccionada.id ? { ...img, caption: value } : img
+        )
+      );
+    }
+  };
+
+  const selectImage = (image) => {
+    setImagenSeleccionada(image);
+  };
+
+  const deleteImage = (imageId) => {
+    setImagenes((prev) => prev.filter((img) => img.id !== imageId));
+    if (imagenSeleccionada?.id === imageId) {
+      setImagenSeleccionada(
+        imagenes.length > 1 ? imagenes.find((img) => img.id !== imageId) : null
+      );
+    }
+  };
+
+  const enviarImagenesWhatsApp = async () => {
+    for (let img of imagenes) {
+      try {
+        // Subir imagen al servidor
+        const imageUrl = await uploadImagen(img.file);
+
+        // Enviar imagen a WhatsApp
+        if (imageUrl) {
+          await enviarImagenWhatsApp(imageUrl, img.caption);
+        }
+      } catch (error) {
+        console.error("Error al procesar la imagen:", error);
+        alert("Ocurrió un error al enviar la imagen. Inténtalo más tarde.");
+      }
+    }
+    /* alert("Todas las imágenes fueron enviadas con éxito."); */
+
+    // Cerrar el modal y limpiar la lista de imágenes
+    handleModal_enviarArchivos(""); // Cierra el modal
+    setImagenes([]); // Limpia la lista de imágenes
+    setImagenSeleccionada(null); // Limpia la imagen seleccionada
+  };
+
+  // Función para subir la imagen al servidor
+  const uploadImagen = async (imagen) => {
+    const formData = new FormData();
+    formData.append("imagen", imagen); // Agrega la imagen al FormData
+
+    try {
+      const response = await fetch(
+        "https://new.imporsuitpro.com/" + "Pedidos/guardar_imagen_Whatsapp",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.status === 500 || data.status === 400) {
+        alert(`Error al subir imagen: ${data.message}`);
+        return null;
+      }
+
+      return data.data; // Retorna la URL de la imagen subida
+    } catch (error) {
+      console.error("Error en la solicitud de subida:", error);
+      alert(
+        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde."
+      );
+      return null;
+    }
+  };
+
+  // Función para enviar la imagen a través de la API de WhatsApp
+  const enviarImagenWhatsApp = async (imageUrl, caption = "") => {
+    const fromPhoneNumberId = dataAdmin.id_telefono;
+    const accessToken = dataAdmin.token;
+    const numeroDestino = selectedChat.celular_cliente;
+    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+
+    const payload = {
+      messaging_product: "whatsapp",
+      to: numeroDestino,
+      type: "image",
+      image: {
+        link: "https://new.imporsuitpro.com/" + imageUrl,
+        caption: caption,
+      },
+    };
+
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (result.error) {
+        console.error("Error al enviar la imagen a WhatsApp:", result.error);
+        alert(`Error: ${result.error.message}`);
+        return;
+      }
+
+      console.log("Imagen enviada con éxito a WhatsApp:", result);
+    } catch (error) {
+      console.error("Error en la solicitud de WhatsApp:", error);
+      alert("Ocurrió un error al enviar la imagen. Inténtalo más tarde.");
+    }
+  };
+  /* fin seccion modal enviar archivo */
 
   const Toast = Swal.mixin({
     toast: true,
@@ -409,44 +548,59 @@ const Modales = ({
       {modal_enviarArchivos && (
         <div className="fixed inset-0 z-10 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-4 rounded-lg max-h-[80%] w-full max-w-md overflow-y-auto">
-            <h2 className="text-xl font-medium mb-4">Agregar número</h2>
+            <h2 className="text-xl font-medium mb-4">Enviar</h2>
 
             {tipo_modalEnviarArchivo === "Imagen" && (
               <div>
                 <h2 className="text-lg font-medium mb-2">Imágenes</h2>
 
-                {/* Botón para subir imágenes */}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageUpload}
-                  className="mb-4"
-                />
+                {/* Vista de la imagen seleccionada */}
+                {imagenSeleccionada && (
+                  <div className="flex flex-col items-center mb-4">
+                    <img
+                      src={imagenSeleccionada.id}
+                      alt="Imagen seleccionada"
+                      className="w-full h-60 object-cover rounded-lg"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Añade un comentario"
+                      value={imagenSeleccionada.caption}
+                      onChange={(e) => handleCaptionChange(e.target.value)}
+                      className="w-full mt-2 p-2 border rounded text-sm"
+                    />
+                  </div>
+                )}
 
-                {/* Previsualización de imágenes subidas */}
-                <div className="space-y-4">
-                  {imagenes.map((img, index) => (
+                {/* Carrusel de miniaturas con scroll horizontal visible */}
+                <div
+                  className="flex items-center space-x-2 overflow-x-auto whitespace-nowrap mb-4 border-t pt-2"
+                  style={{ maxWidth: "100%" }}
+                >
+                  {imagenes.map((img) => (
                     <div key={img.id} className="relative">
                       <img
                         src={img.id}
-                        alt="Previsualización"
-                        className="w-32 h-32 object-cover rounded border"
+                        alt="Miniatura"
+                        className={`w-16 h-16 object-cover rounded-lg cursor-pointer ${
+                          img.id === imagenSeleccionada?.id
+                            ? "border-2 border-blue-500"
+                            : ""
+                        }`}
+                        onClick={() => selectImage(img)}
                       />
-                      <input
-                        type="text"
-                        placeholder="Añade un comentario"
-                        value={img.caption}
-                        onChange={(e) =>
-                          handleCaptionChange(index, e.target.value)
-                        }
-                        className="w-full mt-2 p-1 border rounded text-sm"
-                      />
+                      {/* Botón de eliminar en la esquina superior derecha */}
+                      <button
+                        onClick={() => deleteImage(img.id)}
+                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
 
                   {/* Botón para añadir más imágenes */}
-                  <label className="flex items-center justify-center w-32 h-32 border rounded cursor-pointer text-blue-500">
+                  <label className="flex items-center justify-center w-16 h-16 border rounded-lg cursor-pointer text-blue-500">
                     <input
                       type="file"
                       accept="image/*"
@@ -459,7 +613,10 @@ const Modales = ({
                 </div>
 
                 {/* Botón de enviar */}
-                <button className="bg-blue-500 text-white px-4 py-2 rounded mt-4 w-full">
+                <button
+                  onClick={enviarImagenesWhatsApp}
+                  className="bg-blue-500 text-white px-4 py-2 rounded mt-4 w-full"
+                >
                   Enviar
                 </button>
               </div>

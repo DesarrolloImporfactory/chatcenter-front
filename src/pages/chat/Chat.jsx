@@ -269,12 +269,105 @@ const Chat = () => {
     };
   };
 
-  const handleSendAudio = (blob) => {
-    if (blob) {
-      console.log("Audio enviado:", blob);
-      setAudioBlob(null);
+  const uploadAudio = (audioBlob) => {
+    const formData = new FormData();
+    formData.append("audio", audioBlob, "audio.ogg");
+
+    return fetch("https://new.imporsuitpro.com/" + "Pedidos/guardar_audio_Whatsapp", {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.status === 200) {
+          console.log("Audio subido:", data.data);
+          return data.data; // Retorna la URL del audio subido
+        } else {
+          console.error("Error al subir el audio:", data.message);
+          throw new Error(data.message);
+        }
+      })
+      .catch((error) => {
+        console.error("Error en la solicitud:", error);
+      });
+  };
+
+  // Función para enviar el audio a WhatsApp
+  const enviarAudioWhatsApp = async (audioUrl) => {
+    const fromPhoneNumberId = dataAdmin.id_telefono; // ID de WhatsApp
+    const accessToken = dataAdmin.token; // Token de acceso
+    const numeroDestino = selectedChat.celular_cliente; // Número de destino
+    const apiUrl = `https://graph.facebook.com/v21.0/${fromPhoneNumberId}/messages`;
+
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: numeroDestino,
+      type: "audio",
+      audio: {
+        link: "https://new.imporsuitpro.com/" + audioUrl, // URL completa del audio en el servidor
+      },
+    };
+
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (result.error) {
+        console.error("Error al enviar el audio a WhatsApp:", result.error);
+        alert(`Error: ${result.error.message}`);
+        return;
+      }
+
+      console.log("Audio enviado con éxito a WhatsApp:", result);
+    } catch (error) {
+      console.error("Error en la solicitud de WhatsApp:", error);
+      alert("Ocurrió un error al enviar el audio. Inténtalo más tarde.");
     }
   };
+
+  // Función que maneja la subida y el envío del audio
+  const handleSendAudio = async (blob) => {
+    if (blob) {
+      // Validación de tipo MIME
+      const isOggMime = blob.type.includes("audio/ogg");
+      
+      // Validación de extensión (si tienes un nombre de archivo)
+      const isCorrectExtension = blob.name ? blob.name.endsWith(".ogg") : true;
+  
+      if (!isOggMime || !isCorrectExtension) {
+        alert("El archivo de audio debe ser en formato .ogg");
+        return;
+      }
+  
+      console.log("El archivo es un .ogg válido basado en el tipo MIME y extensión.");
+  
+      try {
+        // Subir el audio y obtener la URL
+        let urlAudio = await uploadAudio(blob);
+  
+        // Enviar el audio a WhatsApp
+        if (urlAudio) {
+          await enviarAudioWhatsApp(urlAudio);
+        }
+  
+        setAudioBlob(null); // Limpia el estado del blob de audio después de enviar
+      } catch (error) {
+        console.error("Error en el proceso de envío de audio:", error);
+      }
+    }
+  };
+  
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -661,6 +754,7 @@ const Chat = () => {
         tipo_modalEnviarArchivo={tipo_modalEnviarArchivo}
         modal_enviarArchivos={modal_enviarArchivos}
         handleModal_enviarArchivos={handleModal_enviarArchivos}
+        selectedChat={selectedChat}
       />
     </div>
   );
