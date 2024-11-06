@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import CustomAudioPlayer from "./CustomAudioPlayer";
 
 const ChatPrincipal = ({
   mensajesOrdenados,
@@ -79,12 +80,11 @@ const ChatPrincipal = ({
                         <p>{mensaje.texto_mensaje}</p>
                       )
                     ) : mensaje.tipo_mensaje === "audio" ? (
-                      <audio
-                        controls
+                      <CustomAudioPlayer
                         src={
                           "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
                         }
-                      ></audio>
+                      />
                     ) : mensaje.tipo_mensaje === "image" ? (
                       <img
                         className="w-40 h-40"
@@ -231,13 +231,22 @@ const ChatPrincipal = ({
             {isMenuOpen && (
               <div className="absolute bottom-[70%] left-[5%] bg-white border rounded shadow-lg p-2 w-32 z-50">
                 <ul className="flex flex-col space-y-2 text-sm">
-                  <li className="cursor-pointer hover:bg-gray-200 p-1 rounded" onClick={()=> handleModal_enviarArchivos("Video")}>
+                  <li
+                    className="cursor-pointer hover:bg-gray-200 p-1 rounded"
+                    onClick={() => handleModal_enviarArchivos("Video")}
+                  >
                     Video
                   </li>
-                  <li className="cursor-pointer hover:bg-gray-200 p-1 rounded" onClick={()=> handleModal_enviarArchivos("Imagen")}>
+                  <li
+                    className="cursor-pointer hover:bg-gray-200 p-1 rounded"
+                    onClick={() => handleModal_enviarArchivos("Imagen")}
+                  >
                     Imagen
                   </li>
-                  <li className="cursor-pointer hover:bg-gray-200 p-1 rounded"onClick={()=> handleModal_enviarArchivos("Documento")}>
+                  <li
+                    className="cursor-pointer hover:bg-gray-200 p-1 rounded"
+                    onClick={() => handleModal_enviarArchivos("Documento")}
+                  >
                     Documento
                   </li>
                 </ul>
