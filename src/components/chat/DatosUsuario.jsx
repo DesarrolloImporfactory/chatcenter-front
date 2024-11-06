@@ -10,7 +10,11 @@ const DatosUsuario = ({
 }) => {
   const [facturaSeleccionada, setFacturaSeleccionada] = useState({});
   const [selectedImageId, setSelectedImageId] = useState(null);
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
 
+  const handleAccordionToggle = () => {
+    setIsAccordionOpen(!isAccordionOpen);
+  };
   const images = [
     {
       id: 1,
@@ -59,7 +63,11 @@ const DatosUsuario = ({
   };
 
   useEffect(() => {
-    if (socketRef && socketRef.current) {
+    if (
+      socketRef &&
+      socketRef.current &&
+      Object.keys(facturaSeleccionada).length > 0
+    ) {
       const handleDataCiudadesResponse = (ciudadesRecibidas) => {
         console.log("Ciudades recibidas:", ciudadesRecibidas);
         setCiudades(ciudadesRecibidas);
@@ -78,8 +86,10 @@ const DatosUsuario = ({
         ciudad: selectedCiudad,
         provincia: facturaSeleccionada.provincia,
         id_plataforma: userData.plataforma,
+        monto_factura: facturaSeleccionada.monto_factura,
+        recaudo: facturaSeleccionada.cod,
       });
-
+      console.log("XDs");
       return () => {
         socketRef.current.off(
           "DATA_CIUDADES_RESPONSE",
@@ -87,11 +97,8 @@ const DatosUsuario = ({
         );
       };
     } else {
-      console.warn(
-        "socketRef o socketRef.current no está disponible en useEffect"
-      );
     }
-  }, [socketRef, socketRef.current]);
+  }, [socketRef, socketRef.current, facturaSeleccionada]);
 
   // Llama a handleCiudades cuando facturaSeleccionada.provincia cambie
   useEffect(() => {
@@ -106,9 +113,13 @@ const DatosUsuario = ({
     <>
       {opciones && (
         <div
-          className={`relative col-span-1 bg-[#171931] text-white overflow-y-hidden p-4 ${
+          className={`relative col-span-1  text-white overflow-y-auto px-4  ${
             animateOut ? "animate-slide-out" : "animate-slide-in"
-          }`}
+          }
+            ${
+              facturaSeleccionada.numero_factura ? "bg-white" : "bg-[#171931]"
+            }  
+          `}
         >
           <div className="flex justify-center overflow-y-auto h-full md:h-[600px]">
             <div className="w-full overflow-x-auto">
@@ -312,9 +323,9 @@ const DatosUsuario = ({
                     </div>
 
                     <div className="col-span-2">
-                      <div className="grid sm:grid-cols-2 md:grid-cols-4 justify-center items-center gap-4">
+                      <div className="grid md:grid-cols-2 lg:grid-cols-4 justify-center items-center gap-4">
                         {images.map((image) => (
-                          <div key={image.id} className="flex justify-center">
+                          <div key={image.id} className="grid justify-center">
                             <img
                               src={image.src}
                               alt={image.alt}
@@ -322,12 +333,44 @@ const DatosUsuario = ({
                                 selectedImageId === image.id
                                   ? "filter-none shadow-lg border-2 border-blue-500"
                                   : "filter grayscale"
-                              } hover:scale-105 hover:shadow-lg hover:grayscale-0`}
+                              } hover:scale-105 hover:shadow-lg hover:grayscale-0 rounded-t-md`}
                               onClick={() => handleImageClick(image.id)}
                             />
+                            {/* precio de flete */}
+                            <div className="text-center bg-black/90 text-white rounded-b-md">
+                              <p className="text-xs">50.00</p>
+                            </div>
                           </div>
                         ))}
                       </div>
+                    </div>
+                    {/* Acordeon de productos */}
+                    <div className="col-span-2 ">
+                      <button
+                        className="flex justify-between w-full text-left py-3 px-3 bg-[#171931] text-white rounded-t-lg"
+                        onClick={handleAccordionToggle}
+                      >
+                        <h3 className="font-medium">Productos</h3>
+                        <span>{isAccordionOpen ? "▲" : "▼"}</span>
+                      </button>
+                      {isAccordionOpen && (
+                        <div className="p-4 border border-gray-200 rounded-b-lg bg-white">
+                          <ul>
+                            {/* Mapea los productos de tu factura seleccionada */}
+                            {facturaSeleccionada.productos?.map(
+                              (producto, index) => (
+                                <li
+                                  key={index}
+                                  className="flex justify-between py-2 border-b"
+                                >
+                                  <span>{producto.nombre}</span>
+                                  <span>{producto.precio}</span>
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </form>
                 </div>
