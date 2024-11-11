@@ -110,6 +110,89 @@ const Chat = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [modal_enviarArchivos, setModal_enviarArchivos] = useState(false);
   const [tipo_modalEnviarArchivo, setTipo_modalEnviarArchivo] = useState("");
+
+  const agregar_mensaje_enviado = async (
+    texto_mensaje,
+    tipo_mensaje,
+    ruta_archivo,
+    telefono_recibe,
+    mid_mensaje,
+    id_recibe,
+    id_plataforma,
+    telefono_configuracion
+  ) => {
+    const formData = new FormData();
+    formData.append("texto_mensaje", texto_mensaje);
+    formData.append("tipo_mensaje", tipo_mensaje);
+    formData.append("mid_mensaje", mid_mensaje);
+    formData.append("id_recibe", id_recibe);
+    formData.append("ruta_archivo", ruta_archivo);
+    formData.append("telefono_recibe", telefono_recibe);
+    formData.append("id_plataforma", id_plataforma);
+    formData.append("telefono_configuracion", telefono_configuracion);
+
+    try {
+      const response = await fetch(
+        "https://new.imporsuitpro.com/" + "pedidos/agregar_mensaje_enviado",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log("Guardado:", result);
+      } else {
+        console.error("Error en la respuesta del servidor:", result);
+        alert(
+          `Error: ${
+            result.message || "Ocurrió un error al guardar el mensaje."
+          }`
+        );
+      }
+    } catch (error) {
+      console.error("Error en la solicitud de guardado:", error);
+      alert("Ocurrió un error en la solicitud. Inténtalo de nuevo más tarde.");
+    }
+  };
+
+  // Función para obtener el icono y color según la extensión del archivo
+  const getFileIcon = (fileName) => {
+    const extension = fileName.split(".").pop().toLowerCase();
+
+    switch (extension) {
+      case "pdf":
+        return { icon: "fas fa-file-pdf", color: "text-red-500" };
+      case "doc":
+      case "docx":
+        return { icon: "fas fa-file-word", color: "text-blue-500" };
+      case "xls":
+      case "xlsx":
+        return { icon: "fas fa-file-excel", color: "text-green-500" };
+      case "csv":
+        return { icon: "fa-solid fa-file-csv", color: "text-green-500" };
+      case "ppt":
+      case "pptx":
+        return { icon: "fas fa-file-powerpoint", color: "text-orange-500" };
+      case "txt":
+        return { icon: "fas fa-file-alt", color: "text-gray-500" };
+      case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+        return { icon: "fas fa-file-image", color: "text-yellow-500" };
+      case "html":
+      case "php":
+      case "js":
+      case "css":
+      case "sql":
+        return { icon: "fa-solid fa-file-code", color: "text-gray-500" };
+      default:
+        return { icon: "fas fa-file", color: "text-gray-500" };
+    }
+  };
   /* final modal de enviar arhivos */
 
   const handleMenuSearchChange = (e) => {
@@ -357,6 +440,21 @@ const Chat = () => {
       }
 
       console.log("Audio enviado con éxito a WhatsApp:", result);
+
+      let id_recibe = selectedChat.id;
+      let mid_mensaje = dataAdmin.id_telefono;
+      let id_plataforma = userData.plataforma;
+      let telefono_configuracion = dataAdmin.telefono;
+      agregar_mensaje_enviado(
+        "Archivo guardado en: " + audioUrl,
+        "audio",
+        audioUrl,
+        numeroDestino,
+        mid_mensaje,
+        id_recibe,
+        id_plataforma,
+        telefono_configuracion
+      );
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
       alert("Ocurrió un error al enviar el audio. Inténtalo más tarde.");
@@ -750,6 +848,7 @@ const Chat = () => {
         isMenuOpen={isMenuOpen}
         setIsMenuOpen={setIsMenuOpen}
         handleModal_enviarArchivos={handleModal_enviarArchivos}
+        getFileIcon={getFileIcon}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
@@ -782,6 +881,8 @@ const Chat = () => {
         modal_enviarArchivos={modal_enviarArchivos}
         handleModal_enviarArchivos={handleModal_enviarArchivos}
         selectedChat={selectedChat}
+        agregar_mensaje_enviado={agregar_mensaje_enviado}
+        getFileIcon={getFileIcon}
       />
     </div>
   );

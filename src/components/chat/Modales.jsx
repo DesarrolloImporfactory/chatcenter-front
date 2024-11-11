@@ -21,6 +21,8 @@ const Modales = ({
   tipo_modalEnviarArchivo,
   handleModal_enviarArchivos,
   selectedChat,
+  agregar_mensaje_enviado,
+  getFileIcon,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -34,6 +36,20 @@ const Modales = ({
   const [newContactPhone, setNewContactPhone] = useState("");
 
   /* seccion modal enviar archivo */
+
+  const Toast = Swal.mixin({
+    toast: true,
+    position: "top-end",
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    didOpen: (toast) => {
+      toast.addEventListener("mouseenter", Swal.stopTimer);
+      toast.addEventListener("mouseleave", Swal.resumeTimer);
+    },
+  });
+
+  /* ----- enviar imagenes ---------*/
   const [imagenes, setImagenes] = useState([]);
   const [imagenSeleccionada, setImagenSeleccionada] = useState(null);
 
@@ -164,24 +180,375 @@ const Modales = ({
       }
 
       console.log("Imagen enviada con éxito a WhatsApp:", result);
+
+      let id_recibe = selectedChat.id;
+      let mid_mensaje = dataAdmin.id_telefono;
+      let id_plataforma = userData.plataforma;
+      let telefono_configuracion = dataAdmin.telefono;
+      agregar_mensaje_enviado(
+        caption,
+        "image",
+        imageUrl,
+        numeroDestino,
+        mid_mensaje,
+        id_recibe,
+        id_plataforma,
+        telefono_configuracion
+      );
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
       alert("Ocurrió un error al enviar la imagen. Inténtalo más tarde.");
     }
   };
-  /* fin seccion modal enviar archivo */
 
-  const Toast = Swal.mixin({
-    toast: true,
-    position: "top-end",
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true,
-    didOpen: (toast) => {
-      toast.addEventListener("mouseenter", Swal.stopTimer);
-      toast.addEventListener("mouseleave", Swal.resumeTimer);
-    },
-  });
+  /* ----- fin enviar imagenes ---------*/
+
+  /* ----- enviar documentos ---------*/
+  const [documentos, setDocumentos] = useState([]);
+  const [documentoSeleccionado, setDocumentoSeleccionado] = useState(null);
+
+  const handleDocumentUpload = (event) => {
+    let MAX_FILE_SIZE_MB = 16; // Tamaño máximo de archivo en MB
+    const files = Array.from(event.target.files);
+    const newDocuments = files
+      .filter((file) => {
+        if (file.size / (1024 * 1024) > MAX_FILE_SIZE_MB) {
+          Toast.fire({
+            icon: "error",
+            title: "El archivo excede el tamaño máximo permitido de 16 MB.",
+          });
+          return false;
+        }
+        return true;
+      })
+      .map((file) => ({
+        id: URL.createObjectURL(file),
+        file,
+        name: file.name, // Nombre del documento
+        size: (file.size / 1024).toFixed(2) + " KB", // Tamaño en KB
+        caption: "", // Para almacenar un comentario para cada documento
+      }));
+
+    setDocumentos((prev) => [...prev, ...newDocuments]);
+    if (!documentoSeleccionado && newDocuments.length > 0) {
+      setDocumentoSeleccionado(newDocuments[0]); // Selecciona el primer documento como activo
+    }
+  };
+
+  const handleDocumentCaptionChange = (value) => {
+    if (documentoSeleccionado) {
+      setDocumentoSeleccionado({ ...documentoSeleccionado, caption: value });
+      setDocumentos((prev) =>
+        prev.map((doc) =>
+          doc.id === documentoSeleccionado.id ? { ...doc, caption: value } : doc
+        )
+      );
+    }
+  };
+
+  const selectDocument = (document) => {
+    setDocumentoSeleccionado(document);
+  };
+
+  const deleteDocument = (documentId) => {
+    setDocumentos((prev) => prev.filter((doc) => doc.id !== documentId));
+    if (documentoSeleccionado?.id === documentId) {
+      setDocumentoSeleccionado(
+        documentos.length > 1
+          ? documentos.find((doc) => doc.id !== documentId)
+          : null
+      );
+    }
+  };
+
+  const enviarDocumentosWhatsApp = async () => {
+    for (let doc of documentos) {
+      try {
+        // Subir documento al servidor
+        const documentUrl = await uploadDocumento(doc.file);
+
+        // Enviar documento a WhatsApp
+        if (documentUrl) {
+          await enviarDocumentoWhatsApp(documentUrl, doc.caption);
+        }
+      } catch (error) {
+        console.error("Error al procesar el documento:", error);
+        alert("Ocurrió un error al enviar el documento. Inténtalo más tarde.");
+      }
+    }
+
+    // Cerrar el modal y limpiar la lista de documentos
+    handleModal_enviarArchivos(""); // Cierra el modal
+    setDocumentos([]); // Limpia la lista de documentos
+    setDocumentoSeleccionado(null); // Limpia el documento seleccionado
+  };
+
+  // Función para subir el documento al servidor
+  const uploadDocumento = async (documento) => {
+    const formData = new FormData();
+    formData.append("documento", documento);
+
+    try {
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/guardar_documento_Whatsapp",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.status === 500 || data.status === 400) {
+        alert(`Error al subir documento: ${data.message}`);
+        return null;
+      }
+
+      return data.data; // Retorna la URL del documento subido
+    } catch (error) {
+      console.error("Error en la solicitud de subida:", error);
+      alert(
+        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde."
+      );
+      return null;
+    }
+  };
+
+  // Función para enviar el documento a través de la API de WhatsApp
+  const enviarDocumentoWhatsApp = async (documentUrl, caption = "") => {
+    const fromPhoneNumberId = dataAdmin.id_telefono;
+    const accessToken = dataAdmin.token;
+    const numeroDestino = selectedChat.celular_cliente;
+    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+
+    const payload = {
+      messaging_product: "whatsapp",
+      to: numeroDestino,
+      type: "document",
+      document: {
+        link: "https://new.imporsuitpro.com/" + documentUrl.ruta,
+        caption: caption,
+      },
+    };
+
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (result.error) {
+        console.error("Error al enviar el documento a WhatsApp:", result.error);
+        alert(`Error: ${result.error.message}`);
+        return;
+      }
+
+      console.log("Documento enviado con éxito a WhatsApp:", result);
+
+      let id_recibe = selectedChat.id;
+      let mid_mensaje = dataAdmin.id_telefono;
+      let id_plataforma = userData.plataforma;
+      let telefono_configuracion = dataAdmin.telefono;
+      agregar_mensaje_enviado(
+        caption,
+        "document",
+        JSON.stringify(documentUrl),
+        numeroDestino,
+        mid_mensaje,
+        id_recibe,
+        id_plataforma,
+        telefono_configuracion
+      );
+    } catch (error) {
+      console.error("Error en la solicitud de WhatsApp:", error);
+      alert("Ocurrió un error al enviar el documento. Inténtalo más tarde.");
+    }
+  };
+  /* ----- fin enviar documentos ---------*/
+
+  /* ----- enviar videos ---------*/
+  // Estado para manejar los videos
+  const [videos, setVideos] = useState([]);
+  const [videoSeleccionado, setVideoSeleccionado] = useState(null);
+
+  // Manejar carga de videos
+  const handleVideoUpload = (event) => {
+    let MAX_FILE_SIZE_MB = 16; // Tamaño máximo de archivo en MB
+
+    const files = Array.from(event.target.files);
+    const newVideos = files
+      .filter((file) => {
+        if (file.size / (1024 * 1024) > MAX_FILE_SIZE_MB) {
+          Toast.fire({
+            icon: "error",
+            title: "El archivo excede el tamaño máximo permitido de 16 MB.",
+          });
+          return false;
+        }
+        return true;
+      })
+      .map((file) => ({
+        id: URL.createObjectURL(file),
+        file,
+        caption: "", // Para almacenar una nota debajo de cada video
+      }));
+
+    setVideos((prev) => [...prev, ...newVideos]);
+    if (!videoSeleccionado && newVideos.length > 0) {
+      setVideoSeleccionado(newVideos[0]); // Selecciona el primer video como activo
+    }
+  };
+
+  // Cambiar el comentario del video seleccionado
+  const handleVideoCaptionChange = (value) => {
+    if (videoSeleccionado) {
+      setVideoSeleccionado({ ...videoSeleccionado, caption: value });
+      setVideos((prev) =>
+        prev.map((vid) =>
+          vid.id === videoSeleccionado.id ? { ...vid, caption: value } : vid
+        )
+      );
+    }
+  };
+
+  // Seleccionar un video específico
+  const selectVideo = (video) => {
+    setVideoSeleccionado(video);
+  };
+
+  // Eliminar un video específico
+  const deleteVideo = (videoId) => {
+    setVideos((prev) => prev.filter((vid) => vid.id !== videoId));
+    if (videoSeleccionado?.id === videoId) {
+      setVideoSeleccionado(
+        videos.length > 1 ? videos.find((vid) => vid.id !== videoId) : null
+      );
+    }
+  };
+
+  // Enviar videos a WhatsApp
+  const enviarVideosWhatsApp = async () => {
+    for (let vid of videos) {
+      try {
+        // Subir video al servidor
+        const videoUrl = await uploadVideo(vid.file);
+
+        // Enviar video a WhatsApp
+        if (videoUrl) {
+          await enviarVideoWhatsApp(videoUrl, vid.caption);
+        }
+      } catch (error) {
+        console.error("Error al procesar el video:", error);
+        alert("Ocurrió un error al enviar el video. Inténtalo más tarde.");
+      }
+    }
+
+    // Cerrar el modal y limpiar la lista de videos
+    handleModal_enviarArchivos(""); // Cierra el modal
+    setVideos([]); // Limpia la lista de videos
+    setVideoSeleccionado(null); // Limpia el video seleccionado
+  };
+
+  // Función para subir el video al servidor
+  const uploadVideo = async (video) => {
+    const formData = new FormData();
+    formData.append("video", video);
+
+    try {
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/guardar_video_Whatsapp",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.status === 500 || data.status === 400) {
+        alert(`Error al subir video: ${data.message}`);
+        return null;
+      }
+
+      return data.data; // Retorna la URL del video subido
+    } catch (error) {
+      console.error("Error en la solicitud de subida:", error);
+      alert(
+        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde."
+      );
+      return null;
+    }
+  };
+
+  // Función para enviar el video a través de la API de WhatsApp
+  const enviarVideoWhatsApp = async (videoUrl, caption = "") => {
+    const fromPhoneNumberId = dataAdmin.id_telefono;
+    const accessToken = dataAdmin.token;
+    const numeroDestino = selectedChat.celular_cliente;
+    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+
+    const payload = {
+      messaging_product: "whatsapp",
+      to: numeroDestino,
+      type: "video",
+      video: {
+        link: "https://new.imporsuitpro.com/" + videoUrl,
+        caption: caption,
+      },
+    };
+
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (result.error) {
+        console.error("Error al enviar el video a WhatsApp:", result.error);
+        alert(`Error: ${result.error.message}`);
+        return;
+      }
+
+      console.log("Video enviado con éxito a WhatsApp:", result);
+
+      let id_recibe = selectedChat.id;
+      let mid_mensaje = dataAdmin.id_telefono;
+      let id_plataforma = userData.plataforma;
+      let telefono_configuracion = dataAdmin.telefono;
+      agregar_mensaje_enviado(
+        caption,
+        "video",
+        videoUrl,
+        numeroDestino,
+        mid_mensaje,
+        id_recibe,
+        id_plataforma,
+        telefono_configuracion
+      );
+    } catch (error) {
+      console.error("Error en la solicitud de WhatsApp:", error);
+      alert("Ocurrió un error al enviar el video. Inténtalo más tarde.");
+    }
+  };
+  /* ----- fin enviar videos ---------*/
+
+  /* fin seccion modal enviar archivo */
 
   // Abrir modal de "Añadir número"
   const openAddNumberModal = () => {
@@ -622,6 +989,167 @@ const Modales = ({
               </div>
             )}
 
+            {tipo_modalEnviarArchivo === "Documento" && (
+              <div>
+                <h2 className="text-lg font-medium mb-2">Documentos</h2>
+
+                {/* Vista del documento seleccionado en grande */}
+                {documentoSeleccionado && (
+                  <div className="flex flex-col items-center mb-4">
+                    <div className="flex flex-col items-center justify-center w-full h-40 bg-gray-100 rounded-lg">
+                      <i
+                        className={`${
+                          getFileIcon(documentoSeleccionado.name).icon
+                        } text-6xl ${
+                          getFileIcon(documentoSeleccionado.name).color
+                        }`}
+                      ></i>
+                      <p className="text-gray-700 mt-2 text-center truncate w-full px-2">
+                        {documentoSeleccionado.name}
+                      </p>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {documentoSeleccionado.size}
+                    </p>
+                    <input
+                      type="text"
+                      placeholder="Añade un comentario"
+                      value={documentoSeleccionado.caption}
+                      onChange={(e) =>
+                        handleDocumentCaptionChange(e.target.value)
+                      }
+                      className="w-full mt-2 p-2 border rounded text-sm"
+                    />
+                  </div>
+                )}
+
+                {/* Carrusel de miniaturas de documentos con scroll horizontal */}
+                <div
+                  className="flex items-center space-x-2 overflow-x-auto whitespace-nowrap mb-4 border-t pt-2"
+                  style={{ maxWidth: "100%" }}
+                >
+                  {documentos.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="relative flex flex-col items-center"
+                    >
+                      <div
+                        className={`w-16 h-16 flex items-center justify-center bg-gray-100 rounded-lg cursor-pointer ${
+                          doc.id === documentoSeleccionado?.id
+                            ? "border-2 border-blue-500"
+                            : ""
+                        }`}
+                        onClick={() => selectDocument(doc)}
+                      >
+                        <i
+                          className={`${getFileIcon(doc.name).icon} text-3xl ${
+                            getFileIcon(doc.name).color
+                          }`}
+                        ></i>
+                      </div>
+                      <button
+                        onClick={() => deleteDocument(doc.id)}
+                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Botón para añadir más documentos */}
+                  <label className="flex items-center justify-center w-16 h-16 border rounded-lg cursor-pointer text-blue-500">
+                    <input
+                      type="file"
+                      accept="*/*"
+                      multiple
+                      onChange={handleDocumentUpload}
+                      className="hidden"
+                    />
+                    <i className="bx bx-plus text-3xl"></i>
+                  </label>
+                </div>
+
+                {/* Botón de enviar */}
+                <button
+                  onClick={enviarDocumentosWhatsApp}
+                  className="bg-blue-500 text-white px-4 py-2 rounded mt-4 w-full"
+                >
+                  Enviar
+                </button>
+              </div>
+            )}
+
+            {tipo_modalEnviarArchivo === "Video" && (
+              <div>
+                <h2 className="text-lg font-medium mb-2">Videos</h2>
+
+                {/* Vista del video seleccionado */}
+                {videoSeleccionado && (
+                  <div className="flex flex-col items-center mb-4">
+                    <video
+                      src={videoSeleccionado.id}
+                      controls
+                      className="w-full h-60 rounded-lg"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Añade un comentario"
+                      value={videoSeleccionado.caption}
+                      onChange={(e) => handleVideoCaptionChange(e.target.value)}
+                      className="w-full mt-2 p-2 border rounded text-sm"
+                    />
+                  </div>
+                )}
+
+                {/* Carrusel de miniaturas de videos con scroll horizontal visible */}
+                <div
+                  className="flex items-center space-x-2 overflow-x-auto whitespace-nowrap mb-4 border-t pt-2"
+                  style={{ maxWidth: "100%" }}
+                >
+                  {videos.map((vid) => (
+                    <div key={vid.id} className="relative">
+                      <video
+                        src={vid.id}
+                        className={`w-16 h-16 object-cover rounded-lg cursor-pointer ${
+                          vid.id === videoSeleccionado?.id
+                            ? "border-2 border-blue-500"
+                            : ""
+                        }`}
+                        onClick={() => selectVideo(vid)}
+                      />
+                      {/* Botón de eliminar en la esquina superior derecha */}
+                      <button
+                        onClick={() => deleteVideo(vid.id)}
+                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Botón para añadir más videos */}
+                  <label className="flex items-center justify-center w-16 h-16 border rounded-lg cursor-pointer text-blue-500">
+                    <input
+                      type="file"
+                      accept="video/*"
+                      multiple
+                      onChange={handleVideoUpload}
+                      className="hidden"
+                    />
+                    <i className="bx bx-plus text-3xl"></i>
+                  </label>
+                </div>
+
+                {/* Botón de enviar */}
+                <button
+                  onClick={enviarVideosWhatsApp}
+                  className="bg-blue-500 text-white px-4 py-2 rounded mt-4 w-full"
+                >
+                  Enviar
+                </button>
+              </div>
+            )}
+
             {/* Botón para cerrar el modal */}
             <button
               onClick={() => handleModal_enviarArchivos("")}
@@ -632,6 +1160,7 @@ const Modales = ({
           </div>
         </div>
       )}
+      
     </>
   );
 };

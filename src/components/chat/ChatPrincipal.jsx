@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import CustomAudioPlayer from "./CustomAudioPlayer";
+import ImageWithModal from "./modales/ImageWithModal";
+import EmojiPicker from "emoji-picker-react";
+
 
 const ChatPrincipal = ({
   mensajesOrdenados,
@@ -28,6 +31,7 @@ const ChatPrincipal = ({
   isMenuOpen,
   setIsMenuOpen,
   handleModal_enviarArchivos,
+  getFileIcon,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -86,66 +90,85 @@ const ChatPrincipal = ({
                         }
                       />
                     ) : mensaje.tipo_mensaje === "image" ? (
-                      <img
-                        className="w-40 h-40"
-                        src={
-                          "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
-                        }
-                        alt="Imagen"
-                      />
-                    ) : mensaje.tipo_mensaje === "document" ? (
+                      <ImageWithModal mensaje={mensaje} />
+                  ) : mensaje.tipo_mensaje === "document" ? (
                       <div className="p-2">
                         <a
                           href={`https://new.imporsuitpro.com/${
                             JSON.parse(mensaje.ruta_archivo).ruta
-                          }`} // Ajusta la URL base a tu dominio
+                          }`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-gray-600 grid grid-cols-[auto_1fr_auto] items-center justify-end gap-1"
+                          className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg shadow-md hover:bg-gray-100 transition-colors"
                         >
-                          <span className="text-xl">
-                            <i className="bx bx-file"></i>
-                          </span>
-                          <span className="truncate">
-                            {JSON.parse(mensaje.ruta_archivo).nombre}
-                          </span>
-                          <span className="truncate text-2xl">
-                            <i className="bx bx-download"></i>
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {(
-                              JSON.parse(mensaje.ruta_archivo).size / 1024
-                            ).toFixed(2) > 1024 // Convertir a KB o MB
-                              ? (
-                                  JSON.parse(mensaje.ruta_archivo).size /
-                                  1024 /
-                                  1024
-                                ).toFixed(2) + " MB"
-                              : (
-                                  JSON.parse(mensaje.ruta_archivo).size / 1024
-                                ).toFixed(2) + " KB"}
+                          {/* Icono del archivo */}
+                          <span className="text-2xl">
+                            <i
+                              className={`${
+                                getFileIcon(
+                                  JSON.parse(mensaje.ruta_archivo)
+                                    .ruta.split(".")
+                                    .pop()
+                                ).icon
+                              } ${
+                                getFileIcon(
+                                  JSON.parse(mensaje.ruta_archivo)
+                                    .ruta.split(".")
+                                    .pop()
+                                ).color
+                              }`}
+                            ></i>
                           </span>
 
-                          <span className="text-sm text-gray-500 ">
-                            {" • " +
-                              JSON.parse(mensaje.ruta_archivo).nombre.split(
-                                "."
-                              )[
-                                JSON.parse(mensaje.ruta_archivo).nombre.split(
-                                  "."
-                                ).length - 1
-                              ]}
+                          {/* Nombre y detalles del archivo */}
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-sm text-gray-800 truncate">
+                              {JSON.parse(mensaje.ruta_archivo).nombre}
+                            </span>
+                            <div className="flex text-xs text-gray-500 space-x-1">
+                              <span>
+                                {JSON.parse(mensaje.ruta_archivo).size >
+                                1024 * 1024
+                                  ? `${(
+                                      JSON.parse(mensaje.ruta_archivo).size /
+                                      1024 /
+                                      1024
+                                    ).toFixed(2)} MB`
+                                  : `${(
+                                      JSON.parse(mensaje.ruta_archivo).size /
+                                      1024
+                                    ).toFixed(2)} KB`}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                {JSON.parse(mensaje.ruta_archivo)
+                                  .ruta.split(".")
+                                  .pop()
+                                  .toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Icono de descarga */}
+                          <span className="text-2xl text-blue-500 hover:text-blue-700 transition-colors">
+                            <i className="bx bx-download"></i>
                           </span>
                         </a>
                       </div>
                     ) : mensaje.tipo_mensaje === "video" ? (
-                      <video
-                        className="w-40 h-40"
-                        controls
-                        src={
-                          "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
-                        }
-                      ></video>
+                      <div className="p-2">
+                        <div className="relative w-52 h-52 bg-black rounded-lg overflow-hidden shadow-lg">
+                          {/* Video con diseño responsivo */}
+                          <video
+                            className="w-full h-full object-cover rounded-lg"
+                            controls
+                            src={
+                              "https://new.imporsuitpro.com/" +
+                              mensaje.ruta_archivo
+                            }
+                          />
+                        </div>
+                      </div>
                     ) : mensaje.tipo_mensaje === "location" ? (
                       (() => {
                         try {
