@@ -1,5 +1,6 @@
 import axios from "axios";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+
 const DatosUsuario = ({
   opciones,
   animateOut,
@@ -11,10 +12,9 @@ const DatosUsuario = ({
   const [facturaSeleccionada, setFacturaSeleccionada] = useState({});
   const [selectedImageId, setSelectedImageId] = useState(null);
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
-
-  const handleAccordionToggle = () => {
-    setIsAccordionOpen(!isAccordionOpen);
-  };
+  const [total, setTotal] = useState(0);
+  const [ciudades, setCiudades] = useState(null);
+  const [tarifas, setTarifas] = useState(null);
   const images = [
     {
       id: 1,
@@ -37,83 +37,121 @@ const DatosUsuario = ({
       alt: "Imagen 4",
     },
   ];
+  const handleAccordionToggle = () => {
+    setIsAccordionOpen(!isAccordionOpen);
+  };
+  // Manejo de selección de factura
+  const handleFacturaSeleccionada = useCallback((factura) => {
+    setFacturaSeleccionada({
+      ...factura,
+      provincia: factura.provincia || "",
+      ciudad_cot: factura.ciudad_cot || "",
+    });
+  }, []);
+
+  // Manejo de cambio de cantidad
+  const handleCantidadChange = (producto, increment) => {
+    setFacturaSeleccionada((prev) => {
+      const productosActualizados = prev.productos.map((p) =>
+        p.id_detalle === producto.id_detalle
+          ? { ...p, cantidad: p.cantidad + increment }
+          : p
+      );
+      return { ...prev, productos: productosActualizados };
+    });
+  };
+
+  // Manejo de cambio de precio
+  const handlePrecioChange = (producto, nuevoPrecio) => {
+    setFacturaSeleccionada((prev) => {
+      const productosActualizados = prev.productos.map((p) =>
+        p.id_detalle === producto.id_detalle
+          ? { ...p, precio_venta: parseFloat(nuevoPrecio) || 0 }
+          : p
+      );
+      return { ...prev, productos: productosActualizados };
+    });
+  };
 
   const handleImageClick = (id) => {
     setSelectedImageId(id);
   };
 
-  const [ciudades, setCiudades] = useState([]);
-  const handleFacturaSeleccionada = (factura) => {
-    console.log("Factura seleccionada:", factura);
+  // Actualización de valores en el servidor
+  const handleCambioValores = useCallback(
+    async (producto) => {
+      const { id_detalle, cantidad, precio_venta } = producto;
+      const form = new FormData();
+      form.append("id_detalle", id_detalle);
+      form.append("id_pedido", facturaSeleccionada.id_factura);
+      form.append("precio", precio_venta);
+      form.append("cantidad", cantidad);
+      form.append("total", cantidad * precio_venta);
+      try {
+        const response = await axios.post(
+          "https://new.imporsuitpro.com/pedidos/actualizarDetallePedido",
+          form,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        console.log("Response:", response);
+      } catch (error) {
+        console.error("Error updating values:", error);
+      }
+    },
+    [facturaSeleccionada.id_factura]
+  );
 
-    setFacturaSeleccionada({
-      ...factura,
-      provincia: factura.provincia || "", // Asegúrate de que no es undefined
-      ciudad_cot: factura.ciudad_cot || "",
-    });
-  };
-
-  const handleCiudades = (provincia) => {
-    console.log("Solicitando ciudades para la provincia:", provincia);
-
-    setCiudades([]); // Limpia las ciudades antes de cargar las nuevas
-    if (socketRef && socketRef.current) {
-      socketRef.current.emit("GET_CIUDADES", provincia);
-    }
-  };
-
+  // Manejo de ciudades por provincia
   useEffect(() => {
-    if (
-      socketRef &&
-      socketRef.current &&
-      Object.keys(facturaSeleccionada).length > 0
-    ) {
-      const handleDataCiudadesResponse = (ciudadesRecibidas) => {
-        console.log("Ciudades recibidas:", ciudadesRecibidas);
-        setCiudades(ciudadesRecibidas);
-      };
+    if (facturaSeleccionada.provincia) {
+      setCiudades([]);
+      if (socketRef.current) {
+        socketRef.current.emit("GET_CIUDADES", facturaSeleccionada.provincia);
+        socketRef.current.on("DATA_CIUDADES_RESPONSE", setCiudades);
+        return () =>
+          socketRef.current.off("DATA_CIUDADES_RESPONSE", setCiudades);
+      }
+    }
+  }, [facturaSeleccionada.provincia, socketRef]);
 
-      socketRef.current.on(
-        "DATA_CIUDADES_RESPONSE",
-        handleDataCiudadesResponse
-      );
-      // obtener tarifas
-      // obtener ciudad seleccionada
-      const selectedCiudad = ciudades.find(
-        (ciudad) => ciudad.id_cotizacion === facturaSeleccionada.ciudad_cot
-      );
+  // Cálculo de total
+  useEffect(() => {
+    const nuevoTotal =
+      facturaSeleccionada.productos?.reduce(
+        (acumulado, producto) =>
+          acumulado + producto.precio_venta * producto.cantidad,
+        0
+      ) || 0;
+    setTotal(nuevoTotal);
+  }, [facturaSeleccionada.productos]);
+
+  // Buscar tarifas de envío
+  useEffect(() => {
+    if (ciudades != null) {
       socketRef.current.emit("GET_TARIFAS", {
-        ciudad: selectedCiudad,
+        ciudad: facturaSeleccionada.ciudad_cot,
         provincia: facturaSeleccionada.provincia,
         id_plataforma: userData.plataforma,
         monto_factura: facturaSeleccionada.monto_factura,
         recaudo: facturaSeleccionada.cod,
       });
-      console.log("XDs");
-      return () => {
-        socketRef.current.off(
-          "DATA_CIUDADES_RESPONSE",
-          handleDataCiudadesResponse
-        );
-      };
-    } else {
+      socketRef.current.on("DATA_TARIFAS_RESPONSE", (data) => {
+        console.log(data);
+      });
+      return () => socketRef.current.off("DATA_TARIFAS_RESPONSE");
     }
-  }, [socketRef, socketRef.current, facturaSeleccionada]);
-
-  // Llama a handleCiudades cuando facturaSeleccionada.provincia cambie
-  useEffect(() => {
-    if (facturaSeleccionada.provincia) {
-      console.log("Provincia seleccionada:", facturaSeleccionada.provincia);
-
-      handleCiudades(facturaSeleccionada.provincia);
-    }
-  }, [facturaSeleccionada.provincia]);
+  }, [ciudades, socketRef]);
 
   return (
     <>
       {opciones && (
         <div
-          className={`relative col-span-1  text-white overflow-y-auto px-4  ${
+          className={`relative col-span-1  text-white overflow-y-auto px-4  duration-700 transition-all ${
             animateOut ? "animate-slide-out" : "animate-slide-in"
           }
             ${
@@ -349,22 +387,185 @@ const DatosUsuario = ({
                       <button
                         className="flex justify-between w-full text-left py-3 px-3 bg-[#171931] text-white rounded-t-lg"
                         onClick={handleAccordionToggle}
+                        type="button"
                       >
                         <h3 className="font-medium">Productos</h3>
                         <span>{isAccordionOpen ? "▲" : "▼"}</span>
                       </button>
                       {isAccordionOpen && (
-                        <div className="p-4 border border-gray-200 rounded-b-lg bg-white">
+                        <div className="p-2 border border-gray-200 rounded-b-lg bg-white">
                           <ul>
                             {/* Mapea los productos de tu factura seleccionada */}
                             {facturaSeleccionada.productos?.map(
                               (producto, index) => (
                                 <li
                                   key={index}
-                                  className="flex justify-between py-2 border-b"
+                                  className="flex justify-between border-b"
                                 >
-                                  <span>{producto.nombre}</span>
-                                  <span>{producto.precio}</span>
+                                  <input
+                                    type="hidden"
+                                    id={`producto${producto.id_detalle}`}
+                                    value={producto.id_detalle}
+                                  />
+                                  <input
+                                    type="hidden"
+                                    id={`sku${producto.id_detalle}`}
+                                    value={producto.sku}
+                                  />
+                                  <div className="overflow-x-auto">
+                                    <table className="table-auto w-full">
+                                      <thead>
+                                        <tr>
+                                          <th className="border px-2 py-2 text-xs md:px-4 w-full md:text-sm">
+                                            Nombre
+                                          </th>
+                                          <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                            Cantidad
+                                          </th>
+                                          <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                            Precio
+                                          </th>
+                                          <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                            Total
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        <tr className="">
+                                          <td className="border px-2 md:px-4 py-2 text-[0.65rem] w-full md:text-[0.75rem]">
+                                            {producto.nombre_producto}
+                                          </td>
+                                          <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                                            <div className="flex items-center space-x-1">
+                                              {/* Input de Cantidad */}
+                                              <input
+                                                type="number"
+                                                value={producto.cantidad}
+                                                className="p-2 border border-b border-gray-200 w-16 text-[0.65rem] md:text-[0.75rem] text-center"
+                                                readOnly
+                                                id={`cantidad${producto.id_detalle}`}
+                                                onChange={() =>
+                                                  handleCambioValores(
+                                                    producto.id_detalle
+                                                  )
+                                                }
+                                              />
+                                              <div className="grid">
+                                                {/* Botón de Incremento */}
+                                                <button
+                                                  type="button"
+                                                  className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-r border border-gray-200"
+                                                  aria-label="Increase"
+                                                  onClick={() =>
+                                                    handleIncrementarCantidad(
+                                                      producto
+                                                    )
+                                                  }
+                                                >
+                                                  <svg
+                                                    className="w-4 h-4"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="24"
+                                                    height="24"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                  >
+                                                    <path d="M5 12h14"></path>
+                                                    <path d="M12 5v14"></path>
+                                                  </svg>
+                                                </button>
+                                                {/* Botón de Decremento */}
+
+                                                <button
+                                                  type="button"
+                                                  className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-l border border-gray-200"
+                                                  aria-label="Decrease"
+                                                  onClick={() =>
+                                                    handleDecrementarCantidad(
+                                                      producto
+                                                    )
+                                                  }
+                                                >
+                                                  <svg
+                                                    className="w-4 h-4"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="24"
+                                                    height="24"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                  >
+                                                    <path d="M5 12h14"></path>
+                                                  </svg>
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </td>
+
+                                          <td className="border relative px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                              <span className="text-gray-500 sm:text-sm">
+                                                $
+                                              </span>
+                                            </div>
+                                            <input
+                                              type="text"
+                                              value={producto.precio_venta}
+                                              className="py-2 px-3 border rounded w-20    text-[0.65rem] md:text-[0.75rem]"
+                                              id={`precio${producto.id_detalle}`}
+                                              onChange={(e) =>
+                                                handlePrecioChange(
+                                                  producto,
+                                                  e.target.value
+                                                )
+                                              }
+                                            />
+                                          </td>
+
+                                          <td className="border relative px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                              <span className="text-gray-500 sm:text-sm">
+                                                $
+                                              </span>
+                                            </div>
+                                            <input
+                                              type="text"
+                                              value={
+                                                producto.precio_venta *
+                                                producto.cantidad
+                                              }
+                                              className="py-2 px-3 border rounded w-20    text-[0.65rem] md:text-[0.75rem]"
+                                              readOnly
+                                              id={`total${producto.id_detalle}`}
+                                            />
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                    <div className="flex justify-between mt-3">
+                                      <p className="text-lg font-semibold">
+                                        Total Final:
+                                      </p>
+                                      <span>${total.toFixed(2)}</span>
+                                      <input
+                                        type="hidden"
+                                        id="factura"
+                                        value={facturaSeleccionada.id_factura}
+                                      />
+                                      <input
+                                        type="hidden"
+                                        id="factura"
+                                        value={facturaSeleccionada.id_factura}
+                                      />
+                                    </div>
+                                  </div>
                                 </li>
                               )
                             )}
@@ -374,13 +575,14 @@ const DatosUsuario = ({
                     </div>
                   </form>
                 </div>
-
-                <button
-                  className="bg-red-500 text-white rounded px-4 py-2 absolute bottom-4 left-4 md:bottom-10 md:left-5"
-                  onClick={() => setFacturaSeleccionada({})}
-                >
-                  Cerrar
-                </button>
+                <div className="text-end mx-4">
+                  <button
+                    className="bg-red-500 text-white rounded px-4 py-2 mt-4 w-full md:w-auto md:mt-0"
+                    onClick={() => setFacturaSeleccionada({})}
+                  >
+                    Cerrar
+                  </button>
+                </div>
               </div>
             )}
           </div>
