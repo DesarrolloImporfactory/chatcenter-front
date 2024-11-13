@@ -7,17 +7,23 @@ const Cabecera = ({
   handleOpciones,
   selectedChat,
   animateOut,
+  toggleCrearEtiquetaModal,
+  etiquetasMenuOpen,
+  setEtiquetasMenuOpen,
+  toggleAsginarEtiquetaModal,
+  tagListAsginadas,
+  tagList,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
-  const [isCrearEtiquetaModalOpen, setIsCrearEtiquetaModalOpen] = useState(false); // 
 
   const menuRef = useRef(null);
   const etiquetasMenuRef = useRef(null);
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
-  const toggleEtiquetasMenu = () => setEtiquetasMenuOpen(!etiquetasMenuOpen);
-  const toggleCrearEtiquetaModal = () => setIsCrearEtiquetaModalOpen(!isCrearEtiquetaModalOpen); // Nueva función
+
+  const toggleEtiquetasMenu = () => {
+    setEtiquetasMenuOpen(!etiquetasMenuOpen);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -39,6 +45,7 @@ const Cabecera = ({
         !etiquetasMenuRef.current.contains(event.target)
       ) {
         setMenuOpen(false);
+        console.log("cualquier mensaje");
         setEtiquetasMenuOpen(false);
       }
     };
@@ -51,7 +58,7 @@ const Cabecera = ({
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    /* document.addEventListener("mousedown", handleClickOutside); */
     document.addEventListener("keydown", handleEscape);
 
     return () => {
@@ -112,7 +119,7 @@ const Cabecera = ({
           opciones == true ? "col-span-2 bg-white" : "col-span-3 bg-white"
         }`}
       >
-        <div className="flex justify-between items-center space-x-3 p-4">
+        <div className="flex justify-between items-center space-x-3">
           {/* Imagen, nombre y telefono */}
           <div className="flex gap-2">
             <img
@@ -127,7 +134,7 @@ const Cabecera = ({
                       ?.nombre_cliente
                   : "SELECCIONE UN CHAT"}
               </span>
-              <span className="text-sm text-black ">
+              <span className="text-sm text-black">
                 {chatMessages.length > 0 && selectedChat
                   ? "+" +
                     chatMessages.find((chat) => chat.id === selectedChat.id)
@@ -146,7 +153,7 @@ const Cabecera = ({
             {etiquetasMenuOpen && (
               <div className="absolute top-10 right-0 bg-white rounded shadow-lg py-2 w-40 z-50">
                 <button
-                  onClick={() => console.log("Asignar etiquetas")}
+                  onClick={toggleAsginarEtiquetaModal}
                   className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-200"
                 >
                   Asignar etiquetas
@@ -154,7 +161,7 @@ const Cabecera = ({
                 <button
                   type="button"
                   className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-200"
-                  onClick={toggleCrearEtiquetaModal} // Abre el modal al hacer clic
+                  onClick={toggleCrearEtiquetaModal}
                 >
                   Crear etiqueta
                 </button>
@@ -167,7 +174,38 @@ const Cabecera = ({
             </button>
           </div>
         </div>
+
+        {/* Sección de etiquetas asignadas */}
+        <div className="flex flex-wrap gap-2 px-4 pb-4">
+          {tagList.length > 0 ? (
+            tagList
+              .filter((tag) =>
+                tagListAsginadas.some(
+                  (assignedTag) => assignedTag.id_etiqueta === tag.id_etiqueta
+                )
+              )
+              .map((tag) => (
+                <div
+                  key={tag.id_etiqueta}
+                  className="bg-gray-800 text-white text-xs font-semibold py-1 px-3 rounded-full flex items-center gap-2"
+                >
+                  <span>{tag.nombre_etiqueta}</span>
+                  <button
+                    onClick={() =>
+                      toggleTagAssignment(tag.id_etiqueta, selectedChat.id)
+                    }
+                    className="text-gray-400 hover:text-gray-200"
+                  >
+                    <i className="bx bx-x text-xs"></i>
+                  </button>
+                </div>
+              ))
+          ) : (
+            <p className="text-gray-500 text-sm">No hay etiquetas asignadas.</p>
+          )}
+        </div>
       </div>
+
       {/* datos del chat */}
       {opciones && (
         <div

@@ -106,6 +106,89 @@ const Chat = () => {
 
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
 
+  /* abrir modal crear etiquetas */
+  const [isCrearEtiquetaModalOpen, setIsCrearEtiquetaModalOpen] =
+  useState(false);
+
+  const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
+
+  const [tagList, setTagList] = useState([]);
+
+  const toggleCrearEtiquetaModal = () => {
+    fetchTags();
+    setIsCrearEtiquetaModalOpen(!isCrearEtiquetaModalOpen);
+    if (etiquetasMenuOpen) {
+      setEtiquetasMenuOpen(!etiquetasMenuOpen);
+    }
+  };
+
+  const fetchTags = async () => {
+    try {
+      // Crear un objeto FormData y agregar los datos necesarios
+      const formData = new FormData();
+      formData.append("id_plataforma", userData.plataforma);
+
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/obtener_etiquetas",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener las etiquetas");
+      }
+
+      const data = await response.json();
+      setTagList(data); // Suponiendo que `data` es un array de etiquetas
+    } catch (error) {
+      console.error("Error fetching tags:", error);
+    }
+  };
+
+  /* fin abrir modal crear etiquetas */
+
+  /* abrir modal asignar etiquetas */
+  const [tagListAsginadas, setTagListAsginadas] = useState([]);
+
+  const [isAsignarEtiquetaModalOpen, setIsAsignarEtiquetaModalOpen] =
+  useState(false);
+
+  const toggleAsginarEtiquetaModal = () => {
+    fetchTagsAsginadas();
+    setIsAsignarEtiquetaModalOpen(!isAsignarEtiquetaModalOpen);
+    if (etiquetasMenuOpen) {
+      setEtiquetasMenuOpen(!etiquetasMenuOpen);
+    }
+  };
+
+  const fetchTagsAsginadas = async () => {
+    try {
+      // Crear un objeto FormData y agregar los datos necesarios
+      const formData = new FormData();
+      formData.append("id_cliente_chat_center", selectedChat.id);
+
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/obtener_etiquetas_asignadas",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener las etiquetas");
+      }
+
+      const data = await response.json();
+      setTagListAsginadas(data); // Suponiendo que `data` es un array de etiquetas
+    } catch (error) {
+      console.error("Error fetching tags:", error);
+    }
+  };
+  /* fin abrir modal asignar etiquetas */
+
   /* modal de enviar archivos */
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [modal_enviarArchivos, setModal_enviarArchivos] = useState(false);
@@ -661,6 +744,8 @@ const Chat = () => {
 
       socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
         setFacturasChatSeleccionado(data);
+        fetchTags();
+        fetchTagsAsginadas();
       });
 
       socketRef.current.on("CHATS", (data) => {
@@ -807,6 +892,12 @@ const Chat = () => {
         handleOpciones={handleOpciones}
         selectedChat={selectedChat}
         animateOut={animateOut}
+        toggleCrearEtiquetaModal={toggleCrearEtiquetaModal}
+        setEtiquetasMenuOpen={setEtiquetasMenuOpen}
+        etiquetasMenuOpen={etiquetasMenuOpen}
+        toggleAsginarEtiquetaModal={toggleAsginarEtiquetaModal}
+        tagListAsginadas={tagListAsginadas}
+        tagList={tagList}
       />
       {/* Historial de chats */}
       <Sidebar
@@ -883,6 +974,15 @@ const Chat = () => {
         selectedChat={selectedChat}
         agregar_mensaje_enviado={agregar_mensaje_enviado}
         getFileIcon={getFileIcon}
+        toggleCrearEtiquetaModal={toggleCrearEtiquetaModal}
+        isCrearEtiquetaModalOpen={isCrearEtiquetaModalOpen}
+        tagList={tagList}
+        setTagList={setTagList}
+        fetchTags={fetchTags}
+        isAsignarEtiquetaModalOpen={isAsignarEtiquetaModalOpen}
+        toggleAsginarEtiquetaModal={toggleAsginarEtiquetaModal}
+        tagListAsginadas={tagListAsginadas}
+        setTagListAsginadas={setTagListAsginadas}
       />
     </div>
   );

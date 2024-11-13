@@ -23,6 +23,15 @@ const Modales = ({
   selectedChat,
   agregar_mensaje_enviado,
   getFileIcon,
+  isCrearEtiquetaModalOpen,
+  toggleCrearEtiquetaModal,
+  tagList,
+  setTagList,
+  fetchTags,
+  isAsignarEtiquetaModalOpen,
+  toggleAsginarEtiquetaModal,
+  tagListAsginadas,
+  setTagListAsginadas,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -48,6 +57,109 @@ const Modales = ({
       toast.addEventListener("mouseleave", Swal.resumeTimer);
     },
   });
+
+  /* modal crear etiquetas */
+  const [tagName, setTagName] = useState("");
+  const [tagColor, setTagColor] = useState("#ff0000"); // Color predeterminado
+
+  const handleTagCreation = async () => {
+    if (tagName) {
+      try {
+        // Crear un objeto FormData y agregar los datos necesarios
+        const formData = new FormData();
+        formData.append("id_plataforma", userData.plataforma);
+        formData.append("nombre_etiqueta", tagName);
+        formData.append("color_etiqueta", tagColor);
+
+        const response = await fetch(
+          "https://new.imporsuitpro.com/Pedidos/agregar_etiqueta",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Error al obtener las etiquetas");
+        }
+
+        const data = await response.json();
+        fetchTags();
+      } catch (error) {
+        console.error("Error fetching tags:", error);
+      }
+
+      // Reiniciar el estado
+      setTagName("");
+      setTagColor("#ff0000");
+      /* toggleCrearEtiquetaModal(); */
+    } else {
+      alert("Por favor, ingresa un nombre para la etiqueta.");
+    }
+  };
+
+  const eliminarProducto = async (id_etiqueta) => {
+    try {
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/eliminarEtiqueta/" + id_etiqueta
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener las etiquetas");
+      }
+
+      const data = await response.json();
+      fetchTags();
+    } catch (error) {
+      console.error("Error fetching tags:", error);
+    }
+  };
+
+  /* fin modal crear etiquetas */
+
+  /* modal asignar etiquetas */
+  const toggleTagAssignment = async (idEtiqueta, idClienteChat) => {
+    try {
+      // Crear un objeto FormData y agregar los datos necesarios
+      const formData = new FormData();
+      formData.append("id_cliente_chat_center", idClienteChat);
+      formData.append("id_etiqueta", idEtiqueta);
+      formData.append("id_plataforma", userData.plataforma);
+
+      // Llamar a la API para asignar/desasignar la etiqueta
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/toggle_etiqueta_asignacion",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al asignar/desasignar la etiqueta");
+      }
+
+      const result = await response.json();
+
+      // Verificar el estado de asignación de la etiqueta en la respuesta
+      const isAssigned = result.asignado;
+
+      // Actualizar `tagListAsginadas` en función del nuevo estado de asignación
+      setTagListAsginadas((prev) => {
+        if (isAssigned) {
+          // Agregar la etiqueta a `tagListAsginadas` si fue asignada
+          return [...prev, { id_etiqueta: idEtiqueta }];
+        } else {
+          // Remover la etiqueta de `tagListAsginadas` si fue desasignada
+          return prev.filter((tag) => tag.id_etiqueta !== idEtiqueta);
+        }
+      });
+    } catch (error) {
+      console.error("Error en toggleTagAssignment:", error);
+    }
+  };
+
+  /* fin modal asignar etiquetas */
 
   /* ----- enviar imagenes ---------*/
   const [imagenes, setImagenes] = useState([]);
@@ -1160,7 +1272,141 @@ const Modales = ({
           </div>
         </div>
       )}
-      
+
+      {/* Modal para crear etiqueta */}
+      {isCrearEtiquetaModalOpen && (
+        <div className="fixed inset-0 z-20 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-xs w-full">
+            <h3 className="text-lg font-semibold mb-4">Agregar etiqueta</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-1">
+                Nombre etiqueta
+              </label>
+              <input
+                type="text"
+                className="w-full p-2 border rounded"
+                value={tagName}
+                onChange={(e) => setTagName(e.target.value)}
+                placeholder="Ingrese el nombre de la etiqueta"
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-1">
+                Color etiqueta
+              </label>
+              <input
+                type="color"
+                className="w-full p-2 border rounded"
+                value={tagColor}
+                onChange={(e) => setTagColor(e.target.value)}
+              />
+            </div>
+
+            {/* Sección para la lista de etiquetas */}
+            <div className="mt-4 p-4 border-t border-gray-200">
+              <h4 className="text-lg font-semibold mb-2">Lista de etiquetas</h4>
+              {tagList.length > 0 ? (
+                <ul>
+                  {tagList.map((tag, index) => (
+                    <li key={index} className="flex items-center gap-2 mb-2">
+                      <span
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: tag.color_etiqueta }}
+                      ></span>
+                      <span>{tag.nombre_etiqueta}</span>
+                      <button
+                        onClick={() => eliminarProducto(tag.id_etiqueta)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <i className="bx bxs-trash"></i>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No hay etiquetas disponibles.</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={toggleCrearEtiquetaModal}
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={handleTagCreation}
+                className="bg-blue-500 text-white px-4 py-2 rounded"
+              >
+                Agregar etiqueta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para asignar etiqueta */}
+      {isAsignarEtiquetaModalOpen && (
+        <div className="fixed inset-0 z-20 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-xs w-full">
+            <h3 className="text-lg font-semibold mb-4">Asignar etiquetas</h3>
+
+            {/* Sección para la lista de etiquetas */}
+            <div className="mt-4 p-4 border-t border-gray-200">
+              {tagList.length > 0 ? (
+                <ul className="space-y-2">
+                  {tagList.map((tag) => {
+                    // Verificar si la etiqueta está en la lista de asignadas
+                    const isAssigned = tagListAsginadas.some(
+                      (assignedTag) =>
+                        assignedTag.id_etiqueta === tag.id_etiqueta
+                    );
+
+                    return (
+                      <li
+                        key={tag.id_etiqueta}
+                        onClick={() =>
+                          toggleTagAssignment(tag.id_etiqueta, selectedChat.id)
+                        }
+                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200 
+                    ${
+                      isAssigned
+                        ? "bg-blue-100 border border-blue-300"
+                        : "bg-gray-100 hover:bg-gray-200"
+                    }
+                  `}
+                      >
+                        <span
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: tag.color_etiqueta }}
+                        ></span>
+                        <span className="flex-1 text-gray-700 font-medium">
+                          {tag.nombre_etiqueta}
+                        </span>
+                        {isAssigned && (
+                          <i className="bx bx-check text-blue-600 text-lg"></i>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-gray-500">No hay etiquetas disponibles.</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={toggleAsginarEtiquetaModal}
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
