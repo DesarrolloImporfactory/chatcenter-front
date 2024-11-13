@@ -36,8 +36,9 @@ const Chat = () => {
 
   const dispatch = useDispatch();
 
-  const [provincias, setProvincias] = useState([]);
-  const [facturasChatSeleccionado, setFacturasChatSeleccionado] = useState([]);
+  const [provincias, setProvincias] = useState(null);
+  const [facturasChatSeleccionado, setFacturasChatSeleccionado] =
+    useState(null);
 
   const [seRecibioMensaje, setSeRecibioMensaje] = useState(false);
 
@@ -108,7 +109,7 @@ const Chat = () => {
 
   /* abrir modal crear etiquetas */
   const [isCrearEtiquetaModalOpen, setIsCrearEtiquetaModalOpen] =
-  useState(false);
+    useState(false);
 
   const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
 
@@ -153,7 +154,7 @@ const Chat = () => {
   const [tagListAsginadas, setTagListAsginadas] = useState([]);
 
   const [isAsignarEtiquetaModalOpen, setIsAsignarEtiquetaModalOpen] =
-  useState(false);
+    useState(false);
 
   const toggleAsginarEtiquetaModal = () => {
     fetchTagsAsginadas();
@@ -744,8 +745,6 @@ const Chat = () => {
 
       socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
         setFacturasChatSeleccionado(data);
-        fetchTags();
-        fetchTagsAsginadas();
       });
 
       socketRef.current.on("CHATS", (data) => {
@@ -764,6 +763,8 @@ const Chat = () => {
   useEffect(() => {
     if (selectedChat && userData && isSocketConnected) {
       console.log("Chat seleccionado:", selectedChat);
+      fetchTags();
+      fetchTagsAsginadas();
       // Emitir la solicitud para obtener los mensajes del chat seleccionado
       socketRef.current.emit("GET_CHATS_BOX", {
         chatId: selectedChat.id,
