@@ -1,0 +1,6 @@
+.unset {
+  all: unset; /* Restablece todas las propiedades heredadas */
+  position: fixed; /* O fixed, según necesites */
+  top: 0;
+  left: 0;
+}

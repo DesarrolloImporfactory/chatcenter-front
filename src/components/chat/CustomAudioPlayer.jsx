@@ -64,12 +64,12 @@ const CompactAudioPlayer = ({ src }) => {
         {/* Botón de reproducción/pausa */}
         <button
           onClick={togglePlayPause}
-          className="text-lg text-green-500 focus:outline-none"
+          className="text-xl text-green-500 focus:outline-none"
         >
           {isPlaying ? (
-            <i className="fas fa-pause"></i>
+            <i className="bx bx-pause"></i>
           ) : (
-            <i className="fas fa-play"></i>
+            <i className="bx bx-play"></i>
           )}
         </button>
 

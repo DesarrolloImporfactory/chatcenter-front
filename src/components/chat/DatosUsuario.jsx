@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, { useEffect, useState, useCallback } from "react";
-
+import "./css/DataUsuarioCss.css";
 const DatosUsuario = ({
   opciones,
   animateOut,
@@ -15,6 +15,11 @@ const DatosUsuario = ({
   const [total, setTotal] = useState(0);
   const [ciudades, setCiudades] = useState(null);
   const [tarifas, setTarifas] = useState(null);
+  const [productosAdicionales, setProductosAdicionales] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const productosPorPagina = 5; // Define cuántos productos mostrar por página
   const images = [
     {
       id: 1,
@@ -37,9 +42,44 @@ const DatosUsuario = ({
       alt: "Imagen 4",
     },
   ];
+  const cargarProductosAdicionales = async (pagina = 1) => {
+    try {
+      const response = await axios
+        .post(
+          `http://localhost:3000/api/v1/product/${facturaSeleccionada.productos[0].bodega}`,
+          {
+            page: pagina, // Parámetros enviados en el cuerpo
+            limit: productosPorPagina, // Parámetros enviados en el cuerpo
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        )
+        .then((response) => {
+          setProductosAdicionales(response.data.products);
+          setPaginaActual(response.data.page);
+          setTotalPaginas(response.data.totalPages);
+        });
+    } catch (error) {
+      console.error("Error al cargar productos adicionales:", error);
+    }
+  };
+
   const handleAccordionToggle = () => {
     setIsAccordionOpen(!isAccordionOpen);
   };
+  const agregarProducto = (producto) => {
+    setFacturaSeleccionada((prev) => ({
+      ...prev,
+      productos: [
+        ...prev.productos,
+        { ...producto, cantidad: 1, total: producto.precio },
+      ],
+    }));
+  };
+
   // Manejo de selección de factura
   const handleFacturaSeleccionada = useCallback((factura) => {
     setFacturaSeleccionada({
@@ -54,11 +94,36 @@ const DatosUsuario = ({
     setFacturaSeleccionada((prev) => {
       const productosActualizados = prev.productos.map((p) =>
         p.id_detalle === producto.id_detalle
-          ? { ...p, cantidad: p.cantidad + increment }
+          ? {
+              ...p,
+              cantidad: p.cantidad + increment,
+            }
           : p
       );
-      return { ...prev, productos: productosActualizados };
+      return {
+        ...prev,
+        productos: productosActualizados,
+        monto_factura: prev.monto_factura + producto.precio_venta * increment,
+      };
     });
+  };
+
+  const handleSetTarifas = () => {
+    // actualizar las tarifas
+    setTimeout(() => {
+      socketRef.current.emit("GET_TARIFAS", {
+        ciudad: document.querySelector("#ciudad").value,
+        provincia: facturaSeleccionada.provincia,
+        id_plataforma: userData.plataforma,
+        monto_factura:
+          Number(document.querySelector("#total")?.textContent) || total,
+        recaudo: document.querySelector("#cod_entrega").value,
+      });
+      socketRef.current.on("DATA_TARIFAS_RESPONSE", (data) => {
+        setTarifas(data);
+        console.log(tarifas);
+      });
+    }, 50);
   };
 
   // Manejo de cambio de precio
@@ -98,7 +163,7 @@ const DatosUsuario = ({
             },
           }
         );
-        console.log("Response:", response);
+        return () => socketRef.current.off("DATA_TARIFAS_RESPONSE");
       } catch (error) {
         console.error("Error updating values:", error);
       }
@@ -132,20 +197,21 @@ const DatosUsuario = ({
 
   // Buscar tarifas de envío
   useEffect(() => {
-    if (ciudades != null) {
-      socketRef.current.emit("GET_TARIFAS", {
-        ciudad: facturaSeleccionada.ciudad_cot,
-        provincia: facturaSeleccionada.provincia,
-        id_plataforma: userData.plataforma,
-        monto_factura: facturaSeleccionada.monto_factura,
-        recaudo: facturaSeleccionada.cod,
-      });
-      socketRef.current.on("DATA_TARIFAS_RESPONSE", (data) => {
-        console.log(data);
-      });
-      return () => socketRef.current.off("DATA_TARIFAS_RESPONSE");
+    if (ciudades != null && facturaSeleccionada.productos) {
+      handleSetTarifas();
+      // buscar productos adicionales
+      cargarProductosAdicionales();
     }
-  }, [ciudades, socketRef]);
+  }, [ciudades, socketRef, facturaSeleccionada.productos]);
+
+  useEffect(() => {
+    if (facturaSeleccionada.productos) {
+      facturaSeleccionada.productos.forEach((producto) => {
+        handleCambioValores(producto);
+      });
+      setProductosAdicionales;
+    }
+  }, [facturaSeleccionada.productos]);
 
   return (
     <>
@@ -159,6 +225,131 @@ const DatosUsuario = ({
             }  
           `}
         >
+          {isModalOpen && (
+            <div className="h-screen w-full bg-black/40 fixed inset-0 z-10 flex justify-center items-center">
+              <div className="bg-white p-4 rounded shadow-lg text-black">
+                <h1 className="text-center text-2xl font-semibold">
+                  Productos Adicionales
+                </h1>
+                <div className="overflow-auto mt-4">
+                  <table className="w-full table-auto border-collapse border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-200 text-left">
+                        <th className="border p-2">Imagen</th>
+                        <th className="border p-2">Nombre</th>
+                        <th className="border p-2">Stock</th>
+                        <th className="border p-2">Cantidad</th>
+                        <th className="border p-2">Precio</th>
+                        <th className="border p-2">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productosAdicionales.map((producto) => (
+                        <tr key={producto.id_inventario}>
+                          {/* Imagen */}
+                          <td className="border p-2 text-center">
+                            <img
+                              src={
+                                producto.image_path
+                                  ? `https://new.imporsuitpro.com/${producto.image_path}`
+                                  : "https://via.placeholder.com/50x50?text=No+Imagen"
+                              }
+                              alt={producto.nombre_producto}
+                              className="w-16 h-16 object-cover rounded"
+                            />
+                          </td>
+                          {/* Nombre */}
+                          <td className="border px-4 py-2">
+                            {producto.nombre_producto}
+                          </td>
+                          {/* Cantidad */}
+                          <td className="border px-4 py-2 text-sm text-center">
+                            {producto.saldo_stock > 0
+                              ? producto.saldo_stock
+                              : "Sin Stock"}
+                          </td>
+                          {/* Cantidad */}
+                          <td className="border px-4 py-2 text-center">
+                            <input
+                              type="number"
+                              id={`cantidad_adicional` + producto.id_inventario}
+                              className="w-16 px-2 py-1 border rounded"
+                              defaultValue={1}
+                            />
+                          </td>
+
+                          {/* Precio */}
+                          <td className="border relative px-4 py-2 items-center gap-2">
+                            <span className="absolute text-gray-400 top-1/2 -translate-y-1/2 left-8 text-sm">
+                              $
+                            </span>
+                            <input
+                              type="text"
+                              className="w-16 px-3 py-1 border rounded"
+                              defaultValue={producto.pvp || 0}
+                              onChange={(e) => {
+                                producto.pvp = e.target.value;
+                              }}
+                            />
+                          </td>
+
+                          {/* Botón de Agregar */}
+                          <td className="border px-4 py-2 text-center">
+                            {producto.saldo_stock > 0 ? (
+                              <button
+                                className="bg-green-500 text-white px-3 py-1 rounded"
+                                onClick={() => agregarProducto(producto)}
+                                disabled={producto.saldo_stock <= 0}
+                              >
+                                Agregar
+                              </button>
+                            ) : (
+                              <button
+                                className="bg-red-500 text-white px-3 py-1 rounded"
+                                disabled
+                              >
+                                Sin Stock
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-between items-center mt-4">
+                  {/* Botón Anterior */}
+                  <button
+                    className="bg-gray-300 px-3 py-1 rounded"
+                    onClick={() => cargarProductosAdicionales(paginaActual - 1)}
+                    disabled={paginaActual === 1}
+                  >
+                    Anterior
+                  </button>
+                  {/* Paginación */}
+                  <span>
+                    Página {paginaActual} de {totalPaginas}
+                  </span>
+                  {/* Botón Siguiente */}
+                  <button
+                    className="bg-gray-300 px-3 py-1 rounded"
+                    onClick={() => cargarProductosAdicionales(paginaActual + 1)}
+                    disabled={paginaActual === totalPaginas}
+                  >
+                    Siguiente
+                  </button>
+                </div>
+                {/* Botón Cerrar */}
+                <button
+                  className="bg-red-500 text-white px-4 py-2 rounded mt-4"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-center overflow-y-auto h-full md:h-[600px]">
             <div className="w-full overflow-x-auto">
               <table className="table-auto w-full">
@@ -176,24 +367,25 @@ const DatosUsuario = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {facturasChatSeleccionado.map((factura, index) => (
-                    <tr key={index}>
-                      <td className="border px-2 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                        {factura.numero_factura}
-                      </td>
-                      <td className="border px-2 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                        {factura.nombre}
-                      </td>
-                      <td className="border px-2 md:px-4 py-2">
-                        <button
-                          className="bg-blue-500 text-white px-2 py-1 rounded text-xs md:px-4 md:py-2 md:text-sm"
-                          onClick={() => handleFacturaSeleccionada(factura)}
-                        >
-                          Ver
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {facturasChatSeleccionado &&
+                    facturasChatSeleccionado.map((factura, index) => (
+                      <tr key={index}>
+                        <td className="border px-2 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                          {factura.numero_factura}
+                        </td>
+                        <td className="border px-2 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                          {factura.nombre}
+                        </td>
+                        <td className="border px-2 md:px-4 py-2">
+                          <button
+                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs md:px-4 md:py-2 md:text-sm"
+                            onClick={() => handleFacturaSeleccionada(factura)}
+                          >
+                            Ver
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -279,6 +471,7 @@ const DatosUsuario = ({
                       </label>
                       {ciudades && (
                         <select
+                          id="ciudad"
                           className="p-2 border rounded w-full"
                           value={facturaSeleccionada.ciudad_cot || ""}
                           onChange={(e) => {
@@ -351,8 +544,9 @@ const DatosUsuario = ({
                         Tipo de Entrega
                       </label>
                       <select
-                        name=""
-                        id=""
+                        name="cod"
+                        defaultValue={1}
+                        id="cod_entrega"
                         className="p-2 border rounded w-full"
                       >
                         <option value="1">Con recaudo</option>
@@ -376,7 +570,32 @@ const DatosUsuario = ({
                             />
                             {/* precio de flete */}
                             <div className="text-center bg-black/90 text-white rounded-b-md">
-                              <p className="text-xs">50.00</p>
+                              {tarifas ? (
+                                <span
+                                  className={`text-sm ${
+                                    (image.id === 1 &&
+                                      tarifas.servientrega > 0) ||
+                                    (image.id === 2 && tarifas.laar > 0) ||
+                                    (image.id === 3 && tarifas.speed > 0) ||
+                                    (image.id === 4 && tarifas.gintracom > 0)
+                                      ? "text-green-400"
+                                      : "text-red-500"
+                                  }`}
+                                >
+                                  $
+                                  {image.id === 1
+                                    ? tarifas.servientrega
+                                    : image.id === 2
+                                    ? tarifas.laar
+                                    : image.id === 3
+                                    ? tarifas.speed
+                                    : image.id === 4
+                                    ? tarifas.gintracom
+                                    : 0}
+                                </span>
+                              ) : (
+                                <span className="text-sm">0</span>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -428,6 +647,9 @@ const DatosUsuario = ({
                                           <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
                                             Total
                                           </th>
+                                          <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                            Borrar
+                                          </th>
                                         </tr>
                                       </thead>
                                       <tbody>
@@ -441,7 +663,7 @@ const DatosUsuario = ({
                                               <input
                                                 type="number"
                                                 value={producto.cantidad}
-                                                className="p-2 border border-b border-gray-200 w-16 text-[0.65rem] md:text-[0.75rem] text-center"
+                                                className="p-2 border border-b border-gray-200 w-12 text-[0.65rem] md:text-[0.75rem] text-center"
                                                 readOnly
                                                 id={`cantidad${producto.id_detalle}`}
                                                 onChange={() =>
@@ -456,11 +678,13 @@ const DatosUsuario = ({
                                                   type="button"
                                                   className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-r border border-gray-200"
                                                   aria-label="Increase"
-                                                  onClick={() =>
-                                                    handleIncrementarCantidad(
-                                                      producto
-                                                    )
-                                                  }
+                                                  onClick={() => {
+                                                    handleCantidadChange(
+                                                      producto,
+                                                      1
+                                                    );
+                                                    handleSetTarifas();
+                                                  }}
                                                 >
                                                   <svg
                                                     className="w-4 h-4"
@@ -484,11 +708,13 @@ const DatosUsuario = ({
                                                   type="button"
                                                   className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-l border border-gray-200"
                                                   aria-label="Decrease"
-                                                  onClick={() =>
-                                                    handleDecrementarCantidad(
-                                                      producto
-                                                    )
-                                                  }
+                                                  onClick={() => {
+                                                    handleCantidadChange(
+                                                      producto,
+                                                      -1
+                                                    );
+                                                    handleSetTarifas();
+                                                  }}
                                                 >
                                                   <svg
                                                     className="w-4 h-4"
@@ -518,7 +744,7 @@ const DatosUsuario = ({
                                             <input
                                               type="text"
                                               value={producto.precio_venta}
-                                              className="py-2 px-3 border rounded w-20    text-[0.65rem] md:text-[0.75rem]"
+                                              className="py-2 px-3 border rounded w-16   text-[0.65rem] md:text-[0.75rem]"
                                               id={`precio${producto.id_detalle}`}
                                               onChange={(e) =>
                                                 handlePrecioChange(
@@ -541,19 +767,39 @@ const DatosUsuario = ({
                                                 producto.precio_venta *
                                                 producto.cantidad
                                               }
-                                              className="py-2 px-3 border rounded w-20    text-[0.65rem] md:text-[0.75rem]"
+                                              className="py-2 px-3 border rounded w-16    text-[0.65rem] md:text-[0.75rem]"
                                               readOnly
                                               id={`total${producto.id_detalle}`}
                                             />
                                           </td>
+                                          <td className="border px-2 md:px-4 py-2 text-center">
+                                            <button
+                                              className="bg-red-500 text-white rounded p-1 w-full md:w-auto"
+                                              onClick={() =>
+                                                eliminar(producto.id_detalle)
+                                              }
+                                            >
+                                              <i className="bx bx-trash"></i>
+                                            </button>
+                                          </td>
                                         </tr>
                                       </tbody>
                                     </table>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setIsModalOpen(true);
+                                      }}
+                                      className="bg-green-500 text-white text-xs rounded px-4 py-2 mt-2 w-full md:w-auto "
+                                    >
+                                      Añadir Producto
+                                    </button>
                                     <div className="flex justify-between mt-3">
                                       <p className="text-lg font-semibold">
                                         Total Final:
                                       </p>
-                                      <span>${total.toFixed(2)}</span>
+
+                                      <span id="total">{total.toFixed(2)}</span>
                                       <input
                                         type="hidden"
                                         id="factura"

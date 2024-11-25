@@ -1,3 +1,4 @@
+import { se } from "date-fns/locale";
 import { useState, useEffect, useRef } from "react";
 
 const Cabecera = ({
@@ -33,7 +34,10 @@ const Cabecera = ({
 
   const handleReturnToImporsuit = () => {
     setMenuOpen(false);
-    window.location.href = "https://new.imporsuitpro.com";
+    localStorage.getItem("token");
+    window.location.href =
+      "https://new.imporsuitpro.com/acceso/jwt_home/" +
+      localStorage.getItem("token");
   };
 
   useEffect(() => {
@@ -130,15 +134,12 @@ const Cabecera = ({
             <div>
               <span className="block text-black font-medium">
                 {chatMessages.length > 0 && selectedChat
-                  ? chatMessages.find((chat) => chat.id === selectedChat.id)
-                      ?.nombre_cliente
+                  ? selectedChat?.nombre_cliente
                   : "SELECCIONE UN CHAT"}
               </span>
               <span className="text-sm text-black">
                 {chatMessages.length > 0 && selectedChat
-                  ? "+" +
-                    chatMessages.find((chat) => chat.id === selectedChat.id)
-                      ?.celular_cliente
+                  ? "+" + selectedChat?.celular_cliente
                   : "-------"}
               </span>
             </div>
@@ -147,7 +148,7 @@ const Cabecera = ({
           <div className="flex items-center justify-between text-xl gap-4 p-4">
             {/* boton etiquetas */}
             <button onClick={toggleEtiquetasMenu} ref={etiquetasMenuRef}>
-              <i className="fa-solid fa-tags"></i>
+              <i className="bx bx-tags"></i>
             </button>
 
             {etiquetasMenuOpen && (
