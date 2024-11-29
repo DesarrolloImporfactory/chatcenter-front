@@ -7,6 +7,7 @@ const Cabecera = ({
   opciones,
   handleOpciones,
   selectedChat,
+  setSelectedChat,
   animateOut,
   toggleCrearEtiquetaModal,
   etiquetasMenuOpen,
@@ -24,6 +25,10 @@ const Cabecera = ({
 
   const toggleEtiquetasMenu = () => {
     setEtiquetasMenuOpen(!etiquetasMenuOpen);
+  };
+
+  const volver_seccion_principal = () => {
+    setSelectedChat(null);
   };
 
   const handleLogout = () => {
@@ -73,7 +78,11 @@ const Cabecera = ({
 
   return (
     <>
-      <div className="flex items-center justify-between p-4 bg-blue-500">
+      <div
+        className={`flex items-center justify-between p-4 bg-blue-500 ${
+          selectedChat ? "hidden sm:block" : "block"
+        }`}
+      >
         {/* Botón de opciones */}
         <div className="grid place-content-center relative" ref={menuRef}>
           <button onClick={toggleMenu}>
@@ -121,11 +130,14 @@ const Cabecera = ({
       <div
         className={`${
           opciones == true ? "col-span-2 bg-white" : "col-span-3 bg-white"
-        }`}
+        } ${selectedChat === null ? "hidden sm:block" : "block"}`}
       >
         <div className="flex justify-between items-center space-x-3">
           {/* Imagen, nombre y telefono */}
           <div className="flex gap-2">
+            <button className="p-1 text-[25px] block sm:hidden" onClick={volver_seccion_principal}>
+              <i className="bx bx-arrow-back"></i>
+            </button>
             <img
               className="rounded-full w-12 h-12"
               src="https://tiendas.imporsuitpro.com/imgs/react/user.png"

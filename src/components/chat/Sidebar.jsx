@@ -12,7 +12,11 @@ export const Sidebar = ({
   return (
     <>
       {" "}
-      <div className=" bg-white overflow-y-auto h-[calc(100vh_-_130px)]">
+      <div
+        className={`bg-white overflow-y-auto h-[calc(100vh_-_130px)] ${
+          selectedChat ? "hidden sm:block" : "block"
+        }`}
+      >
         <div className="p-4">
           {/* Buscador */}
           <div className="flex items-center gap-2">

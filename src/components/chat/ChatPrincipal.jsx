@@ -3,7 +3,6 @@ import CustomAudioPlayer from "./CustomAudioPlayer";
 import ImageWithModal from "./modales/ImageWithModal";
 import EmojiPicker from "emoji-picker-react";
 
-
 const ChatPrincipal = ({
   mensajesOrdenados,
   opciones,
@@ -32,6 +31,7 @@ const ChatPrincipal = ({
   setIsMenuOpen,
   handleModal_enviarArchivos,
   getFileIcon,
+  selectedChat,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -44,9 +44,13 @@ const ChatPrincipal = ({
   return (
     <>
       <div
-        className={` ${
+        className={`${
           opciones ? "col-span-2" : "col-span-3"
-        } bg-gray-100 relative `}
+        } bg-gray-100 relative ${
+          selectedChat === null || (opciones && window.innerWidth <= 640)
+            ? "hidden sm:block"
+            : "block"
+        }`}
       >
         <div className="flex flex-col h-[calc(100vh_-_130px)] relative">
           {/* Mensajes */}
@@ -91,7 +95,7 @@ const ChatPrincipal = ({
                       />
                     ) : mensaje.tipo_mensaje === "image" ? (
                       <ImageWithModal mensaje={mensaje} />
-                  ) : mensaje.tipo_mensaje === "document" ? (
+                    ) : mensaje.tipo_mensaje === "document" ? (
                       <div className="p-2">
                         <a
                           href={`https://new.imporsuitpro.com/${

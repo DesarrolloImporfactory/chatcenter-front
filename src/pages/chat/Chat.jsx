@@ -884,7 +884,7 @@ const Chat = () => {
   }, [isSocketConnected, selectedChat]);
 
   return (
-    <div className="grid sm:grid-cols-4">
+    <div className="sm:grid grid-cols-4">
       {/* Cabecera */}
       <Cabecera
         userData={userData}
@@ -892,6 +892,7 @@ const Chat = () => {
         opciones={opciones}
         handleOpciones={handleOpciones}
         selectedChat={selectedChat}
+        setSelectedChat={setSelectedChat}
         animateOut={animateOut}
         toggleCrearEtiquetaModal={toggleCrearEtiquetaModal}
         setEtiquetasMenuOpen={setEtiquetasMenuOpen}
@@ -941,6 +942,7 @@ const Chat = () => {
         setIsMenuOpen={setIsMenuOpen}
         handleModal_enviarArchivos={handleModal_enviarArchivos}
         getFileIcon={getFileIcon}
+        selectedChat={selectedChat}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
