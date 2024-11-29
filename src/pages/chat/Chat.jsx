@@ -775,6 +775,8 @@ const Chat = () => {
       const handleChatBoxResponse = (data) => {
         console.log("object", data);
         setChatMessages(data);
+        selectedChat.mensajes_pendientes = 0;
+
         const orderedMessages = getOrderedChats();
         setMensajesOrdenados(orderedMessages);
       };
