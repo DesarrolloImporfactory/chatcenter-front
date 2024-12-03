@@ -163,7 +163,7 @@ const Cabecera = ({
           <div className="flex items-center justify-between text-xl gap-4 p-4">
             {/* boton etiquetas */}
             <button onClick={toggleEtiquetasMenu} ref={etiquetasMenuRef}>
-              <i className="bx bx-tags"></i>
+              <i className="bx bxs-purchase-tag"></i>
             </button>
 
             {etiquetasMenuOpen && (
