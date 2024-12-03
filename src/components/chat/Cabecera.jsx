@@ -79,8 +79,8 @@ const Cabecera = ({
   return (
     <>
       <div
-        className={`flex items-center justify-between p-4 bg-blue-500 ${
-          selectedChat ? "hidden sm:block" : "block"
+        className={`items-center justify-between p-4 bg-blue-500 ${
+          selectedChat ? "hidden sm:flex" : "flex"
         }`}
       >
         {/* Botón de opciones */}
@@ -135,7 +135,10 @@ const Cabecera = ({
         <div className="flex justify-between items-center space-x-3">
           {/* Imagen, nombre y telefono */}
           <div className="flex gap-2">
-            <button className="p-1 text-[25px] block sm:hidden" onClick={volver_seccion_principal}>
+            <button
+              className="p-1 text-[25px] block sm:hidden"
+              onClick={volver_seccion_principal}
+            >
               <i className="bx bx-arrow-back"></i>
             </button>
             <img

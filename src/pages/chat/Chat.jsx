@@ -954,6 +954,7 @@ const Chat = () => {
         provincias={provincias}
         socketRef={socketRef}
         userData={userData}
+        setFacturasChatSeleccionado={setFacturasChatSeleccionado}
       />
       {/* MODALES */}
       <Modales
