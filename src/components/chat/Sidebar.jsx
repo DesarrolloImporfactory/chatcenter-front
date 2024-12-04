@@ -1,3 +1,6 @@
+import Select from "react-select";
+import { useState, useRef, useEffect } from "react";
+
 export const Sidebar = ({
   setSearchTerm,
   setNumeroModal,
@@ -13,6 +16,11 @@ export const Sidebar = ({
   handleFiltro_chats,
   setSearchTermEtiqueta,
   searchTermEtiqueta,
+  etiquetas_api,
+  selectedEtiquetas,
+  setSelectedEtiquetas,
+  handleChange,
+  etiquetasOptions,
 }) => {
   return (
     <>
@@ -46,18 +54,23 @@ export const Sidebar = ({
             <div
               className={`mt-4 transform transition-all duration-500 ${
                 filtro_chats
-                  ? "opacity-100 scale-100 max-h-screen"
-                  : "opacity-0 scale-95 max-h-0 overflow-hidden"
+                  ? "opacity-100 scale-100 max-h-screen w-full"
+                  : "opacity-0 scale-95 max-h-0 w-full overflow-hidden"
               }`}
             >
-              <select
-                name="filtro_etiquetas"
-                id="filtro_etiquetas"
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-400"
-                onChange={(e) => setSearchTermEtiqueta(e.target.value)}
-              >
-                <option value="">Etiquetas</option>
-              </select>
+              <Select
+                isMulti
+                options={etiquetasOptions}
+                value={selectedEtiquetas}
+                onChange={handleChange}
+                placeholder="Selecciona etiquetas"
+                className="w-full"
+                classNamePrefix="react-select"
+                menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
+                styles={{
+                  menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
+                }}
+              />
             </div>
           </div>
           <ul className="">

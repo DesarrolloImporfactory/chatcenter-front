@@ -127,6 +127,19 @@ const Chat = () => {
     }
   };
 
+  const [etiquetas_api, setEtiquetas_api] = useState([]);
+
+  const [selectedEtiquetas, setSelectedEtiquetas] = useState([]);
+
+  const etiquetasOptions = etiquetas_api.map((etiqueta) => ({
+    value: etiqueta.id_etiqueta,
+    label: etiqueta.nombre_etiqueta,
+  }));
+
+  const handleChange = (selectedOptions) => {
+    setSelectedEtiquetas(selectedOptions || []);
+  };
+
   const fetchTags = async () => {
     try {
       // Crear un objeto FormData y agregar los datos necesarios
@@ -624,17 +637,39 @@ const Chat = () => {
   };
 
   const filteredChats = mensajesAcumulados.filter((mensaje) => {
-    const nombreCliente = mensaje.nombre_cliente.toLowerCase();
-    const celularCliente = mensaje.celular_cliente.toLowerCase();
-    const etiqueta = mensaje.etiquetas;
+    const nombreCliente = mensaje.nombre_cliente?.toLowerCase() || "";
+    const celularCliente = mensaje.celular_cliente?.toLowerCase() || "";
     const term = searchTerm.toLowerCase();
-    const termEtiqueta = searchTermEtiqueta.toLowerCase();
 
-    console.log(etiqueta);
+    // Parsear el JSON de etiquetas
+    let etiquetas = [];
+    try {
+      etiquetas = mensaje.etiquetas ? JSON.parse(mensaje.etiquetas) : [];
+    } catch (error) {
+      console.error("Error al parsear etiquetas JSON:", error);
+    }
 
-    // Filtra por coincidencia en nombre o número
+    // Filtrar etiquetas seleccionadas
+    const etiquetasSeleccionadas = selectedEtiquetas.map(
+      (etiqueta) => etiqueta.value
+    );
+
+    // Verificar que todas las etiquetas seleccionadas están presentes en las etiquetas del mensaje
+    const etiquetaCoincide =
+      etiquetasSeleccionadas.length === 0 ||
+      etiquetasSeleccionadas.every((idEtiquetaSeleccionada) =>
+        etiquetas.some(
+          (etiqueta) =>
+            etiqueta &&
+            etiqueta.id &&
+            etiqueta.id.toString() === idEtiquetaSeleccionada
+        )
+      );
+
+    // Filtra por coincidencia en nombre, número o etiquetas
     return (
-      (nombreCliente.includes(term) || celularCliente.includes(term))
+      (nombreCliente.includes(term) || celularCliente.includes(term)) &&
+      etiquetaCoincide
     );
   });
 
@@ -733,6 +768,39 @@ const Chat = () => {
       console.error("Error al cargar los templates:", error);
     }
   };
+
+  /* consumir api de etiquetas */
+  useEffect(() => {
+    const fetchEtiquetas = async () => {
+      try {
+        // Crear un objeto FormData y agregar los datos necesarios
+        const formData = new FormData();
+        formData.append("id_plataforma", userData.plataforma);
+
+        const response = await fetch(
+          "https://new.imporsuitpro.com/Pedidos/obtener_etiquetas",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Error al obtener las etiquetas");
+        }
+
+        const data = await response.json();
+        setEtiquetas_api(data);
+      } catch (error) {
+        console.error("Error al cargar las etiquetas:", error);
+      }
+    };
+
+    if (userData != null) {
+      fetchEtiquetas();
+    }
+  }, [userData]);
+  /* fin cosumir api de etiquetas */
 
   useEffect(() => {
     if (isSocketConnected && userData) {
@@ -933,6 +1001,11 @@ const Chat = () => {
         handleFiltro_chats={handleFiltro_chats}
         setSearchTermEtiqueta={setSearchTermEtiqueta}
         searchTermEtiqueta={searchTermEtiqueta}
+        etiquetas_api={etiquetas_api}
+        selectedEtiquetas={selectedEtiquetas}
+        setSelectedEtiquetas={setSelectedEtiquetas}
+        handleChange={handleChange}
+        etiquetasOptions={etiquetasOptions}
       />
       {/* todos los mensajes */}
       <ChatPrincipal
