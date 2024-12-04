@@ -56,6 +56,8 @@ const Chat = () => {
 
   const [numeroModal, setNumeroModal] = useState(false);
 
+  const [filtro_chats, setFiltro_chats] = useState(false);
+
   const [mensaje, setMensaje] = useState("");
 
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -77,6 +79,8 @@ const Chat = () => {
   const [mensajesAcumulados, setMensajesAcumulados] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [searchTermEtiqueta, setSearchTermEtiqueta] = useState("");
 
   const [selectedChat, setSelectedChat] = useState(null);
 
@@ -351,6 +355,10 @@ const Chat = () => {
     setSeleccionado(false);
   };
 
+  const handleFiltro_chats = () => {
+    setFiltro_chats(!filtro_chats);
+  };
+
   const {
     handleSubmit,
     register,
@@ -618,10 +626,17 @@ const Chat = () => {
   const filteredChats = mensajesAcumulados.filter((mensaje) => {
     const nombreCliente = mensaje.nombre_cliente.toLowerCase();
     const celularCliente = mensaje.celular_cliente.toLowerCase();
+    const etiqueta = JSON.parse(mensaje.etiqueta?.toLowerCase()) || ""; // Maneja si no hay etiqueta
     const term = searchTerm.toLowerCase();
+    const termEtiqueta = searchTermEtiqueta.toLowerCase();
+
+    console.log(etiqueta);
 
     // Filtra por coincidencia en nombre o número
-    return nombreCliente.includes(term) || celularCliente.includes(term);
+    return (
+      (nombreCliente.includes(term) || celularCliente.includes(term)) &&
+      etiqueta.includes(termEtiqueta)
+    );
   });
 
   const socketRef = useRef(null);
@@ -914,6 +929,11 @@ const Chat = () => {
         selectedChat={selectedChat}
         chatTemporales={chatTemporales}
         formatFecha={formatFecha}
+        setFiltro_chats={setFiltro_chats}
+        filtro_chats={filtro_chats}
+        handleFiltro_chats={handleFiltro_chats}
+        setSearchTermEtiqueta={setSearchTermEtiqueta}
+        searchTermEtiqueta={searchTermEtiqueta}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

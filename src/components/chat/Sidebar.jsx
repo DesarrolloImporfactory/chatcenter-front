@@ -8,6 +8,11 @@ export const Sidebar = ({
   selectedChat,
   chatTemporales,
   formatFecha,
+  setFiltro_chats,
+  filtro_chats,
+  handleFiltro_chats,
+  setSearchTermEtiqueta,
+  searchTermEtiqueta,
 }) => {
   return (
     <>
@@ -19,7 +24,7 @@ export const Sidebar = ({
       >
         <div className="p-4">
           {/* Buscador */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-column items-center gap-2">
             <div className="flex w-full items-center gap-2">
               <input
                 type="text"
@@ -32,6 +37,27 @@ export const Sidebar = ({
                 onClick={setNumeroModal}
                 className="bg-blue-500 text-white rounded hover:cursor-pointer hover:bg-blue-400 text-2xl p-1 bx bx-plus-circle"
               ></i>
+              <i
+                onClick={handleFiltro_chats}
+                className="text-gray-600 rounded hover:cursor-pointer hover:text-black text-2xl p-1 bx bx-filter"
+              ></i>
+            </div>
+            {/* Div con animación */}
+            <div
+              className={`mt-4 transform transition-all duration-500 ${
+                filtro_chats
+                  ? "opacity-100 scale-100 max-h-screen"
+                  : "opacity-0 scale-95 max-h-0 overflow-hidden"
+              }`}
+            >
+              <select
+                name="filtro_etiquetas"
+                id="filtro_etiquetas"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-400"
+                onChange={(e) => setSearchTermEtiqueta(e.target.value)}
+              >
+                <option value="">Etiquetas</option>
+              </select>
             </div>
           </div>
           <ul className="">
