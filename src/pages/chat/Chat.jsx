@@ -626,7 +626,7 @@ const Chat = () => {
   const filteredChats = mensajesAcumulados.filter((mensaje) => {
     const nombreCliente = mensaje.nombre_cliente.toLowerCase();
     const celularCliente = mensaje.celular_cliente.toLowerCase();
-    const etiqueta = JSON.parse(mensaje.etiqueta?.toLowerCase()) || ""; // Maneja si no hay etiqueta
+    const etiqueta = mensaje.etiquetas;
     const term = searchTerm.toLowerCase();
     const termEtiqueta = searchTermEtiqueta.toLowerCase();
 
@@ -634,8 +634,7 @@ const Chat = () => {
 
     // Filtra por coincidencia en nombre o número
     return (
-      (nombreCliente.includes(term) || celularCliente.includes(term)) &&
-      etiqueta.includes(termEtiqueta)
+      (nombreCliente.includes(term) || celularCliente.includes(term))
     );
   });
 
