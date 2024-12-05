@@ -5,6 +5,7 @@ const Cabecera = ({
   userData,
   chatMessages,
   opciones,
+  setOpciones,
   handleOpciones,
   selectedChat,
   setSelectedChat,
@@ -28,6 +29,7 @@ const Cabecera = ({
   };
 
   const volver_seccion_principal = () => {
+    setOpciones(false);
     setSelectedChat(null);
   };
 

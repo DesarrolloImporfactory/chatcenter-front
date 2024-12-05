@@ -127,15 +127,6 @@ const Chat = () => {
     }
   };
 
-  const [etiquetas_api, setEtiquetas_api] = useState([]);
-
-  const [selectedEtiquetas, setSelectedEtiquetas] = useState([]);
-
-  const etiquetasOptions = etiquetas_api.map((etiqueta) => ({
-    value: etiqueta.id_etiqueta,
-    label: etiqueta.nombre_etiqueta,
-  }));
-
   const handleChange = (selectedOptions) => {
     setSelectedEtiquetas(selectedOptions || []);
   };
@@ -636,42 +627,119 @@ const Chat = () => {
     setSelectedChat(chat);
   };
 
-  const filteredChats = mensajesAcumulados.filter((mensaje) => {
-    const nombreCliente = mensaje.nombre_cliente?.toLowerCase() || "";
-    const celularCliente = mensaje.celular_cliente?.toLowerCase() || "";
-    const term = searchTerm.toLowerCase();
+  /* filtro */
+  const [etiquetas_api, setEtiquetas_api] = useState([]);
+  const [selectedEtiquetas, setSelectedEtiquetas] = useState([]);
+  const [selectedEstado, setSelectedEstado] = useState([]);
+  const [selectedTransportadora, setSelectedTransportadora] = useState(null);
 
-    // Parsear el JSON de etiquetas
-    let etiquetas = [];
-    try {
-      etiquetas = mensaje.etiquetas ? JSON.parse(mensaje.etiquetas) : [];
-    } catch (error) {
-      console.error("Error al parsear etiquetas JSON:", error);
-    }
+  const etiquetasOptions = etiquetas_api.map((etiqueta) => ({
+    value: etiqueta.id_etiqueta,
+    label: etiqueta.nombre_etiqueta,
+  }));
+  /* fin filtro */
 
-    // Filtrar etiquetas seleccionadas
-    const etiquetasSeleccionadas = selectedEtiquetas.map(
-      (etiqueta) => etiqueta.value
-    );
+  const filteredChats = mensajesAcumulados
+    .filter((mensaje) => {
+      // Filtro por nombre o celular
+      const nombreCliente = mensaje.nombre_cliente?.toLowerCase() || "";
+      const celularCliente = mensaje.celular_cliente?.toLowerCase() || "";
+      const term = searchTerm.toLowerCase();
+      return (
+        term === "" ||
+        nombreCliente.includes(term) ||
+        celularCliente.includes(term)
+      );
+    })
+    .filter((mensaje) => {
+      // Filtro por etiquetas seleccionadas
+      let etiquetas = [];
+      try {
+        etiquetas = mensaje.etiquetas ? JSON.parse(mensaje.etiquetas) : [];
+      } catch (error) {
+        console.error("Error al parsear etiquetas JSON:", error);
+      }
 
-    // Verificar que todas las etiquetas seleccionadas están presentes en las etiquetas del mensaje
-    const etiquetaCoincide =
-      etiquetasSeleccionadas.length === 0 ||
-      etiquetasSeleccionadas.every((idEtiquetaSeleccionada) =>
-        etiquetas.some(
-          (etiqueta) =>
-            etiqueta &&
-            etiqueta.id &&
-            etiqueta.id.toString() === idEtiquetaSeleccionada
-        )
+      const etiquetasSeleccionadas = selectedEtiquetas.map(
+        (etiqueta) => etiqueta.value
       );
 
-    // Filtra por coincidencia en nombre, número o etiquetas
-    return (
-      (nombreCliente.includes(term) || celularCliente.includes(term)) &&
-      etiquetaCoincide
-    );
-  });
+      return (
+        etiquetasSeleccionadas.length === 0 ||
+        etiquetasSeleccionadas.every((idEtiquetaSeleccionada) =>
+          etiquetas.some(
+            (etiqueta) =>
+              etiqueta &&
+              etiqueta.id &&
+              etiqueta.id.toString() === idEtiquetaSeleccionada
+          )
+        )
+      );
+    })
+    .filter((mensaje) => {
+      // Filtro por transportadora
+      const transportadoraFiltro = selectedTransportadora?.value || null;
+      const transportadoraCliente = mensaje.transporte || "";
+      return (
+        !transportadoraFiltro ||
+        transportadoraCliente.toLowerCase() ===
+          transportadoraFiltro.toLowerCase()
+      );
+    })
+    .filter((mensaje) => {
+      // Filtro por estado y transportadora combinados
+      const estadoFiltro = selectedEstado?.value || null;
+      const transportadoraFiltro = selectedTransportadora?.value || null;
+      const estadoFactura = mensaje.estado_factura || "";
+
+      if (!estadoFiltro || !transportadoraFiltro) {
+        return true; // No se aplica filtro si no hay estado o transportadora seleccionados
+      }
+
+      const estadoTransportadoraMap = {
+        LAAR: {
+          Generada: [1, 2],
+          "En transito": [5, 11, 12, 6],
+          Entregada: [7],
+          Novedad: [14],
+          Devolucion: [9],
+        },
+        SERVIENTREGA: {
+          Generada: [100, 102, 103],
+          "En transito": (estadoFactura) =>
+            estadoFactura >= 300 && estadoFactura <= 317,
+          Entregada: (estadoFactura) =>
+            estadoFactura >= 400 && estadoFactura <= 403,
+          Novedad: (estadoFactura) =>
+            estadoFactura >= 320 && estadoFactura <= 351,
+          Devolucion: (estadoFactura) =>
+            estadoFactura >= 500 && estadoFactura <= 502,
+        },
+        GINTRACOM: {
+          Generada: [1, 2, 3],
+          "En transito": [5, 4],
+          Entregada: [7],
+          Novedad: [6],
+          Devolucion: [8, 9, 13],
+        },
+        SPEED: {
+          Generada: [2],
+          "En transito": [3],
+          Devolucion: [9],
+        },
+      };
+
+      const estadosPermitidos =
+        estadoTransportadoraMap[transportadoraFiltro][estadoFiltro];
+
+      if (typeof estadosPermitidos === "function") {
+        return estadosPermitidos(estadoFactura);
+      } else if (Array.isArray(estadosPermitidos)) {
+        return estadosPermitidos.includes(parseInt(estadoFactura));
+      } else {
+        return false;
+      }
+    });
 
   const socketRef = useRef(null);
   const inputSearchRef = useRef(null);
@@ -974,6 +1042,7 @@ const Chat = () => {
         userData={userData}
         chatMessages={chatMessages}
         opciones={opciones}
+        setOpciones={setOpciones}
         handleOpciones={handleOpciones}
         selectedChat={selectedChat}
         setSelectedChat={setSelectedChat}
@@ -1006,6 +1075,10 @@ const Chat = () => {
         setSelectedEtiquetas={setSelectedEtiquetas}
         handleChange={handleChange}
         etiquetasOptions={etiquetasOptions}
+        selectedEstado={selectedEstado}
+        setSelectedEstado={setSelectedEstado}
+        selectedTransportadora={selectedTransportadora}
+        setSelectedTransportadora={setSelectedTransportadora}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

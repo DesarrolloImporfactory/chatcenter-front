@@ -21,6 +21,10 @@ export const Sidebar = ({
   setSelectedEtiquetas,
   handleChange,
   etiquetasOptions,
+  selectedEstado,
+  setSelectedEstado,
+  selectedTransportadora,
+  setSelectedTransportadora,
 }) => {
   return (
     <>
@@ -58,19 +62,74 @@ export const Sidebar = ({
                   : "opacity-0 scale-95 max-h-0 w-full overflow-hidden"
               }`}
             >
+              {/* Select para etiquetas */}
               <Select
                 isMulti
                 options={etiquetasOptions}
                 value={selectedEtiquetas}
                 onChange={handleChange}
                 placeholder="Selecciona etiquetas"
-                className="w-full"
+                className="w-full mb-4"
                 classNamePrefix="react-select"
                 menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
                 styles={{
                   menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
                 }}
               />
+
+              {/* Select para transportadora */}
+              <Select
+                isClearable
+                options={[
+                  { value: "LAAR", label: "Laar" },
+                  { value: "SPEED", label: "Speed" },
+                  { value: "SERVIENTREGA", label: "Servientrega" },
+                  { value: "GINTRACOM", label: "Gintracom" },
+                ]}
+                value={selectedTransportadora} // Estado para el select de transportadora
+                onChange={(selectedOption) =>
+                  setSelectedTransportadora(selectedOption)
+                }
+                placeholder="Selecciona transportadora"
+                className="w-full mb-4"
+                classNamePrefix="react-select"
+                menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
+                styles={{
+                  menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
+                }}
+              />
+
+              {/* Select para estados (siempre oculto hasta que se seleccione transportadora) */}
+              {selectedTransportadora ? (
+                <div className="transition-all duration-500 opacity-100 scale-100 max-h-screen mb-4">
+                  <Select
+                    isClearable
+                    options={[
+                      { value: "Generada", label: "Generada / Por recolectar" },
+                      {
+                        value: "En transito",
+                        label: "En transito / Procesamiento / En ruta",
+                      },
+                      { value: "Entregada", label: "Entregada" },
+                      { value: "Novedad", label: "Novedad" },
+                      { value: "Devolucion", label: "Devolución" },
+                    ]}
+                    value={selectedEstado} // Estado para el select de estado
+                    onChange={(selectedOption) =>
+                      setSelectedEstado(selectedOption)
+                    }
+                    placeholder="Selecciona estado"
+                    className="w-full"
+                    classNamePrefix="react-select"
+                    menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
+                    styles={{
+                      menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="hidden"></div>
+              )}
             </div>
           </div>
           <ul className="">
