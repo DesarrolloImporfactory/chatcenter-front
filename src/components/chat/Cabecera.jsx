@@ -235,6 +235,10 @@ const Cabecera = ({
             <div className="flex text-center justify-center">
               <span>Historial de Pedidos</span>
             </div>
+
+            <div className="flex justify-center p-4">
+          <i class='bx bx-x text-white'></i>
+          </div>
           </div>
         </div>
       )}
