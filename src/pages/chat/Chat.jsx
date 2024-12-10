@@ -624,6 +624,7 @@ const Chat = () => {
   const handleSelectChat = (chat) => {
     // Establece el chat seleccionado y asegúrate de limpiar los mensajes anteriores
     setChatMessages([]); // Limpia los mensajes anteriores para evitar inconsistencias
+    setFacturasChatSeleccionado(null);
     setSelectedChat(chat);
   };
 

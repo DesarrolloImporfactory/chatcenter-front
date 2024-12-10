@@ -221,6 +221,10 @@ const DatosUsuario = ({
     }
   }, [ciudades]);
 
+  useEffect(() => {
+    setFacturaSeleccionada({});
+  }, [facturasChatSeleccionado]);
+
   // Manejo de selección de factura
   const handleFacturaSeleccionada = useCallback((factura) => {
     setFacturaSeleccionada({
