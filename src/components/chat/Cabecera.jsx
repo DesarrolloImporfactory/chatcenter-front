@@ -81,7 +81,7 @@ const Cabecera = ({
   return (
     <>
       <div
-        className={`items-center justify-between p-4 bg-blue-500 ${
+        className={`items-center justify-between p-4 bg-[#171931] ${
           selectedChat ? "hidden sm:flex" : "flex"
         }`}
       >
@@ -237,8 +237,8 @@ const Cabecera = ({
             </div>
 
             <div className="flex justify-center p-4">
-          <i class='bx bx-x text-white'></i>
-          </div>
+              <i class="bx bx-x text-white"></i>
+            </div>
           </div>
         </div>
       )}
