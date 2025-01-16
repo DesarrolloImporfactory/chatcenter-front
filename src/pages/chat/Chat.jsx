@@ -766,6 +766,35 @@ const Chat = () => {
     }
   };
 
+  // Detectar clic fuera del cuadro
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Si el clic no ocurre en un elemento del cuadro de opciones
+      if (
+        !event.target.closest(".command-menu") && // Clase específica del cuadro
+        !event.target.closest(".command-trigger") // Clase del input que activa el menú
+      ) {
+        setIsCommandActive(false); // Cierra el cuadro
+        setIsChatBlocked(false);
+      }
+    };
+
+    const handleEscPress = (event) => {
+      if (event.key === "Escape") {
+        setIsCommandActive(false); // Cierra el cuadro si presionas ESC
+        setIsChatBlocked(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscPress);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscPress);
+    };
+  }, []);
+
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {

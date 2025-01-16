@@ -250,7 +250,7 @@ const Cabecera = ({
             </div>
 
             <div className="flex justify-center p-4">
-              <i class="bx bx-x text-white"></i>
+              <i className="bx bx-x text-white"></i>
             </div>
           </div>
         </div>
