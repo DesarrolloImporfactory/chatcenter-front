@@ -237,21 +237,25 @@ const Cabecera = ({
         </div>
       )}
 
-      {/* datos del chat */}
+      {/* Datos del chat */}
       {opciones && (
         <div
-          className={`col-span-1 bg-[#171931] text-white animate-slide-in ${
+          className={`relative col-span-1 bg-[#171931] text-white animate-slide-in ${
             animateOut ? "animate-slide-out" : "animate-slide-in"
           }`}
         >
+          {/* Encabezado */}
           <div className="flex justify-center p-4">
             <div className="flex text-center justify-center">
               <span>Historial de Pedidos</span>
             </div>
+          </div>
 
-            <div className="flex justify-center p-4">
-              <i className="bx bx-x text-white"></i>
-            </div>
+          {/* Botón de cierre */}
+          <div className="absolute top-3 right-4">
+            <button onClick={handleOpciones}>
+              <i className="bx bx-x text-white text-3xl"></i>
+            </button>
           </div>
         </div>
       )}

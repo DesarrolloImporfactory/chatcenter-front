@@ -11,6 +11,12 @@ const DatosUsuario = ({
   provincias,
   setFacturasChatSeleccionado,
   userData,
+  setGuiasChatSeleccionado,
+  guiasChatSeleccionado,
+  validar_estadoLaar,
+  validar_estadoServi,
+  validar_estadoGintracom,
+  validar_estadoSpeed,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -265,6 +271,13 @@ const DatosUsuario = ({
     setValue("referenciaO", factura.referenciaO || "");
     setValue("provinciaO", factura.provinciaO || "");
   }, []);
+
+  const [isOpen, setIsOpen] = useState(false); // Estado para controlar si el acordeón está abierto o cerrado
+  const [activeTab, setActiveTab] = useState("pedidos"); // Estado para controlar la pestaña activa
+
+  const toggleAcordeon = () => {
+    setIsOpen(!isOpen);
+  };
 
   // Manejo de cambio de cantidad
   const handleCantidadChange = (producto, increment) => {
@@ -547,43 +560,128 @@ const DatosUsuario = ({
           )}
 
           <div className="flex justify-center overflow-y-auto h-full md:h-[600px]">
-            <div className="w-full overflow-x-auto">
-              <table className="table-auto w-full">
-                <thead>
-                  <tr>
-                    <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                      Número Factura
-                    </th>
-                    <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                      Nombre Cliente
-                    </th>
-                    <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                      Acción
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {facturasChatSeleccionado &&
-                    facturasChatSeleccionado.map((factura, index) => (
-                      <tr key={index}>
-                        <td className="border px-2 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                          {factura.numero_factura}
-                        </td>
-                        <td className="border px-2 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                          {factura.nombre}
-                        </td>
-                        <td className="border px-2 md:px-4 py-2">
-                          <button
-                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs md:px-4 md:py-2 md:text-sm"
-                            onClick={() => handleFacturaSeleccionada(factura)}
-                          >
-                            Ver
-                          </button>
-                        </td>
+            <div className="w-full max-w-3xl mx-auto">
+              {/* Botón del acordeón */}
+              <div
+                className="cursor-pointer bg-blue-600 text-white px-6 py-3 flex justify-between items-center rounded-t-lg shadow-md"
+                onClick={toggleAcordeon}
+              >
+                <span className="text-base font-semibold">Ordenes</span>
+                <i
+                  className={`bx ${
+                    isOpen ? "bx-chevron-up" : "bx-chevron-down"
+                  } text-xl transition-transform duration-300`}
+                ></i>
+              </div>
+
+              {/* Contenido del acordeón */}
+              <div
+                className={`overflow-hidden bg-[#12172e] rounded-b-lg shadow-md transition-all duration-500 ${
+                  isOpen ? "max-h-96" : "max-h-0"
+                }`}
+              >
+                {/* Botones para alternar entre "Pedidos" y "Guias" */}
+                <div className="flex flex-row py-3 gap-3">
+                  <button
+                    className={`flex-1 px-6 py-3 ${
+                      activeTab === "pedidos"
+                        ? "bg-purple-600"
+                        : "bg-purple-500 hover:bg-purple-400"
+                    } text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
+                    onClick={() => setActiveTab("pedidos")}
+                  >
+                    Pedidos
+                  </button>
+                  <button
+                    className={`flex-1 px-6 py-3 ${
+                      activeTab === "guias"
+                        ? "bg-purple-600"
+                        : "bg-purple-500 hover:bg-purple-400"
+                    } text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
+                    onClick={() => setActiveTab("guias")}
+                  >
+                    Guias
+                  </button>
+                </div>
+
+                {/* Contenido dinámico de la tabla */}
+                <div className="w-full overflow-x-auto overflow-y-auto h-80">
+                  <table className="table-auto w-full border-collapse border border-gray-700">
+                    <thead className="bg-blue-700 text-white">
+                      <tr>
+                        {activeTab === "pedidos" ? (
+                          <>
+                            <th className="border px-4 py-2 text-sm">
+                              Número Factura
+                            </th>
+                            <th className="border px-4 py-2 text-sm">
+                              Nombre Cliente
+                            </th>
+                            <th className="border px-4 py-2 text-sm">Acción</th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="border px-4 py-2 text-sm">
+                              Número Guía
+                            </th>
+                            <th className="border px-4 py-2 text-sm">Estado</th>
+                            <th className="border px-4 py-2 text-sm">Acción</th>
+                          </>
+                        )}
                       </tr>
-                    ))}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {activeTab === "pedidos"
+                        ? facturasChatSeleccionado?.map((factura, index) => (
+                            <tr
+                              key={index}
+                              className="hover:bg-blue-800 text-white text-sm"
+                            >
+                              <td className="border px-4 py-2">
+                                {factura.numero_factura}
+                              </td>
+                              <td className="border px-4 py-2">
+                                {factura.nombre}
+                              </td>
+                              <td className="border px-4 py-2">
+                                <button
+                                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                                  onClick={() =>
+                                    handleFacturaSeleccionada(factura)
+                                  }
+                                >
+                                  Ver
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        : guiasChatSeleccionado?.map((guia, index) => (
+                            <tr
+                              key={index}
+                              className="hover:bg-blue-800 text-white text-sm"
+                            >
+                              <td className="border px-4 py-2">
+                                {guia.numero_guia}
+                              </td>
+                              <td className="border px-4 py-2">
+                                {guia.estado_guia_sistema}
+                              </td>
+                              <td className="border px-4 py-2">
+                                <button
+                                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                                  onClick={() =>
+                                    handleFacturaSeleccionada(factura)
+                                  }
+                                >
+                                  Ver
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
             {/* botonn generar nuevo pedido */}
             {/* 
