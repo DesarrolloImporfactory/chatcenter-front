@@ -32,6 +32,7 @@ const Modales = ({
   toggleAsginarEtiquetaModal,
   tagListAsginadas,
   setTagListAsginadas,
+  setNumeroModal,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -787,6 +788,18 @@ const Modales = ({
     }));
   };
 
+  const generarObjetoPlaceholders = (placeholders, placeholderValues) => {
+    // Crear un objeto con claves y valores
+    const resultado = {};
+
+    placeholders.forEach((placeholder) => {
+      resultado[placeholder] =
+        placeholderValues[placeholder] || `{{${placeholder}}}`;
+    });
+
+    return resultado;
+  };
+
   // Función para enviar el template a WhatsApp
   const enviarTemplate = async () => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
@@ -850,6 +863,28 @@ const Modales = ({
         icon: "success",
         title: "Mensaje enviado correctamente",
       });
+
+      let id_recibe = selectedChat.id;
+      let mid_mensaje = dataAdmin.id_telefono;
+      let id_plataforma = userData.plataforma;
+      let telefono_configuracion = dataAdmin.telefono;
+      let ruta_archivo = generarObjetoPlaceholders(
+        placeholders,
+        placeholderValues
+      );
+
+      agregar_mensaje_enviado(
+        templateText,
+        "text",
+        JSON.stringify(ruta_archivo),
+        selectedChat.celular_cliente,
+        mid_mensaje,
+        id_recibe,
+        id_plataforma,
+        telefono_configuracion
+      );
+
+      setNumeroModal(false);
     } catch (error) {
       console.error("Error al enviar el template:", error);
       Toast.fire({

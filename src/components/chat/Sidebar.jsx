@@ -25,6 +25,7 @@ export const Sidebar = ({
   setSelectedEstado,
   selectedTransportadora,
   setSelectedTransportadora,
+  Loading,
 }) => {
   function validar_estadoLaar(estado) {
     let color = "";
@@ -289,97 +290,103 @@ export const Sidebar = ({
             </div>
           </div>
           <ul className="">
-            {/* Todos los mensajes filtrados */}
-            {filteredChats.map((mensaje, index) => {
-              // Función para validar el estado de la guía según la transportadora
-              const obtenerEstadoGuia = (transporte, estadoFactura) => {
-                switch (transporte) {
-                  case "LAAR":
-                    return validar_estadoLaar(estadoFactura);
-                  case "SERVIENTREGA":
-                    return validar_estadoServi(estadoFactura);
-                  case "GINTRACOM":
-                    return validar_estadoGintracom(estadoFactura);
-                  case "SPEED":
-                    return validar_estadoSpeed(estadoFactura);
-                  default:
-                    return { color: "", estado_guia: "" }; // No mostrar nada si es desconocido
-                }
-              };
+            {/* Verificar si no hay mensajes */}
+            {filteredChats.length === 0 ? (
+              <div className="h-64 flex justify-center items-center">
+                <Loading />
+              </div>
+            ) : (
+              filteredChats.map((mensaje, index) => {
+                // Función para validar el estado de la guía según la transportadora
+                const obtenerEstadoGuia = (transporte, estadoFactura) => {
+                  switch (transporte) {
+                    case "LAAR":
+                      return validar_estadoLaar(estadoFactura);
+                    case "SERVIENTREGA":
+                      return validar_estadoServi(estadoFactura);
+                    case "GINTRACOM":
+                      return validar_estadoGintracom(estadoFactura);
+                    case "SPEED":
+                      return validar_estadoSpeed(estadoFactura);
+                    default:
+                      return { color: "", estado_guia: "" }; // No mostrar nada si es desconocido
+                  }
+                };
 
-              // Obtener el estado de la guía
-              const { color, estado_guia } = obtenerEstadoGuia(
-                mensaje.transporte,
-                mensaje.estado_factura
-              );
+                // Obtener el estado de la guía
+                const { color, estado_guia } = obtenerEstadoGuia(
+                  mensaje.transporte,
+                  mensaje.estado_factura
+                );
 
-              return (
-                <li
-                  key={mensaje.id}
-                  className={`flex items-center justify-between p-2 hover:bg-gray-200 ${
-                    selectedChat === mensaje ? "bg-gray-200" : ""
-                  }`}
-                  onClick={() => handleSelectChat(mensaje)}
-                >
-                  <div className="flex items-center space-x-3 relative w-full sm:w-auto">
-                    <img
-                      className="rounded-full w-10 h-10 sm:w-12 sm:h-12"
-                      src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
-                      alt="Profile"
-                    />
-                    <div className="flex-1 min-w-0">
-                      {/* Nombre del cliente */}
-                      <span className="block text-black font-medium truncate">
-                        {acortarTexto(mensaje.nombre_cliente, 10, 25)}
-                      </span>
-                      {/* Número de teléfono */}
-                      <span className="text-xs sm:text-sm text-black truncate">
-                        {acortarTexto(mensaje.celular_cliente, 10, 15)}
-                      </span>
-                      {/* Texto del mensaje */}
-                      <span className="block text-xs sm:text-sm text-gray-600 truncate">
-                        {mensaje.texto_mensaje?.length > chatTemporales
-                          ? mensaje.texto_mensaje.includes("{{") &&
-                            mensaje.ruta_archivo
-                            ? mensaje.texto_mensaje
-                                .replace(/\{\{(.*?)\}\}/g, (match, key) => {
-                                  const valores = JSON.parse(
-                                    mensaje.ruta_archivo
-                                  );
-                                  return valores[key.trim()] || match;
-                                })
-                                .substring(0, chatTemporales) + "..."
-                            : mensaje.texto_mensaje.substring(
-                                0,
-                                chatTemporales
-                              ) + "..."
-                          : mensaje.texto_mensaje}
-                      </span>
+                return (
+                  <li
+                    key={mensaje.id}
+                    className={`flex items-center justify-between p-2 hover:bg-gray-200 ${
+                      selectedChat === mensaje ? "bg-gray-200" : ""
+                    }`}
+                    onClick={() => handleSelectChat(mensaje)}
+                  >
+                    <div className="flex items-center space-x-3 relative w-full sm:w-auto">
+                      <img
+                        className="rounded-full w-10 h-10 sm:w-12 sm:h-12"
+                        src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                        alt="Profile"
+                      />
+                      <div className="flex-1 min-w-0">
+                        {/* Nombre del cliente */}
+                        <span className="block text-black font-medium truncate">
+                          {acortarTexto(mensaje.nombre_cliente, 10, 25)}
+                        </span>
+                        {/* Número de teléfono */}
+                        <span className="text-xs sm:text-sm text-black truncate">
+                          {acortarTexto(mensaje.celular_cliente, 10, 15)}
+                        </span>
+                        {/* Texto del mensaje */}
+                        <span className="block text-xs sm:text-sm text-gray-600 truncate">
+                          {mensaje.texto_mensaje?.length > chatTemporales
+                            ? mensaje.texto_mensaje.includes("{{") &&
+                              mensaje.ruta_archivo
+                              ? mensaje.texto_mensaje
+                                  .replace(/\{\{(.*?)\}\}/g, (match, key) => {
+                                    const valores = JSON.parse(
+                                      mensaje.ruta_archivo
+                                    );
+                                    return valores[key.trim()] || match;
+                                  })
+                                  .substring(0, chatTemporales) + "..."
+                              : mensaje.texto_mensaje.substring(
+                                  0,
+                                  chatTemporales
+                                ) + "..."
+                            : mensaje.texto_mensaje}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col items-end justify-between ml-2 sm:ml-4">
-                    {/* Estado de la guía (arriba a la derecha) */}
-                    {estado_guia && (
-                      <span
-                        className={`text-xs sm:text-sm px-2 py-1 rounded-full text-white mb-1 ${color}`}
-                      >
-                        {estado_guia}
+                    <div className="flex flex-col items-end justify-between ml-2 sm:ml-4">
+                      {/* Estado de la guía (arriba a la derecha) */}
+                      {estado_guia && (
+                        <span
+                          className={`text-xs sm:text-sm px-2 py-1 rounded-full text-white mb-1 ${color}`}
+                        >
+                          {estado_guia}
+                        </span>
+                      )}
+                      {/* Hora del mensaje */}
+                      <span className="text-xs sm:text-sm text-gray-600">
+                        {formatFecha(mensaje.mensaje_created_at)}
                       </span>
-                    )}
-                    {/* Hora del mensaje */}
-                    <span className="text-xs sm:text-sm text-gray-600">
-                      {formatFecha(mensaje.mensaje_created_at)}
-                    </span>
-                    {/* Mensajes acumulados */}
-                    {mensaje.mensajes_pendientes > 0 && (
-                      <span className="mt-1 w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
-                        {mensaje.mensajes_pendientes}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
+                      {/* Mensajes acumulados */}
+                      {mensaje.mensajes_pendientes > 0 && (
+                        <span className="mt-1 w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+                          {mensaje.mensajes_pendientes}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })
+            )}
           </ul>
         </div>
       </div>

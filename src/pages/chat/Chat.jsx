@@ -13,6 +13,7 @@ import { Sidebar } from "../../components/chat/Sidebar";
 import ChatPrincipal from "../../components/chat/ChatPrincipal";
 import DatosUsuario from "../../components/chat/DatosUsuario";
 import Modales from "../../components/chat/Modales";
+import Loading from "../../components/chat/Loading";
 import chatApi from "../../api/chatcenter";
 
 const Chat = () => {
@@ -39,6 +40,7 @@ const Chat = () => {
   const [provincias, setProvincias] = useState(null);
   const [facturasChatSeleccionado, setFacturasChatSeleccionado] =
     useState(null);
+  const [guiasChatSeleccionado, setGuiasChatSeleccionado] = useState(null);
 
   const [seRecibioMensaje, setSeRecibioMensaje] = useState(false);
 
@@ -895,7 +897,8 @@ const Chat = () => {
       });
 
       socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
-        setFacturasChatSeleccionado(data);
+        setFacturasChatSeleccionado(data.facturas);
+        setGuiasChatSeleccionado(data.guias);
       });
 
       socketRef.current.on("CHATS", (data) => {
@@ -1080,6 +1083,7 @@ const Chat = () => {
         setSelectedEstado={setSelectedEstado}
         selectedTransportadora={selectedTransportadora}
         setSelectedTransportadora={setSelectedTransportadora}
+        Loading={Loading}
       />
       {/* todos los mensajes */}
       <ChatPrincipal
@@ -1111,6 +1115,8 @@ const Chat = () => {
         handleModal_enviarArchivos={handleModal_enviarArchivos}
         getFileIcon={getFileIcon}
         selectedChat={selectedChat}
+        setNumeroModal={setNumeroModal}
+        handleSelectPhoneNumber={handleSelectPhoneNumber}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
@@ -1121,6 +1127,8 @@ const Chat = () => {
         socketRef={socketRef}
         userData={userData}
         setFacturasChatSeleccionado={setFacturasChatSeleccionado}
+        guiasChatSeleccionado={guiasChatSeleccionado}
+        setGuiasChatSeleccionado={setGuiasChatSeleccionado}
       />
       {/* MODALES */}
       <Modales
@@ -1155,6 +1163,7 @@ const Chat = () => {
         toggleAsginarEtiquetaModal={toggleAsginarEtiquetaModal}
         tagListAsginadas={tagListAsginadas}
         setTagListAsginadas={setTagListAsginadas}
+        setNumeroModal={setNumeroModal}
       />
     </div>
   );

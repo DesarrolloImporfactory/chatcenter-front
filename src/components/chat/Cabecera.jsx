@@ -129,100 +129,113 @@ const Cabecera = ({
       </div>
 
       {/* Chat titulo */}
-      <div
-        className={`${
-          opciones == true ? "col-span-2 bg-white" : "col-span-3 bg-white"
-        } ${selectedChat === null ? "hidden sm:block" : "block"}`}
-      >
-        <div className="flex justify-between items-center space-x-3">
-          {/* Imagen, nombre y telefono */}
-          <div className="flex gap-2">
-            <button
-              className="p-1 text-[25px] block sm:hidden"
-              onClick={volver_seccion_principal}
-            >
-              <i className="bx bx-arrow-back"></i>
-            </button>
-            <img
-              className="rounded-full w-12 h-12"
-              src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
-              alt="Profile"
-            />
-            <div>
-              <span className="block text-black font-medium">
-                {chatMessages.length > 0 && selectedChat
-                  ? selectedChat?.nombre_cliente
-                  : "SELECCIONE UN CHAT"}
-              </span>
-              <span className="text-sm text-black">
-                {chatMessages.length > 0 && selectedChat
-                  ? "+" + selectedChat?.celular_cliente
-                  : "-------"}
-              </span>
-            </div>
-          </div>
-          {/* opciones */}
-          <div className="flex items-center justify-between text-xl gap-4 p-4">
-            {/* boton etiquetas */}
-            <button onClick={toggleEtiquetasMenu} ref={etiquetasMenuRef}>
-              <i className="bx bxs-purchase-tag"></i>
-            </button>
-
-            {etiquetasMenuOpen && (
-              <div className="absolute top-10 right-0 bg-white rounded shadow-lg py-2 w-40 z-50">
-                <button
-                  onClick={toggleAsginarEtiquetaModal}
-                  className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-200"
-                >
-                  Asignar etiquetas
-                </button>
-                <button
-                  type="button"
-                  className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-200"
-                  onClick={toggleCrearEtiquetaModal}
-                >
-                  Crear etiqueta
-                </button>
+      {/* Mostrar un div vacío si selectedChat es null */}
+      {selectedChat === null ? (
+        <div
+          className={`${
+            opciones == true
+              ? "col-span-2 bg-gray-100"
+              : "col-span-3 bg-gray-100"
+          } ${selectedChat === null ? "hidden sm:block" : "block"}`}
+        ></div>
+      ) : (
+        <div
+          className={`${
+            opciones == true ? "col-span-2 bg-white" : "col-span-3 bg-white"
+          } ${selectedChat === null ? "hidden sm:block" : "block"}`}
+        >
+          <div className="flex justify-between items-center space-x-3">
+            {/* Imagen, nombre y telefono */}
+            <div className="flex gap-2">
+              <button
+                className="p-1 text-[25px] block sm:hidden"
+                onClick={volver_seccion_principal}
+              >
+                <i className="bx bx-arrow-back"></i>
+              </button>
+              <img
+                className="rounded-full w-12 h-12"
+                src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                alt="Profile"
+              />
+              <div>
+                <span className="block text-black font-medium">
+                  {chatMessages.length > 0 && selectedChat
+                    ? selectedChat?.nombre_cliente
+                    : "SELECCIONE UN CHAT"}
+                </span>
+                <span className="text-sm text-black">
+                  {chatMessages.length > 0 && selectedChat
+                    ? "+" + selectedChat?.celular_cliente
+                    : "-------"}
+                </span>
               </div>
-            )}
-            {/* fin boton etiquetas */}
+            </div>
+            {/* opciones */}
+            <div className="flex items-center justify-between text-xl gap-4 p-4">
+              {/* boton etiquetas */}
+              <button onClick={toggleEtiquetasMenu} ref={etiquetasMenuRef}>
+                <i className="bx bxs-purchase-tag"></i>
+              </button>
 
-            <button onClick={handleOpciones}>
-              <i className="bx bx-info-circle"></i>
-            </button>
-          </div>
-        </div>
-
-        {/* Sección de etiquetas asignadas */}
-        <div className="flex flex-wrap gap-2 px-4 pb-4">
-          {tagList.length > 0 ? (
-            tagList
-              .filter((tag) =>
-                tagListAsginadas.some(
-                  (assignedTag) => assignedTag.id_etiqueta === tag.id_etiqueta
-                )
-              )
-              .map((tag) => (
-                <div
-                  key={tag.id_etiqueta}
-                  className="bg-gray-800 text-white text-xs font-semibold py-1 px-3 rounded-full flex items-center gap-2"
-                >
-                  <span>{tag.nombre_etiqueta}</span>
+              {etiquetasMenuOpen && (
+                <div className="absolute top-10 right-0 bg-white rounded shadow-lg py-2 w-40 z-50">
                   <button
-                    onClick={() =>
-                      toggleTagAssignment(tag.id_etiqueta, selectedChat.id)
-                    }
-                    className="text-gray-400 hover:text-gray-200"
+                    onClick={toggleAsginarEtiquetaModal}
+                    className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-200"
                   >
-                    <i className="bx bx-x text-xs"></i>
+                    Asignar etiquetas
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-200"
+                    onClick={toggleCrearEtiquetaModal}
+                  >
+                    Crear etiqueta
                   </button>
                 </div>
-              ))
-          ) : (
-            <p className="text-gray-500 text-sm">No hay etiquetas asignadas.</p>
-          )}
+              )}
+              {/* fin boton etiquetas */}
+
+              <button onClick={handleOpciones}>
+                <i className="bx bx-info-circle"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Sección de etiquetas asignadas */}
+          <div className="flex flex-wrap gap-2 px-4 pb-4">
+            {tagList.length > 0 ? (
+              tagList
+                .filter((tag) =>
+                  tagListAsginadas.some(
+                    (assignedTag) => assignedTag.id_etiqueta === tag.id_etiqueta
+                  )
+                )
+                .map((tag) => (
+                  <div
+                    key={tag.id_etiqueta}
+                    className="bg-gray-800 text-white text-xs font-semibold py-1 px-3 rounded-full flex items-center gap-2"
+                  >
+                    <span>{tag.nombre_etiqueta}</span>
+                    <button
+                      onClick={() =>
+                        toggleTagAssignment(tag.id_etiqueta, selectedChat.id)
+                      }
+                      className="text-gray-400 hover:text-gray-200"
+                    >
+                      <i className="bx bx-x text-xs"></i>
+                    </button>
+                  </div>
+                ))
+            ) : (
+              <p className="text-gray-500 text-sm">
+                No hay etiquetas asignadas.
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* datos del chat */}
       {opciones && (
