@@ -223,10 +223,16 @@ const DatosUsuario = ({
 
   useEffect(() => {
     setFacturaSeleccionada({});
+    if (facturasChatSeleccionado) {
+      if (facturasChatSeleccionado.length === 1) {
+        handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+      }
+    }
   }, [facturasChatSeleccionado]);
 
   // Manejo de selección de factura
   const handleFacturaSeleccionada = useCallback((factura) => {
+    console.log(factura);
     setFacturaSeleccionada({
       ...factura,
       provincia: factura.provincia || "",
@@ -692,7 +698,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Nombre Cliente"
                         {...register("nombreCliente")}
-                        className="p-2 border rounded w-full"
+                        className="p-1 text-sm border rounded w-full"
                       />
                     </div>
                     <div>
@@ -703,7 +709,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Telefono Cliente"
                         {...register("telefono")}
-                        className="p-2 border rounded w-full"
+                        className="p-1 text-sm border rounded w-full"
                       />
                     </div>
                     <div>
@@ -716,7 +722,7 @@ const DatosUsuario = ({
                       </label>
                       {provincias && (
                         <select
-                          className="p-2 border rounded w-full"
+                          className="p-1 text-sm border rounded w-full"
                           {...register("provincia")}
                           onChange={(e) => {
                             const nuevaProvincia = e.target.value;
@@ -746,7 +752,7 @@ const DatosUsuario = ({
                       {ciudades && (
                         <select
                           id="ciudad"
-                          className="p-2 border rounded w-full"
+                          className="p-1 text-sm border rounded w-full"
                           {...register("ciudad")}
                           onChange={(e) => {
                             const nuevaCiudad = e.target.value;
@@ -773,7 +779,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Calle principal"
                         {...register("callePrincipal")}
-                        className="p-2 border rounded w-full"
+                        className="p-1 text-sm border rounded w-full"
                       />
                     </div>
                     <div>
@@ -784,7 +790,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Calle secundaria"
                         {...register("calleSecundaria")}
-                        className="p-2 border rounded w-full"
+                        className="p-1 text-sm border rounded w-full"
                       />
                     </div>
                     <div>
@@ -795,7 +801,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Calle secundaria"
                         {...register("referencia")}
-                        className="p-2 border rounded w-full"
+                        className="p-1 text-sm border rounded w-full"
                       />
                     </div>
                     <div>
@@ -806,7 +812,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Calle secundaria"
                         {...register("observacion")}
-                        className="p-2 border rounded w-full"
+                        className="p-1 text-sm border rounded w-full"
                       />
                     </div>
                     <div className="col-span-2">
@@ -817,7 +823,7 @@ const DatosUsuario = ({
                         name="cod"
                         {...register("cod_entrega")}
                         id="cod_entrega"
-                        className="p-2 border rounded w-full"
+                        className="p-1 text-sm border rounded w-full"
                       >
                         <option value="1">Con recaudo</option>
                         <option value="2">SIn recaudo</option>
@@ -874,7 +880,7 @@ const DatosUsuario = ({
                     {/* Acordeon de productos */}
                     <div className="col-span-2 ">
                       <button
-                        className="flex justify-between w-full text-left py-3 px-3 bg-[#171931] text-white rounded-t-lg"
+                        className="flex justify-between w-full text-left py-2 px-2 bg-[#171931] text-white rounded-t-lg"
                         onClick={handleAccordionToggle}
                         type="button"
                       >
@@ -882,7 +888,7 @@ const DatosUsuario = ({
                         <span>{isAccordionOpen ? "▲" : "▼"}</span>
                       </button>
                       {isAccordionOpen && (
-                        <div className="p-2 border border-gray-200 rounded-b-lg bg-white">
+                        <div className="p-1 text-sm border border-gray-200 rounded-b-lg bg-white">
                           <ul>
                             {/* Mapea los productos de tu factura seleccionada */}
                             {facturaSeleccionada.productos?.map(
@@ -933,7 +939,7 @@ const DatosUsuario = ({
                                               <input
                                                 type="number"
                                                 value={producto.cantidad}
-                                                className="p-2 border border-b border-gray-200 w-12 text-[0.65rem] md:text-[0.75rem] text-center"
+                                                className="p-1 text-sm border border-b border-gray-200 w-12 text-[0.65rem] md:text-[0.75rem] text-center"
                                                 id={`cantidad${producto.id_detalle}`}
                                                 onChange={() =>
                                                   handleCambioValores(
