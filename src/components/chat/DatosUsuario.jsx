@@ -598,6 +598,7 @@ const DatosUsuario = ({
         });
         setFacturaSeleccionada({});
         recargarPedido();
+        setGuiaSeleccionada(false);
       }
     } catch (error) {
       console.error("Error al anular la guía de Laar:", error);
