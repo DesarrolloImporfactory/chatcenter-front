@@ -86,6 +86,12 @@ const DatosUsuario = ({
     formulario.append("total_venta", facturaSeleccionada.monto_factura || 0);
     formulario.append("transportadora", transportadora);
     formulario.append("costo_flete", getValues("precio_envio") || 0);
+
+    formulario.append(
+      "url_google_speed_pedido",
+      getValues("url_google_speed_pedido") || ""
+    );
+
     if (transportadora === 4) {
       formulario.append(
         "contiene",
@@ -165,6 +171,7 @@ const DatosUsuario = ({
   const [productosAdicionales, setProductosAdicionales] = useState([]);
   const [paginaActual, setPaginaActual] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
+  const [modal_google_maps, setModal_google_maps] = useState(false);
 
   const productosPorPagina = 5; // Define cuántos productos mostrar por página
   const images = [
@@ -261,6 +268,8 @@ const DatosUsuario = ({
     if (facturasChatSeleccionado) {
       if (facturasChatSeleccionado.length === 1) {
         handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+      } else if (guiasChatSeleccionado.length === 1) {
+        handleGuiaSeleccionada(guiasChatSeleccionado[0]);
       }
     }
   }, [facturasChatSeleccionado]);
@@ -375,6 +384,13 @@ const DatosUsuario = ({
   const handleImageClick = (id) => {
     setSelectedImageId(id);
     setValue("transportadora", id);
+
+    if (id == 3) {
+      setModal_google_maps(true);
+    }
+    const data_flete = document.getElementById("flete_" + id).innerHTML;
+
+    setValue("precio_envio", data_flete);
   };
 
   // Actualización de valores en el servidor
@@ -544,6 +560,46 @@ const DatosUsuario = ({
       );
     } else {
       console.error("Transportadora desconocida");
+    }
+  };
+
+  const anular_guia = async (numero_guia, accion) => {
+    const formData = new FormData();
+    if (accion == "guia") {
+      formData.append("guia", numero_guia);
+    } else if (accion == "pedido") {
+      formData.append("guia", "MANUAL");
+      formData.append("numero_factura", numero_guia);
+    }
+
+    try {
+      const response = await fetch(
+        `https://new.imporsuitpro.com/api/anularGuias`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.status === 500) {
+        Toast.fire({
+          title: "ERROR",
+          icon: "error",
+          text: "Error al anular guia.",
+        });
+      } else if (data.status === 200) {
+        Toast.fire({
+          title: "Éxito",
+          icon: "success",
+          text: "La Guía se anulo correctamente.",
+        });
+        setFacturaSeleccionada({});
+      }
+    } catch (error) {
+      console.error("Error al anular la guía de Laar:", error);
+      alert(error.message);
     }
   };
 
@@ -942,7 +998,7 @@ const DatosUsuario = ({
                     </div>
                   </div>
 
-                  <div className="border-t pt-4">
+                  <div className="border-t pt-4 pb-3">
                     <h3 className="text-gray-600 font-semibold text-sm">
                       Dirección
                     </h3>
@@ -956,6 +1012,13 @@ const DatosUsuario = ({
                         provinciaCiudad.ciudad}
                     </p>
                   </div>
+
+                  <button
+                    className="bg-red-500 text-white rounded w-28 h-12 flex items-center justify-center"
+                    onClick={anular_guia(guiaSeleccionada.numero_guia, "guia")}
+                  >
+                    Anular
+                  </button>
                 </div>
               )}
             </div>
@@ -1218,7 +1281,7 @@ const DatosUsuario = ({
                               } hover:scale-105 hover:shadow-lg hover:grayscale-0 rounded-t-md`}
                               onClick={() => handleImageClick(image.id)}
                             />
-                            {/* precio de flete */}
+                            {/* Precio de Flete */}
                             <div className="text-center bg-black/90 text-white rounded-b-md">
                               {tarifas ? (
                                 <span
@@ -1233,15 +1296,17 @@ const DatosUsuario = ({
                                   }`}
                                 >
                                   $
-                                  {image.id === 1
-                                    ? tarifas.servientrega
-                                    : image.id === 2
-                                    ? tarifas.laar
-                                    : image.id === 3
-                                    ? tarifas.speed
-                                    : image.id === 4
-                                    ? tarifas.gintracom
-                                    : 0}
+                                  <p id={`flete_${image.id}`}>
+                                    {image.id === 1
+                                      ? tarifas.servientrega
+                                      : image.id === 2
+                                      ? tarifas.laar
+                                      : image.id === 3
+                                      ? tarifas.speed
+                                      : image.id === 4
+                                      ? tarifas.gintracom
+                                      : 0}
+                                  </p>
                                 </span>
                               ) : (
                                 <span className="text-sm">0</span>
@@ -1250,7 +1315,44 @@ const DatosUsuario = ({
                           </div>
                         ))}
                       </div>
+
+                      {/* Modal Google Maps */}
+                      {modal_google_maps && (
+                        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+                          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                            <h2 className="text-lg font-bold text-gray-800 mb-4">
+                              Google Maps Link
+                            </h2>
+                            <div>
+                              {/* Input para el link */}
+                              <input
+                                type="text"
+                                placeholder="Pega el link de Google Maps aquí"
+                                className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                                {...register("url_google_speed_pedido")}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              {/* Botón Cancelar */}
+                              <button
+                                onClick={() => setModal_google_maps(false)} // Cierra el modal sin guardar
+                                className="px-4 py-2 bg-gray-300 text-black text-sm rounded-md hover:bg-gray-400"
+                              >
+                                Cancelar
+                              </button>
+                              {/* Botón Guardar */}
+                              <button
+                                onClick={() => setModal_google_maps(false)}
+                                className="px-4 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600"
+                              >
+                                Guardar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
+
                     {/* Acordeon de productos */}
                     <div className="col-span-2 ">
                       <button
@@ -1445,6 +1547,14 @@ const DatosUsuario = ({
                     onClick={handleGenerarGuia}
                   >
                     Generar Guía
+                  </button>
+                  <button
+                    className="bg-orange-500 text-white rounded w-28 h-12 flex items-center justify-center"
+                    onClick={() =>
+                      anular_guia(facturaSeleccionada.numero_factura, "pedido")
+                    }
+                  >
+                    Cancelar Pedido
                   </button>
                   <button
                     className="bg-red-500 text-white rounded w-28 h-12 flex items-center justify-center"

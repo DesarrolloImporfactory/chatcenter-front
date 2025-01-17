@@ -68,11 +68,11 @@ const ChatPrincipal = ({
           <div className="flex justify-center items-center h-full">
             {/* Aquí puedes agregar una imagen o contenido más adelante */}
             {/* Ejemplo: */}
-            {/* <img
-              src="https://via.placeholder.com/150"
+            <img
+              src="https://new.imporsuitpro.com/public/img/banner_chat_center.gif"
               alt="Sin chat seleccionado"
-              className="w-40 h-40"
-            /> */}
+              className="w-[38em]"
+            />
           </div>
         ) : (
           <div className="flex flex-col h-[calc(100vh_-_130px)] relative">
