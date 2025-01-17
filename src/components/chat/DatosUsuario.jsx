@@ -597,7 +597,7 @@ const DatosUsuario = ({
           text: "La Guía se anulo correctamente.",
         });
         setFacturaSeleccionada({});
-          recargarPedido();
+        recargarPedido();
       }
     } catch (error) {
       console.error("Error al anular la guía de Laar:", error);
@@ -605,11 +605,12 @@ const DatosUsuario = ({
     }
   };
 
-  const recargarPedido =() => {
+  const recargarPedido = () => {
     socketRef.current.emit("GET_FACTURAS", {
       id_plataforma: userData.plataforma,
       telefono: selectedChat.celular_cliente,
     });
+  };
   return (
     <>
       {opciones && (
@@ -1022,7 +1023,9 @@ const DatosUsuario = ({
 
                   <button
                     className="bg-red-500 text-white rounded w-28 h-12 flex items-center justify-center"
-                    onClick={ () =>anular_guia(guiaSeleccionada.numero_guia, "guia")}
+                    onClick={() =>
+                      anular_guia(guiaSeleccionada.numero_guia, "guia")
+                    }
                   >
                     Anular
                   </button>
