@@ -597,10 +597,7 @@ const DatosUsuario = ({
           text: "La Guía se anulo correctamente.",
         });
         setFacturaSeleccionada({});
-        socketRef.current.emit("GET_FACTURAS", {
-          id_plataforma: userData.plataforma,
-          telefono: selectedChat.celular_cliente,
-        });
+          recargarPedido();
       }
     } catch (error) {
       console.error("Error al anular la guía de Laar:", error);
@@ -608,6 +605,11 @@ const DatosUsuario = ({
     }
   };
 
+  const recargarPedido =() => {
+    socketRef.current.emit("GET_FACTURAS", {
+      id_plataforma: userData.plataforma,
+      telefono: selectedChat.celular_cliente,
+    });
   return (
     <>
       {opciones && (
