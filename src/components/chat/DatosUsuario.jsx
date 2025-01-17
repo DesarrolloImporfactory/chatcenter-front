@@ -218,13 +218,36 @@ const DatosUsuario = ({
     setIsAccordionOpen(!isAccordionOpen);
   };
   const agregarProducto = (producto) => {
-    setFacturaSeleccionada((prev) => ({
-      ...prev,
-      productos: [
-        ...prev.productos,
-        { ...producto, cantidad: 1, total: producto.precio },
-      ],
-    }));
+    const formData1 = new FormData();
+    formData1.append("id_factura", facturaSeleccionada.id_factura);
+    formData1.append("id_producto", producto.id_producto);
+    formData1.append("id_inventario", producto.id_inventario);
+    formData1.append("sku", producto.sku);
+    formData1.append("cantidad", 1);
+    formData1.append("precio", producto.pvp);
+
+    axios
+      .post("https://new.imporsuitpro.com/api/agregarProducto", formData1)
+      .then((response) => {
+        console.log(response);
+
+        // Actualizar estado para reflejar el cambio
+        setFacturaSeleccionada((prevState) => ({
+          ...prevState,
+          productos: [
+            ...prevState.productos,
+            {
+              ...producto,
+              cantidad: 1, // Cantidad inicial
+              precio_venta: producto.pvp, // Usar el precio del producto
+              total: producto.pvp * 1, // Total inicial
+            },
+          ],
+        }));
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   };
 
   useEffect(() => {
@@ -235,6 +258,11 @@ const DatosUsuario = ({
 
   useEffect(() => {
     setFacturaSeleccionada({});
+    if (facturasChatSeleccionado) {
+      if (facturasChatSeleccionado.length === 1) {
+        handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+      }
+    }
   }, [facturasChatSeleccionado]);
 
   // Manejo de selección de factura
@@ -456,7 +484,43 @@ const DatosUsuario = ({
       console.error("Transportadora desconocida");
     }
   };
-
+  const eliminar = (id) => {
+    Swal.fire({
+      title: "¿Estás seguro?",
+      text: "¡No podrás revertir esto!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Sí, eliminar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        let formData = new FormData();
+        formData.append("id_detalle", id);
+        axios
+          .post("https://new.imporsuitpro.com/api/eliminarProducto", formData)
+          .then((response) => {
+            console.log(response);
+            // Actualizar estado para reflejar el cambio
+            setFacturaSeleccionada((prevState) => ({
+              ...prevState,
+              productos: prevState.productos.filter(
+                (producto) => producto.id_detalle !== id
+              ),
+            }));
+            Swal.fire("Eliminado", "El producto ha sido eliminado.", "success");
+          })
+          .catch((error) => {
+            console.error(error);
+            Swal.fire(
+              "Error",
+              "Ocurrió un error al intentar eliminar el producto.",
+              "error"
+            );
+          });
+      }
+    });
+  };
   const imprimir_guia = () => {
     if (guiaSeleccionada.transporte === "SERVIENTREGA") {
       window.open(
@@ -1198,209 +1262,178 @@ const DatosUsuario = ({
                         <span>{isAccordionOpen ? "▲" : "▼"}</span>
                       </button>
                       {isAccordionOpen && (
-                        <div className="p-2 border border-gray-200 rounded-b-lg bg-white">
-                          <ul>
-                            {/* Mapea los productos de tu factura seleccionada */}
-                            {facturaSeleccionada.productos?.map(
-                              (producto, index) => (
-                                <li
-                                  key={index}
-                                  className="flex justify-between border-b"
-                                >
-                                  <input
-                                    type="hidden"
-                                    id={`producto${producto.id_detalle}`}
-                                    value={producto.id_detalle}
-                                  />
-                                  <input
-                                    type="hidden"
-                                    id={`sku${producto.id_detalle}`}
-                                    value={producto.sku}
-                                  />
-                                  <div className="overflow-x-auto">
-                                    <table className="table-auto w-full">
-                                      <thead>
-                                        <tr>
-                                          <th className="border px-2 py-2 text-xs md:px-4 w-full md:text-sm">
-                                            Nombre
-                                          </th>
-                                          <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                                            Cantidad
-                                          </th>
-                                          <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                                            Precio
-                                          </th>
-                                          <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                                            Total
-                                          </th>
-                                          <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                                            Borrar
-                                          </th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        <tr className="">
-                                          <td className="border px-2 md:px-4 py-2 text-[0.65rem] w-full md:text-[0.75rem]">
-                                            {producto.nombre_producto}
-                                          </td>
-                                          <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                                            <div className="flex items-center space-x-1">
-                                              {/* Input de Cantidad */}
-                                              <input
-                                                type="number"
-                                                value={producto.cantidad}
-                                                className="p-2 border border-b border-gray-200 w-12 text-[0.65rem] md:text-[0.75rem] text-center"
-                                                id={`cantidad${producto.id_detalle}`}
-                                                onChange={() =>
-                                                  handleCambioValores(
-                                                    producto.id_detalle
-                                                  )
-                                                }
-                                              />
-                                              <div className="grid">
-                                                {/* Botón de Incremento */}
-                                                <button
-                                                  type="button"
-                                                  className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-r border border-gray-200"
-                                                  aria-label="Increase"
-                                                  onClick={() => {
-                                                    handleCantidadChange(
-                                                      producto,
-                                                      1
-                                                    );
-                                                    handleSetTarifas();
-                                                  }}
-                                                >
-                                                  <svg
-                                                    className="w-4 h-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="24"
-                                                    height="24"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                  >
-                                                    <path d="M5 12h14"></path>
-                                                    <path d="M12 5v14"></path>
-                                                  </svg>
-                                                </button>
-                                                {/* Botón de Decremento */}
-
-                                                <button
-                                                  type="button"
-                                                  className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-l border border-gray-200"
-                                                  aria-label="Decrease"
-                                                  onClick={() => {
-                                                    handleCantidadChange(
-                                                      producto,
-                                                      -1
-                                                    );
-                                                    handleSetTarifas();
-                                                  }}
-                                                >
-                                                  <svg
-                                                    className="w-4 h-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="24"
-                                                    height="24"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                  >
-                                                    <path d="M5 12h14"></path>
-                                                  </svg>
-                                                </button>
-                                              </div>
-                                            </div>
-                                          </td>
-
-                                          <td className="border relative px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                              <span className="text-gray-500 sm:text-sm">
-                                                $
-                                              </span>
-                                            </div>
-                                            <input
-                                              type="text"
-                                              value={producto.precio_venta}
-                                              className="py-2 px-3 border rounded w-16   text-[0.65rem] md:text-[0.75rem]"
-                                              id={`precio${producto.id_detalle}`}
-                                              onChange={(e) =>
-                                                handlePrecioChange(
-                                                  producto,
-                                                  e.target.value
-                                                )
-                                              }
-                                            />
-                                          </td>
-
-                                          <td className="border relative px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                              <span className="text-gray-500 sm:text-sm">
-                                                $
-                                              </span>
-                                            </div>
-                                            <input
-                                              type="text"
-                                              value={
-                                                producto.precio_venta *
-                                                producto.cantidad
-                                              }
-                                              className="py-2 px-3 border rounded w-16    text-[0.65rem] md:text-[0.75rem]"
-                                              readOnly
-                                              id={`total${producto.id_detalle}`}
-                                            />
-                                          </td>
-                                          <td className="border px-2 md:px-4 py-2 text-center">
+                        <div className="p-1 text-sm border border-gray-200 rounded-b-lg bg-white">
+                          {/* Estructura de la tabla */}
+                          <div className="overflow-x-auto">
+                            <table className="table-auto w-full">
+                              <thead>
+                                <tr>
+                                  <th className="border px-2 py-2 text-xs md:px-4 w-full md:text-sm">
+                                    Nombre
+                                  </th>
+                                  <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                    Cantidad
+                                  </th>
+                                  <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                    Precio
+                                  </th>
+                                  <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                    Total
+                                  </th>
+                                  <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                    Borrar
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {/* Mapeo para las filas de productos */}
+                                {facturaSeleccionada.productos?.map(
+                                  (producto, index) => (
+                                    <tr key={index}>
+                                      <td className="border px-2 md:px-4 py-2 text-[0.65rem] w-full md:text-[0.75rem]">
+                                        {producto.nombre_producto}
+                                      </td>
+                                      <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                                        <div className="flex items-center space-x-1">
+                                          {/* Input de Cantidad */}
+                                          <input
+                                            type="number"
+                                            value={producto.cantidad}
+                                            className="p-1 text-sm border border-gray-200 w-12 text-center text-[0.65rem] md:text-[0.75rem]"
+                                            id={`cantidad${producto.id_detalle}`}
+                                            onChange={() =>
+                                              handleCambioValores(
+                                                producto.id_detalle
+                                              )
+                                            }
+                                          />
+                                          <div className="grid">
+                                            {/* Botón de Incremento */}
                                             <button
-                                              className="bg-red-500 text-white rounded p-1 w-full md:w-auto"
-                                              onClick={() =>
-                                                eliminar(producto.id_detalle)
-                                              }
+                                              type="button"
+                                              className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-r border border-gray-200"
+                                              aria-label="Increase"
+                                              onClick={() => {
+                                                handleCantidadChange(
+                                                  producto,
+                                                  1
+                                                );
+                                                handleSetTarifas();
+                                              }}
                                             >
-                                              <i className="bx bx-trash"></i>
+                                              <svg
+                                                className="w-4 h-4"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="24"
+                                                height="24"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                              >
+                                                <path d="M5 12h14"></path>
+                                                <path d="M12 5v14"></path>
+                                              </svg>
                                             </button>
-                                          </td>
-                                        </tr>
-                                      </tbody>
-                                    </table>
-                                    <button
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        setIsModalOpen(true);
-                                      }}
-                                      className="bg-green-500 text-white text-xs rounded px-4 py-2 mt-2 w-full md:w-auto "
-                                    >
-                                      Añadir Producto
-                                    </button>
-                                    <div className="flex justify-between mt-3">
-                                      <p className="text-lg font-semibold">
-                                        Total Final:
-                                      </p>
+                                            {/* Botón de Decremento */}
+                                            <button
+                                              type="button"
+                                              className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-l border border-gray-200"
+                                              aria-label="Decrease"
+                                              onClick={() => {
+                                                handleCantidadChange(
+                                                  producto,
+                                                  -1
+                                                );
+                                                handleSetTarifas();
+                                              }}
+                                            >
+                                              <svg
+                                                className="w-4 h-4"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="24"
+                                                height="24"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                              >
+                                                <path d="M5 12h14"></path>
+                                              </svg>
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                                        <input
+                                          type="text"
+                                          value={producto.precio_venta}
+                                          className="py-2 px-3 border rounded w-16 text-[0.65rem] md:text-[0.75rem]"
+                                          id={`precio${producto.id_detalle}`}
+                                          onChange={(e) =>
+                                            handlePrecioChange(
+                                              producto,
+                                              e.target.value
+                                            )
+                                          }
+                                        />
+                                      </td>
+                                      <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                                        <input
+                                          type="text"
+                                          value={
+                                            producto.precio_venta *
+                                            producto.cantidad
+                                          }
+                                          className="py-2 px-3 border rounded w-16 text-[0.65rem] md:text-[0.75rem]"
+                                          readOnly
+                                          id={`total${producto.id_detalle}`}
+                                        />
+                                      </td>
+                                      <td className="border px-2 md:px-4 py-2 text-center">
+                                        <button
+                                          className="bg-red-500 text-white rounded p-1 w-full md:w-auto"
+                                          onClick={() =>
+                                            eliminar(producto.id_detalle)
+                                          }
+                                        >
+                                          <i className="bx bx-trash"></i>
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  )
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
 
-                                      <span id="total">{total.toFixed(2)}</span>
-                                      <input
-                                        type="hidden"
-                                        id="factura"
-                                        value={facturaSeleccionada.id_factura}
-                                      />
-                                      <input
-                                        type="hidden"
-                                        id="factura"
-                                        value={facturaSeleccionada.id_factura}
-                                      />
-                                    </div>
-                                  </div>
-                                </li>
-                              )
-                            )}
-                          </ul>
+                          {/* Botón para añadir producto */}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setIsModalOpen(true);
+                            }}
+                            className="bg-green-500 text-white text-xs rounded px-4 py-2 mt-2 w-full md:w-auto"
+                          >
+                            Añadir Producto
+                          </button>
+
+                          {/* Total final */}
+                          <div className="flex justify-between mt-3">
+                            <p className="text-lg font-semibold">
+                              Total Final:
+                            </p>
+                            <span id="total">{total.toFixed(2)}</span>
+                            <input
+                              type="hidden"
+                              id="factura"
+                              value={facturaSeleccionada.id_factura}
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
