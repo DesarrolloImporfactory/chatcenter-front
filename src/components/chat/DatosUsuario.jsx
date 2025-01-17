@@ -17,6 +17,11 @@ const DatosUsuario = ({
   validar_estadoServi,
   validar_estadoGintracom,
   validar_estadoSpeed,
+  guiaSeleccionada,
+  setGuiaSeleccionada,
+  provinciaCiudad,
+  setProvinciaCiudad,
+  handleGuiaSeleccionada,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -160,6 +165,7 @@ const DatosUsuario = ({
   const [productosAdicionales, setProductosAdicionales] = useState([]);
   const [paginaActual, setPaginaActual] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
+
   const productosPorPagina = 5; // Define cuántos productos mostrar por página
   const images = [
     {
@@ -229,16 +235,10 @@ const DatosUsuario = ({
 
   useEffect(() => {
     setFacturaSeleccionada({});
-    if (facturasChatSeleccionado) {
-      if (facturasChatSeleccionado.length === 1) {
-        handleFacturaSeleccionada(facturasChatSeleccionado[0]);
-      }
-    }
   }, [facturasChatSeleccionado]);
 
   // Manejo de selección de factura
   const handleFacturaSeleccionada = useCallback((factura) => {
-    console.log(factura);
     setFacturaSeleccionada({
       ...factura,
       provincia: factura.provincia || "",
@@ -422,6 +422,67 @@ const DatosUsuario = ({
     }
   }, [facturaSeleccionada.productos]);
 
+  // Función para obtener el estado y estilo dinámico
+  const obtenerEstadoGuia = (transporte, estado) => {
+    switch (transporte) {
+      case "LAAR":
+        return validar_estadoLaar(estado);
+      case "SERVIENTREGA":
+        return validar_estadoServi(estado);
+      case "GINTRACOM":
+        return validar_estadoGintracom(estado);
+      case "SPEED":
+        return validar_estadoSpeed(estado);
+      default:
+        return { color: "", estado_guia: "" }; // Estado desconocido
+    }
+  };
+
+  const tracking_guia = () => {
+    if (guiaSeleccionada.transporte === "SERVIENTREGA") {
+      window.open(
+        `https://www.servientrega.com.ec/Tracking/?guia=${guiaSeleccionada.numero_guia}&tipo=GUIA`,
+        "_blank"
+      );
+    } else if (guiaSeleccionada.transporte === "LAAR") {
+      window.open(
+        `https://fenixoper.laarcourier.com/Tracking/Guiacompleta.aspx?guia=${guiaSeleccionada.numero_guia}`,
+        "_blank"
+      );
+    } else if (guiaSeleccionada.transporte === "GINTRACOM") {
+      window.open(`https://ec.gintracom.site/web/site/tracking`, "_blank");
+    } else if (guiaSeleccionada.transporte === "SPEED") {
+    } else {
+      console.error("Transportadora desconocida");
+    }
+  };
+
+  const imprimir_guia = () => {
+    if (guiaSeleccionada.transporte === "SERVIENTREGA") {
+      window.open(
+        `https://guias.imporsuitpro.com/Servientrega/guia/${guiaSeleccionada.numero_guia}`,
+        "_blank"
+      );
+    } else if (guiaSeleccionada.transporte === "LAAR") {
+      window.open(
+        `https://api.laarcourier.com:9727/guias/pdfs/DescargarV2?guia=${guiaSeleccionada.numero_guia}`,
+        "_blank"
+      );
+    } else if (guiaSeleccionada.transporte === "GINTRACOM") {
+      window.open(
+        `https://guias.imporsuitpro.com/Gintracom/label/${guiaSeleccionada.numero_guia}`,
+        "_blank"
+      );
+    } else if (guiaSeleccionada.transporte === "SPEED") {
+      window.open(
+        `https://guias.imporsuitpro.com/Speed/descargar/${guiaSeleccionada.numero_guia}`,
+        "_blank"
+      );
+    } else {
+      console.error("Transportadora desconocida");
+    }
+  };
+
   return (
     <>
       {opciones && (
@@ -559,7 +620,7 @@ const DatosUsuario = ({
             </div>
           )}
 
-          <div className="flex justify-center overflow-y-auto h-full md:h-[600px]">
+          <div className="flex justify-center overflow-y-auto h-full md:h-[750px]">
             <div className="w-full max-w-3xl mx-auto">
               {/* Botón del acordeón */}
               <div
@@ -655,33 +716,184 @@ const DatosUsuario = ({
                               </td>
                             </tr>
                           ))
-                        : guiasChatSeleccionado?.map((guia, index) => (
-                            <tr
-                              key={index}
-                              className="hover:bg-blue-800 text-white text-sm"
-                            >
-                              <td className="border px-4 py-2">
-                                {guia.numero_guia}
-                              </td>
-                              <td className="border px-4 py-2">
-                                {guia.estado_guia_sistema}
-                              </td>
-                              <td className="border px-4 py-2">
-                                <button
-                                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                                  onClick={() =>
-                                    handleFacturaSeleccionada(factura)
-                                  }
-                                >
-                                  Ver
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                        : guiasChatSeleccionado?.map((guia, index) => {
+                            // Llamar a la función con los parámetros correctos
+                            const { color, estado_guia } = obtenerEstadoGuia(
+                              guia.transporte, // El sistema (LAAR, SERVIENTREGA, etc.)
+                              guia.estado_guia_sistema // El estado numérico
+                            );
+
+                            return (
+                              <tr
+                                key={index}
+                                className="hover:bg-blue-800 text-white text-sm"
+                              >
+                                <td className="border px-4 py-2">
+                                  {guia.numero_guia}
+                                </td>
+                                <td className="border px-4 py-2">
+                                  {/* Mostrar el estado dinámico con estilo */}
+                                  <span
+                                    className={`text-xs sm:text-sm px-2 py-1 rounded-full ${color}`}
+                                  >
+                                    {estado_guia}
+                                  </span>
+                                </td>
+                                <td className="border px-4 py-2">
+                                  <button
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                                    onClick={() => handleGuiaSeleccionada(guia)}
+                                  >
+                                    Ver
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                     </tbody>
                   </table>
                 </div>
               </div>
+              {/* Sección de detalles de la guía */}
+              {guiaSeleccionada && (
+                <div className="mt-4 bg-white shadow-md rounded-lg p-6 overflow-y-auto max-h-screen">
+                  <div className="relative flex flex-col justify-between items-start mb-4">
+                    {/* Botones de Acciones */}
+                    <div className="flex flex-col gap-2 absolute right-1 top-1">
+                      {/* Botón de Tracking */}
+                      <button
+                        className="flex items-center gap-2 px-3 py-1 border border-blue-500 text-blue-500 text-xs rounded-md transition-all hover:bg-blue-500 hover:text-white"
+                        onClick={tracking_guia}
+                      >
+                        <i className="bx bx-file-find text-xl"></i>
+                      </button>
+
+                      {/* Botón de Ver */}
+                      <button
+                        className="flex items-center gap-2 px-3 py-1 border border-blue-500 text-blue-500 text-xs rounded-md transition-all hover:bg-blue-500 hover:text-white"
+                        onClick={imprimir_guia}
+                      >
+                        <i className="bx bx-printer text-xl"></i>
+                      </button>
+                    </div>
+
+                    {/* Información de la Orden */}
+                    <h2 className="text-lg font-bold text-gray-700 my-2">
+                      Orden: #{guiaSeleccionada.numero_factura}
+                    </h2>
+
+                    {/* Estado Dinámico */}
+                    {(() => {
+                      const { color, estado_guia } = obtenerEstadoGuia(
+                        guiaSeleccionada.transporte,
+                        guiaSeleccionada.estado_guia_sistema
+                      );
+                      return (
+                        <span
+                          className={`text-sm px-2 py-1 rounded-full ${color}`}
+                        >
+                          {estado_guia}
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="mb-4">
+                    <p className="text-gray-500 text-sm">
+                      <strong>Fecha de la Guia:</strong>{" "}
+                      {new Date(guiaSeleccionada.fecha_guia).toLocaleDateString(
+                        "es-EC",
+                        {
+                          year: "numeric",
+                          month: "numeric",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "numeric",
+                        }
+                      ) || "Sin Fecha"}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      <strong>Transportadora:</strong>{" "}
+                      {guiaSeleccionada.transporte || "Sin Transporte"}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      <strong>Numero de guia:</strong>{" "}
+                      {guiaSeleccionada.numero_guia || "Sin Transporte"}
+                    </p>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="text-gray-600 font-semibold text-sm">
+                      Productos ({guiaSeleccionada.productos?.length || 0})
+                    </h3>
+                    {guiaSeleccionada.productos?.map((producto, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center text-gray-700 text-sm mt-2"
+                      >
+                        {/* Cantidad x Nombre del Producto */}
+                        <span className="flex-1">
+                          {producto.cantidad} x {producto.nombre_producto}
+                        </span>
+
+                        {/* Precio */}
+                        <span className="font-semibold">
+                          ${producto.precio_venta.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="text-gray-600 font-semibold text-sm">
+                      Totales
+                    </h3>
+
+                    {/* Subtotal */}
+                    <div className="flex justify-between text-gray-700 text-sm mt-2">
+                      <span>Subtotal:</span>
+                      <span>
+                        ${guiaSeleccionada.monto_factura?.toFixed(2) || "0.00"}
+                      </span>
+                    </div>
+
+                    {/* Costo de Envío */}
+                    <div className="flex justify-between text-gray-700 text-sm mt-2">
+                      <span>Costo de Envío:</span>
+                      <span>
+                        ${guiaSeleccionada.costo_flete?.toFixed(2) || "0.00"}
+                      </span>
+                    </div>
+
+                    {/* Total */}
+                    <div className="flex justify-between text-gray-700 text-sm mt-2 font-bold">
+                      <span>Total:</span>
+                      <span>
+                        $
+                        {(
+                          (guiaSeleccionada.monto_factura || 0) -
+                          (guiaSeleccionada.costo_flete || 0)
+                        ).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="text-gray-600 font-semibold text-sm">
+                      Dirección
+                    </h3>
+                    <p className="text-gray-700 text-sm mt-2">
+                      {(guiaSeleccionada.c_principal || "") +
+                        ", " +
+                        (guiaSeleccionada.c_secundaria || "") +
+                        ", " +
+                        provinciaCiudad.provincia +
+                        " - " +
+                        provinciaCiudad.ciudad}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             {/* botonn generar nuevo pedido */}
             {/* 
@@ -796,7 +1008,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Nombre Cliente"
                         {...register("nombreCliente")}
-                        className="p-1 text-sm border rounded w-full"
+                        className="p-2 border rounded w-full"
                       />
                     </div>
                     <div>
@@ -807,7 +1019,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Telefono Cliente"
                         {...register("telefono")}
-                        className="p-1 text-sm border rounded w-full"
+                        className="p-2 border rounded w-full"
                       />
                     </div>
                     <div>
@@ -820,7 +1032,7 @@ const DatosUsuario = ({
                       </label>
                       {provincias && (
                         <select
-                          className="p-1 text-sm border rounded w-full"
+                          className="p-2 border rounded w-full"
                           {...register("provincia")}
                           onChange={(e) => {
                             const nuevaProvincia = e.target.value;
@@ -850,7 +1062,7 @@ const DatosUsuario = ({
                       {ciudades && (
                         <select
                           id="ciudad"
-                          className="p-1 text-sm border rounded w-full"
+                          className="p-2 border rounded w-full"
                           {...register("ciudad")}
                           onChange={(e) => {
                             const nuevaCiudad = e.target.value;
@@ -877,7 +1089,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Calle principal"
                         {...register("callePrincipal")}
-                        className="p-1 text-sm border rounded w-full"
+                        className="p-2 border rounded w-full"
                       />
                     </div>
                     <div>
@@ -888,7 +1100,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Calle secundaria"
                         {...register("calleSecundaria")}
-                        className="p-1 text-sm border rounded w-full"
+                        className="p-2 border rounded w-full"
                       />
                     </div>
                     <div>
@@ -899,7 +1111,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Calle secundaria"
                         {...register("referencia")}
-                        className="p-1 text-sm border rounded w-full"
+                        className="p-2 border rounded w-full"
                       />
                     </div>
                     <div>
@@ -910,7 +1122,7 @@ const DatosUsuario = ({
                         type="text"
                         placeholder="Calle secundaria"
                         {...register("observacion")}
-                        className="p-1 text-sm border rounded w-full"
+                        className="p-2 border rounded w-full"
                       />
                     </div>
                     <div className="col-span-2">
@@ -921,7 +1133,7 @@ const DatosUsuario = ({
                         name="cod"
                         {...register("cod_entrega")}
                         id="cod_entrega"
-                        className="p-1 text-sm border rounded w-full"
+                        className="p-2 border rounded w-full"
                       >
                         <option value="1">Con recaudo</option>
                         <option value="2">SIn recaudo</option>
@@ -978,7 +1190,7 @@ const DatosUsuario = ({
                     {/* Acordeon de productos */}
                     <div className="col-span-2 ">
                       <button
-                        className="flex justify-between w-full text-left py-2 px-2 bg-[#171931] text-white rounded-t-lg"
+                        className="flex justify-between w-full text-left py-3 px-3 bg-[#171931] text-white rounded-t-lg"
                         onClick={handleAccordionToggle}
                         type="button"
                       >
@@ -986,7 +1198,7 @@ const DatosUsuario = ({
                         <span>{isAccordionOpen ? "▲" : "▼"}</span>
                       </button>
                       {isAccordionOpen && (
-                        <div className="p-1 text-sm border border-gray-200 rounded-b-lg bg-white">
+                        <div className="p-2 border border-gray-200 rounded-b-lg bg-white">
                           <ul>
                             {/* Mapea los productos de tu factura seleccionada */}
                             {facturaSeleccionada.productos?.map(
@@ -1037,7 +1249,7 @@ const DatosUsuario = ({
                                               <input
                                                 type="number"
                                                 value={producto.cantidad}
-                                                className="p-1 text-sm border border-b border-gray-200 w-12 text-[0.65rem] md:text-[0.75rem] text-center"
+                                                className="p-2 border border-b border-gray-200 w-12 text-[0.65rem] md:text-[0.75rem] text-center"
                                                 id={`cantidad${producto.id_detalle}`}
                                                 onChange={() =>
                                                   handleCambioValores(

@@ -628,6 +628,7 @@ const Chat = () => {
     setChatMessages([]); // Limpia los mensajes anteriores para evitar inconsistencias
     setFacturasChatSeleccionado(null);
     setSelectedChat(chat);
+    setGuiaSeleccionada(null);
   };
 
   /* filtro */
@@ -1223,6 +1224,55 @@ const Chat = () => {
       estado_guia,
     };
   }
+
+  const [guiaSeleccionada, setGuiaSeleccionada] = useState(null);
+  const [provinciaCiudad, setProvinciaCiudad] = useState({
+    provincia: "",
+    ciudad: "",
+  });
+
+  //Manejo de seleccion de guia
+  const handleGuiaSeleccionada = (guia) => {
+    setGuiaSeleccionada(guia);
+
+    // Llamar a la función para obtener provincia y ciudad
+    if (guia.ciudad_cot) {
+      obtenerProvinciaCiudad(guia.ciudad_cot);
+    }
+  };
+
+  const obtenerProvinciaCiudad = async (id_ciudad) => {
+    try {
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Ubicaciones/obtenerCiudadProvincia/" +
+          id_ciudad,
+        {
+          method: "GET",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener las etiquetas");
+      }
+
+      const data = await response.json();
+
+      // Guardar el objeto directamente
+      setProvinciaCiudad({
+        provincia: data[0].provincia,
+        ciudad: data[0].ciudad,
+      });
+    } catch (error) {
+      console.error("Error fetching tags:", error);
+
+      // En caso de error, configura un objeto con valores por defecto
+      setProvinciaCiudad({
+        provincia: "Sin datos",
+        ciudad: "Sin datos",
+      });
+    }
+  };
+
   return (
     <div className="sm:grid grid-cols-4">
       {/* Cabecera */}
@@ -1321,6 +1371,11 @@ const Chat = () => {
         validar_estadoServi={validar_estadoServi}
         validar_estadoGintracom={validar_estadoGintracom}
         validar_estadoSpeed={validar_estadoSpeed}
+        guiaSeleccionada={guiaSeleccionada}
+        setGuiaSeleccionada={setGuiaSeleccionada}
+        provinciaCiudad={provinciaCiudad}
+        setProvinciaCiudad={setProvinciaCiudad}
+        handleGuiaSeleccionada={handleGuiaSeleccionada}
       />
       {/* MODALES */}
       <Modales
