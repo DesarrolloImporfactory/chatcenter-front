@@ -22,6 +22,7 @@ const DatosUsuario = ({
   provinciaCiudad,
   setProvinciaCiudad,
   handleGuiaSeleccionada,
+  selectedChat,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -596,6 +597,10 @@ const DatosUsuario = ({
           text: "La Guía se anulo correctamente.",
         });
         setFacturaSeleccionada({});
+        socketRef.current.emit("GET_FACTURAS", {
+          id_plataforma: userData.plataforma,
+          telefono: selectedChat.celular_cliente,
+        });
       }
     } catch (error) {
       console.error("Error al anular la guía de Laar:", error);
