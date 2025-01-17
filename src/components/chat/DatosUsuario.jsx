@@ -1022,7 +1022,7 @@ const DatosUsuario = ({
 
                   <button
                     className="bg-red-500 text-white rounded w-28 h-12 flex items-center justify-center"
-                    onClick={anular_guia(guiaSeleccionada.numero_guia, "guia")}
+                    onClick={ () =>anular_guia(guiaSeleccionada.numero_guia, "guia")}
                   >
                     Anular
                   </button>
