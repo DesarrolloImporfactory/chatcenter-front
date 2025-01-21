@@ -898,7 +898,28 @@ const Modales = ({
     <>
       {numeroModal && (
         <div className="fixed inset-0 z-10 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg max-h-[80%] overflow-y-auto">
+          <div className="relative bg-white p-4 rounded-lg max-h-[80%] overflow-y-auto">
+            {/* Botón de cierre con icono en la esquina superior derecha */}
+            <button
+              onClick={handleNumeroModal}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
             <h2 className="text-xl font-medium">Agregar número</h2>
             <form
               className="grid items-center gap-2 my-4"
@@ -917,7 +938,7 @@ const Modales = ({
               />
 
               {/* Resultados de la búsqueda de números de clientes */}
-              <ul className="space-y-2 h-64 overflow-y-auto">
+              <ul className="space-y-2 max-h-64 overflow-y-auto">
                 <li
                   className="cursor-pointer hover:bg-gray-200 p-2 rounded"
                   onClick={openAddNumberModal}
@@ -933,7 +954,11 @@ const Modales = ({
                       onClick={() =>
                         handleSelectPhoneNumber(result.celular_cliente)
                       }
-                      className="cursor-pointer hover:bg-gray-200 p-2 rounded"
+                      className={`cursor-pointer p-2 rounded ${
+                        selectedPhoneNumber === result.celular_cliente
+                          ? "bg-gray-300"
+                          : "hover:bg-gray-200"
+                      }`}
                     >
                       <div>
                         <strong>Nombre:</strong> {result.nombre_cliente}

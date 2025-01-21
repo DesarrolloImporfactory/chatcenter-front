@@ -23,6 +23,8 @@ const DatosUsuario = ({
   setProvinciaCiudad,
   handleGuiaSeleccionada,
   selectedChat,
+  obtenerEstadoGuia,
+  disableAanular,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -467,22 +469,6 @@ const DatosUsuario = ({
     }
   }, [facturaSeleccionada.productos]);
 
-  // Función para obtener el estado y estilo dinámico
-  const obtenerEstadoGuia = (transporte, estado) => {
-    switch (transporte) {
-      case "LAAR":
-        return validar_estadoLaar(estado);
-      case "SERVIENTREGA":
-        return validar_estadoServi(estado);
-      case "GINTRACOM":
-        return validar_estadoGintracom(estado);
-      case "SPEED":
-        return validar_estadoSpeed(estado);
-      default:
-        return { color: "", estado_guia: "" }; // Estado desconocido
-    }
-  };
-
   const tracking_guia = () => {
     if (guiaSeleccionada.transporte === "SERVIENTREGA") {
       window.open(
@@ -795,7 +781,7 @@ const DatosUsuario = ({
                 </div>
 
                 {/* Contenido dinámico de la tabla */}
-                <div className="w-full overflow-x-auto overflow-y-auto h-80">
+                <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80">
                   <table className="table-auto w-full border-collapse border border-gray-700">
                     <thead className="bg-blue-700 text-white">
                       <tr>
@@ -1023,10 +1009,15 @@ const DatosUsuario = ({
                   </div>
 
                   <button
-                    className="bg-red-500 text-white rounded w-28 h-12 flex items-center justify-center"
+                    className={`rounded w-28 h-12 flex items-center justify-center ${
+                      disableAanular
+                        ? "bg-red-500 text-white"
+                        : "bg-gray-400 text-gray-700 cursor-not-allowed"
+                    }`}
                     onClick={() =>
                       anular_guia(guiaSeleccionada.numero_guia, "guia")
                     }
+                    disabled={!disableAanular} // Si disableAanular es false, se deshabilita
                   >
                     Anular
                   </button>

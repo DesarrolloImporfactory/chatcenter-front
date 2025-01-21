@@ -34,6 +34,13 @@ const ChatPrincipal = ({
   selectedChat,
   setNumeroModal,
   handleSelectPhoneNumber,
+  chatContainerRef,
+  mensajesMostrados,
+  setMensajesMostrados,
+  scrollOffset,
+  setScrollOffset,
+  mensajesActuales,
+  handleScroll,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -77,8 +84,12 @@ const ChatPrincipal = ({
         ) : (
           <div className="flex flex-col h-[calc(100vh_-_130px)] relative">
             {/* Mensajes */}
-            <div className="flex flex-col flex-grow p-4 space-y-5 max-h-[calc(100vh_-_200px)]  overflow-y-auto">
-              {mensajesOrdenados.map((mensaje) => (
+            <div
+              ref={chatContainerRef}
+              className="flex flex-col flex-grow p-4 space-y-5 max-h-[calc(100vh_-_200px)] overflow-y-auto"
+              onScroll={handleScroll}
+            >
+              {mensajesActuales.map((mensaje) => (
                 <div
                   key={mensaje.id + Math.random()}
                   className={`flex ${
@@ -93,6 +104,7 @@ const ChatPrincipal = ({
                     } rounded-lg min-w-[20%] shadow-md max-w-[70%] relative`}
                   >
                     <span className="text-sm">
+                      {/* Tipo de Mensaje: Text */}
                       {mensaje.tipo_mensaje === "text" ? (
                         mensaje.texto_mensaje.includes("{{") &&
                         mensaje.ruta_archivo ? (
@@ -100,11 +112,9 @@ const ChatPrincipal = ({
                             {mensaje.texto_mensaje.replace(
                               /\{\{(.*?)\}\}/g,
                               (match, key) => {
-                                // Parsear la ruta_archivo que contiene el JSON con los valores
                                 const valores = JSON.parse(
                                   mensaje.ruta_archivo
                                 );
-                                // Retornar el valor si existe, de lo contrario dejar el placeholder
                                 return valores[key.trim()] || match;
                               }
                             )}
@@ -112,16 +122,19 @@ const ChatPrincipal = ({
                         ) : (
                           <p>{mensaje.texto_mensaje}</p>
                         )
-                      ) : mensaje.tipo_mensaje === "audio" ? (
+                      ) : /* Tipo de Mensaje: Audio */ mensaje.tipo_mensaje ===
+                        "audio" ? (
                         <CustomAudioPlayer
                           src={
                             "https://new.imporsuitpro.com/" +
                             mensaje.ruta_archivo
                           }
                         />
-                      ) : mensaje.tipo_mensaje === "image" ? (
+                      ) : /* Tipo de Mensaje: Imagen */ mensaje.tipo_mensaje ===
+                        "image" ? (
                         <ImageWithModal mensaje={mensaje} />
-                      ) : mensaje.tipo_mensaje === "document" ? (
+                      ) : /* Tipo de Mensaje: Documento */ mensaje.tipo_mensaje ===
+                        "document" ? (
                         <div className="p-2">
                           <a
                             href={`https://new.imporsuitpro.com/${
@@ -131,7 +144,6 @@ const ChatPrincipal = ({
                             rel="noreferrer"
                             className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg shadow-md hover:bg-gray-100 transition-colors"
                           >
-                            {/* Icono del archivo */}
                             <span className="text-2xl">
                               <i
                                 className={`${
@@ -149,8 +161,6 @@ const ChatPrincipal = ({
                                 }`}
                               ></i>
                             </span>
-
-                            {/* Nombre y detalles del archivo */}
                             <div className="flex flex-col">
                               <span className="font-semibold text-sm text-gray-800 truncate">
                                 {JSON.parse(mensaje.ruta_archivo).nombre}
@@ -178,17 +188,15 @@ const ChatPrincipal = ({
                                 </span>
                               </div>
                             </div>
-
-                            {/* Icono de descarga */}
                             <span className="text-2xl text-blue-500 hover:text-blue-700 transition-colors">
                               <i className="bx bx-download"></i>
                             </span>
                           </a>
                         </div>
-                      ) : mensaje.tipo_mensaje === "video" ? (
+                      ) : /* Tipo de Mensaje: Video */ mensaje.tipo_mensaje ===
+                        "video" ? (
                         <div className="p-2">
                           <div className="relative w-52 h-52 bg-black rounded-lg overflow-hidden shadow-lg">
-                            {/* Video con diseño responsivo */}
                             <video
                               className="w-full h-full object-cover rounded-lg"
                               controls
@@ -199,7 +207,8 @@ const ChatPrincipal = ({
                             />
                           </div>
                         </div>
-                      ) : mensaje.tipo_mensaje === "location" ? (
+                      ) : /* Tipo de Mensaje: Ubicación */ mensaje.tipo_mensaje ===
+                        "location" ? (
                         (() => {
                           try {
                             const locationData = JSON.parse(
@@ -236,11 +245,14 @@ const ChatPrincipal = ({
                             return <p>Error al mostrar la ubicación.</p>;
                           }
                         })()
-                      ) : mensaje.tipo_mensaje === "button" ? (
+                      ) : /* Tipo de Mensaje: Botón */ mensaje.tipo_mensaje ===
+                        "button" ? (
                         mensaje.texto_mensaje
-                      ) : mensaje.tipo_mensaje === "reaction" ? (
+                      ) : /* Tipo de Mensaje: reaction */ mensaje.tipo_mensaje ===
+                        "reaction" ? (
                         mensaje.texto_mensaje
-                      ) : mensaje.tipo_mensaje === "sticker" ? (
+                      ) : /* Tipo de Mensaje: Sticker */ mensaje.tipo_mensaje ===
+                        "sticker" ? (
                         <img
                           className="w-40 h-40"
                           src={
@@ -251,7 +263,7 @@ const ChatPrincipal = ({
                           loop
                         />
                       ) : (
-                        "Mensaje no reconocido" + mensaje.tipo_mensaje + " 1"
+                        "Mensaje no reconocido"
                       )}
                     </span>
                     <span
@@ -266,7 +278,6 @@ const ChatPrincipal = ({
                   </div>
                 </div>
               ))}
-              <div ref={endOfMessagesRef}></div>
             </div>
 
             {ultimoMensaje &&
