@@ -966,7 +966,7 @@ const DatosUsuario = ({
 
                     {/* Subtotal */}
                     <div className="flex justify-between text-gray-700 text-sm mt-2">
-                      <span>Subtotal:</span>
+                      <span>Precio venta:</span>
                       <span>
                         ${guiaSeleccionada.monto_factura?.toFixed(2) || "0.00"}
                       </span>
@@ -981,7 +981,7 @@ const DatosUsuario = ({
                     </div>
 
                     {/* Total */}
-                    <div className="flex justify-between text-gray-700 text-sm mt-2 font-bold">
+                    {/* <div className="flex justify-between text-gray-700 text-sm mt-2 font-bold">
                       <span>Total:</span>
                       <span>
                         $
@@ -990,7 +990,7 @@ const DatosUsuario = ({
                           (guiaSeleccionada.costo_flete || 0)
                         ).toFixed(2)}
                       </span>
-                    </div>
+                    </div> */}
                   </div>
 
                   <div className="border-t pt-4 pb-3">

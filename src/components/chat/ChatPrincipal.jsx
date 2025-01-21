@@ -379,6 +379,27 @@ const ChatPrincipal = ({
               {/* Mostrar el cuadro de opciones si se ha activado el comando */}
               {isCommandActive && (
                 <div className="absolute bottom-20 left-0 bg-white border rounded shadow-lg p-4 z-50 w-full max-w-md">
+                  {/* Botón de cierre */}
+                  <button
+                    onClick={() => setIsCommandActive(false)} // Cambia el estado para cerrar
+                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                      className="w-6 h-6"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+
                   {/* Buscador */}
                   <input
                     type="text"
@@ -398,7 +419,6 @@ const ChatPrincipal = ({
                           onClick={() => handleOptionSelect(result.mensaje)}
                           className="cursor-pointer hover:bg-gray-200 p-2 rounded"
                         >
-                          {/* Aquí accedes a propiedades específicas del objeto */}
                           <div>
                             <strong>Atajo:</strong> {result.atajo}
                           </div>
