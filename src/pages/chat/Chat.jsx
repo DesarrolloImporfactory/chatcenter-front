@@ -645,15 +645,11 @@ const Chat = () => {
   const handleScroll = () => {
     const chatContainer = chatContainerRef.current;
     if (chatContainer.scrollTop === 0) {
-      // Solo ejecuta la carga de mensajes si ya hay mensajes visibles
       if (mensajesMostrados > 0) {
-        // Guarda la posición del scroll antes de cargar más mensajes
-        setScrollOffset(chatContainer.scrollHeight);
-
-        // Incrementa los mensajes mostrados en bloques de 20
+        setScrollOffset(chatContainer.scrollHeight); // Guarda la posición actual del scroll
         setMensajesMostrados((prev) =>
           Math.min(prev + 20, mensajesOrdenados.length)
-        );
+        ); // Incrementa los mensajes mostrados en bloques de 20
       }
     }
   };
@@ -662,7 +658,6 @@ const Chat = () => {
   useEffect(() => {
     const chatContainer = chatContainerRef.current;
     if (scrollOffset && mensajesMostrados > 20) {
-      // Ajusta la posición del scroll después de cargar más mensajes
       const newScrollTop = chatContainer.scrollHeight - scrollOffset;
       chatContainer.scrollTop = newScrollTop;
       setScrollOffset(0); // Resetea el offset después de ajustarlo
@@ -681,22 +676,20 @@ const Chat = () => {
 
   const handleSelectChat = (chat) => {
     // Reinicia los estados relacionados con los mensajes y el scroll
-    setChatMessages([]); // Limpia los mensajes previos
+    setChatMessages([]); // Limpia mensajes previos
     setFacturasChatSeleccionado(null); // Limpia las facturas seleccionadas
     setGuiaSeleccionada(null); // Limpia la guía seleccionada
-    setScrollOffset(0); // Reinicia el offset del scroll
-    setMensajesMostrados(20); // Reinicia los mensajes mostrados al valor inicial
+    setMensajesMostrados(20); // Reinicia los mensajes mostrados
+    setScrollOffset(0); // Reinicia el offset
+    setSelectedChat(chat); // Cambia el chat seleccionado
 
-    // Cambia el chat seleccionado
-    setSelectedChat(chat);
-
-    // Forzar el scroll al final del nuevo chat
+    // Forzar el scroll al final después de que los mensajes se procesen
     setTimeout(() => {
       if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop =
           chatContainerRef.current.scrollHeight;
       }
-    }, 100); // Espera que los mensajes se actualicen antes de ajustar el scroll
+    }, 200); // Espera a que los mensajes se actualicen antes de ajustar el scroll
   };
 
   /* filtro */
@@ -1017,6 +1010,7 @@ const Chat = () => {
       console.log("Chat seleccionado:", selectedChat);
       fetchTags();
       fetchTagsAsginadas();
+
       // Emitir la solicitud para obtener los mensajes del chat seleccionado
       socketRef.current.emit("GET_CHATS_BOX", {
         chatId: selectedChat.id,
@@ -1025,21 +1019,24 @@ const Chat = () => {
 
       // Función manejadora para actualizar los mensajes del chat
       const handleChatBoxResponse = (data) => {
-        console.log("object", data);
+        console.log("Mensajes recibidos:", data);
         setChatMessages(data);
-        selectedChat.mensajes_pendientes = 0;
 
+        // Ordena y limita los mensajes
         const orderedMessages = getOrderedChats();
-        setMensajesOrdenados(orderedMessages);
+        setMensajesOrdenados(orderedMessages.slice(-20)); // Limitar a los últimos 20 mensajes
+        setMensajesMostrados(20); // Asegurar que el estado coincide con los mensajes iniciales
       };
+
       socketRef.current.emit("GET_FACTURAS", {
         id_plataforma: userData.plataforma,
         telefono: selectedChat.celular_cliente,
       });
+
       // Escuchar la respuesta del socket
       socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
 
-      // Limpieza para eliminar el listener cuando `selectedChat` cambie
+      // Cleanup: eliminar el listener al cambiar de chat
       return () => {
         socketRef.current.off("CHATS_BOX_RESPONSE", handleChatBoxResponse);
       };
@@ -1117,12 +1114,16 @@ const Chat = () => {
       const handleUpdateChat = (data) => {
         const { chatId, message } = data;
         if (selectedChat && chatId === selectedChat.celular_cliente) {
-          setMensajesOrdenados((prevMessages) => [
-            ...prevMessages,
-            message.mensajeNuevo,
-          ]);
+          setMensajesOrdenados((prevMessages) => {
+            const updatedMessages = [...prevMessages, message.mensajeNuevo];
+            return updatedMessages.slice(-mensajesMostrados); // Mantén solo los últimos mostrados
+          });
+
           setTimeout(() => {
-            scrollToBottom();
+            if (chatContainerRef.current) {
+              chatContainerRef.current.scrollTop =
+                chatContainerRef.current.scrollHeight;
+            }
           }, 200);
         }
       };
@@ -1130,12 +1131,12 @@ const Chat = () => {
       // Añadir el listener
       socketRef.current.on("UPDATE_CHAT", handleUpdateChat);
 
-      // Cleanup: remover el listener cuando el componente se desmonte o cambie el chat seleccionado
+      // Cleanup: remover el listener cuando `selectedChat` cambie
       return () => {
         socketRef.current.off("UPDATE_CHAT", handleUpdateChat);
       };
     }
-  }, [isSocketConnected, selectedChat]);
+  }, [isSocketConnected, selectedChat, mensajesMostrados]);
 
   function validar_estadoLaar(estado) {
     let color = "";
