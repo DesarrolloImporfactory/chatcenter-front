@@ -267,15 +267,18 @@ const DatosUsuario = ({
   }, [ciudades]);
 
   useEffect(() => {
-    setFacturaSeleccionada({});
-    if (facturasChatSeleccionado) {
-      if (facturasChatSeleccionado.length === 1) {
-        handleFacturaSeleccionada(facturasChatSeleccionado[0]);
-      } else if (guiasChatSeleccionado.length === 1) {
-        handleGuiaSeleccionada(guiasChatSeleccionado[0]);
+    if (opciones) {
+      // Solo ejecuta el efecto si opciones es true
+      setFacturaSeleccionada({});
+      if (facturasChatSeleccionado) {
+        if (facturasChatSeleccionado.length === 1) {
+          handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+        } else if (guiasChatSeleccionado.length === 1) {
+          handleGuiaSeleccionada(guiasChatSeleccionado[0]);
+        }
       }
     }
-  }, [facturasChatSeleccionado]);
+  }, [facturasChatSeleccionado, opciones]);
 
   // Manejo de selección de factura
   const handleFacturaSeleccionada = useCallback((factura) => {
