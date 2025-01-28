@@ -52,7 +52,7 @@ const Chat = () => {
 
   const [mostrarAudio, setMostrarAudio] = useState(false);
 
-  const [chatTemporales, setChatTemporales] = useState(35);
+  const [chatTemporales, setChatTemporales] = useState(25);
 
   const [animateOut, setAnimateOut] = useState(false);
 
@@ -97,6 +97,8 @@ const Chat = () => {
   const [menuSearchTerm, setMenuSearchTerm] = useState(""); // Estado para el término de búsqueda
 
   const [searchResults, setSearchResults] = useState([]); // Estado para almacenar los resultados de la búsqueda
+
+  const [disableAanular, setDisableAanular] = useState(true);
 
   const [menuSearchTermNumeroCliente, setMenuSearchTermNumeroCliente] =
     useState(""); // Estado para el término de búsqueda numero Cliente
@@ -300,8 +302,15 @@ const Chat = () => {
 
   // Manejar la selección del número de teléfono y activar la sección de templates
   const handleSelectPhoneNumber = (phoneNumber) => {
-    setSelectedPhoneNumber(phoneNumber);
-    setSeleccionado(true);
+    setSelectedPhoneNumber(phoneNumber); // Actualiza el número seleccionado
+    setValue("numero", phoneNumber); // Actualiza el campo "numero" en el formulario
+
+    // Llama manualmente a la función de búsqueda con el nuevo valor
+    handleInputChange_numeroCliente({
+      target: { value: phoneNumber }, // Simula un evento de input
+    });
+
+    setSeleccionado(true); // Indica que hay un número seleccionado
   };
 
   const getOrderedChats = () => {
@@ -368,6 +377,7 @@ const Chat = () => {
   const {
     handleSubmit,
     register,
+    setValue,
     formState: { errors },
   } = useForm();
 
@@ -623,12 +633,63 @@ const Chat = () => {
     }
   };
 
+  /* seccion de carga de mensaje */
+  const chatContainerRef = useRef(null);
+  const [mensajesMostrados, setMensajesMostrados] = useState(20); // Inicialmente mostrar los últimos 20 mensajes
+  const [scrollOffset, setScrollOffset] = useState(0); // Para mantener la posición del scroll
+
+  // Obtener los mensajes actuales basados en la cantidad a mostrar
+  const mensajesActuales = mensajesOrdenados.slice(-mensajesMostrados);
+
+  // Listener para detectar scroll hacia arriba
+  const handleScroll = () => {
+    const chatContainer = chatContainerRef.current;
+    if (chatContainer.scrollTop === 0) {
+      if (mensajesMostrados > 0) {
+        setScrollOffset(chatContainer.scrollHeight); // Guarda la posición actual del scroll
+        setMensajesMostrados((prev) =>
+          Math.min(prev + 20, mensajesOrdenados.length)
+        ); // Incrementa los mensajes mostrados en bloques de 20
+      }
+    }
+  };
+
+  // Ajustar la posición del scroll después de cargar más mensajes
+  useEffect(() => {
+    const chatContainer = chatContainerRef.current;
+    if (scrollOffset && mensajesMostrados > 20) {
+      const newScrollTop = chatContainer.scrollHeight - scrollOffset;
+      chatContainer.scrollTop = newScrollTop;
+      setScrollOffset(0); // Resetea el offset después de ajustarlo
+    }
+  }, [mensajesMostrados, scrollOffset]);
+
+  // Desplázate al final al cargar mensajes por primera vez o cambiar de chat
+  useEffect(() => {
+    if (chatContainerRef.current && mensajesMostrados === 20) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [mensajesActuales, selectedChat]);
+
+  /* fin seccion de carga de mensaje */
+
   const handleSelectChat = (chat) => {
-    // Establece el chat seleccionado y asegúrate de limpiar los mensajes anteriores
-    setChatMessages([]); // Limpia los mensajes anteriores para evitar inconsistencias
-    setFacturasChatSeleccionado(null);
-    setSelectedChat(chat);
-    setGuiaSeleccionada(null);
+    // Reinicia los estados relacionados con los mensajes y el scroll
+    setChatMessages([]); // Limpia mensajes previos
+    setFacturasChatSeleccionado(null); // Limpia las facturas seleccionadas
+    setGuiaSeleccionada(null); // Limpia la guía seleccionada
+    setMensajesMostrados(20); // Reinicia los mensajes mostrados
+    setScrollOffset(0); // Reinicia el offset
+    setSelectedChat(chat); // Cambia el chat seleccionado
+
+    // Forzar el scroll al final después de que los mensajes se procesen
+    setTimeout(() => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop =
+          chatContainerRef.current.scrollHeight;
+      }
+    }, 200); // Espera a que los mensajes se actualicen antes de ajustar el scroll
   };
 
   /* filtro */
@@ -949,6 +1010,7 @@ const Chat = () => {
       console.log("Chat seleccionado:", selectedChat);
       fetchTags();
       fetchTagsAsginadas();
+
       // Emitir la solicitud para obtener los mensajes del chat seleccionado
       socketRef.current.emit("GET_CHATS_BOX", {
         chatId: selectedChat.id,
@@ -957,21 +1019,24 @@ const Chat = () => {
 
       // Función manejadora para actualizar los mensajes del chat
       const handleChatBoxResponse = (data) => {
-        console.log("object", data);
+        console.log("Mensajes recibidos:", data);
         setChatMessages(data);
-        selectedChat.mensajes_pendientes = 0;
 
+        // Ordena y limita los mensajes
         const orderedMessages = getOrderedChats();
-        setMensajesOrdenados(orderedMessages);
+        setMensajesOrdenados(orderedMessages.slice(-20)); // Limitar a los últimos 20 mensajes
+        setMensajesMostrados(20); // Asegurar que el estado coincide con los mensajes iniciales
       };
+
       socketRef.current.emit("GET_FACTURAS", {
         id_plataforma: userData.plataforma,
         telefono: selectedChat.celular_cliente,
       });
+
       // Escuchar la respuesta del socket
       socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
 
-      // Limpieza para eliminar el listener cuando `selectedChat` cambie
+      // Cleanup: eliminar el listener al cambiar de chat
       return () => {
         socketRef.current.off("CHATS_BOX_RESPONSE", handleChatBoxResponse);
       };
@@ -1049,12 +1114,16 @@ const Chat = () => {
       const handleUpdateChat = (data) => {
         const { chatId, message } = data;
         if (selectedChat && chatId === selectedChat.celular_cliente) {
-          setMensajesOrdenados((prevMessages) => [
-            ...prevMessages,
-            message.mensajeNuevo,
-          ]);
+          setMensajesOrdenados((prevMessages) => {
+            const updatedMessages = [...prevMessages, message.mensajeNuevo];
+            return updatedMessages.slice(-mensajesMostrados); // Mantén solo los últimos mostrados
+          });
+
           setTimeout(() => {
-            scrollToBottom();
+            if (chatContainerRef.current) {
+              chatContainerRef.current.scrollTop =
+                chatContainerRef.current.scrollHeight;
+            }
           }, 200);
         }
       };
@@ -1062,12 +1131,12 @@ const Chat = () => {
       // Añadir el listener
       socketRef.current.on("UPDATE_CHAT", handleUpdateChat);
 
-      // Cleanup: remover el listener cuando el componente se desmonte o cambie el chat seleccionado
+      // Cleanup: remover el listener cuando `selectedChat` cambie
       return () => {
         socketRef.current.off("UPDATE_CHAT", handleUpdateChat);
       };
     }
-  }, [isSocketConnected, selectedChat]);
+  }, [isSocketConnected, selectedChat, mensajesMostrados]);
 
   function validar_estadoLaar(estado) {
     let color = "";
@@ -1153,7 +1222,7 @@ const Chat = () => {
 
     if (estado == 1) {
       color = "bg-purple-500";
-      estado_guia = "Generada";
+      estado_guia = "Generado";
     } else if (estado == 2) {
       color = "bg-yellow-500";
       estado_guia = "Picking";
@@ -1177,10 +1246,10 @@ const Chat = () => {
       estado_guia = "Devolución";
     } else if (estado == 9) {
       color = "bg-red-500";
-      estado_guia = "Devolución Entregada a Origen";
+      estado_guia = "Devolución";
     } else if (estado == 10) {
       color = "bg-red-500";
-      estado_guia = "Cancelada por transportadora";
+      estado_guia = "Cancelada";
     } else if (estado == 11) {
       color = "bg-red-500";
       estado_guia = "Indemnización";
@@ -1225,6 +1294,22 @@ const Chat = () => {
     };
   }
 
+  // Función para obtener el estado y estilo dinámico
+  const obtenerEstadoGuia = (transporte, estado) => {
+    switch (transporte) {
+      case "LAAR":
+        return validar_estadoLaar(estado);
+      case "SERVIENTREGA":
+        return validar_estadoServi(estado);
+      case "GINTRACOM":
+        return validar_estadoGintracom(estado);
+      case "SPEED":
+        return validar_estadoSpeed(estado);
+      default:
+        return { color: "", estado_guia: "" }; // Estado desconocido
+    }
+  };
+
   const [guiaSeleccionada, setGuiaSeleccionada] = useState(null);
   const [provinciaCiudad, setProvinciaCiudad] = useState({
     provincia: "",
@@ -1234,6 +1319,17 @@ const Chat = () => {
   //Manejo de seleccion de guia
   const handleGuiaSeleccionada = (guia) => {
     setGuiaSeleccionada(guia);
+
+    let { color, estado_guia } = obtenerEstadoGuia(
+      guia.transporte, // El sistema (LAAR, SERVIENTREGA, etc.)
+      guia.estado_guia_sistema // El estado numérico
+    );
+
+    if (estado_guia == "Generado") {
+      setDisableAanular(true);
+    } else {
+      setDisableAanular(false);
+    }
 
     // Llamar a la función para obtener provincia y ciudad
     if (guia.ciudad_cot) {
@@ -1362,6 +1458,13 @@ const Chat = () => {
         selectedChat={selectedChat}
         setNumeroModal={setNumeroModal}
         handleSelectPhoneNumber={handleSelectPhoneNumber}
+        chatContainerRef={chatContainerRef}
+        mensajesMostrados={mensajesMostrados}
+        setMensajesMostrados={setMensajesMostrados}
+        scrollOffset={scrollOffset}
+        setScrollOffset={setScrollOffset}
+        mensajesActuales={mensajesActuales}
+        handleScroll={handleScroll}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
@@ -1384,6 +1487,8 @@ const Chat = () => {
         setProvinciaCiudad={setProvinciaCiudad}
         handleGuiaSeleccionada={handleGuiaSeleccionada}
         selectedChat={selectedChat}
+        obtenerEstadoGuia={obtenerEstadoGuia}
+        disableAanular={disableAanular}
       />
       {/* MODALES */}
       <Modales

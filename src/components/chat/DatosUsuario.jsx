@@ -23,6 +23,8 @@ const DatosUsuario = ({
   setProvinciaCiudad,
   handleGuiaSeleccionada,
   selectedChat,
+  obtenerEstadoGuia,
+  disableAanular,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -267,15 +269,18 @@ const DatosUsuario = ({
   }, [ciudades]);
 
   useEffect(() => {
-    setFacturaSeleccionada({});
-    if (facturasChatSeleccionado) {
-      if (facturasChatSeleccionado.length === 1) {
-        handleFacturaSeleccionada(facturasChatSeleccionado[0]);
-      } else if (guiasChatSeleccionado.length === 1) {
-        handleGuiaSeleccionada(guiasChatSeleccionado[0]);
+    if (opciones) {
+      // Solo ejecuta el efecto si opciones es true
+      setFacturaSeleccionada({});
+      if (facturasChatSeleccionado) {
+        if (facturasChatSeleccionado.length === 1) {
+          handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+        } else if (guiasChatSeleccionado.length === 1) {
+          handleGuiaSeleccionada(guiasChatSeleccionado[0]);
+        }
       }
     }
-  }, [facturasChatSeleccionado]);
+  }, [facturasChatSeleccionado, opciones]);
 
   // Manejo de selección de factura
   const handleFacturaSeleccionada = useCallback((factura) => {
@@ -469,22 +474,6 @@ const DatosUsuario = ({
     }
   }, [facturaSeleccionada.productos]);
 
-  // Función para obtener el estado y estilo dinámico
-  const obtenerEstadoGuia = (transporte, estado) => {
-    switch (transporte) {
-      case "LAAR":
-        return validar_estadoLaar(estado);
-      case "SERVIENTREGA":
-        return validar_estadoServi(estado);
-      case "GINTRACOM":
-        return validar_estadoGintracom(estado);
-      case "SPEED":
-        return validar_estadoSpeed(estado);
-      default:
-        return { color: "", estado_guia: "" }; // Estado desconocido
-    }
-  };
-
   const tracking_guia = () => {
     if (guiaSeleccionada.transporte === "SERVIENTREGA") {
       window.open(
@@ -600,6 +589,7 @@ const DatosUsuario = ({
         });
         setFacturaSeleccionada({});
         recargarPedido();
+        setGuiaSeleccionada(false);
       }
     } catch (error) {
       console.error("Error al anular la guía de Laar:", error);
@@ -796,7 +786,7 @@ const DatosUsuario = ({
                 </div>
 
                 {/* Contenido dinámico de la tabla */}
-                <div className="w-full overflow-x-auto overflow-y-auto h-80">
+                <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80">
                   <table className="table-auto w-full border-collapse border border-gray-700">
                     <thead className="bg-blue-700 text-white">
                       <tr>
@@ -981,7 +971,7 @@ const DatosUsuario = ({
 
                     {/* Subtotal */}
                     <div className="flex justify-between text-gray-700 text-sm mt-2">
-                      <span>Subtotal:</span>
+                      <span>Precio venta:</span>
                       <span>
                         ${guiaSeleccionada.monto_factura?.toFixed(2) || "0.00"}
                       </span>
@@ -996,7 +986,7 @@ const DatosUsuario = ({
                     </div>
 
                     {/* Total */}
-                    <div className="flex justify-between text-gray-700 text-sm mt-2 font-bold">
+                    {/* <div className="flex justify-between text-gray-700 text-sm mt-2 font-bold">
                       <span>Total:</span>
                       <span>
                         $
@@ -1005,7 +995,7 @@ const DatosUsuario = ({
                           (guiaSeleccionada.costo_flete || 0)
                         ).toFixed(2)}
                       </span>
-                    </div>
+                    </div> */}
                   </div>
 
                   <div className="border-t pt-4 pb-3">
@@ -1024,10 +1014,15 @@ const DatosUsuario = ({
                   </div>
 
                   <button
-                    className="bg-red-500 text-white rounded w-28 h-12 flex items-center justify-center"
+                    className={`rounded w-28 h-12 flex items-center justify-center ${
+                      disableAanular
+                        ? "bg-red-500 text-white"
+                        : "bg-gray-400 text-gray-700 cursor-not-allowed"
+                    }`}
                     onClick={() =>
                       anular_guia(guiaSeleccionada.numero_guia, "guia")
                     }
+                    disabled={!disableAanular} // Si disableAanular es false, se deshabilita
                   >
                     Anular
                   </button>
