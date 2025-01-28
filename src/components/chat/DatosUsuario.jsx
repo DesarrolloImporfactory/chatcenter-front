@@ -201,7 +201,9 @@ const DatosUsuario = ({
     try {
       const response = await axios
         .post(
-          `http://localhost:3000/api/v1/product/${facturaSeleccionada.productos[0].bodega}`,
+          `${import.meta.env.VITE_socket}/api/v1/product/${
+            facturaSeleccionada.productos[0].bodega
+          }`,
           {
             page: pagina, // Parámetros enviados en el cuerpo
             limit: productosPorPagina, // Parámetros enviados en el cuerpo
