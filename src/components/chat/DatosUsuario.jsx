@@ -310,7 +310,7 @@ const DatosUsuario = ({
     setValue("otros", factura.otros || 0);
     setValue("impuestos", factura.impuestos || 0);
     setValue("nombreO", factura.nombreO || "");
-    setValue("ciudadO", factura.ciudad_cot || "");
+    setValue("ciudadO", factura.ciudadO || "");
     setValue("direccionO", factura.direccionO || "");
     setValue("celularO", factura.telefonoO || "");
     setValue("referenciaO", factura.referenciaO || "");
