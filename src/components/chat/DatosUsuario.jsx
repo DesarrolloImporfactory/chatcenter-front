@@ -67,6 +67,7 @@ const DatosUsuario = ({
     }
 
     const formulario = new FormData();
+    formulario.append("procedencia", "1");
     formulario.append("id_pedido", facturaSeleccionada.id_factura || "");
     formulario.append("nombreO", getValues("nombreO") || "");
     formulario.append("ciudadO", getValues("ciudadO") || "");
