@@ -89,7 +89,7 @@ const DatosUsuario = ({
     formulario.append("total_venta", facturaSeleccionada.monto_factura || 0);
     formulario.append("transportadora", transportadora);
     formulario.append("costo_flete", getValues("precio_envio") || 0);
-
+    formulario.append("provinciaO", getValues("provinciaO") || "");
     formulario.append(
       "url_google_speed_pedido",
       getValues("url_google_speed_pedido") || ""
@@ -102,7 +102,6 @@ const DatosUsuario = ({
           .map((p) => `${p.nombre_producto} X${p.cantidad}`)
           .join(" ")
       );
-      formulario.append("provinciaO", getValues("provinciaO") || "");
     } else {
       formulario.append(
         "contiene",
