@@ -1204,6 +1204,7 @@ const DatosUsuario = ({
                               ...prev,
                               ciudad_cot: nuevaCiudad,
                             }));
+                            handleSetTarifas();
                           }}
                         >
                           <option value="">Seleccione una ciudad</option>
