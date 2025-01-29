@@ -1000,21 +1000,49 @@ const Chat = () => {
 
   useEffect(() => {
     if (seRecibioMensaje) {
+      // Emitir evento para obtener todos los chats actualizados
       socketRef.current.emit("GET_CHATS", userData.plataforma);
-      setSeRecibioMensaje(false);
+
       if (selectedChat != null) {
+        // Emitir evento para obtener los mensajes del chat seleccionado
         socketRef.current.emit("GET_CHATS_BOX", {
           chatId: selectedChat.id,
           plataforma: userData.plataforma,
         });
+
+        // Manejador para actualizar mensajes del chat seleccionado
+        const handleChatBoxResponse = (data) => {
+          console.log(
+            "Mensajes actualizados tras recibir un nuevo mensaje:",
+            data
+          );
+          setChatMessages(data);
+
+          // Ordenar mensajes, mostrar los últimos y ajustar la visualización
+          const orderedMessages = getOrderedChats();
+          setMensajesOrdenados(orderedMessages.slice(-20)); // Últimos 20 mensajes
+          setMensajesMostrados(20); // Reiniciar el estado de mensajes mostrados
+
+          // Ajustar el scroll al final después de actualizar mensajes
+          if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop =
+              chatContainerRef.current.scrollHeight;
+          }
+        };
+
+        // Escuchar la respuesta de mensajes del servidor
+        socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
+
+        // Cleanup: eliminar listener para evitar acumulación de eventos
+        return () => {
+          socketRef.current.off("CHATS_BOX_RESPONSE", handleChatBoxResponse);
+        };
       }
 
-      // Ordena y limita los mensajes
-      const orderedMessages = getOrderedChats();
-      setMensajesOrdenados(orderedMessages.slice(-20)); // Limitar a los últimos 20 mensajes
-      setMensajesMostrados(20); // Asegurar que el estado coincide con los mensajes iniciales
+      // Reiniciar el estado para detectar nuevos mensajes
+      setSeRecibioMensaje(false);
     }
-  }, [seRecibioMensaje]);
+  }, [seRecibioMensaje, selectedChat, userData, getOrderedChats]);
 
   useEffect(() => {
     if (selectedChat && userData && isSocketConnected) {
