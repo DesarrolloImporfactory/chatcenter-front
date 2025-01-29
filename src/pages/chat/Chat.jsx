@@ -1002,10 +1002,17 @@ const Chat = () => {
     if (seRecibioMensaje) {
       socketRef.current.emit("GET_CHATS", userData.plataforma);
       setSeRecibioMensaje(false);
-      socketRef.current.emit("GET_CHATS_BOX", {
-        chatId: selectedChat.id,
-        plataforma: userData.plataforma,
-      });
+      if (selectedChat != null) {
+        socketRef.current.emit("GET_CHATS_BOX", {
+          chatId: selectedChat.id,
+          plataforma: userData.plataforma,
+        });
+      }
+
+      // Ordena y limita los mensajes
+      const orderedMessages = getOrderedChats();
+      setMensajesOrdenados(orderedMessages.slice(-20)); // Limitar a los últimos 20 mensajes
+      setMensajesMostrados(20); // Asegurar que el estado coincide con los mensajes iniciales
     }
   }, [seRecibioMensaje]);
 
