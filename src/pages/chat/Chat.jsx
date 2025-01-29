@@ -1002,6 +1002,10 @@ const Chat = () => {
     if (seRecibioMensaje) {
       socketRef.current.emit("GET_CHATS", userData.plataforma);
       setSeRecibioMensaje(false);
+      socketRef.current.emit("GET_CHATS_BOX", {
+        chatId: selectedChat.id,
+        plataforma: userData.plataforma,
+      });
     }
   }, [seRecibioMensaje]);
 

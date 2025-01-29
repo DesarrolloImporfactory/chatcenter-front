@@ -154,6 +154,7 @@ const DatosUsuario = ({
           icon: "success",
           text: "La Guía se generó correctamente.",
         });
+        recargarPedido();
         setGenerandoGuia(false);
       } else {
         setGenerandoGuia(false);
