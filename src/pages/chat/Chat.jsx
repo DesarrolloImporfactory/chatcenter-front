@@ -1006,6 +1006,11 @@ const Chat = () => {
         chatId: selectedChat.id,
         plataforma: userData.plataforma,
       });
+
+      // Ordena y limita los mensajes
+      const orderedMessages = getOrderedChats();
+      setMensajesOrdenados(orderedMessages.slice(-20)); // Limitar a los últimos 20 mensajes
+      setMensajesMostrados(20); // Asegurar que el estado coincide con los mensajes iniciales
     }
   }, [seRecibioMensaje]);
 
