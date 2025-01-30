@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 const ScrollToBottomButton = ({ containerRef }) => {
-  const [mostrarBoton, setMostrarBoton] = useState(false); // Estado del botón
+  const [mostrarBoton, setMostrarBoton] = useState(false);
 
   // Detectar si el scroll no está al final
   const handleScroll = () => {
@@ -10,7 +10,7 @@ const ScrollToBottomButton = ({ containerRef }) => {
       const isAtBottom =
         container.scrollHeight - container.scrollTop <=
         container.clientHeight + 10;
-      setMostrarBoton(!isAtBottom); // Mostrar el botón si no está en el fondo
+      setMostrarBoton(!isAtBottom);
     }
   };
 
@@ -37,7 +37,7 @@ const ScrollToBottomButton = ({ containerRef }) => {
   return (
     <button
       onClick={scrollToBottom}
-      className={`fixed bottom-[15%] right-5 bg-[#171931] text-white w-12 h-12 rounded-full shadow-lg hover:scale-110 hover:shadow-xl transition-all duration-500 z-[1000] flex items-center justify-center ${
+      className={`absolute bottom-[15%] right-5 bg-[#171931] text-white w-12 h-12 rounded-full shadow-lg hover:scale-110 hover:shadow-xl transition-all duration-500 z-[1000] flex items-center justify-center ${
         mostrarBoton
           ? "opacity-100 translate-y-0 pointer-events-auto"
           : "opacity-0 translate-y-10 pointer-events-none"
