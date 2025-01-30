@@ -1036,13 +1036,8 @@ const Chat = () => {
           }
         };
 
-        // Escuchar la respuesta de mensajes del servidor
-        socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
-
-        // Cleanup: eliminar listener para evitar acumulación de eventos
-        return () => {
-          socketRef.current.off("CHATS_BOX_RESPONSE", handleChatBoxResponse);
-        };
+        // Registrar listener del socket UNA SOLA VEZ
+        socketRef.current.once("CHATS_BOX_RESPONSE", handleChatBoxResponse);
       }
 
       // Reiniciar el estado para detectar nuevos mensajes
