@@ -41,6 +41,7 @@ const ChatPrincipal = ({
   setScrollOffset,
   mensajesActuales,
   handleScroll,
+  ScrollToBottomButton,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -278,6 +279,8 @@ const ChatPrincipal = ({
                   </div>
                 </div>
               ))}
+              {/* Botón de scroll al final */}
+              <ScrollToBottomButton containerRef={chatContainerRef} />
             </div>
 
             {ultimoMensaje &&

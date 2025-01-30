@@ -14,6 +14,7 @@ import ChatPrincipal from "../../components/chat/ChatPrincipal";
 import DatosUsuario from "../../components/chat/DatosUsuario";
 import Modales from "../../components/chat/Modales";
 import Loading from "../../components/chat/Loading";
+import ScrollToBottomButton from "../../components/chat/ScrollToBottomButton";
 import chatApi from "../../api/chatcenter";
 
 const Chat = () => {
@@ -1505,6 +1506,7 @@ const Chat = () => {
         setScrollOffset={setScrollOffset}
         mensajesActuales={mensajesActuales}
         handleScroll={handleScroll}
+        ScrollToBottomButton={ScrollToBottomButton}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
