@@ -1018,15 +1018,21 @@ const Chat = () => {
           );
           setChatMessages(data);
 
-          // Ordenar mensajes, mostrar los últimos y ajustar la visualización
+          // Ordenar mensajes y actualizar el estado
           const orderedMessages = getOrderedChats();
           setMensajesOrdenados(orderedMessages.slice(-20)); // Últimos 20 mensajes
           setMensajesMostrados(20); // Reiniciar el estado de mensajes mostrados
 
-          // Ajustar el scroll al final después de actualizar mensajes
+          // Ajustar el scroll al final SOLO si ya estaba al final
           if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop =
-              chatContainerRef.current.scrollHeight;
+            const chatContainer = chatContainerRef.current;
+            const isAtBottom =
+              chatContainer.scrollHeight - chatContainer.scrollTop <=
+              chatContainer.clientHeight + 5; // Umbral de 5px para considerar que está al final
+
+            if (isAtBottom) {
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
           }
         };
 
