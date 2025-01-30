@@ -657,10 +657,12 @@ const Chat = () => {
   // Ajustar la posición del scroll después de cargar más mensajes
   useEffect(() => {
     const chatContainer = chatContainerRef.current;
+
+    // Ajustar la posición del scroll solo si hay más mensajes cargados
     if (scrollOffset && mensajesMostrados > 20) {
       const newScrollTop = chatContainer.scrollHeight - scrollOffset;
       chatContainer.scrollTop = newScrollTop;
-      setScrollOffset(0); // Resetea el offset después de ajustarlo
+      setScrollOffset(0); // Resetear offset después de ajustarlo
     }
   }, [mensajesMostrados, scrollOffset]);
 
@@ -1023,8 +1025,8 @@ const Chat = () => {
           setMensajesOrdenados(orderedMessages.slice(-20)); // Últimos 20 mensajes
           setMensajesMostrados(20); // Reiniciar el estado de mensajes mostrados
 
-          // Ajustar el scroll al final después de actualizar mensajes
-          if (chatContainerRef.current) {
+          // Solo desplazar al final si es un mensaje nuevo, no en scroll arriba
+          if (chatContainerRef.current && seRecibioMensaje) {
             chatContainerRef.current.scrollTop =
               chatContainerRef.current.scrollHeight;
           }
