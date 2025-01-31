@@ -201,7 +201,11 @@ const Modales = ({
     }
   };
 
+  const [botonDeshabilitado_img, setBotonDeshabilitado_img] = useState(false);
+
   const enviarImagenesWhatsApp = async () => {
+    setBotonDeshabilitado_img(true); // Bloquear el botón al iniciar el proceso
+
     for (let img of imagenes) {
       try {
         // Subir imagen al servidor
@@ -216,12 +220,13 @@ const Modales = ({
         alert("Ocurrió un error al enviar la imagen. Inténtalo más tarde.");
       }
     }
-    /* alert("Todas las imágenes fueron enviadas con éxito."); */
 
     // Cerrar el modal y limpiar la lista de imágenes
     handleModal_enviarArchivos(""); // Cierra el modal
     setImagenes([]); // Limpia la lista de imágenes
     setImagenSeleccionada(null); // Limpia la imagen seleccionada
+
+    setBotonDeshabilitado_img(false); // Desbloquear el botón al cerrar el modal
   };
 
   // Función para subir la imagen al servidor
@@ -374,7 +379,11 @@ const Modales = ({
     }
   };
 
+  const [botonDeshabilitado_doc, setBotonDeshabilitado_doc] = useState(false);
+
   const enviarDocumentosWhatsApp = async () => {
+    setBotonDeshabilitado_doc(true); // Bloquear el botón al iniciar el proceso
+
     for (let doc of documentos) {
       try {
         // Subir documento al servidor
@@ -394,6 +403,8 @@ const Modales = ({
     handleModal_enviarArchivos(""); // Cierra el modal
     setDocumentos([]); // Limpia la lista de documentos
     setDocumentoSeleccionado(null); // Limpia el documento seleccionado
+
+    setBotonDeshabilitado_doc(false); // Desbloquear el botón al finalizar
   };
 
   // Función para subir el documento al servidor
@@ -548,7 +559,11 @@ const Modales = ({
   };
 
   // Enviar videos a WhatsApp
+  const [botonDeshabilitado_vid, setBotonDeshabilitado_vid] = useState(false);
+
   const enviarVideosWhatsApp = async () => {
+    setBotonDeshabilitado_vid(true); // Bloquear el botón al iniciar el proceso
+
     for (let vid of videos) {
       try {
         // Subir video al servidor
@@ -568,6 +583,8 @@ const Modales = ({
     handleModal_enviarArchivos(""); // Cierra el modal
     setVideos([]); // Limpia la lista de videos
     setVideoSeleccionado(null); // Limpia el video seleccionado
+
+    setBotonDeshabilitado_vid(false); // Desbloquear el botón al finalizar
   };
 
   // Función para subir el video al servidor
@@ -1154,9 +1171,14 @@ const Modales = ({
                 {/* Botón de enviar */}
                 <button
                   onClick={enviarImagenesWhatsApp}
-                  className="bg-blue-500 text-white px-4 py-2 rounded mt-4 w-full"
+                  disabled={botonDeshabilitado_img} // Deshabilitar el botón según el estado
+                  className={`px-4 py-2 rounded mt-4 w-full transition-all ${
+                    botonDeshabilitado_img
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
-                  Enviar
+                  {botonDeshabilitado_img ? "Enviando..." : "Enviar"}
                 </button>
               </div>
             )}
@@ -1244,9 +1266,14 @@ const Modales = ({
                 {/* Botón de enviar */}
                 <button
                   onClick={enviarDocumentosWhatsApp}
-                  className="bg-blue-500 text-white px-4 py-2 rounded mt-4 w-full"
+                  disabled={botonDeshabilitado_doc} // Deshabilitar el botón según el estado
+                  className={`px-4 py-2 rounded mt-4 w-full transition-all ${
+                    botonDeshabilitado_doc
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
-                  Enviar
+                  {botonDeshabilitado_doc ? "Enviando..." : "Enviar"}
                 </button>
               </div>
             )}
@@ -1315,9 +1342,14 @@ const Modales = ({
                 {/* Botón de enviar */}
                 <button
                   onClick={enviarVideosWhatsApp}
-                  className="bg-blue-500 text-white px-4 py-2 rounded mt-4 w-full"
+                  disabled={botonDeshabilitado_vid} // Deshabilitar el botón según el estado
+                  className={`px-4 py-2 rounded mt-4 w-full transition-all ${
+                    botonDeshabilitado_vid
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
-                  Enviar
+                  {botonDeshabilitado_vid ? "Enviando..." : "Enviar"}
                 </button>
               </div>
             )}
