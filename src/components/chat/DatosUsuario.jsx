@@ -201,6 +201,7 @@ const DatosUsuario = ({
       alt: "Imagen 4",
     },
   ];
+  
   const cargarProductosAdicionales = async (pagina = 1) => {
     try {
       const response = await axios
