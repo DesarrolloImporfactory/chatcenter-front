@@ -1212,7 +1212,7 @@ const Chat = () => {
       estado_guia = "En transito";
     } else if (estado == 14) {
       color = "bg-red-500";
-      estado_guia = "Con novedad";
+      estado_guia = "Novedad";
     } else if (estado == 9) {
       color = "bg-red-500";
       estado_guia = "Devuelto";
@@ -1245,7 +1245,7 @@ const Chat = () => {
       estado_guia = "Entregado";
     } else if (estado >= 318 && estado <= 351) {
       color = "bg-red-500";
-      estado_guia = "Con novedad";
+      estado_guia = "Novedad";
     } else if (estado >= 500 && estado <= 502) {
       color = "bg-red-500";
       estado_guia = "Devuelto";
