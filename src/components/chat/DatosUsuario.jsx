@@ -201,7 +201,7 @@ const DatosUsuario = ({
       alt: "Imagen 4",
     },
   ];
-  
+
   const cargarProductosAdicionales = async (pagina = 1) => {
     try {
       const response = await axios
@@ -229,9 +229,6 @@ const DatosUsuario = ({
     }
   };
 
-  const handleAccordionToggle = () => {
-    setIsAccordionOpen(!isAccordionOpen);
-  };
   const agregarProducto = (producto) => {
     const formData1 = new FormData();
     formData1.append("id_factura", facturaSeleccionada.id_factura);
@@ -1368,7 +1365,6 @@ const DatosUsuario = ({
                     <div className="col-span-2 ">
                       <button
                         className="flex justify-between w-full text-left py-3 px-3 bg-[#171931] text-white rounded-t-lg"
-                        onClick={handleAccordionToggle}
                         type="button"
                       >
                         <h3 className="font-medium">Productos</h3>
