@@ -66,6 +66,7 @@ const DatosUsuario = ({
       return;
     }
 
+    
     const formulario = new FormData();
     formulario.append("procedencia", "1");
     formulario.append("id_pedido", facturaSeleccionada.id_factura || "");
@@ -87,10 +88,7 @@ const DatosUsuario = ({
       "numero_factura",
       facturaSeleccionada.numero_factura || ""
     );
-    formulario.append(
-      "total_venta",
-      document.querySelector("#total")?.textContent || 0
-    );
+    formulario.append("total_venta", facturaSeleccionada.monto_factura || 0);
     formulario.append("transportadora", transportadora);
     formulario.append("costo_flete", getValues("precio_envio") || 0);
     formulario.append("provinciaO", getValues("provinciaO") || "");
