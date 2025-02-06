@@ -830,34 +830,11 @@ const Chat = () => {
     }
   };
 
-  // Detectar clic fuera del cuadro
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Si el clic no ocurre en un elemento del cuadro de opciones
-      if (
-        !event.target.closest(".command-menu") && // Clase específica del cuadro
-        !event.target.closest(".command-trigger") // Clase del input que activa el menú
-      ) {
-        setIsCommandActive(false); // Cierra el cuadro
-        setIsChatBlocked(false);
-      }
-    };
-
-    const handleEscPress = (event) => {
-      if (event.key === "Escape") {
-        setIsCommandActive(false); // Cierra el cuadro si presionas ESC
-        setIsChatBlocked(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscPress);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscPress);
-    };
-  }, []);
+  const handleCloseModal = () => {
+    setIsCommandActive(false);
+    setIsChatBlocked(false);
+    setMensaje("");
+  };
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
@@ -1111,25 +1088,46 @@ const Chat = () => {
   useEffect(() => {
     if (menuSearchTerm.trim().length > 0) {
       // Si hay algo en el término de búsqueda, realiza la búsqueda en el socket
-      socketRef.current.emit("GET_TEMPLATES", {
-        id_plataforma: userData.plataforma,
-        palabraClave: menuSearchTerm,
-      });
+      if (socketRef.current) {
+        socketRef.current.emit("GET_TEMPLATES", {
+          id_plataforma: userData.plataforma,
+          palabraClave: menuSearchTerm,
+        });
 
-      // Escuchar los resultados de la búsqueda del socket
-      socketRef.current.on("TEMPLATES_RESPONSE", (data) => {
-        setSearchResults(data); // Actualiza el estado con los resultados recibidos
-      });
+        // Escuchar los resultados de la búsqueda del socket
+        const handleTemplatesResponse = (data) => {
+          setSearchResults(data); // Actualiza el estado con los resultados recibidos
+        };
 
-      // Limpieza para eliminar el listener cuando cambie el término de búsqueda
-      return () => {
-        socketRef.current.off("TEMPLATES_RESPONSE");
-      };
+        socketRef.current.on("TEMPLATES_RESPONSE", handleTemplatesResponse);
+
+        // Limpieza para evitar acumulación de listeners
+        return () => {
+          socketRef.current.off("TEMPLATES_RESPONSE", handleTemplatesResponse);
+        };
+      }
     } else {
-      // Si el campo de búsqueda está vacío, limpia los resultados
-      setSearchResults([]);
+      // Si el campo de búsqueda está vacío, mostrar todos los templates
+      if (socketRef.current) {
+        socketRef.current.emit("GET_TEMPLATES", {
+          id_plataforma: userData.plataforma,
+          palabraClave: "", // Filtro vacío para obtener todos los templates
+        });
+
+        // Escuchar todos los templates disponibles
+        const handleTemplatesResponse = (data) => {
+          setSearchResults(data); // Llena el estado con todos los templates
+        };
+
+        socketRef.current.on("TEMPLATES_RESPONSE", handleTemplatesResponse);
+
+        // Limpieza para evitar acumulación de listeners
+        return () => {
+          socketRef.current.off("TEMPLATES_RESPONSE", handleTemplatesResponse);
+        };
+      }
     }
-  }, [menuSearchTerm]);
+  }, [menuSearchTerm, socketRef.current]);
 
   // useEffect para ejecutar la búsqueda cuando cambia el término de búsqueda telefono
   useEffect(() => {
@@ -1514,6 +1512,7 @@ const Chat = () => {
         mensajesActuales={mensajesActuales}
         handleScroll={handleScroll}
         ScrollToBottomButton={ScrollToBottomButton}
+        handleCloseModal={handleCloseModal}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario

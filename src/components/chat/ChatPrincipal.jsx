@@ -42,6 +42,7 @@ const ChatPrincipal = ({
   mensajesActuales,
   handleScroll,
   ScrollToBottomButton,
+  handleCloseModal,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -384,7 +385,7 @@ const ChatPrincipal = ({
                 <div className="absolute bottom-20 left-0 bg-white border rounded shadow-lg p-4 z-50 w-full max-w-md">
                   {/* Botón de cierre */}
                   <button
-                    onClick={() => setIsCommandActive(false)} // Cambia el estado para cerrar
+                    onClick={handleCloseModal} // Cambia el estado para cerrar
                     className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
                   >
                     <svg
