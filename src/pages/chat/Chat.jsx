@@ -1417,7 +1417,7 @@ const Chat = () => {
 
   return (
     <div className="sm:grid grid-cols-4">
-      <div className="text-sm text-gray-700 absolute bottom-0 z-50 right-2">
+      <div className="text-sm text-gray-700 fixed bottom-0 z-50 right-2">
         v1.1 Hecho por{" "}
         <a target="_blank" href="https://new.imporsuitpro.com">
           Imporsuit
