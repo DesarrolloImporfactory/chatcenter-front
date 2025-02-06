@@ -683,8 +683,8 @@ const Chat = () => {
     setMensajesMostrados(20); // Reinicia los mensajes mostrados
     setScrollOffset(0); // Reinicia el offset
     setSelectedChat(chat); // Cambia el chat seleccionado
-    setMensaje(''); // Vacía el input
-  
+    setMensaje(""); // Vacía el input
+
     // Forzar el scroll al final después de que los mensajes se procesen
     setTimeout(() => {
       if (chatContainerRef.current) {
@@ -692,7 +692,7 @@ const Chat = () => {
           chatContainerRef.current.scrollHeight;
       }
     }, 200); // Espera a que los mensajes se actualicen antes de ajustar el scroll
-  };  
+  };
 
   /* filtro */
   const [etiquetas_api, setEtiquetas_api] = useState([]);
@@ -1000,8 +1000,10 @@ const Chat = () => {
     }
   }, [isSocketConnected && userData]);
 
-  function cargar_socket(){
-    setSeRecibioMensaje(true);
+  function cargar_socket() {
+    setTimeout(() => {
+      setSeRecibioMensaje(true);
+    }, 1000); // Temporizador de 1 segundo (1000 ms)
   }
 
   useEffect(() => {
