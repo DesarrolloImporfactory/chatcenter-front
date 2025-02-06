@@ -58,14 +58,18 @@ const DatosUsuario = ({
   };
 
   const handleGenerarGuia = async () => {
-    setGenerandoGuia(true);
     const transportadora = getValues("transportadora");
 
     if (!transportadora) {
-      alert("Por favor selecciona una transportadora.");
+      Toast.fire({
+        title: "ERROR",
+        icon: "error",
+        text: "Por favor selecciona una transportadora.",
+      });
       return;
     }
 
+    setGenerandoGuia(true);
     
     const formulario = new FormData();
     formulario.append("procedencia", "1");
