@@ -1000,6 +1000,10 @@ const Chat = () => {
     }
   }, [isSocketConnected && userData]);
 
+  function cargar_socket(){
+    setSeRecibioMensaje(true);
+  }
+
   useEffect(() => {
     if (seRecibioMensaje) {
       // Emitir evento para obtener todos los chats actualizados
@@ -1567,6 +1571,7 @@ const Chat = () => {
         tagListAsginadas={tagListAsginadas}
         setTagListAsginadas={setTagListAsginadas}
         setNumeroModal={setNumeroModal}
+        cargar_socket={cargar_socket}
       />
     </div>
   );
