@@ -101,6 +101,8 @@ const Chat = () => {
 
   const [disableAanular, setDisableAanular] = useState(true);
 
+  const [disableGestionar, setDisableGestionar] = useState(false);
+
   const [menuSearchTermNumeroCliente, setMenuSearchTermNumeroCliente] =
     useState(""); // Estado para el término de búsqueda numero Cliente
 
@@ -1371,10 +1373,14 @@ const Chat = () => {
       guia.estado_guia_sistema // El estado numérico
     );
 
-    if (estado_guia == "Generado") {
+    if (estado_guia == "Generado" || estado_guia == "Por recolectar") {
       setDisableAanular(true);
     } else {
       setDisableAanular(false);
+
+      if (estado_guia == "Novedad"){
+        disableGestionar(true);
+      }
     }
 
     // Llamar a la función para obtener provincia y ciudad
@@ -1537,6 +1543,7 @@ const Chat = () => {
         selectedChat={selectedChat}
         obtenerEstadoGuia={obtenerEstadoGuia}
         disableAanular={disableAanular}
+        disableGestionar={disableGestionar}
       />
       {/* MODALES */}
       <Modales

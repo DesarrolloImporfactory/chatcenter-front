@@ -25,6 +25,7 @@ const DatosUsuario = ({
   selectedChat,
   obtenerEstadoGuia,
   disableAanular,
+  disableGestionar,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -70,7 +71,7 @@ const DatosUsuario = ({
     }
 
     setGenerandoGuia(true);
-    
+
     const formulario = new FormData();
     formulario.append("procedencia", "1");
     formulario.append("id_pedido", facturaSeleccionada.id_factura || "");
@@ -1017,19 +1018,34 @@ const DatosUsuario = ({
                     </p>
                   </div>
 
-                  <button
-                    className={`rounded w-28 h-12 flex items-center justify-center ${
-                      disableAanular
-                        ? "bg-red-500 text-white"
-                        : "bg-gray-400 text-gray-700 cursor-not-allowed"
-                    }`}
-                    onClick={() =>
-                      anular_guia(guiaSeleccionada.numero_guia, "guia")
-                    }
-                    disabled={!disableAanular} // Si disableAanular es false, se deshabilita
-                  >
-                    Anular
-                  </button>
+                  <div className="flex gap-4">
+                    {/* Botón Anular */}
+                    <button
+                      className={`rounded w-28 h-12 flex items-center justify-center ${
+                        disableAanular
+                          ? "bg-red-500 text-white"
+                          : "bg-gray-400 text-gray-700 cursor-not-allowed"
+                      }`}
+                      onClick={() =>
+                        anular_guia(guiaSeleccionada.numero_guia, "guia")
+                      }
+                      disabled={!disableAanular} // Si disableAanular es false, se deshabilita
+                    >
+                      Anular
+                    </button>
+
+                    {/* Botón Gestionar Novedad */}
+                    {disableGestionar && (
+                      <a
+                        href="https://new.imporsuitpro.com/pedidos/novedades_2" // Reemplaza con el enlace deseado
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded w-48 h-12 flex items-center justify-center bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                      >
+                        Gestionar Novedad
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
