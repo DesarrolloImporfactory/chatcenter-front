@@ -162,7 +162,16 @@ const DatosUsuario = ({
         });
         recargarPedido();
         setGenerandoGuia(false);
-      } else {
+      } else if (data.status === "501" || data.status === 501){
+
+        Toast.fire({
+          title: "ERROR",
+          icon: "error",
+          text: "Un producto no cuenta con stock y no se puede generar la guia.",
+        });
+        setGenerandoGuia(false);
+
+      } else{
         setGenerandoGuia(false);
         alert("Error al generar la guía.");
       }
