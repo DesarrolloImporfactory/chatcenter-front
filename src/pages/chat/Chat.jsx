@@ -1379,7 +1379,7 @@ const Chat = () => {
       setDisableAanular(false);
 
       if (estado_guia == "Novedad"){
-        disableGestionar(true);
+        setDisableGestionar(true);
       }
     }
 
