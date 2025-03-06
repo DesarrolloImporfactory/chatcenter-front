@@ -118,6 +118,8 @@ const Chat = () => {
 
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
 
+  const [buscarIdRecibe, setBuscarIdRecibe] = useState(null);
+
   /* abrir modal crear etiquetas */
   const [isCrearEtiquetaModalOpen, setIsCrearEtiquetaModalOpen] =
     useState(false);
@@ -304,7 +306,7 @@ const Chat = () => {
   };
 
   // Manejar la selección del número de teléfono y activar la sección de templates
-  const handleSelectPhoneNumber = (phoneNumber) => {
+  const handleSelectPhoneNumber = async (phoneNumber) => {
     setSelectedPhoneNumber(phoneNumber); // Actualiza el número seleccionado
     setValue("numero", phoneNumber); // Actualiza el campo "numero" en el formulario
 
@@ -314,6 +316,36 @@ const Chat = () => {
     });
 
     setSeleccionado(true); // Indica que hay un número seleccionado
+
+    // Llama a la API para obtener el id_recibe
+    const idRecibe = await buscar_id_recibe(phoneNumber, userData.plataforma);
+    setBuscarIdRecibe(idRecibe); // Guarda el ID recibido en el estado
+  };
+
+  const buscar_id_recibe = async (recipientPhone, plataforma) => {
+    try {
+      const formData = new FormData();
+      formData.append("telefono", recipientPhone);
+      formData.append("plataforma", plataforma);
+
+      const response = await fetch(
+        "https://new.imporsuitpro.com/" + "pedidos/buscar_id_recibe",
+        {
+          method: "POST", // O "GET" dependiendo de la API
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error en la solicitud: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.id_recibe;
+    } catch (error) {
+      console.error("Error al buscar id_recibe:", error);
+      return null; // Manejo de errores devolviendo un valor nulo
+    }
   };
 
   const getOrderedChats = () => {
@@ -1378,7 +1410,7 @@ const Chat = () => {
     } else {
       setDisableAanular(false);
 
-      if (estado_guia == "Novedad"){
+      if (estado_guia == "Novedad") {
         setDisableGestionar(true);
       }
     }
@@ -1580,6 +1612,7 @@ const Chat = () => {
         setTagListAsginadas={setTagListAsginadas}
         setNumeroModal={setNumeroModal}
         cargar_socket={cargar_socket}
+        buscarIdRecibe={buscarIdRecibe}
       />
     </div>
   );

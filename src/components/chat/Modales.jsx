@@ -34,6 +34,7 @@ const Modales = ({
   setTagListAsginadas,
   setNumeroModal,
   cargar_socket,
+  buscarIdRecibe,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -891,7 +892,7 @@ const Modales = ({
         title: "Mensaje enviado correctamente",
       });
 
-      let id_recibe = selectedChat.id;
+      let id_recibe = buscarIdRecibe;
       let mid_mensaje = dataAdmin.id_telefono;
       let id_plataforma = userData.plataforma;
       let telefono_configuracion = dataAdmin.telefono;
@@ -904,7 +905,7 @@ const Modales = ({
         templateText,
         "text",
         JSON.stringify(ruta_archivo),
-        selectedChat.celular_cliente,
+        recipientPhone,
         mid_mensaje,
         id_recibe,
         id_plataforma,
