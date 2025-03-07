@@ -50,6 +50,7 @@ const DatosUsuario = ({
       calleSecundaria: "",
       referencia: "",
       observacion: "",
+      nombre_responsable: "",
       cod_entrega: 1,
     },
   });
@@ -88,6 +89,10 @@ const DatosUsuario = ({
     formulario.append("calle_secundaria", getValues("calleSecundaria") || "");
     formulario.append("referencia", getValues("referencia") || "");
     formulario.append("observacion", getValues("observacion") || "");
+    formulario.append(
+      "nombre_responsable",
+      getValues("nombre_responsable") || ""
+    );
     formulario.append("recaudo", getValues("cod_entrega") || "");
     formulario.append(
       "numero_factura",
@@ -162,16 +167,14 @@ const DatosUsuario = ({
         });
         recargarPedido();
         setGenerandoGuia(false);
-      } else if (data.status === "501" || data.status === 501){
-
+      } else if (data.status === "501" || data.status === 501) {
         Toast.fire({
           title: "ERROR",
           icon: "error",
           text: "Un producto no cuenta con stock y no se puede generar la guia.",
         });
         setGenerandoGuia(false);
-
-      } else{
+      } else {
         setGenerandoGuia(false);
         alert("Error al generar la guía.");
       }
@@ -313,6 +316,7 @@ const DatosUsuario = ({
     setValue("calleSecundaria", factura.c_secundaria || "");
     setValue("referencia", factura.referencia || "");
     setValue("observacion", factura.observacion || "");
+    setValue("nombre_responsable", factura.nombre_responsable || "");
     setValue("cod_entrega", factura.cod_entrega || 1);
 
     setValue("numero_factura", factura.numero_factura || "");
@@ -404,15 +408,31 @@ const DatosUsuario = ({
   };
 
   const handleImageClick = (id) => {
+    // Obtener el precio de flete
+    const data_flete = document.getElementById("flete_" + id).innerText.trim(); // .trim() para evitar espacios innecesarios
+
+    // Convertir el precio a número
+    const precioEnvio = parseFloat(data_flete.replace("$", "")) || 0;
+
+    // Mostrar alerta y detener la ejecución si la tarifa es 0
+    if (precioEnvio === 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "Tarifa no disponible",
+        text: "La transportadora seleccionada no tiene una tarifa válida.",
+        confirmButtonText: "Aceptar",
+      });
+      return; // Detener la función aquí para que no seleccione la transportadora
+    }
+
+    // Si la tarifa es válida, proceder con la selección
     setSelectedImageId(id);
     setValue("transportadora", id);
+    setValue("precio_envio", data_flete);
 
     if (id == 3) {
       setModal_google_maps(true);
     }
-    const data_flete = document.getElementById("flete_" + id).innerHTML;
-
-    setValue("precio_envio", data_flete);
   };
 
   // Actualización de valores en el servidor
@@ -1273,7 +1293,7 @@ const DatosUsuario = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="Calle secundaria"
+                        placeholder="Referencia"
                         {...register("referencia")}
                         className="p-2 border rounded w-full"
                       />
@@ -1284,8 +1304,19 @@ const DatosUsuario = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="Calle secundaria"
+                        placeholder="Observación"
                         {...register("observacion")}
+                        className="p-2 border rounded w-full"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label htmlFor="" className="text-sm font-medium">
+                        Nombre responsable
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Nombre responsable (Opcional)"
+                        {...register("nombre_responsable")}
                         className="p-2 border rounded w-full"
                       />
                     </div>
