@@ -219,28 +219,27 @@ const DatosUsuario = ({
     },
   ];
 
-  const cargarProductosAdicionales = async (pagina = 1) => {
+  const cargarProductosAdicionales = async (pagina = 1, searchTerm = "") => {
     try {
-      const response = await axios
-        .post(
-          `${import.meta.env.VITE_socket}/api/v1/product/${
-            facturaSeleccionada.productos[0].bodega
-          }`,
-          {
-            page: pagina, // Parámetros enviados en el cuerpo
-            limit: productosPorPagina, // Parámetros enviados en el cuerpo
+      const response = await axios.post(
+        `${import.meta.env.VITE_socket}/api/v1/product/${
+          facturaSeleccionada.productos[0].bodega
+        }`,
+        {
+          page: pagina,
+          limit: productosPorPagina,
+          searchTerm: searchTerm.trim() || null, // Si está vacío, enviamos null
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        )
-        .then((response) => {
-          setProductosAdicionales(response.data.products);
-          setPaginaActual(response.data.page);
-          setTotalPaginas(response.data.totalPages);
-        });
+        }
+      );
+
+      setProductosAdicionales(response.data.products);
+      setPaginaActual(response.data.page);
+      setTotalPaginas(response.data.totalPages);
     } catch (error) {
       console.error("Error al cargar productos adicionales:", error);
     }
@@ -637,6 +636,13 @@ const DatosUsuario = ({
       telefono: selectedChat.celular_cliente,
     });
   };
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    cargarProductosAdicionales(1, e.target.value); // Buscar desde la página 1 con el filtro
+  };
   return (
     <>
       {opciones && (
@@ -656,6 +662,13 @@ const DatosUsuario = ({
                   Productos Adicionales
                 </h1>
                 <div className="overflow-auto">
+                  <input
+                    type="text"
+                    placeholder="Buscar producto..."
+                    className="w-full p-2 border rounded"
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                  />
                   <table className="w-full table-auto border-collapse text-sm">
                     <thead>
                       <tr className="bg-gray-100 text-gray-600">
