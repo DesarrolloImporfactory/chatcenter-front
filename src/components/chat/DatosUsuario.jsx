@@ -651,85 +651,74 @@ const DatosUsuario = ({
         >
           {isModalOpen && (
             <div className="h-screen w-full bg-black/40 fixed inset-0 z-10 flex justify-center items-center">
-              <div className="bg-white p-4 rounded shadow-lg text-black">
-                <h1 className="text-center text-2xl font-semibold">
+              <div className="bg-white p-5 rounded-lg shadow-md text-black w-[90%] max-w-3xl">
+                <h1 className="text-center text-xl font-semibold mb-4 text-gray-700">
                   Productos Adicionales
                 </h1>
-                <div className="overflow-auto mt-4">
-                  <table className="w-full table-auto border-collapse border border-gray-300">
+                <div className="overflow-auto">
+                  <table className="w-full table-auto border-collapse text-sm">
                     <thead>
-                      <tr className="bg-gray-200 text-left">
-                        <th className="border p-2">Imagen</th>
-                        <th className="border p-2">Nombre</th>
-                        <th className="border p-2">Stock</th>
-                        <th className="border p-2">Cantidad</th>
-                        <th className="border p-2">Precio</th>
-                        <th className="border p-2">Acción</th>
+                      <tr className="bg-gray-100 text-gray-600">
+                        <th className="p-2">Imagen</th>
+                        <th className="p-2">Nombre</th>
+                        <th className="p-2">Stock</th>
+                        <th className="p-2">Cantidad</th>
+                        <th className="p-2">Precio</th>
+                        <th className="p-2">Acción</th>
                       </tr>
                     </thead>
                     <tbody>
                       {productosAdicionales.map((producto) => (
-                        <tr key={producto.id_inventario}>
-                          {/* Imagen */}
-                          <td className="border p-2 text-center">
+                        <tr
+                          key={producto.id_inventario}
+                          className="hover:bg-gray-50 transition"
+                        >
+                          <td className="p-2 text-center">
                             <img
                               src={
                                 producto.image_path
                                   ? `https://new.imporsuitpro.com/${producto.image_path}`
-                                  : "https://via.placeholder.com/50x50?text=No+Imagen"
+                                  : "https://via.placeholder.com/40x40?text=No+Img"
                               }
                               alt={producto.nombre_producto}
-                              className="w-16 h-16 object-cover rounded"
+                              className="w-12 h-12 object-cover rounded"
                             />
                           </td>
-                          {/* Nombre */}
-                          <td className="border px-4 py-2">
-                            {producto.nombre_producto}
-                          </td>
-                          {/* Cantidad */}
-                          <td className="border px-4 py-2 text-sm text-center">
+                          <td className="p-2">{producto.nombre_producto}</td>
+                          <td className="p-2 text-center">
                             {producto.saldo_stock > 0
                               ? producto.saldo_stock
                               : "Sin Stock"}
                           </td>
-                          {/* Cantidad */}
-                          <td className="border px-4 py-2 text-center">
+                          <td className="p-2 text-center">
                             <input
                               type="number"
                               id={`cantidad_adicional` + producto.id_inventario}
-                              className="w-16 px-2 py-1 border rounded"
+                              className="w-12 px-2 py-1 border rounded text-center text-sm"
                               defaultValue={1}
                             />
                           </td>
-
-                          {/* Precio */}
-                          <td className="border relative px-4 py-2 items-center gap-2">
-                            <span className="absolute text-gray-400 top-1/2 -translate-y-1/2 left-8 text-sm">
-                              $
-                            </span>
+                          <td className="p-2 text-center">
                             <input
                               type="text"
-                              className="w-16 px-3 py-1 border rounded"
+                              className="w-14 px-3 py-1 border rounded text-center text-sm"
                               defaultValue={producto.pvp || 0}
                               onChange={(e) => {
                                 producto.pvp = e.target.value;
                               }}
                             />
                           </td>
-
-                          {/* Botón de Agregar */}
-                          <td className="border px-4 py-2 text-center">
+                          <td className="p-2 text-center">
                             {producto.saldo_stock > 0 ? (
                               <button
-                                className="bg-green-500 text-white px-3 py-1 rounded"
+                                className="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 text-sm transition"
                                 onClick={() => agregarProducto(producto)}
-                                disabled={producto.saldo_stock <= 0}
                               >
                                 Agregar
                               </button>
                             ) : (
                               <button
-                                className="bg-red-500 text-white px-3 py-1 rounded"
+                                className="bg-red-400 text-white px-3 py-1 rounded-md text-sm"
                                 disabled
                               >
                                 Sin Stock
@@ -741,35 +730,104 @@ const DatosUsuario = ({
                     </tbody>
                   </table>
                 </div>
-                <div className="flex justify-between items-center mt-4">
+
+                {/* Paginación con Diseño Mejorado */}
+                <div className="flex justify-center items-center mt-4 space-x-2 text-gray-600 text-sm">
                   {/* Botón Anterior */}
                   <button
-                    className="bg-gray-300 px-3 py-1 rounded"
+                    className="px-3 py-1 rounded-md bg-transparent hover:text-blue-500 transition flex items-center"
                     onClick={() => cargarProductosAdicionales(paginaActual - 1)}
                     disabled={paginaActual === 1}
                   >
-                    Anterior
+                    <i className="bx bx-chevron-left text-lg"></i>
                   </button>
-                  {/* Paginación */}
-                  <span>
-                    Página {paginaActual} de {totalPaginas}
-                  </span>
+
+                  {/* Primera página */}
+                  <button
+                    className={`px-3 py-1 rounded-md ${
+                      paginaActual === 1
+                        ? "bg-blue-500 text-white"
+                        : "hover:bg-gray-200"
+                    } transition`}
+                    onClick={() => cargarProductosAdicionales(1)}
+                  >
+                    1
+                  </button>
+
+                  {/* ... si hay más de 5 páginas y no estás en las primeras */}
+                  {paginaActual > 4 && totalPaginas > 5 && (
+                    <span className="px-2">...</span>
+                  )}
+
+                  {/* Números de página en grupos de 5 */}
+                  {(() => {
+                    const pages = [];
+                    let startPage = Math.max(2, paginaActual - 2);
+                    let endPage = Math.min(totalPaginas - 1, paginaActual + 2);
+
+                    if (paginaActual <= 3) {
+                      endPage = Math.min(6, totalPaginas - 1);
+                    } else if (paginaActual >= totalPaginas - 2) {
+                      startPage = Math.max(2, totalPaginas - 5);
+                    }
+
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          className={`px-3 py-1 rounded-md ${
+                            paginaActual === i
+                              ? "bg-blue-500 text-white"
+                              : "hover:bg-gray-200"
+                          } transition`}
+                          onClick={() => cargarProductosAdicionales(i)}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+
+                    return pages;
+                  })()}
+
+                  {/* ... si hay más páginas después */}
+                  {paginaActual < totalPaginas - 3 && totalPaginas > 5 && (
+                    <span className="px-2">...</span>
+                  )}
+
+                  {/* Última página */}
+                  {totalPaginas > 1 && (
+                    <button
+                      className={`px-3 py-1 rounded-md ${
+                        paginaActual === totalPaginas
+                          ? "bg-blue-500 text-white"
+                          : "hover:bg-gray-200"
+                      } transition`}
+                      onClick={() => cargarProductosAdicionales(totalPaginas)}
+                    >
+                      {totalPaginas}
+                    </button>
+                  )}
+
                   {/* Botón Siguiente */}
                   <button
-                    className="bg-gray-300 px-3 py-1 rounded"
+                    className="px-3 py-1 rounded-md bg-transparent hover:text-blue-500 transition flex items-center"
                     onClick={() => cargarProductosAdicionales(paginaActual + 1)}
                     disabled={paginaActual === totalPaginas}
                   >
-                    Siguiente
+                    <i className="bx bx-chevron-right text-lg"></i>
                   </button>
                 </div>
+
                 {/* Botón Cerrar */}
-                <button
-                  className="bg-red-500 text-white px-4 py-2 rounded mt-4"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cerrar
-                </button>
+                <div className="text-center mt-4">
+                  <button
+                    className="bg-red-500 text-white px-5 py-2 rounded-md text-sm hover:bg-red-600 transition"
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Cerrar
+                  </button>
+                </div>
               </div>
             </div>
           )}

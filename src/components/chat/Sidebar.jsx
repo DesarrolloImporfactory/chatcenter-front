@@ -41,7 +41,7 @@ export const Sidebar = ({
       >
         <div className="p-4">
           {/* Buscador */}
-          <div className="flex flex-column items-center gap-2">
+          <div className="flex flex-col items-center gap-2">
             <div className="flex w-full items-center gap-2">
               <input
                 type="text"
