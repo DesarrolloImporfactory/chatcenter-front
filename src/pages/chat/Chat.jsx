@@ -1218,6 +1218,18 @@ const Chat = () => {
     }
   }, [isSocketConnected, selectedChat, mensajesMostrados]);
 
+  const recargarDatosFactura = () => {
+    if (socketRef.current) {
+      // Emitir evento para solicitar datos actualizados
+      socketRef.current.emit("GET_FACTURAS", {
+        id_plataforma: userData.plataforma, // Ajusta con la info necesaria
+        telefono: selectedChat.celular_cliente,
+      });
+
+      console.log("Recargando datos de factura...");
+    }
+  };
+
   function validar_estadoLaar(estado) {
     let color = "";
     let estado_guia = "";
@@ -1576,6 +1588,7 @@ const Chat = () => {
         obtenerEstadoGuia={obtenerEstadoGuia}
         disableAanular={disableAanular}
         disableGestionar={disableGestionar}
+        recargarDatosFactura={recargarDatosFactura}
       />
       {/* MODALES */}
       <Modales

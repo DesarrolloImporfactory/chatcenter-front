@@ -26,6 +26,7 @@ const DatosUsuario = ({
   obtenerEstadoGuia,
   disableAanular,
   disableGestionar,
+  recargarDatosFactura
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -98,7 +99,7 @@ const DatosUsuario = ({
       "numero_factura",
       facturaSeleccionada.numero_factura || ""
     );
-    formulario.append("total_venta", facturaSeleccionada.monto_factura || 0);
+    formulario.append("total_venta", total || 0);
     formulario.append("transportadora", transportadora);
     formulario.append("costo_flete", getValues("precio_envio") || 0);
     formulario.append("provinciaO", getValues("provinciaO") || "");
@@ -272,6 +273,9 @@ const DatosUsuario = ({
             },
           ],
         }));
+
+        recargarDatosFactura();
+        handleFacturaSeleccionada(facturasChatSeleccionado[0]);
       })
       .catch((error) => {
         console.error(error);
@@ -647,7 +651,7 @@ const DatosUsuario = ({
     <>
       {opciones && (
         <div
-          className={`relative col-span-1  text-white overflow-y-auto px-4  duration-700 transition-all ${
+          className={`relative col-span-1 h-[calc(100vh_-_130px)] text-white overflow-y-auto px-4  duration-700 transition-all ${
             animateOut ? "animate-slide-out" : "animate-slide-in"
           }
             ${
@@ -1168,7 +1172,7 @@ const DatosUsuario = ({
               <div className="absolute text-black left-0 bg-white h-full w-full ">
                 <div className="flex justify-between items-center p-4">
                   {generandoGuia == true ? (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                       <div className="bg-white p-6 rounded-lg shadow-lg text-black text-center">
                         <h1 className="text-2xl font-semibold mb-4">
                           Generando Guía
