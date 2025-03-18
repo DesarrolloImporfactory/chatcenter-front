@@ -154,13 +154,12 @@ const DatosUsuario = ({
 
       const data = await response.json();
       if (data.status === "200" || data.status === 200) {
-
         let guia = "";
 
-        if (transportadora == 1 || transportadora == 3 || transportadora == 4){
-          guia = data.guia;
-        } else if (transportadora == 2){
+        if (transportadora == 1) {
           guia = data.id;
+        } else {
+          guia = data.guia;
         }
 
         await enviar_guia_plantilla(guia, formulario);
@@ -659,7 +658,9 @@ const DatosUsuario = ({
 
   const enviar_guia_plantilla = async (guia, formulario) => {
     try {
-      let TEMPLATE_NAME = await obtener_plantilla(formulario.get("id_plataforma"));
+      let TEMPLATE_NAME = await obtener_plantilla(
+        formulario.get("id_plataforma")
+      );
 
       if (!TEMPLATE_NAME) {
         console.error("No se pudo obtener el nombre de la plantilla.");
