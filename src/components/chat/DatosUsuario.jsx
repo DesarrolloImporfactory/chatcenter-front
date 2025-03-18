@@ -154,7 +154,16 @@ const DatosUsuario = ({
 
       const data = await response.json();
       if (data.status === "200" || data.status === 200) {
-        await enviar_guia_plantilla(data.guia, formulario);
+
+        let guia = "";
+
+        if (transportadora == 1 || transportadora == 3 || transportadora == 4){
+          guia = data.guia;
+        } else if (transportadora == 2){
+          guia = data.id;
+        }
+
+        await enviar_guia_plantilla(guia, formulario);
 
         setFacturasChatSeleccionado((prevFacturas) =>
           prevFacturas.filter(
