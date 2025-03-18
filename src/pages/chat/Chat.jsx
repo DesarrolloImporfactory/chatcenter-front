@@ -1589,6 +1589,9 @@ const Chat = () => {
         disableAanular={disableAanular}
         disableGestionar={disableGestionar}
         recargarDatosFactura={recargarDatosFactura}
+        dataAdmin={dataAdmin}
+        buscar_id_recibe={buscar_id_recibe}
+        agregar_mensaje_enviado={agregar_mensaje_enviado}
       />
       {/* MODALES */}
       <Modales

@@ -26,7 +26,10 @@ const DatosUsuario = ({
   obtenerEstadoGuia,
   disableAanular,
   disableGestionar,
-  recargarDatosFactura
+  recargarDatosFactura,
+  dataAdmin,
+  buscar_id_recibe,
+  agregar_mensaje_enviado,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -151,6 +154,8 @@ const DatosUsuario = ({
 
       const data = await response.json();
       if (data.status === "200" || data.status === 200) {
+        await enviar_guia_plantilla(data.guia, formulario);
+
         setFacturasChatSeleccionado((prevFacturas) =>
           prevFacturas.filter(
             (factura) =>
@@ -566,6 +571,199 @@ const DatosUsuario = ({
       }
     });
   };
+
+  const obtenerTextoPlantilla = async (templateName) => {
+    try {
+      const ACCESS_TOKEN = dataAdmin.token;
+
+      const response = await fetch(
+        `https://graph.facebook.com/v17.0/${dataAdmin.id_whatsapp}/message_templates`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.data) {
+        console.error("No se encontraron plantillas en la API.");
+        return { text: null, language: null };
+      }
+
+      // Buscar la plantilla por nombre
+      const plantilla = data.data.find((tpl) => tpl.name === templateName);
+
+      if (!plantilla) {
+        console.error(
+          `No se encontró la plantilla con nombre: ${templateName}`
+        );
+        return { text: null, language: null };
+      }
+
+      // Extraer el texto del body de la plantilla
+      const body = plantilla.components.find((comp) => comp.type === "BODY");
+
+      if (!body || !body.text) {
+        console.error("La plantilla no tiene un cuerpo de texto.");
+        return { text: null, language: null };
+      }
+
+      // Extraer el idioma de la plantilla
+      const languageCode = plantilla.language || "es"; // Si no tiene, por defecto "es"
+
+      return { text: body.text, language: languageCode };
+    } catch (error) {
+      console.error("Error al obtener la plantilla:", error);
+      return { text: null, language: null };
+    }
+  };
+
+  const obtener_plantilla = async (id_plataforma) => {
+    try {
+      const formData = new FormData();
+      formData.append("id_plataforma", id_plataforma);
+
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/obtener_template_transportadora",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error en la petición: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Verifica si la clave "template" existe y no está vacía
+      return data.template ? data.template : "";
+    } catch (error) {
+      console.error("Error obteniendo template:", error);
+      return "";
+    }
+  };
+
+  const enviar_guia_plantilla = async (guia, formulario) => {
+    try {
+      let TEMPLATE_NAME = await obtener_plantilla(formulario.get("id_plataforma"));
+
+      if (!TEMPLATE_NAME) {
+        console.error("No se pudo obtener el nombre de la plantilla.");
+        return { success: false, error: "No se encontró la plantilla" };
+      }
+
+      // Obtener el texto y el idioma de la plantilla
+      const { text: templateText, language: LANGUAGE_CODE } =
+        await obtenerTextoPlantilla(TEMPLATE_NAME);
+
+      if (!templateText) {
+        console.error("No se pudo obtener el texto de la plantilla.");
+        return {
+          success: false,
+          error: "No se encontró el contenido de la plantilla",
+        };
+      }
+
+      // Extraer datos del formulario
+      let nombreCliente = formulario.get("nombre");
+      const numeroDestino = selectedChat.celular_cliente;
+
+      // Datos de autenticación en la API de WhatsApp Cloud
+      const ACCESS_TOKEN = dataAdmin.token;
+      const PHONE_NUMBER_ID = dataAdmin.id_telefono;
+
+      // Construcción del objeto para guardar en BD
+      let ruta_archivo = {
+        1: nombreCliente,
+        2: guia,
+      };
+
+      // Crear el payload para enviar el mensaje de plantilla
+      const mensaje = {
+        messaging_product: "whatsapp",
+        to: numeroDestino,
+        type: "template",
+        template: {
+          name: TEMPLATE_NAME,
+          language: { code: LANGUAGE_CODE },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: nombreCliente }, // Variable 1
+                { type: "text", text: guia }, // Variable 2
+              ],
+            },
+            {
+              type: "button",
+              sub_type: "url",
+              index: "0", // Primer botón dinámico
+              parameters: [{ type: "text", text: guia }],
+            },
+            {
+              type: "button",
+              sub_type: "url",
+              index: "1", // Segundo botón dinámico
+              parameters: [{ type: "text", text: guia }],
+            },
+          ],
+        },
+      };
+
+      // Enviar solicitud a la API de WhatsApp
+      const response = await fetch(
+        `https://graph.facebook.com/v17.0/${PHONE_NUMBER_ID}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+          },
+          body: JSON.stringify(mensaje),
+        }
+      );
+
+      const data = await response.json();
+
+      // Validar respuesta
+      if (data.error) {
+        console.error("Error al enviar mensaje:", data.error);
+        return { success: false, error: data.error };
+      }
+
+      console.log("Mensaje enviado con éxito:", data);
+
+      // Llamar a la función para guardar el mensaje en la BD
+      let telefono_configuracion = dataAdmin.telefono;
+
+      let id_recibe = await buscar_id_recibe(
+        numeroDestino,
+        formulario.get("id_plataforma")
+      );
+
+      agregar_mensaje_enviado(
+        templateText, // Texto con {{1}}, {{2}} etc.
+        "text", // Tipo de mensaje
+        JSON.stringify(ruta_archivo), // Guardamos en JSON las variables reales
+        numeroDestino,
+        dataAdmin.id_telefono,
+        id_recibe,
+        formulario.get("id_plataforma"),
+        telefono_configuracion
+      );
+
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error en enviar_guia_plantilla:", error);
+      return { success: false, error };
+    }
+  };
+
   const imprimir_guia = () => {
     if (guiaSeleccionada.transporte === "SERVIENTREGA") {
       window.open(
