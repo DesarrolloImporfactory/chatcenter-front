@@ -225,22 +225,18 @@ const Cabecera = ({
                 onMouseLeave={() => setIsHovering(false)} // Ocultar el texto cuando el mouse sale
                 className="relative group"
               >
-                {/* Icono dinámico */}
-                <i
-                  className={`bx ${
-                    selectedChat.chat_cerrado === 0 ? "bxs-archive" : "bxs-chat"
-                  } group-hover:scale-110`}
-                  style={{ fontSize: "24px", transition: "transform 0.2s" }}
-                ></i>
-
-                {/* Tooltip con el texto */}
-                {isHovering && (
-                  <span className="absolute top-full left-1/2 transform -translate-x-1/2 text-sm text-white bg-black px-2 py-1 rounded opacity-100 transition-opacity duration-300 whitespace-nowrap">
-                    {selectedChat.chat_cerrado === 0
-                      ? "Cerrar chat"
-                      : "Abrir chat"}
-                  </span>
-                )}
+                {/* Texto dinámico del botón */}
+                <span
+                  className={`${
+                    selectedChat.chat_cerrado === 0
+                      ? "bg-red-500 hover:bg-red-600"
+                      : "bg-green-500 hover:bg-green-600"
+                  } py-2 px-4 rounded-md text-sm font-semibold text-white transition duration-300`}
+                >
+                  {selectedChat.chat_cerrado === 0
+                    ? "Cerrar chat"
+                    : "Abrir chat"}
+                </span>
               </button>
 
               {/* boton etiquetas */}
