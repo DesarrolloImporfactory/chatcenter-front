@@ -733,6 +733,7 @@ const Chat = () => {
   const [selectedEtiquetas, setSelectedEtiquetas] = useState([]);
   const [selectedEstado, setSelectedEstado] = useState([]);
   const [selectedTransportadora, setSelectedTransportadora] = useState(null);
+  const [selectedTab, setSelectedTab] = useState("abierto");
 
   const etiquetasOptions = etiquetas_api.map((etiqueta) => ({
     value: etiqueta.id_etiqueta,
@@ -840,6 +841,16 @@ const Chat = () => {
       } else {
         return false;
       }
+    })
+    .filter((mensaje) => {
+      // Filtro por chat cerrado según pestaña seleccionada
+      const chatCerrado = mensaje.chat_cerrado; // Asumiendo que chat_cerrado es un campo en tu mensaje
+      if (selectedTab === "abierto") {
+        return chatCerrado === 0; // Solo chats abiertos
+      } else if (selectedTab === "resueltos") {
+        return chatCerrado === 1; // Solo chats resueltos
+      }
+      return true; // Si no se aplica filtro de chat_cerrado
     });
 
   const socketRef = useRef(null);
@@ -1490,6 +1501,7 @@ const Chat = () => {
         toggleAsginarEtiquetaModal={toggleAsginarEtiquetaModal}
         tagListAsginadas={tagListAsginadas}
         tagList={tagList}
+        cargar_socket={cargar_socket}
       />
       {/* Historial de chats */}
       <Sidebar
@@ -1521,6 +1533,8 @@ const Chat = () => {
         validar_estadoServi={validar_estadoServi}
         validar_estadoGintracom={validar_estadoGintracom}
         validar_estadoSpeed={validar_estadoSpeed}
+        selectedTab={selectedTab}
+        setSelectedTab={setSelectedTab}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

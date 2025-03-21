@@ -16,6 +16,7 @@ const Cabecera = ({
   toggleAsginarEtiquetaModal,
   tagListAsginadas,
   tagList,
+  cargar_socket,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -77,6 +78,47 @@ const Cabecera = ({
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+  const [isHovering, setIsHovering] = useState(false);
+
+  // Función para manejar el cambio de estado del chat (archivar o abrir)
+  const handleChangeChatStatus = async (newStatus) => {
+    try {
+      // Aquí llamas a tu API para actualizar el estado del chat
+      // La función 'actualizar_cerrado' es la que debes pasar como prop para llamar tu API
+      await actualizar_cerrado(selectedChat.id, newStatus); // Enviamos el id y el nuevo estado (0 o 1)
+    } catch (error) {
+      console.error("Error al cambiar el estado del chat:", error);
+    }
+  };
+
+  const actualizar_cerrado = async (chatId, nuevoEstado) => {
+    try {
+      const formData = new FormData();
+      formData.append("chatId", chatId); // Añadimos el ID del chat
+      formData.append("nuevoEstado", nuevoEstado); // Añadimos el nuevo estado (0 o 1)
+
+      // Enviar la solicitud a la API con los datos
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/actualizar_cerrado",
+        {
+          method: "POST",
+          body: formData, // Usamos el FormData para enviar los datos
+        }
+      );
+
+      const data = await response.json(); // Parseamos la respuesta JSON
+
+      if (!response.ok) {
+        throw new Error(data.message || "Error al actualizar el chat");
+      }
+
+      console.log("Chat actualizado correctamente:", data);
+      cargar_socket();
+    } catch (error) {
+      console.error("Error al actualizar el chat:", error);
+    }
+  };
 
   return (
     <>
@@ -173,6 +215,33 @@ const Cabecera = ({
             </div>
             {/* opciones */}
             <div className="flex items-center justify-between text-xl gap-4 p-4">
+              <button
+                onClick={() =>
+                  handleChangeChatStatus(
+                    selectedChat.chat_cerrado === 0 ? 1 : 0
+                  )
+                }
+                onMouseEnter={() => setIsHovering(true)} // Mostrar el texto cuando el mouse entra
+                onMouseLeave={() => setIsHovering(false)} // Ocultar el texto cuando el mouse sale
+                className="relative group"
+              >
+                {/* Icono dinámico */}
+                <i
+                  className={`bx ${
+                    selectedChat.chat_cerrado === 0 ? "bxs-archive" : "bxs-chat"
+                  } group-hover:scale-110`}
+                  style={{ fontSize: "24px", transition: "transform 0.2s" }}
+                ></i>
+
+                {/* Tooltip con el texto */}
+                {isHovering && (
+  <span className="absolute top-full left-1/2 transform -translate-x-1/2 text-sm text-white bg-black px-2 py-1 rounded opacity-100 transition-opacity duration-300 whitespace-nowrap">
+    {selectedChat.chat_cerrado === 0 ? "Archivar" : "Abrir chat"}
+  </span>
+)}
+
+              </button>
+
               {/* boton etiquetas */}
               <button onClick={toggleEtiquetasMenu} ref={etiquetasMenuRef}>
                 <i className="bx bxs-purchase-tag"></i>

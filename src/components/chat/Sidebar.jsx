@@ -30,6 +30,8 @@ export const Sidebar = ({
   validar_estadoServi,
   validar_estadoGintracom,
   validar_estadoSpeed,
+  selectedTab,
+  setSelectedTab,
 }) => {
   return (
     <>
@@ -42,6 +44,29 @@ export const Sidebar = ({
         <div className="p-4">
           {/* Buscador */}
           <div className="flex flex-col items-center gap-2">
+            {/* Pestañas de filtro */}
+            <div className="flex w-full justify-between border-b border-gray-500">
+              <button
+                className={`flex-1 text-center py-2 font-semibold transition ${
+                  selectedTab === "abierto"
+                    ? "border-b-2 border-blue-500 text-blue-500"
+                    : "text-gray-400 hover:text-gray-300"
+                }`}
+                onClick={() => setSelectedTab("abierto")}
+              >
+                <i className="bx bx-download pr-2"></i> ABIERTO
+              </button>
+              <button
+                className={`flex-1 text-center py-2 font-semibold transition ${
+                  selectedTab === "resueltos"
+                    ? "border-b-2 border-blue-500 text-blue-500"
+                    : "text-gray-400 hover:text-gray-300"
+                }`}
+                onClick={() => setSelectedTab("resueltos")}
+              >
+                <i className="bx bx-check pr-2"></i> RESUELTOS
+              </button>
+            </div>
             <div className="flex w-full items-center gap-2">
               <input
                 type="text"
