@@ -235,11 +235,12 @@ const Cabecera = ({
 
                 {/* Tooltip con el texto */}
                 {isHovering && (
-  <span className="absolute top-full left-1/2 transform -translate-x-1/2 text-sm text-white bg-black px-2 py-1 rounded opacity-100 transition-opacity duration-300 whitespace-nowrap">
-    {selectedChat.chat_cerrado === 0 ? "Archivar" : "Abrir chat"}
-  </span>
-)}
-
+                  <span className="absolute top-full left-1/2 transform -translate-x-1/2 text-sm text-white bg-black px-2 py-1 rounded opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                    {selectedChat.chat_cerrado === 0
+                      ? "Cerrar chat"
+                      : "Abrir chat"}
+                  </span>
+                )}
               </button>
 
               {/* boton etiquetas */}
