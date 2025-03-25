@@ -93,6 +93,7 @@ const DatosUsuario = ({
     formulario.append("calle_secundaria", getValues("calleSecundaria") || "");
     formulario.append("referencia", getValues("referencia") || "");
     formulario.append("observacion", getValues("observacion") || "");
+    formulario.append("id_producto_venta", idProductoVenta);
     formulario.append(
       "nombre_responsable",
       getValues("nombre_responsable") || ""
@@ -208,6 +209,7 @@ const DatosUsuario = ({
   const [paginaActual, setPaginaActual] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [modal_google_maps, setModal_google_maps] = useState(false);
+  const [idProductoVenta, setIdProductoVenta] = useState("");
 
   const productosPorPagina = 5; // Define cuántos productos mostrar por página
   const images = [
@@ -523,6 +525,14 @@ const DatosUsuario = ({
       setProductosAdicionales;
     }
   }, [facturaSeleccionada.productos]);
+
+  useEffect(() => {
+    facturaSeleccionada.productos?.forEach((producto) => {
+      if (producto.envio_prioritario === "0") {
+        setIdProductoVenta(producto.id_producto);
+      }
+    });
+  }, [facturaSeleccionada]);
 
   const tracking_guia = () => {
     if (guiaSeleccionada.transporte === "SERVIENTREGA") {
