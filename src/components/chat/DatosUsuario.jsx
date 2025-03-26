@@ -245,6 +245,8 @@ const DatosUsuario = ({
           page: pagina,
           limit: productosPorPagina,
           searchTerm: searchTerm.trim() || null, // Si está vacío, enviamos null
+          id_producto: facturaSeleccionada.productos[0].id_producto,
+          sku: facturaSeleccionada.productos[0].sku,
         },
         {
           headers: {
