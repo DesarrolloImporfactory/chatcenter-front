@@ -210,6 +210,7 @@ const DatosUsuario = ({
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [modal_google_maps, setModal_google_maps] = useState(false);
   const [idProductoVenta, setIdProductoVenta] = useState("");
+  const [nombreBodega, setNombreBodega] = useState("");
 
   const productosPorPagina = 5; // Define cuántos productos mostrar por página
   const images = [
@@ -529,12 +530,50 @@ const DatosUsuario = ({
   }, [facturaSeleccionada.productos]);
 
   useEffect(() => {
+    // Buscar producto con envio_prioritario == "0"
     facturaSeleccionada.productos?.forEach((producto) => {
       if (producto.envio_prioritario === "0") {
         setIdProductoVenta(producto.id_producto);
       }
     });
+  
+    // Obtener nombre de bodega desde el primer producto
+    const obtenerNombre = async () => {
+      const bodegaId = facturaSeleccionada.productos?.[0]?.bodega;
+      if (bodegaId) {
+        const nombre = await nombre_bodega(bodegaId);
+        setNombreBodega(nombre);
+      }
+    };
+  
+    obtenerNombre();
   }, [facturaSeleccionada]);
+
+  const nombre_bodega = async (id_bodega) => {
+    try {
+      const formData = new FormData();
+      formData.append("id_bodega", id_bodega);
+
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/obtener_nombre_bodega",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error en la petición: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      return data.nombre ? data.nombre : "";
+    } catch (error) {
+      console.error("Error obteniendo template:", error);
+      return "";
+    }
+  };
 
   const tracking_guia = () => {
     if (guiaSeleccionada.transporte === "SERVIENTREGA") {
@@ -1885,6 +1924,14 @@ const DatosUsuario = ({
                           >
                             Añadir Producto
                           </button>
+
+                          {/* Nombre bodega */}
+                          <div className="flex justify-between mt-3">
+                            <p className="text-lg font-semibold">
+                              Nombre bodega:
+                            </p>
+                            <span>{nombreBodega}</span>
+                          </div>
 
                           {/* Total final */}
                           <div className="flex justify-between mt-3">
