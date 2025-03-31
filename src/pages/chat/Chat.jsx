@@ -1,13 +1,15 @@
-import React from "react";
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { set, useForm } from "react-hook-form";
 import { addNumberThunk } from "../../store/slices/number.slice";
+
 import { useDispatch } from "react-redux";
 import EmojiPicker from "emoji-picker-react";
-import { jwtDecode } from "jwt-decode";
+import {jwtDecode} from "jwt-decode";
 import io from "socket.io-client";
+
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
 import { da, es } from "date-fns/locale"; // Importa el locale para español
+
 import Cabecera from "../../components/chat/Cabecera";
 import { Sidebar } from "../../components/chat/Sidebar";
 import ChatPrincipal from "../../components/chat/ChatPrincipal";
@@ -15,6 +17,7 @@ import DatosUsuario from "../../components/chat/DatosUsuario";
 import Modales from "../../components/chat/Modales";
 import Loading from "../../components/chat/Loading";
 import ScrollToBottomButton from "../../components/chat/ScrollToBottomButton";
+
 import chatApi from "../../api/chatcenter";
 
 const Chat = () => {
