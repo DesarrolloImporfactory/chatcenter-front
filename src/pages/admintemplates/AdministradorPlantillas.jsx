@@ -24,35 +24,42 @@ const AdministradorPlantillas = () => {
   const animateOut = false;
   const socketRef = useRef(null);
 
+  //Si no hay token, no sigue ejecutando el jwtDecode
   useEffect(() => {
-    const token = localStorage.getItem("token"); // Leemos el token
-    if (token) {
-      const decoded = jwtDecode(token); // Decodificamos con jwt-decode
-      //verificamos si el token ha expirado
-      if (decoded.exp < Date.now() / 1000) {
-        localStorage.removeItem("token");
-        // Si ha expirado, redirigimos al login
-        window.location.href = "/login";
-      }
-
-      setUserData(decoded); // Guardamos los datos en el estado
-
-      // Conectar al servidor de WebSockets
-      const socket = io(import.meta.env.VITE_socket, {
-        transports: ["websocket", "polling"],
-        secure: true,
-      });
-      socket.on("connect", () => {
-        console.log("Conectado al servidor de WebSockets");
-        socketRef.current = socket;
-        setIsSocketConnected(true);
-      });
-      socket.on("disconnect", () => {
-        console.log("Desconectado del servidor de WebSockets");
-        setIsSocketConnected(false);
-      });
+    const token = localStorage.getItem("token");
+  
+    if (!token) {
+      window.location.href = "/login";
+      return;
     }
+  
+    const decoded = jwtDecode(token);
+    if (decoded.exp < Date.now() / 1000) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      return;
+    }
+  
+    setUserData(decoded);
+  
+    // Conectar socket como ya lo tenías
+    const socket = io(import.meta.env.VITE_socket, {
+      transports: ["websocket", "polling"],
+      secure: true,
+    });
+  
+    socket.on("connect", () => {
+      console.log("Conectado al servidor de WebSockets");
+      socketRef.current = socket;
+      setIsSocketConnected(true);
+    });
+  
+    socket.on("disconnect", () => {
+      console.log("Desconectado del servidor de WebSockets");
+      setIsSocketConnected(false);
+    });
   }, []);
+  
 
   useEffect(() => {
     const fetchPlantillas = async () => {
@@ -79,7 +86,7 @@ const AdministradorPlantillas = () => {
   }, [userData]);
 
   return (
-    <div className="p-4">
+    <div className="p-0">
       <Cabecera
         userData={userData}
         chatMessages={[]}
