@@ -191,16 +191,6 @@ const Cabecera = ({
               Volver a Imporsuit
             </span>
           </button>
-          {/* Administrar Plantillas */}
-          <button
-          onClick={irAPlantillas}
-          className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
-          >
-            <i className="bx bx-folder text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-            Administrar Plantillas
-            </span>
-          </button>
           {/* Chat Center */}
           <button
           onClick={irAChatCenter}
@@ -209,6 +199,16 @@ const Cabecera = ({
             <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
             Chat Center
+            </span>
+          </button>
+          {/* Administrar Plantillas */}
+          <button
+          onClick={irAPlantillas}
+          className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
+          >
+            <i className="bx bx-folder text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
+            Administrar Plantillas
             </span>
           </button>
           {/* Cerrar sesión */}
