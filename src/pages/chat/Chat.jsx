@@ -4,7 +4,7 @@ import { addNumberThunk } from "../../store/slices/number.slice";
 
 import { useDispatch } from "react-redux";
 import EmojiPicker from "emoji-picker-react";
-import {jwtDecode} from "jwt-decode";
+import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
@@ -19,6 +19,7 @@ import Loading from "../../components/chat/Loading";
 import ScrollToBottomButton from "../../components/chat/ScrollToBottomButton";
 
 import chatApi from "../../api/chatcenter";
+import Swal from "sweetalert2";
 
 const Chat = () => {
   const formatFecha = (fechaISO) => {
@@ -1000,6 +1001,21 @@ const Chat = () => {
       socketRef.current.emit("GET_DATA_ADMIN", userData.plataforma);
       socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
         setDataAdmin(data);
+
+        if (data.metodo_pago == 0) {
+          Swal.fire({
+            icon: "error",
+            title: "Problema con el método de pago",
+            text: "Tu cuenta de WhatsApp tiene problemas con el método de pago. Debes resolverlo en Meta Business para continuar.",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            allowEnterKey: true,
+            confirmButtonText: "OK",
+          }).then(() => {
+            localStorage.removeItem("token");
+            window.location.reload();
+          });
+        }
 
         /* funcion cargar templates */
         cargarTemplates(data); // Llamar a cargarTemplates cuando el socket esté conectado
