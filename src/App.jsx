@@ -6,7 +6,7 @@ import Register from "./pages/register/Register";
 
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import AdministradorPlantillas from "./components/chat/AdministradorPlantillas"
+import AdministradorPlantillas from "./pages/admintemplates/AdministradorPlantillas"
 
 import Header from "./components/shared/Header";
 
