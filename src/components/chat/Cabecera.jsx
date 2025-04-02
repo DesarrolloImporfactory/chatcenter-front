@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom"; // al inicio
 
 const Cabecera = ({
   userData,
@@ -118,6 +119,11 @@ const Cabecera = ({
     console.log("Desasignar etiqueta con ID:", tagId, "del chat:", chatId);
   };
 
+  const navigate = useNavigate();
+  const irAPlantillas = () =>{
+    navigate("/administrador-plantillas")
+  }
+
   return (
     <>
       {/* Cabecera principal (mobile visible si no hay chat seleccionado, desktop siempre) */}
@@ -178,6 +184,16 @@ const Cabecera = ({
             <i className="bx bxs-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
               Volver a Imporsuit
+            </span>
+          </button>
+          {/* Administrar Plantillas */}
+          <button
+          onClick={irAPlantillas}
+          className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
+          >
+            <i className="bx bxs-door-open text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
+            Administrar Plantillas
             </span>
           </button>
           {/* Cerrar sesión */}

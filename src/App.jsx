@@ -6,6 +6,7 @@ import Register from "./pages/register/Register";
 
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
+import AdministradorPlantillas from "./components/chat/AdministradorPlantillas"
 
 import Header from "./components/shared/Header";
 
@@ -31,7 +32,7 @@ function App() {
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
-
+          <Route path="/administrador-plantillas" element={<AdministradorPlantillas/>} ></Route>
           <Route path="*" element={<h1>Esta ruta no existe</h1>} />
           <Route path="/chat" element={<Chat />} />
         </Routes>
