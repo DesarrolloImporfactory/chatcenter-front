@@ -32,7 +32,7 @@ function App() {
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
-          <Route path="/administrador-plantillas" element={<AdministradorPlantillas/>} ></Route>
+          <Route path="/administrador-whatsapp" element={<AdministradorPlantillas/>} ></Route>
           <Route path="*" element={<h1>Esta ruta no existe</h1>} />
           <Route path="/chat" element={<Chat />} />
         </Routes>

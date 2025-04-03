@@ -121,7 +121,7 @@ const Cabecera = ({
 
   const navigate = useNavigate();
   const irAPlantillas = () =>{
-    navigate("/administrador-plantillas")
+    navigate("/administrador-whatsapp")
   }
 
   const navigater = useNavigate();
@@ -206,9 +206,9 @@ const Cabecera = ({
           onClick={irAPlantillas}
           className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
           >
-            <i className="bx bx-folder text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+            <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-            Administrar Plantillas
+            WhatsApp
             </span>
           </button>
           {/* Cerrar sesión */}

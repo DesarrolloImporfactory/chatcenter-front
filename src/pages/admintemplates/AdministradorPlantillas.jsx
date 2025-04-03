@@ -105,7 +105,7 @@ const AdministradorPlantillas = () => {
         cargar_socket={cargar_socket}
       />
 
-      <h1 className="text-2xl font-bold mb-4">Plantillas de WhatsApp</h1>
+      <h1 className="text-2xl font-familiy mb-8 p-5">Administra tu Negocio de WhatsApp</h1>
 
       <div className="overflow-x-auto">
         <table className="min-w-full border bg-white shadow rounded-lg">
