@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Cabecera from "../../components/chat/Cabecera";
-// Asegúrate de instalar y usar la librería apropiada para jwtDecode.
-// Aquí se ha usado "jwt-decode" como librería, revisa que coincida con tu import real.
+import CrearPlantillaModal from "./CrearPlantillaModal";
+
 import {jwtDecode} from "jwt-decode";
 import io from "socket.io-client";
 
@@ -15,6 +15,10 @@ const AdministradorPlantillas = () => {
 
   const [opciones, setOpciones] = useState(false);
   const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
+
+  //estado para mostrar el modal
+  const [mostrarModalPlantilla, setMostrarModalPlantilla] = useState(false);
+
 
   const toggleCrearEtiquetaModal = () => {};
   const toggleAsginarEtiquetaModal = () => {};
@@ -79,7 +83,7 @@ const AdministradorPlantillas = () => {
     const fetchPhoneNumbers = async () => {
       if (!userData) return;
       try {
-        const resp = await chatApi.post("/whatsapp_numbers/obtener_numeros", {
+        const resp = await chatApi.post("/whatsapp_managment/obtener_numeros", {
           id_plataforma: userData.plataforma,
         });
         setPhoneNumbers(resp.data.data || []);
@@ -531,10 +535,81 @@ const AdministradorPlantillas = () => {
     );
   };
 
+  const handleCrearPlantilla = async () => {
+    if (!userData) return;
+  
+    const nuevaPlantilla = {
+      id_plataforma: userData.plataforma,
+      name: "seasonal_promotion",
+      language: "en_US",
+      category: "MARKETING",
+      components: [
+        {
+          type: "HEADER",
+          format: "TEXT",
+          text: "Our {{1}} is on!",
+          example: {
+            header_text: ["Summer Sale"]
+          }
+        },
+        {
+          type: "BODY",
+          text: "Shop now through {{1}} and use code {{2}} to get {{3}} off of all merchandise.",
+          example: {
+            body_text: [["the end of August", "25OFF", "25%"]]
+          }
+        },
+        {
+          type: "FOOTER",
+          text: "Use the buttons below to manage your marketing subscriptions"
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "QUICK_REPLY",
+              text: "Unsubscribe from Promos"
+            },
+            {
+              type: "QUICK_REPLY",
+              text: "Unsubscribe from All"
+            }
+          ]
+        }
+      ]
+    };
+  
+    try {
+      const resp = await chatApi.post("/whatsapp_managment/crear_plantilla", nuevaPlantilla);
+      if (resp.data.success) {
+        alert("Plantilla creada correctamente.");
+        // Opcional: recargar plantillas
+        setCurrentTab("templates");
+      } else {
+        console.error(resp.data.error);
+        alert("Error al crear la plantilla.");
+      }
+    } catch (error) {
+      console.error("Error al crear la plantilla:", error);
+      alert("Ocurrió un error al crear la plantilla.");
+    }
+  };
+  
+
   // Render de la tabla de “Plantillas”
-  const renderTemplatesTable = () => {
+    const renderTemplatesTable = () => {
+
     return (
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
+                <div className="flex justify-between mb-4">
+        <h2 className="text-lg font-semibold">Plantillas</h2>
+          <button
+              onClick={() => setMostrarModalPlantilla(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+          >
+            + Crear Plantilla
+          </button>
+        </div>
         <table className="min-w-full border bg-white shadow rounded-lg">
 
          <thead className="bg-gray-200 text-gray-700 text-sm">
@@ -563,14 +638,14 @@ const AdministradorPlantillas = () => {
                   {/* Tooltip Categoría */}
                   <div
                     className="
-                      hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2
+                      hidden group-hover:block  absolute bottom-full left-1/2 transform -translate-x-1/2
                       mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50
                     "
                   >
-                    <strong>Categoría de plantilla</strong>
-                    <p className="text-gray-200 mt-1 text-justify">
+                    <strong>Categoría de plantillas</strong>
+                    <p className="text-gray-200 text-justify">
                       <strong>MARKETING:</strong> mensajes promocionales. <br />
-                      <strong>UTILIDAD:</strong> confirmaciones, recordatorios, info útil.
+                      <strong>UTILIDAD:</strong> confirmaciones, recordatorios, información.
                     </p>
                     <div
                       className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900"
@@ -608,7 +683,7 @@ const AdministradorPlantillas = () => {
                     "
                   >
                     <strong>Estado de aprobación</strong>
-                    <p className="text-gray-200 mt-1 text-justify">
+                    <p className="text-gray-200  text-justify">
                       <strong>APROBADA:</strong> Plantilla aprobada. <br />
                       <strong>PENDIENTE:</strong> En revisión. <br />
                       <strong>RECHAZADA:</strong> Plantilla rechazada.
@@ -728,7 +803,30 @@ const AdministradorPlantillas = () => {
         {currentTab === "numbers" && renderNumbersTable()}
         {currentTab === "templates" && renderTemplatesTable()}
       </div>
-    </div>
+      {mostrarModalPlantilla && (
+      <CrearPlantillaModal
+        onClose={() => setMostrarModalPlantilla(false)}
+        onCreate={async (payload) => {
+          try {
+            const resp = await chatApi.post("/whatsapp_managment/crear_plantilla", {
+              ...payload,
+              id_plataforma: userData.plataforma,
+            });
+            if (resp.data.success) {
+              alert("Plantilla creada correctamente.");
+              setMostrarModalPlantilla(false);
+              setCurrentTab("templates"); // Esto recargará la lista de plantillas
+            } else {
+              alert("Error al crear la plantilla.");
+            }
+          } catch (error) {
+            console.error("Error en la creación:", error);
+            alert("Error al conectar con el servidor.");
+          }
+        }}
+      />
+      )}
+    </div> 
   );
 };
 
