@@ -124,6 +124,16 @@ const AdministradorPlantillas = () => {
     }
   }, [userData, currentTab]);
 
+  //Tiempo de espera para que desaparezca el mensaje creado correctamente al crear una plantilla
+  useEffect(()=>{
+    if (statusMessage){
+      const timer = setTimeout(()=>{
+        setStatusMessage(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
+
   // Render de la tabla con los “Numbers”
   const renderNumbersTable = () => {
     return (
@@ -715,10 +725,9 @@ const AdministradorPlantillas = () => {
         Administra tu Negocio de WhatsApp
       </h1>
 
-      {/* Mensaje en la parte superior si existe */}
       {statusMessage && (
         <div
-          className={`mx-5 mb-4 px-4 py-2 rounded ${
+          className={`fixed top-5 right-5 z-[9999] px-4 py-2 rounded shadow ${
             statusMessage.type === "success"
               ? "bg-green-100 text-green-800"
               : "bg-red-100 text-red-800"
@@ -726,7 +735,8 @@ const AdministradorPlantillas = () => {
         >
           {statusMessage.text}
         </div>
-      )}      
+      )}
+  
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-gray-200 px-5">

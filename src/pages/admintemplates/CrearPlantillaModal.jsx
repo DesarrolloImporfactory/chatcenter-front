@@ -29,6 +29,62 @@ function detectPlaceholders(text) {
   return matches;
 }
 
+// Pequeño icono de "i" con tooltip en hover
+const InfoIcon = ({ tooltipText }) => {
+  return (
+    <span className="relative group inline-block text-blue-500 ml-2 cursor-pointer">
+      {/* Icono “i” (boxicon o SVG) */}
+      <svg
+         className="w-4 h-4"
+         fill="none"
+         stroke="currentColor"
+         viewBox="0 0 24 24"
+         xmlns="http://www.w3.org/2000/svg"
+       >
+         <path
+           strokeLinecap="round"
+           strokeLinejoin="round"
+           strokeWidth="2"
+           d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+         />
+      </svg>
+
+      {/* Tooltip */}
+      <div
+        className="
+          hidden
+          group-hover:block
+          absolute
+          z-50
+          top-full
+          left-1/2
+          -translate-x-1/2
+          mt-1
+          w-48
+          bg-black
+          text-white
+          text-xs
+          rounded
+          px-2
+          py-2
+          shadow-lg
+        "
+      >
+        {tooltipText}
+      </div>
+    </span>
+  );
+};
+
+// Etiqueta con asterisco * y la posibilidad de meter tooltip
+const LabelRequired = ({ children, tooltip }) => (
+  <label className="block mb-1 font-semibold">
+    <span className="text-gray-700">{children}</span>
+    {tooltip && <InfoIcon tooltipText={tooltip} />}
+    <span className="text-red-600 ml-1">*</span>
+  </label>
+);
+
 const CrearPlantillaModal = ({ onClose, onCreate }) => {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("MARKETING"); // Ej. "MARKETING" o "UTILITY"
@@ -57,10 +113,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   useEffect(() => {
     const foundHeader = detectPlaceholders(headerText);
     if (foundHeader.length !== headerVars.length) {
-      const newVars = foundHeader.map((num, idx) => {
-        // Dejamos por defecto en blanco (en vez de "Header var #1")
-        return headerVars[idx] || "";
-      });
+      const newVars = foundHeader.map((num, idx) => headerVars[idx] || "");
       setHeaderVars(newVars);
     }
   }, [headerText]);
@@ -72,10 +125,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     // Detecta placeholders en el Body
     const foundBody = detectPlaceholders(bodyText);
     if (foundBody.length !== bodyVars.length) {
-      const newVars = foundBody.map((num, idx) => {
-        // Dejamos por defecto en blanco
-        return bodyVars[idx] || "";
-      });
+      const newVars = foundBody.map((num, idx) => bodyVars[idx] || "");
       setBodyVars(newVars);
     }
   }, [bodyText]);
@@ -83,13 +133,6 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   // ---------------------
   // MANEJO DE BOTONES
   // ---------------------
-  // Cada botón tendrá shape:
-  // {
-  //   type: "QUICK_REPLY" | "PHONE_NUMBER" | "URL",
-  //   text: "",
-  //   phone_number?: "",
-  //   url?: ""
-  // }
   const addButton = () => {
     setButtons([...buttons, { type: "QUICK_REPLY", text: "" }]);
   };
@@ -109,18 +152,15 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   // ---------------------
   // VISTA PREVIA TIPO WHATSAPP
   // ---------------------
-  // Reemplaza los {{n}} del texto con los valores de example
-  // (para que el preview se vea con placeholders rellenos)
   const replacePlaceholders = (text, varValues=[]) => {
     let result = text;
     varValues.forEach((example, i) => {
-      const ph = `{{${i+1}}}`; 
+      const ph = `{{${i+1}}}`;
       result = result.replace(ph, example);
     });
     return result;
   };
 
-  // textoHeaderPreview = el header con placeholders ya remplazados
   const headerPreview = showHeader
     ? replacePlaceholders(headerText, headerVars)
     : "";
@@ -131,7 +171,6 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   // ENVÍO DE LA PLANTILLA
   // ---------------------
   const handleCreate = async () => {
-    // Generar el name en snake case
     const finalName = toSnakeCase(name);
 
     // Estructurar "components" según el API
@@ -210,7 +249,6 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
       }
     }
 
-    // Payload final
     const payload = {
       name: finalName,
       category,
@@ -221,8 +259,6 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     // Loader ON
     setIsLoading(true);
 
-    // Llamamos a la prop onCreate
-    // onCreate debe retornar una Promesa. Al resolverse, apagamos el loader.
     try {
       await onCreate(payload);
     } catch (err) {
@@ -231,20 +267,10 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     setIsLoading(false);
   };
 
-  // ---------------------
-  // ESTILOS DE VALIDACIÓN BÁSICOS
-  // (título y asterisco en rojo si es obligatorio)
-  // ---------------------
-  const LabelRequired = ({ children }) => (
-    <label className="block mb-1 font-semibold">
-      <span className="text-gray-700">{children}</span>
-      <span className="text-red-600 ml-1">*</span>
-    </label>
-  );
+  const areHeaderVarsFilled = headerVars.every((val) => val.trim() !== "");
+  const areBodyVarsFilled = bodyVars.every((val) => val.trim() !== "");
 
-  // Determinamos si deshabilitamos el botón de Crear
-  // (Nombre y Body son requeridos)
-  const isDisabled = !name.trim() || !bodyText.trim() || isLoading;
+  const isDisabled = !name.trim() || !bodyText.trim() || !areHeaderVarsFilled || !areBodyVarsFilled || isLoading;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -264,7 +290,10 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
           <div className="flex-1">
             {/* Nombre */}
             <div className="mb-4">
-              <LabelRequired>Nombre de la plantilla</LabelRequired>
+              <LabelRequired
+              >
+                Nombre de la plantilla
+              </LabelRequired>
               <input 
                 type="text" 
                 className="w-full border rounded px-3 py-2" 
@@ -272,15 +301,17 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                 onChange={(e) => setName(e.target.value)} 
                 placeholder="Ej: promo_summer_2023"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Sin espacios, se convertirá a <em>snake_case</em> automáticamente.
-              </p>
+              {/* <p className="text-xs text-gray-500 mt-1">
+                Sin espacios, se convertirá a <em>snake_case</em>.
+              </p> */}
             </div>
 
             {/* Categoría e Idioma */}
             <div className="flex gap-4 mb-4">
               <div className="w-1/2">
-                <LabelRequired>Categoría</LabelRequired>
+                <LabelRequired tooltip="Selecciona la categoría correctamente para que no sea rechazada.">
+                  Categoría
+                </LabelRequired>
                 <select 
                   className="w-full border rounded px-3 py-2" 
                   value={category} 
@@ -291,14 +322,16 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                 </select>
               </div>
               <div className="w-1/2">
-                <LabelRequired>Lenguaje</LabelRequired>
+                <LabelRequired tooltip="Elige el idioma en el que redactarás la plantilla.">
+                  Lenguaje
+                </LabelRequired>
                 <select 
                   className="w-full border rounded px-3 py-2" 
                   value={language} 
                   onChange={(e) => setLanguage(e.target.value)}
                 >
-                  <option value="es_MX">Español (MX)</option>
-                  <option value="en_US">Inglés (US)</option>
+                  <option value="es_MX">Español</option>
+                  <option value="en_US">Inglés</option>
                 </select>
               </div>
             </div>
@@ -315,8 +348,8 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
               </label>
               {showHeader && (
                 <div className="mt-2">
-                  <label>
-                    Texto del Encabezado (puede incluir {"{{1}}"})
+                  <label className="font-semibold block mb-1">
+                    Texto del Encabezado <InfoIcon tooltipText="Ingresa el título de la plantilla en el lenguaje que haz seleccionado." />
                   </label>
                   <input 
                     type="text" 
@@ -328,7 +361,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                   {/* Variables detectadas en Header */}
                   {headerVars.length > 0 && (
                     <div className="mt-2 text-sm">
-                      <p className="font-semibold">Variables detectadas en el Header:</p>
+                      <p className="font-semibold">Variables detectadas en el Encabezado:</p>
                       {headerVars.map((val, idx) => (
                         <div key={idx} className="flex gap-2 items-center my-1">
                           <label className="text-gray-600 whitespace-nowrap">
@@ -353,7 +386,9 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
 
             {/* Body */}
             <div className="mb-4">
-              <LabelRequired>Cuerpo / Body</LabelRequired>
+              <LabelRequired tooltip="Ingresa el cuerpo principal del mensaje. Puedes usar variables {{1}}, {{2}}, etc. Tu cliente podra ver el contenido correcto, en lugar de las variables.">
+                Cuerpo / Body
+              </LabelRequired>
               <textarea
                 className="w-full border rounded px-3 py-2"
                 rows={4}
@@ -386,19 +421,23 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
 
             {/* Footer */}
             <div className="mb-4">
-              <label className="block font-semibold mb-1">Pie de página (Opcional)</label>
+              <label className="block font-semibold mb-1">
+                Pie de página (Opcional) <InfoIcon tooltipText="Texto breve al final del mensaje en el lenguaje seleccionado." />
+              </label>
               <input 
                 type="text" 
                 className="w-full border rounded px-3 py-2"
                 value={footerText} 
                 onChange={(e) => setFooterText(e.target.value)} 
-                placeholder="Texto breve al final del mensaje"
+                placeholder="Ej: Imporshop"
               />
             </div>
 
             {/* Botones */}
             <div className="mb-4">
-              <label className="block font-semibold mb-2">Botones (Opcionales)</label>
+              <label className="block font-semibold mb-2">
+                Botones (Opcionales) <InfoIcon tooltipText="Puedes agregar botones de Respuesta rápida, Llamada o Enlace. Tú cliente podrá interactuar contigo." />
+              </label>
               {buttons.map((btn, i) => (
                 <div key={i} className="border p-2 mb-2 rounded bg-gray-50">
                   <div className="flex justify-between items-center">
@@ -470,19 +509,19 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
               <div className="bg-white rounded shadow p-3 min-h-[300px] flex flex-col">
                 {/* Header (si aplica) */}
                 {headerPreview && (
-                  <div className="mb-2 p-2 bg-green-100 text-green-800 rounded self-start">
+                  <div className="mb-2 p-2 bg-green-100 text-green-800 rounded self-start whitespace-pre-wrap break-words">
                     {headerPreview}
                   </div>
                 )}
 
-                {/* Body con scroll si es muy grande */}
-                <div className="flex-1 mb-2 p-2 bg-gray-100 text-black rounded self-start max-h-48 overflow-auto">
+                {/* Body con scroll y multilinea */}
+                <div className="flex-1 mb-2 p-2 bg-gray-100 text-black rounded self-start max-h-48 overflow-auto whitespace-pre-wrap break-words">
                   {bodyPreview}
                 </div>
 
                 {/* Footer (si aplica) */}
                 {footerText.trim() !== "" && (
-                  <div className="mt-2 text-xs text-gray-500 self-start">
+                  <div className="mt-2 text-xs text-gray-500 self-start whitespace-pre-wrap break-words">
                     {footerText}
                   </div>
                 )}
@@ -516,10 +555,31 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
             Cancelar
           </button>
           <button 
-            className={`px-4 py-2 rounded flex items-center justify-center ${isDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white'}`}
+            className={`px-4 py-2 rounded flex items-center justify-center gap-2 ${isDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white'}`}
             onClick={handleCreate}
             disabled={isDisabled}
           >
+            {isLoading && (
+              // Spinner pequeño
+              <svg
+                className="animate-spin h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12" cy="12" r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4l2 2-2 2V4a8 8 0 11-8 8z"
+                />
+              </svg>
+            )}
             {isLoading ? "Cargando..." : "Crear"}
           </button>
         </div>
