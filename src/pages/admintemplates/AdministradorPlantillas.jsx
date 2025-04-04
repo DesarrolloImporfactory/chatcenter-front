@@ -12,6 +12,7 @@ const AdministradorPlantillas = () => {
   const [plantillas, setPlantillas] = useState([]);
   const [userData, setUserData] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(null);
 
   const [opciones, setOpciones] = useState(false);
   const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
@@ -535,66 +536,6 @@ const AdministradorPlantillas = () => {
     );
   };
 
-  const handleCrearPlantilla = async () => {
-    if (!userData) return;
-  
-    const nuevaPlantilla = {
-      id_plataforma: userData.plataforma,
-      name: "seasonal_promotion",
-      language: "en_US",
-      category: "MARKETING",
-      components: [
-        {
-          type: "HEADER",
-          format: "TEXT",
-          text: "Our {{1}} is on!",
-          example: {
-            header_text: ["Summer Sale"]
-          }
-        },
-        {
-          type: "BODY",
-          text: "Shop now through {{1}} and use code {{2}} to get {{3}} off of all merchandise.",
-          example: {
-            body_text: [["the end of August", "25OFF", "25%"]]
-          }
-        },
-        {
-          type: "FOOTER",
-          text: "Use the buttons below to manage your marketing subscriptions"
-        },
-        {
-          type: "BUTTONS",
-          buttons: [
-            {
-              type: "QUICK_REPLY",
-              text: "Unsubscribe from Promos"
-            },
-            {
-              type: "QUICK_REPLY",
-              text: "Unsubscribe from All"
-            }
-          ]
-        }
-      ]
-    };
-  
-    try {
-      const resp = await chatApi.post("/whatsapp_managment/crear_plantilla", nuevaPlantilla);
-      if (resp.data.success) {
-        alert("Plantilla creada correctamente.");
-        // Opcional: recargar plantillas
-        setCurrentTab("templates");
-      } else {
-        console.error(resp.data.error);
-        alert("Error al crear la plantilla.");
-      }
-    } catch (error) {
-      console.error("Error al crear la plantilla:", error);
-      alert("Ocurrió un error al crear la plantilla.");
-    }
-  };
-  
 
   // Render de la tabla de “Plantillas”
     const renderTemplatesTable = () => {
@@ -774,6 +715,19 @@ const AdministradorPlantillas = () => {
         Administra tu Negocio de WhatsApp
       </h1>
 
+      {/* Mensaje en la parte superior si existe */}
+      {statusMessage && (
+        <div
+          className={`mx-5 mb-4 px-4 py-2 rounded ${
+            statusMessage.type === "success"
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {statusMessage.text}
+        </div>
+      )}      
+
       {/* Tabs */}
       <div className="flex gap-4 border-b border-gray-200 px-5">
         <button
@@ -813,15 +767,25 @@ const AdministradorPlantillas = () => {
               id_plataforma: userData.plataforma,
             });
             if (resp.data.success) {
-              alert("Plantilla creada correctamente.");
+              // En vez de alert, usamos el setStatusMessage
+              setStatusMessage({
+                type: "success",
+                text: "Plantilla creada correctamente."
+              });
               setMostrarModalPlantilla(false);
-              setCurrentTab("templates"); // Esto recargará la lista de plantillas
+              setCurrentTab("templates");
             } else {
-              alert("Error al crear la plantilla.");
+              setStatusMessage({
+                type: "error",
+                text: "Error al crear la plantilla."
+              });
             }
           } catch (error) {
             console.error("Error en la creación:", error);
-            alert("Error al conectar con el servidor.");
+            setStatusMessage({
+              type: "error",
+              text: "Error al conectar con el servidor."
+            });
           }
         }}
       />

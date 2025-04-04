@@ -48,29 +48,33 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   // Botones
   const [buttons, setButtons] = useState([]);
 
+  // Loader al hacer clic en "Crear"
+  const [isLoading, setIsLoading] = useState(false);
+
   // ---------------------
-  // DETECCIÓN PLACEHOLDERS
+  // DETECCIÓN PLACEHOLDERS (HEADER)
   // ---------------------
   useEffect(() => {
-    // Detecta placeholders en el Header
     const foundHeader = detectPlaceholders(headerText);
-    // Actualiza array de ejemplos si varía la cantidad
     if (foundHeader.length !== headerVars.length) {
-      // Reconstruye un array con el número de placeholders
       const newVars = foundHeader.map((num, idx) => {
-        // Usa un valor antiguo si existía, si no, un texto genérico
-        return headerVars[idx] || `Header var #${num}`;
+        // Dejamos por defecto en blanco (en vez de "Header var #1")
+        return headerVars[idx] || "";
       });
       setHeaderVars(newVars);
     }
   }, [headerText]);
 
+  // ---------------------
+  // DETECCIÓN PLACEHOLDERS (BODY)
+  // ---------------------
   useEffect(() => {
     // Detecta placeholders en el Body
     const foundBody = detectPlaceholders(bodyText);
     if (foundBody.length !== bodyVars.length) {
       const newVars = foundBody.map((num, idx) => {
-        return bodyVars[idx] || `Body var #${num}`;
+        // Dejamos por defecto en blanco
+        return bodyVars[idx] || "";
       });
       setBodyVars(newVars);
     }
@@ -108,11 +112,8 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   // Reemplaza los {{n}} del texto con los valores de example
   // (para que el preview se vea con placeholders rellenos)
   const replacePlaceholders = (text, varValues=[]) => {
-    // varValues es array con la posición index 0 => {{1}}, index 1 => {{2}}...
     let result = text;
     varValues.forEach((example, i) => {
-      // i=0 => placeholder {{1}}
-      // i=1 => placeholder {{2}}
       const ph = `{{${i+1}}}`; 
       result = result.replace(ph, example);
     });
@@ -129,7 +130,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   // ---------------------
   // ENVÍO DE LA PLANTILLA
   // ---------------------
-  const handleCreate = () => {
+  const handleCreate = async () => {
     // Generar el name en snake case
     const finalName = toSnakeCase(name);
 
@@ -138,39 +139,33 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
 
     // HEADER
     if (showHeader && headerText.trim()) {
-        let headerExample = {};
-        if (headerVars.length > 0) {
-        // CASO 1: hay placeholders => usa headerVars
-        headerExample.header_text = [...headerVars];
-        } else {
-        // CASO 2: no hay placeholders => fallback con el headerText
-        headerExample.header_text = [headerText];
-        }
-    
-        components.push({
+      const hasHeaderPlaceholders = headerVars.length > 0;
+      const headerComp = {
         type: "HEADER",
         format: "TEXT",
         text: headerText,
-        example: headerExample,
-        });
+      };
+      if (hasHeaderPlaceholders) {
+        headerComp.example = {
+          header_text: [...headerVars],
+        };
+      }
+      components.push(headerComp);
     }
     
     // BODY
     if (bodyText.trim()) {
-        let bodyExample = {};
-        if (bodyVars.length > 0) {
-        // placeholders => array de arrays
-        bodyExample.body_text = [[...bodyVars]];
-        } else {
-        // sin placeholders => meter el bodyText en un array de arrays
-        bodyExample.body_text = [[bodyText]];
-        }
-    
-        components.push({
+      const hasBodyPlaceholders = bodyVars.length > 0;
+      const bodyComp = {
         type: "BODY",
         text: bodyText,
-        example: bodyExample,
-        });
+      };
+      if (hasBodyPlaceholders) {
+        bodyComp.example = {
+          body_text: [[...bodyVars]],
+        };
+      }
+      components.push(bodyComp);
     }
 
     // FOOTER
@@ -183,14 +178,8 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
 
     // BUTTONS
     if (buttons.length > 0) {
-      // Filtra los que tengan algo en 'text'
       const filteredButtons = buttons
         .map(b => {
-          // Si es QUICK_REPLY => {type: "QUICK_REPLY", text: "..."}
-          // Si es PHONE_NUMBER => {type: "PHONE_NUMBER", text: "...", phone_number: "..."}
-          // Si es URL => {type: "URL", text: "...", url: "..."}
-          // En la Cloud API, se llaman "BUTTON_TYPE" = "QUICK_REPLY" o "PHONE_NUMBER" o "URL"
-          // https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates/#interactive-buttons
           if (b.type === "QUICK_REPLY") {
             return {
               type: "QUICK_REPLY",
@@ -221,7 +210,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
       }
     }
 
-    // Al final, construimos el payload
+    // Payload final
     const payload = {
       name: finalName,
       category,
@@ -229,8 +218,17 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
       components
     };
 
+    // Loader ON
+    setIsLoading(true);
+
     // Llamamos a la prop onCreate
-    onCreate(payload);
+    // onCreate debe retornar una Promesa. Al resolverse, apagamos el loader.
+    try {
+      await onCreate(payload);
+    } catch (err) {
+      console.error(err);
+    }
+    setIsLoading(false);
   };
 
   // ---------------------
@@ -243,6 +241,10 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
       <span className="text-red-600 ml-1">*</span>
     </label>
   );
+
+  // Determinamos si deshabilitamos el botón de Crear
+  // (Nombre y Body son requeridos)
+  const isDisabled = !name.trim() || !bodyText.trim() || isLoading;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -313,15 +315,38 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
               </label>
               {showHeader && (
                 <div className="mt-2">
-                   <label>
-                      Texto del Encabezado (puede incluir {"{{1}}"})
-                   </label>
+                  <label>
+                    Texto del Encabezado (puede incluir {"{{1}}"})
+                  </label>
                   <input 
                     type="text" 
                     className="w-full border rounded px-3 py-2" 
                     value={headerText} 
                     onChange={(e) => setHeaderText(e.target.value)} 
                   />
+
+                  {/* Variables detectadas en Header */}
+                  {headerVars.length > 0 && (
+                    <div className="mt-2 text-sm">
+                      <p className="font-semibold">Variables detectadas en el Header:</p>
+                      {headerVars.map((val, idx) => (
+                        <div key={idx} className="flex gap-2 items-center my-1">
+                          <label className="text-gray-600 whitespace-nowrap">
+                            {"{{"}{idx + 1}{"}}"}:
+                          </label>
+                          <input 
+                            className="border rounded px-2 py-1 flex-1"
+                            value={val}
+                            onChange={(e) => {
+                              const newArr = [...headerVars];
+                              newArr[idx] = e.target.value;
+                              setHeaderVars(newArr);
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -341,9 +366,9 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                   <p className="font-semibold">Variables detectadas:</p>
                   {bodyVars.map((val, idx) => (
                     <div key={idx} className="flex gap-2 items-center my-1">
-                        <label className="text-gray-600 whitespace-nowrap">
-                          {"{{"}{idx + 1}{"}}"}:
-                        </label>
+                      <label className="text-gray-600 whitespace-nowrap">
+                        {"{{"}{idx + 1}{"}}"}:
+                      </label>
                       <input 
                         className="border rounded px-2 py-1 flex-1" 
                         value={val} 
@@ -450,8 +475,8 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                   </div>
                 )}
 
-                {/* Body */}
-                <div className="flex-1 mb-2 p-2 bg-gray-100 text-black rounded self-start">
+                {/* Body con scroll si es muy grande */}
+                <div className="flex-1 mb-2 p-2 bg-gray-100 text-black rounded self-start max-h-48 overflow-auto">
                   {bodyPreview}
                 </div>
 
@@ -486,14 +511,16 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
           <button 
             className="px-4 py-2 bg-gray-300 rounded" 
             onClick={onClose}
+            disabled={isLoading}
           >
             Cancelar
           </button>
           <button 
-            className="px-4 py-2 bg-blue-600 text-white rounded" 
+            className={`px-4 py-2 rounded flex items-center justify-center ${isDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white'}`}
             onClick={handleCreate}
+            disabled={isDisabled}
           >
-            Crear
+            {isLoading ? "Cargando..." : "Crear"}
           </button>
         </div>
       </div>
