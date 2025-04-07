@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Cabecera from "../../components/chat/Cabecera";
 import CrearPlantillaModal from "./CrearPlantillaModal";
+import VerPlantillaModal from "./VerPlantillaModal";
 
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
@@ -19,6 +20,10 @@ const AdministradorPlantillas = () => {
 
   // Estado para mostrar el modal de crear plantilla
   const [mostrarModalPlantilla, setMostrarModalPlantilla] = useState(false);
+
+  //Manejar el estado de plantilla seleccionada
+  const [plantillaSeleccionada, setPlantillaSeleccionada] = useState(null);
+  const [verModal, setVerModal] = useState(false);
 
   const toggleCrearEtiquetaModal = () => {};
   const toggleAsginarEtiquetaModal = () => {};
@@ -41,6 +46,12 @@ const AdministradorPlantillas = () => {
   const getTemplacecode = (template) => {
     if (template.startsWith("es") || template.startsWith("es_")) return "Español";
     if (template.startsWith("en") || template.startsWith("en_")) return "Inglés";
+  };
+
+  // cuando hagas clic en el ojito...
+  const handleVerPlantilla = (plantilla) => {
+    setPlantillaSeleccionada(plantilla);
+    setVerModal(true);
   };
 
   // 1. Verificación de token y conexión al socket
@@ -262,6 +273,7 @@ const AdministradorPlantillas = () => {
               <th className="py-2 px-4 text-left">Categoría</th>
               <th className="py-2 px-4 text-left">Mensaje</th>
               <th className="py-2 px-4 text-left">Estado</th>
+              <th className="py-2 px-4 text-left">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -319,6 +331,36 @@ const AdministradorPlantillas = () => {
                       DESCONOCIDO
                     </span>
                   )}
+                </td>
+                <td className="py-2 px-4">
+                  {/* Ícono de ojo */}
+                  <button
+                    onClick={() => handleVerPlantilla(plantilla)}
+                    className="text-blue-600 hover:text-blue-800"
+                    title="Ver Plantilla"
+                  >
+                    {/* Usamos un SVG de “ojo” (por ejemplo) */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 inline"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" 
+                      />
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" 
+                      />
+                    </svg>
+                  </button>
                 </td>
               </tr>
             ))}
@@ -434,6 +476,13 @@ const AdministradorPlantillas = () => {
         <CrearPlantillaModal
           onClose={() => setMostrarModalPlantilla(false)}
           onCreate={handleCreatePlantilla}
+        />
+      )}
+
+      {verModal && (
+        <VerPlantillaModal
+          plantilla={plantillaSeleccionada}
+          onClose={() => setVerModal(false)}
         />
       )}
     </div>

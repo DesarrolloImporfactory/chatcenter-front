@@ -658,19 +658,20 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                       </div>
                     )}
 
-                    {/* Línea gris + Botones en verde (si existen) */}
+                    {/* Si existen botones => un contenedor con líneas entre cada uno */}
                     {buttons.length > 0 && (
-                      <>
-                        <hr className="border-gray-300 my-2" />
-                        <div className="flex flex-col gap-2">
-                          {buttons.map((btn, i) => (
+                      <div className="flex flex-col mt-2">
+                        {buttons.map((btn, i) => (
+                          <React.Fragment key={i}>
+                            {/* Dibujamos una línea gris encima de los botones */}
+                            <hr className="border-gray-300 my-1" />
+
                             <div
-                              key={i}
                               className="
-                                text-green-600
+                                text-blue-600
                                 text-sm
                                 px-3
-                                py-1
+                                py-2
                                 rounded
                                 text-center
                                 cursor-pointer
@@ -678,18 +679,20 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                               title={
                                 btn.type === "URL"
                                   ? btn.linkType === "dynamic"
-                                    ? `Ejemplo: ${btn.urlBase.endsWith("/")
-                                      ? btn.urlBase + btn.urlVar
-                                      : btn.urlBase + "/" + btn.urlVar}`
+                                    ? `Ejemplo: ${
+                                        btn.urlBase.endsWith("/")
+                                          ? btn.urlBase + btn.urlVar
+                                          : btn.urlBase + "/" + btn.urlVar
+                                      }`
                                     : `URL: ${btn.url || "https://google.com"}`
                                   : undefined
                               }
                             >
                               {btn.text || "(sin texto)"}
                             </div>
-                          ))}
-                        </div>
-                      </>
+                          </React.Fragment>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
