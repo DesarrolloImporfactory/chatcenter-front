@@ -51,32 +51,35 @@ const ChatPrincipal = ({
     if (mensajesOrdenados && mensajesOrdenados.length > 0) {
       setUltimoMensaje(mensajesOrdenados[mensajesOrdenados.length - 1]);
     } else {
-      setUltimoMensaje(null); // Si no hay mensajes, limpia el último mensaje
+      setUltimoMensaje(null);
     }
   }, [mensajesOrdenados]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !isChatBlocked && mensaje.trim()) {
-      e.preventDefault(); // Evita el salto de línea en el input
-      handleSendMessage(); // Llama a la función de envío de mensaje
+      e.preventDefault();
+      handleSendMessage();
     }
   };
+
   return (
     <>
       <div
-        className={`${
-          opciones ? "col-span-2" : "col-span-3"
-        } bg-gray-100 relative ${
-          selectedChat === null || (opciones && window.innerWidth <= 640)
-            ? "hidden sm:block"
-            : "block"
-        }`}
+        className={`
+          ${opciones ? "col-span-2" : "col-span-3"}
+          relative
+          ${
+            selectedChat === null ||
+            (opciones && window.innerWidth <= 640)
+              ? "hidden sm:block"
+              : "block"
+          }
+        `}
+        // Quita el bg-gray-100 y aplicaremos fondo custom adentro
       >
-        {/* Mostrar un div vacío si selectedChat es null */}
+        {/* Si no hay chat seleccionado */}
         {selectedChat === null ? (
           <div className="flex justify-center items-center h-full">
-            {/* Aquí puedes agregar una imagen o contenido más adelante */}
-            {/* Ejemplo: */}
             <img
               src="https://new.imporsuitpro.com/public/img/banner_chat_center.gif"
               alt="Sin chat seleccionado"
@@ -85,12 +88,35 @@ const ChatPrincipal = ({
           </div>
         ) : (
           <div className="flex flex-col h-[calc(100vh_-_130px)] relative">
-            {/* Mensajes */}
+            {/* 
+              1) Contenedor principal del chat, 
+                 con fondo color + imagen, 
+                 estilo "WhatsApp".
+            */}
             <div
               ref={chatContainerRef}
-              className="flex flex-col flex-grow p-4 space-y-5 max-h-[calc(100vh_-_200px)] overflow-y-auto"
               onScroll={handleScroll}
+              className="
+                flex
+                flex-col
+                flex-grow
+                space-y-5
+                max-h-[calc(100vh_-_200px)]
+                overflow-y-auto
+                p-4
+              "
+              style={{
+                backgroundColor: "#DAD3CC",
+                backgroundImage:
+                  'url("https://new.imporsuitpro.com/public/img/fondo_chat_center.png")',
+                backgroundSize: "contain",
+                backgroundRepeat: "repeat",
+                backgroundPosition: "center",
+                backgroundBlendMode: "overlay",
+                opacity: 0.9, // Ajusta si quieres
+              }}
             >
+              {/* Mapeo de mensajes */}
               {mensajesActuales.map((mensaje) => (
                 <div
                   key={mensaje.id + Math.random()}
@@ -98,15 +124,31 @@ const ChatPrincipal = ({
                     mensaje.rol_mensaje === 1 ? "justify-end" : "justify-start"
                   }`}
                 >
+                  {/* 
+                    2) Burbujas:
+                       - "rol_mensaje===1" (enviado por “nosotros”) => burbuja color #DCF8C6
+                       - "rol_mensaje!==1" => burbuja blanca
+                  */}
                   <div
-                    className={`p-4 ${
-                      mensaje.rol_mensaje === 1
-                        ? "bg-blue-500 text-white"
-                        : "bg-white"
-                    } rounded-lg min-w-[20%] shadow-md max-w-[70%] relative`}
+                    className={`
+                      relative
+                      p-3
+                      rounded-lg
+                      min-w-[20%]
+                      max-w-[70%]
+                      whitespace-pre-wrap
+                      break-words
+                      shadow-md
+                      ${
+                        mensaje.rol_mensaje === 1
+                          ? "bg-[#DCF8C6]" // Verde claro tipo WhatsApp
+                          : "bg-white"
+                      }
+                    `}
                   >
+                    {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
                     <span className="text-sm">
-                      {/* Tipo de Mensaje: Text */}
+                      {/* Tipo: TEXT */}
                       {mensaje.tipo_mensaje === "text" ? (
                         mensaje.texto_mensaje.includes("{{") &&
                         mensaje.ruta_archivo ? (
@@ -124,19 +166,19 @@ const ChatPrincipal = ({
                         ) : (
                           <p>{mensaje.texto_mensaje}</p>
                         )
-                      ) : /* Tipo de Mensaje: Audio */ mensaje.tipo_mensaje ===
-                        "audio" ? (
+                      ) : mensaje.tipo_mensaje === "audio" ? (
+                        /* Tipo: AUDIO */
                         <CustomAudioPlayer
                           src={
                             "https://new.imporsuitpro.com/" +
                             mensaje.ruta_archivo
                           }
                         />
-                      ) : /* Tipo de Mensaje: Imagen */ mensaje.tipo_mensaje ===
-                        "image" ? (
+                      ) : mensaje.tipo_mensaje === "image" ? (
+                        /* Tipo: IMAGEN */
                         <ImageWithModal mensaje={mensaje} />
-                      ) : /* Tipo de Mensaje: Documento */ mensaje.tipo_mensaje ===
-                        "document" ? (
+                      ) : mensaje.tipo_mensaje === "document" ? (
+                        /* Tipo: DOCUMENT */
                         <div className="p-2">
                           <a
                             href={`https://new.imporsuitpro.com/${
@@ -195,8 +237,8 @@ const ChatPrincipal = ({
                             </span>
                           </a>
                         </div>
-                      ) : /* Tipo de Mensaje: Video */ mensaje.tipo_mensaje ===
-                        "video" ? (
+                      ) : mensaje.tipo_mensaje === "video" ? (
+                        /* Tipo: VIDEO */
                         <div className="p-2">
                           <div className="relative w-52 h-52 bg-black rounded-lg overflow-hidden shadow-lg">
                             <video
@@ -209,8 +251,8 @@ const ChatPrincipal = ({
                             />
                           </div>
                         </div>
-                      ) : /* Tipo de Mensaje: Ubicación */ mensaje.tipo_mensaje ===
-                        "location" ? (
+                      ) : mensaje.tipo_mensaje === "location" ? (
+                        /* Tipo: UBICACIÓN */
                         (() => {
                           try {
                             const locationData = JSON.parse(
@@ -247,14 +289,14 @@ const ChatPrincipal = ({
                             return <p>Error al mostrar la ubicación.</p>;
                           }
                         })()
-                      ) : /* Tipo de Mensaje: Botón */ mensaje.tipo_mensaje ===
-                        "button" ? (
+                      ) : mensaje.tipo_mensaje === "button" ? (
+                        /* Tipo: BOTÓN */
                         mensaje.texto_mensaje
-                      ) : /* Tipo de Mensaje: reaction */ mensaje.tipo_mensaje ===
-                        "reaction" ? (
+                      ) : mensaje.tipo_mensaje === "reaction" ? (
+                        /* Tipo: REACTION */
                         mensaje.texto_mensaje
-                      ) : /* Tipo de Mensaje: Sticker */ mensaje.tipo_mensaje ===
-                        "sticker" ? (
+                      ) : mensaje.tipo_mensaje === "sticker" ? (
+                        /* Tipo: STICKER */
                         <img
                           className="w-40 h-40"
                           src={
@@ -262,42 +304,44 @@ const ChatPrincipal = ({
                             mensaje.ruta_archivo
                           }
                           alt="Sticker"
-                          loop
                         />
                       ) : (
                         "Mensaje no reconocido"
                       )}
                     </span>
+
+                    {/* Fecha/hora en la esquina */}
                     <span
-                      className={`absolute bottom-1 ${
-                        mensaje.rol_mensaje === 1
-                          ? "text-white"
-                          : "text-gray-500"
-                      } right-2 text-xs`}
+                      className={`
+                        absolute bottom-1 right-2 text-xs
+                        ${
+                          mensaje.rol_mensaje === 1
+                            ? "text-gray-700" 
+                            : "text-gray-500"
+                        }
+                      `}
                     >
                       {formatFecha(mensaje.created_at)}
                     </span>
                   </div>
                 </div>
               ))}
+
               {/* Botón de scroll al final */}
               <ScrollToBottomButton containerRef={chatContainerRef} />
             </div>
 
+            {/* ALTO: Lógica de 24 horas */}
             {ultimoMensaje &&
               (() => {
-                // Convertir la fecha del último mensaje y la fecha actual a objetos de fecha
                 const fechaUltimoMensaje = new Date(ultimoMensaje.created_at);
                 const fechaActual = new Date();
-
-                // Calcular la diferencia en horas
                 const diferenciaHoras =
-                  (fechaActual - fechaUltimoMensaje) / (1000 * 60 * 60); // Diferencia en milisegundos, convertida a horas
+                  (fechaActual - fechaUltimoMensaje) / (1000 * 60 * 60);
 
-                // Mostrar la alerta si han pasado más de 24 horas
                 if (diferenciaHoras > 24) {
                   return (
-                    <div className="absolute bottom-[0%] bg-yellow-100 border border-yellow-500 rounded shadow-lg p-4 w-[100%] z-10">
+                    <div className="absolute bottom-[0%] bg-yellow-100 border border-yellow-500 rounded shadow-lg p-4 w-full z-10">
                       <p className="text-sm text-yellow-700">
                         <strong>Atención: </strong>Han pasado más de 24 horas
                         desde la última interacción con el cliente, para empezar
@@ -305,10 +349,10 @@ const ChatPrincipal = ({
                         plantilla de Facebook.
                       </p>
                       <button
-                        className="mt-3 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-all duration-200 "
+                        className="mt-3 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-all duration-200"
                         onClick={() => {
-                          handleSelectPhoneNumber(selectedChat.celular_cliente); // Llama a la función handleSelectPhoneNumber
-                          setNumeroModal(true); // Ajusta el valor según corresponda
+                          handleSelectPhoneNumber(selectedChat.celular_cliente);
+                          setNumeroModal(true);
                         }}
                       >
                         Click para responder con plantilla
@@ -316,8 +360,7 @@ const ChatPrincipal = ({
                     </div>
                   );
                 }
-
-                return null; // Si no han pasado 24 horas, no muestra nada
+                return null;
               })()}
 
             {/* Campo para enviar mensajes */}
@@ -325,7 +368,7 @@ const ChatPrincipal = ({
               <button
                 onClick={() => setEmojiOpen(!emojiOpen)}
                 className="border rounded-full p-2"
-                disabled={isChatBlocked} // Desactiva si el chat está bloqueado
+                disabled={isChatBlocked}
               >
                 😊
               </button>
@@ -377,15 +420,14 @@ const ChatPrincipal = ({
                 className="flex-1 p-2 border rounded"
                 ref={inputRef}
                 id="mensaje"
-                disabled={isChatBlocked} // Desactiva si el chat está bloqueado
+                disabled={isChatBlocked}
               />
 
-              {/* Mostrar el cuadro de opciones si se ha activado el comando */}
+              {/* Menú de comandos */}
               {isCommandActive && (
                 <div className="absolute bottom-20 left-0 bg-white border rounded shadow-lg p-4 z-50 w-full max-w-md">
-                  {/* Botón de cierre */}
                   <button
-                    onClick={handleCloseModal} // Cambia el estado para cerrar
+                    onClick={handleCloseModal}
                     className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
                   >
                     <svg
@@ -404,7 +446,6 @@ const ChatPrincipal = ({
                     </svg>
                   </button>
 
-                  {/* Buscador */}
                   <input
                     type="text"
                     value={menuSearchTerm}
@@ -413,8 +454,6 @@ const ChatPrincipal = ({
                     className="w-full p-2 mb-4 border rounded"
                     ref={inputSearchRef}
                   />
-
-                  {/* Resultados de la búsqueda */}
                   <ul className="space-y-2">
                     {searchResults.length > 0 ? (
                       searchResults.map((result, index) => (
@@ -449,7 +488,7 @@ const ChatPrincipal = ({
                 className={`${
                   grabando ? "bg-red-500" : "bg-blue-500"
                 } text-white px-4 py-2 rounded`}
-                disabled={isChatBlocked} // Desactiva si el chat está bloqueado
+                disabled={isChatBlocked}
               >
                 {mensaje || file ? (
                   <i className="bx bx-send"></i>

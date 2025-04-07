@@ -336,7 +336,7 @@ const AdministradorPlantillas = () => {
                   {/* Ícono de ojo */}
                   <button
                     onClick={() => handleVerPlantilla(plantilla)}
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-blue-600 hover:text-blue-800 p-5"
                     title="Ver Plantilla"
                   >
                     {/* Usamos un SVG de “ojo” (por ejemplo) */}
