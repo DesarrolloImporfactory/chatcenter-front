@@ -83,12 +83,6 @@ const Cabecera = ({
   const handleChangeChatStatus = async (newStatus) => {
     try {
       await actualizar_cerrado(selectedChat.id, newStatus);
-
-      // Actualizar localmente el estado del chat seleccionado
-      setSelectedChat((prev) => ({
-        ...prev,
-        chat_cerrado: newStatus,
-      }));
     } catch (error) {
       console.error("Error al cambiar el estado del chat:", error);
     }
@@ -114,6 +108,12 @@ const Cabecera = ({
         throw new Error(data.message || "Error al actualizar el chat");
       }
 
+      // Actualizar localmente el estado del chat seleccionado
+      setSelectedChat((prev) => ({
+        ...prev,
+        chat_cerrado: newStatus,
+      }));
+      
       console.log("Chat actualizado correctamente:", data);
       cargar_socket();
     } catch (error) {
