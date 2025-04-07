@@ -602,39 +602,60 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
           {/* Columna Derecha => Vista previa estilo WhatsApp */}
           <div className="w-1/3">
             <h3 className="font-semibold mb-2">Vista Previa</h3>
-            <div className="bg-gray-100 border border-gray-300 rounded p-3 text-sm">
-              <div className="
-                bg-white
-                rounded
-                shadow
-                p-3
-                min-h-[300px]
-                max-h-[300px]
-                flex flex-col
-                overflow-y-auto
-                whitespace-pre-wrap
-                break-words
-                break-all
-                w-full
-              ">
-                {/* Header */}
-                {headerPreview && (
-                  <div className="mb-2 p-2 bg-green-100 text-green-800 rounded w-full">
-                    {headerPreview}
-                  </div>
-                )}
 
-                {/* Body */}
-                <div className="mb-2 p-2 bg-gray-100 text-black rounded w-full">
-                  {bodyPreview}
-                </div>
-
-                {/* Footer */}
-                {footerText.trim() !== "" && (
-                  <div className="mt-2 text-xs text-gray-500 w-full">
-                    {footerText}
-                  </div>
-                )}
+            {/*
+              Simulamos un “teléfono” con fondo + una sola burbuja.
+              1) Se arma 'combinedText' con (header + body + footer).
+              2) Se dibuja todo en la misma burbuja.
+              3) Separador (hr) para los botones, en la misma burbuja, color verde.
+            */}
+            <div className="border border-gray-300 rounded overflow-hidden text-sm">
+              <div
+                className="
+                  relative
+                  w-full
+                  h-full
+                  p-3
+                  flex
+                  flex-col
+                  gap-2
+                  max-h-[400px]
+                  overflow-y-auto
+                "
+                style={{
+                  backgroundColor: "#DAD3CC",
+                  backgroundImage: 'url("https://new.imporsuitpro.com/public/img/fondo_chat_center.png")',
+                  backgroundSize: 'cover',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center',
+                  backgroundBlendMode: 'overlay',
+                  opacity: 0.8
+                }}
+              >
+                {/* UNA SOLA BURBUJA */}
+                {(combinedText.trim() !== "" || buttons.length > 0) && (
+                  <div
+                    className="
+                      self-end
+                      bg-white
+                      rounded-lg
+                      shadow
+                      text-black
+                      whitespace-pre-wrap
+                      break-words
+                      max-w-[80%]
+                      p-3
+                      flex
+                      flex-col
+                      gap-2
+                    "
+                  >
+                    {/* El texto (header+body+footer) */}
+                    {combinedText.trim() !== "" && (
+                      <div className="text-sm leading-relaxed">
+                        {combinedText}
+                      </div>
+                    )}
 
                 {/* Botones */}
                 {buttons.length > 0 && (
