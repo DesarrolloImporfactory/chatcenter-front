@@ -83,6 +83,12 @@ const Cabecera = ({
   const handleChangeChatStatus = async (newStatus) => {
     try {
       await actualizar_cerrado(selectedChat.id, newStatus);
+
+      // Actualizar localmente el estado del chat seleccionado
+      setSelectedChat((prev) => ({
+        ...prev,
+        chat_cerrado: newStatus,
+      }));
     } catch (error) {
       console.error("Error al cambiar el estado del chat:", error);
     }
@@ -120,14 +126,14 @@ const Cabecera = ({
   };
 
   const navigate = useNavigate();
-  const irAPlantillas = () =>{
-    navigate("/administrador-whatsapp")
-  }
+  const irAPlantillas = () => {
+    navigate("/administrador-whatsapp");
+  };
 
   const navigater = useNavigate();
-  const irAChatCenter = () =>{
-    navigater("/chat")
-  }
+  const irAChatCenter = () => {
+    navigater("/chat");
+  };
 
   return (
     <>
@@ -174,7 +180,10 @@ const Cabecera = ({
         {/* Encabezado del slider */}
         <div className="h-[84px] px-5 flex items-center justify-between bg-[#171931] text-white">
           <h2 className="font-bold text-lg">Menú</h2>
-          <button onClick={toggleSlider} className="hover:scale-110 transition-transform">
+          <button
+            onClick={toggleSlider}
+            className="hover:scale-110 transition-transform"
+          >
             <i className="bx bx-x text-2xl"></i>
           </button>
         </div>
@@ -193,22 +202,22 @@ const Cabecera = ({
           </button>
           {/* Chat Center */}
           <button
-          onClick={irAChatCenter}
-          className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
+            onClick={irAChatCenter}
+            className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
           >
             <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-            Chat Center
+              Chat Center
             </span>
           </button>
           {/* Administrar Plantillas */}
           <button
-          onClick={irAPlantillas}
-          className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
+            onClick={irAPlantillas}
+            className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
           >
             <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-            WhatsApp
+              WhatsApp
             </span>
           </button>
           {/* Cerrar sesión */}
@@ -372,7 +381,9 @@ const Cabecera = ({
         >
           <div className="flex justify-center p-4 border-b border-white/10">
             <div className="flex text-center justify-center">
-              <span className="text-lg font-semibold">Historial de Pedidos</span>
+              <span className="text-lg font-semibold">
+                Historial de Pedidos
+              </span>
             </div>
           </div>
 
