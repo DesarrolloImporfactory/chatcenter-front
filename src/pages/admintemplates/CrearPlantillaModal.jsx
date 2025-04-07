@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 
+// Función para normalizar el nombre a minúsculas con underscores.
 function toSnakeCase(str) {
   return str
     .toLowerCase()
@@ -13,6 +14,7 @@ function toSnakeCase(str) {
     .replace(/[^a-z0-9_]/g, "");
 }
 
+// Detecta cuántos placeholders {{1}} {{2}}... hay en un texto
 function detectPlaceholders(text) {
   const regex = /{{(\d+)}}/g;
   const matches = [];
@@ -23,6 +25,7 @@ function detectPlaceholders(text) {
   return matches;
 }
 
+// Pequeño icono de "i" con tooltip en hover
 const InfoIcon = ({ tooltipText }) => {
   return (
     <span className="relative group inline-block text-blue-500 ml-2 cursor-pointer">
@@ -40,7 +43,7 @@ const InfoIcon = ({ tooltipText }) => {
            d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
          />
       </svg>
-
+      {/* Tooltip */}
       <div
         className="
           hidden
@@ -86,13 +89,20 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   const [bodyText, setBodyText] = useState("");
   const [footerText, setFooterText] = useState("");
 
+  // Para placeholders/variables en HEADER
   const [headerVars, setHeaderVars] = useState([]); 
+  // Para placeholders/variables en BODY
   const [bodyVars, setBodyVars] = useState([]);  
 
+  // Botones
   const [buttons, setButtons] = useState([]);
 
+  // Loader al hacer clic en "Crear"
   const [isLoading, setIsLoading] = useState(false);
 
+  // ---------------------
+  // DETECCIÓN PLACEHOLDERS (HEADER)
+  // ---------------------
   useEffect(() => {
     const foundHeader = detectPlaceholders(headerText);
     if (foundHeader.length !== headerVars.length) {
@@ -101,6 +111,9 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     }
   }, [headerText]);
 
+  // ---------------------
+  // DETECCIÓN PLACEHOLDERS (BODY)
+  // ---------------------
   useEffect(() => {
     const foundBody = detectPlaceholders(bodyText);
     if (foundBody.length !== bodyVars.length) {
@@ -109,10 +122,22 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     }
   }, [bodyText]);
 
+  // ---------------------
+  // AGREGAR NUEVO BOTÓN
+  // ---------------------
   const addButton = () => {
-    setButtons([...buttons, { type: "QUICK_REPLY", text: "" }]);
+    setButtons([...buttons, { 
+      type: "QUICK_REPLY", 
+      text: "", 
+      linkType: "static",  // Para URL: "static" o "dynamic"
+      urlBase: "",         // Base URL (si dynamic)
+      urlVar: ""           // Nombre de la variable
+    }]);
   };
 
+  // ---------------------
+  // ACTUALIZAR DATOS DE BOTÓN
+  // ---------------------
   const updateButton = (index, field, value) => {
     const updated = [...buttons];
     updated[index][field] = value;
@@ -125,6 +150,9 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     setButtons(updated);
   };
 
+  // ---------------------
+  // REMPLAZA {{n}} EN VISTA PREVIA
+  // ---------------------
   const replacePlaceholders = (text, varValues=[]) => {
     let result = text;
     varValues.forEach((example, i) => {
@@ -140,11 +168,15 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
 
   const bodyPreview = replacePlaceholders(bodyText, bodyVars);
 
+  // ---------------------
+  // ENVÍO DE LA PLANTILLA
+  // ---------------------
   const handleCreate = async () => {
     const finalName = toSnakeCase(name);
 
     const components = [];
 
+    // HEADER
     if (showHeader && headerText.trim()) {
       const hasHeaderPlaceholders = headerVars.length > 0;
       const headerComp = {
@@ -160,6 +192,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
       components.push(headerComp);
     }
     
+    // BODY
     if (bodyText.trim()) {
       const hasBodyPlaceholders = bodyVars.length > 0;
       const bodyComp = {
@@ -174,6 +207,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
       components.push(bodyComp);
     }
 
+    // FOOTER
     if (footerText.trim()) {
       components.push({
         type: "FOOTER",
@@ -181,27 +215,53 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
       });
     }
 
+    // BUTTONS
     if (buttons.length > 0) {
       const filteredButtons = buttons
-        .map(b => {
+        .map((b) => {
           if (b.type === "QUICK_REPLY") {
             return {
               type: "QUICK_REPLY",
               text: b.text || "Botón sin texto"
             };
-          } else if (b.type === "PHONE_NUMBER") {
+          } 
+          else if (b.type === "PHONE_NUMBER") {
             return {
               type: "PHONE_NUMBER",
               text: b.text || "Llamar",
               phone_number: b.phone_number || "+593999999999"
             };
-          } else {
+          }
+          else {
             // URL
-            return {
-              type: "URL",
-              text: b.text || "Ir al sitio",
-              url: b.url || "https://google.com"
-            };
+            // Verificamos si es static o dynamic
+            if (b.linkType === "dynamic") {
+              // Ej: base "https://myweb.com/path", var => "codigo_guia"
+              // => url final = "https://myweb.com/path/{{1}}"
+              // => example = ["https://myweb.com/path/codigo_guia"]
+              const finalUrl = b.urlBase.endsWith("/")
+                ? b.urlBase + "{{1}}"
+                : b.urlBase + "/{{1}}";
+
+              const finalExample = b.urlBase.endsWith("/")
+                ? b.urlBase + b.urlVar
+                : b.urlBase + "/" + b.urlVar;
+
+              return {
+                type: "URL",
+                text: b.text || "Ir al sitio",
+                url: finalUrl,
+                example: [finalExample]
+              };
+            } else {
+              // Estático: no placeholders
+              return {
+                type: "URL",
+                text: b.text || "Ir al sitio",
+                url: b.url || "https://google.com"
+                // No example
+              };
+            }
           }
         })
         .filter(btn => btn.text.trim() !== "");
@@ -230,9 +290,11 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     setIsLoading(false);
   };
 
+  // Validaciones para placeholders requeridos
   const areHeaderVarsFilled = headerVars.every((val) => val.trim() !== "");
   const areBodyVarsFilled = bodyVars.every((val) => val.trim() !== "");
 
+  // Deshabilitar "Crear"
   const isDisabled =
     !name.trim() ||
     !bodyText.trim() ||
@@ -242,10 +304,6 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-      {/*
-        1) Scroll general del modal si supera 80% de la pantalla
-           (max-h-[80vh] overflow-y-auto)
-      */}
       <div className="
         bg-white
         p-6
@@ -412,8 +470,9 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
             {/* Botones */}
             <div className="mb-4">
               <label className="block font-semibold mb-2">
-                Botones (Opcionales) <InfoIcon tooltipText="Agrega botones de Respuesta rápida, Llamada o Enlace." />
+                Botones (Opcionales) <InfoIcon tooltipText="Crea botones para que los clientes puedan responder tu mensaje o realizar una acción." />
               </label>
+
               {buttons.map((btn, i) => (
                 <div key={i} className="border p-2 mb-2 rounded bg-gray-50">
                   <div className="flex justify-between items-center">
@@ -425,16 +484,19 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                       Eliminar
                     </button>
                   </div>
+
+                  {/* Selección tipo de botón */}
                   <div className="mt-2 flex gap-2">
                     <select
                       className="border rounded px-2 py-1"
                       value={btn.type}
                       onChange={(e) => updateButton(i, "type", e.target.value)}
                     >
-                      <option value="QUICK_REPLY">Respuesta rápida</option>
-                      <option value="PHONE_NUMBER">Llamar</option>
-                      <option value="URL">Enlace</option>
+                      <option value="QUICK_REPLY">Personalizado</option>
+                      <option value="PHONE_NUMBER">Llamar al número de teléfono</option>
+                      <option value="URL">Ir al sitio web</option>
                     </select>
+
                     <input
                       className="border rounded px-2 py-1 flex-1"
                       placeholder="Texto del botón"
@@ -442,6 +504,25 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                       onChange={(e) => updateButton(i, "text", e.target.value)}
                     />
                   </div>
+
+                  {/* Mensaje indicando límite según tipo */}
+                  {btn.type === "QUICK_REPLY" && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Sin límite de botones
+                    </p>
+                  )}
+                  {btn.type === "PHONE_NUMBER" && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Máximo 1 botón
+                    </p>
+                  )}
+                  {btn.type === "URL" && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Máximo 2 botones
+                    </p>
+                  )}
+
+                  {/* PHONE_NUMBER => pide phone_number */}
                   {btn.type === "PHONE_NUMBER" && (
                     <div className="mt-2">
                       <label className="text-sm text-gray-600 block mb-1">Número de teléfono</label>
@@ -453,19 +534,62 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                       />
                     </div>
                   )}
+
+                  {/* URL => pide linkType “estático” o “dinámico” */}
                   {btn.type === "URL" && (
-                    <div className="mt-2">
-                      <label className="text-sm text-gray-600 block mb-1">Enlace (URL)</label>
-                      <input
+                    <div className="mt-2 border rounded p-2 bg-white">
+                      <label className="text-sm font-semibold block mb-1">Tipo de URL:</label>
+                      <select
                         className="border rounded px-2 py-1 w-full"
-                        placeholder="https://tusitio.com"
-                        value={btn.url || ""}
-                        onChange={(e) => updateButton(i, "url", e.target.value)}
-                      />
+                        value={btn.linkType}
+                        onChange={(e) => updateButton(i, "linkType", e.target.value)}
+                      >
+                        <option value="static">Estático</option>
+                        <option value="dynamic">Dinámico</option>
+                      </select>
+
+                      {btn.linkType === "static" && (
+                        <div className="mt-2">
+                          <label className="text-sm text-gray-600 block mb-1">URL</label>
+                          <input
+                            className="border rounded px-2 py-1 w-full"
+                            placeholder="https://tusitio.com"
+                            value={btn.url || ""}
+                            onChange={(e) => updateButton(i, "url", e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      {btn.linkType === "dynamic" && (
+                        <div className="mt-2">
+                          {/* Base URL */}
+                          <label className="text-sm text-gray-600 block mb-1">Base URL</label>
+                          <input
+                            className="border rounded px-2 py-1 w-full"
+                            placeholder="Ej: https://new.imporsuitpro.com/Pedidos/imprimir_guia/"
+                            value={btn.urlBase || ""}
+                            onChange={(e) => updateButton(i, "urlBase", e.target.value)}
+                          />
+
+                          {/* Nombre de la variable */}
+                          <label className="text-sm text-gray-600 block mt-2 mb-1">Variable</label>
+                          <input
+                            className="border rounded px-2 py-1 w-full"
+                            placeholder="Ej: numero_guia"
+                            value={btn.urlVar || ""}
+                            onChange={(e) => updateButton(i, "urlVar", e.target.value)}
+                          />
+
+                          <p className="text-xs text-gray-500 mt-1">
+                            El resultado del url al que el cliente ingresará sería: https://new.imporsuitpro.com/Pedidos/imprimir_guia/numero_guia
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               ))}
+
               <button 
                 className="bg-gray-200 px-3 py-1 rounded text-sm" 
                 onClick={addButton}
@@ -479,10 +603,6 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
           <div className="w-1/3">
             <h3 className="font-semibold mb-2">Vista Previa</h3>
             <div className="bg-gray-100 border border-gray-300 rounded p-3 text-sm">
-              {/*
-                2) Scroll interno en la "pantalla del teléfono"
-                si su contenido pasa de 300px de alto
-              */}
               <div className="
                 bg-white
                 rounded
@@ -519,14 +639,50 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                 {/* Botones */}
                 {buttons.length > 0 && (
                   <div className="mt-2 flex flex-col gap-1 w-full">
-                    {buttons.map((btn, i) => (
-                      <button 
-                        key={i}
-                        className="bg-green-600 text-white text-sm px-3 py-1 rounded self-start"
-                      >
-                        {btn.text || "(sin texto)"}
-                      </button>
-                    ))}
+                    {buttons.map((btn, i) => {
+                      if (btn.type === "QUICK_REPLY" || btn.type === "PHONE_NUMBER") {
+                        return (
+                          <button 
+                            key={i}
+                            className="bg-green-600 text-white text-sm px-3 py-1 rounded self-start"
+                          >
+                            {btn.text || "(sin texto)"}
+                          </button>
+                        );
+                      } else {
+                        // URL => si es dynamic, construimos preview con la variable
+                        if (btn.linkType === "dynamic") {
+                          // Ej: baseURL + "/{{1}}" -> baseURL + "/urlVar"
+                          const finalUrl = btn.urlBase.endsWith("/")
+                            ? `${btn.urlBase}{{1}}`
+                            : `${btn.urlBase}/{{1}}`;
+                          const exampleUrl = btn.urlBase.endsWith("/")
+                            ? `${btn.urlBase}${btn.urlVar}`
+                            : `${btn.urlBase}/${btn.urlVar}`;
+
+                          return (
+                            <button
+                              key={i}
+                              className="bg-green-600 text-white text-sm px-3 py-1 rounded self-start"
+                              title={`Ejemplo: ${exampleUrl}`}
+                            >
+                              {btn.text || "(sin texto)"}
+                            </button>
+                          );
+                        } else {
+                          // Static
+                          return (
+                            <button 
+                              key={i}
+                              className="bg-green-600 text-white text-sm px-3 py-1 rounded self-start"
+                              title={`URL: ${btn.url || "https://google.com"}`}
+                            >
+                              {btn.text || "(sin texto)"}
+                            </button>
+                          );
+                        }
+                      }
+                    })}
                   </div>
                 )}
               </div>
