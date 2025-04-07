@@ -111,9 +111,9 @@ const Cabecera = ({
       // Actualizar localmente el estado del chat seleccionado
       setSelectedChat((prev) => ({
         ...prev,
-        chat_cerrado: newStatus,
+        chat_cerrado: nuevoEstado,
       }));
-      
+
       console.log("Chat actualizado correctamente:", data);
       cargar_socket();
     } catch (error) {
