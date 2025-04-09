@@ -994,6 +994,8 @@ const Chat = () => {
 
   useEffect(() => {
     if (isSocketConnected && userData) {
+      console.time("⏱ Tiempo hasta llegada de CHATS");
+
       socketRef.current.emit("ADD_USER", userData);
       socketRef.current.emit("GET_CHATS", userData.plataforma);
       socketRef.current.on("USER_ADDED", (data) => {});
@@ -1036,6 +1038,7 @@ const Chat = () => {
       });
 
       socketRef.current.on("CHATS", (data) => {
+        console.timeEnd("⏱ Tiempo hasta llegada de CHATS");
         setMensajesAcumulados(data);
       });
     }
@@ -1269,19 +1272,16 @@ const Chat = () => {
       estado_guia = "Generado";
     } else if (estado == 2) {
       color = "bg-purple-500";
-      estado_guia = "Por recolectar";
-    } else if (estado == 3) {
-      color = "bg-purple-500";
       estado_guia = "Recolectado";
     } else if (estado == 4) {
       color = "bg-purple-500";
       estado_guia = "En bodega";
     } else if (estado == 5) {
       color = "bg-yellow-500";
-      estado_guia = "En transito";
+      estado_guia = "En tránsito";
     } else if (estado == 6) {
       color = "bg-yellow-500";
-      estado_guia = "Zona de entrega";
+      estado_guia = "Zona entrega";
     } else if (estado == 7) {
       color = "bg-green-500";
       estado_guia = "Entregado";
@@ -1290,7 +1290,7 @@ const Chat = () => {
       estado_guia = "Anulado";
     } else if (estado == 11 || estado == 12) {
       color = "bg-yellow-500";
-      estado_guia = "En transito";
+      estado_guia = "En tránsito";
     } else if (estado == 14) {
       color = "bg-red-500";
       estado_guia = "Novedad";
@@ -1318,9 +1318,12 @@ const Chat = () => {
     } else if (estado == 200 || estado == 201 || estado == 202) {
       color = "bg-purple-500";
       estado_guia = "Recolectado";
-    } else if (estado >= 300 && estado <= 317) {
+    } else if (estado >= 300 && estado <= 317 && estado !== 307) {
       color = "bg-yellow-500";
-      estado_guia = "Procesamiento";
+      estado_guia = "En tránsito";
+    } else if (estado == 307) {
+      color = "bg-yellow-500";
+      estado_guia = "Zona entrega";
     } else if (estado >= 400 && estado <= 403) {
       color = "bg-green-500";
       estado_guia = "Entregado";
@@ -1347,22 +1350,22 @@ const Chat = () => {
       estado_guia = "Generado";
     } else if (estado == 2) {
       color = "bg-yellow-500";
-      estado_guia = "Picking";
+      estado_guia = "Recolectado";
     } else if (estado == 3) {
       color = "bg-yellow-500";
-      estado_guia = "Packing";
+      estado_guia = "Recolectado";
     } else if (estado == 4) {
       color = "bg-yellow-500";
       estado_guia = "En tránsito";
     } else if (estado == 5) {
       color = "bg-yellow-500";
-      estado_guia = "En reparto";
+      estado_guia = "Zona entrega";
     } else if (estado == 6) {
       color = "bg-purple-500";
       estado_guia = "Novedad";
     } else if (estado == 7) {
       color = "bg-green-500";
-      estado_guia = "Entregada";
+      estado_guia = "Entregado";
     } else if (estado == 8) {
       color = "bg-red-500";
       estado_guia = "Devolución";
@@ -1372,15 +1375,12 @@ const Chat = () => {
     } else if (estado == 10) {
       color = "bg-red-500";
       estado_guia = "Cancelada";
-    } else if (estado == 11) {
-      color = "bg-red-500";
-      estado_guia = "Indemnización";
     } else if (estado == 12) {
       color = "bg-red-500";
       estado_guia = "Anulada";
     } else if (estado == 13) {
       color = "bg-red-500";
-      estado_guia = "Devolución en tránsito";
+      estado_guia = "Devolución";
     }
 
     return {
@@ -1497,8 +1497,8 @@ const Chat = () => {
 
   return (
     <div className="sm:grid grid-cols-4">
-      <div className="text-sm text-gray-700 fixed bottom-0 z-50 right-2">
-        v1.1 Hecho por{" "}
+      <div className="text-sm text-gray-700 fixed bottom-0 z-50 left-2">
+        v1.2 Hecho por{" "}
         <a target="_blank" href="https://new.imporsuitpro.com">
           Imporsuit
         </a>{" "}
@@ -1554,6 +1554,7 @@ const Chat = () => {
         validar_estadoSpeed={validar_estadoSpeed}
         selectedTab={selectedTab}
         setSelectedTab={setSelectedTab}
+        mensajesAcumulados={mensajesAcumulados}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

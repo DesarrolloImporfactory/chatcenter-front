@@ -79,7 +79,7 @@ const ChatPrincipal = ({
       >
         {/* Si no hay chat seleccionado */}
         {selectedChat === null ? (
-          <div className="flex justify-center items-center h-full">
+          <div className="flex justify-center items-center h-[calc(80vh_-_110px)]">
             <img
               src="https://new.imporsuitpro.com/public/img/banner_chat_center.gif"
               alt="Sin chat seleccionado"
@@ -87,7 +87,7 @@ const ChatPrincipal = ({
             />
           </div>
         ) : (
-          <div className="flex flex-col h-[calc(100vh_-_130px)] relative">
+          <div className="flex flex-col h-[calc(100vh_-_110px)] relative">
             {/* 
               1) Contenedor principal del chat, 
                  con fondo color + imagen, 
@@ -101,7 +101,7 @@ const ChatPrincipal = ({
                 flex-col
                 flex-grow
                 space-y-5
-                max-h-[calc(100vh_-_200px)]
+                max-h-[calc(100vh_-_180px)]
                 overflow-y-auto
                 p-4
               "
@@ -147,7 +147,7 @@ const ChatPrincipal = ({
                     `}
                   >
                     {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
-                    <span className="text-sm">
+                    <span className="text-sm pb-2 inline-block">
                       {/* Tipo: TEXT */}
                       {mensaje.tipo_mensaje === "text" ? (
                         mensaje.texto_mensaje.includes("{{") &&
@@ -364,7 +364,7 @@ const ChatPrincipal = ({
               })()}
 
             {/* Campo para enviar mensajes */}
-            <div className="flex items-center gap-2 p-4 w-full border-t bg-white absolute bottom-0 left-0">
+            <div className="flex items-center gap-2 p-4 w-full border-t bg-gray-100 absolute bottom-0 left-0">
               <button
                 onClick={() => setEmojiOpen(!emojiOpen)}
                 className="border rounded-full p-2"
