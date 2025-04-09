@@ -994,6 +994,8 @@ const Chat = () => {
 
   useEffect(() => {
     if (isSocketConnected && userData) {
+      console.time("⏱ Tiempo hasta llegada de CHATS");
+
       socketRef.current.emit("ADD_USER", userData);
       socketRef.current.emit("GET_CHATS", userData.plataforma);
       socketRef.current.on("USER_ADDED", (data) => {});
@@ -1036,6 +1038,7 @@ const Chat = () => {
       });
 
       socketRef.current.on("CHATS", (data) => {
+        console.timeEnd("⏱ Tiempo hasta llegada de CHATS");
         setMensajesAcumulados(data);
       });
     }
@@ -1551,6 +1554,7 @@ const Chat = () => {
         validar_estadoSpeed={validar_estadoSpeed}
         selectedTab={selectedTab}
         setSelectedTab={setSelectedTab}
+        mensajesAcumulados={mensajesAcumulados}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

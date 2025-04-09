@@ -79,7 +79,7 @@ const ChatPrincipal = ({
       >
         {/* Si no hay chat seleccionado */}
         {selectedChat === null ? (
-          <div className="flex justify-center items-center h-full">
+          <div className="flex justify-center items-center h-[calc(90vh_-_110px)]">
             <img
               src="https://new.imporsuitpro.com/public/img/banner_chat_center.gif"
               alt="Sin chat seleccionado"

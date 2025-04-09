@@ -32,12 +32,26 @@ export const Sidebar = ({
   validar_estadoSpeed,
   selectedTab,
   setSelectedTab,
+  mensajesAcumulados
 }) => {
+  const [mensajesVisibles, setMensajesVisibles] = useState(10);
+  const scrollRef = useRef(null);
+  const handleScrollMensajes = () => {
+    const div = scrollRef.current;
+    if (div && div.scrollTop + div.clientHeight >= div.scrollHeight - 20) {
+      if (mensajesVisibles < filteredChats.length) {
+        setMensajesVisibles((prev) => prev + 10);
+      }
+    }
+  };
+
   return (
     <>
       {" "}
       <div
-        className={`bg-white overflow-y-auto h-[calc(100vh_-_130px)] overflow-x-hidden ${
+        ref={scrollRef}
+        onScroll={handleScrollMensajes}
+        className={`bg-white overflow-y-auto overflow-x-hidden h-[calc(100vh_-_130px)] ${
           selectedChat ? "hidden sm:block" : "block"
         }`}
       >
@@ -165,11 +179,19 @@ export const Sidebar = ({
           <ul className="">
             {/* Verificar si no hay mensajes */}
             {filteredChats.length === 0 ? (
-              <div className="h-64 flex justify-center items-center">
-                <Loading />
-              </div>
+              mensajesAcumulados.length === 0 ? (
+                // Aún no llegan los mensajes, mostrar loader
+                <div className="h-64 flex justify-center items-center">
+                  <Loading />
+                </div>
+              ) : (
+                // Ya llegaron pero no hay coincidencias
+                <div className="h-64 flex justify-center items-center text-gray-500">
+                  No se encontraron chats.
+                </div>
+              )
             ) : (
-              filteredChats.map((mensaje, index) => {
+              filteredChats.slice(0, mensajesVisibles).map((mensaje, index) => {
                 // Función para validar el estado de la guía según la transportadora
                 const obtenerEstadoGuia = (transporte, estadoFactura) => {
                   switch (transporte) {
@@ -259,6 +281,13 @@ export const Sidebar = ({
                   </li>
                 );
               })
+            )}
+            {mensajesVisibles < filteredChats.length && (
+              <div className="flex justify-center py-4">
+                <span className="text-sm text-gray-500 animate-pulse">
+                  Cargando más chats...
+                </span>
+              </div>
             )}
           </ul>
         </div>
