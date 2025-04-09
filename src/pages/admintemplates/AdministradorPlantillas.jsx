@@ -3,6 +3,7 @@ import chatApi from "../../api/chatcenter";
 import Cabecera from "../../components/chat/Cabecera";
 import CrearPlantillaModal from "./CrearPlantillaModal";
 import VerPlantillaModal from "./VerPlantillaModal";
+import CrearPlantillaRapidaModal from "./CrearPlantillaRapidaModal";
 
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
@@ -14,6 +15,14 @@ const AdministradorPlantillas = () => {
   const [userData, setUserData] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+
+  const [respuestasRapidas, setRespuestasRapidas] = useState([]);
+  const [modalConfigOpen, setModalConfigOpen] = useState(false);
+  const [modalEditarOpen, setModalEditarOpen] = useState(false);
+  const [respuestaSeleccionada, setRespuestaSeleccionada] = useState(null);
+
+  //Mostrar modal plantillas rapidas
+  const [mostrarModalPlantillaRapida, setMostrarModalPlantillaRapida] = useState(false);
 
   const [opciones, setOpciones] = useState(false);
   const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
@@ -54,6 +63,15 @@ const AdministradorPlantillas = () => {
     setVerModal(true);
   };
 
+  const handleAbrirConfiguraciones = () => {
+    setModalConfigOpen(true);
+  };
+  
+  const handleAbrirEditarRespuesta = (respuesta) => {
+    setRespuestaSeleccionada(respuesta);
+    setModalEditarOpen(true);
+  };
+  
   // 1. Verificación de token y conexión al socket
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -107,7 +125,28 @@ const AdministradorPlantillas = () => {
       fetchPhoneNumbers();
     }
   }, [userData, currentTab]);
+  
+  useEffect(() => {
+    if (currentTab === "answers-fast") {
+      fetchRespuestasRapidas();
+    }
+  }, [currentTab]);
 
+
+  const fetchRespuestasRapidas = async () => {
+    if (!userData) return;
+    try {
+      const response = await chatApi.post("/whatsapp_managment/obtener_plantillas_plataforma", {
+        id_plataforma: userData.plataforma,
+      });
+  
+      setRespuestasRapidas(response.data || []);
+    } catch (error) {
+      console.error("Error al cargar respuestas rápidas", error);
+    }
+  };
+  
+  
   // ---------------------------
   // Función para cargar Plantillas
   // ---------------------------
@@ -480,6 +519,74 @@ const AdministradorPlantillas = () => {
       </div>
     );
   };
+  // ---------------------------
+  // Render de la tabla de “Respuestas rápidas"
+  // ---------------------------
+  const renderAnswersFastTable = () => {
+    return (
+      <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
+        <div className="flex justify-between mb-4">
+          <h2 className="text-lg font-semibold">Respuestas rápidas</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMostrarModalPlantillaRapida(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+            >
+              <i className="fas fa-plus mr-1"></i> Agregar
+            </button>
+            <button
+              onClick={handleAbrirConfiguraciones}
+              className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
+            >
+              <i className="fas fa-cog mr-1"></i> Configuraciones
+            </button>
+          </div>
+        </div>
+  
+        <table className="min-w-full border bg-white shadow rounded-lg">
+          <thead className="bg-gray-200 text-gray-700 text-sm">
+            <tr>
+              <th className="py-2 px-4 text-left">Atajo</th>
+              <th className="py-2 px-4 text-left">Mensaje</th>
+              <th className="py-2 px-4 text-left">Principal</th>
+              <th className="py-2 px-4 text-left">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {respuestasRapidas.map((respuesta, index) => (
+              <tr key={index} className="border-t hover:bg-gray-50">
+                <td className="py-2 px-4">{respuesta.atajo}</td>
+                <td className="py-2 px-4">{respuesta.mensaje}</td>
+                <td className="py-2 px-4">
+                  <input
+                    type="checkbox"
+                    checked={parseInt(respuesta.principal) === 1}
+                    disabled={parseInt(respuesta.principal) === 1 ? false : respuestasRapidas.some(r => parseInt(r.principal) === 1 && r.id_template !== respuesta.id_template)}
+                    onChange={() => cambiarEstadoRespuesta(respuesta)}
+                  />
+                </td>
+                <td className="py-2 px-4 flex gap-2">
+                  <button
+                    className="btn btn-sm bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded"
+                    onClick={() => handleAbrirEditarRespuesta(respuesta)}
+                  >
+                    <i className="fa-solid fa-pencil"></i> Editar
+                  </button>
+                  <button
+                    className="btn btn-sm bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
+                    onClick={() => eliminarRespuesta(respuesta.id_template)}
+                  >
+                    <i className="fa-solid fa-trash-can"></i> Borrar
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+  
 
   // ---------------------------
   // Manejo de la creación de la plantilla
@@ -514,6 +621,30 @@ const AdministradorPlantillas = () => {
       });
     }
   };
+
+
+  const cambiarEstadoRespuesta = async (respuesta) => {
+    const estado = parseInt(respuesta.principal) === 1 ? 0 : 1;
+    const formData = new FormData();
+    formData.append("id_template", respuesta.id_template);
+    formData.append("estado", estado);
+  
+    try {
+      const resp = await fetch("https://tudominio.com/usuarios/cambiar_estado", {
+        method: "POST",
+        body: formData
+      });
+      const res = await resp.json();
+      if (res.status === 200) {
+        fetchRespuestasRapidas();
+      } else {
+        alert(res.title || "Error al actualizar");
+      }
+    } catch (err) {
+      console.error("Error al cambiar estado:", err);
+    }
+  };
+  
 
   return (
     <div className="p-0">
@@ -576,11 +707,23 @@ const AdministradorPlantillas = () => {
         >
           Plantillas
         </button>
+
+        <button
+          className={`pb-2 ${
+            currentTab === "answers-fast"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-600 hover:text-blue-600"
+          }`}
+          onClick={() => setCurrentTab("answers-fast")}
+        >
+          Respuestas rápidas
+        </button>
       </div>
 
       <div className="p-5">
         {currentTab === "numbers" && renderNumbersTable()}
         {currentTab === "templates" && renderTemplatesTable()}
+        {currentTab === "answers-fast" && renderAnswersFastTable()}
       </div>
 
       {mostrarModalPlantilla && (
@@ -589,6 +732,17 @@ const AdministradorPlantillas = () => {
           onCreate={handleCreatePlantilla}
         />
       )}
+      
+      {mostrarModalPlantillaRapida && (
+        <CrearPlantillaRapidaModal
+          idPlataforma={userData.plataforma}
+          onClose={() => setMostrarModalPlantillaRapida(false)}
+          onSuccess={fetchRespuestasRapidas}
+          setStatusMessage={setStatusMessage}
+        />
+      )}
+
+
 
       {verModal && (
         <VerPlantillaModal
