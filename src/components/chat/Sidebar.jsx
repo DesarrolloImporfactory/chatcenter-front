@@ -37,7 +37,7 @@ export const Sidebar = ({
     <>
       {" "}
       <div
-        className={`bg-white overflow-y-auto h-[calc(100vh_-_130px)] ${
+        className={`bg-white overflow-y-auto h-[calc(100vh_-_130px)] overflow-x-hidden ${
           selectedChat ? "hidden sm:block" : "block"
         }`}
       >
