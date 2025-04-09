@@ -86,7 +86,7 @@ const CrearPlantillaRapidaModal = ({ onClose, onSuccess, idPlataforma, setStatus
             type="button"
             onClick={handleCrear}
             disabled={loading}
-            className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-500"
+            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-500"
           >
             {loading ? "Creando..." : "Crear"}
           </button>
