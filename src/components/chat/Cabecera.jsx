@@ -238,7 +238,7 @@ const Cabecera = ({
         <div
           className={`${
             opciones ? "col-span-2 bg-gray-100" : "col-span-3 bg-gray-100"
-          } ${selectedChat === null ? "hidden sm:block" : "block"}`}
+          } py-[55px] ${selectedChat === null ? "hidden sm:block" : "block"}`}
         ></div>
       ) : (
         <div
