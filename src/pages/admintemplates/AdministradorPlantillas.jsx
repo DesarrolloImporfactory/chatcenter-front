@@ -167,11 +167,80 @@ const AdministradorPlantillas = () => {
           <table className="min-w-full border bg-white shadow rounded-lg">
             <thead className="bg-gray-200 text-gray-700 text-sm">
               <tr>
+                    {/* NÚMEROS */}
                 <th className="py-2 px-4 text-left">Números</th>
-                <th className="py-2 px-4 text-left">Nombre</th>
-                <th className="py-2 px-4 text-left">Límite de mensajes</th>
-                <th className="py-2 px-4 text-left">Estado</th>
-                <th className="py-2 px-4 text-left">Calidad</th>
+                {/* NOMBRE */}
+                <th className="py-2 px-4 text-left relative group">
+                  <div className="inline-flex items-center">
+                    Nombre
+                    <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
+                    <strong>¿Quieres cambiar tu nombre para mostrar?</strong>
+                    <p className="text-gray-200 text-justify">
+                      El nombre para mostrar de WhatsApp Business es el nombre de tu empresa que los clientes ven en tu perfil de WhatsApp Business.
+                    </p>
+                    <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                  </div>
+                </th>
+                {/* LÍMITE DE MENSAJES */}
+                <th className="py-2 px-4 text-left relative group">
+                      <div className="inline-flex items-center">
+                        Límite de mensajes
+                        <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                          </svg>
+                        </span>
+                      </div>
+                      <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
+                        <strong>¿Qué es un límite de mensajes?</strong>
+                        <p className="text-gray-200 text-justify">
+                          Es el número máximo de conversaciones comerciales que puedes iniciar en un periodo de 24 horas.
+                        </p>
+                        <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                      </div>
+                </th>
+                {/* ESTADO */}
+                <th className="py-2 px-4 text-left relative group">
+                  <div className="inline-flex items-center">
+                    Estado
+                    <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
+                    <strong>Conectado</strong>
+                    <p className="text-gray-200 text-justify">
+                      El número de teléfono está asociado a esta cuenta y funciona correctamente.
+                    </p>
+                    <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                  </div>
+                </th>
+                {/* CALIDAD */}
+                <th className="py-2 px-4 text-left relative group">
+                  <div className="inline-flex items-center">
+                    Calidad
+                    <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
+                    <strong>Parámetros de calidad</strong>
+                    <p className="text-gray-200 text-justify">
+                      Se basa en la retroalimentación de los usuarios, como bloqueos o reportes, en los últimos 7 días. Puede ser verde (alta), amarillo (media) o rojo (baja).
+                    </p>
+                    <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                  </div>
+                </th>
               </tr>
             </thead>
 
@@ -270,12 +339,54 @@ const AdministradorPlantillas = () => {
           <thead className="bg-gray-200 text-gray-700 text-sm">
             <tr>
               <th className="py-2 px-4 text-left">Nombre / Idioma</th>
-              <th className="py-2 px-4 text-left">Categoría</th>
+
+              {/* CATEGORÍA */}
+              <th className="py-2 px-4 text-left relative group">
+                <div className="inline-flex items-center">
+                  Categoría
+                  <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
+                  <strong>Categoría de plantillas</strong>
+                  <p className="text-gray-200 text-justify">
+                    <strong>MARKETING:</strong> Mensajes promocionales o informativos.<br />
+                    <strong>UTILIDAD:</strong> Confirmaciones, recordatorios u otros mensajes transaccionales.
+                  </p>
+                  <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                </div>
+              </th>
+
               <th className="py-2 px-4 text-left">Mensaje</th>
-              <th className="py-2 px-4 text-left">Estado</th>
+
+              {/* ESTADO */}
+              <th className="py-2 px-4 text-left relative group">
+                <div className="inline-flex items-center">
+                  Estado
+                  <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
+                  <strong>Estado de aprobación</strong>
+                  <p className="text-gray-200 text-justify">
+                    <strong>APROBADA:</strong> Plantilla lista para usar.<br />
+                    <strong>PENDIENTE:</strong> Meta está revisando la plantilla.<br />
+                    <strong>RECHAZADA:</strong> No cumple con las políticas de uso.
+                  </p>
+                  <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                </div>
+              </th>
+
               <th className="py-2 px-4 text-left">Acciones</th>
             </tr>
           </thead>
+
           <tbody>
             {plantillas.map((plantilla, index) => (
               <tr key={index} className="border-t hover:bg-gray-50">
