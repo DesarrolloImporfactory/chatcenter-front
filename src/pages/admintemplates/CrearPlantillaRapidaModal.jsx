@@ -17,7 +17,7 @@ const CrearPlantillaRapidaModal = ({ onClose, onSuccess, idPlataforma, setStatus
 
     setLoading(true);
     try {
-      const resp = await chatApi.post("/whatsapp_managment/crear_plantilla_rapida", {
+      const resp = await chatApi.post("/whatsapp_managment/crearPlantillaRapida", {
         atajo,
         mensaje,
         id_plataforma: idPlataforma,

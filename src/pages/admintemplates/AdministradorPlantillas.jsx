@@ -112,7 +112,7 @@ const AdministradorPlantillas = () => {
     const fetchPhoneNumbers = async () => {
       if (!userData) return;
       try {
-        const resp = await chatApi.post("/whatsapp_managment/obtener_numeros", {
+        const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
           id_plataforma: userData.plataforma,
         });
         setPhoneNumbers(resp.data.data || []);
@@ -136,7 +136,7 @@ const AdministradorPlantillas = () => {
   const fetchRespuestasRapidas = async () => {
     if (!userData) return;
     try {
-      const response = await chatApi.post("/whatsapp_managment/obtener_plantillas_plataforma", {
+      const response = await chatApi.post("/whatsapp_managment/obtenerPlantillasPlataforma", {
         id_plataforma: userData.plataforma,
       });
   
@@ -594,7 +594,7 @@ const AdministradorPlantillas = () => {
   // ---------------------------
   const handleCreatePlantilla = async (payload) => {
     try {
-      const resp = await chatApi.post("/whatsapp_managment/crear_plantilla", {
+      const resp = await chatApi.post("/whatsapp_managment/CrearPlantilla", {
         ...payload,
         id_plataforma: userData.plataforma,
       });
@@ -627,7 +627,7 @@ const cambiarEstadoRespuesta = async(respuesta) =>{
   const estado = parseInt(respuesta.principal) === 1 ? 0 : 1;
 
   try {
-    const resp = await chatApi.put("/whatsapp_managment/cambiar_estado",{
+    const resp = await chatApi.put("/whatsapp_managment/cambiarEstado",{
       id_template: respuesta.id_template,
       estado,
     });
@@ -656,7 +656,7 @@ const cambiarEstadoRespuesta = async(respuesta) =>{
 
 const eliminarRespuesta = async(id_template) =>{
   try{
-    const resp = await chatApi.delete("/whatsapp_managment/eliminar_plantilla", {
+    const resp = await chatApi.delete("/whatsapp_managment/eliminarPlantilla", {
       data: {id_template}
     });
 
