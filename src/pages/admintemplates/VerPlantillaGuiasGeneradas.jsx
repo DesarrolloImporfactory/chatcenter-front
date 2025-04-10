@@ -16,7 +16,6 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
         if (resp.data.success) {
           setPlantillasMeta(resp.data.templates);
 
-          // Obtener cuál es la plantilla actual en uso y marcarla como seleccionada
           const configResp = await chatApi.post("/whatsapp_managment/obtenerConfiguracion", {
             id_plataforma: idPlataforma,
           });
@@ -53,6 +52,7 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
 
     try {
       setLoading(true);
+
       const resp = await chatApi.put("/whatsapp_managment/editarConfiguracion", {
         id_template_whatsapp: seleccionada,
         id_plataforma: idPlataforma,
@@ -66,8 +66,8 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
         onClose();
       } else {
         setStatusMessage({
-          type: "error",
-          text: resp.data.message || "No se pudo guardar la configuración.",
+          type: "info",
+          text: resp.data.message || "La plantilla ya estaba asignada como principal.",
         });
       }
     } catch (error) {
@@ -84,7 +84,7 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[9999]">
       <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4">Selecciona la plantilla para generar guía</h2>
+        <h2 className="text-lg font-semibold mb-4">Selecciona la plantilla que sera enviada cuando generes una guía</h2>
 
         <div className="space-y-3 max-h-64 overflow-y-auto">
           {plantillasMeta.map((r) => (
@@ -95,9 +95,9 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
               <input
                 type="radio"
                 name="plantilla"
-                value={r.id_template}
-                checked={seleccionada === r.id_template}
-                onChange={() => setSeleccionada(r.id_template)}
+                value={r.nombre}
+                checked={seleccionada === r.nombre}
+                onChange={() => setSeleccionada(r.nombre)}
                 className="mr-2"
               />
               {r.nombre}
