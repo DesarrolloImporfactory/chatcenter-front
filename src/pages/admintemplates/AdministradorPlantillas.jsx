@@ -4,6 +4,8 @@ import Cabecera from "../../components/chat/Cabecera";
 import CrearPlantillaModal from "./CrearPlantillaModal";
 import VerPlantillaModal from "./VerPlantillaModal";
 import CrearPlantillaRapidaModal from "./CrearPlantillaRapidaModal";
+import EditarPlantillaRapidaModal from "./EditarPlantillaRapidaModal";
+import VerPlantillaGuiasGeneradas from "./VerPlantillaGuiasGeneradas";
 
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
@@ -20,6 +22,8 @@ const AdministradorPlantillas = () => {
   const [modalConfigOpen, setModalConfigOpen] = useState(false);
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
   const [respuestaSeleccionada, setRespuestaSeleccionada] = useState(null);
+
+
 
   //Mostrar modal plantillas rapidas
   const [mostrarModalPlantillaRapida, setMostrarModalPlantillaRapida] = useState(false);
@@ -538,7 +542,7 @@ const AdministradorPlantillas = () => {
               onClick={handleAbrirConfiguraciones}
               className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
             >
-              <i className="fas fa-cog mr-1"></i> Configuraciones
+              <i className="fas fa-cog mr-1"></i> Configuración Guías
             </button>
           </div>
         </div>
@@ -546,9 +550,41 @@ const AdministradorPlantillas = () => {
         <table className="min-w-full border bg-white shadow rounded-lg">
           <thead className="bg-gray-200 text-gray-700 text-sm">
             <tr>
-              <th className="py-2 px-4 text-left">Atajo</th>
+              {/* ATAJO */}
+              <th className="py-2 px-4 text-left relative group">
+                <div className="inline-flex items-center">
+                  Atajo
+                  <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 ml-14 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
+                  <p className="text-gray-200 text-justify">
+                    Este será el nombre de tu respuesta rápida cuando desees llamarla desde el chat con <strong>" / " </strong>
+                  </p>
+                  <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                </div>
+              </th>
               <th className="py-2 px-4 text-left">Mensaje</th>
-              <th className="py-2 px-4 text-left">Principal</th>
+              {/* Principal */}
+              <th className="py-2 px-4 text-left relative group">
+                <div className="inline-flex items-center">
+                   Principal
+                  <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
+                  <p className="text-gray-200 text-justify">
+                    Al marcar como principal a tu respuesta rápida, esta será enviada a todos los clientes que te contacten por <strong>primera vez.</strong>
+                  </p>
+                  <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                </div>
+              </th>
               <th className="py-2 px-4 text-left">Acciones</th>
             </tr>
           </thead>
@@ -778,14 +814,31 @@ const eliminarRespuesta = async(id_template) =>{
         />
       )}
 
-
-
       {verModal && (
         <VerPlantillaModal
           plantilla={plantillaSeleccionada}
           onClose={() => setVerModal(false)}
         />
       )}
+
+      {modalEditarOpen && (
+        <EditarPlantillaRapidaModal
+          respuesta={respuestaSeleccionada}
+          onClose={() => setModalEditarOpen(false)}
+          onSuccess={fetchRespuestasRapidas}
+          setStatusMessage={setStatusMessage}
+        />
+      )}
+
+      {modalConfigOpen && (
+        <VerPlantillaGuiasGeneradas
+          respuestas={respuestasRapidas}
+          idPlataforma={userData?.plataforma}
+          onClose={() => setModalConfigOpen(false)}
+          setStatusMessage={setStatusMessage}
+        />
+      )}
+
     </div>
   );
 };
