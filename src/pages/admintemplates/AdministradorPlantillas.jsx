@@ -557,7 +557,7 @@ const AdministradorPlantillas = () => {
               <tr key={index} className="border-t hover:bg-gray-50">
                 <td className="py-2 px-4">{respuesta.atajo}</td>
                 <td className="py-2 px-4">{respuesta.mensaje}</td>
-                <td className="py-2 px-4">
+                <td className="py-2 px-10">
                   <input
                     type="checkbox"
                     checked={parseInt(respuesta.principal) === 1}
@@ -623,27 +623,63 @@ const AdministradorPlantillas = () => {
   };
 
 
-  const cambiarEstadoRespuesta = async (respuesta) => {
-    const estado = parseInt(respuesta.principal) === 1 ? 0 : 1;
-    const formData = new FormData();
-    formData.append("id_template", respuesta.id_template);
-    formData.append("estado", estado);
-  
-    try {
-      const resp = await fetch("https://tudominio.com/usuarios/cambiar_estado", {
-        method: "POST",
-        body: formData
+const cambiarEstadoRespuesta = async(respuesta) =>{
+  const estado = parseInt(respuesta.principal) === 1 ? 0 : 1;
+
+  try {
+    const resp = await chatApi.put("/whatsapp_managment/cambiar_estado",{
+      id_template: respuesta.id_template,
+      estado,
+    });
+
+    if (resp.data.success){
+      setStatusMessage({
+        type: "success",
+        text: resp.data.message,
       });
-      const res = await resp.json();
-      if (res.status === 200) {
-        fetchRespuestasRapidas();
-      } else {
-        alert(res.title || "Error al actualizar");
-      }
-    } catch (err) {
-      console.error("Error al cambiar estado:", err);
+      fetchRespuestasRapidas();
+    } else {
+      setStatusMessage({
+        type: "error",
+        text: resp.data.message || "Error al actualizar el estado.",
+      });
     }
-  };
+  } catch(err){
+    console.error("Error al cambiar estado:", err);
+    setStatusMessage({
+      type: "error",
+      text: "Error al conectar con el servidor.",
+    });
+  }
+}
+
+
+const eliminarRespuesta = async(id_template) =>{
+  try{
+    const resp = await chatApi.delete("/whatsapp_managment/eliminar_plantilla", {
+      data: {id_template}
+    });
+
+    if (resp.data.success){
+      setStatusMessage({
+        type: "success",
+        text: resp.data.message,
+      });
+      fetchRespuestasRapidas();
+    } else{
+      setStatusMessage({
+        type: "error",
+        text: resp.data.message || "Error al eliminar la plantilla"
+      });
+    }
+  }catch(err){
+    console.error("Error al eliminar plantilla:", err);
+    setStatusMessage({
+      type: "error",
+      text: "Error al conectar con el servidor",
+    });
+  }
+}
   
 
   return (
