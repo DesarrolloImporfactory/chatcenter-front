@@ -76,7 +76,7 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
 
               {/* Menú desplegable */}
               {showMenu && (
-                <div className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-50">
+                <div className="absolute right-0 mt-28 w-40 bg-white rounded-md shadow-lg z-50">
                   <button
                     className="flex items-center gap-2 text-sm text-gray-700 hover:text-red-600 px-4 py-2 w-full whitespace-nowrap"
                     onClick={handleLogout}
@@ -89,10 +89,8 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
             </>
           ) : (
             <a
-              href="https://new.imporsuitpro.com/registro"
               className="text-white hover:underline"
             >
-              Registrarse
             </a>
           )}
         </div>
