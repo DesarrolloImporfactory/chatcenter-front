@@ -230,48 +230,47 @@ const Cabecera = ({
         {/* Opciones dentro del slider */}
         <div className="mt-6">
           {/* Volver a Imporsuit */}
-          <button
-            onClick={handleReturnToImporsuit}
-            className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
-          >
-            <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-              Volver a Imporsuit
-            </span>
-          </button>
-          {/* Chat Center */}
-          <button
-            onClick={irAChatCenter}
-            // Agregar una clase condicional
-            className={`
-              group flex items-center w-full px-5 py-4 text-left transition-colors
-              hover:bg-gray-100
-              ${location.pathname === "/chat" ? "bg-gray-200" : ""}
-            `}
-          >
-            <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-              Chat Center
-            </span>
-          </button>
-          {/* Administrar Plantillas */}
-          <button
-            onClick={irAPlantillas}
-            className={`
-            group flex items-center w-full px-5 py-4 text-left transition-colors
-            hover:bg-gray-100
-            ${
-              location.pathname === "/administrador-whatsapp"
-                ? "bg-gray-200"
-                : ""
-            }
-          `}
-          >
-            <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-              WhatsApp
-            </span>
-          </button>
+            <a
+              href={`https://new.imporsuitpro.com/acceso/jwt_home/${localStorage.getItem("token")}`}
+              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
+            >
+              <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Volver a Imporsuit
+              </span>
+            </a>
+            {/* Chat Center */}
+            <a
+              href="/chat"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/chat" ? "bg-gray-200" : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/chat");
+              }}
+            >
+              <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Chat Center
+              </span>
+            </a>
+            {/* WhatsApp */}
+            <a
+              href="/administrador-whatsapp"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/administrador-whatsapp" ? "bg-gray-200" : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/administrador-whatsapp");
+              }}
+            >
+              <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                WhatsApp
+              </span>
+            </a>
 
           {/* Cerrar sesión */}
           <button
