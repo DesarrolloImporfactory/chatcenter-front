@@ -51,15 +51,13 @@ function App() {
           }
         />
 
-                {/* 
-          /administrador-whatsapp, también envuelto en MainLayout 
+        {/* 
+          /administrador-whatsapp, sin envolver MainLayout 
         */}
         <Route
           path="/chat"
           element={
-            <MainLayout>
               <Chat />
-            </MainLayout>
           }
         />
         <Route path="*" element={<h1>Esta ruta no existe</h1>} />

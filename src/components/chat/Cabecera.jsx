@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom"; // al inicio
-import chatApi from "../../api/chatcenter";
 
 const Cabecera = ({
   userData,
@@ -21,7 +20,7 @@ const Cabecera = ({
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sliderOpen, setSliderOpen] = useState(false);
-  //Manejo de referencias
+  //Manejo de referencias 
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
 
@@ -30,6 +29,7 @@ const Cabecera = ({
 
   //Permitir acceso a location.pathname
   const location = useLocation();
+
 
   const toggleEtiquetasMenu = () => {
     setEtiquetasMenuOpen(!etiquetasMenuOpen);
@@ -52,30 +52,30 @@ const Cabecera = ({
       localStorage.getItem("token");
   };
 
-  // (2) useEffect para detectar clic fuera y cerrar
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (
-        sliderOpen &&
-        sliderRef.current &&
-        !sliderRef.current.contains(event.target) &&
-        menuButtonRef.current &&
-        !menuButtonRef.current.contains(event.target)
-      ) {
-        setSliderOpen(false);
-      }
+ // (2) useEffect para detectar clic fuera y cerrar
+ useEffect(() => {
+  function handleClickOutside(event) {
+    if (
+      sliderOpen &&
+      sliderRef.current &&
+      !sliderRef.current.contains(event.target) &&
+      menuButtonRef.current &&
+      !menuButtonRef.current.contains(event.target)
+    ) {
+      setSliderOpen(false);
     }
+  }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [sliderOpen]);
-
-  // toggle del slider
-  const toggleSlider = () => {
-    setSliderOpen(!sliderOpen);
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
   };
+}, [sliderOpen]);
+
+// toggle del slider
+const toggleSlider = () => {
+  setSliderOpen(!sliderOpen);
+};
 
   const [isHovering, setIsHovering] = useState(false);
 
@@ -88,25 +88,22 @@ const Cabecera = ({
   };
 
   const actualizar_cerrado = async (chatId, nuevoEstado) => {
-    let bot_openia = 0;
-    if (nuevoEstado == 1) {
-      bot_openia = 1;
-    }
-
     try {
-      const response = await chatApi.post(
-        "/clientes_chat_center/actualizar_cerrado",
+      const formData = new FormData();
+      formData.append("chatId", chatId);
+      formData.append("nuevoEstado", nuevoEstado);
+
+      const response = await fetch(
+        "https://new.imporsuitpro.com/Pedidos/actualizar_cerrado",
         {
-          chatId,
-          nuevoEstado,
-          bot_openia,
+          method: "POST",
+          body: formData,
         }
       );
 
-      const data = response.data;
+      const data = await response.json();
 
-      // Verifica si la respuesta fue correcta
-      if (data.status !== "200") {
+      if (!response.ok) {
         throw new Error(data.message || "Error al actualizar el chat");
       }
 
@@ -141,16 +138,41 @@ const Cabecera = ({
     <>
       {/* Cabecera principal (mobile visible si no hay chat seleccionado, desktop siempre) */}
       <div
-        // className={`items-center justify-between p-4 bg-[#171931] ${
-        //   selectedChat ? "hidden sm:flex" : "flex"
-        // }`}
+        className={`items-center justify-between p-4 bg-[#171931] ${
+          selectedChat ? "hidden sm:flex" : "flex"
+        }`}
       >
+        {/* Botón “hamburger” para abrir slider */}
+        <div>
+          <button
+            onClick={toggleSlider}
+            className="text-white text-2xl focus:outline-none hover:scale-110 transition-transform"
+          >
+            <i className="bx bx-menu"></i>
+          </button>
+        </div>
 
+        {/* Nombre de usuario y foto */}
+        <div className="flex items-center space-x-3">
+          <div className="text-end">
+            <span className="block text-white font-semibold text-lg">
+              {userData?.nombre ?? "Tony Plaza"}
+            </span>
+            <span className="text-sm text-white">
+              {userData?.cargo === 1 ? "Administrador" : "Vendedor"}
+            </span>
+          </div>
+          <img
+            className="rounded-full w-12 h-12 bg-white object-cover"
+            src="https://new.imporsuitpro.com/public/img/img.png"
+            alt="Profile"
+          />
+        </div>
       </div>
 
       {/* Slider lateral (Menú) */}
       <div
-        ref={sliderRef}
+        ref={sliderRef}      
         className={`fixed top-0 left-0 h-screen w-64 bg-white shadow-xl transform transition-transform duration-300 z-50 ${
           sliderOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -159,7 +181,7 @@ const Cabecera = ({
         <div className="h-[84px] px-5 flex items-center justify-between bg-[#171931] text-white">
           <h2 className="font-bold text-lg">Menú</h2>
           <button
-            ref={menuButtonRef}
+          ref={menuButtonRef}
             onClick={toggleSlider}
             className="hover:scale-110 transition-transform"
           >
@@ -196,22 +218,18 @@ const Cabecera = ({
           </button>
           {/* Administrar Plantillas */}
           <button
-            onClick={irAPlantillas}
-            className={`
+          onClick={irAPlantillas}
+          className={`
             group flex items-center w-full px-5 py-4 text-left transition-colors
             hover:bg-gray-100
-            ${
-              location.pathname === "/administrador-whatsapp"
-                ? "bg-gray-200"
-                : ""
-            }
+            ${location.pathname === "/administrador-whatsapp" ? "bg-gray-200" : ""}
           `}
-          >
-            <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-              WhatsApp
-            </span>
-          </button>
+        >
+          <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+          <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
+            WhatsApp
+          </span>
+        </button>
 
           {/* Cerrar sesión */}
           <button
