@@ -17,6 +17,7 @@ import DatosUsuario from "../../components/chat/DatosUsuario";
 import Modales from "../../components/chat/Modales";
 import Loading from "../../components/chat/Loading";
 import ScrollToBottomButton from "../../components/chat/ScrollToBottomButton";
+import SwitchBot from "../../components/chat/SwitchBot";
 
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
@@ -1521,6 +1522,7 @@ const Chat = () => {
         tagListAsginadas={tagListAsginadas}
         tagList={tagList}
         cargar_socket={cargar_socket}
+        SwitchBot={SwitchBot}
       />
       {/* Historial de chats */}
       <Sidebar
