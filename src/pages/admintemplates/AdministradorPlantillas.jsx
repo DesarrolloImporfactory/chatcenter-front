@@ -358,7 +358,6 @@ const AdministradorPlantillas = () => {
   // ---------------------------
   const renderTemplatesTable = () => {
     return (
-      <div className="w-full">
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
         <div className="flex justify-between mb-4">
           <h2 className="text-lg font-semibold">Plantillas</h2>
@@ -369,12 +368,12 @@ const AdministradorPlantillas = () => {
             + Crear Plantilla
           </button>
         </div>
-        <div className="overflow-x-auto">
-        <div className="min-w-[800px]">
-        <table className="w-full border bg-white shadow rounded-lg">
+        <div className="overflow-x-auto"></div>
+        <table className="min-w-full border bg-white shadow rounded-lg">
           <thead className="bg-gray-200 text-gray-700 text-sm">
             <tr>
               <th className="py-2 px-4 text-left">Nombre / Idioma</th>
+
               {/* CATEGORÍA */}
               <th className="py-2 px-4 text-left relative group">
                 <div className="inline-flex items-center">
@@ -511,10 +510,7 @@ const AdministradorPlantillas = () => {
               </tr>
             ))}
           </tbody>
-          </table>
-          </div>
-        </div>
-      </div>
+        </table>
       </div>
     );
   };
@@ -566,7 +562,7 @@ const AdministradorPlantillas = () => {
               {/* Principal */}
               <th className="py-2 px-4 text-left relative group">
                 <div className="inline-flex items-center">
-                   Principal
+                   Bienvenida
                   <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
@@ -575,7 +571,7 @@ const AdministradorPlantillas = () => {
                 </div>
                 <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
                   <p className="text-gray-200 text-justify">
-                    Al marcar como principal a tu respuesta rápida, esta será enviada a todos los clientes que te contacten por <strong>primera vez.</strong>
+                    Al marcar como bienvenida a tu respuesta rápida, esta será enviada a todos los clientes que te contacten por <strong>primera vez.</strong>
                   </p>
                   <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                 </div>
@@ -714,7 +710,7 @@ const eliminarRespuesta = async(id_template) =>{
   
 
   return (
-    <div className="p-0">
+    <div className="p-0 mt-16">
 
       <h1 className="text-2xl font-bold mb-4 p-5">
         Administra tu Negocio de WhatsApp
