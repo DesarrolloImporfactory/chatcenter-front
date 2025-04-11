@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom"; // al inicio
+import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 
 const Cabecera = ({
   userData,
@@ -20,13 +20,16 @@ const Cabecera = ({
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sliderOpen, setSliderOpen] = useState(false);
+  //Manejo de referencias 
+  const sliderRef = useRef(null);
+  const menuButtonRef = useRef(null);
 
   const menuRef = useRef(null);
   const etiquetasMenuRef = useRef(null);
 
-  const toggleSlider = () => {
-    setSliderOpen(!sliderOpen);
-  };
+  //Permitir acceso a location.pathname
+  const location = useLocation();
+
 
   const toggleEtiquetasMenu = () => {
     setEtiquetasMenuOpen(!etiquetasMenuOpen);
@@ -49,34 +52,30 @@ const Cabecera = ({
       localStorage.getItem("token");
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(event.target) &&
-        etiquetasMenuRef.current &&
-        !etiquetasMenuRef.current.contains(event.target)
-      ) {
-        setEtiquetasMenuOpen(false);
-      }
-    };
+ // (2) useEffect para detectar clic fuera y cerrar
+ useEffect(() => {
+  function handleClickOutside(event) {
+    if (
+      sliderOpen &&
+      sliderRef.current &&
+      !sliderRef.current.contains(event.target) &&
+      menuButtonRef.current &&
+      !menuButtonRef.current.contains(event.target)
+    ) {
+      setSliderOpen(false);
+    }
+  }
 
-    const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        setEtiquetasMenuOpen(false);
-        setMenuOpen(false);
-        setSliderOpen(false);
-      }
-    };
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+  };
+}, [sliderOpen]);
 
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
+// toggle del slider
+const toggleSlider = () => {
+  setSliderOpen(!sliderOpen);
+};
 
   const [isHovering, setIsHovering] = useState(false);
 
@@ -173,6 +172,7 @@ const Cabecera = ({
 
       {/* Slider lateral (Menú) */}
       <div
+        ref={sliderRef}      
         className={`fixed top-0 left-0 h-screen w-64 bg-white shadow-xl transform transition-transform duration-300 z-50 ${
           sliderOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -181,6 +181,7 @@ const Cabecera = ({
         <div className="h-[84px] px-5 flex items-center justify-between bg-[#171931] text-white">
           <h2 className="font-bold text-lg">Menú</h2>
           <button
+          ref={menuButtonRef}
             onClick={toggleSlider}
             className="hover:scale-110 transition-transform"
           >
@@ -203,7 +204,12 @@ const Cabecera = ({
           {/* Chat Center */}
           <button
             onClick={irAChatCenter}
-            className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
+            // Agregar una clase condicional
+            className={`
+              group flex items-center w-full px-5 py-4 text-left transition-colors
+              hover:bg-gray-100
+              ${location.pathname === "/chat" ? "bg-gray-200" : ""}
+            `}
           >
             <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
@@ -212,14 +218,19 @@ const Cabecera = ({
           </button>
           {/* Administrar Plantillas */}
           <button
-            onClick={irAPlantillas}
-            className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
-          >
-            <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-              WhatsApp
-            </span>
-          </button>
+          onClick={irAPlantillas}
+          className={`
+            group flex items-center w-full px-5 py-4 text-left transition-colors
+            hover:bg-gray-100
+            ${location.pathname === "/administrador-whatsapp" ? "bg-gray-200" : ""}
+          `}
+        >
+          <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+          <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
+            WhatsApp
+          </span>
+        </button>
+
           {/* Cerrar sesión */}
           <button
             onClick={handleLogout}
