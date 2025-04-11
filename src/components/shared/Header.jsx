@@ -1,11 +1,11 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useEffect, useState, useRef } from "react";
 import "./styles/header.css";
 
 const Logo = "https://tiendas.imporsuitpro.com/imgs/LOGOS-IMPORSUIT.png";
 
-const Header = () => {
+const Header = ({ menuButtonRef, onToggleSlider }) => {
   const [showMenu, setShowMenu] = useState(false);
   const navigate = useNavigate();
   const menuRef = useRef(null);
@@ -19,7 +19,6 @@ const Header = () => {
     navigate("/login");
   };
 
-  // Cerrar el menú al hacer clic fuera de él
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -34,44 +33,69 @@ const Header = () => {
 
   return (
     <header className="w-full">
-      <nav className="flex justify-between items-center px-5 bg-[#171931] text-white py-3">
-        <div className="w-16">
-          <Link to="/">
-            <img src={Logo} alt="Logo de Imporsuit" className="header__logo" />
-          </Link>
+      <nav className="relative flex items-center h-16 px-5 bg-[#171931] text-white">
+        {/* Botón “hamburger” */}
+        <button
+          ref={menuButtonRef}
+          onClick={onToggleSlider}
+          className="text-2xl mr-2 hover:scale-110 transition-transform"
+        >
+          <i className="bx bx-menu"></i>
+        </button>
+
+        {/* Logo centrado */}
+        <div className="absolute left-1/2 transform -translate-x-1/2">
+          <img
+            src={Logo}
+            alt="Logo de Imporsuit"
+            className="h-8"
+          />
         </div>
 
-        <ul className="flex gap-5 items-center">
+        {/* Usuario y menú a la derecha */}
+        <div className="ml-auto flex items-center gap-4" ref={menuRef}>
           {user?.id ? (
-            <li className="relative" ref={menuRef}>
+            <>
+              {/* Nombre + Rol */}
+              <div className="hidden sm:flex flex-col text-end">
+                <span className="text-sm font-semibold">
+                  {user.nombre ?? "Usuario"}
+                </span>
+                <span className="text-xs">
+                  {user.cargo === 1 ? "Administrador" : "Vendedor"}
+                </span>
+              </div>
+
+              {/* Imagen de perfil */}
               <img
                 src="https://new.imporsuitpro.com/public/img/img.png"
                 className="rounded-full w-10 h-10 cursor-pointer"
                 alt="Perfil de usuario"
                 onClick={handleImageClick}
               />
+
+              {/* Menú desplegable */}
               {showMenu && (
-                <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-50">
+                <div className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-50">
                   <button
-                    className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+                    className="flex items-center gap-2 text-sm text-gray-700 hover:text-red-600 px-4 py-2 w-full whitespace-nowrap"
                     onClick={handleLogout}
                   >
-                    Salir
+                    <i className="bx bx-log-out text-base"></i>
+                    Cerrar sesión
                   </button>
                 </div>
               )}
-            </li>
+            </>
           ) : (
-            <li>
-              <a
-                href="https://new.imporsuitpro.com/registro"
-                className="text-white hover:underline"
-              >
-                Registrarse
-              </a>
-            </li>
+            <a
+              href="https://new.imporsuitpro.com/registro"
+              className="text-white hover:underline"
+            >
+              Registrarse
+            </a>
           )}
-        </ul>
+        </div>
       </nav>
     </header>
   );

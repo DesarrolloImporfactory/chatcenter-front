@@ -38,16 +38,6 @@ const AdministradorPlantillas = () => {
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState(null);
   const [verModal, setVerModal] = useState(false);
 
-  const toggleCrearEtiquetaModal = () => {};
-  const toggleAsginarEtiquetaModal = () => {};
-  const handleOpciones = () => setOpciones((prev) => !prev);
-
-  const cargar_socket = () => {};
-  const selectedChat = null;
-  const setSelectedChat = () => {};
-  const tagList = [];
-  const tagListAsginadas = [];
-  const animateOut = false;
   const socketRef = useRef(null);
 
   const getCountryCode = (phone) => {
@@ -720,24 +710,6 @@ const eliminarRespuesta = async(id_template) =>{
 
   return (
     <div className="p-0">
-      {/* Cabecera de tu chat */}
-      <Cabecera
-        userData={userData}
-        chatMessages={[]}
-        opciones={opciones}
-        setOpciones={setOpciones}
-        handleOpciones={handleOpciones}
-        selectedChat={selectedChat}
-        setSelectedChat={setSelectedChat}
-        animateOut={animateOut}
-        toggleCrearEtiquetaModal={toggleCrearEtiquetaModal}
-        setEtiquetasMenuOpen={setEtiquetasMenuOpen}
-        etiquetasMenuOpen={etiquetasMenuOpen}
-        toggleAsginarEtiquetaModal={toggleAsginarEtiquetaModal}
-        tagListAsginadas={tagListAsginadas}
-        tagList={tagList}
-        cargar_socket={cargar_socket}
-      />
 
       <h1 className="text-2xl font-bold mb-4 p-5">
         Administra tu Negocio de WhatsApp

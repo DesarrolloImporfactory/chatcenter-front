@@ -141,36 +141,11 @@ const Cabecera = ({
     <>
       {/* Cabecera principal (mobile visible si no hay chat seleccionado, desktop siempre) */}
       <div
-        className={`items-center justify-between p-4 bg-[#171931] ${
-          selectedChat ? "hidden sm:flex" : "flex"
-        }`}
+        // className={`items-center justify-between p-4 bg-[#171931] ${
+        //   selectedChat ? "hidden sm:flex" : "flex"
+        // }`}
       >
-        {/* Botón “hamburger” para abrir slider */}
-        <div>
-          <button
-            onClick={toggleSlider}
-            className="text-white text-2xl focus:outline-none hover:scale-110 transition-transform"
-          >
-            <i className="bx bx-menu"></i>
-          </button>
-        </div>
 
-        {/* Nombre de usuario y foto */}
-        <div className="flex items-center space-x-3">
-          <div className="text-end">
-            <span className="block text-white font-semibold text-lg">
-              {userData?.nombre ?? "Tony Plaza"}
-            </span>
-            <span className="text-sm text-white">
-              {userData?.cargo === 1 ? "Administrador" : "Vendedor"}
-            </span>
-          </div>
-          <img
-            className="rounded-full w-12 h-12 bg-white object-cover"
-            src="https://new.imporsuitpro.com/public/img/img.png"
-            alt="Profile"
-          />
-        </div>
       </div>
 
       {/* Slider lateral (Menú) */}
