@@ -26,20 +26,23 @@ function MainLayout({ children }) {
         setSliderOpen(false);
       }
     }
-
+  
     function handleEscape(event) {
       if (event.key === "Escape") {
         setSliderOpen(false);
       }
     }
-
-    document.addEventListener("mousedown", handleClickOutside);
+  
+    // En lugar de 'mousedown', usar 'click' (o 'touchstart')
+    document.addEventListener("click", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
+  
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [sliderOpen]);
+  
 
   const toggleSlider = () => {
     setSliderOpen(!sliderOpen);
@@ -83,10 +86,11 @@ function MainLayout({ children }) {
         <div
           ref={sliderRef}
           className={`
-            bg-white shadow-md
-            transition-all duration-300
+            bg-white mt-16 shadow-md transition-all duration-300
+            overflow-y-auto
+            absolute md:relative top-0 left-0 z-40
+            h-full md:h-auto
             ${sliderOpen ? "w-64" : "w-0"}
-            overflow-hidden
           `}
         >
           {/* Encabezado del slider */}

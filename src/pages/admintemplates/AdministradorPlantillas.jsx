@@ -358,6 +358,7 @@ const AdministradorPlantillas = () => {
   // ---------------------------
   const renderTemplatesTable = () => {
     return (
+      <div className="w-full">
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
         <div className="flex justify-between mb-4">
           <h2 className="text-lg font-semibold">Plantillas</h2>
@@ -368,11 +369,12 @@ const AdministradorPlantillas = () => {
             + Crear Plantilla
           </button>
         </div>
-        <table className="min-w-full border bg-white shadow rounded-lg">
+        <div className="overflow-x-auto">
+        <div className="min-w-[800px]">
+        <table className="w-full border bg-white shadow rounded-lg">
           <thead className="bg-gray-200 text-gray-700 text-sm">
             <tr>
               <th className="py-2 px-4 text-left">Nombre / Idioma</th>
-
               {/* CATEGORÍA */}
               <th className="py-2 px-4 text-left relative group">
                 <div className="inline-flex items-center">
@@ -509,7 +511,10 @@ const AdministradorPlantillas = () => {
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+          </div>
+        </div>
+      </div>
       </div>
     );
   };

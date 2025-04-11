@@ -32,7 +32,7 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
   }, []);
 
   return (
-    <header className="w-full">
+    <header className="w-full fixed top-0 left-0 z-50">
       <nav className="relative flex items-center h-16 px-5 bg-[#171931] text-white">
         {/* Botón “hamburger” */}
         <button
