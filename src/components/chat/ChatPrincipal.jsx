@@ -69,8 +69,7 @@ const ChatPrincipal = ({
           ${opciones ? "col-span-2" : "col-span-3"}
           relative
           ${
-            selectedChat === null ||
-            (opciones && window.innerWidth <= 640)
+            selectedChat === null || (opciones && window.innerWidth <= 640)
               ? "hidden sm:block"
               : "block"
           }
@@ -104,6 +103,7 @@ const ChatPrincipal = ({
                 max-h-[calc(100vh_-_180px)]
                 overflow-y-auto
                 p-4
+                pb-12
               "
               style={{
                 backgroundColor: "#DAD3CC",
@@ -316,7 +316,7 @@ const ChatPrincipal = ({
                         absolute bottom-1 right-2 text-xs
                         ${
                           mensaje.rol_mensaje === 1
-                            ? "text-gray-700" 
+                            ? "text-gray-700"
                             : "text-gray-500"
                         }
                       `}
