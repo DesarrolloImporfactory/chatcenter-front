@@ -19,14 +19,18 @@ const AdministradorPlantillas = () => {
   const [statusMessage, setStatusMessage] = useState(null);
 
   const [respuestasRapidas, setRespuestasRapidas] = useState([]);
+  const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
+    []
+  );
   const [modalConfigOpen, setModalConfigOpen] = useState(false);
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
   const [respuestaSeleccionada, setRespuestaSeleccionada] = useState(null);
-
-
+  const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
+    useState(false);
 
   //Mostrar modal plantillas rapidas
-  const [mostrarModalPlantillaRapida, setMostrarModalPlantillaRapida] = useState(false);
+  const [mostrarModalPlantillaRapida, setMostrarModalPlantillaRapida] =
+    useState(false);
 
   const [opciones, setOpciones] = useState(false);
   const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
@@ -47,8 +51,10 @@ const AdministradorPlantillas = () => {
   };
 
   const getTemplacecode = (template) => {
-    if (template.startsWith("es") || template.startsWith("es_")) return "Español";
-    if (template.startsWith("en") || template.startsWith("en_")) return "Inglés";
+    if (template.startsWith("es") || template.startsWith("es_"))
+      return "Español";
+    if (template.startsWith("en") || template.startsWith("en_"))
+      return "Inglés";
   };
 
   // cuando hagas clic en el ojito...
@@ -60,12 +66,16 @@ const AdministradorPlantillas = () => {
   const handleAbrirConfiguraciones = () => {
     setModalConfigOpen(true);
   };
-  
+
   const handleAbrirEditarRespuesta = (respuesta) => {
     setRespuestaSeleccionada(respuesta);
     setModalEditarOpen(true);
   };
-  
+
+  const handleAbrirConfiguracionAutomatizada = () => {
+    setModalConfiguracionAutomatizada(true);
+  };
+
   // 1. Verificación de token y conexión al socket
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -119,28 +129,56 @@ const AdministradorPlantillas = () => {
       fetchPhoneNumbers();
     }
   }, [userData, currentTab]);
-  
+
   useEffect(() => {
     if (currentTab === "answers-fast") {
       fetchRespuestasRapidas();
     }
   }, [currentTab]);
 
-
   const fetchRespuestasRapidas = async () => {
     if (!userData) return;
     try {
-      const response = await chatApi.post("/whatsapp_managment/obtenerPlantillasPlataforma", {
-        id_plataforma: userData.plataforma,
-      });
-  
+      const response = await chatApi.post(
+        "/whatsapp_managment/obtenerPlantillasPlataforma",
+        {
+          id_plataforma: userData.plataforma,
+        }
+      );
+
       setRespuestasRapidas(response.data || []);
     } catch (error) {
       console.error("Error al cargar respuestas rápidas", error);
     }
   };
-  
-  
+
+  const fetchConfiguracionAutomatizada = async () => {
+    if (!userData) return;
+    try {
+      const response = await chatApi.post(
+        "whatsapp_managment/configuracionesAutomatizador",
+        {
+          id_plataforma: userData.plataforma,
+        }
+      );
+      if (response.data.success && response.data.config) {
+        // Convierto "config" en un array con un solo elemento
+        setConfiguracionAutomatizada([response.data.config]);
+      } else {
+        setConfiguracionAutomatizada([]);
+      }
+    } catch (error) {
+      console.error("Error al cargar la configuración automatizada.", error);
+      setConfiguracionAutomatizada([]);
+    }
+  };
+
+  useEffect(() => {
+    if (currentTab === "settings") {
+      fetchConfiguracionAutomatizada();
+    }
+  }, [currentTab]);
+
   // ---------------------------
   // Función para cargar Plantillas
   // ---------------------------
@@ -200,58 +238,92 @@ const AdministradorPlantillas = () => {
           <table className="min-w-full border bg-white shadow rounded-lg">
             <thead className="bg-gray-200 text-gray-700 text-sm">
               <tr>
-                    {/* NÚMEROS */}
+                {/* NÚMEROS */}
                 <th className="py-2 px-4 text-left">Números</th>
                 {/* NOMBRE */}
                 <th className="py-2 px-4 text-left relative group">
                   <div className="inline-flex items-center">
                     Nombre
                     <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                        />
                       </svg>
                     </span>
                   </div>
                   <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
                     <strong>¿Quieres cambiar tu nombre para mostrar?</strong>
                     <p className="text-gray-200 text-justify">
-                      El nombre para mostrar de WhatsApp Business es el nombre de tu empresa que los clientes ven en tu perfil de WhatsApp Business.
+                      El nombre para mostrar de WhatsApp Business es el nombre
+                      de tu empresa que los clientes ven en tu perfil de
+                      WhatsApp Business.
                     </p>
                     <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                   </div>
                 </th>
                 {/* LÍMITE DE MENSAJES */}
                 <th className="py-2 px-4 text-left relative group">
-                      <div className="inline-flex items-center">
-                        Límite de mensajes
-                        <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
-                          </svg>
-                        </span>
-                      </div>
-                      <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
-                        <strong>¿Qué es un límite de mensajes?</strong>
-                        <p className="text-gray-200 text-justify">
-                          Es el número máximo de conversaciones comerciales que puedes iniciar en un periodo de 24 horas.
-                        </p>
-                        <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
-                      </div>
+                  <div className="inline-flex items-center">
+                    Límite de mensajes
+                    <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
+                    <strong>¿Qué es un límite de mensajes?</strong>
+                    <p className="text-gray-200 text-justify">
+                      Es el número máximo de conversaciones comerciales que
+                      puedes iniciar en un periodo de 24 horas.
+                    </p>
+                    <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                  </div>
                 </th>
                 {/* ESTADO */}
                 <th className="py-2 px-4 text-left relative group">
                   <div className="inline-flex items-center">
                     Estado
                     <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                        />
                       </svg>
                     </span>
                   </div>
                   <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
                     <strong>Conectado</strong>
                     <p className="text-gray-200 text-justify">
-                      El número de teléfono está asociado a esta cuenta y funciona correctamente.
+                      El número de teléfono está asociado a esta cuenta y
+                      funciona correctamente.
                     </p>
                     <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                   </div>
@@ -261,15 +333,27 @@ const AdministradorPlantillas = () => {
                   <div className="inline-flex items-center">
                     Calidad
                     <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                        />
                       </svg>
                     </span>
                   </div>
                   <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-gray-800 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
                     <strong>Parámetros de calidad</strong>
                     <p className="text-gray-200 text-justify">
-                      Se basa en la retroalimentación de los usuarios, como bloqueos o reportes, en los últimos 7 días. Puede ser verde (alta), amarillo (media) o rojo (baja).
+                      Se basa en la retroalimentación de los usuarios, como
+                      bloqueos o reportes, en los últimos 7 días. Puede ser
+                      verde (alta), amarillo (media) o rojo (baja).
                     </p>
                     <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                   </div>
@@ -284,7 +368,9 @@ const AdministradorPlantillas = () => {
                   <td className="py-2 px-4">
                     <div className="flex items-center gap-2">
                       <img
-                        src={`https://flagcdn.com/w40/${getCountryCode(num.display_phone_number)}.png`}
+                        src={`https://flagcdn.com/w40/${getCountryCode(
+                          num.display_phone_number
+                        )}.png`}
                         alt="bandera"
                         className="w-6 h-4 object-cover rounded-sm"
                       />
@@ -379,16 +465,29 @@ const AdministradorPlantillas = () => {
                 <div className="inline-flex items-center">
                   Categoría
                   <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                      />
                     </svg>
                   </span>
                 </div>
                 <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
                   <strong>Categoría de plantillas</strong>
                   <p className="text-gray-200 text-justify">
-                    <strong>MARKETING:</strong> Mensajes promocionales o informativos.<br />
-                    <strong>UTILIDAD:</strong> Confirmaciones, recordatorios u otros mensajes transaccionales.
+                    <strong>MARKETING:</strong> Mensajes promocionales o
+                    informativos.
+                    <br />
+                    <strong>UTILIDAD:</strong> Confirmaciones, recordatorios u
+                    otros mensajes transaccionales.
                   </p>
                   <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                 </div>
@@ -401,17 +500,31 @@ const AdministradorPlantillas = () => {
                 <div className="inline-flex items-center">
                   Estado
                   <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                      />
                     </svg>
                   </span>
                 </div>
                 <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
                   <strong>Estado de aprobación</strong>
                   <p className="text-gray-200 text-justify">
-                    <strong>APROBADA:</strong> Plantilla lista para usar.<br />
-                    <strong>PENDIENTE:</strong> Meta está revisando la plantilla.<br />
-                    <strong>RECHAZADA:</strong> No cumple con las políticas de uso.
+                    <strong>APROBADA:</strong> Plantilla lista para usar.
+                    <br />
+                    <strong>PENDIENTE:</strong> Meta está revisando la
+                    plantilla.
+                    <br />
+                    <strong>RECHAZADA:</strong> No cumple con las políticas de
+                    uso.
                   </p>
                   <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                 </div>
@@ -492,17 +605,17 @@ const AdministradorPlantillas = () => {
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                     >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" 
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                       />
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" 
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                       />
                     </svg>
                   </button>
@@ -533,11 +646,11 @@ const AdministradorPlantillas = () => {
               onClick={handleAbrirConfiguraciones}
               className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
             >
-              <i className="fas fa-cog mr-1"></i> Configuración Guías
+              <i className="fas fa-cog mr-1"></i> Guía Generada
             </button>
           </div>
         </div>
-  
+
         <table className="min-w-full border bg-white shadow rounded-lg">
           <thead className="bg-gray-200 text-gray-700 text-sm">
             <tr>
@@ -546,14 +659,25 @@ const AdministradorPlantillas = () => {
                 <div className="inline-flex items-center">
                   Atajo
                   <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                      />
                     </svg>
                   </span>
                 </div>
                 <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 ml-14 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
                   <p className="text-gray-200 text-justify">
-                    Este será el nombre de tu respuesta rápida cuando desees llamarla desde el chat con <strong>" / " </strong>
+                    Este será el nombre de tu respuesta rápida cuando desees
+                    llamarla desde el chat con <strong>" / " </strong>
                   </p>
                   <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                 </div>
@@ -562,16 +686,28 @@ const AdministradorPlantillas = () => {
               {/* Principal */}
               <th className="py-2 px-4 text-left relative group">
                 <div className="inline-flex items-center">
-                   Bienvenida
+                  Bienvenida
                   <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                      />
                     </svg>
                   </span>
                 </div>
                 <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
                   <p className="text-gray-200 text-justify">
-                    Al marcar como bienvenida a tu respuesta rápida, esta será enviada a todos los clientes que te contacten por <strong>primera vez.</strong>
+                    Al marcar como bienvenida a tu respuesta rápida, esta será
+                    enviada a todos los clientes que te contacten por{" "}
+                    <strong>primera vez.</strong>
                   </p>
                   <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                 </div>
@@ -588,7 +724,15 @@ const AdministradorPlantillas = () => {
                   <input
                     type="checkbox"
                     checked={parseInt(respuesta.principal) === 1}
-                    disabled={parseInt(respuesta.principal) === 1 ? false : respuestasRapidas.some(r => parseInt(r.principal) === 1 && r.id_template !== respuesta.id_template)}
+                    disabled={
+                      parseInt(respuesta.principal) === 1
+                        ? false
+                        : respuestasRapidas.some(
+                            (r) =>
+                              parseInt(r.principal) === 1 &&
+                              r.id_template !== respuesta.id_template
+                          )
+                    }
                     onChange={() => cambiarEstadoRespuesta(respuesta)}
                   />
                 </td>
@@ -613,7 +757,123 @@ const AdministradorPlantillas = () => {
       </div>
     );
   };
-  
+
+  // ---------------------------
+  // Render de la tabla de “Configuraciones"
+  // ---------------------------
+  const renderSettingsTable = () => {
+    return (
+      <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
+        <div className="flex justify-between mb-4">
+          <h2 className="text-lg font-semibold">Configuraciones </h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleAbrirConfiguracionAutomatizada(true)}
+              className="inline-flex items-center gap-1 whitespace-nowrap bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+            >
+              <i className="fas fa-plus mr-1"></i> Agregar configuración
+            </button>
+
+            <button
+              onClick={handleAbrirConfiguraciones}
+              className="inline-flex items-center gap-1 whitespace-nowrap bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+            >
+              <i className="fab fa-whatsapp mr-1"></i> Conectar WhatsApp
+            </button>
+          </div>
+        </div>
+
+        <table className="min-w-full border bg-white shadow rounded-lg">
+          <thead className="bg-gray-200 text-gray-700 text-sm">
+            <tr>
+              {/* NOMBRE DE CONFIGURACIÓN */}
+              <th className="py-2 px-4 text-left relative group">
+                <div className="inline-flex items-center">
+                  Nombre Configuración
+                </div>
+              </th>
+              <th className="py-2 px-4 text-left">Teléfono</th>
+              <th className="py-2 px-4 text-left">Webhook_url</th>
+              <th className="py-2 px-4 text-left relative group">
+                <div className="inline-flex items-center">
+                  Método de Pago
+                  <span className="ml-1 inline-block text-gray-400 hover:text-blue-500 cursor-pointer">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+                      />
+                    </svg>
+                  </span>
+                </div>
+                <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-72 bg-gray-800 text-white text-[11px] rounded-md px-2 py-2 shadow-md z-50">
+                  <p className="text-gray-200 text-justify">
+                    Si en algún momento tienes un inconveniente con el pago de
+                    la api, recuerda revisarlo dentro de tu portafolio en{" "}
+                    <strong>Bussines Manager</strong> y posteriormente
+                    habilitalo aquí.
+                  </p>
+                  <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
+                </div>
+              </th>
+              <th className="py-2 px-4 text-left">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {configuracionAutomatizada.map((respuesta, index) => (
+              <tr key={index} className="border-t hover:bg-gray-50">
+                <td className="py-2 px-4">{respuesta.nombre_configuracion}</td>
+                <td className="py-2 px-4">{respuesta.telefono}</td>
+                <td className="py-2 px-4">{respuesta.webhook_url}</td>
+                <td className="py-2 px-10">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={parseInt(respuesta.metodo_pago) === 1}
+                      onChange={() => cambiarEstadoRespuesta(respuesta)}
+                    />
+                    <div
+                      className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4
+                 peer-focus:ring-blue-300 rounded-full peer dark:bg-gray-700
+                 peer-checked:after:translate-x-full peer-checked:after:border-white
+                 after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                 after:bg-white after:border-gray-300 after:border after:rounded-full
+                 after:h-5 after:w-5 after:transition-all dark:border-gray-600
+                 peer-checked:bg-blue-600"
+                    />
+                  </label>
+                </td>
+
+                <td className="py-2 px-4 flex gap-2">
+                  <button
+                    className="btn btn-sm bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded"
+                    onClick={() => handleAbrirEditarRespuesta(respuesta)}
+                  >
+                    <i className="fa-solid fa-pencil"></i> Automatizadores
+                  </button>
+                  <button
+                    className="btn btn-sm bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
+                    onClick={() => eliminarRespuesta(respuesta.id_template)}
+                  >
+                    <i className="fa-solid fa-trash-can"></i> Crear
+                    Automatizador
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   // ---------------------------
   // Manejo de la creación de la plantilla
@@ -628,7 +888,7 @@ const AdministradorPlantillas = () => {
       if (resp.data.success) {
         setStatusMessage({
           type: "success",
-          text: "Plantilla creada correctamente."
+          text: "Plantilla creada correctamente.",
         });
         // Recargamos la lista de plantillas
         await fetchPlantillas();
@@ -637,81 +897,80 @@ const AdministradorPlantillas = () => {
       } else {
         setStatusMessage({
           type: "error",
-          text: "Error al crear la plantilla."
+          text: "Error al crear la plantilla.",
         });
       }
     } catch (error) {
       console.error("Error en la creación:", error);
       setStatusMessage({
         type: "error",
-        text: "Error al conectar con el servidor."
+        text: "Error al conectar con el servidor.",
       });
     }
   };
 
+  const cambiarEstadoRespuesta = async (respuesta) => {
+    const estado = parseInt(respuesta.principal) === 1 ? 0 : 1;
 
-const cambiarEstadoRespuesta = async(respuesta) =>{
-  const estado = parseInt(respuesta.principal) === 1 ? 0 : 1;
-
-  try {
-    const resp = await chatApi.put("/whatsapp_managment/cambiarEstado",{
-      id_template: respuesta.id_template,
-      estado,
-    });
-
-    if (resp.data.success){
-      setStatusMessage({
-        type: "success",
-        text: resp.data.message,
+    try {
+      const resp = await chatApi.put("/whatsapp_managment/cambiarEstado", {
+        id_template: respuesta.id_template,
+        estado,
       });
-      fetchRespuestasRapidas();
-    } else {
-      setStatusMessage({
-        type: "error",
-        text: resp.data.message || "Error al actualizar el estado.",
-      });
-    }
-  } catch(err){
-    console.error("Error al cambiar estado:", err);
-    setStatusMessage({
-      type: "error",
-      text: "Error al conectar con el servidor.",
-    });
-  }
-}
 
-
-const eliminarRespuesta = async(id_template) =>{
-  try{
-    const resp = await chatApi.delete("/whatsapp_managment/eliminarPlantilla", {
-      data: {id_template}
-    });
-
-    if (resp.data.success){
-      setStatusMessage({
-        type: "success",
-        text: resp.data.message,
-      });
-      fetchRespuestasRapidas();
-    } else{
+      if (resp.data.success) {
+        setStatusMessage({
+          type: "success",
+          text: resp.data.message,
+        });
+        fetchRespuestasRapidas();
+      } else {
+        setStatusMessage({
+          type: "error",
+          text: resp.data.message || "Error al actualizar el estado.",
+        });
+      }
+    } catch (err) {
+      console.error("Error al cambiar estado:", err);
       setStatusMessage({
         type: "error",
-        text: resp.data.message || "Error al eliminar la plantilla"
+        text: "Error al conectar con el servidor.",
       });
     }
-  }catch(err){
-    console.error("Error al eliminar plantilla:", err);
-    setStatusMessage({
-      type: "error",
-      text: "Error al conectar con el servidor",
-    });
-  }
-}
-  
+  };
+
+  const eliminarRespuesta = async (id_template) => {
+    try {
+      const resp = await chatApi.delete(
+        "/whatsapp_managment/eliminarPlantilla",
+        {
+          data: { id_template },
+        }
+      );
+
+      if (resp.data.success) {
+        setStatusMessage({
+          type: "success",
+          text: resp.data.message,
+        });
+        fetchRespuestasRapidas();
+      } else {
+        setStatusMessage({
+          type: "error",
+          text: resp.data.message || "Error al eliminar la plantilla",
+        });
+      }
+    } catch (err) {
+      console.error("Error al eliminar plantilla:", err);
+      setStatusMessage({
+        type: "error",
+        text: "Error al conectar con el servidor",
+      });
+    }
+  };
 
   return (
     <div className="p-0 mt-16">
-
       <h1 className="text-2xl font-bold mb-4 p-5">
         Administra tu Negocio de WhatsApp
       </h1>
@@ -730,45 +989,59 @@ const eliminarRespuesta = async(id_template) =>{
       )}
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-gray-200 px-5">
-        <button
-          className={`pb-2 ${
-            currentTab === "numbers"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-600 hover:text-blue-600"
-          }`}
-          onClick={() => setCurrentTab("numbers")}
-        >
-          Números
-        </button>
+      <div className="overflow-x-auto">
+        <div className="flex gap-4 border-b border-gray-200 px-5 min-w-max">
+          <button
+            className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
+              currentTab === "numbers"
+                ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
+            onClick={() => setCurrentTab("numbers")}
+          >
+            <i className="fas fa-address-book"></i> Números
+          </button>
 
-        <button
-          className={`pb-2 ${
-            currentTab === "templates"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-600 hover:text-blue-600"
-          }`}
-          onClick={() => setCurrentTab("templates")}
-        >
-          Plantillas
-        </button>
+          <button
+            className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
+              currentTab === "templates"
+                ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
+            onClick={() => setCurrentTab("templates")}
+          >
+            <i className="fas fa-copy"></i> Plantillas
+          </button>
 
-        <button
-          className={`pb-2 ${
-            currentTab === "answers-fast"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-600 hover:text-blue-600"
-          }`}
-          onClick={() => setCurrentTab("answers-fast")}
-        >
-          Respuestas rápidas
-        </button>
+          <button
+            className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
+              currentTab === "answers-fast"
+                ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
+            onClick={() => setCurrentTab("answers-fast")}
+          >
+            <i className="fas fa-bolt"></i> Respuestas rápidas
+          </button>
+
+          <button
+            className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
+              currentTab === "settings"
+                ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
+            onClick={() => setCurrentTab("settings")}
+          >
+            <i className="fas fa-cog"></i> Configuraciones
+          </button>
+        </div>
       </div>
 
       <div className="p-5">
         {currentTab === "numbers" && renderNumbersTable()}
         {currentTab === "templates" && renderTemplatesTable()}
         {currentTab === "answers-fast" && renderAnswersFastTable()}
+        {currentTab === "settings" && renderSettingsTable()}
       </div>
 
       {mostrarModalPlantilla && (
@@ -777,7 +1050,7 @@ const eliminarRespuesta = async(id_template) =>{
           onCreate={handleCreatePlantilla}
         />
       )}
-      
+
       {mostrarModalPlantillaRapida && (
         <CrearPlantillaRapidaModal
           idPlataforma={userData.plataforma}
@@ -811,7 +1084,6 @@ const eliminarRespuesta = async(id_template) =>{
           setStatusMessage={setStatusMessage}
         />
       )}
-
     </div>
   );
 };
