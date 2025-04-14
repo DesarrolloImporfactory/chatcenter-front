@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
-import Cabecera from "../../components/chat/Cabecera";
 import CrearPlantillaModal from "./CrearPlantillaModal";
 import VerPlantillaModal from "./VerPlantillaModal";
 import CrearPlantillaRapidaModal from "./CrearPlantillaRapidaModal";
 import EditarPlantillaRapidaModal from "./EditarPlantillaRapidaModal";
 import VerPlantillaGuiasGeneradas from "./VerPlantillaGuiasGeneradas";
+import CrearConfiguracionModal from "./CrearConfiguracionModal";
 
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
@@ -31,9 +31,6 @@ const AdministradorPlantillas = () => {
   //Mostrar modal plantillas rapidas
   const [mostrarModalPlantillaRapida, setMostrarModalPlantillaRapida] =
     useState(false);
-
-  const [opciones, setOpciones] = useState(false);
-  const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
 
   // Estado para mostrar el modal de crear plantilla
   const [mostrarModalPlantilla, setMostrarModalPlantilla] = useState(false);
@@ -161,12 +158,7 @@ const AdministradorPlantillas = () => {
           id_plataforma: userData.plataforma,
         }
       );
-      if (response.data.success && response.data.config) {
-        // Convierto "config" en un array con un solo elemento
-        setConfiguracionAutomatizada([response.data.config]);
-      } else {
-        setConfiguracionAutomatizada([]);
-      }
+      setConfiguracionAutomatizada(response.data || []);
     } catch (error) {
       console.error("Error al cargar la configuración automatizada.", error);
       setConfiguracionAutomatizada([]);
@@ -188,7 +180,7 @@ const AdministradorPlantillas = () => {
       const formData = new FormData();
       formData.append("id_plataforma", userData.plataforma);
       const response = await fetch(
-        "https://desarrollo.imporsuitpro.com/Pedidos/obtener_plantillas_whatsapp",
+        "https://new.imporsuitpro.com/Pedidos/obtener_plantillas_whatsapp",
         {
           method: "POST",
           body: formData,
@@ -769,14 +761,14 @@ const AdministradorPlantillas = () => {
           <div className="flex gap-2">
             <button
               onClick={() => handleAbrirConfiguracionAutomatizada(true)}
-              className="inline-flex items-center gap-1 whitespace-nowrap bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
             >
               <i className="fas fa-plus mr-1"></i> Agregar configuración
             </button>
 
             <button
               onClick={handleAbrirConfiguraciones}
-              className="inline-flex items-center gap-1 whitespace-nowrap bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
             >
               <i className="fab fa-whatsapp mr-1"></i> Conectar WhatsApp
             </button>
@@ -823,7 +815,6 @@ const AdministradorPlantillas = () => {
                   <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
                 </div>
               </th>
-              <th className="py-2 px-4 text-left">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -838,7 +829,7 @@ const AdministradorPlantillas = () => {
                       type="checkbox"
                       className="sr-only peer"
                       checked={parseInt(respuesta.metodo_pago) === 1}
-                      onChange={() => cambiarEstadoRespuesta(respuesta)}
+                      onChange={() => handleSwitchMetodoPago(respuesta)}
                     />
                     <div
                       className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4
@@ -850,22 +841,6 @@ const AdministradorPlantillas = () => {
                  peer-checked:bg-blue-600"
                     />
                   </label>
-                </td>
-
-                <td className="py-2 px-4 flex gap-2">
-                  <button
-                    className="btn btn-sm bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded"
-                    onClick={() => handleAbrirEditarRespuesta(respuesta)}
-                  >
-                    <i className="fa-solid fa-pencil"></i> Automatizadores
-                  </button>
-                  <button
-                    className="btn btn-sm bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
-                    onClick={() => eliminarRespuesta(respuesta.id_template)}
-                  >
-                    <i className="fa-solid fa-trash-can"></i> Crear
-                    Automatizador
-                  </button>
                 </td>
               </tr>
             ))}
@@ -935,6 +910,46 @@ const AdministradorPlantillas = () => {
       setStatusMessage({
         type: "error",
         text: "Error al conectar con el servidor.",
+      });
+    }
+  };
+
+  const handleSwitchMetodoPago = async (configItem) => {
+    // Si metodo_pago es 1, lo apagamos y viceversa
+    const nuevoMetodoPago = parseInt(configItem.metodo_pago) === 1 ? 0 : 1;
+
+    try {
+      // Llamada al endpoint PUT
+      const resp = await chatApi.put(
+        "/whatsapp_managment/actualizarMetodoPago",
+        {
+          id: configItem.id, //
+          metodo_pago: nuevoMetodoPago,
+        }
+      );
+
+      if (resp.data.success) {
+        // Muestra el mensaje que envía el backend (success)
+        setStatusMessage({
+          type: "success",
+          text:
+            resp.data.message || "Método de pago actualizado correctamente.",
+        });
+
+        // Vuelves a recargar la tabla de configuraciones
+        fetchConfiguracionAutomatizada();
+      } else {
+        // Manejo de error interno de la API (pero no de conexión)
+        setStatusMessage({
+          type: "error",
+          text: resp.data.message || "Error al actualizar el método de pago.",
+        });
+      }
+    } catch (error) {
+      console.error("Error al cambiar el método de pago:", error);
+      setStatusMessage({
+        type: "error",
+        text: "Error al conectar con el servidor al cambiar método de pago.",
       });
     }
   };
@@ -1081,6 +1096,14 @@ const AdministradorPlantillas = () => {
           respuestas={respuestasRapidas}
           idPlataforma={userData?.plataforma}
           onClose={() => setModalConfigOpen(false)}
+          setStatusMessage={setStatusMessage}
+        />
+      )}
+
+      {ModalConfiguracionAutomatizada && (
+        <CrearConfiguracionModal
+          onClose={() => setModalConfiguracionAutomatizada(false)}
+          fetchConfiguraciones={fetchConfiguracionAutomatizada}
           setStatusMessage={setStatusMessage}
         />
       )}
