@@ -63,36 +63,8 @@ const AdministradorPlantillas = () => {
     };
   })
 
-  // ---------------------------
-  // 2) Listener para capturar el evento WA_EMBEDDED_SIGNUP
-  // ---------------------------
-  useEffect(() => {
-    const handleMessage = (event) => {
-      console.log("Mensaje crudo del postMessage:", event);
-  
-      try {
-        const data = JSON.parse(event.data);
-        console.log("Data parseada del postMessage:", data);
-        if (data.type === "WA_EMBEDDED_SIGNUP") {
-          console.log("Mensaje WA_EMBEDDED_SIGNUP recibido:", data);
-          setStatusMessage({
-            type: "success",
-            text: "Se completó el Embedded Signup de WhatsApp!",
-          });
-        }
-      } catch (err) {
-        console.warn("Mensaje no-JSON o error parseando:", event.data);
-      }
-    };
-  
-    window.addEventListener("message", handleMessage);
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, []);
-  
 
-
+  
   // ---------------------------
   // 3) Función para lanzar el Embedded Signup sin onboarding
   // ---------------------------
@@ -109,9 +81,14 @@ const AdministradorPlantillas = () => {
     window.FB.login(
       (response) => {
         if (response.authResponse) {
-          console.log("FB.login OK:", response.authResponse);
-          // A partir de aquí Meta enviará un postMessage con type=WA_EMBEDDED_SIGNUP
+          // => El usuario no canceló. Se hizo login en Facebook
+          console.log("FB.login success:", response.authResponse);
+          setStatusMessage({
+            type: "success",
+            text: "Proceso realizado con éxito, por favor contactate con nuestro personal para activar tu número.",
+          });
         } else {
+          // => El usuario canceló o ocurrió algún error antes de loguear
           console.log("FB.login cancelado o error:", response);
           setStatusMessage({
             type: "error",
@@ -120,7 +97,7 @@ const AdministradorPlantillas = () => {
         }
       },
       {
-        config_id: "2295613834169297", // <--- tu config ID
+        config_id: "2295613834169297",
         response_type: "code",
         override_default_response_type: true,
         extras: {
@@ -130,6 +107,7 @@ const AdministradorPlantillas = () => {
         },
       }
     );
+    
   };
 
   const getCountryCode = (phone) => {
