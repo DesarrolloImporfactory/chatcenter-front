@@ -36,6 +36,8 @@ const Cabecera = ({
     setEtiquetasMenuOpen(!etiquetasMenuOpen);
   };
 
+  const [configuraciones, setConfiguraciones] = useState([]);
+
   const volver_seccion_principal = () => {
     setOpciones(false);
     setSelectedChat(null);
@@ -52,6 +54,32 @@ const Cabecera = ({
       "https://new.imporsuitpro.com/acceso/jwt_home/" +
       localStorage.getItem("token");
   };
+
+  // -------------------------------------------------------
+  //  FUNC: Obtener configuraciones del endpoint
+  // -------------------------------------------------------
+  const fetchConfiguracionAutomatizada = async () => {
+    try {
+      // Ojo: userData.plataforma debe existir en tu token
+      const response = await chatApi.post(
+        "whatsapp_managment/configuracionesAutomatizador",
+        {
+          id_plataforma: userData.plataforma,
+        }
+      );
+      setConfiguraciones(response.data || []);
+    } catch (error) {
+      console.error("Error al cargar configuraciones automatizadas:", error);
+      setConfiguraciones([]);
+    }
+  };
+
+    // ---- USEEFFECT PARA CARGAR LAS CONFIGURACIONES AUTOMATIZADAS ----
+    useEffect(() => {
+      if (userData) {
+        fetchConfiguracionAutomatizada();
+      }
+    }, [userData]);
 
   // (2) useEffect para detectar clic fuera y cerrar
   useEffect(() => {
@@ -269,6 +297,23 @@ const Cabecera = ({
               <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
                 WhatsApp
+              </span>
+            </a>
+
+
+            <a
+              href={
+                (userData?.id_matriz ?? 1) === 1
+                  ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
+                  : (userData?.id_matriz ?? 1) === 2
+                  ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
+                  : "#"
+              }
+              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
+            >
+              <i className="bx bxs-bot mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Automatizador
               </span>
             </a>
 

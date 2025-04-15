@@ -1,9 +1,10 @@
-// MainLayout.jsx
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../shared/Header";
 import { Footer } from "../shared/Footer";
+import chatApi from "../../api/chatcenter";
+import { jwtDecode } from "jwt-decode";
+import io from "socket.io-client";
 
 function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -11,8 +12,76 @@ function MainLayout({ children }) {
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null); // Para el botón "hamburger"
 
+  //Aqui guardaremos las configuraciones automatizadas que vienen de tu API
+  const [userData, setUserData] = useState(null);
+  const [configuraciones, setConfiguraciones] = useState([]);
+
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(()=>{
+    //Verificamos si hay token en localStorage
+    const token = localStorage.getItem("token");
+    if(!token){
+      //Si no hay token => ir alogin
+      window.location.href = "/login";
+      return
+    }
+
+    //Decodificamos el token
+    const decoded = jwtDecode(token);
+
+    //Verificamos si aun no expira
+    if (decoded.exp < Date.now() / 1000){
+      //Expirado =?logout
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      return;
+    }
+
+    //Guardamos userData 
+    setUserData(decoded);
+  }, []);
+
+   // Cada vez que tengamos userData, cargamos las configuraciones
+   useEffect(() => {
+    if (userData) {
+      fetchConfiguracionAutomatizada();
+    }
+  }, [userData]);
+
+  // -------------------------------------------------------
+  //  FUNC: Obtener configuraciones del endpoint
+  // -------------------------------------------------------
+  const fetchConfiguracionAutomatizada = async () => {
+    try {
+      // Ojo: userData.plataforma debe existir en tu token
+      const response = await chatApi.post(
+        "whatsapp_managment/configuracionesAutomatizador",
+        {
+          id_plataforma: userData.plataforma,
+        }
+      );
+      setConfiguraciones(response.data || []);
+    } catch (error) {
+      console.error("Error al cargar configuraciones automatizadas:", error);
+      setConfiguraciones([]);
+    }
+  };
+
+    // -------------------------------------------------------
+  // FUNC: Redirigir a la tabla de automatizadores
+  // -------------------------------------------------------
+  const handleIrAutomatizadores = (idConfig) => {
+    // userData.matriz es 1 o 2
+    if (userData.id_matriz === 1) {
+      window.location.href = `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${idConfig}`;
+    } else if (userData.id_matriz === 2) {
+      window.location.href = `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${idConfig}`;
+    } else {
+      console.warn("Valor de matriz no reconocido:", userData.id_matriz);
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -146,6 +215,23 @@ function MainLayout({ children }) {
               <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
                 WhatsApp
+              </span>
+            </a>
+
+              {/* Enlace Automatizador */}
+              <a
+              href={
+                (userData?.id_matriz ?? 1) === 1
+                  ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
+                  : (userData?.id_matriz ?? 1) === 2
+                  ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
+                  : "#"
+              }
+              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
+            >
+              <i className="bx bxs-bot mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Automatizador
               </span>
             </a>
 
