@@ -81,14 +81,24 @@ const AdministradorPlantillas = () => {
     window.FB.login(
       (response) => {
         if (response.authResponse) {
-          // => El usuario no canceló. Se hizo login en Facebook
           console.log("FB.login success:", response.authResponse);
           setStatusMessage({
             type: "success",
-            text: "Proceso realizado con éxito, por favor contactate con nuestro personal para activar tu número.",
-          });
+            text: (
+              <span>
+                ✅ Proceso realizado con éxito. Para activar tu número,{" "}
+                <a
+                  href="https://wa.me/593962803007?text=Hola,%20acabo%20de%20realizar%20el%20proceso%20de%20conexi%C3%B3n%20con%20WhatsApp%20y%20quiero%20activar%20mi%20n%C3%BAmero."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-semibold"
+                >
+                  contáctanos por WhatsApp.
+                </a>
+              </span>
+            ),
+          });  
         } else {
-          // => El usuario canceló o ocurrió algún error antes de loguear
           console.log("FB.login cancelado o error:", response);
           setStatusMessage({
             type: "error",
@@ -107,6 +117,7 @@ const AdministradorPlantillas = () => {
         },
       }
     );
+    
     
   };
 
