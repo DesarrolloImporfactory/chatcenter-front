@@ -41,6 +41,108 @@ const AdministradorPlantillas = () => {
 
   const socketRef = useRef(null);
 
+  //Cargamos el SDK de Facebook una sola vez
+  useEffect(() =>{
+    if(!document.getElementById("facebook-jssdk")){
+      const script = document.createElement("script");
+      script.id = "facebook-jssdk";
+      script.src = "https://connect.facebook.net/en_US/sdk.js";
+      script.aync = true;
+      script.defer = true;
+      document.body.appendChild(script);
+    } 
+
+    // Cuando el script cargue, Facebook invocará window.fbAsyncInit
+    window.fbAsyncInit = () => {
+      window.FB.init({
+        appId: "1211546113231811", // <--- tu App ID real
+        autoLogAppEvents: true,
+        xfbml: true,
+        version: "v22.0", // O la versión que quieras
+      });
+    };
+  })
+
+  // ---------------------------
+  // 2) Listener para capturar el evento WA_EMBEDDED_SIGNUP
+  // ---------------------------
+  useEffect(() => {
+    const handleMessage = (event) => {
+      // Solo atendemos mensajes provenientes de facebook.com
+      if (
+        event.origin !== "https://www.facebook.com" &&
+        event.origin !== "https://web.facebook.com"
+      ) {
+        return;
+      }
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "WA_EMBEDDED_SIGNUP") {
+          console.log("Mensaje WA_EMBEDDED_SIGNUP recibido:", data);
+          // Aquí obtendrías waba_id, phone_number_id, y access token
+          if (data.payload) {
+            const { waba_id, phone_number_id, long_lived_token } = data.payload;
+            console.log("waba_id:", waba_id);
+            console.log("phone_number_id:", phone_number_id);
+            console.log("long_lived_token:", long_lived_token);
+
+            setStatusMessage({
+              type: "success",
+              text: "WhatsApp conectado correctamente.",
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Mensaje no-JSON o error parseando:", event.data);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, []);
+
+
+  // ---------------------------
+  // 3) Función para lanzar el Embedded Signup sin onboarding
+  // ---------------------------
+  const handleConnectWhatsApp = () => {
+    if (!window.FB) {
+      console.warn("El SDK de Facebook aún no está listo");
+      setStatusMessage({
+        type: "error",
+        text: "El SDK de Facebook no está disponible todavía.",
+      });
+      return;
+    }
+    // Invocamos FB.login con la config para Embedded Signup
+    window.FB.login(
+      (response) => {
+        if (response.authResponse) {
+          console.log("FB.login OK:", response.authResponse);
+          // A partir de aquí Meta enviará un postMessage con type=WA_EMBEDDED_SIGNUP
+        } else {
+          console.log("FB.login cancelado o error:", response);
+          setStatusMessage({
+            type: "error",
+            text: "No se completó la conexión con WhatsApp.",
+          });
+        }
+      },
+      {
+        config_id: "2295613834169297", // <--- tu config ID
+        response_type: "code",
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+          featureType: "",
+          sessionInfoVersion: "3",
+        },
+      }
+    );
+  };
+
   const getCountryCode = (phone) => {
     if (phone.startsWith("+593") || phone.startsWith("09")) return "ec";
     if (phone.startsWith("+52")) return "mx";
@@ -767,8 +869,8 @@ const AdministradorPlantillas = () => {
             </button>
 
             <button
-              onClick={handleAbrirConfiguraciones}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
+              onClick={handleConnectWhatsApp}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
             >
               <i className="fab fa-whatsapp mr-1"></i> Conectar WhatsApp
             </button>
