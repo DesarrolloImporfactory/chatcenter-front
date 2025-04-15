@@ -68,40 +68,29 @@ const AdministradorPlantillas = () => {
   // ---------------------------
   useEffect(() => {
     const handleMessage = (event) => {
-      // Solo atendemos mensajes provenientes de facebook.com
-      if (
-        event.origin !== "https://www.facebook.com" &&
-        event.origin !== "https://web.facebook.com"
-      ) {
-        return;
-      }
+      console.log("Mensaje crudo del postMessage:", event);
+  
       try {
         const data = JSON.parse(event.data);
+        console.log("Data parseada del postMessage:", data);
         if (data.type === "WA_EMBEDDED_SIGNUP") {
           console.log("Mensaje WA_EMBEDDED_SIGNUP recibido:", data);
-          // Aquí obtendrías waba_id, phone_number_id, y access token
-          if (data.payload) {
-            const { waba_id, phone_number_id, long_lived_token } = data.payload;
-            console.log("waba_id:", waba_id);
-            console.log("phone_number_id:", phone_number_id);
-            console.log("long_lived_token:", long_lived_token);
-
-            setStatusMessage({
-              type: "success",
-              text: "WhatsApp conectado correctamente.",
-            });
-          }
+          setStatusMessage({
+            type: "success",
+            text: "Se completó el Embedded Signup de WhatsApp!",
+          });
         }
       } catch (err) {
         console.warn("Mensaje no-JSON o error parseando:", event.data);
       }
     };
-
+  
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
     };
   }, []);
+  
 
 
   // ---------------------------
