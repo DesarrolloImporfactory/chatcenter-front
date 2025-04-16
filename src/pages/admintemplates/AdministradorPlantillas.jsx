@@ -712,13 +712,13 @@ const AdministradorPlantillas = () => {
               onClick={() => setMostrarModalPlantillaRapida(true)}
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
             >
-              <i className="fas fa-plus mr-1"></i> Agregar
+              + Agregar
             </button>
             <button
               onClick={handleAbrirConfiguraciones}
               className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
             >
-              <i className="fas fa-cog mr-1"></i> Guía Generada
+              <i className="bx bxs-file-doc text-"></i> Guía Generada
             </button>
           </div>
         </div>
@@ -839,19 +839,23 @@ const AdministradorPlantillas = () => {
         <div className="flex justify-between mb-4">
           <h2 className="text-lg font-semibold">Configuraciones </h2>
           <div className="flex gap-2">
-            <button
-              onClick={() => handleAbrirConfiguracionAutomatizada(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
-            >
-              <i className="fas fa-plus mr-1"></i> Agregar configuración
-            </button>
+            {configuracionAutomatizada.length === 0 && (
+              <>
+              <button
+                onClick={() => handleAbrirConfiguracionAutomatizada(true)}
+                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+              >
+                + Agregar configuración
+              </button>
 
-            <button
-              onClick={handleConnectWhatsApp}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
-            >
-              <i className="fab fa-whatsapp mr-1"></i> Conectar WhatsApp
-            </button>
+              <button
+                onClick={handleConnectWhatsApp}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+              >
+                <i className="bx bxl-whatsapp"></i> Conectar WhatsApp
+              </button>
+              </>
+            )}  
           </div>
         </div>
 
