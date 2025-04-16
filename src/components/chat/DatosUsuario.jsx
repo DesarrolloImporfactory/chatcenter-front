@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { set, useForm } from "react-hook-form";
 import Swal from "sweetalert2";
 import "./css/DataUsuarioCss.css";
+import chatApi from "../../api/chatcenter";
 const DatosUsuario = ({
   opciones,
   animateOut,
@@ -264,40 +265,38 @@ const DatosUsuario = ({
     }
   };
 
-  const agregarProducto = (producto) => {
-    const formData1 = new FormData();
-    formData1.append("id_factura", facturaSeleccionada.id_factura);
-    formData1.append("id_producto", producto.id_producto);
-    formData1.append("id_inventario", producto.id_inventario);
-    formData1.append("sku", producto.sku);
-    formData1.append("cantidad", 1);
-    formData1.append("precio", producto.pvp);
-
-    axios
-      .post("https://new.imporsuitpro.com/api/agregarProducto", formData1)
-      .then((response) => {
-        console.log(response);
-
-        // Actualizar estado para reflejar el cambio
-        setFacturaSeleccionada((prevState) => ({
-          ...prevState,
-          productos: [
-            ...prevState.productos,
-            {
-              ...producto,
-              cantidad: 1, // Cantidad inicial
-              precio_venta: producto.pvp, // Usar el precio del producto
-              total: producto.pvp * 1, // Total inicial
-            },
-          ],
-        }));
-
-        recargarDatosFactura();
-        handleFacturaSeleccionada(facturasChatSeleccionado[0]);
-      })
-      .catch((error) => {
-        console.error(error);
+  const agregarProducto = async (producto) => {
+    try {
+      const response = await chatApi.post("/product/agregarProducto", {
+        id_factura: facturaSeleccionada.id_factura,
+        id_producto: producto.id_producto,
+        id_inventario: producto.id_inventario,
+        sku: producto.sku,
+        cantidad: 1,
+        precio: producto.pvp,
       });
+
+      console.log(response.data);
+
+      // Actualizar el estado del componente
+      setFacturaSeleccionada((prevState) => ({
+        ...prevState,
+        productos: [
+          ...prevState.productos,
+          {
+            ...producto,
+            cantidad: 1,
+            precio_venta: producto.pvp,
+            total: producto.pvp * 1,
+          },
+        ],
+      }));
+
+      recargarDatosFactura();
+      handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+    } catch (error) {
+      console.error("Error al agregar el producto:", error);
+    }
   };
 
   useEffect(() => {
@@ -536,7 +535,7 @@ const DatosUsuario = ({
         setIdProductoVenta(producto.id_producto);
       }
     });
-  
+
     // Obtener nombre de bodega desde el primer producto
     const obtenerNombre = async () => {
       const bodegaId = facturaSeleccionada.productos?.[0]?.bodega;
@@ -545,7 +544,7 @@ const DatosUsuario = ({
         setNombreBodega(nombre);
       }
     };
-  
+
     obtenerNombre();
   }, [facturaSeleccionada]);
 
@@ -587,7 +586,10 @@ const DatosUsuario = ({
         "_blank"
       );
     } else if (guiaSeleccionada.transporte === "GINTRACOM") {
-      window.open(`https://ec.gintracom.site/web/site/tracking`, "_blank");
+      window.open(
+        `https://ec.gintracom.site/web/site/tracking?guia=${guiaSeleccionada.numero_guia}`,
+        "_blank"
+      );
     } else if (guiaSeleccionada.transporte === "SPEED") {
     } else {
       console.error("Transportadora desconocida");
