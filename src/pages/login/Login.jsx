@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { loginThunk } from "./../../store/slices/user.slice";
 import { useNavigate, Link } from "react-router-dom";
-import "./login.css";
+import AnimatedBackground from "./AnimatedBackground";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,16 +24,18 @@ const Login = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-center">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-5 items-center flex-grow">
-        {/* Sección del mensaje de bienvenida */}
-        <div className="bg-[#171931] text-center text-white p-8 rounded-md">
-          <span className="flex justify-center items-center gap-2 mb-2">
-            CHATCENTER <i className="bx bxl-whatsapp text-5xl"></i>
-          </span>
-          <hr />
-          <h1 className="text-4xl font-bold my-2">¡Bienvenido!</h1>
-
+        <div className="relative min-h-screen flex items-center justify-center px-6 overflow-hidden bg-slate-950">
+        <AnimatedBackground />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-6xl w-full items-center z-10">
+        
+        {/* Panel de bienvenida */}
+        <div className="text-white p-8 rounded-2xl bg-[#1e293b] shadow-2xl">
+          <div className="flex items-center justify-center gap-3 mb-4 text-xl font-semibold">
+            <i className="bx bxs-message-dots text-3xl text-green-400"></i>
+            CHATCENTER
+          </div>
+          <br />
+          <h1 className="text-4xl font-bold mb-4">¡Bienvenido!</h1>
           <p className="text-lg mb-4">
             Gestiona tus mensajes de WhatsApp de forma rápida y eficiente,
             optimizando tus ventas y potenciando tu estrategia de marketing.
@@ -44,96 +46,83 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Imagen decorativa visible en tablets y pantallas grandes */}
-        <div className="hidden lg:flex justify-center">
-          <img
-            src="https://tiendas.imporsuitpro.com/imgs/react/3112024.png"
-            alt="Decoración"
-            className="max-w-full h-auto rounded"
-          />
-        </div>
-
         {/* Formulario de login */}
-        <div>
-          <form
-            onSubmit={handleSubmit(submit)}
-            className="bg-white p-8 rounded shadow-lg max-w-md mx-auto"
-          >
-            <h2 className="text-2xl font-semibold mb-6 text-center">
-              Inicia sesión con tus credenciales
-            </h2>
+        <form
+          onSubmit={handleSubmit(submit)}
+          className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md mx-auto"
+        >
+          <h2 className="text-2xl font-semibold mb-6 text-center text-gray-800">
+            Inicia sesión con tus credenciales
+          </h2>
 
-            <input
-              {...register("email", { required: "El email es obligatorio" })}
-              type="email"
-              placeholder="Correo electrónico"
-              className="block w-full p-3 mb-2 border rounded focus:border-blue-500"
-            />
-            {errors.email && (
-              <p className="text-red-500 text-sm mb-4">
-                {errors.email.message}
-              </p>
-            )}
+          <input
+            {...register("email", { required: "El email es obligatorio" })}
+            type="email"
+            placeholder="Correo electrónico"
+            className="w-full p-3 mb-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {errors.email && (
+            <p className="text-red-500 text-sm mb-4">
+              {errors.email.message}
+            </p>
+          )}
 
-            <input
-              {...register("con", { required: "La contraseña es obligatoria" })}
-              type="password"
-              placeholder="Contraseña"
-              className="block w-full p-3 mb-2 border rounded focus:border-blue-500"
-            />
-            {errors.con && (
-              <p className="text-red-500 text-sm mb-4">
-                {errors.con.message}
-              </p>
-            )}
+          <input
+            {...register("con", { required: "La contraseña es obligatoria" })}
+            type="password"
+            placeholder="Contraseña"
+            className="w-full p-3 mb-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {errors.con && (
+            <p className="text-red-500 text-sm mb-4">
+              {errors.con.message}
+            </p>
+          )}
 
-            <div className="flex items-center justify-between mb-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="mr-2"
-                  {...register("rememberMe")}
-                />
-                Recuérdame
-              </label>
-              <Link
-                to="/recuperar-password"
-                className="text-blue-500 hover:underline text-sm"
-              >
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+          <div className="flex items-center justify-between mb-4 text-sm">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                className="mr-2"
+                {...register("rememberMe")}
+              />
+              Recuérdame
+            </label>
+            <Link
+              to="/recuperar-password"
+              className="text-blue-500 hover:underline"
             >
-              Iniciar sesión
-            </button>
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
 
-            <div className="text-center mt-4">
-              <p className="text-sm">
-                ¿No tienes cuenta?{" "}
-                <a
-                  href="https://new.imporsuitpro.com/registro"
-                  className="text-blue-500 hover:underline"
-                >
-                  Regístrate aquí
-                </a>
-              </p>
-            </div>
-          </form>
-        </div>
+          <button
+            type="submit"
+            className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition duration-200"
+          >
+            Iniciar sesión
+          </button>
+
+          <div className="text-center mt-6 text-sm">
+            ¿No tienes cuenta?{" "}
+            <a
+              href="https://new.imporsuitpro.com/registro"
+              className="text-blue-500 hover:underline"
+            >
+              Regístrate aquí
+            </a>
+          </div>
+        </form>
       </div>
 
       {/* Footer */}
-      <footer className="text-center text-gray-500 text-sm py-4">
+      <footer className="absolute bottom-4 text-center text-gray-400 text-xs w-full">
         Desarrollado por{" "}
         <a
           href="https://new.imporsuitpro.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-500 hover:underline"
+          className="text-blue-400 hover:underline"
         >
           Imporsuit
         </a>{" "}
