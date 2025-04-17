@@ -1362,7 +1362,7 @@ const Chat = () => {
       color = "bg-yellow-500";
       estado_guia = "Zona entrega";
     } else if (estado == 6) {
-      color = "bg-purple-500";
+      color = "bg-red-500";
       estado_guia = "Novedad";
     } else if (estado == 7) {
       color = "bg-green-500";
@@ -1407,7 +1407,7 @@ const Chat = () => {
       color = "bg-red-500";
       estado_guia = "Devuelto";
     } else if (estado == 14) {
-      color = "bg-purple-500";
+      color = "bg-red-500";
       estado_guia = "Novedad";
     }
 
