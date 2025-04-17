@@ -244,7 +244,7 @@ const Cabecera = ({
         }`}
       >
         {/* Encabezado del slider */}
-        <div className="h-[84px] px-5 flex items-center justify-between bg-[#171931] text-white">
+        <div className="h-[110px] px-5 flex items-center justify-between bg-[#171931] text-white">
           <h2 className="font-bold text-lg">Menú</h2>
           <button
             ref={menuButtonRef}
