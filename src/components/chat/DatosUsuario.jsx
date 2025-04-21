@@ -548,26 +548,18 @@ const DatosUsuario = ({
 
   const nombre_bodega = async (id_bodega) => {
     try {
-      const formData = new FormData();
-      formData.append("id_bodega", id_bodega);
+      const response = await chatApi.post("/bodega/obtener_nombre_bodega", {
+        id_bodega,
+      });
 
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/obtener_nombre_bodega",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error en la petición: ${response.statusText}`);
+      if (response.data?.status !== 200) {
+        console.warn("No se encontró la bodega");
+        return "";
       }
 
-      const data = await response.json();
-
-      return data.nombre ? data.nombre : "";
+      return response.data.data?.nombre_bodega || "";
     } catch (error) {
-      console.error("Error obteniendo template:", error);
+      console.error("Error obteniendo nombre de bodega:", error);
       return "";
     }
   };
