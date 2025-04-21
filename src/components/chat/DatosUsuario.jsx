@@ -459,21 +459,19 @@ const DatosUsuario = ({
   const handleCambioValores = useCallback(
     async (producto) => {
       const { id_detalle, cantidad, precio_venta } = producto;
-      const form = new FormData();
-      form.append("id_detalle", id_detalle);
-      form.append("id_pedido", facturaSeleccionada.id_factura);
-      form.append("precio", precio_venta);
-      form.append("cantidad", cantidad);
-      form.append("total", cantidad * precio_venta);
+
+      let id_pedido = facturaSeleccionada.id_factura;
+      let precio = precio_venta;
+      let total = cantidad * precio_venta;
       try {
-        const response = await axios.post(
-          "https://new.imporsuitpro.com/pedidos/actualizarDetallePedido",
-          form,
+        const response = await chatApi.post(
+          "/detalle_fact_cot/actualizarDetallePedido",
           {
-            headers: {
-              "Content-Type": "multipart/form-data",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            id_detalle,
+            id_pedido,
+            cantidad,
+            precio,
+            total,
           }
         );
         return () => socketRef.current.off("DATA_TARIFAS_RESPONSE");
