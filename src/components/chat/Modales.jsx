@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
+import chatApi from "../../api/chatcenter";
+import { jwtDecode } from "jwt-decode";import { useLocation, useNavigate } from "react-router-dom";
 
 const Modales = ({
   numeroModal,
@@ -47,6 +49,7 @@ const Modales = ({
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
 
+
   /* seccion modal enviar archivo */
 
   const Toast = Swal.mixin({
@@ -65,102 +68,73 @@ const Modales = ({
   const [tagName, setTagName] = useState("");
   const [tagColor, setTagColor] = useState("#ff0000"); // Color predeterminado
 
-  const handleTagCreation = async () => {
-    if (tagName) {
+  const handleTagCreation = async () =>{
+    if (tagName){
       try {
-        // Crear un objeto FormData y agregar los datos necesarios
-        const formData = new FormData();
-        formData.append("id_plataforma", userData.plataforma);
-        formData.append("nombre_etiqueta", tagName);
-        formData.append("color_etiqueta", tagColor);
+        const body = {
+          id_plataforma: userData.plataforma,
+          nombre_etiqueta: tagName,
+          color_etiqueta: tagColor,
+        };
 
-        const response = await fetch(
-          "https://new.imporsuitpro.com/Pedidos/agregar_etiqueta",
-          {
-            method: "POST",
-            body: formData,
-          }
+        const response = await chatApi.post(
+          "/etiquetas_chat_center/agregarEtiqueta",
+          body
         );
 
-        if (!response.ok) {
-          throw new Error("Error al obtener las etiquetas");
-        }
+        Toast.fire({icon: "success", title: "Etiqueta agregada correctamente"});
+        fetchTags(); 
 
-        const data = await response.json();
-        fetchTags();
-      } catch (error) {
-        console.error("Error fetching tags:", error);
+        setTagName("");
+        setTagColor("#ff0000");
+      } catch (error){
+        console.error("Error creando etiqueta:", error);
+        Toast.fire({icon: "error", title: "No se pudo agregar la etiqueta"});
       }
-
-      // Reiniciar el estado
-      setTagName("");
-      setTagColor("#ff0000");
-      /* toggleCrearEtiquetaModal(); */
     } else {
       alert("Por favor, ingresa un nombre para la etiqueta.");
     }
-  };
+  }
 
   const eliminarProducto = async (id_etiqueta) => {
     try {
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/eliminarEtiqueta/" + id_etiqueta
-      );
-
-      if (!response.ok) {
-        throw new Error("Error al obtener las etiquetas");
-      }
-
-      const data = await response.json();
+      await chatApi.delete(`/etiquetas_chat_center/eliminarEtiqueta/${id_etiqueta}`);
+      Toast.fire({ icon: "success", title: "Etiqueta eliminada" });
       fetchTags();
     } catch (error) {
-      console.error("Error fetching tags:", error);
+      console.error("Error eliminando etiqueta:", error);
+      Toast.fire({ icon: "error", title: "No se pudo eliminar la etiqueta" });
     }
   };
-
   /* fin modal crear etiquetas */
 
   /* modal asignar etiquetas */
   const toggleTagAssignment = async (idEtiqueta, idClienteChat) => {
     try {
-      // Crear un objeto FormData y agregar los datos necesarios
-      const formData = new FormData();
-      formData.append("id_cliente_chat_center", idClienteChat);
-      formData.append("id_etiqueta", idEtiqueta);
-      formData.append("id_plataforma", userData.plataforma);
-
-      // Llamar a la API para asignar/desasignar la etiqueta
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/toggle_etiqueta_asignacion",
-        {
-          method: "POST",
-          body: formData,
-        }
+      const body = {
+        id_cliente_chat_center: idClienteChat,
+        id_etiqueta: idEtiqueta,
+        id_plataforma: userData.plataforma,
+      };
+  
+      const { data: result } = await chatApi.post(
+        "/etiquetas_chat_center/toggleAsignacionEtiqueta",
+        body
       );
-
-      if (!response.ok) {
-        throw new Error("Error al asignar/desasignar la etiqueta");
-      }
-
-      const result = await response.json();
-
-      // Verificar el estado de asignación de la etiqueta en la respuesta
+  
       const isAssigned = result.asignado;
-
-      // Actualizar `tagListAsginadas` en función del nuevo estado de asignación
-      setTagListAsginadas((prev) => {
-        if (isAssigned) {
-          // Agregar la etiqueta a `tagListAsginadas` si fue asignada
-          return [...prev, { id_etiqueta: idEtiqueta }];
-        } else {
-          // Remover la etiqueta de `tagListAsginadas` si fue desasignada
-          return prev.filter((tag) => tag.id_etiqueta !== idEtiqueta);
-        }
-      });
+  
+      setTagListAsginadas((prev) =>
+        isAssigned
+          ? [...prev, { id_etiqueta: idEtiqueta }]
+          : prev.filter((tag) => tag.id_etiqueta !== idEtiqueta)
+      );
     } catch (error) {
       console.error("Error en toggleTagAssignment:", error);
+      Toast.fire({ icon: "error", title: "Error al asignar etiqueta" });
     }
   };
+  
 
   /* fin modal asignar etiquetas */
 
