@@ -254,24 +254,37 @@ const AdministradorPlantillas = () => {
   // ---------------------------
   // Función para cargar Plantillas
   // ---------------------------
-  const fetchPlantillas = async () => {
-    if (!userData) return;
-    try {
-      const formData = new FormData();
-      formData.append("id_plataforma", userData.plataforma);
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/obtener_plantillas_whatsapp",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-      const response_data = await response.json();
-      setPlantillas(response_data.data || []);
-    } catch (error) {
-      console.error("Error al cargar las plantillas", error);
-    }
-  };
+// ────────────────────────────────────────────────────────────────
+//  Sustituir TODO el bloque anterior de fetchPlantillas por esto
+// ────────────────────────────────────────────────────────────────
+const fetchPlantillas = async () => {
+  if (!userData) return;
+
+  try {
+    const resp = await chatApi.post(
+      "/whatsapp_managment/obtenerTemplatesWhatsapp",
+      { id_plataforma: userData.plataforma }
+    );
+
+    /*  La ruta Node devuelve el JSON crudo de Meta:
+       {
+         "data": [
+           { id, name, language, category, status, components, … },
+           …
+         ],
+         "paging": { … }
+       }
+    */
+    setPlantillas(resp.data.data || []);   // ← ahora viene en resp.data.data
+  } catch (error) {
+    console.error("Error al cargar las plantillas:", error);
+    setStatusMessage({
+      type: "error",
+      text: "No se pudieron cargar las plantillas.",
+    });
+  }
+};
+
 
   // 3. Cargar Plantillas cuando currentTab === "templates"
   useEffect(() => {

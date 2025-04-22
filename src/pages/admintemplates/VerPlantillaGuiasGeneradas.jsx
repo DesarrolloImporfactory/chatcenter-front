@@ -9,25 +9,30 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
   useEffect(() => {
     const fetchTemplatesMeta = async () => {
       try {
-        const resp = await chatApi.post("/whatsapp_managment/obtenerTemplatesWhatsapp", {
-          id_plataforma: idPlataforma,
-        });
-
-        if (resp.data.success) {
-          setPlantillasMeta(resp.data.templates);
-
-          const configResp = await chatApi.post("/whatsapp_managment/obtenerConfiguracion", {
-            id_plataforma: idPlataforma,
-          });
-
-          if (configResp.data.success && configResp.data.config?.template_generar_guia) {
-            setSeleccionada(configResp.data.config.template_generar_guia);
-          }
-        } else {
-          setStatusMessage({
-            type: "error",
-            text: "No se pudieron obtener las plantillas desde Meta.",
-          });
+        // 1. Traemos todas las plantillas de Meta
+        const resp = await chatApi.post(
+          "/whatsapp_managment/obtenerTemplatesWhatsapp",
+          { id_plataforma: idPlataforma }
+        );
+  
+        const metaList = resp.data?.data || [];     // ← crudo de Meta
+  
+        // 2. Convertimos al formato que la UI espera
+        const templates = metaList.map((tpl) => ({
+          id_template: tpl.id,
+          nombre: tpl.name,
+        }));
+  
+        setPlantillasMeta(templates);
+  
+        // 3. Leemos la configuración actual para marcar la seleccionada
+        const configResp = await chatApi.post(
+          "/whatsapp_managment/obtenerConfiguracion",
+          { id_plataforma: idPlataforma }
+        );
+  
+        if (configResp.data.success && configResp.data.config?.template_generar_guia) {
+          setSeleccionada(configResp.data.config.template_generar_guia);
         }
       } catch (err) {
         console.error("Error al obtener templates de Meta:", err);
@@ -37,9 +42,10 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
         });
       }
     };
-
+  
     fetchTemplatesMeta();
   }, [idPlataforma]);
+  
 
   const handleGuardar = async () => {
     if (!seleccionada) {
