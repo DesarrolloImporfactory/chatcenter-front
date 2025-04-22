@@ -596,12 +596,12 @@ const DatosUsuario = ({
       confirmButtonText: "Sí, eliminar",
     }).then((result) => {
       if (result.isConfirmed) {
-        let formData = new FormData();
-        formData.append("id_detalle", id);
-        axios
-          .post("https://new.imporsuitpro.com/api/eliminarProducto", formData)
+        let id_detalle = id;
+        chatApi
+          .post("/product/eliminarProducto", {
+            id_detalle,
+          })
           .then((response) => {
-            console.log(response);
             // Actualizar estado para reflejar el cambio
             setFacturaSeleccionada((prevState) => ({
               ...prevState,
@@ -674,25 +674,16 @@ const DatosUsuario = ({
 
   const obtener_plantilla = async (id_plataforma) => {
     try {
-      const formData = new FormData();
-      formData.append("id_plataforma", id_plataforma);
-
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/obtener_template_transportadora",
+      const response = await chatApi.post(
+        "/configuraciones/obtener_template_transportadora",
         {
-          method: "POST",
-          body: formData,
+          id_plataforma,
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Error en la petición: ${response.statusText}`);
-      }
+      const template = response.data?.data?.template;
 
-      const data = await response.json();
-
-      // Verifica si la clave "template" existe y no está vacía
-      return data.template ? data.template : "";
+      return template || "";
     } catch (error) {
       console.error("Error obteniendo template:", error);
       return "";
