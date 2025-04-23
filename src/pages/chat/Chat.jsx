@@ -147,24 +147,20 @@ const Chat = () => {
 
   const fetchTags = async () => {
     try {
-      // Crear un objeto FormData y agregar los datos necesarios
-      const formData = new FormData();
-      formData.append("id_plataforma", userData.plataforma);
-
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/obtener_etiquetas",
+      const response = await chatApi.post(
+        "/etiquetas_chat_center/obtenerEtiquetas",
         {
-          method: "POST",
-          body: formData,
+          id_plataforma: userData.plataforma,
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Error al obtener las etiquetas");
+      const data = response.data;
+
+      if (data.status !== "200") {
+        throw new Error(data.message || "Error al obtener las etiquetas");
       }
 
-      const data = await response.json();
-      setTagList(data); // Suponiendo que `data` es un array de etiquetas
+      setTagList(data.etiquetas); // ← aquí ya asignas directamente el array de etiquetas
     } catch (error) {
       console.error("Error fetching tags:", error);
     }
@@ -188,26 +184,24 @@ const Chat = () => {
 
   const fetchTagsAsginadas = async () => {
     try {
-      // Crear un objeto FormData y agregar los datos necesarios
-      const formData = new FormData();
-      formData.append("id_cliente_chat_center", selectedChat.id);
-
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/obtener_etiquetas_asignadas",
+      const response = await chatApi.post(
+        "/etiquetas_asignadas/obtenerEtiquetasAsignadas",
         {
-          method: "POST",
-          body: formData,
+          id_cliente_chat_center: selectedChat.id,
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Error al obtener las etiquetas");
+      const data = response.data;
+
+      if (data.status !== "200") {
+        throw new Error(
+          data.message || "Error al obtener las etiquetas asignadas"
+        );
       }
 
-      const data = await response.json();
-      setTagListAsginadas(data); // Suponiendo que `data` es un array de etiquetas
+      setTagListAsginadas(data.etiquetasAsignadas); // <- nombre correcto desde tu backend
     } catch (error) {
-      console.error("Error fetching tags:", error);
+      console.error("Error fetching etiquetas asignadas:", error);
     }
   };
   /* fin abrir modal asignar etiquetas */
@@ -946,24 +940,20 @@ const Chat = () => {
   useEffect(() => {
     const fetchEtiquetas = async () => {
       try {
-        // Crear un objeto FormData y agregar los datos necesarios
-        const formData = new FormData();
-        formData.append("id_plataforma", userData.plataforma);
-
-        const response = await fetch(
-          "https://new.imporsuitpro.com/Pedidos/obtener_etiquetas",
+        const response = await chatApi.post(
+          "/etiquetas_chat_center/obtenerEtiquetas",
           {
-            method: "POST",
-            body: formData,
+            id_plataforma: userData.plataforma,
           }
         );
 
-        if (!response.ok) {
-          throw new Error("Error al obtener las etiquetas");
+        const data = response.data;
+
+        if (data.status !== "200") {
+          throw new Error(data.message || "Error al obtener las etiquetas");
         }
 
-        const data = await response.json();
-        setEtiquetas_api(data);
+        setEtiquetas_api(data.etiquetas); // Actualizas el estado con el array
       } catch (error) {
         console.error("Error al cargar las etiquetas:", error);
       }
