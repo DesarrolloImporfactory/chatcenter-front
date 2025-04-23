@@ -329,27 +329,20 @@ const Chat = () => {
 
   const buscar_id_recibe = async (recipientPhone, plataforma) => {
     try {
-      const formData = new FormData();
-      formData.append("telefono", recipientPhone);
-      formData.append("plataforma", plataforma);
-
-      const response = await fetch(
-        "https://new.imporsuitpro.com/" + "pedidos/buscar_id_recibe",
+      const response = await chatApi.post(
+        "/clientes_chat_center/buscar_id_recibe",
         {
-          method: "POST", // O "GET" dependiendo de la API
-          body: formData,
+          telefono: recipientPhone,
+          id_plataforma: plataforma,
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Error en la solicitud: ${response.statusText}`);
-      }
+      const id_recibe = response.data?.data?.id_recibe;
 
-      const data = await response.json();
-      return data.id_recibe;
+      return id_recibe || null;
     } catch (error) {
       console.error("Error al buscar id_recibe:", error);
-      return null; // Manejo de errores devolviendo un valor nulo
+      return null;
     }
   };
 
