@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
-import { jwtDecode } from "jwt-decode";import { useLocation, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const Modales = ({
   numeroModal,
@@ -49,7 +50,6 @@ const Modales = ({
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
 
-
   /* seccion modal enviar archivo */
 
   const Toast = Swal.mixin({
@@ -68,8 +68,8 @@ const Modales = ({
   const [tagName, setTagName] = useState("");
   const [tagColor, setTagColor] = useState("#ff0000"); // Color predeterminado
 
-  const handleTagCreation = async () =>{
-    if (tagName){
+  const handleTagCreation = async () => {
+    if (tagName) {
       try {
         const body = {
           id_plataforma: userData.plataforma,
@@ -82,23 +82,28 @@ const Modales = ({
           body
         );
 
-        Toast.fire({icon: "success", title: "Etiqueta agregada correctamente"});
-        fetchTags(); 
+        Toast.fire({
+          icon: "success",
+          title: "Etiqueta agregada correctamente",
+        });
+        fetchTags();
 
         setTagName("");
         setTagColor("#ff0000");
-      } catch (error){
+      } catch (error) {
         console.error("Error creando etiqueta:", error);
-        Toast.fire({icon: "error", title: "No se pudo agregar la etiqueta"});
+        Toast.fire({ icon: "error", title: "No se pudo agregar la etiqueta" });
       }
     } else {
       alert("Por favor, ingresa un nombre para la etiqueta.");
     }
-  }
+  };
 
   const eliminarProducto = async (id_etiqueta) => {
     try {
-      await chatApi.delete(`/etiquetas_chat_center/eliminarEtiqueta/${id_etiqueta}`);
+      await chatApi.delete(
+        `/etiquetas_chat_center/eliminarEtiqueta/${id_etiqueta}`
+      );
       Toast.fire({ icon: "success", title: "Etiqueta eliminada" });
       fetchTags();
     } catch (error) {
@@ -116,14 +121,14 @@ const Modales = ({
         id_etiqueta: idEtiqueta,
         id_plataforma: userData.plataforma,
       };
-  
+
       const { data: result } = await chatApi.post(
         "/etiquetas_chat_center/toggleAsignacionEtiqueta",
         body
       );
-  
+
       const isAssigned = result.asignado;
-  
+
       setTagListAsginadas((prev) =>
         isAssigned
           ? [...prev, { id_etiqueta: idEtiqueta }]
@@ -134,7 +139,6 @@ const Modales = ({
       Toast.fire({ icon: "error", title: "Error al asignar etiqueta" });
     }
   };
-  
 
   /* fin modal asignar etiquetas */
 
@@ -688,41 +692,35 @@ const Modales = ({
     }
 
     try {
-      // Crear el objeto FormData y añadir los valores
-      const formData = new FormData();
-      formData.append("nombre", newContactName);
-      formData.append("telefono", newContactPhone);
-      formData.append("apellido", "");
-      formData.append("id_plataforma", userData.plataforma);
-
-      // Realizar la solicitud fetch
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/agregar_numero_chat",
+      const response = await chatApi.post(
+        "/clientes_chat_center/agregarNumeroChat",
         {
-          method: "POST",
-          body: formData,
+          nombre: newContactName,
+          telefono: newContactPhone,
+          apellido: "",
+          id_plataforma: userData.plataforma,
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Error al añadir el contacto: ${response.statusText}`);
+      const data = response.data;
+
+      if (data.status == 400){
+        Toast.fire({
+          icon: "error",
+          title: "Error al añadir contacto",
+        });
       }
 
-      const data = await response.json();
-
-      // Mostrar mensaje de éxito con Toast
       Toast.fire({
         icon: "success",
         title: "Contacto añadido correctamente",
       });
 
-      // Agregar el nuevo contacto a la lista de resultados de búsqueda
       handleOptionSelectNumeroTelefono({
         nombre_cliente: newContactName,
         celular_cliente: newContactPhone,
       });
 
-      // Cerrar el modal después de agregar el contacto
       closeAddNumberModal();
     } catch (error) {
       console.error("Error al añadir el contacto:", error);
