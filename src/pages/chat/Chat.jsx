@@ -227,40 +227,29 @@ const Chat = () => {
     id_plataforma,
     telefono_configuracion
   ) => {
-    const formData = new FormData();
-    formData.append("texto_mensaje", texto_mensaje);
-    formData.append("tipo_mensaje", tipo_mensaje);
-    formData.append("mid_mensaje", mid_mensaje);
-    formData.append("id_recibe", id_recibe);
-    formData.append("ruta_archivo", ruta_archivo);
-    formData.append("telefono_recibe", telefono_recibe);
-    formData.append("id_plataforma", id_plataforma);
-    formData.append("telefono_configuracion", telefono_configuracion);
-
     try {
-      const response = await fetch(
-        "https://new.imporsuitpro.com/" + "pedidos/agregar_mensaje_enviado",
+      const response = await chatApi.post(
+        "/clientes_chat_center/agregarMensajeEnviado",
         {
-          method: "POST",
-          body: formData,
+          texto_mensaje,
+          tipo_mensaje,
+          mid_mensaje,
+          id_recibe,
+          ruta_archivo,
+          telefono_recibe,
+          id_plataforma,
+          telefono_configuracion,
         }
       );
 
-      const result = await response.json();
+      let respuesta = response.data;
 
-      if (response.ok) {
-        console.log("Guardado:", result);
-      } else {
-        console.error("Error en la respuesta del servidor:", result);
-        alert(
-          `Error: ${
-            result.message || "Ocurrió un error al guardar el mensaje."
-          }`
-        );
+      if (respuesta.status != 200) {
+        console.log("Error en la respuesta del servidor: " + respuesta);
       }
     } catch (error) {
-      console.error("Error en la solicitud de guardado:", error);
-      alert("Ocurrió un error en la solicitud. Inténtalo de nuevo más tarde.");
+      console.error("Error al guardar el mensaje:", error);
+      alert("Ocurrió un error al guardar el mensaje. Inténtalo de nuevo.");
     }
   };
 
