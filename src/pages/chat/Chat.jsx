@@ -1436,35 +1436,23 @@ const Chat = () => {
     }
   };
 
-  const obtenerProvinciaCiudad = async (id_ciudad) => {
-    try {
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Ubicaciones/obtenerCiudadProvincia/" +
-          id_ciudad,
-        {
-          method: "GET",
-        }
-      );
+  const obtenerProvinciaCiudad = async (id_ciudad) =>{
+    try{
+      const {data} = await chatApi.get(
+        `/chat_service/ciudadProvincia/${id_ciudad}`
+      )
 
-      if (!response.ok) {
-        throw new Error("Error al obtener las etiquetas");
+      if(!data.success){
+        throw new Error ("No se pudo obtener la ubicación");
       }
 
-      const data = await response.json();
-
-      // Guardar el objeto directamente
+      //data.data => {ciudad, provincia}
       setProvinciaCiudad({
-        provincia: data[0].provincia,
-        ciudad: data[0].ciudad,
+        provincia: data.data.provincia,
+        ciudad: data.data.ciudad,
       });
-    } catch (error) {
-      console.error("Error fetching tags:", error);
-
-      // En caso de error, configura un objeto con valores por defecto
-      setProvinciaCiudad({
-        provincia: "Sin datos",
-        ciudad: "Sin datos",
-      });
+    } catch (err){
+      setProvinciaCiudad({provincia: 'Sin datos', ciudad: 'Sin datos'});
     }
   };
 
