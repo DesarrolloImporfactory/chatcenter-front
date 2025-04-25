@@ -1461,7 +1461,7 @@ const Chat = () => {
       <div className="text-sm text-gray-700 fixed bottom-0 z-50 left-2">
         v1.2 Hecho por{" "}
         <a target="_blank" href="https://new.imporsuitpro.com">
-          Imporsuit
+          Imporsuit-pro
         </a>{" "}
         con ❤️
       </div>
