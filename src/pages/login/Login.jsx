@@ -3,10 +3,12 @@ import { useDispatch } from "react-redux";
 import { loginThunk } from "./../../store/slices/user.slice";
 import { useNavigate, Link } from "react-router-dom";
 import AnimatedBackground from "./AnimatedBackground";
+import { useState } from "react";
 
 const Login = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [showPwd, setShowPwd] = useState(false);
 
   const {
     handleSubmit,
@@ -59,7 +61,7 @@ const Login = () => {
             {...register("email", { required: "El email es obligatorio" })}
             type="email"
             placeholder="Correo electrónico"
-            className="w-full p-3 mb-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 mb-2 border rounded focus:outline-none focus:ring-2 focus:ring-gray-950"
           />
           {errors.email && (
             <p className="text-red-500 text-sm mb-4">
@@ -67,17 +69,28 @@ const Login = () => {
             </p>
           )}
 
-          <input
-            {...register("con", { required: "La contraseña es obligatoria" })}
-            type="password"
-            placeholder="Contraseña"
-            className="w-full p-3 mb-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.con && (
-            <p className="text-red-500 text-sm mb-4">
-              {errors.con.message}
-            </p>
-          )}
+          <div className="relative mb-2">
+            <input
+              {...register("con", { required: "La contraseña es obligatoria" })}
+              type={showPwd ? "text" : "password"}
+              placeholder="Contraseña"
+              className="w-full p-3 mb-2 border rounded focus:outline-none focus:ring-2 focus:ring-gray-950"
+
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd((prev) => !prev)} 
+              className="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500"
+              tabIndex={-1}
+            >
+              <i className={`bx ${showPwd ? "bx-hide" : "bx-show"} text-xl`} />
+            </button>
+            {errors.con && (
+              <p className="text-red-500 text-sm mb-4">
+                {errors.con.message}
+              </p>
+            )} 
+          </div>
 
           <div className="flex items-center justify-between mb-4 text-sm">
             <label className="flex items-center">
@@ -98,7 +111,7 @@ const Login = () => {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition duration-200"
+            className="w-full bg-gray-950 text-white py-3 rounded hover:bg-gray-800 transition duration-200"
           >
             Iniciar sesión
           </button>
