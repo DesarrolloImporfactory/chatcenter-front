@@ -68,58 +68,68 @@ const AdministradorPlantillas = () => {
   // ---------------------------
   // 3) Función para lanzar el Embedded Signup sin onboarding
   // ---------------------------
-  const handleConnectWhatsApp = () => {
-    if (!window.FB) {
-      console.warn("El SDK de Facebook aún no está listo");
-      setStatusMessage({
-        type: "error",
-        text: "El SDK de Facebook no está disponible todavía.",
-      });
-      return;
-    }
-    // Invocamos FB.login con la config para Embedded Signup
-    window.FB.login(
-      (response) => {
-        if (response.authResponse) {
-          console.log("FB.login success:", response.authResponse);
+// ───── función completa para copiar/pegar ─────────────────────────
+const handleConnectWhatsApp = () => {
+  if (!window.FB) {
+    setStatusMessage({
+      type: "error",
+      text: "El SDK de Facebook aún no está listo.",
+    });
+    return;
+  }
+
+  window.FB.login(
+    async (response) => {
+      const code = response?.authResponse?.code;
+
+      if (!code) {
+        setStatusMessage({
+          type: "error",
+          text: "No se recibió el código de autorización.",
+        });
+        return;
+      }
+
+      try {
+        const { data } = await chatApi.post(
+          "/whatsapp_managment/embeddedSignupComplete",
+          {
+            code,
+            redirect_uri:
+              "https://chatcenter.imporfactory.app/administrador-whatsapp",
+            id_plataforma: userData.plataforma,
+          }
+        );
+
+        if (data.success) {
           setStatusMessage({
             type: "success",
-            text: (
-              <span>
-                ✅ Proceso realizado con éxito. Para activar tu número,{" "}
-                <a
-                  href="https://wa.me/593962803007?text=Hola,%20acabo%20de%20realizar%20el%20proceso%20de%20conexi%C3%B3n%20con%20WhatsApp%20y%20quiero%20activar%20mi%20n%C3%BAmero."
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline font-semibold"
-                >
-                  contáctanos por WhatsApp.
-                </a>
-              </span>
-            ),
-          });  
-        } else {
-          console.log("FB.login cancelado o error:", response);
-          setStatusMessage({
-            type: "error",
-            text: "No se completó la conexión con WhatsApp.",
+            text: "✅ Número conectado correctamente.",
           });
+          setCurrentTab("numbers"); // refresca la tabla “Números”
+        } else {
+          throw new Error(data.message || "Error inesperado.");
         }
-      },
-      {
-        config_id: "2295613834169297",
-        response_type: "code",
-        override_default_response_type: true,
-        extras: {
-          setup: {},
-          featureType: "",
-          sessionInfoVersion: "3",
-        },
+      } catch (err) {
+        console.error(err);
+        setStatusMessage({
+          type: "error",
+          text:
+            err?.response?.data?.message ||
+            err.message ||
+            "Error al activar el número.",
+        });
       }
-    );
-    
-    
-  };
+    },
+    {
+      config_id: "2295613834169297",
+      response_type: "code",
+      override_default_response_type: true,
+      extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
+    }
+  );
+};
+
 
   const getCountryCode = (phone) => {
     if (phone.startsWith("+593") || phone.startsWith("09")) return "ec";
