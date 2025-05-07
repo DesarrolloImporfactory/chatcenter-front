@@ -94,9 +94,6 @@ const handleConnectWhatsApp = () => {
             "/whatsapp_managment/embeddedSignupComplete",
             {
               code,
-              redirect_uri:
-                "https://chatcenter.imporfactory.app/administrador-whatsapp",
-              id_plataforma: userData.plataforma,
             }
           );
 
