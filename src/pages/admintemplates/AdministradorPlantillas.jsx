@@ -94,6 +94,7 @@ const handleConnectWhatsApp = () => {
             "/whatsapp_managment/embeddedSignupComplete",
             {
               code,
+              id_plataforma: userData.plataforma,
             }
           );
 
