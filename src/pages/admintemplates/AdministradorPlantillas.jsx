@@ -75,6 +75,8 @@ const handleConnectWhatsApp = () => {
     return;
   }
 
+  const REDIRECT_URI = 'https://chatcenter.imporfactory.app/administrador-whatsapp';
+
   window.FB.login(
     (response) => {
       // callback síncrono ↓
@@ -95,6 +97,7 @@ const handleConnectWhatsApp = () => {
             {
               code,
               id_plataforma: userData.plataforma,
+              redirect_uri: REDIRECT_URI,
             }
           );
 
@@ -123,6 +126,7 @@ const handleConnectWhatsApp = () => {
       config_id: "2295613834169297",
       response_type: "code",
       override_default_response_type: true,
+      redirect_uri: REDIRECT_URI,
       extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
     }
   );
