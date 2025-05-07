@@ -75,7 +75,6 @@ const handleConnectWhatsApp = () => {
     return;
   }
 
-  const REDIRECT_URI = 'https://chatcenter.imporfactory.app/administrador-whatsapp';
 
   window.FB.login(
     (response) => {
@@ -97,7 +96,6 @@ const handleConnectWhatsApp = () => {
             {
               code,
               id_plataforma: userData.plataforma,
-              redirect_uri: REDIRECT_URI,
             }
           );
 
