@@ -65,10 +65,7 @@ const AdministradorPlantillas = () => {
 
 
   
-  // ---------------------------
-  // 3) Función para lanzar el Embedded Signup sin onboarding
-  // ---------------------------
-// ───── función completa para copiar/pegar ─────────────────────────
+
 const handleConnectWhatsApp = () => {
   if (!window.FB) {
     setStatusMessage({
@@ -79,47 +76,50 @@ const handleConnectWhatsApp = () => {
   }
 
   window.FB.login(
-    async (response) => {
-      const code = response?.authResponse?.code;
+    (response) => {
+      // callback síncrono ↓
+      (async () => {
+        const code = response?.authResponse?.code;
 
-      if (!code) {
-        setStatusMessage({
-          type: "error",
-          text: "No se recibió el código de autorización.",
-        });
-        return;
-      }
-
-      try {
-        const { data } = await chatApi.post(
-          "/whatsapp_managment/embeddedSignupComplete",
-          {
-            code,
-            redirect_uri:
-              "https://chatcenter.imporfactory.app/administrador-whatsapp",
-            id_plataforma: userData.plataforma,
-          }
-        );
-
-        if (data.success) {
+        if (!code) {
           setStatusMessage({
-            type: "success",
-            text: "✅ Número conectado correctamente.",
+            type: "error",
+            text: "No se recibió el código de autorización.",
           });
-          setCurrentTab("numbers"); // refresca la tabla “Números”
-        } else {
-          throw new Error(data.message || "Error inesperado.");
+          return;
         }
-      } catch (err) {
-        console.error(err);
-        setStatusMessage({
-          type: "error",
-          text:
-            err?.response?.data?.message ||
-            err.message ||
-            "Error al activar el número.",
-        });
-      }
+
+        try {
+          const { data } = await chatApi.post(
+            "/whatsapp_managment/embeddedSignupComplete",
+            {
+              code,
+              redirect_uri:
+                "https://chatcenter.imporfactory.app/administrador-whatsapp",
+              id_plataforma: userData.plataforma,
+            }
+          );
+
+          if (data.success) {
+            setStatusMessage({
+              type: "success",
+              text: "✅ Número conectado correctamente.",
+            });
+            setCurrentTab("numbers");
+          } else {
+            throw new Error(data.message || "Error inesperado.");
+          }
+        } catch (err) {
+          console.error(err);
+          setStatusMessage({
+            type: "error",
+            text:
+              err?.response?.data?.message ||
+              err.message ||
+              "Error al activar el número.",
+          });
+        }
+      })(); // ← IIFE asíncrona
     },
     {
       config_id: "2295613834169297",
@@ -129,6 +129,7 @@ const handleConnectWhatsApp = () => {
     }
   );
 };
+
 
 
   const getCountryCode = (phone) => {
