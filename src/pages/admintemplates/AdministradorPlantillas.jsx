@@ -124,7 +124,6 @@ const handleConnectWhatsApp = () => {
       config_id: "2295613834169297",
       response_type: "code",
       override_default_response_type: true,
-      redirect_uri: REDIRECT_URI,
       extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
     }
   );
