@@ -126,6 +126,7 @@ const handleConnectWhatsApp = () => {
       config_id: "2295613834169297",
       response_type: "code",
       override_default_response_type: true,
+      scope: "whatsapp_business_management,whatsapp_business_messaging",
       extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
     }
   );
