@@ -81,6 +81,8 @@ const handleConnectWhatsApp = () => {
       // callback síncrono ↓
       (async () => {
         const code = response?.authResponse?.code;
+        console.log("CODE FRESCO:", code)
+        return;
 
         if (!code) {
           setStatusMessage({
