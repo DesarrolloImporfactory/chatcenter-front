@@ -112,12 +112,16 @@ const handleConnectWhatsApp = () => {
           }
         } catch (err) {
           console.error(err);
+        
+          const mensaje = err?.response?.data?.message || "Error al activar el número.";
+          const linkWhatsApp = err?.response?.data?.contacto;
+        
           setStatusMessage({
             type: "error",
-            text:
-              err?.response?.data?.message ||
-              err.message ||
-              "Error al activar el número.",
+            text: linkWhatsApp
+              ? `${mensaje} 👉 Haz clic aquí para contactarnos por WhatsApp: `
+              : mensaje,
+            extra: linkWhatsApp ? linkWhatsApp : null,
           });
         }
       })(); // ← IIFE asíncrona
@@ -1109,10 +1113,20 @@ const fetchPlantillas = async () => {
               : "bg-red-100 text-red-800"
           }`}
         >
-          {statusMessage.text}
+          <span>{statusMessage.text}</span>
+          {statusMessage.extra && (
+            <a
+              href={statusMessage.extra}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block mt-2 text-blue-700 underline font-medium"
+            >
+              Abrir chat de soporte
+            </a>
+          )}
         </div>
       )}
-
+      
       {/* Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-4 border-b border-gray-200 px-5 min-w-max">
