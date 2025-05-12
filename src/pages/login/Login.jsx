@@ -21,7 +21,7 @@ export default function Login() {
   const onSubmit = (data) => {
     dispatch(loginThunk(data)).unwrap().then(() => {
       reset();
-      navigate("/");               // redirección al dashboard
+      navigate("/administrador-whatsapp");               // redirección al dashboard
     });
   };
 

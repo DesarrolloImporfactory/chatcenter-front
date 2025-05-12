@@ -1,4 +1,4 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 
@@ -19,52 +19,59 @@ const userSlice = createSlice({
   initialState: null,
   reducers: {
     setUser: (state, action) => action.payload,
+    logout: () => null,
   },
+  extraReducers: (builder) => {
+    builder
+      .addCase(loginThunk.fulfilled, (_, action) => action.payload)
+      .addCase(renewThunk.fulfilled, (_, action) => action.payload)
+      .addCase(logout, () => null);
+  }  
 });
 
-export const { setUser } = userSlice.actions;
-
+export const { setUser, logout } = userSlice.actions;
 export default userSlice.reducer;
 
-export const loginThunk = (data) => (dispatch) => {
-  chatApi
-    .post("/auth/login", data)
-    .then((res) => {
-      console.log(res);
-      localStorage.setItem("token", res.data.token);
-      dispatch(setUser(res.data.user));
-      window.location.href = "/chat";
-    })
-    .catch((err) => {
-      Toast.fire({
-        icon: "error",
-        title: "Usuario o contraseña incorrectos",
-      });
-    });
-};
+export const loginThunk = createAsyncThunk(
+  "user/login",
+  async (credentials, { rejectWithValue }) => {
+    try {
+      const { data } = await chatApi.post("/auth/login", credentials);
+      localStorage.setItem("token", data.token);
+      return data.user;
+    } catch (err) {
+      const msg = err.response?.data?.message || "Credenciales inválidas";
+      Toast.fire({ icon: "error", title: msg });
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
 
-export const registerThunk = (formData) => (dispatch) => {
-  chatApi
-    .post("/auth/signup", formData)
-    .then((res) => {
-      console.log(res);
-      localStorage.setItem("token", res.data.token);
-      dispatch(setUser(res.data.user));
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
 
-export const renewThunk = () => (dispatch) => {
-  chatApi
-    .get("/auth/renew")
-    .then((res) => {
-      console.log(res);
-      localStorage.setItem("token", res.data.token);
-      dispatch(setUser(res.data.user));
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
+export const registerThunk = createAsyncThunk(
+  "user/register",
+  async (newUser, {rejectWithValue}) =>{
+    try{
+      const {data} = await chatApi.post("auth/registro", newUser);
+      Toast.fire({icon: "success", title:"Cuenta creada. ¡Inicia sesión!"});
+      return data.user; //opcional, por si se decide loguear al crear 
+    } catch (err) {
+      Toast.fire({ icon: "error", title: err.response?.data?.message ?? "Error" });
+      return rejectWithValue(err.response?.data);
+    }
+  }
+)
+
+export const renewThunk = createAsyncThunk(
+  "user/renew",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await chatApi.get("/auth/renew");
+      localStorage.setItem("token", data.token);
+      return data.user;            // devolvemos el payload
+    } catch (err) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
