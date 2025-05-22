@@ -70,7 +70,7 @@ const CrearConfiguracionModal = ({
           id_telefono: idWhatsapp,
           id_whatsapp: idBusinessAccount,
           token: tokenApi,
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
         }
       );
 

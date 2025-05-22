@@ -72,7 +72,7 @@ const Modales = ({
     if (tagName) {
       try {
         const body = {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
           nombre_etiqueta: tagName,
           color_etiqueta: tagColor,
         };
@@ -119,7 +119,7 @@ const Modales = ({
       const body = {
         id_cliente_chat_center: idClienteChat,
         id_etiqueta: idEtiqueta,
-        id_plataforma: userData.plataforma,
+        id_plataforma: userData.data?.id_plataforma,
       };
 
       const { data: result } = await chatApi.post(
@@ -281,7 +281,7 @@ const Modales = ({
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.plataforma;
+      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       agregar_mensaje_enviado(
         caption,
@@ -462,7 +462,7 @@ const Modales = ({
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.plataforma;
+      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       agregar_mensaje_enviado(
         caption,
@@ -645,7 +645,7 @@ const Modales = ({
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.plataforma;
+      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       agregar_mensaje_enviado(
         caption,
@@ -698,7 +698,7 @@ const Modales = ({
           nombre: newContactName,
           telefono: newContactPhone,
           apellido: "",
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
         }
       );
 
@@ -866,7 +866,7 @@ const Modales = ({
 
       let id_recibe = buscarIdRecibe;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.plataforma;
+      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       let ruta_archivo = generarObjetoPlaceholders(
         placeholders,

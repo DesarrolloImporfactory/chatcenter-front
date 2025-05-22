@@ -60,11 +60,11 @@ const Cabecera = ({
   // -------------------------------------------------------
   const fetchConfiguracionAutomatizada = async () => {
     try {
-      // Ojo: userData.plataforma debe existir en tu token
+      // Ojo: userData.data?.id_plataforma debe existir en tu token
       const response = await chatApi.post(
         "whatsapp_managment/configuracionesAutomatizador",
         {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
         }
       );
       setConfiguraciones(response.data || []);

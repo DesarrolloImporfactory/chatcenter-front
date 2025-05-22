@@ -135,8 +135,8 @@ const DatosUsuario = ({
       formulario.append("otros", getValues("otros") || 0);
       formulario.append("impuestos", getValues("impuestos") || 0);
     }
-    formulario.append("id", userData ? userData.id : 0);
-    formulario.append("id_plataforma", userData.plataforma);
+    formulario.append("id", userData ? userData.data?.id : 0);
+    formulario.append("id_plataforma", userData.data?.id_plataforma);
 
     console.log("transportadora", transportadora);
     try {
@@ -387,7 +387,7 @@ const DatosUsuario = ({
       socketRef.current.emit("GET_TARIFAS", {
         ciudad: document.querySelector("#ciudad").value,
         provincia: facturaSeleccionada.provincia,
-        id_plataforma: userData.plataforma,
+        id_plataforma: userData.data?.id_plataforma,
         monto_factura:
           Number(document.querySelector("#total")?.textContent) || total,
         recaudo: document.querySelector("#cod_entrega").value,
@@ -878,7 +878,7 @@ const DatosUsuario = ({
 
   const recargarPedido = () => {
     socketRef.current.emit("GET_FACTURAS", {
-      id_plataforma: userData.plataforma,
+      id_plataforma: userData.data?.id_plataforma,
       telefono: selectedChat.celular_cliente,
     });
   };

@@ -55,11 +55,11 @@ function MainLayout({ children }) {
   // -------------------------------------------------------
   const fetchConfiguracionAutomatizada = async () => {
     try {
-      // Ojo: userData.plataforma debe existir en tu token
+      // Ojo: userData.data?.id_plataforma debe existir en tu token
       const response = await chatApi.post(
         "whatsapp_managment/configuracionesAutomatizador",
         {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
         }
       );
       setConfiguraciones(response.data || []);
@@ -73,13 +73,13 @@ function MainLayout({ children }) {
   // FUNC: Redirigir a la tabla de automatizadores
   // -------------------------------------------------------
   const handleIrAutomatizadores = (idConfig) => {
-    // userData.matriz es 1 o 2
-    if (userData.id_matriz === 1) {
+    // userData.data?.id_matriz es 1 o 2
+    if (userData.data?.id_matriz === 1) {
       window.location.href = `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${idConfig}`;
-    } else if (userData.id_matriz === 2) {
+    } else if (userData.data?.id_matriz === 2) {
       window.location.href = `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${idConfig}`;
     } else {
-      console.warn("Valor de matriz no reconocido:", userData.id_matriz);
+      console.warn("Valor de matriz no reconocido:", userData.data?.id_matriz);
     }
   };
 

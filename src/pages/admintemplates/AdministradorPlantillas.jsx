@@ -97,7 +97,7 @@ const handleConnectWhatsApp = () => {
             "/whatsapp_managment/embeddedSignupComplete",
             {
               code,
-              id_plataforma: userData.plataforma,
+              id_plataforma: userData.data?.id_plataforma,
             }
           );
 
@@ -211,7 +211,7 @@ const handleConnectWhatsApp = () => {
       if (!userData) return;
       try {
         const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
         });
         setPhoneNumbers(resp.data.data || []);
       } catch (error) {
@@ -236,7 +236,7 @@ const handleConnectWhatsApp = () => {
       const response = await chatApi.post(
         "/whatsapp_managment/obtenerPlantillasPlataforma",
         {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
         }
       );
 
@@ -252,7 +252,7 @@ const handleConnectWhatsApp = () => {
       const response = await chatApi.post(
         "whatsapp_managment/configuracionesAutomatizador",
         {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
         }
       );
       setConfiguracionAutomatizada(response.data || []);
@@ -280,7 +280,7 @@ const fetchPlantillas = async () => {
   try {
     const resp = await chatApi.post(
       "/whatsapp_managment/obtenerTemplatesWhatsapp",
-      { id_plataforma: userData.plataforma }
+      { id_plataforma: userData.data?.id_plataforma }
     );
 
     /*  La ruta Node devuelve el JSON crudo de Meta:
@@ -972,7 +972,7 @@ const fetchPlantillas = async () => {
     try {
       const resp = await chatApi.post("/whatsapp_managment/CrearPlantilla", {
         ...payload,
-        id_plataforma: userData.plataforma,
+        id_plataforma: userData.data?.id_plataforma,
       });
       if (resp.data.success) {
         setStatusMessage({
@@ -1192,7 +1192,7 @@ const fetchPlantillas = async () => {
 
       {mostrarModalPlantillaRapida && (
         <CrearPlantillaRapidaModal
-          idPlataforma={userData.plataforma}
+          idPlataforma={userData.data?.id_plataforma}
           onClose={() => setMostrarModalPlantillaRapida(false)}
           onSuccess={fetchRespuestasRapidas}
           setStatusMessage={setStatusMessage}

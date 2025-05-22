@@ -150,7 +150,7 @@ const Chat = () => {
       const response = await chatApi.post(
         "/etiquetas_chat_center/obtenerEtiquetas",
         {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
         }
       );
 
@@ -306,7 +306,7 @@ const Chat = () => {
     setSeleccionado(true); // Indica que hay un número seleccionado
 
     // Llama a la API para obtener el id_recibe
-    const idRecibe = await buscar_id_recibe(phoneNumber, userData.plataforma);
+    const idRecibe = await buscar_id_recibe(phoneNumber, userData.data?.id_plataforma);
     setBuscarIdRecibe(idRecibe); // Guarda el ID recibido en el estado
   };
 
@@ -461,7 +461,7 @@ const Chat = () => {
       mensaje,
       tipo_mensaje: file ? "document" : "text",
       to: selectedChat.celular_cliente,
-      id_plataforma: userData.plataforma,
+      id_plataforma: userData.data?.id_plataforma,
       file,
       dataAdmin,
     });
@@ -567,7 +567,7 @@ const Chat = () => {
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.plataforma;
+      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       agregar_mensaje_enviado(
         "Archivo guardado en: " + audioUrl,
@@ -943,7 +943,7 @@ const Chat = () => {
         const response = await chatApi.post(
           "/etiquetas_chat_center/obtenerEtiquetas",
           {
-            id_plataforma: userData.plataforma,
+            id_plataforma: userData.data?.id_plataforma,
           }
         );
 
@@ -970,10 +970,10 @@ const Chat = () => {
       console.time("⏱ Tiempo hasta llegada de CHATS");
 
       socketRef.current.emit("ADD_USER", userData);
-      socketRef.current.emit("GET_CHATS", userData.plataforma);
+      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma);
       socketRef.current.on("USER_ADDED", (data) => {});
 
-      socketRef.current.emit("GET_DATA_ADMIN", userData.plataforma);
+      socketRef.current.emit("GET_DATA_ADMIN", userData.data?.id_plataforma);
       socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
         setDataAdmin(data);
 
@@ -995,7 +995,7 @@ const Chat = () => {
         /* funcion cargar templates */
         cargarTemplates(data); // Llamar a cargarTemplates cuando el socket esté conectado
       });
-      socketRef.current.emit("GET_PROVINCIAS", userData.plataforma);
+      socketRef.current.emit("GET_PROVINCIAS", userData.data?.id_plataforma);
       socketRef.current.on("DATA_PROVINCIAS_RESPONSE", (data) => {
         setProvincias(data);
       });
@@ -1026,13 +1026,13 @@ const Chat = () => {
   useEffect(() => {
     if (seRecibioMensaje) {
       // Emitir evento para obtener todos los chats actualizados
-      socketRef.current.emit("GET_CHATS", userData.plataforma);
+      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma);
 
       if (selectedChat != null) {
         // Emitir evento para obtener los mensajes del chat seleccionado
         socketRef.current.emit("GET_CHATS_BOX", {
           chatId: selectedChat.id,
-          plataforma: userData.plataforma,
+          plataforma: userData.data?.id_plataforma,
         });
 
         // Manejador para actualizar mensajes del chat seleccionado
@@ -1079,7 +1079,7 @@ const Chat = () => {
       // Emitir la solicitud para obtener los mensajes del chat seleccionado
       socketRef.current.emit("GET_CHATS_BOX", {
         chatId: selectedChat.id,
-        plataforma: userData.plataforma,
+        plataforma: userData.data?.id_plataforma,
       });
 
       // Función manejadora para actualizar los mensajes del chat
@@ -1094,7 +1094,7 @@ const Chat = () => {
       };
 
       socketRef.current.emit("GET_FACTURAS", {
-        id_plataforma: userData.plataforma,
+        id_plataforma: userData.data?.id_plataforma,
         telefono: selectedChat.celular_cliente,
       });
 
@@ -1130,7 +1130,7 @@ const Chat = () => {
       // Si hay algo en el término de búsqueda, realiza la búsqueda en el socket
       if (socketRef.current) {
         socketRef.current.emit("GET_TEMPLATES", {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
           palabraClave: menuSearchTerm,
         });
 
@@ -1150,7 +1150,7 @@ const Chat = () => {
       // Si el campo de búsqueda está vacío, mostrar todos los templates
       if (socketRef.current) {
         socketRef.current.emit("GET_TEMPLATES", {
-          id_plataforma: userData.plataforma,
+          id_plataforma: userData.data?.id_plataforma,
           palabraClave: "", // Filtro vacío para obtener todos los templates
         });
 
@@ -1174,7 +1174,7 @@ const Chat = () => {
     if (menuSearchTermNumeroCliente.length > 0) {
       // Emitir el evento al servidor
       socketRef.current.emit("GET_CELLPHONES", {
-        id_plataforma: userData.plataforma,
+        id_plataforma: userData.data?.id_plataforma,
         texto: menuSearchTermNumeroCliente,
       });
 
@@ -1228,7 +1228,7 @@ const Chat = () => {
     if (socketRef.current) {
       // Emitir evento para solicitar datos actualizados
       socketRef.current.emit("GET_FACTURAS", {
-        id_plataforma: userData.plataforma, // Ajusta con la info necesaria
+        id_plataforma: userData.data?.id_plataforma, // Ajusta con la info necesaria
         telefono: selectedChat.celular_cliente,
       });
 
