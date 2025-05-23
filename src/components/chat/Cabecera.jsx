@@ -222,7 +222,7 @@ const Cabecera = ({
         <div className="flex items-center space-x-3">
           <div className="text-end">
             <span className="block text-white font-semibold text-lg">
-              {userData?.nombre ?? "Tony Plaza"}
+              {userData?.nombre ?? ""}
             </span>
             <span className="text-sm text-white">
               {userData?.cargo === 1 ? "Administrador" : "Vendedor"}
