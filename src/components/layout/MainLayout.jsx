@@ -221,9 +221,9 @@ function MainLayout({ children }) {
               {/* Enlace Automatizador */}
               <a
               href={
-                (userData?.id_matriz ?? 1) === 1
+                (userData.data?.id_matriz ?? 1) === 1
                   ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
-                  : (userData?.id_matriz ?? 1) === 2
+                  : (userData.data?.id_matriz ?? 1) === 2
                   ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
                   : "#"
               }
