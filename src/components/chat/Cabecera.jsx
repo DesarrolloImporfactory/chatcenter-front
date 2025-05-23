@@ -222,10 +222,10 @@ const Cabecera = ({
         <div className="flex items-center space-x-3">
           <div className="text-end">
             <span className="block text-white font-semibold text-lg">
-              {userData.data?.nombre ?? ""}
+              {userData?.data?.nombre ?? "Tony Plaza"}
             </span>
             <span className="text-sm text-white">
-              {userData.data?.cargo === 1 ? "Administrador" : "Vendedor"}
+              {userData?.data?.cargo === 1 ? "Administrador" : "Vendedor"}
             </span>
           </div>
           <img
@@ -303,9 +303,9 @@ const Cabecera = ({
 
             <a
               href={
-                (userData.data?.id_matriz ?? 1) === 1
+                (userData?.data?.id_matriz ?? 1) === 1
                   ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
-                  : (userData.data?.id_matriz ?? 1) === 2
+                  : (userData?.data?.id_matriz ?? 1) === 2
                   ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
                   : "#"
               }

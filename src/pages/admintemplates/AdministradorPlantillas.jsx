@@ -1218,7 +1218,7 @@ const fetchPlantillas = async () => {
       {modalConfigOpen && (
         <VerPlantillaGuiasGeneradas
           respuestas={respuestasRapidas}
-          idPlataforma={userData.data?.id_plataforma}
+          idPlataforma={userData?.data?.plataforma}
           onClose={() => setModalConfigOpen(false)}
           setStatusMessage={setStatusMessage}
         />
