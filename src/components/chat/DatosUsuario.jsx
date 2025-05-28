@@ -1589,6 +1589,7 @@ const DatosUsuario = ({
                       <input
                         type="text"
                         placeholder="Calle principal"
+                        maxLength="100"
                         {...register("callePrincipal")}
                         className="p-2 border rounded w-full"
                       />
@@ -1600,6 +1601,7 @@ const DatosUsuario = ({
                       <input
                         type="text"
                         placeholder="Calle secundaria"
+                        maxLength="100"
                         {...register("calleSecundaria")}
                         className="p-2 border rounded w-full"
                       />
@@ -1611,6 +1613,7 @@ const DatosUsuario = ({
                       <input
                         type="text"
                         placeholder="Referencia"
+                        maxLength="200"
                         {...register("referencia")}
                         className="p-2 border rounded w-full"
                       />
@@ -1622,6 +1625,7 @@ const DatosUsuario = ({
                       <input
                         type="text"
                         placeholder="Observación"
+                        maxLength="200"
                         {...register("observacion")}
                         className="p-2 border rounded w-full"
                       />
