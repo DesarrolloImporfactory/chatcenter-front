@@ -981,14 +981,14 @@ const Chat = () => {
           Swal.fire({
             icon: "error",
             title: "Problema con el método de pago",
-            text: "Tu cuenta de WhatsApp tiene problemas con el método de pago. Debes resolverlo en Meta Business para continuar.",
+            text: "Tu cuenta de WhatsApp tiene problemas con el método de pago. Debes resolverlo en Business Manager para continuar.",
             allowOutsideClick: false,
             allowEscapeKey: false,
             allowEnterKey: true,
             confirmButtonText: "OK",
           }).then(() => {
-            localStorage.removeItem("token");
-            window.location.reload();
+            // localStorage.removeItem("token");
+            window.location.href="/administrador-whatsapp";
           });
         }
 
