@@ -45,7 +45,7 @@ const DatosUsuario = ({
       toast.onmouseleave = Swal.resumeTimer;
     },
   });
-  const { register, handleSubmit, setValue, getValues } = useForm({
+  const { register, handleSubmit, setValue, getValues, watch } = useForm({
     defaultValues: {
       nombreCliente: "",
       telefono: "",
@@ -889,6 +889,34 @@ const DatosUsuario = ({
     setSearchTerm(e.target.value);
     cargarProductosAdicionales(1, e.target.value); // Buscar desde la página 1 con el filtro
   };
+
+  const telefono = watch("telefono");
+  const [mostrarAlerta, setMostrarAlerta] = useState(false);
+
+  useEffect(() => {
+    const validarDevoluciones = async () => {
+      if (telefono && telefono.length >= 8) {
+        try {
+          const { data } = await chatApi.post(
+            "/facturas_cot/validarDevolucion",
+            {
+              telefono,
+            }
+          );
+
+          setMostrarAlerta(data.success); // si hay devolución, mostrar alerta
+        } catch (error) {
+          console.error("Error al validar devoluciones:", error);
+          setMostrarAlerta(false);
+        }
+      } else {
+        setMostrarAlerta(false);
+      }
+    };
+
+    validarDevoluciones();
+  }, [telefono]);
+
   return (
     <>
       {opciones && (
@@ -1512,12 +1540,12 @@ const DatosUsuario = ({
                       />
                     </div>
                     <div>
-                      <label htmlFor="" className="text-sm font-medium">
-                        Telefono
+                      <label htmlFor="telefono" className="text-sm font-medium">
+                        Teléfono
                       </label>
                       <input
                         type="text"
-                        placeholder="Telefono Cliente"
+                        placeholder="Teléfono Cliente"
                         {...register("telefono")}
                         className="p-2 border rounded w-full"
                       />
@@ -1654,6 +1682,16 @@ const DatosUsuario = ({
                         <option value="1">Con recaudo</option>
                         <option value="2">SIn recaudo</option>
                       </select>
+
+                      {mostrarAlerta && (
+                        <div
+                          className="bg-yellow-100 text-yellow-800 text-sm px-4 py-3 rounded border border-yellow-300 mt-2"
+                          role="alert"
+                        >
+                          El cliente registra 1 o más devoluciones en nuestro
+                          sistema.
+                        </div>
+                      )}
                     </div>
 
                     <div className="col-span-2">
