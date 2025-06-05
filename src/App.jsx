@@ -13,6 +13,7 @@ import Chat from "./pages/chat/Chat";
 
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
+import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 function App() {
   const dispatch = useDispatch();
 
@@ -51,15 +52,19 @@ function App() {
           }
         />
 
+        <Route
+          path="/administrador-pruebas"
+          element={
+            <MainLayout>
+              <AdministradorPlantillas2 />
+            </MainLayout>
+          }
+        />
+
         {/* 
           /administrador-whatsapp, sin envolver MainLayout 
         */}
-        <Route
-          path="/chat"
-          element={
-              <Chat />
-          }
-        />
+        <Route path="/chat" element={<Chat />} />
         <Route path="*" element={<h1>Esta ruta no existe</h1>} />
       </Routes>
     </div>
