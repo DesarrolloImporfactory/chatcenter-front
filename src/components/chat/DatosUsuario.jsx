@@ -12,8 +12,9 @@ const DatosUsuario = ({
   provincias,
   setFacturasChatSeleccionado,
   userData,
-  setGuiasChatSeleccionado,
   guiasChatSeleccionado,
+  novedades_gestionadas,
+  novedades_noGestionadas,
   validar_estadoLaar,
   validar_estadoServi,
   validar_estadoGintracom,
@@ -65,6 +66,20 @@ const DatosUsuario = ({
   };
 
   const handleGenerarGuia = async () => {
+    if (
+      !facturaSeleccionada?.productos ||
+      facturaSeleccionada.productos.length === 0
+    ) {
+      console.warn("No hay productos seleccionados para generar la guía.");
+      // Podés también lanzar un toast o alerta aquí si usás alguna librería (ej: toast.error("..."))
+      return;
+    }
+
+    const lista_productos = facturaSeleccionada.productos.map((producto) => ({
+      id_inventario: producto.id_inventario, // o producto.id_detalle
+      cantidad: producto.cantidad,
+    }));
+
     const transportadora = getValues("transportadora");
 
     if (!transportadora) {
@@ -137,6 +152,7 @@ const DatosUsuario = ({
     }
     formulario.append("id", userData ? userData.data?.id : 0);
     formulario.append("id_plataforma", userData.data?.id_plataforma);
+    formulario.append("productos", JSON.stringify(lista_productos));
 
     console.log("transportadora", transportadora);
     try {
@@ -356,10 +372,16 @@ const DatosUsuario = ({
   }, []);
 
   const [isOpen, setIsOpen] = useState(false); // Estado para controlar si el acordeón está abierto o cerrado
+  const [isOpenNovedades, setIsOpenNovedades] = useState(false);
   const [activeTab, setActiveTab] = useState("pedidos"); // Estado para controlar la pestaña activa
+  const [activeTabNovedad, setActiveTabNovedad] = useState("no_gestionadas");
 
   const toggleAcordeon = () => {
     setIsOpen(!isOpen);
+  };
+
+  const toggleAcordeonNovedades = () => {
+    setIsOpenNovedades(!isOpenNovedades);
   };
 
   // Manejo de cambio de cantidad
@@ -1136,7 +1158,7 @@ const DatosUsuario = ({
 
               {/* Contenido del acordeón */}
               <div
-                className={`overflow-hidden bg-[#12172e] rounded-b-lg shadow-md transition-all duration-500 ${
+                className={`overflow-hidden pt-1 bg-[#12172e] rounded-b-lg shadow-md transition-all duration-500 ${
                   isOpen ? "max-h-96" : "max-h-0"
                 }`}
               >
@@ -1147,7 +1169,7 @@ const DatosUsuario = ({
                       activeTab === "pedidos"
                         ? "bg-purple-600"
                         : "bg-purple-500 hover:bg-purple-400"
-                    } text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
+                    } text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
                     onClick={() => setActiveTab("pedidos")}
                   >
                     Pedidos
@@ -1157,7 +1179,7 @@ const DatosUsuario = ({
                       activeTab === "guias"
                         ? "bg-purple-600"
                         : "bg-purple-500 hover:bg-purple-400"
-                    } text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
+                    } text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
                     onClick={() => setActiveTab("guias")}
                   >
                     Guias
@@ -1253,6 +1275,123 @@ const DatosUsuario = ({
                   </table>
                 </div>
               </div>
+
+              {/* acordeon 2 */}
+              {/* Botón del acordeón 2 */}
+              <div
+                className="cursor-pointer bg-blue-600 text-white px-6 py-3 flex justify-between items-center rounded-t-lg shadow-md"
+                onClick={toggleAcordeonNovedades}
+              >
+                <span className="text-base font-semibold">Novedades</span>
+                <i
+                  className={`bx ${
+                    isOpenNovedades ? "bx-chevron-up" : "bx-chevron-down"
+                  } text-xl transition-transform duration-300`}
+                ></i>
+              </div>
+
+              {/* Contenido del acordeón */}
+              <div
+                className={`overflow-hidden bg-[#12172e] rounded-b-lg shadow-md transition-all duration-500 ${
+                  isOpenNovedades ? "max-h-96" : "max-h-0"
+                }`}
+              >
+                {/* Botones para alternar entre "Gestionadas" y "No gestionadas" */}
+                <div className="flex flex-row py-3 gap-3">
+                  <button
+                    className={`flex-1 px-6 py-3 ${
+                      activeTabNovedad === "gestionadas"
+                        ? "bg-purple-600"
+                        : "bg-purple-500 hover:bg-purple-400"
+                    } text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
+                    onClick={() => setActiveTabNovedad("gestionadas")}
+                  >
+                    Gestionadas
+                  </button>
+                  <button
+                    className={`flex-1 px-6 py-3 ${
+                      activeTabNovedad === "no_gestionadas"
+                        ? "bg-purple-600"
+                        : "bg-purple-500 hover:bg-purple-400"
+                    } text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
+                    onClick={() => setActiveTabNovedad("no_gestionadas")}
+                  >
+                    No gestionadas
+                  </button>
+                </div>
+
+                {/* Contenido dinámico de la tabla */}
+                <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80">
+                  <table className="table-auto w-full border-collapse border border-gray-700">
+                    <thead className="bg-blue-700 text-white">
+                      <tr>
+                        <>
+                          <th className="border px-4 py-2 text-sm">
+                            Número Guia
+                          </th>
+                          <th className="border px-4 py-2 text-sm">
+                            Nombre Cliente
+                          </th>
+                          <th className="border px-4 py-2 text-sm">Detalle</th>
+                        </>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeTabNovedad === "gestionadas"
+                        ? novedades_gestionadas?.map((novedades, index) => (
+                            <tr
+                              key={index}
+                              className="hover:bg-blue-800 text-white text-sm"
+                            >
+                              <td className="border px-4 py-2">
+                                {novedades.guia_novedad}
+                              </td>
+                              <td className="border px-4 py-2">
+                                {novedades.cliente_novedad}
+                              </td>
+                              <td className="border px-4 py-2">
+                                {/* <button
+                                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                                  onClick={() =>
+                                    handleFacturaSeleccionada(novedades)
+                                  }
+                                >
+                                  Ver
+                                </button> */}
+                              </td>
+                            </tr>
+                          ))
+                        : novedades_noGestionadas?.map((novedades, index) => {
+                            return (
+                              <tr
+                                key={index}
+                                className="hover:bg-blue-800 text-white text-sm"
+                              >
+                                <td className="border px-4 py-2">
+                                  {novedades.guia_novedad}
+                                </td>
+                                <td className="border px-4 py-2">
+                                  {novedades.cliente_novedad}
+                                </td>
+                                <td className="border px-4 py-2">
+                                  {/* <button
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                                    onClick={() =>
+                                      handleGuiaSeleccionada(novedades)
+                                    }
+                                  >
+                                    Ver
+                                  </button> */}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* acordeon 2 */}
+
               {/* Sección de detalles de la guía */}
               {guiaSeleccionada && (
                 <div className="mt-4 bg-white shadow-md rounded-lg p-6 overflow-y-auto max-h-screen">
