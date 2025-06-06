@@ -125,6 +125,9 @@ const Chat = () => {
 
   const [buscarIdRecibe, setBuscarIdRecibe] = useState(null);
 
+  const [novedades_gestionadas, setNovedades_gestionadas] = useState(null);
+  const [novedades_noGestionadas, setNovedades_noGestionadas] = useState(null);
+
   /* abrir modal crear etiquetas */
   const [isCrearEtiquetaModalOpen, setIsCrearEtiquetaModalOpen] =
     useState(false);
@@ -306,7 +309,10 @@ const Chat = () => {
     setSeleccionado(true); // Indica que hay un número seleccionado
 
     // Llama a la API para obtener el id_recibe
-    const idRecibe = await buscar_id_recibe(phoneNumber, userData.data?.id_plataforma);
+    const idRecibe = await buscar_id_recibe(
+      phoneNumber,
+      userData.data?.id_plataforma
+    );
     setBuscarIdRecibe(idRecibe); // Guarda el ID recibido en el estado
   };
 
@@ -738,7 +744,14 @@ const Chat = () => {
       // Filtro por etiquetas seleccionadas
       let etiquetas = [];
       try {
-        etiquetas = mensaje.etiquetas ? JSON.parse(mensaje.etiquetas) : [];
+        if (typeof mensaje.etiquetas === "string") {
+          etiquetas = JSON.parse(mensaje.etiquetas);
+        } else if (
+          typeof mensaje.etiquetas === "object" &&
+          mensaje.etiquetas !== null
+        ) {
+          etiquetas = mensaje.etiquetas;
+        }
       } catch (error) {
         console.error("Error al parsear etiquetas JSON:", error);
       }
@@ -988,7 +1001,7 @@ const Chat = () => {
             confirmButtonText: "OK",
           }).then(() => {
             // localStorage.removeItem("token");
-            window.location.href="/administrador-whatsapp";
+            window.location.href = "/administrador-whatsapp";
           });
         }
 
@@ -1008,6 +1021,11 @@ const Chat = () => {
       socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
         setFacturasChatSeleccionado(data.facturas);
         setGuiasChatSeleccionado(data.guias);
+      });
+
+      socketRef.current.on("DATA_NOVEDADES", (data) => {
+        setNovedades_gestionadas(data.gestionadas);
+        setNovedades_noGestionadas(data.no_gestionadas);
       });
 
       socketRef.current.on("CHATS", (data) => {
@@ -1436,14 +1454,14 @@ const Chat = () => {
     }
   };
 
-  const obtenerProvinciaCiudad = async (id_ciudad) =>{
-    try{
-      const {data} = await chatApi.get(
+  const obtenerProvinciaCiudad = async (id_ciudad) => {
+    try {
+      const { data } = await chatApi.get(
         `/chat_service/ciudadProvincia/${id_ciudad}`
-      )
+      );
 
-      if(!data.success){
-        throw new Error ("No se pudo obtener la ubicación");
+      if (!data.success) {
+        throw new Error("No se pudo obtener la ubicación");
       }
 
       //data.data => {ciudad, provincia}
@@ -1451,8 +1469,8 @@ const Chat = () => {
         provincia: data.data.provincia,
         ciudad: data.data.ciudad,
       });
-    } catch (err){
-      setProvinciaCiudad({provincia: 'Sin datos', ciudad: 'Sin datos'});
+    } catch (err) {
+      setProvinciaCiudad({ provincia: "Sin datos", ciudad: "Sin datos" });
     }
   };
 
@@ -1570,7 +1588,8 @@ const Chat = () => {
         userData={userData}
         setFacturasChatSeleccionado={setFacturasChatSeleccionado}
         guiasChatSeleccionado={guiasChatSeleccionado}
-        setGuiasChatSeleccionado={setGuiasChatSeleccionado}
+        novedades_gestionadas={novedades_gestionadas}
+        novedades_noGestionadas={novedades_noGestionadas}
         validar_estadoLaar={validar_estadoLaar}
         validar_estadoServi={validar_estadoServi}
         validar_estadoGintracom={validar_estadoGintracom}
