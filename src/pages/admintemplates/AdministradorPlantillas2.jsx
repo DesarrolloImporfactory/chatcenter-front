@@ -39,6 +39,10 @@ const AdministradorPlantillas2 = () => {
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState(null);
   const [verModal, setVerModal] = useState(false);
 
+  //Plantillas recomendadas
+  const [resultadoPlantillas, setResultadoPlantillas] = useState ([]);
+  const [modalResultadosAbierto, setModalResultadosAbierto] = useState(false);
+  const [cargandoPlantillas, setCargandoPlantillas] = useState(false)
   const socketRef = useRef(null);
 
   //Cargamos el SDK de Facebook una sola vez
@@ -318,6 +322,28 @@ const AdministradorPlantillas2 = () => {
     }
   }, [statusMessage]);
 
+  const crearPlantillasAutomaticas = async () => {
+    setCargandoPlantillas(true);
+    try {
+      const response = await chatApi.post('/whatsapp_managment/crearPlantillasAutomaticas', {
+        id_plataforma: userData.data.id_plataforma
+      });
+
+      if (response.data.success) {
+        setResultadoPlantillas(response.data.resultados || []);
+        setModalResultadosAbierto(true);
+        fetchPlantillas();
+      } else {
+        setStatusMessage({ type: 'error', text: 'Hubo un error creando las plantillas.' });
+      }
+    } catch (error) {
+      console.error('Error creando plantillas:', error);
+      setStatusMessage({ type: 'error', text: 'Error al conectar con el servidor.' });
+    } finally {
+      setCargandoPlantillas(false);
+    }
+  };
+
   // ---------------------------
   // Render de la tabla con “Numbers”
   // ---------------------------
@@ -547,12 +573,47 @@ const AdministradorPlantillas2 = () => {
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
         <div className="flex justify-between mb-4">
           <h2 className="text-lg font-semibold">Plantillas</h2>
-          <button
-            onClick={() => setMostrarModalPlantilla(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
-          >
-            + Crear Plantilla
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMostrarModalPlantilla(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+            >
+              + Crear Plantilla
+            </button>
+            <button
+              onClick={crearPlantillasAutomaticas}
+              className="bg-indigo-900 text-white px-4 py-2 rounded hover:bg-indigo-500 flex items-center justify-center min-w-[180px]"
+              disabled={cargandoPlantillas}
+            >
+              {cargandoPlantillas ? (
+                <>
+                  <svg
+                    className="animate-spin mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8H4z"
+                    ></path>
+                  </svg>
+                  Creando...
+                </>
+              ) : (
+                "Crear Plantillas Recomendadas"
+              )}
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto"></div>
         <table className="min-w-full border bg-white shadow rounded-lg">
@@ -1096,6 +1157,54 @@ const AdministradorPlantillas2 = () => {
     }
   };
 
+
+  const traducirErrorMeta = (error) => {
+  const code = error?.error?.error_subcode;
+
+  // Código conocido: idioma se está eliminando /plantilla
+  if (code === 2388023) {
+    return "No se puede crear esta plantilla por el momento. Ya existía anteriormente y fue eliminada. Intenta de nuevo en 1 minuto o usa un nombre distinto.";
+  }
+
+  // Otros errores genéricos
+  return (
+    error?.error?.error_user_msg ||
+    error?.error?.message ||
+    "Ocurrió un error desconocido."
+  );
+};
+
+const ModalResultadosPlantillas = ({ resultados, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex justify-center items-center">
+      <div className="bg-white w-[90%] md:w-[600px] max-h-[90%] overflow-y-auto rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-semibold mb-4">Resumen de las Plantillas Creadas</h2>
+        {resultados.map((r, idx) => (
+          <div key={idx} className="mb-3 p-3 border rounded bg-gray-50">
+            <div className="font-bold">{r.nombre}</div>
+            <div className={`text-sm ${
+              r.status === 'success' ? 'text-green-600' :
+              r.status === 'omitido' ? 'text-yellow-600' :
+              'text-red-600'
+            }`}>
+              {r.status.toUpperCase()} -{" "}
+              {r.mensaje ||
+                (r.error ? traducirErrorMeta(r.error) : 'Plantilla creada exitósamente.')}
+            </div>
+          </div>
+        ))}
+        <button
+          onClick={onClose}
+          className="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  );
+};
+
+
   return (
     <div className="p-0 mt-16">
       <h1 className="text-2xl font-bold mb-4 p-5">
@@ -1229,6 +1338,14 @@ const AdministradorPlantillas2 = () => {
           setStatusMessage={setStatusMessage}
         />
       )}
+
+      {modalResultadosAbierto && (
+        <ModalResultadosPlantillas
+          resultados={resultadoPlantillas}
+          onClose={() => setModalResultadosAbierto(false)}
+        />
+      )}
+
     </div>
   );
 };

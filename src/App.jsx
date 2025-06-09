@@ -41,19 +41,19 @@ function App() {
         <Route path="/registro" element={<Register />} />
 
         {/* 
-          /administrador-whatsapp, también envuelto en MainLayout 
+          /administrador-whatsapp, version 1
         */}
         <Route
-          path="/administrador-whatsapp"
+          path="/administrador-whatsapp-antes"
           element={
             <MainLayout>
               <AdministradorPlantillas />
             </MainLayout>
           }
         />
-
+        {/*administrador-pruebas se renombra y pasa a produccion*/}
         <Route
-          path="/administrador-pruebas"
+          path="/administrador-whatsapp"
           element={
             <MainLayout>
               <AdministradorPlantillas2 />
