@@ -35,6 +35,287 @@ const DatosUsuario = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [showModalNovedad, setShowModalNovedad] = useState(false);
+  const [novedadSeleccionada, setNovedadSeleccionada] = useState(null);
+  const [gestionando, setGestionando] = useState(false);
+  const [accion, setAccion] = useState(null);
+  const [datosNovedadExtra, setDatosNovedadExtra] = useState(null);
+  const [tipo_novedad, setTipo_novedad] = useState(null);
+
+  /* Laar */
+  const [tipoLaar, setTipoLaar] = useState("");
+  const [observacionLaar, setObservacionLaar] = useState("");
+  const [solucionLaar, setSolucionLaar] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  const enviarLaarNovedad = async () => {
+    try {
+      setEnviando(true);
+
+      // Obtener valores directamente del DOM (solo si no estás usando useState para ellos)
+      const nombre =
+        document.getElementById("nombre_novedadesServi")?.value || "";
+      const telefono =
+        document.getElementById("telefono_novedadesServi")?.value || "";
+
+      const callePrincipal_novedadesServi =
+        document.getElementById("callePrincipal_novedadesServi")?.value || "";
+
+      const calleSecundaria_novedadesServi =
+        document.getElementById("calleSecundaria_novedadesServi")?.value || "";
+
+      const formData = new FormData();
+      formData.append("guia", novedadSeleccionada.guia_novedad);
+      formData.append("id_novedad", novedadSeleccionada.id_novedad);
+      formData.append("ciudad", datosNovedadExtra?.factura?.[0]?.ciudad);
+      formData.append("nombre", nombre);
+      formData.append("callePrincipal", callePrincipal_novedadesServi || "");
+      formData.append("calleSecundaria", calleSecundaria_novedadesServi || "");
+      formData.append("numeracion", "00");
+      formData.append(
+        "referencia",
+        datosNovedadExtra?.factura?.[0]?.referencia
+      );
+      formData.append("telefono", telefono);
+      formData.append("celular", datosNovedadExtra.factura[0].telefono);
+      formData.append("observacion", observacionLaar || "");
+      formData.append("observacionA", solucionLaar || "");
+      formData.append("id", userData ? userData.data?.id : 0);
+      formData.append("id_plataforma", userData.data?.id_plataforma);
+
+      const res = await fetch(
+        `https://new.imporsuitpro.com/novedades/solventarNovedadLaar`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (res.ok) {
+        Swal.fire({
+          icon: "success",
+          title: "Novedad enviada CORRECTAMENTE",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        setShowModalNovedad(false);
+
+        recargarDatosFactura();
+      } else {
+        throw new Error(data.message || "Error en envío LAAR");
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: error.message,
+      });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  /* Laar */
+
+  /* gintracom */
+  const [tipoGintra, setTipoGintra] = useState("");
+  const [solucionGintra, setSolucionGintra] = useState("");
+  const [fechaGintra, setFechaGintra] = useState("");
+  const [valorRecaudar, setValorRecaudar] = useState("");
+
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const minDate = tomorrow.toISOString().split("T")[0];
+
+  const enviarGintracomNovedad = async () => {
+    if (tipoGintra !== "rechazar" && !fechaGintra) {
+      Swal.fire({
+        icon: "warning",
+        title: "Fecha requerida",
+        text: "Por favor, selecciona una fecha válida.",
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("guia", novedadSeleccionada.guia_novedad);
+    formData.append("observacion", solucionGintra || "");
+    formData.append("id_novedad", novedadSeleccionada.id_novedad);
+    formData.append("tipo", tipoGintra);
+    formData.append("recaudo", tipoGintra === "recaudo" ? valorRecaudar : "");
+    formData.append("fecha", tipoGintra !== "rechazar" ? fechaGintra : "");
+    formData.append("guia", novedadSeleccionada.guia_novedad);
+    formData.append("id", userData ? userData.data?.id : 0);
+    formData.append("id_plataforma", userData.data?.id_plataforma);
+
+    try {
+      const response = await fetch(
+        "https://new.imporsuitpro.com/novedades/solventarNovedadGintracom",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.error === false) {
+        Swal.fire({
+          icon: "success",
+          title: "Éxito",
+          text: data.message || "Novedad solventada correctamente",
+        });
+        setShowModalNovedad(false);
+        setAccion(null);
+        recargarDatosFactura();
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: data.message || "Hubo un error al solventar la novedad",
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Ocurrió un error inesperado al enviar la solicitud.",
+      });
+    }
+  };
+
+  /* fin gintracom */
+
+  /* speed */
+  const [observacionSpeed, setObservacionSpeed] = useState("");
+  /* fin speed */
+
+  /* servientrega */
+  const [observacionServi, setObservacionServi] = useState("");
+
+  const enviarServiNovedad = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("guia", novedadSeleccionada?.guia_novedad);
+      formData.append("observacion", observacionServi);
+      formData.append("id_novedad", novedadSeleccionada?.id_novedad);
+      formData.append("id", userData ? userData.data?.id : 0);
+      formData.append("id_plataforma", userData.data?.id_plataforma);
+
+      const res = await fetch(
+        "https://new.imporsuitpro.com/novedades/solventarNovedadServientrega",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (res.ok) {
+        Swal.fire({
+          title: "Éxito",
+          text: "Novedad enviada correctamente.",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+        setShowModalNovedad(false); // cerrar modal
+        setObservacionServi(""); // limpiar campo si deseas
+        recargarDatosFactura();
+      } else {
+        throw new Error("Fallo al enviar la novedad");
+      }
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: error.message || "Error al enviar la novedad",
+        icon: "error",
+      });
+    }
+  };
+
+  /* fin servientrega */
+
+  const handleDetalleNovedad = (novedad, tipo) => {
+    setTipo_novedad(tipo);
+    setNovedadSeleccionada(novedad);
+    setGestionando(false);
+    setShowModalNovedad(true);
+  };
+
+  const devolverRemitente = async () => {
+    try {
+      const res = await fetch(
+        `https://new.imporsuitpro.com/Pedidos/devolver_novedad/${novedadSeleccionada.guia_novedad}`,
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await res.json();
+
+      if (data.status === 200) {
+        Swal.fire({
+          title: "Pedido devuelto",
+          text: "El pedido ha sido devuelto correctamente al remitente.",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+        // Cierra modal o refresca si aplica
+        setShowModalNovedad(false);
+        recargarDatosFactura();
+      } else {
+        throw new Error(data.message || "Error al devolver");
+      }
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: "Hubo un problema al devolver el pedido.",
+        icon: "error",
+      });
+    }
+  };
+
+  const handleGestionSubmit = (e) => {
+    e.preventDefault();
+
+    // Aquí podrías enviar una solicitud al backend más adelante
+    Swal.fire({
+      title: "Éxito",
+      text: "La novedad ha sido gestionada como 'Volver a ofrecer'.",
+      icon: "success",
+      timer: 2000,
+      showConfirmButton: false,
+    });
+
+    // Cerrar modal y resetear estados
+    setShowModalNovedad(false);
+    setAccion(null);
+  };
+
+  const handleVolverOfrecer = async () => {
+    try {
+      const res = await fetch(
+        `https://new.imporsuitpro.com/novedades/datos/${novedadSeleccionada.guia_novedad}`
+      );
+      const data = await res.json();
+      setDatosNovedadExtra(data); // guarda todo, puedes extraer luego lo necesario
+      setAccion("ofrecer");
+    } catch (error) {
+      console.error("Error al obtener detalles para volver a ofrecer:", error);
+      Swal.fire(
+        "Error",
+        "No se pudo obtener los datos para gestionar la novedad",
+        "error"
+      );
+    }
+  };
+
   const Toast = Swal.mixin({
     toast: true,
     position: "top-end",
@@ -1350,14 +1631,14 @@ const DatosUsuario = ({
                                 {novedades.cliente_novedad}
                               </td>
                               <td className="border px-4 py-2">
-                                {/* <button
+                                <button
                                   className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                                   onClick={() =>
-                                    handleFacturaSeleccionada(novedades)
+                                    handleDetalleNovedad(novedades, "gestionada")
                                   }
                                 >
                                   Ver
-                                </button> */}
+                                </button>
                               </td>
                             </tr>
                           ))
@@ -1374,14 +1655,14 @@ const DatosUsuario = ({
                                   {novedades.cliente_novedad}
                                 </td>
                                 <td className="border px-4 py-2">
-                                  {/* <button
+                                  <button
                                     className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                                     onClick={() =>
-                                      handleGuiaSeleccionada(novedades)
+                                      handleDetalleNovedad(novedades, "no_gestionada")
                                     }
                                   >
                                     Ver
-                                  </button> */}
+                                  </button>
                                 </td>
                               </tr>
                             );
@@ -1391,6 +1672,481 @@ const DatosUsuario = ({
                 </div>
               </div>
               {/* acordeon 2 */}
+
+              {/* Modal de detalle novedad */}
+              {showModalNovedad && novedadSeleccionada && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                  <div className="relative bg-white w-11/12 max-w-2xl p-6 rounded-lg shadow-lg">
+                    <h2 className="text-xl font-semibold mb-4">
+                      Detalle de Novedad
+                    </h2>
+                    <div className="flex gap-6">
+                      {/* Izquierda */}
+                      <div className="flex-1 dividing-lines text-gray-900">
+                        {[
+                          ["ID", novedadSeleccionada.id_novedad],
+                          ["Guía", novedadSeleccionada.guia_novedad],
+                          ["Cliente", novedadSeleccionada.cliente_novedad],
+                          ["Estado", novedadSeleccionada.estado_novedad],
+                          ["Transportadora", "---"],
+                          ["Novedad", novedadSeleccionada.novedad],
+                          [
+                            "Tracking",
+                            <a
+                              key="track"
+                              href={novedadSeleccionada.tracking}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              Ver tracking
+                            </a>,
+                          ],
+                        ].map(([label, value]) => (
+                          <div className="py-2 border-b text-sm" key={label}>
+                            <span className="font-semibold">{label}:</span>{" "}
+                            {value}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Derecha */}
+                      <div className="flex-1">
+                        {accion === null && tipo_novedad == "no_gestionada" ? (
+                          <div className="flex flex-col space-y-4">
+                            <button
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                              onClick={handleVolverOfrecer}
+                            >
+                              Volver a ofrecer
+                            </button>
+                            <button
+                              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+                              onClick={devolverRemitente}
+                            >
+                              Devolver al remitente
+                            </button>
+                          </div>
+                        ) : accion === "ofrecer" ? (
+                          <form
+                            onSubmit={handleGestionSubmit}
+                            className="space-y-4"
+                          >
+                            {/* Secciones por transportadora */}
+                            {novedadSeleccionada.guia_novedad.startsWith(
+                              "IMP"
+                            ) ||
+                            novedadSeleccionada.guia_novedad.startsWith(
+                              "MKP"
+                            ) ? (
+                              /* Sección LAAR */
+                              <div
+                                className="text-black space-y-4 mt-4 overflow-y-auto"
+                                style={{ maxHeight: "70vh" }}
+                              >
+                                <p className="font-semibold">Sección LAAR</p>
+
+                                {/* Selector de tipo */}
+                                <div>
+                                  <label
+                                    className="block text-sm font-medium"
+                                    htmlFor="tipo_laar"
+                                  >
+                                    Tipo:
+                                  </label>
+                                  <select
+                                    id="tipo_laar"
+                                    value={tipoLaar}
+                                    onChange={(e) =>
+                                      setTipoLaar(e.target.value)
+                                    }
+                                    className="form-select w-full border rounded px-2 py-1"
+                                  >
+                                    <option value="">-- Selecciona --</option>
+                                    <option value="NI">
+                                      Número incorrecto
+                                    </option>
+                                    <option value="DI">
+                                      Dirección Incorrecta
+                                    </option>
+                                    <option value="OG">Otra gestión</option>
+                                  </select>
+                                </div>
+
+                                {/* Común: nombre, referencia, celular (puedes mostrar siempre o según necesidad) */}
+                                <div>
+                                  <label
+                                    className="block text-sm font-medium"
+                                    htmlFor="nombre_novedadesServi"
+                                  >
+                                    Nombre:
+                                  </label>
+                                  <input
+                                    type="text"
+                                    id="nombre_novedadesServi"
+                                    defaultValue={
+                                      datosNovedadExtra?.factura?.[0]?.nombre
+                                    }
+                                    className="form-input w-full border rounded px-2 py-1"
+                                  />
+                                </div>
+
+                                {/* Condicionales */}
+                                {tipoLaar === "NI" && (
+                                  <>
+                                    <div>
+                                      <label
+                                        className="block text-sm font-medium"
+                                        htmlFor="telefono_novedadesServi"
+                                      >
+                                        Teléfono:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="telefono_novedadesServi"
+                                        defaultValue={
+                                          datosNovedadExtra?.factura?.[0]
+                                            ?.telefono
+                                        }
+                                        className="form-input w-full border rounded px-2 py-1"
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                {tipoLaar === "DI" && (
+                                  <>
+                                    <div>
+                                      <label
+                                        className="block text-sm font-medium"
+                                        htmlFor="callePrincipal_novedadesServi"
+                                      >
+                                        Calle Principal:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="callePrincipal_novedadesServi"
+                                        defaultValue={
+                                          datosNovedadExtra?.factura?.[0]
+                                            ?.c_principal
+                                        }
+                                        className="form-input w-full border rounded px-2 py-1"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label
+                                        className="block text-sm font-medium"
+                                        htmlFor="calleSecundaria_novedadesServi"
+                                      >
+                                        Calle Secundaria:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="calleSecundaria_novedadesServi"
+                                        defaultValue={
+                                          datosNovedadExtra?.factura?.[0]
+                                            ?.c_secundaria
+                                        }
+                                        className="form-input w-full border rounded px-2 py-1"
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                {tipoLaar === "OG" && (
+                                  <div>
+                                    <label
+                                      className="block text-sm font-medium"
+                                      htmlFor="observacion_novedadesServi"
+                                    >
+                                      Observación:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="observacion_novedadesServi"
+                                      value={observacionLaar}
+                                      onChange={(e) =>
+                                        setObservacionLaar(e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Solución: común para todos los tipos */}
+                                {tipoLaar && (
+                                  <div>
+                                    <label
+                                      className="block text-sm font-medium"
+                                      htmlFor="observacionA"
+                                    >
+                                      Solución a la Novedad:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="observacionA"
+                                      value={solucionLaar}
+                                      onChange={(e) =>
+                                        setSolucionLaar(e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                )}
+
+                                <button
+                                  type="button"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                                  onClick={enviarLaarNovedad}
+                                  disabled={enviando}
+                                >
+                                  {enviando ? "Enviando..." : "Enviar"}
+                                </button>
+                              </div>
+                            ) : /* fin laar */
+                            novedadSeleccionada.guia_novedad.startsWith("I") ? (
+                              /* Gintracom */
+                              <div
+                                className="text-black space-y-4 mt-4 overflow-y-auto"
+                                style={{ maxHeight: "70vh" }}
+                              >
+                                <p className="font-semibold">
+                                  Sección Gintracom
+                                </p>
+
+                                {/* Tipo */}
+                                <div>
+                                  <label
+                                    className="block text-sm font-medium"
+                                    htmlFor="tipo_gintracom"
+                                  >
+                                    Tipo:
+                                  </label>
+                                  <select
+                                    id="tipo_gintracom"
+                                    value={tipoGintra}
+                                    onChange={(e) =>
+                                      setTipoGintra(e.target.value)
+                                    }
+                                    className="form-select w-full border rounded px-2 py-1"
+                                  >
+                                    <option value="">-- Selecciona --</option>
+                                    <option value="ofrecer">
+                                      Volver a ofrecer al cliente
+                                    </option>
+                                    <option value="rechazar">
+                                      Efectuar devolución
+                                    </option>
+                                    <option value="recaudo">
+                                      Ajustar recaudo
+                                    </option>
+                                  </select>
+                                </div>
+
+                                {/* Solución a novedad */}
+                                <div>
+                                  <label
+                                    className="block text-sm font-medium"
+                                    htmlFor="Solucion_novedad"
+                                  >
+                                    Solución a novedad:
+                                  </label>
+                                  <input
+                                    type="text"
+                                    id="Solucion_novedad"
+                                    maxLength={50}
+                                    value={solucionGintra}
+                                    onChange={(e) =>
+                                      setSolucionGintra(e.target.value)
+                                    }
+                                    className="form-input w-full border rounded px-2 py-1"
+                                  />
+                                </div>
+
+                                {/* Fecha para gestionar novedad */}
+                                {tipoGintra !== "rechazar" && (
+                                  <div>
+                                    <label
+                                      className="block text-sm font-medium"
+                                      htmlFor="fecha_gintra"
+                                    >
+                                      Fecha para gestionar novedad:
+                                    </label>
+                                    <input
+                                      type="date"
+                                      id="fecha_gintra"
+                                      value={fechaGintra}
+                                      onChange={(e) => {
+                                        const selected = e.target.value;
+                                        const selectedDate = new Date(selected);
+                                        const day = selectedDate.getDay();
+                                        const today = new Date();
+                                        today.setHours(0, 0, 0, 0);
+
+                                        // Rechazar fines de semana y días pasados o hoy
+                                        if (
+                                          day !== 0 && // domingo
+                                          day !== 6 && // sábado
+                                          selectedDate > today
+                                        ) {
+                                          setFechaGintra(selected);
+                                        } else {
+                                          Swal.fire({
+                                            title: "Fecha inválida",
+                                            text: "Seleccione un día hábil posterior al día actual (lunes a viernes).",
+                                            icon: "warning",
+                                          });
+                                          e.target.value = "";
+                                          setFechaGintra("");
+                                        }
+                                      }}
+                                      className="form-input w-full border rounded px-2 py-1"
+                                      min={minDate}
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="bg-yellow-100 text-yellow-800 p-2 rounded text-sm">
+                                  <strong>Atención:</strong> Gintracom no recibe
+                                  novedades los días domingo.
+                                </div>
+
+                                {/* Valor a recaudar solo si seleccionan recaudo */}
+                                {tipoGintra === "recaudo" && (
+                                  <div>
+                                    <label
+                                      className="block text-sm font-medium"
+                                      htmlFor="Valor_recaudar"
+                                    >
+                                      Valor a recaudar:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="Valor_recaudar"
+                                      value={valorRecaudar}
+                                      onChange={(e) =>
+                                        setValorRecaudar(e.target.value)
+                                      }
+                                      className="form-input w-full border rounded px-2 py-1"
+                                    />
+                                  </div>
+                                )}
+
+                                <button
+                                  type="button"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                                  onClick={enviarGintracomNovedad}
+                                >
+                                  Enviar
+                                </button>
+                              </div>
+                            ) : /* Fin Gintracom */
+                            novedadSeleccionada.guia_novedad.startsWith(
+                                "SPD"
+                              ) ? (
+                              /* speed */
+                              <div
+                                className="text-black space-y-4 mt-4 overflow-y-auto"
+                                style={{ maxHeight: "70vh" }}
+                              >
+                                <p className="font-semibold">Sección Speed</p>
+
+                                {/* Observación */}
+                                <div>
+                                  <label
+                                    className="block text-sm font-medium"
+                                    htmlFor="observacion_usuario_speed"
+                                  >
+                                    Observación:
+                                  </label>
+                                  <input
+                                    type="text"
+                                    id="observacion_usuario_speed"
+                                    value={observacionSpeed}
+                                    onChange={(e) =>
+                                      setObservacionSpeed(e.target.value)
+                                    }
+                                    className="form-input w-full border rounded px-2 py-1"
+                                  />
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                                  onClick={() => {
+                                    // Aquí llamas a la función que manejará la lógica de envío para SPEED
+                                    console.log(
+                                      "Enviar SPEED (implementa la función)",
+                                      observacionSpeed
+                                    );
+                                  }}
+                                >
+                                  Enviar
+                                </button>
+                              </div>
+                            ) : (
+                              /* fin speed */
+                              /* servientrega */
+                              <div
+                                className="text-black space-y-4 mt-4 overflow-y-auto"
+                                style={{ maxHeight: "70vh" }}
+                              >
+                                <p className="font-semibold">
+                                  Sección Servientrega
+                                </p>
+
+                                {/* Observación */}
+                                <div>
+                                  <label
+                                    className="block text-sm font-medium"
+                                    htmlFor="observacion_nov"
+                                  >
+                                    Observación:
+                                  </label>
+                                  <input
+                                    type="text"
+                                    id="observacion_nov"
+                                    value={observacionServi}
+                                    onChange={(e) =>
+                                      setObservacionServi(e.target.value)
+                                    }
+                                    className="form-input w-full border rounded px-2 py-1"
+                                  />
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                                  onClick={enviarServiNovedad}
+                                >
+                                  Enviar
+                                </button>
+                              </div>
+
+                              /* fin servientrega */
+                            )}
+
+                            <button
+                              type="button"
+                              className="text-gray-600 underline"
+                              onClick={() => setAccion(null)}
+                            >
+                              Cancelar
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Cerrar */}
+                    <button
+                      className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
+                      onClick={() => setShowModalNovedad(false)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Modal de detalle novedad */}
 
               {/* Sección de detalles de la guía */}
               {guiaSeleccionada && (
