@@ -1634,7 +1634,10 @@ const DatosUsuario = ({
                                 <button
                                   className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                                   onClick={() =>
-                                    handleDetalleNovedad(novedades, "gestionada")
+                                    handleDetalleNovedad(
+                                      novedades,
+                                      "gestionada"
+                                    )
                                   }
                                 >
                                   Ver
@@ -1658,7 +1661,10 @@ const DatosUsuario = ({
                                   <button
                                     className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                                     onClick={() =>
-                                      handleDetalleNovedad(novedades, "no_gestionada")
+                                      handleDetalleNovedad(
+                                        novedades,
+                                        "no_gestionada"
+                                      )
                                     }
                                   >
                                     Ver
@@ -1826,6 +1832,7 @@ const DatosUsuario = ({
                                       <input
                                         type="text"
                                         id="callePrincipal_novedadesServi"
+                                        maxLength={100}
                                         defaultValue={
                                           datosNovedadExtra?.factura?.[0]
                                             ?.c_principal
@@ -1843,6 +1850,7 @@ const DatosUsuario = ({
                                       <input
                                         type="text"
                                         id="calleSecundaria_novedadesServi"
+                                        maxLength={100}
                                         defaultValue={
                                           datosNovedadExtra?.factura?.[0]
                                             ?.c_secundaria
@@ -1868,6 +1876,7 @@ const DatosUsuario = ({
                                       onChange={(e) =>
                                         setObservacionLaar(e.target.value)
                                       }
+                                      className="form-input w-full border rounded px-2 py-1"
                                     />
                                   </div>
                                 )}
@@ -1884,10 +1893,12 @@ const DatosUsuario = ({
                                     <input
                                       type="text"
                                       id="observacionA"
+                                      maxLength={200}
                                       value={solucionLaar}
                                       onChange={(e) =>
                                         setSolucionLaar(e.target.value)
                                       }
+                                      className="form-input w-full border rounded px-2 py-1"
                                     />
                                   </div>
                                 )}
