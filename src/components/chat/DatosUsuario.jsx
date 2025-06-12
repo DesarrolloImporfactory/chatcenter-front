@@ -402,7 +402,7 @@ const DatosUsuario = ({
     );
     formulario.append("total_venta", total || 0);
     formulario.append("transportadora", transportadora);
-    formulario.append("costo_flete", getValues("precio_envio") || 0);
+    formulario.append("costo_flete", getValues("precio_envio"));
     formulario.append("provinciaO", getValues("provinciaO") || "");
     formulario.append(
       "url_google_speed_pedido",
