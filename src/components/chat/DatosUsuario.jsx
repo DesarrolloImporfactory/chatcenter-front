@@ -374,6 +374,23 @@ const DatosUsuario = ({
 
     setGenerandoGuia(true);
 
+    const costoFlete = getValues("precio_envio");
+
+    if (
+      !costoFlete ||
+      String(costoFlete).trim() === "" ||
+      Number(costoFlete) === 0
+    ) {
+      Swal.fire({
+        icon: "warning",
+        title: "Costo de flete no asignado",
+        text: "Por favor, vuelva a seleccionar la transportadora deseada.",
+      });
+      resetSelection();
+      setGenerandoGuia(false);
+      return;
+    }
+
     const formulario = new FormData();
     formulario.append("procedencia", "1");
     formulario.append("id_pedido", facturaSeleccionada.id_factura || "");
@@ -479,6 +496,7 @@ const DatosUsuario = ({
           text: "La Guía se generó correctamente.",
         });
         recargarPedido();
+        resetSelection();
         setGenerandoGuia(false);
       } else if (data.status === "501" || data.status === 501) {
         Toast.fire({
@@ -486,8 +504,10 @@ const DatosUsuario = ({
           icon: "error",
           text: "Un producto no cuenta con stock y no se puede generar la guia.",
         });
+        resetSelection();
         setGenerandoGuia(false);
       } else {
+        resetSelection();
         setGenerandoGuia(false);
         alert("Error al generar la guía.");
       }
@@ -756,6 +776,15 @@ const DatosUsuario = ({
     if (id == 3) {
       setModal_google_maps(true);
     }
+  };
+
+  const resetSelection = () => {
+    // Limpiar la imagen seleccionada
+    setSelectedImageId(null);
+
+    // Limpiar los valores del formulario
+    setValue("transportadora", "");
+    setValue("precio_envio", "");
   };
 
   // Actualización de valores en el servidor
