@@ -2346,9 +2346,23 @@ const DatosUsuario = ({
                     {/* Botón Gestionar Novedad */}
                     {disableGestionar && (
                       <a
-                        href="https://new.imporsuitpro.com/pedidos/novedades_2" // Reemplaza con el enlace deseado
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault(); // evitar navegación inmediata
+                          const novedad = novedades_noGestionadas.find(
+                            (n) =>
+                              n.guia_novedad === guiaSeleccionada.numero_guia
+                          );
+                          if (novedad) {
+                            handleDetalleNovedad(novedad, "no_gestionada");
+                          } else {
+                            Swal.fire({
+                              icon: "warning",
+                              title: "Sin novedad",
+                              text: "No se encontró una novedad no gestionada para esta guía.",
+                            });
+                          }
+                        }}
                         className="rounded w-48 h-12 flex items-center justify-center bg-blue-500 text-white hover:bg-blue-600 transition-colors"
                       >
                         Gestionar Novedad
