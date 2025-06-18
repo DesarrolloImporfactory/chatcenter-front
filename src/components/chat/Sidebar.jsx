@@ -25,6 +25,8 @@ export const Sidebar = ({
   setSelectedEstado,
   selectedTransportadora,
   setSelectedTransportadora,
+  setSelectedNovedad,
+  selectedNovedad,
   Loading,
   validar_estadoLaar,
   validar_estadoServi,
@@ -120,6 +122,26 @@ export const Sidebar = ({
                 }}
               />
 
+              {/* Select para etiquetas */}
+              <Select
+                isClearable
+                options={[
+                  { value: "gestionadas", label: "Gestionadas" },
+                  { value: "no_gestionadas", label: "No Gestionadas" },
+                ]}
+                value={selectedNovedad} // Estado para el select de transportadora
+                onChange={(selectedOption) =>
+                  setSelectedNovedad(selectedOption)
+                }
+                placeholder="Selecciona novedad"
+                className="w-full mb-4"
+                classNamePrefix="react-select"
+                menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
+                styles={{
+                  menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
+                }}
+              />
+
               {/* Select para transportadora */}
               <Select
                 isClearable
@@ -192,25 +214,62 @@ export const Sidebar = ({
             ) : (
               filteredChats.slice(0, mensajesVisibles).map((mensaje, index) => {
                 // Función para validar el estado de la guía según la transportadora
-                const obtenerEstadoGuia = (transporte, estadoFactura) => {
+                const obtenerEstadoGuia = (
+                  transporte,
+                  estadoFactura,
+                  novedadInfo
+                ) => {
+                  let estado_guia = { color: "", estado_guia: "" };
+
                   switch (transporte) {
                     case "LAAR":
-                      return validar_estadoLaar(estadoFactura);
+                      estado_guia = validar_estadoLaar(estadoFactura);
+                      break;
                     case "SERVIENTREGA":
-                      return validar_estadoServi(estadoFactura);
+                      estado_guia = validar_estadoServi(estadoFactura);
+                      break;
                     case "GINTRACOM":
-                      return validar_estadoGintracom(estadoFactura);
+                      estado_guia = validar_estadoGintracom(estadoFactura);
+                      break;
                     case "SPEED":
-                      return validar_estadoSpeed(estadoFactura);
+                      estado_guia = validar_estadoSpeed(estadoFactura);
+                      break;
                     default:
-                      return { color: "", estado_guia: "" }; // No mostrar nada si es desconocido
+                      estado_guia = { color: "", estado_guia: "" }; // No mostrar nada si es desconocido
+                      break;
                   }
+
+                  // Validar si el estado de la guía es "Novedad"
+                  if (estado_guia.estado_guia === "Novedad") {
+                    try {
+                      // Parsear novedad_info si es string, o usar directamente si es un objeto
+                      const parsedNovedadInfo =
+                        typeof novedadInfo === "string"
+                          ? JSON.parse(novedadInfo)
+                          : novedadInfo;
+
+                      // Verificar si "terminado" o "solucionada" es igual a 1
+                      if (
+                        parsedNovedadInfo?.terminado === 1 ||
+                        parsedNovedadInfo?.solucionada === 1
+                      ) {
+                        // Si es resuelta, cambiar estado_guia y color
+                        estado_guia.estado_guia = "Novedad resuelta";
+                        estado_guia.color = "bg-yellow-500";
+                      }
+                    } catch (error) {
+                      console.error("Error al parsear novedad_info:", error);
+                    }
+                  }
+
+                  return estado_guia; // Devuelve el objeto completo con estado_guia y color
                 };
 
                 // Obtener el estado de la guía
                 const { color, estado_guia } = obtenerEstadoGuia(
                   mensaje.transporte,
-                  mensaje.estado_factura
+                  mensaje.estado_factura,
+                  mensaje.novedad_info // Pasar novedad_info al obtenerEstadoGuia
                 );
 
                 return (

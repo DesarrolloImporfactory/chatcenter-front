@@ -720,6 +720,7 @@ const Chat = () => {
   const [selectedEtiquetas, setSelectedEtiquetas] = useState([]);
   const [selectedEstado, setSelectedEstado] = useState([]);
   const [selectedTransportadora, setSelectedTransportadora] = useState(null);
+  const [selectedNovedad, setSelectedNovedad] = useState(null);
   const [selectedTab, setSelectedTab] = useState("abierto");
 
   const etiquetasOptions = etiquetas_api.map((etiqueta) => ({
@@ -835,6 +836,48 @@ const Chat = () => {
       } else {
         return false;
       }
+    })
+    .filter((mensaje) => {
+      // Filtro por novedad_info (gestionadas y no gestionadas)
+      let novedadInfo = [];
+      try {
+        if (typeof mensaje.novedad_info === "string") {
+          novedadInfo = JSON.parse(mensaje.novedad_info); // parseamos el JSON si es string
+        } else if (
+          typeof mensaje.novedad_info === "object" &&
+          mensaje.novedad_info !== null
+        ) {
+          novedadInfo = mensaje.novedad_info; // Si ya es un objeto, lo usamos directamente
+        }
+      } catch (error) {
+        console.error("Error al parsear novedad_info JSON:", error);
+      }
+
+      // Si no hay un filtro de novedad seleccionado, no se aplica ningún filtro
+      if (!selectedNovedad) {
+        return true; // No filtramos si no hay novedad seleccionada
+      }
+
+      // Validamos si novedad_info tiene valores nulos o no es válido
+      if (
+        novedadInfo?.id_novedad === null &&
+        novedadInfo?.terminado === null &&
+        novedadInfo?.solucionada === null
+      ) {
+        return false; // Descartamos este mensaje si novedad_info tiene todos los valores como null
+      }
+
+      // Verificamos si seleccionaron alguna novedad
+      const estadoNovedad =
+        novedadInfo?.terminado === 1 || novedadInfo?.solucionada === 1;
+
+      if (selectedNovedad.value === "gestionadas") {
+        return estadoNovedad; // Filtramos mensajes con estado gestionado (terminado = 1 o solucionada = 1)
+      } else if (selectedNovedad.value === "no_gestionadas") {
+        return !estadoNovedad; // Filtramos mensajes con estado no gestionado (terminado = 0 y solucionada = 0)
+      }
+
+      return true; // Si no se seleccionó ninguna novedad, no afecta el filtro
     })
     .filter((mensaje) => {
       // Filtro por chat cerrado según pestaña seleccionada
@@ -1527,6 +1570,8 @@ const Chat = () => {
         setSelectedEstado={setSelectedEstado}
         selectedTransportadora={selectedTransportadora}
         setSelectedTransportadora={setSelectedTransportadora}
+        setSelectedNovedad={setSelectedNovedad}
+        selectedNovedad={selectedNovedad}
         Loading={Loading}
         validar_estadoLaar={validar_estadoLaar}
         validar_estadoServi={validar_estadoServi}
