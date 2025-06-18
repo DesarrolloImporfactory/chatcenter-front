@@ -1352,9 +1352,12 @@ const Chat = () => {
     } else if (estado == 200 || estado == 201 || estado == 202) {
       color = "bg-purple-500";
       estado_guia = "Recolectado";
-    } else if (estado >= 300 && estado <= 317 && estado !== 307) {
+    } else if (estado >= 300 && estado <= 316 && estado !== 307) {
       color = "bg-yellow-500";
       estado_guia = "En tránsito";
+    }else if (estado == 317) {
+      color = "bg-yellow-500";
+      estado_guia = "Retirar en agencia";
     } else if (estado == 307) {
       color = "bg-yellow-500";
       estado_guia = "Zona entrega";
