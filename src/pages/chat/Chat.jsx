@@ -716,179 +716,28 @@ const Chat = () => {
   };
 
   /* filtro */
+  const [mensajesVisibles, setMensajesVisibles] = useState(10);
   const [etiquetas_api, setEtiquetas_api] = useState([]);
   const [selectedEtiquetas, setSelectedEtiquetas] = useState([]);
   const [selectedEstado, setSelectedEstado] = useState([]);
   const [selectedTransportadora, setSelectedTransportadora] = useState(null);
   const [selectedNovedad, setSelectedNovedad] = useState(null);
   const [selectedTab, setSelectedTab] = useState("abierto");
+  const [filteredChats, setFilteredChats] = useState([]);
+  const [offset, setOffset] = useState(0);
+  const [cursorFecha, setCursorFecha] = useState(null);
+  const [cursorId, setCursorId] = useState(null);
 
   const etiquetasOptions = etiquetas_api.map((etiqueta) => ({
     value: etiqueta.id_etiqueta,
     label: etiqueta.nombre_etiqueta,
   }));
+
+  useEffect(() => {
+    setFilteredChats(mensajesAcumulados); // Actualizamos filteredChats con mensajesAcumulados
+  }, [mensajesAcumulados]);
+
   /* fin filtro */
-
-  const filteredChats = mensajesAcumulados
-    .filter((mensaje) => {
-      // Filtro por nombre o celular
-      const nombreCliente = mensaje.nombre_cliente?.toLowerCase() || "";
-      const celularCliente = mensaje.celular_cliente?.toLowerCase() || "";
-      const term = searchTerm.toLowerCase();
-      return (
-        term === "" ||
-        nombreCliente.includes(term) ||
-        celularCliente.includes(term)
-      );
-    })
-    .filter((mensaje) => {
-      // Filtro por etiquetas seleccionadas
-      let etiquetas = [];
-      try {
-        if (typeof mensaje.etiquetas === "string") {
-          etiquetas = JSON.parse(mensaje.etiquetas);
-        } else if (
-          typeof mensaje.etiquetas === "object" &&
-          mensaje.etiquetas !== null
-        ) {
-          etiquetas = mensaje.etiquetas;
-        }
-      } catch (error) {
-        console.error("Error al parsear etiquetas JSON:", error);
-      }
-
-      const etiquetasSeleccionadas = selectedEtiquetas.map(
-        (etiqueta) => etiqueta.value
-      );
-
-      return (
-        etiquetasSeleccionadas.length === 0 ||
-        etiquetasSeleccionadas.every((idEtiquetaSeleccionada) =>
-          etiquetas.some(
-            (etiqueta) =>
-              etiqueta &&
-              etiqueta.id &&
-              etiqueta.id.toString() === idEtiquetaSeleccionada
-          )
-        )
-      );
-    })
-    .filter((mensaje) => {
-      // Filtro por transportadora
-      const transportadoraFiltro = selectedTransportadora?.value || null;
-      const transportadoraCliente = mensaje.transporte || "";
-      return (
-        !transportadoraFiltro ||
-        transportadoraCliente.toLowerCase() ===
-          transportadoraFiltro.toLowerCase()
-      );
-    })
-    .filter((mensaje) => {
-      // Filtro por estado y transportadora combinados
-      const estadoFiltro = selectedEstado?.value || null;
-      const transportadoraFiltro = selectedTransportadora?.value || null;
-      const estadoFactura = mensaje.estado_factura || "";
-
-      if (!estadoFiltro || !transportadoraFiltro) {
-        return true; // No se aplica filtro si no hay estado o transportadora seleccionados
-      }
-
-      const estadoTransportadoraMap = {
-        LAAR: {
-          Generada: [1, 2],
-          "En transito": [5, 11, 12, 6],
-          Entregada: [7],
-          Novedad: [14],
-          Devolucion: [9],
-        },
-        SERVIENTREGA: {
-          Generada: [100, 102, 103],
-          "En transito": (estadoFactura) =>
-            estadoFactura >= 300 && estadoFactura <= 317,
-          Entregada: (estadoFactura) =>
-            estadoFactura >= 400 && estadoFactura <= 403,
-          Novedad: (estadoFactura) =>
-            estadoFactura >= 320 && estadoFactura <= 351,
-          Devolucion: (estadoFactura) =>
-            estadoFactura >= 500 && estadoFactura <= 502,
-        },
-        GINTRACOM: {
-          Generada: [1, 2, 3],
-          "En transito": [5, 4],
-          Entregada: [7],
-          Novedad: [6],
-          Devolucion: [8, 9, 13],
-        },
-        SPEED: {
-          Generada: [2],
-          "En transito": [3],
-          Devolucion: [9],
-        },
-      };
-
-      const estadosPermitidos =
-        estadoTransportadoraMap[transportadoraFiltro][estadoFiltro];
-
-      if (typeof estadosPermitidos === "function") {
-        return estadosPermitidos(estadoFactura);
-      } else if (Array.isArray(estadosPermitidos)) {
-        return estadosPermitidos.includes(parseInt(estadoFactura));
-      } else {
-        return false;
-      }
-    })
-    .filter((mensaje) => {
-      // Filtro por novedad_info (gestionadas y no gestionadas)
-      let novedadInfo = [];
-      try {
-        if (typeof mensaje.novedad_info === "string") {
-          novedadInfo = JSON.parse(mensaje.novedad_info); // parseamos el JSON si es string
-        } else if (
-          typeof mensaje.novedad_info === "object" &&
-          mensaje.novedad_info !== null
-        ) {
-          novedadInfo = mensaje.novedad_info; // Si ya es un objeto, lo usamos directamente
-        }
-      } catch (error) {
-        console.error("Error al parsear novedad_info JSON:", error);
-      }
-
-      // Si no hay un filtro de novedad seleccionado, no se aplica ningún filtro
-      if (!selectedNovedad) {
-        return true; // No filtramos si no hay novedad seleccionada
-      }
-
-      // Validamos si novedad_info tiene valores nulos o no es válido
-      if (
-        novedadInfo?.id_novedad === null &&
-        novedadInfo?.terminado === null &&
-        novedadInfo?.solucionada === null
-      ) {
-        return false; // Descartamos este mensaje si novedad_info tiene todos los valores como null
-      }
-
-      // Verificamos si seleccionaron alguna novedad
-      const estadoNovedad =
-        novedadInfo?.terminado === 1 || novedadInfo?.solucionada === 1;
-
-      if (selectedNovedad.value === "gestionadas") {
-        return estadoNovedad; // Filtramos mensajes con estado gestionado (terminado = 1 o solucionada = 1)
-      } else if (selectedNovedad.value === "no_gestionadas") {
-        return !estadoNovedad; // Filtramos mensajes con estado no gestionado (terminado = 0 y solucionada = 0)
-      }
-
-      return true; // Si no se seleccionó ninguna novedad, no afecta el filtro
-    })
-    .filter((mensaje) => {
-      // Filtro por chat cerrado según pestaña seleccionada
-      const chatCerrado = mensaje.chat_cerrado; // Asumiendo que chat_cerrado es un campo en tu mensaje
-      if (selectedTab === "abierto") {
-        return chatCerrado === 0; // Solo chats abiertos
-      } else if (selectedTab === "resueltos") {
-        return chatCerrado === 1; // Solo chats resueltos
-      }
-      return true; // Si no se aplica filtro de chat_cerrado
-    });
 
   const socketRef = useRef(null);
   const inputSearchRef = useRef(null);
@@ -1025,8 +874,35 @@ const Chat = () => {
     if (isSocketConnected && userData) {
       console.time("⏱ Tiempo hasta llegada de CHATS");
 
+      // Emitir el evento con los filtros y la paginación
+      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+        cursorFecha: null,
+        cursorId: null,
+        filtros: {
+          searchTerm,
+          selectedEtiquetas,
+          selectedEstado,
+          selectedTransportadora,
+          selectedNovedad,
+          selectedTab,
+        },
+      });
+
+      socketRef.current.once("CHATS", (data) => {
+        if (data.length > 0) {
+          console.timeEnd("⏱ Tiempo hasta llegada de CHATS");
+          setMensajesAcumulados((prev) => [...prev, ...data]); // Agregamos, no reemplazamos
+
+          const ultimo = data[data.length - 1];
+          setCursorFecha(ultimo.mensaje_created_at);
+          setCursorId(ultimo.id);
+        }
+      });
+
+      // Emitir el evento con los filtros y la paginación
+
       socketRef.current.emit("ADD_USER", userData);
-      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma);
+
       socketRef.current.on("USER_ADDED", (data) => {});
 
       socketRef.current.emit("GET_DATA_ADMIN", userData.data?.id_plataforma);
@@ -1070,13 +946,99 @@ const Chat = () => {
         setNovedades_gestionadas(data.gestionadas);
         setNovedades_noGestionadas(data.no_gestionadas);
       });
-
-      socketRef.current.on("CHATS", (data) => {
-        console.timeEnd("⏱ Tiempo hasta llegada de CHATS");
-        setMensajesAcumulados(data);
-      });
     }
   }, [isSocketConnected && userData]);
+
+  const scrollRef = useRef(null);
+
+  const handleScrollMensajes = () => {
+    const div = scrollRef.current;
+    if (div.scrollTop + div.clientHeight >= div.scrollHeight - 50) {
+      console.log("Cargando más mensajes...");
+      setMensajesVisibles((prev) => prev + 10);
+    }
+  };
+
+  // Usamos un useEffect para cargar los primeros mensajes (o más mensajes si es necesario)
+  useEffect(() => {
+    const cargarChats = async () => {
+      if (socketRef.current && isSocketConnected) {
+        socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+          limit: 10,
+          cursorFecha,
+          cursorId,
+          filtros: {
+            searchTerm,
+            selectedEtiquetas,
+            selectedEstado,
+            selectedTransportadora,
+            selectedNovedad,
+            selectedTab,
+          },
+        });
+
+        socketRef.current.once("CHATS", (data) => {
+          if (data.length > 0) {
+            setMensajesAcumulados((prev) => {
+              const idsPrev = new Set(prev.map((msg) => msg.id));
+              const nuevos = data.filter((msg) => !idsPrev.has(msg.id));
+              return [...prev, ...nuevos];
+            });
+
+            const ultimo = data[data.length - 1];
+            setCursorFecha(ultimo.mensaje_created_at);
+            setCursorId(ultimo.id);
+          }
+        });
+      }
+    };
+
+    cargarChats();
+  }, [mensajesVisibles]);
+
+  useEffect(() => {
+    const cargarChatsFiltros = async () => {
+      setMensajesAcumulados([]);
+      setMensajesVisibles(10);
+      setCursorFecha(null);
+      setCursorId(null);
+
+      if (socketRef.current && isSocketConnected) {
+        socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+          limit: 10,
+          cursorFecha: null,
+          cursorId: null,
+          filtros: {
+            searchTerm,
+            selectedEtiquetas,
+            selectedEstado,
+            selectedTransportadora,
+            selectedNovedad,
+            selectedTab,
+          },
+        });
+
+        socketRef.current.once("CHATS", (data) => {
+          if (data.length > 0) {
+            setMensajesAcumulados(data);
+
+            const ultimo = data[data.length - 1];
+            setCursorFecha(ultimo.mensaje_created_at);
+            setCursorId(ultimo.id);
+          }
+        });
+      }
+    };
+
+    cargarChatsFiltros();
+  }, [
+    searchTerm,
+    selectedEtiquetas,
+    selectedEstado,
+    selectedTransportadora,
+    selectedNovedad,
+    selectedTab,
+  ]);
 
   function cargar_socket() {
     setTimeout(() => {
@@ -1086,17 +1048,38 @@ const Chat = () => {
 
   useEffect(() => {
     if (seRecibioMensaje) {
-      // Emitir evento para obtener todos los chats actualizados
-      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma);
+      // Obtener los chats recientes (carga inicial con cursores nulos)
+      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+        limit: 10,
+        cursorFecha: null, // Cargar desde el más reciente
+        cursorId: null,
+        filtros: {
+          searchTerm,
+          selectedEtiquetas,
+          selectedEstado,
+          selectedTransportadora,
+          selectedNovedad,
+          selectedTab,
+        },
+      });
 
+      socketRef.current.once("CHATS", (data) => {
+        if (data.length > 0) {
+          setMensajesAcumulados(data);
+
+          const ultimo = data[data.length - 1];
+          setCursorFecha(ultimo.mensaje_created_at);
+          setCursorId(ultimo.id);
+        }
+      });
+
+      // Obtener mensajes del chat seleccionado si existe
       if (selectedChat != null) {
-        // Emitir evento para obtener los mensajes del chat seleccionado
         socketRef.current.emit("GET_CHATS_BOX", {
           chatId: selectedChat.id,
           plataforma: userData.data?.id_plataforma,
         });
 
-        // Manejador para actualizar mensajes del chat seleccionado
         const handleChatBoxResponse = (data) => {
           console.log(
             "Mensajes actualizados tras recibir un nuevo mensaje:",
@@ -1104,17 +1087,15 @@ const Chat = () => {
           );
           setChatMessages(data);
 
-          // Ordenar mensajes y actualizar el estado
           const orderedMessages = getOrderedChats();
-          setMensajesOrdenados(orderedMessages.slice(-20)); // Últimos 20 mensajes
-          setMensajesMostrados(20); // Reiniciar el estado de mensajes mostrados
+          setMensajesOrdenados(orderedMessages.slice(-20));
+          setMensajesMostrados(20);
 
-          // Ajustar el scroll al final SOLO si ya estaba al final
           if (chatContainerRef.current) {
             const chatContainer = chatContainerRef.current;
             const isAtBottom =
               chatContainer.scrollHeight - chatContainer.scrollTop <=
-              chatContainer.clientHeight + 5; // Umbral de 5px para considerar que está al final
+              chatContainer.clientHeight + 5;
 
             if (isAtBottom) {
               chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -1122,11 +1103,9 @@ const Chat = () => {
           }
         };
 
-        // Registrar listener del socket UNA SOLA VEZ
         socketRef.current.once("CHATS_BOX_RESPONSE", handleChatBoxResponse);
       }
 
-      // Reiniciar el estado para detectar nuevos mensajes
       setSeRecibioMensaje(false);
     }
   }, [seRecibioMensaje, selectedChat, userData, getOrderedChats]);
@@ -1355,7 +1334,7 @@ const Chat = () => {
     } else if (estado >= 300 && estado <= 316 && estado !== 307) {
       color = "bg-yellow-500";
       estado_guia = "En tránsito";
-    }else if (estado == 317) {
+    } else if (estado == 317) {
       color = "bg-yellow-500";
       estado_guia = "Retirar en agencia";
     } else if (estado == 307) {
@@ -1583,6 +1562,10 @@ const Chat = () => {
         selectedTab={selectedTab}
         setSelectedTab={setSelectedTab}
         mensajesAcumulados={mensajesAcumulados}
+        mensajesVisibles={mensajesVisibles}
+        setMensajesVisibles={setMensajesVisibles}
+        scrollRef={scrollRef}
+        handleScrollMensajes={handleScrollMensajes}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

@@ -35,17 +35,11 @@ export const Sidebar = ({
   selectedTab,
   setSelectedTab,
   mensajesAcumulados,
+  mensajesVisibles,
+  setMensajesVisibles,
+  scrollRef,
+  handleScrollMensajes
 }) => {
-  const [mensajesVisibles, setMensajesVisibles] = useState(10);
-  const scrollRef = useRef(null);
-  const handleScrollMensajes = () => {
-    const div = scrollRef.current;
-    if (div && div.scrollTop + div.clientHeight >= div.scrollHeight - 20) {
-      if (mensajesVisibles < filteredChats.length) {
-        setMensajesVisibles((prev) => prev + 10);
-      }
-    }
-  };
   return (
     <>
       {" "}
