@@ -38,7 +38,7 @@ export const Sidebar = ({
   mensajesVisibles,
   setMensajesVisibles,
   scrollRef,
-  handleScrollMensajes
+  handleScrollMensajes,
 }) => {
   return (
     <>
@@ -146,9 +146,12 @@ export const Sidebar = ({
                   { value: "GINTRACOM", label: "Gintracom" },
                 ]}
                 value={selectedTransportadora} // Estado para el select de transportadora
-                onChange={(selectedOption) =>
-                  setSelectedTransportadora(selectedOption)
-                }
+                onChange={(selectedOption) => {
+                  setSelectedTransportadora(selectedOption);
+                  if (!selectedOption) {
+                    setSelectedEstado([]); // Limpia el estado si se borra la transportadora
+                  }
+                }}
                 placeholder="Selecciona transportadora"
                 className="w-full mb-4"
                 classNamePrefix="react-select"
