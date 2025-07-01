@@ -42,6 +42,9 @@ const DatosUsuario = ({
   const [datosNovedadExtra, setDatosNovedadExtra] = useState(null);
   const [tipo_novedad, setTipo_novedad] = useState(null);
 
+  const [stats, setStats] = useState(null);
+  const [nivel, setNivel] = useState(null);
+
   /* Laar */
   const [tipoLaar, setTipoLaar] = useState("");
   const [observacionLaar, setObservacionLaar] = useState("");
@@ -1222,32 +1225,119 @@ const DatosUsuario = ({
     cargarProductosAdicionales(1, e.target.value); // Buscar desde la página 1 con el filtro
   };
 
-  const telefono = watch("telefono");
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
 
+  const telefono = watch("telefono");
+
   useEffect(() => {
-    const validarDevoluciones = async () => {
-      if (telefono && telefono.length >= 8) {
-        try {
-          const { data } = await chatApi.post(
-            "/facturas_cot/validarDevolucion",
-            {
-              telefono,
-            }
-          );
+    const clean = telefono?.replace(/\D/g, '');
+    if (!clean || clean.length < 8) {        // espera al menos 8 dígitos
+      setStats(null);                        // ocultar tarjeta
+      return;
+    }
 
-          setMostrarAlerta(data.success); // si hay devolución, mostrar alerta
-        } catch (error) {
-          console.error("Error al validar devoluciones:", error);
-          setMostrarAlerta(false);
-        }
-      } else {
-        setMostrarAlerta(false);
-      }
-    };
+    // llamada al backend
+      chatApi.post('/facturas_cot/info-cliente', {
+        telefono     : clean,
+        id_plataforma: userData.data?.id_plataforma
+      })
+      .then(({ data }) => {
+        if (data.status !== 200) throw new Error('Error de servidor');
+        setStats(data.stats);
+        setNivel(data.nivel);
+      })
+      .catch(err => {
+        console.error('Historial:', err.message);
+        setStats(null);
+      });
 
-    validarDevoluciones();
   }, [telefono]);
+
+
+  function TarjetaHistorial({ stats, nivel }) {
+    if (!stats || !nivel) return null;
+
+    /* ─── helpers ───────────────────────────────────────── */
+    const n  = k => Number(stats?.[k] ?? 0);
+    const ok = n('entregas');
+    const ko = n('devoluciones');
+    const tot = ok + ko;
+
+    /* pluralizador rápido ------------------------------- */
+    const pl = (num, base, suf = 's') => `${base}${num === 1 ? '' : suf}`;
+
+    /* tipo de cliente ----------------------------------- */
+    const buyer =
+      n('ordenes_imporsuit') >= 4 ? 'Comprador frecuente' :
+      n('ordenes_imporsuit') >= 1 ? 'Comprador ocasional' : 'Nuevo';
+
+    /* colores para marco / texto / icono (según riesgo) -- */
+    const theme = {
+      success : { ring:'ring-green-500',  text:'text-green-500',  icon:'bx-check-circle' },
+      warning : { ring:'ring-amber-400',  text:'text-amber-500',  icon:'bx-error' },
+      danger  : { ring:'ring-red-500',    text:'text-red-500',    icon:'bx-x-circle' }
+    }[nivel.color];
+
+    /* tips ---------------------------------------------- */
+    const tips = {
+      success : ['Excelente historial.', 'Despachar con confianza.', 'Seguimiento normal.'],
+      warning : ['Buena probabilidad, vigile factores.', 'Confirme los datos antes de enviar.', 'Monitoree la entrega.'],
+      danger  : ['Historial conflictivo.', 'Considere pago anticipado.', 'Verifique datos antes de despachar.']
+    }[nivel.color];
+
+    /* % barras ------------------------------------------ */
+    const pctOk = tot ? (ok / tot) * 100 : 0;
+    const pctKo = tot ? (ko / tot) * 100 : 0;
+
+    return (
+      <div id="card_historial" className="mt-3">
+        <div className={`card bg-white shadow-sm ring-2 rounded-md ${theme.ring}`}>
+          <div className="card-body p-4">
+            {/* etiqueta comprador */}
+            <span className="inline-block text-xs font-semibold text-gray-500 border border-gray-300 rounded-full px-2 py-[2px] mb-2">
+              {buyer}
+            </span>
+
+            {/* título + icono */}
+            <h6 className={`flex items-center gap-1 font-semibold mb-2 ${theme.text}`}>
+              <i className={`bx ${theme.icon} text-base`}></i>
+              Probabilidad de entrega
+            </h6>
+
+            {/* tips */}
+            <ul className="list-disc pl-5 text-xs text-gray-600 space-y-1 mb-3">
+              {tips.map(t => <li key={t}>{t}</li>)}
+            </ul>
+
+            <p className="text-xs text-gray-700 font-medium leading-5 mb-2">
+              En tu tienda: {n('ordenes_tienda')} {pl(n('ordenes_tienda'), 'ordén', 'es')}<br/>
+              En Imporsuit:&nbsp;
+              {n('ordenes_imporsuit')} {pl(n('ordenes_imporsuit'), 'ordén', 'es')} |
+              {ok} {pl(ok, 'entrega')} |
+              {ko} {pl(ko, 'devolución', 'es')}
+            </p>
+
+            {/* barra progreso */}
+            <div className="w-full h-1.5 bg-gray-200 rounded overflow-hidden flex">
+              {/* entregas: SIEMPRE verde */}
+              <div
+                style={{ flexBasis:`${pctOk}%` }}
+                className="bg-green-500 h-full shrink-0 transition-all duration-300"
+              ></div>
+
+              {/* devoluciones: SIEMPRE rojo */}
+              <div
+                style={{ flexBasis:`${pctKo}%` }}
+                className="bg-red-500/80 h-full shrink-0 transition-all duration-300"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
 
   return (
     <>
@@ -2631,6 +2721,8 @@ const DatosUsuario = ({
                         <option value="1">Con recaudo</option>
                         <option value="2">SIn recaudo</option>
                       </select>
+
+                      <TarjetaHistorial stats={stats} nivel={nivel} />
 
                       {mostrarAlerta && (
                         <div
