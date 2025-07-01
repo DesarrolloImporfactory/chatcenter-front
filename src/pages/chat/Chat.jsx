@@ -1065,7 +1065,26 @@ const Chat = () => {
 
       socketRef.current.once("CHATS", (data) => {
         if (data.length > 0) {
-          setMensajesAcumulados(data);
+          setMensajesAcumulados((prevChats) => {
+            // Eliminar duplicados del nuevo data
+            const nuevosIds = new Set(data.map((chat) => chat.id));
+
+            // Filtrar chats viejos que no están siendo actualizados
+            const filtrados = prevChats.filter(
+              (chat) => !nuevosIds.has(chat.id)
+            );
+
+            // Unir chats filtrados con los nuevos
+            const actualizados = [...filtrados, ...data];
+
+            // Ordenar por mensaje_created_at descendente
+            actualizados.sort(
+              (a, b) =>
+                new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+            );
+
+            return actualizados;
+          });
 
           const ultimo = data[data.length - 1];
           setCursorFecha(ultimo.mensaje_created_at);
