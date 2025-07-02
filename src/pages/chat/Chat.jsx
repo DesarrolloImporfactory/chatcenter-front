@@ -936,35 +936,54 @@ const Chat = () => {
         console.log("XD:", data);
 
         setMensajesAcumulados((prevChats) => {
-          const actualizado = [...prevChats];
+          const actualizado = prevChats.map((chat) => ({ ...chat }));
 
-          // Buscar chat por celular_cliente
-          const index = actualizado.findIndex(
-            (chat) =>
-              chat.celular_cliente ===
-              data.ultimoMensaje?.cliente?.celular_cliente
-          );
+          const idChat = data.celular_recibe;
+
+          const index = actualizado.findIndex((chat) => {
+            console.log(String(chat.id) === String(idChat));
+            return String(chat.id) === String(idChat);
+          });
 
           if (index !== -1) {
-            // Chat ya existe, lo actualizamos solo en lo necesario
-            const chat = { ...actualizado[index] }; // Copia segura
+            actualizado[index].mensaje_created_at =
+              data.ultimoMensaje.created_at;
+            actualizado[index].texto_mensaje = data.ultimoMensaje.texto_mensaje;
+            actualizado[index].mensajes_pendientes =
+              (actualizado[index].mensajes_pendientes || 0) + 1;
+            actualizado[index].visto = 0;
 
-            // Solo editamos campos provenientes de ultimoMensaje
-            chat.mensaje_created_at = data.ultimoMensaje.created_at;
-            chat.texto_mensaje = data.ultimoMensaje.texto_mensaje;
-            chat.mensajes_pendientes = (chat.mensajes_pendientes || 0) + 1;
-            chat.visto = 0;
+            const [actualizadoChat] = actualizado.splice(index, 1);
+            actualizado.unshift(actualizadoChat);
+          } else {
+            // Si no está, crear uno nuevo con id = celular_recibe
+            const nuevoChat = {
+              id: idChat,
+              mensaje_created_at: data.ultimoMensaje.created_at,
+              texto_mensaje: data.ultimoMensaje.texto_mensaje,
+              celular_cliente: data.ultimoMensaje.cliente?.celular_cliente,
+              mensajes_pendientes: 1,
+              visto: 0,
+              nombre_cliente: data.ultimoMensaje.cliente?.nombre_cliente,
+              etiquetas: [
+                {
+                  id: null,
+                  nombre: null,
+                  color: null,
+                },
+              ],
+              transporte: null,
+              estado_factura: null,
+              novedad_info: {
+                id_novedad: null,
+                novedad: null,
+                solucionada: null,
+                terminado: null,
+              },
+            };
 
-            // Reemplazamos el viejo con el nuevo modificado
-            actualizado.splice(index, 1);
-            actualizado.unshift(chat); // Lo subimos al principio
+            actualizado.unshift(nuevoChat);
           }
-
-          // Reordenamos solo por si acaso otro chat también fue actualizado por otro evento
-          actualizado.sort(
-            (a, b) =>
-              new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
-          );
 
           return actualizado;
         });
@@ -1087,7 +1106,49 @@ const Chat = () => {
 
   useEffect(() => {
     if (seRecibioMensaje) {
-      
+      // Obtener los chats recientes (carga inicial con cursores nulos)
+      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+        limit: 10,
+        cursorFecha: null, // Cargar desde el más reciente
+        cursorId: null,
+        filtros: {
+          searchTerm,
+          selectedEtiquetas,
+          selectedEstado,
+          selectedTransportadora,
+          selectedNovedad,
+          selectedTab,
+        },
+      });
+
+      socketRef.current.once("CHATS", (data) => {
+        if (data.length > 0) {
+          setMensajesAcumulados((prevChats) => {
+            // Eliminar duplicados del nuevo data
+            const nuevosIds = new Set(data.map((chat) => chat.id));
+
+            // Filtrar chats viejos que no están siendo actualizados
+            const filtrados = prevChats.filter(
+              (chat) => !nuevosIds.has(chat.id)
+            );
+
+            // Unir chats filtrados con los nuevos
+            const actualizados = [...filtrados, ...data];
+
+            // Ordenar por mensaje_created_at descendente
+            actualizados.sort(
+              (a, b) =>
+                new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+            );
+
+            return actualizados;
+          });
+
+          const ultimo = data[data.length - 1];
+          setCursorFecha(ultimo.mensaje_created_at);
+          setCursorId(ultimo.id);
+        }
+      });
 
       // Obtener mensajes del chat seleccionado si existe
       if (selectedChat != null) {
