@@ -995,14 +995,24 @@ const Chat = () => {
         }
 
         /* carga de la derecha */
+        console.log("String(selectedChat.id): " + String(selectedChat.id));
+        console.log(
+          "String(data.celular_recibe)" + String(data.celular_recibe)
+        );
+        console.log("selectedChat: " + selectedChat);
 
-        if (selectedChat != null) {
+        if (
+          selectedChat &&
+          String(selectedChat.id) === String(data.celular_recibe)
+        ) {
+          console.log("entro en la consola");
+
           socketRef.current.emit("GET_CHATS_BOX", {
             chatId: selectedChat.id,
             plataforma: userData.data?.id_plataforma,
           });
 
-          const handleChatBoxResponse = (data) => {
+          socketRef.current.once("CHATS_BOX_RESPONSE", (data) => {
             console.log(
               "Mensajes actualizados tras recibir un nuevo mensaje:",
               data
@@ -1023,9 +1033,7 @@ const Chat = () => {
                 chatContainer.scrollTop = chatContainer.scrollHeight;
               }
             }
-          };
-
-          socketRef.current.once("CHATS_BOX_RESPONSE", handleChatBoxResponse);
+          });
         }
       });
 
