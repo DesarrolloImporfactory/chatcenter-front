@@ -934,6 +934,7 @@ const Chat = () => {
 
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
         console.log("XD", data);
+        console.log("ultimoMensaje: "+ data.ultimoMensaje);
         setSeRecibioMensaje(true);
       });
 
