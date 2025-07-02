@@ -993,6 +993,8 @@ const Chat = () => {
           setCursorFecha(data.ultimoMensaje.created_at);
           setCursorId(data.ultimoMensaje.id);
         }
+
+        setSeRecibioMensaje(true);
       });
 
       socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
