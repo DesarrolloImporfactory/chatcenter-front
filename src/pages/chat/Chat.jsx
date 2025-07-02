@@ -995,12 +995,6 @@ const Chat = () => {
         }
 
         /* carga de la derecha */
-        console.log("String(selectedChat.id): " + String(selectedChat.id));
-        console.log(
-          "String(data.celular_recibe)" + String(data.celular_recibe)
-        );
-        console.log("selectedChat: " + selectedChat);
-
         if (
           selectedChat &&
           String(selectedChat.id) === String(data.celular_recibe)
@@ -1047,7 +1041,7 @@ const Chat = () => {
         setNovedades_noGestionadas(data.no_gestionadas);
       });
     }
-  }, [isSocketConnected && userData]);
+  }, [isSocketConnected, userData, selectedChat]);
 
   const scrollRef = useRef(null);
 
