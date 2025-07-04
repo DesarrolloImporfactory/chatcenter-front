@@ -241,7 +241,10 @@ const Chat = () => {
 
       let respuesta = response.data;
 
-      const fechaMySQL = new Date().toISOString().slice(0, 19).replace("T", " ");
+      const fechaMySQL = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " ");
 
       if (respuesta.status != 200) {
         console.log("Error en la respuesta del servidor: " + respuesta);
@@ -258,8 +261,7 @@ const Chat = () => {
           });
 
           if (index !== -1) {
-            actualizado[index].mensaje_created_at =
-              fechaMySQL;
+            actualizado[index].mensaje_created_at = fechaMySQL;
             actualizado[index].texto_mensaje = texto_mensaje;
             actualizado[index].mensajes_pendientes =
               (actualizado[index].mensajes_pendientes || 0) + 1;
@@ -1014,102 +1016,106 @@ const Chat = () => {
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
         /* console.log("XD:", data); */
 
-        setMensajesAcumulados((prevChats) => {
-          const actualizado = prevChats.map((chat) => ({ ...chat }));
+        if (userData.data?.id_plataforma == data.id_plataforma) {
+          setMensajesAcumulados((prevChats) => {
+            const actualizado = prevChats.map((chat) => ({ ...chat }));
 
-          const idChat = data.celular_recibe;
+            const idChat = data.celular_recibe;
 
-          const index = actualizado.findIndex((chat) => {
-            console.log(String(chat.id) === String(idChat));
-            return String(chat.id) === String(idChat);
+            const index = actualizado.findIndex((chat) => {
+              console.log(String(chat.id) === String(idChat));
+              return String(chat.id) === String(idChat);
+            });
+
+            if (index !== -1) {
+              actualizado[index].mensaje_created_at =
+                data.ultimoMensaje.created_at;
+              actualizado[index].texto_mensaje =
+                data.ultimoMensaje.texto_mensaje;
+              actualizado[index].mensajes_pendientes =
+                (actualizado[index].mensajes_pendientes || 0) + 1;
+              actualizado[index].visto = 0;
+
+              const [actualizadoChat] = actualizado.splice(index, 1);
+              actualizado.unshift(actualizadoChat);
+            } else {
+              // Si no está, crear uno nuevo con id = celular_recibe
+              const nuevoChat = {
+                id: idChat,
+                mensaje_created_at: data.ultimoMensaje.created_at,
+                texto_mensaje: data.ultimoMensaje.texto_mensaje,
+                celular_cliente:
+                  data.ultimoMensaje.clientePorCelular?.celular_cliente,
+                mensajes_pendientes: 1,
+                visto: 0,
+                nombre_cliente:
+                  data.ultimoMensaje.clientePorCelular?.nombre_cliente,
+                etiquetas: [
+                  {
+                    id: null,
+                    nombre: null,
+                    color: null,
+                  },
+                ],
+                transporte: null,
+                estado_factura: null,
+                novedad_info: {
+                  id_novedad: null,
+                  novedad: null,
+                  solucionada: null,
+                  terminado: null,
+                },
+              };
+
+              /* console.log("nuevoChat: " + JSON.stringify(nuevoChat, null, 2)); */
+
+              actualizado.unshift(nuevoChat);
+            }
+
+            return actualizado;
           });
 
-          if (index !== -1) {
-            actualizado[index].mensaje_created_at =
-              data.ultimoMensaje.created_at;
-            actualizado[index].texto_mensaje = data.ultimoMensaje.texto_mensaje;
-            actualizado[index].mensajes_pendientes =
-              (actualizado[index].mensajes_pendientes || 0) + 1;
-            actualizado[index].visto = 0;
-
-            const [actualizadoChat] = actualizado.splice(index, 1);
-            actualizado.unshift(actualizadoChat);
-          } else {
-
-            // Si no está, crear uno nuevo con id = celular_recibe
-            const nuevoChat = {
-              id: idChat,
-              mensaje_created_at: data.ultimoMensaje.created_at,
-              texto_mensaje: data.ultimoMensaje.texto_mensaje,
-              celular_cliente: data.ultimoMensaje.clientePorCelular?.celular_cliente,
-              mensajes_pendientes: 1,
-              visto: 0,
-              nombre_cliente: data.ultimoMensaje.clientePorCelular?.nombre_cliente,
-              etiquetas: [
-                {
-                  id: null,
-                  nombre: null,
-                  color: null,
-                },
-              ],
-              transporte: null,
-              estado_factura: null,
-              novedad_info: {
-                id_novedad: null,
-                novedad: null,
-                solucionada: null,
-                terminado: null,
-              },
-            };
-
-            /* console.log("nuevoChat: " + JSON.stringify(nuevoChat, null, 2)); */
-
-            actualizado.unshift(nuevoChat);
+          // Si el cursor era null, se debe actualizar
+          if (!cursorFecha || !cursorId) {
+            setCursorFecha(data.ultimoMensaje.created_at);
+            setCursorId(data.ultimoMensaje.id);
           }
 
-          return actualizado;
-        });
+          /* carga de la derecha */
+          if (
+            selectedChat &&
+            String(selectedChat.id) === String(data.celular_recibe)
+          ) {
+            console.log("entro en la consola");
 
-        // Si el cursor era null, se debe actualizar
-        if (!cursorFecha || !cursorId) {
-          setCursorFecha(data.ultimoMensaje.created_at);
-          setCursorId(data.ultimoMensaje.id);
-        }
+            socketRef.current.emit("GET_CHATS_BOX", {
+              chatId: selectedChat.id,
+              plataforma: userData.data?.id_plataforma,
+            });
 
-        /* carga de la derecha */
-        if (
-          selectedChat &&
-          String(selectedChat.id) === String(data.celular_recibe)
-        ) {
-          console.log("entro en la consola");
+            socketRef.current.once("CHATS_BOX_RESPONSE", (data) => {
+              console.log(
+                "Mensajes actualizados tras recibir un nuevo mensaje:",
+                data
+              );
+              setChatMessages(data);
 
-          socketRef.current.emit("GET_CHATS_BOX", {
-            chatId: selectedChat.id,
-            plataforma: userData.data?.id_plataforma,
-          });
+              const orderedMessages = getOrderedChats();
+              setMensajesOrdenados(orderedMessages.slice(-20));
+              setMensajesMostrados(20);
 
-          socketRef.current.once("CHATS_BOX_RESPONSE", (data) => {
-            console.log(
-              "Mensajes actualizados tras recibir un nuevo mensaje:",
-              data
-            );
-            setChatMessages(data);
+              if (chatContainerRef.current) {
+                const chatContainer = chatContainerRef.current;
+                const isAtBottom =
+                  chatContainer.scrollHeight - chatContainer.scrollTop <=
+                  chatContainer.clientHeight + 5;
 
-            const orderedMessages = getOrderedChats();
-            setMensajesOrdenados(orderedMessages.slice(-20));
-            setMensajesMostrados(20);
-
-            if (chatContainerRef.current) {
-              const chatContainer = chatContainerRef.current;
-              const isAtBottom =
-                chatContainer.scrollHeight - chatContainer.scrollTop <=
-                chatContainer.clientHeight + 5;
-
-              if (isAtBottom) {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
+                if (isAtBottom) {
+                  chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
               }
-            }
-          });
+            });
+          }
         }
       });
 
