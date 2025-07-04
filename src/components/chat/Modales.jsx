@@ -295,7 +295,7 @@ const Modales = ({
       );
 
       /* cargar socket */
-      cargar_socket();
+      /* cargar_socket(); */
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
       alert("Ocurrió un error al enviar la imagen. Inténtalo más tarde.");
@@ -476,7 +476,7 @@ const Modales = ({
       );
 
       /* cargar socket */
-      cargar_socket();
+      /* cargar_socket(); */
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
       alert("Ocurrió un error al enviar el documento. Inténtalo más tarde.");
@@ -659,7 +659,7 @@ const Modales = ({
       );
 
       /* cargar socket */
-      cargar_socket();
+      /* cargar_socket(); */
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
       alert("Ocurrió un error al enviar el video. Inténtalo más tarde.");
@@ -885,7 +885,7 @@ const Modales = ({
       );
 
       /* cargar socket */
-      cargar_socket();
+      /* cargar_socket(); */
 
       setNumeroModal(false);
     } catch (error) {

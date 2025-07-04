@@ -241,8 +241,87 @@ const Chat = () => {
 
       let respuesta = response.data;
 
+      const fechaMySQL = new Date().toISOString().slice(0, 19).replace("T", " ");
+
       if (respuesta.status != 200) {
         console.log("Error en la respuesta del servidor: " + respuesta);
+      } else {
+        /* Mensajes seccion izquierda */
+        setMensajesAcumulados((prevChats) => {
+          const actualizado = prevChats.map((chat) => ({ ...chat }));
+
+          const idChat = id_recibe;
+
+          const index = actualizado.findIndex((chat) => {
+            console.log(String(chat.id) === String(idChat));
+            return String(chat.id) === String(idChat);
+          });
+
+          if (index !== -1) {
+            actualizado[index].mensaje_created_at =
+              fechaMySQL;
+            actualizado[index].texto_mensaje = texto_mensaje;
+            actualizado[index].mensajes_pendientes =
+              (actualizado[index].mensajes_pendientes || 0) + 1;
+            actualizado[index].visto = 0;
+
+            const [actualizadoChat] = actualizado.splice(index, 1);
+            actualizado.unshift(actualizadoChat);
+          } else {
+            // Si no está, crear uno nuevo con id = celular_recibe
+            const nuevoChat = {
+              id: idChat,
+              mensaje_created_at: fechaMySQL,
+              texto_mensaje: texto_mensaje,
+              celular_cliente: telefono_recibe,
+              mensajes_pendientes: 1,
+              visto: 0,
+              nombre_cliente: "",
+              etiquetas: [
+                {
+                  id: null,
+                  nombre: null,
+                  color: null,
+                },
+              ],
+              transporte: null,
+              estado_factura: null,
+              novedad_info: {
+                id_novedad: null,
+                novedad: null,
+                solucionada: null,
+                terminado: null,
+              },
+            };
+
+            actualizado.unshift(nuevoChat);
+          }
+
+          return actualizado;
+        });
+        /* Mensajes seccion izquierda */
+
+        /* Mensajes seccion derecha */
+        setMensajesOrdenados((prevMensajes) => {
+          const actualizado = prevMensajes.map((mensaje) => ({ ...mensaje }));
+
+          const nuevoMensaje = {
+            celular_recibe: id_recibe,
+            created_at: fechaMySQL,
+            id: "",
+            mid_mensaje: mid_mensaje,
+            rol_mensaje: 1,
+            ruta_archivo: ruta_archivo,
+            texto_mensaje: texto_mensaje,
+            tipo_mensaje: tipo_mensaje,
+            visto: 1,
+          };
+
+          actualizado.push(nuevoMensaje);
+
+          return actualizado;
+        });
+        /* Mensajes seccion derecha */
       }
     } catch (error) {
       console.error("Error al guardar el mensaje:", error);
@@ -1639,6 +1718,7 @@ const Chat = () => {
         tagList={tagList}
         cargar_socket={cargar_socket}
         SwitchBot={SwitchBot}
+        setMensajesAcumulados={setMensajesAcumulados}
       />
       {/* Historial de chats */}
       <Sidebar

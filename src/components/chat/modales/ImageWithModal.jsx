@@ -16,6 +16,7 @@ const ImageWithModal = ({ mensaje }) => {
         alt="Imagen en el chat"
         onClick={openModal} // Abre el modal al hacer clic
       />
+      <p className="pt-2">{mensaje.texto_mensaje}</p>
 
       {/* Modal para ver la imagen ampliada */}
       <Modal

@@ -236,6 +236,7 @@ const ChatPrincipal = ({
                               <i className="bx bx-download"></i>
                             </span>
                           </a>
+                          <p className="pt-2">{mensaje.texto_mensaje}</p>
                         </div>
                       ) : mensaje.tipo_mensaje === "video" ? (
                         /* Tipo: VIDEO */

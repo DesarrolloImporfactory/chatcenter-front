@@ -19,6 +19,7 @@ const Cabecera = ({
   tagList,
   cargar_socket,
   SwitchBot,
+  setMensajesAcumulados
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -74,12 +75,12 @@ const Cabecera = ({
     }
   };
 
-    // ---- USEEFFECT PARA CARGAR LAS CONFIGURACIONES AUTOMATIZADAS ----
-    useEffect(() => {
-      if (userData) {
-        fetchConfiguracionAutomatizada();
-      }
-    }, [userData]);
+  // ---- USEEFFECT PARA CARGAR LAS CONFIGURACIONES AUTOMATIZADAS ----
+  useEffect(() => {
+    if (userData) {
+      fetchConfiguracionAutomatizada();
+    }
+  }, [userData]);
 
   // (2) useEffect para detectar clic fuera y cerrar
   useEffect(() => {
@@ -145,8 +146,9 @@ const Cabecera = ({
         chat_cerrado: nuevoEstado,
       }));
 
-      console.log("Chat actualizado correctamente:", data);
-      cargar_socket();
+      setMensajesAcumulados((prev) =>
+        prev.filter((chat) => chat.id !== selectedChat.id)
+      );
     } catch (error) {
       console.error("Error al actualizar el chat:", error);
     }
@@ -258,64 +260,71 @@ const Cabecera = ({
         {/* Opciones dentro del slider */}
         <div className="mt-6">
           {/* Volver a Imporsuit */}
-            <a
-              href={`https://new.imporsuitpro.com/acceso/jwt_home/${localStorage.getItem("token")}`}
-              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
-            >
-              <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Volver a Imporsuit
-              </span>
-            </a>
-            {/* Chat Center */}
-            <a
-              href="/chat"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/chat" ? "bg-gray-200" : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/chat");
-              }}
-            >
-              <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Chat Center
-              </span>
-            </a>
-            {/* WhatsApp */}
-            <a
-              href="/administrador-whatsapp"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/administrador-whatsapp" ? "bg-gray-200" : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/administrador-whatsapp");
-              }}
-            >
-              <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                WhatsApp
-              </span>
-            </a>
+          <a
+            href={`https://new.imporsuitpro.com/acceso/jwt_home/${localStorage.getItem(
+              "token"
+            )}`}
+            className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
+          >
+            <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              Volver a Imporsuit
+            </span>
+          </a>
+          {/* Chat Center */}
+          <a
+            href="/chat"
+            className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+              location.pathname === "/chat" ? "bg-gray-200" : ""
+            }`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/chat");
+            }}
+          >
+            <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              Chat Center
+            </span>
+          </a>
+          {/* WhatsApp */}
+          <a
+            href="/administrador-whatsapp"
+            className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+              location.pathname === "/administrador-whatsapp"
+                ? "bg-gray-200"
+                : ""
+            }`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/administrador-whatsapp");
+            }}
+          >
+            <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              WhatsApp
+            </span>
+          </a>
 
-
-            <a
-              href={
-                (userData?.data?.id_matriz ?? 1) === 1
-                  ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
-                  : (userData?.data?.id_matriz ?? 1) === 2
-                  ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
-                  : "#"
-              }
-              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
-            >
-              <i className="bx bxs-bot mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Automatizador
-              </span>
-            </a>
+          <a
+            href={
+              (userData?.data?.id_matriz ?? 1) === 1
+                ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
+                    configuraciones[0]?.id ?? ""
+                  }`
+                : (userData?.data?.id_matriz ?? 1) === 2
+                ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${
+                    configuraciones[0]?.id ?? ""
+                  }`
+                : "#"
+            }
+            className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
+          >
+            <i className="bx bxs-bot mr-3 text-gray-600 group-hover:text-blue-600"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              Automatizador
+            </span>
+          </a>
 
           {/* Cerrar sesión */}
           <button
