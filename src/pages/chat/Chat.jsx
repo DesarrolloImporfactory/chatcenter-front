@@ -1012,7 +1012,7 @@ const Chat = () => {
       });
 
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
-        console.log("XD:", data);
+        /* console.log("XD:", data); */
 
         setMensajesAcumulados((prevChats) => {
           const actualizado = prevChats.map((chat) => ({ ...chat }));
@@ -1035,15 +1035,16 @@ const Chat = () => {
             const [actualizadoChat] = actualizado.splice(index, 1);
             actualizado.unshift(actualizadoChat);
           } else {
+
             // Si no está, crear uno nuevo con id = celular_recibe
             const nuevoChat = {
               id: idChat,
               mensaje_created_at: data.ultimoMensaje.created_at,
               texto_mensaje: data.ultimoMensaje.texto_mensaje,
-              celular_cliente: data.ultimoMensaje.cliente?.celular_cliente,
+              celular_cliente: data.ultimoMensaje.clientePorCelular?.celular_cliente,
               mensajes_pendientes: 1,
               visto: 0,
-              nombre_cliente: data.ultimoMensaje.cliente?.nombre_cliente,
+              nombre_cliente: data.ultimoMensaje.clientePorCelular?.nombre_cliente,
               etiquetas: [
                 {
                   id: null,
@@ -1060,6 +1061,8 @@ const Chat = () => {
                 terminado: null,
               },
             };
+
+            /* console.log("nuevoChat: " + JSON.stringify(nuevoChat, null, 2)); */
 
             actualizado.unshift(nuevoChat);
           }
