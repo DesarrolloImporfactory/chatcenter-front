@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 import chatApi from "../../api/chatcenter";
+import Swal from "sweetalert2";
 
 const Cabecera = ({
   userData,
@@ -38,6 +39,7 @@ const Cabecera = ({
   };
 
   const [configuraciones, setConfiguraciones] = useState([]);
+  const [estadoNumero, setEstadoNumero] = useState([]);
 
   const volver_seccion_principal = () => {
     setOpciones(false);
@@ -55,6 +57,43 @@ const Cabecera = ({
       "https://new.imporsuitpro.com/acceso/jwt_home/" +
       localStorage.getItem("token");
   };
+
+  useEffect(() => {
+    const fetchEstadoNumero = async () => {
+      if (!userData) return;
+      try {
+        const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
+          id_plataforma: userData.data?.id_plataforma,
+        });
+        setEstadoNumero(resp.data.data || []);
+      } catch (error) {
+        console.error("Error al obtener phone_numbers:", error);
+      }
+    };
+
+    fetchEstadoNumero();
+  }, [userData]);
+
+  useEffect(() => {
+    const checkBannedStatus = () => {
+      const isBanned = estadoNumero.some((num) => num.status === "BANNED");
+      if (isBanned) {
+        Swal.fire({
+          icon: "error",
+          title: "Cuenta bloqueada",
+          text: "Tu número de WhatsApp ha sido bloqueado. Se cerrará tu sesión.",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          allowEnterKey: true,
+          confirmButtonText: "OK",
+        }).then(() => {
+          handleLogout();
+        });
+      }
+    };
+
+    checkBannedStatus();
+  }, [estadoNumero]);
 
   // -------------------------------------------------------
   //  FUNC: Obtener configuraciones del endpoint
