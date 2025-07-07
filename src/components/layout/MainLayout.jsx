@@ -5,6 +5,7 @@ import { Footer } from "../shared/Footer";
 import chatApi from "../../api/chatcenter";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
+import Swal from "sweetalert2";
 
 function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -15,40 +16,78 @@ function MainLayout({ children }) {
   //Aqui guardaremos las configuraciones automatizadas que vienen de tu API
   const [userData, setUserData] = useState(null);
   const [configuraciones, setConfiguraciones] = useState([]);
+  const [estadoNumero, setEstadoNumero] = useState([]);
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(()=>{
+  useEffect(() => {
     //Verificamos si hay token en localStorage
     const token = localStorage.getItem("token");
-    if(!token){
+    if (!token) {
       //Si no hay token => ir alogin
       window.location.href = "/login";
-      return
+      return;
     }
 
     //Decodificamos el token
     const decoded = jwtDecode(token);
 
     //Verificamos si aun no expira
-    if (decoded.exp < Date.now() / 1000){
+    if (decoded.exp < Date.now() / 1000) {
       //Expirado =?logout
       localStorage.removeItem("token");
       window.location.href = "/login";
       return;
     }
 
-    //Guardamos userData 
+    //Guardamos userData
     setUserData(decoded);
   }, []);
 
-   // Cada vez que tengamos userData, cargamos las configuraciones
-   useEffect(() => {
+  // Cada vez que tengamos userData, cargamos las configuraciones
+  useEffect(() => {
     if (userData) {
       fetchConfiguracionAutomatizada();
     }
   }, [userData]);
+
+  useEffect(() => {
+    const fetchEstadoNumero = async () => {
+      if (!userData) return;
+      try {
+        const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
+          id_plataforma: userData.data?.id_plataforma,
+        });
+        setEstadoNumero(resp.data.data || []);
+      } catch (error) {
+        console.error("Error al obtener phone_numbers:", error);
+      }
+    };
+
+    fetchEstadoNumero();
+  }, [userData]);
+
+  useEffect(() => {
+    const checkBannedStatus = () => {
+      const isBanned = estadoNumero.some((num) => num.status === "BANNED");
+      if (isBanned) {
+        Swal.fire({
+          icon: "error",
+          title: "Cuenta bloqueada",
+          text: "Tu número de WhatsApp ha sido bloqueado. Se cerrará tu sesión.",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          allowEnterKey: true,
+          confirmButtonText: "OK",
+        }).then(() => {
+          handleLogout();
+        });
+      }
+    };
+
+    checkBannedStatus();
+  }, [estadoNumero]);
 
   // -------------------------------------------------------
   //  FUNC: Obtener configuraciones del endpoint
@@ -69,7 +108,7 @@ function MainLayout({ children }) {
     }
   };
 
-    // -------------------------------------------------------
+  // -------------------------------------------------------
   // FUNC: Redirigir a la tabla de automatizadores
   // -------------------------------------------------------
   const handleIrAutomatizadores = (idConfig) => {
@@ -95,23 +134,22 @@ function MainLayout({ children }) {
         setSliderOpen(false);
       }
     }
-  
+
     function handleEscape(event) {
       if (event.key === "Escape") {
         setSliderOpen(false);
       }
     }
-  
+
     // En lugar de 'mousedown', usar 'click' (o 'touchstart')
     document.addEventListener("click", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
-  
+
     return () => {
       document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [sliderOpen]);
-  
 
   const toggleSlider = () => {
     setSliderOpen(!sliderOpen);
@@ -144,10 +182,7 @@ function MainLayout({ children }) {
         -> Le pasamos la referencia del botón y la función
            para que el Header dispare toggleSlider 
       */}
-      <Header
-        menuButtonRef={menuButtonRef}
-        onToggleSlider={toggleSlider}
-      />
+      <Header menuButtonRef={menuButtonRef} onToggleSlider={toggleSlider} />
 
       {/* CONTENIDO PRINCIPAL: Menú lateral + Sección principal */}
       <div className="flex flex-1">
@@ -174,7 +209,9 @@ function MainLayout({ children }) {
           <div className="mt-6">
             {/* Volver a Imporsuit */}
             <a
-              href={`https://new.imporsuitpro.com/acceso/jwt_home/${localStorage.getItem("token")}`}
+              href={`https://new.imporsuitpro.com/acceso/jwt_home/${localStorage.getItem(
+                "token"
+              )}`}
               className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
             >
               <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
@@ -200,12 +237,13 @@ function MainLayout({ children }) {
               </span>
             </a>
 
-
             {/* WhatsApp */}
             <a
               href="/administrador-whatsapp"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/administrador-whatsapp" ? "bg-gray-200" : ""
+                location.pathname === "/administrador-whatsapp"
+                  ? "bg-gray-200"
+                  : ""
               }`}
               onClick={(e) => {
                 e.preventDefault();
@@ -218,13 +256,17 @@ function MainLayout({ children }) {
               </span>
             </a>
 
-              {/* Enlace Automatizador */}
-              <a
+            {/* Enlace Automatizador */}
+            <a
               href={
                 (userData?.data?.id_matriz ?? 1) === 1
-                  ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
+                  ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
+                      configuraciones[0]?.id ?? ""
+                    }`
                   : (userData?.data?.id_matriz ?? 1) === 2
-                  ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${configuraciones[0]?.id ?? ""}`
+                  ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${
+                      configuraciones[0]?.id ?? ""
+                    }`
                   : "#"
               }
               className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
@@ -235,24 +277,22 @@ function MainLayout({ children }) {
               </span>
             </a>
 
-              {/* Cerrar sesión */}
-              <button
-                onClick={handleLogout}
-                className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
-              >
-                <i className="bx bx-door-open text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
-                <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
-                  Cerrar sesión
-                </span>
-              </button>
+            {/* Cerrar sesión */}
+            <button
+              onClick={handleLogout}
+              className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
+            >
+              <i className="bx bx-door-open text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
+                Cerrar sesión
+              </span>
+            </button>
           </div>
         </div>
 
         {/* Sección principal a la derecha */}
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-auto bg-gray-100 p-2">
-            {children}
-          </div>
+          <div className="flex-1 overflow-auto bg-gray-100 p-2">{children}</div>
         </div>
       </div>
 
