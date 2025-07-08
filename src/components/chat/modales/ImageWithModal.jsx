@@ -12,9 +12,13 @@ const ImageWithModal = ({ mensaje }) => {
       {/* Miniatura de la imagen en el chat */}
       <img
         className="max-w-[330px] max-h-[426px] cursor-pointer hover:opacity-90 transition-opacity duration-200"
-        src={`https://new.imporsuitpro.com/${mensaje.ruta_archivo}`}
+        src={
+          mensaje.ruta_archivo.startsWith("http")
+            ? mensaje.ruta_archivo
+            : `https://new.imporsuitpro.com/${mensaje.ruta_archivo}`
+        }
         alt="Imagen en el chat"
-        onClick={openModal} // Abre el modal al hacer clic
+        onClick={openModal}
       />
       <p className="pt-2">{mensaje.texto_mensaje}</p>
 
