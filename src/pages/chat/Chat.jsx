@@ -136,6 +136,44 @@ const Chat = () => {
 
   const [tagList, setTagList] = useState([]);
 
+  const [pendingOpen, setPendingOpen] = useState(null);
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const ph = p.get("phone");
+    const nm = p.get("name") || "";
+    if (ph) setPendingOpen({ phone: ph, name: nm });
+  }, []);
+
+  /* 2️⃣  cuando ya hay chats */
+  useEffect(() => {
+    if (!pendingOpen || mensajesAcumulados.length === 0) return;
+
+    const chat = mensajesAcumulados.find(
+      (c) => String(c.celular_cliente) === String(pendingOpen.phone)
+    );
+
+    if (chat) {
+      handleSelectChat(chat);
+    } else {
+      // pedir al backend que cree/abra el chat y lo devuelva
+      socketRef.current.emit("OPEN_CHAT", {
+        phone: pendingOpen.phone,
+        name: pendingOpen.name,
+        id_plataforma: userData.data?.id_plataforma,
+      });
+
+      socketRef.current.once("OPEN_CHAT_RESPONSE", (data) => {
+        if (data.chat) {
+          setMensajesAcumulados((prev) => [data.chat, ...prev]);
+          handleSelectChat(data.chat);
+        }
+      });
+    }
+
+    setPendingOpen(null);
+  }, [pendingOpen, mensajesAcumulados]);
+
   const toggleCrearEtiquetaModal = () => {
     fetchTags();
     setIsCrearEtiquetaModalOpen(!isCrearEtiquetaModalOpen);
