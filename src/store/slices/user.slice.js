@@ -24,9 +24,9 @@ const userSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(loginThunk.fulfilled, (_, action) => action.payload)
-      .addCase(renewThunk.fulfilled, (_, action) => action.payload)
+      // .addCase(renewThunk.fulfilled, (_, action) => action.payload)
       .addCase(logout, () => null);
-  }  
+  },
 });
 
 export const { setUser, logout } = userSlice.actions;
@@ -47,31 +47,32 @@ export const loginThunk = createAsyncThunk(
   }
 );
 
-
 export const registerThunk = createAsyncThunk(
   "user/register",
-  async (newUser, {rejectWithValue}) =>{
-    try{
-      const {data} = await chatApi.post("auth/registro", newUser);
-      Toast.fire({icon: "success", title:"Cuenta creada. ¡Inicia sesión!"});
-      return data.user; //opcional, por si se decide loguear al crear 
-    } catch (err) {
-      Toast.fire({ icon: "error", title: err.response?.data?.message ?? "Error" });
-      return rejectWithValue(err.response?.data);
-    }
-  }
-)
-
-export const renewThunk = createAsyncThunk(
-  "user/renew",
-  async (_, { rejectWithValue }) => {
+  async (newUser, { rejectWithValue }) => {
     try {
-      const { data } = await chatApi.get("/auth/renew");
-      localStorage.setItem("token", data.token);
-      return data.user;            // devolvemos el payload
+      const { data } = await chatApi.post("auth/registro", newUser);
+      Toast.fire({ icon: "success", title: "Cuenta creada. ¡Inicia sesión!" });
+      return data.user; //opcional, por si se decide loguear al crear
     } catch (err) {
-      return rejectWithValue(err.response?.data || err.message);
+      Toast.fire({
+        icon: "error",
+        title: err.response?.data?.message ?? "Error",
+      });
+      return rejectWithValue(err.response?.data);
     }
   }
 );
 
+// export const renewThunk = createAsyncThunk(
+//   "user/renew",
+//   async (_, { rejectWithValue }) => {
+//     try {
+//       const { data } = await chatApi.get("/auth/renew");
+//       localStorage.setItem("token", data.token);
+//       return data.user;            // devolvemos el payload
+//     } catch (err) {
+//       return rejectWithValue(err.response?.data || err.message);
+//     }
+//   }
+// );

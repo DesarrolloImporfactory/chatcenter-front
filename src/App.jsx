@@ -6,7 +6,6 @@ import Register from "./pages/register/Register";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import AdministradorPlantillas from "./pages/admintemplates/AdministradorPlantillas";
-import { renewThunk } from "./store/slices/user.slice";
 import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
 import Chat from "./pages/chat/Chat";
 
