@@ -11,24 +11,19 @@ const getCookie = (name) => {
 };
 
 const ProtectedRoutes = () => {
-  /* 1️⃣  Intentar localStorage primero */
   let token = localStorage.getItem("token");
 
-  /* 2️⃣  Si no existe, ver si hay cookie chat_token */
+  /* 1️⃣  Si no hay token en localStorage, intenta con la cookie */
   if (!token || token === "undefined" || token === "") {
     const cookieToken = getCookie("chat_token");
     if (cookieToken) {
-      localStorage.setItem("token", cookieToken); // lo persistimos
+      localStorage.setItem("token", cookieToken);
       token = cookieToken;
     }
   }
 
-  /* 3️⃣  Decidir */
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <Outlet />;
+  /* 2️⃣  Decide */
+  return token ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
 export default ProtectedRoutes;
