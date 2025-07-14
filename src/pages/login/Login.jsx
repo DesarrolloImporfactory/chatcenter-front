@@ -194,7 +194,7 @@ export default function Login() {
               href="https://new.imporsuitpro.com/registro"
               className="text-blue-600 hover:underline"
             >
-              Regístrate aquuí
+              Regístrate aquí
             </a>
           </p>
           <p className="mt-4 text-[11px] text-gray-400 leading-tight text-center">
