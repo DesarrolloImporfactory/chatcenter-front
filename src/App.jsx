@@ -14,12 +14,6 @@ import Chat from "./pages/chat/Chat";
 import MainLayout from "./components/layout/MainLayout";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 function App() {
-  const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch(renewThunk());
-  }, [dispatch]);
-
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
       <Routes>
@@ -34,6 +28,8 @@ function App() {
               </MainLayout>
             }
           />
+
+          <Route path="/chat" element={<Chat />} />
         </Route>
 
         <Route path="/login" element={<Login />} />
@@ -63,7 +59,6 @@ function App() {
         {/* 
           /administrador-whatsapp, sin envolver MainLayout 
         */}
-        <Route path="/chat" element={<Chat />} />
         <Route path="*" element={<h1>Esta ruta no existe</h1>} />
       </Routes>
     </div>
