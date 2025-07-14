@@ -19,10 +19,12 @@ export default function Login() {
   } = useForm();
 
   const onSubmit = (data) => {
-    dispatch(loginThunk(data)).unwrap().then(() => {
-      reset();
-      navigate("/chat");
-    });
+    dispatch(loginThunk(data))
+      .unwrap()
+      .then(() => {
+        reset();
+        navigate("/chat");
+      });
   };
 
   return (
@@ -31,7 +33,6 @@ export default function Login() {
 
       {/* ---- Contenedor principal ---- */}
       <div className="grid gap-10 md:grid-cols-2 items-start w-full max-w-6xl z-10 text-justify">
-
         {/* ---- Panel Bienvenida ---- */}
         <motion.section
           initial={{ opacity: 0, y: 40 }}
@@ -41,22 +42,30 @@ export default function Login() {
         >
           <header className="flex items-center gap-3 mb-6">
             {/* Sustituya por su SVG de marca */}
-            <i className="bx bxs-message-dots text-3xl text-green-400" aria-hidden="true" />
-            <span className="text-xl font-semibold tracking-wide">ChatCenter</span>
+            <i
+              className="bx bxs-message-dots text-3xl text-green-400"
+              aria-hidden="true"
+            />
+            <span className="text-xl font-semibold tracking-wide">
+              ChatCenter
+            </span>
           </header>
           <h1 className="text-3xl font-extrabold mb-4 leading-tight">
             ¡Bienvenido!
           </h1>
           <p className="text-base mb-3">
-            Centraliza tus conversaciones de WhatsApp, acelera ventas y potencia tu marketing en un solo sitio.
+            Centraliza tus conversaciones de WhatsApp, acelera ventas y potencia
+            tu marketing en un solo sitio.
           </p>
           <p className="text-sm text-slate-300">
-            Ahorra tiempo, brinda atención personalizada y fideliza a tus clientes con flujos automáticos.
+            Ahorra tiempo, brinda atención personalizada y fideliza a tus
+            clientes con flujos automáticos.
           </p>
           <ul className="space-y-2 text-sm mt-6">
             <li className="flex gap-2">
               <i className="bx bx-check text-green-400 mt-[2px]" />
-              Responde hasta el 80 % de las consultas frecuentes con flujos automáticos.
+              Responde hasta el 80 % de las consultas frecuentes con flujos
+              automáticos.
             </li>
             <li className="flex gap-2">
               <i className="bx bx-check text-green-400 mt-[2px]" />
@@ -64,10 +73,12 @@ export default function Login() {
             </li>
           </ul>
           <div className="grid grid-cols-2 gap-4 mt-8 text-center">
-          <div>
-            <p className="text-3xl font-extrabold">+12 000</p>
-            <p className="text-xs text-slate-400">chats diarios gestionados</p>
-          </div>
+            <div>
+              <p className="text-3xl font-extrabold">+12 000</p>
+              <p className="text-xs text-slate-400">
+                chats diarios gestionados
+              </p>
+            </div>
             <div>
               <p className="text-3xl font-extrabold">98 %</p>
               <p className="text-xs text-slate-400">de satisfacción</p>
@@ -97,12 +108,18 @@ export default function Login() {
               placeholder="Correo electrónico"
               {...register("email", { required: "El email es obligatorio" })}
               className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
-                errors.email ? "border-red-500 focus:ring-red-400" : "border-gray-300 focus:ring-green-500"
+                errors.email
+                  ? "border-red-500 focus:ring-red-400"
+                  : "border-gray-300 focus:ring-green-500"
               }`}
               autoComplete="username"
             />
             {errors.email && (
-              <p role="alert" className="text-red-600 text-xs mt-1" aria-live="assertive">
+              <p
+                role="alert"
+                className="text-red-600 text-xs mt-1"
+                aria-live="assertive"
+              >
                 {errors.email.message}
               </p>
             )}
@@ -119,7 +136,9 @@ export default function Login() {
               placeholder="Contraseña"
               {...register("con", { required: "La contraseña es obligatoria" })}
               className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
-                errors.con ? "border-red-500 focus:ring-red-400" : "border-gray-300 focus:ring-green-500"
+                errors.con
+                  ? "border-red-500 focus:ring-red-400"
+                  : "border-gray-300 focus:ring-green-500"
               }`}
               autoComplete="current-password"
             />
@@ -132,7 +151,11 @@ export default function Login() {
               <i className={`bx ${showPwd ? "bx-hide" : "bx-show"} text-xl`} />
             </button>
             {errors.con && (
-              <p role="alert" className="text-red-600 text-xs mt-1" aria-live="assertive">
+              <p
+                role="alert"
+                className="text-red-600 text-xs mt-1"
+                aria-live="assertive"
+              >
                 {errors.con.message}
               </p>
             )}
@@ -171,12 +194,15 @@ export default function Login() {
               href="https://new.imporsuitpro.com/registro"
               className="text-blue-600 hover:underline"
             >
-              Regístrate aquí
+              Regístrate aquuí
             </a>
           </p>
           <p className="mt-4 text-[11px] text-gray-400 leading-tight text-center">
             Al iniciar sesión aceptas nuestros
-            <Link to="/terminos" className="underline ml-1">Términos y Condiciones</Link>.
+            <Link to="/terminos" className="underline ml-1">
+              Términos y Condiciones
+            </Link>
+            .
           </p>
           <div className="flex items-center justify-center gap-1 mt-7 text-[13px] text-gray-500">
             <i className="bx bx-lock" />
