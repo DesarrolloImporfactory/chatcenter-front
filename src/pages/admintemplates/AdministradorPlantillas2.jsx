@@ -40,10 +40,32 @@ const AdministradorPlantillas2 = () => {
   const [verModal, setVerModal] = useState(false);
 
   //Plantillas recomendadas
-  const [resultadoPlantillas, setResultadoPlantillas] = useState ([]);
+  const [resultadoPlantillas, setResultadoPlantillas] = useState([]);
   const [modalResultadosAbierto, setModalResultadosAbierto] = useState(false);
-  const [cargandoPlantillas, setCargandoPlantillas] = useState(false)
+  const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
   const socketRef = useRef(null);
+
+  /* seccion de asistente */
+
+  const [asistenteLogistico, setAsistenteLogistico] = useState(null);
+  const [asistenteVentas, setAsistenteVentas] = useState(null);
+  const [existeAsistente, setExisteAsistente] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Logística
+  const [nombreBotLog, setNombreBotLog] = useState("");
+  const [assistantIdLog, setAssistantIdLog] = useState("");
+  const [activoLog, setActivoLog] = useState(false);
+  const [showModalLogistica, setShowModalLogistica] = useState(false);
+
+  // Ventas
+  const [nombreBotVenta, setNombreBotVenta] = useState("");
+  const [assistantIdVenta, setAssistantIdVenta] = useState("");
+  const [activoVenta, setActivoVenta] = useState(false);
+  const [productosVenta, setProductosVenta] = useState("");
+  const [showModalVentas, setShowModalVentas] = useState(false);
+
+  /* seccion de asistente */
 
   //Cargamos el SDK de Facebook una sola vez
   useEffect(() => {
@@ -265,9 +287,60 @@ const AdministradorPlantillas2 = () => {
     }
   };
 
+  const fetchAsistenteAutomatizado = async () => {
+    if (!userData) return;
+    try {
+      const response = await chatApi.post("openai_assistants/info_asistentes", {
+        id_plataforma: userData.data?.id_plataforma,
+      });
+
+      const data = response.data?.data || {};
+
+      if (data.api_key_openai) {
+        setExisteAsistente(data.api_key_openai);
+      } else {
+        setExisteAsistente(data.api_key_openai);
+      }
+
+      if (data.logistico) {
+        setAsistenteLogistico(data.logistico);
+      } else {
+        setAsistenteLogistico(null);
+      }
+
+      if (data.ventas) {
+        setAsistenteVentas(data.ventas);
+      } else {
+        setAsistenteVentas(null);
+      }
+    } catch (error) {
+      console.error("Error al cargar los asistentes.", error);
+      setAsistenteLogistico(null);
+      setAsistenteVentas(null);
+    }
+  };
+
+  useEffect(() => {
+    if (asistenteLogistico){
+      setNombreBotLog(asistenteLogistico.nombre_bot || "");
+      setAssistantIdLog(asistenteLogistico.assistant_id || "");
+      setActivoLog(asistenteLogistico.activo);
+    }
+
+    if (asistenteVentas){
+      setNombreBotVenta(asistenteVentas.nombre_bot || "");
+      setAssistantIdVenta(asistenteVentas.assistant_id || "");
+      setActivoVenta(asistenteVentas.activo);
+      setProductosVenta(asistenteVentas.productos || "");
+    }
+
+  }, [asistenteLogistico, asistenteVentas]);
+
   useEffect(() => {
     if (currentTab === "settings") {
       fetchConfiguracionAutomatizada();
+    } else if (currentTab === "asistente") {
+      fetchAsistenteAutomatizado();
     }
   }, [currentTab]);
 
@@ -325,20 +398,29 @@ const AdministradorPlantillas2 = () => {
   const crearPlantillasAutomaticas = async () => {
     setCargandoPlantillas(true);
     try {
-      const response = await chatApi.post('/whatsapp_managment/crearPlantillasAutomaticas', {
-        id_plataforma: userData.data.id_plataforma
-      });
+      const response = await chatApi.post(
+        "/whatsapp_managment/crearPlantillasAutomaticas",
+        {
+          id_plataforma: userData.data.id_plataforma,
+        }
+      );
 
       if (response.data.success) {
         setResultadoPlantillas(response.data.resultados || []);
         setModalResultadosAbierto(true);
         fetchPlantillas();
       } else {
-        setStatusMessage({ type: 'error', text: 'Hubo un error creando las plantillas.' });
+        setStatusMessage({
+          type: "error",
+          text: "Hubo un error creando las plantillas.",
+        });
       }
     } catch (error) {
-      console.error('Error creando plantillas:', error);
-      setStatusMessage({ type: 'error', text: 'Error al conectar con el servidor.' });
+      console.error("Error creando plantillas:", error);
+      setStatusMessage({
+        type: "error",
+        text: "Error al conectar con el servidor.",
+      });
     } finally {
       setCargandoPlantillas(false);
     }
@@ -1023,6 +1105,279 @@ const AdministradorPlantillas2 = () => {
     );
   };
 
+  /* seccion de asistente */
+
+  const renderAsistenteTable = () => {
+    const iaLogisticaConectada = !!asistenteLogistico;
+    const iaVentasConectada = !!asistenteVentas;
+
+    const estadoIA = (estado) => (estado ? "Conectado" : "Desconectado");
+    const colorEstado = (estado) =>
+      estado ? "text-green-600 bg-green-100" : "text-red-600 bg-red-100";
+
+    const guardarApiKey = async (apiKeyInput) => {
+      const response = await chatApi.post(
+        "openai_assistants/actualizar_api_key_openai",
+        {
+          id_plataforma: userData.data?.id_plataforma,
+          api_key: apiKeyInput,
+        }
+      );
+
+      const data = response.data || {};
+
+      if (data.status == "200") {
+        setShowModal(false);
+      }
+    };
+
+    const guardarLogistica = async () => {
+      await chatApi.post("openai_assistants/actualizar_ia_logisctica", {
+        id_plataforma: userData.data?.id_plataforma,
+        nombre_bot: nombreBotLog,
+        assistant_id: assistantIdLog,
+        activo: activoLog,
+      });
+      setShowModalLogistica(false);
+    };
+
+    const guardarVentas = async () => {
+      await chatApi.post("openai_assistants/actualizar_ia_ventas", {
+        id_plataforma: userData.data?.id_plataforma,
+        nombre_bot: nombreBotVenta,
+        assistant_id: assistantIdVenta,
+        productos: productosVenta,
+        activo: activoVenta,
+      });
+      setShowModalVentas(false);
+    };
+
+    return (
+      <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
+        <div className="flex justify-between mb-4 items-center">
+          <h2 className="text-lg font-semibold">Asistente</h2>
+          {existeAsistente ? (
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+              onClick={() => setShowModal(true)}
+            >
+              Editar API Key
+            </button>
+          ) : (
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+              onClick={() => setShowModal(true)}
+            >
+              Añadir API Key
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* IA Logística */}
+          <div className="bg-white border rounded-lg shadow-md hover:shadow-lg p-6 relative">
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-3">
+                <i className="bx bxs-bot text-3xl text-blue-600"></i>
+                <h3 className="text-xl font-bold">
+                  {asistenteLogistico?.nombre_bot || "IA de Logística"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowModalLogistica(true)}
+                className="p-2 rounded-full hover:bg-blue-100 transition"
+                title={asistenteLogistico ? "Editar" : "Añadir"}
+              >
+                <i
+                  className={`bx ${
+                    asistenteLogistico ? "bx-edit" : "bx-plus"
+                  } text-3xl text-blue-600`}
+                ></i>
+              </button>
+            </div>
+            <p
+              className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${colorEstado(
+                iaLogisticaConectada
+              )}`}
+            >
+              {estadoIA(iaLogisticaConectada)}
+            </p>
+          </div>
+
+          {/* IA Ventas */}
+          <div className="bg-white border rounded-lg shadow-md hover:shadow-lg p-6 relative">
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-3">
+                <i className="bx bxs-cart text-3xl text-green-600"></i>
+                <h3 className="text-xl font-bold">
+                  {asistenteVentas?.nombre_bot || "IA de Ventas"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowModalVentas(true)}
+                className="p-2 rounded-full hover:bg-green-100 transition"
+                title={asistenteVentas ? "Editar" : "Añadir"}
+              >
+                <i
+                  className={`bx ${
+                    asistenteVentas ? "bx-edit" : "bx-plus"
+                  } text-3xl text-green-600`}
+                ></i>
+              </button>
+            </div>
+            <p
+              className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${colorEstado(
+                iaVentasConectada
+              )}`}
+            >
+              {estadoIA(iaVentasConectada)}
+            </p>
+          </div>
+        </div>
+
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Añadir API Key</h3>
+              <input
+                type="text"
+                value={existeAsistente}
+                onChange={(e) => setExisteAsistente(e.target.value)}
+                className="w-full border px-3 py-2 rounded mb-4"
+                placeholder="Escribe tu API Key"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => guardarApiKey(existeAsistente)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* logistica */}
+        {showModalLogistica && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">
+                Configurar IA Logística
+              </h3>
+
+              <input
+                type="text"
+                placeholder="Nombre del Bot"
+                value={nombreBotLog}
+                onChange={(e) => setNombreBotLog(e.target.value)}
+                className="w-full border px-3 py-2 rounded mb-3"
+              />
+              <input
+                type="text"
+                placeholder="Assistant ID"
+                value={assistantIdLog}
+                onChange={(e) => setAssistantIdLog(e.target.value)}
+                className="w-full border px-3 py-2 rounded mb-3"
+              />
+
+              <label className="flex items-center gap-2 mb-4">
+                <input
+                  type="checkbox"
+                  checked={activoLog}
+                  onChange={(e) => setActivoLog(e.target.checked)}
+                />
+                <span>Activo</span>
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowModalLogistica(false)}
+                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={guardarLogistica}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* logistica */}
+
+        {/* ventas */}
+        {showModalVentas && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">
+                Configurar IA Ventas
+              </h3>
+
+              <input
+                type="text"
+                placeholder="Nombre del Bot"
+                value={nombreBotVenta}
+                onChange={(e) => setNombreBotVenta(e.target.value)}
+                className="w-full border px-3 py-2 rounded mb-3"
+              />
+              <input
+                type="text"
+                placeholder="Assistant ID"
+                value={assistantIdVenta}
+                onChange={(e) => setAssistantIdVenta(e.target.value)}
+                className="w-full border px-3 py-2 rounded mb-3"
+              />
+              <input
+                type="text"
+                placeholder="Productos"
+                value={productosVenta}
+                onChange={(e) => setProductosVenta(e.target.value)}
+                className="w-full border px-3 py-2 rounded mb-3"
+              />
+
+              <label className="flex items-center gap-2 mb-4">
+                <input
+                  type="checkbox"
+                  checked={activoVenta}
+                  onChange={(e) => setActivoVenta(e.target.checked)}
+                />
+                <span>Activo</span>
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowModalVentas(false)}
+                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={guardarVentas}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ventas */}
+      </div>
+    );
+  };
+
+  /* seccion de asistente */
+
   // ---------------------------
   // Manejo de la creación de la plantilla
   // (Llamada al API y recarga las plantillas)
@@ -1157,53 +1512,59 @@ const AdministradorPlantillas2 = () => {
     }
   };
 
-
   const traducirErrorMeta = (error) => {
-  const code = error?.error?.error_subcode;
+    const code = error?.error?.error_subcode;
 
-  // Código conocido: idioma se está eliminando /plantilla
-  if (code === 2388023) {
-    return "No se puede crear esta plantilla por el momento. Ya existía anteriormente y fue eliminada. Intenta de nuevo en 1 minuto o usa un nombre distinto.";
-  }
+    // Código conocido: idioma se está eliminando /plantilla
+    if (code === 2388023) {
+      return "No se puede crear esta plantilla por el momento. Ya existía anteriormente y fue eliminada. Intenta de nuevo en 1 minuto o usa un nombre distinto.";
+    }
 
-  // Otros errores genéricos
-  return (
-    error?.error?.error_user_msg ||
-    error?.error?.message ||
-    "Ocurrió un error desconocido."
-  );
-};
+    // Otros errores genéricos
+    return (
+      error?.error?.error_user_msg ||
+      error?.error?.message ||
+      "Ocurrió un error desconocido."
+    );
+  };
 
-const ModalResultadosPlantillas = ({ resultados, onClose }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex justify-center items-center">
-      <div className="bg-white w-[90%] md:w-[600px] max-h-[90%] overflow-y-auto rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">Resumen de las Plantillas Creadas</h2>
-        {resultados.map((r, idx) => (
-          <div key={idx} className="mb-3 p-3 border rounded bg-gray-50">
-            <div className="font-bold">{r.nombre}</div>
-            <div className={`text-sm ${
-              r.status === 'success' ? 'text-green-600' :
-              r.status === 'omitido' ? 'text-yellow-600' :
-              'text-red-600'
-            }`}>
-              {r.status.toUpperCase()} -{" "}
-              {r.mensaje ||
-                (r.error ? traducirErrorMeta(r.error) : 'Plantilla creada exitósamente.')}
+  const ModalResultadosPlantillas = ({ resultados, onClose }) => {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex justify-center items-center">
+        <div className="bg-white w-[90%] md:w-[600px] max-h-[90%] overflow-y-auto rounded-lg shadow-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">
+            Resumen de las Plantillas Creadas
+          </h2>
+          {resultados.map((r, idx) => (
+            <div key={idx} className="mb-3 p-3 border rounded bg-gray-50">
+              <div className="font-bold">{r.nombre}</div>
+              <div
+                className={`text-sm ${
+                  r.status === "success"
+                    ? "text-green-600"
+                    : r.status === "omitido"
+                    ? "text-yellow-600"
+                    : "text-red-600"
+                }`}
+              >
+                {r.status.toUpperCase()} -{" "}
+                {r.mensaje ||
+                  (r.error
+                    ? traducirErrorMeta(r.error)
+                    : "Plantilla creada exitósamente.")}
+              </div>
             </div>
-          </div>
-        ))}
-        <button
-          onClick={onClose}
-          className="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          Cerrar
-        </button>
+          ))}
+          <button
+            onClick={onClose}
+            className="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
-    </div>
-  );
-};
-
+    );
+  };
 
   return (
     <div className="p-0 mt-16">
@@ -1272,6 +1633,17 @@ const ModalResultadosPlantillas = ({ resultados, onClose }) => {
 
           <button
             className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
+              currentTab === "asistente"
+                ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
+            onClick={() => setCurrentTab("asistente")}
+          >
+            <i className="fas fa-cog"></i> Asistentes
+          </button>
+
+          <button
+            className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
               currentTab === "settings"
                 ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
                 : "text-gray-600 hover:text-blue-600"
@@ -1288,6 +1660,7 @@ const ModalResultadosPlantillas = ({ resultados, onClose }) => {
         {currentTab === "templates" && renderTemplatesTable()}
         {currentTab === "answers-fast" && renderAnswersFastTable()}
         {currentTab === "settings" && renderSettingsTable()}
+        {currentTab === "asistente" && renderAsistenteTable()}
       </div>
 
       {mostrarModalPlantilla && (
@@ -1345,7 +1718,6 @@ const ModalResultadosPlantillas = ({ resultados, onClose }) => {
           onClose={() => setModalResultadosAbierto(false)}
         />
       )}
-
     </div>
   );
 };
