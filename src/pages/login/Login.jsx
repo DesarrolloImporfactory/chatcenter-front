@@ -35,6 +35,7 @@ export default function Login() {
     const query = new URLSearchParams(location.search);
     const token = query.get("token");
     const tienda = query.get("tienda");
+    const phone = query.get("phone");
 
     if (token && tienda) {
       localStorage.removeItem("token");
@@ -43,7 +44,11 @@ export default function Login() {
         .unwrap()
         .then(() => {
           console.log("Login automático exitoso");
-          navigate("/chat");
+          if (phone) {
+            navigate(`/chat?phone=${encodeURIComponent(phone)}`);
+          } else {
+            navigate("/chat");
+          }
         })
         .catch((err) => {
           console.error("Error en login automático:", err);

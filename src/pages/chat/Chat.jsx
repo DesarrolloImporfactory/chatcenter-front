@@ -145,34 +145,58 @@ const Chat = () => {
     if (ph) setPendingOpen({ phone: ph, name: nm });
   }, []);
 
+  const getChatByPhone = async (phone, id_plataforma) => {
+    return chatApi.get(
+      `/clientes_chat_center/findFullByPhone/${encodeURIComponent(
+        phone
+      )}?id_plataforma=${id_plataforma}`
+    );
+  };
+
   /* 2️⃣  cuando ya hay chats */
   useEffect(() => {
-    if (!pendingOpen || mensajesAcumulados.length === 0) return;
+    if (!pendingOpen || !userData) return;
 
-    const chat = mensajesAcumulados.find(
-      (c) => String(c.celular_cliente) === String(pendingOpen.phone)
+    const { phone, name } = pendingOpen;
+
+    // 2.1  ¿Ya está en los chats cargados?
+    const existente = mensajesAcumulados.find(
+      (c) => String(c.celular_cliente) === String(phone)
     );
 
-    if (chat) {
-      handleSelectChat(chat);
-    } else {
-      // pedir al backend que cree/abra el chat y lo devuelva
-      socketRef.current.emit("OPEN_CHAT", {
-        phone: pendingOpen.phone,
-        name: pendingOpen.name,
-        id_plataforma: userData.data?.id_plataforma,
-      });
-
-      socketRef.current.once("OPEN_CHAT_RESPONSE", (data) => {
-        if (data.chat) {
-          setMensajesAcumulados((prev) => [data.chat, ...prev]);
-          handleSelectChat(data.chat);
-        }
-      });
+    if (existente) {
+      handleSelectChat(existente);
+      setPendingOpen(null);
+      return;
     }
 
-    setPendingOpen(null);
-  }, [pendingOpen, mensajesAcumulados]);
+    // 2.2  Búsqueda directa en BD (NO crea chat)
+    (async () => {
+      try {
+        const { data } = await getChatByPhone(
+          phone,
+          userData.data.id_plataforma
+        );
+        // 200 => lo encontró
+        setMensajesAcumulados((prev) => [data.data, ...prev]);
+        handleSelectChat(data.data);
+      } catch (err) {
+        if (err.response?.status === 404) {
+          // 404 => no existe conversación. Decide qué hacer:
+          // mostrar alerta, crearla manualmente, etc.
+          Swal.fire(
+            "Sin conversación",
+            "Ese número aún no tiene historial de chat.",
+            "info"
+          );
+        } else {
+          console.error(err);
+        }
+      } finally {
+        setPendingOpen(null);
+      }
+    })();
+  }, [pendingOpen, userData]);
 
   const toggleCrearEtiquetaModal = () => {
     fetchTags();
