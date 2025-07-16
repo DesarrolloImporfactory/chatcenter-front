@@ -47,6 +47,21 @@ export const loginThunk = createAsyncThunk(
   }
 );
 
+export const newLoginThunk = createAsyncThunk(
+  "user/login",
+  async (credentials, { rejectWithValue }) => {
+    try {
+      const { data } = await chatApi.post("/auth/newLogin", credentials);
+      localStorage.setItem("token", data.token);
+      return data.user;
+    } catch (err) {
+      const msg = err.response?.data?.message || "Credenciales inválidas";
+      Toast.fire({ icon: "error", title: msg });
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 export const registerThunk = createAsyncThunk(
   "user/register",
   async (newUser, { rejectWithValue }) => {

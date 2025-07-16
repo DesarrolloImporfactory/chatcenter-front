@@ -1,10 +1,11 @@
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { loginThunk } from "./../../store/slices/user.slice";
-import { useNavigate, Link } from "react-router-dom";
+import { newLoginThunk } from "./../../store/slices/user.slice";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import AnimatedBackground from "./AnimatedBackground";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Login() {
   const dispatch = useDispatch();
@@ -26,6 +27,30 @@ export default function Login() {
         navigate("/chat");
       });
   };
+
+  /* login por url */
+  const location = useLocation();
+
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const token = query.get("token");
+    const tienda = query.get("tienda");
+
+    if (token && tienda) {
+      localStorage.removeItem("token");
+
+      dispatch(newLoginThunk({ token, tienda }))
+        .unwrap()
+        .then(() => {
+          console.log("Login automático exitoso");
+          navigate("/chat");
+        })
+        .catch((err) => {
+          console.error("Error en login automático:", err);
+        });
+    }
+  }, [location.search]);
+  /* login por url */
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-slate-950 overflow-hidden p-4">
