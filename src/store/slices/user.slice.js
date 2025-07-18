@@ -63,7 +63,7 @@ export const newLoginThunk = createAsyncThunk(
 );
 
 export const registerThunk = createAsyncThunk(
-  "user/register",
+  "user/registro",
   async (newUser, { rejectWithValue }) => {
     try {
       const { data } = await chatApi.post("auth/registro", newUser);

@@ -1,139 +1,281 @@
-import { useForm } from "react-hook-form";
-import { useDispatch } from "react-redux";
-import { registerThunk } from "./../../store/slices/user.slice";
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import "./register.css";
+  import { useForm } from "react-hook-form";
+  import { useDispatch } from "react-redux";
+  import { registerThunk } from "../../store/slices/user.slice";
+  import { Link, useNavigate } from "react-router-dom";
+  import { motion } from "framer-motion";
+  import AnimatedBackground from "../login/AnimatedBackground";
+  import { useState } from "react";
 
-const Register = () => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm();
-  const [file, setFile] = useState([]);
+  export default function Register() {
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const [showPwd, setShowPwd] = useState(false);
+    const [active, setActive] = useState(null);
 
-  const submit = (data) => {
-    const formData = new FormData();
-    formData.append("name", data.name);
-    formData.append("email", data.email);
-    formData.append("password", data.password);
-    formData.append("profileImgUrl", file[0]);
-    formData.append("description", data.description);
+    const {
+      register,
+      handleSubmit,
+      watch,
+      reset,
+      formState: { errors },
+    } = useForm();
 
-    reset({
-      name: "",
-      email: "",
-      password: "",
-      profileImgUrl: "",
-      description: "",
-    });
+    const onSubmit = (data) => {
+      dispatch(registerThunk(data))
+        .unwrap()
+        .then(() => {
+          reset();
+          navigate("/login"); // o /  si quieres loguear directamente
+        });
+    };
 
-    dispatch(registerThunk(formData));
-    navigate("/");
-  };
+    return (
+      <div className="relative min-h-screen flex items-center justify-center bg-slate-950 overflow-hidden p-4">
+        <AnimatedBackground />
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 items-center min-h-screen">
-      {/* Sección de Bienvenida */}
-      <div className="bg-[#171931] text-center text-white p-8 rounded-md">
-        <span className="flex justify-center items-center gap-2 mb-2">
-          CHATCENTER <i className="bx bxl-whatsapp text-5xl"></i>
-        </span>
-        <hr />
-        <h1 className="text-4xl font-bold my-2">¡Únete a nosotros!</h1>
-        <p className="text-lg mb-4">
-          Regístrate para acceder a una plataforma de mensajería optimizada que
-          te ayudará a gestionar tus mensajes de forma eficiente.
-        </p>
-        <p className="text-md">
-          Disfruta de herramientas avanzadas para mejorar la fidelización de
-          clientes y potenciar tus estrategias de marketing.
-        </p>
-      </div>
-
-      {/* Formulario de Registro */}
-      <div>
-        <form
-          className="bg-white p-8 rounded shadow-lg max-w-md mx-auto"
-          onSubmit={handleSubmit(submit)}
-        >
-          <h2 className="text-2xl font-semibold mb-6 text-center">
-            Crea tu cuenta
-          </h2>
-
-          <div className="mb-4">
-            <label htmlFor="name" className="block mb-2 font-medium">
-              Nombre
-            </label>
-            <input
-              {...register("name", { required: "El nombre es obligatorio" })}
-              type="text"
-              id="name"
-              className="block w-full p-3 border rounded focus:border-blue-500"
-            />
-            {errors.name && (
-              <p className="text-red-500 text-sm">{errors.name.message}</p>
-            )}
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="email" className="block mb-2 font-medium">
-              Correo Electrónico
-            </label>
-            <input
-              {...register("email", { required: "El email es obligatorio" })}
-              type="email"
-              id="email"
-              className="block w-full p-3 border rounded focus:border-blue-500"
-            />
-            {errors.email && (
-              <p className="text-red-500 text-sm">{errors.email.message}</p>
-            )}
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="password" className="block mb-2 font-medium">
-              Contraseña
-            </label>
-            <input
-              {...register("password", {
-                required: "La contraseña es obligatoria",
-              })}
-              type="password"
-              id="password"
-              className="block w-full p-3 border rounded focus:border-blue-500"
-            />
-            {errors.password && (
-              <p className="text-red-500 text-sm">{errors.password.message}</p>
-            )}
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="description" className="block mb-2 font-medium">
-              Descripción
-            </label>
-            <input
-              {...register("description")}
-              type="text"
-              id="description"
-              className="block w-full p-3 border rounded focus:border-blue-500"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+        <div className="grid gap-10 md:grid-cols-2 items-start w-full max-w-6xl z-10 text-justify">
+          {/* ---------- Panel Inspiracional ---------- */}
+          <motion.section
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="order-2 md:order-1 p-8 rounded-2xl bg-slate-800/90 backdrop-blur-xl shadow-[0_8px_24px_-6px_rgba(0,0,0,0.6)] text-white"
           >
-            Registrar
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
+            <header className="flex items-center gap-3 mb-6">
+              <i className="bx bxs-user-plus text-3xl text-green-400" />
+              <span className="text-xl font-semibold tracking-wide">
+                ¡Únete a ChatCenter!
+              </span>
+            </header>
+            <h1 className="text-3xl font-extrabold mb-4 leading-tight">
+              Crea tu cuenta en minutos
+            </h1>
+            <p className="text-base mb-3">
+              Gestiona tus conversaciones de WhatsApp, acelera ventas y escala tu
+              negocio desde una sola plataforma.
+            </p>
+          </motion.section>
 
-export default Register;
+          {/* ---------- Formulario Registro ---------- */}
+          <motion.form
+            onSubmit={handleSubmit(onSubmit)}
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.15 }}
+            className="order-1 md:order-2 w-full max-w-md mx-auto bg-white/90 backdrop-blur-lg p-8 rounded-2xl shadow-lg"
+          >
+            <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">
+              Regístrate
+            </h2>
+
+            {/* Nombre */}
+            <div className="mb-4">
+              <label htmlFor="nombre" className="sr-only">
+                Nombre completo
+              </label>
+              <input
+                id="nombre"
+                type="text"
+                placeholder="Nombre empresa"
+                {...register("nombre", {
+                  required: "El nombre es obligatorio",
+                  minLength: { value: 3, message: "Mínimo 3 caracteres" },
+                })}
+                className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
+                  errors.nombre
+                    ? "border-red-500 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-green-500"
+                }`}
+              />
+              {errors.nombre && (
+                <p role="alert" className="text-red-600 text-xs mt-1">
+                  {errors.nombre.message}
+                </p>
+              )}
+            </div>
+
+            {/* Usuario */}
+            <div className="mb-4">
+              <label htmlFor="usuario" className="sr-only">
+                Usuario
+              </label>
+              <input
+                id="usuario"
+                type="text"
+                placeholder="Nombre de usuario"
+                {...register("usuario", {
+                  required: "Requerido",
+                  pattern: {
+                    value: /^[a-zA-Z0-9_]{3,16}$/,
+                    message: "3-16 letras, números o guión bajo",
+                  },
+                })}
+                className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
+                  errors.usuario
+                    ? "border-red-500 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-green-500"
+                }`}
+                autoComplete="username"
+              />
+              {errors.usuario && (
+                <p role="alert" className="text-red-600 text-xs mt-1">
+                  {errors.usuario.message}
+                </p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div className="mb-4">
+              <label htmlFor="email" className="sr-only">
+                Correo electrónico
+              </label>
+              <input
+                id="email"
+                type="email"
+                placeholder="Correo electrónico"
+                {...register("email", {
+                  required: "Requerido",
+                  pattern: {
+                    value: /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/,
+                    message: "Formato no válido",
+                  },
+                })}
+                className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
+                  errors.email
+                    ? "border-red-500 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-green-500"
+                }`}
+              />
+              {errors.email && (
+                <p role="alert" className="text-red-600 text-xs mt-1">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+            {/* Encargado */}
+            <div className="mb-4">
+              <label htmlFor="nombre_encargado" className="sr-only">
+                Subusuario
+              </label>
+              <input
+                id="nombre_encargado"
+                type="text"
+                placeholder="Nombre completo"
+                {...register("nombre_encargado", {
+                  required: "Requerido",
+                })}
+                className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
+                  errors.nombre_encargado
+                    ? "border-red-500 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-green-500"
+                }`}
+              />
+              {errors.nombre_encargado && (
+                <p role="alert" className="text-red-600 text-xs mt-1">
+                  {errors.nombre_encargado.message}
+                </p>
+              )}
+            </div>
+
+            {/* Contraseña */}
+            <div className="relative mb-4">
+              <label htmlFor="password" className="sr-only">
+                Contraseña
+              </label>
+              <input
+                id="password"
+                type={showPwd ? "text" : "password"}
+                placeholder="Contraseña"
+                {...register("password", {
+                  required: "Requerida",
+                  minLength: { value: 6, message: "Mínimo 6 caracteres" },
+                })}
+                className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
+                  errors.password
+                    ? "border-red-500 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-green-500"
+                }`}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((prev) => !prev)}
+                className="absolute inset-y-0 right-3 flex items-center text-gray-500 focus:outline-none"
+                aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                <i className={`bx ${showPwd ? "bx-hide" : "bx-show"} text-xl`} />
+              </button>
+              {errors.password && (
+                <p role="alert" className="text-red-600 text-xs mt-1">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+
+            {/* Confirmación */}
+            <div className="mb-6">
+              <label htmlFor="password2" className="sr-only">
+                Confirmar contraseña
+              </label>
+              <input
+                id="password2"
+                type={showPwd ? "text" : "password"}
+                placeholder="Confirmar contraseña"
+                {...register("password2", {
+                  validate: (val) =>
+                    val === watch("password") || "Las contraseñas no coinciden",
+                })}
+                className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
+                  errors.password2
+                    ? "border-red-500 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-green-500"
+                }`}
+              />
+              {errors.password2 && (
+                <p role="alert" className="text-red-600 text-xs mt-1">
+                  {errors.password2.message}
+                </p>
+              )}
+            </div>
+
+            {/* Botón registrar */}
+            <button
+              type="submit"
+              className="w-full py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors disabled:opacity-50"
+            >
+              Crear cuenta
+            </button>
+
+            {/* Ir a login */}
+            <p className="mt-6 text-center text-xs text-gray-600">
+              ¿Ya tienes cuenta?{" "}
+              <Link to="/login" className="text-blue-600 hover:underline">
+                Inicia sesión
+              </Link>
+            </p>
+            <p className="mt-4 text-[11px] text-gray-400 leading-tight text-center">
+              Al registrarte aceptas nuestros
+              <Link to="/terminos" className="underline ml-1">
+                Términos y Condiciones
+              </Link>
+              .
+            </p>
+          </motion.form>
+        </div>
+
+        {/* ---------- Footer ---------- */}
+        <footer className="absolute bottom-4 inset-x-0 text-center text-gray-400 text-[10px]">
+          Desarrollado por{" "}
+          <a
+            href="https://new.imporsuitpro.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            Imporsuit
+          </a>{" "}
+          © {new Date().getFullYear()}
+        </footer>
+      </div>
+    );
+  }

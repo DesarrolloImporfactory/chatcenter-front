@@ -135,8 +135,8 @@ export default function Login() {
             <input
               id="email"
               type="email"
-              placeholder="Correo electrónico"
-              {...register("email", { required: "El email es obligatorio" })}
+              placeholder="usuario o correo electrónico"
+              {...register("usuario", { required: "El email es obligatorio" })}
               className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
                 errors.email
                   ? "border-red-500 focus:ring-red-400"
@@ -164,7 +164,7 @@ export default function Login() {
               id="password"
               type={showPwd ? "text" : "password"}
               placeholder="Contraseña"
-              {...register("con", { required: "La contraseña es obligatoria" })}
+              {...register("password", { required: "La contraseña es obligatoria" })}
               className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
                 errors.con
                   ? "border-red-500 focus:ring-red-400"
