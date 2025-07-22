@@ -52,7 +52,7 @@ function MainLayout({ children }) {
     }
   }, [userData]);
 
-  useEffect(() => {
+  /*  useEffect(() => {
     const fetchEstadoNumero = async () => {
       if (!userData) return;
       try {
@@ -66,7 +66,7 @@ function MainLayout({ children }) {
     };
 
     fetchEstadoNumero();
-  }, [userData]);
+  }, [userData]); */
 
   useEffect(() => {
     const checkBannedStatus = () => {
@@ -94,17 +94,28 @@ function MainLayout({ children }) {
   // -------------------------------------------------------
   const fetchConfiguracionAutomatizada = async () => {
     try {
-      // Ojo: userData.data?.id_plataforma debe existir en tu token
-      const response = await chatApi.post(
-        "whatsapp_managment/configuracionesAutomatizador",
-        {
-          id_plataforma: userData.data?.id_plataforma,
-        }
-      );
+      const response = await chatApi.post("configuraciones/listar_conexiones", {
+        id_usuario: userData.id_usuario,
+      });
+
       setConfiguraciones(response.data || []);
     } catch (error) {
-      console.error("Error al cargar configuraciones automatizadas:", error);
-      setConfiguraciones([]);
+      if (error.response?.status === 403) {
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          text: "",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          allowEnterKey: true,
+          confirmButtonText: "OK",
+        }).then(() => {
+          navigate("/planes_view");
+        });
+      } else {
+        console.error("Error al cargar la configuración automatizada.", error);
+        setConfiguraciones([]);
+      }
     }
   };
 

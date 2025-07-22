@@ -6,17 +6,20 @@ import CrearPlantillaRapidaModal from "./CrearPlantillaRapidaModal";
 import EditarPlantillaRapidaModal from "./EditarPlantillaRapidaModal";
 import VerPlantillaGuiasGeneradas from "./VerPlantillaGuiasGeneradas";
 import CrearConfiguracionModal from "./CrearConfiguracionModal";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 
 const AdministradorPlantillas2 = () => {
-  const [currentTab, setCurrentTab] = useState("numbers");
+  const [currentTab, setCurrentTab] = useState("settings");
   const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [plantillas, setPlantillas] = useState([]);
   const [userData, setUserData] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+
+  const navigate = useNavigate();
 
   const [respuestasRapidas, setRespuestasRapidas] = useState([]);
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
@@ -274,16 +277,29 @@ const AdministradorPlantillas2 = () => {
   const fetchConfiguracionAutomatizada = async () => {
     if (!userData) return;
     try {
-      const response = await chatApi.post(
-        "whatsapp_managment/configuracionesAutomatizador",
-        {
-          id_plataforma: userData.data?.id_plataforma,
-        }
-      );
-      setConfiguracionAutomatizada(response.data || []);
+      const response = await chatApi.post("configuraciones/listar_conexiones", {
+        id_usuario: userData.id_usuario,
+      });
+
+      console.table(response.data);
+      setConfiguracionAutomatizada(response.data.data || []);
     } catch (error) {
-      console.error("Error al cargar la configuración automatizada.", error);
-      setConfiguracionAutomatizada([]);
+      if (error.response?.status === 403) {
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          text: "",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          allowEnterKey: true,
+          confirmButtonText: "OK",
+        }).then(() => {
+          navigate("/planes_view");
+        });
+      } else {
+        console.error("Error al cargar la configuración automatizada.", error);
+        setConfiguracionAutomatizada([]);
+      }
     }
   };
 
@@ -321,19 +337,18 @@ const AdministradorPlantillas2 = () => {
   };
 
   useEffect(() => {
-    if (asistenteLogistico){
+    if (asistenteLogistico) {
       setNombreBotLog(asistenteLogistico.nombre_bot || "");
       setAssistantIdLog(asistenteLogistico.assistant_id || "");
       setActivoLog(asistenteLogistico.activo);
     }
 
-    if (asistenteVentas){
+    if (asistenteVentas) {
       setNombreBotVenta(asistenteVentas.nombre_bot || "");
       setAssistantIdVenta(asistenteVentas.assistant_id || "");
       setActivoVenta(asistenteVentas.activo);
       setProductosVenta(asistenteVentas.productos || "");
     }
-
   }, [asistenteLogistico, asistenteVentas]);
 
   useEffect(() => {

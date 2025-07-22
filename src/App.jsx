@@ -8,6 +8,7 @@ import { useDispatch } from "react-redux";
 import AdministradorPlantillas from "./pages/admintemplates/AdministradorPlantillas";
 import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
 import Chat from "./pages/chat/Chat";
+import PlanesView from "./pages/planes/PlanesView";
 
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
@@ -29,31 +30,34 @@ function App() {
           />
 
           <Route path="/chat" element={<Chat />} />
+
+          {/* 
+          /administrador-whatsapp, version 1
+        */}
+          <Route
+            path="/administrador-whatsapp-antes"
+            element={
+              <MainLayout>
+                <AdministradorPlantillas />
+              </MainLayout>
+            }
+          />
+          {/*administrador-pruebas se renombra y pasa a produccion*/}
+          <Route
+            path="/administrador-whatsapp"
+            element={
+              <MainLayout>
+                <AdministradorPlantillas2 />
+              </MainLayout>
+            }
+          />
+
+          {/* PlanesView */}
+          <Route path="/planes_view" element={<PlanesView />} />
         </Route>
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
-
-        {/* 
-          /administrador-whatsapp, version 1
-        */}
-        <Route
-          path="/administrador-whatsapp-antes"
-          element={
-            <MainLayout>
-              <AdministradorPlantillas />
-            </MainLayout>
-          }
-        />
-        {/*administrador-pruebas se renombra y pasa a produccion*/}
-        <Route
-          path="/administrador-whatsapp"
-          element={
-            <MainLayout>
-              <AdministradorPlantillas2 />
-            </MainLayout>
-          }
-        />
 
         {/* 
           /administrador-whatsapp, sin envolver MainLayout 
