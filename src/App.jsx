@@ -13,6 +13,7 @@ import PlanesView from "./pages/planes/PlanesView";
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
+import Conexiones from "./pages/conexiones/Conexiones";
 function App() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
@@ -48,6 +49,15 @@ function App() {
             element={
               <MainLayout>
                 <AdministradorPlantillas2 />
+              </MainLayout>
+            }
+          />
+
+          <Route
+            path="/conexiones"
+            element={
+              <MainLayout>
+                <Conexiones />
               </MainLayout>
             }
           />

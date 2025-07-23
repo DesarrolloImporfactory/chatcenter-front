@@ -24,7 +24,7 @@ export default function Login() {
       .unwrap()
       .then(() => {
         reset();
-        navigate("/chat");
+        navigate("/conexiones");
       });
   };
 
@@ -164,7 +164,9 @@ export default function Login() {
               id="password"
               type={showPwd ? "text" : "password"}
               placeholder="Contraseña"
-              {...register("password", { required: "La contraseña es obligatoria" })}
+              {...register("password", {
+                required: "La contraseña es obligatoria",
+              })}
               className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
                 errors.con
                   ? "border-red-500 focus:ring-red-400"
@@ -220,12 +222,12 @@ export default function Login() {
           {/* Registro */}
           <p className="mt-6 text-center text-xs text-gray-600">
             ¿No tienes cuenta?{" "}
-            <a
-              href="https://new.imporsuitpro.com/registro"
-              className="text-blue-600 hover:underline"
+            <span
+              onClick={() => navigate("/registro")}
+              className="text-blue-600 hover:underline cursor-pointer"
             >
               Regístrate aquí
-            </a>
+            </span>
           </p>
           <p className="mt-4 text-[11px] text-gray-400 leading-tight text-center">
             Al iniciar sesión aceptas nuestros
