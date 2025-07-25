@@ -20,6 +20,7 @@ const Modales = ({
   handleSelectPhoneNumber,
   selectedPhoneNumber,
   userData,
+  id_configuracion,
   modal_enviarArchivos,
   tipo_modalEnviarArchivo,
   handleModal_enviarArchivos,
@@ -281,7 +282,6 @@ const Modales = ({
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       agregar_mensaje_enviado(
         caption,
@@ -290,7 +290,7 @@ const Modales = ({
         numeroDestino,
         mid_mensaje,
         id_recibe,
-        id_plataforma,
+        id_configuracion,
         telefono_configuracion
       );
 
@@ -462,7 +462,6 @@ const Modales = ({
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       agregar_mensaje_enviado(
         caption,
@@ -471,7 +470,7 @@ const Modales = ({
         numeroDestino,
         mid_mensaje,
         id_recibe,
-        id_plataforma,
+        id_configuracion,
         telefono_configuracion
       );
 
@@ -645,7 +644,6 @@ const Modales = ({
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       agregar_mensaje_enviado(
         caption,
@@ -654,7 +652,7 @@ const Modales = ({
         numeroDestino,
         mid_mensaje,
         id_recibe,
-        id_plataforma,
+        id_configuracion,
         telefono_configuracion
       );
 
@@ -698,13 +696,13 @@ const Modales = ({
           nombre: newContactName,
           telefono: newContactPhone,
           apellido: "",
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
         }
       );
 
       const data = response.data;
 
-      if (data.status == 400){
+      if (data.status == 400) {
         Toast.fire({
           icon: "error",
           title: "Error al añadir contacto",
@@ -866,7 +864,6 @@ const Modales = ({
 
       let id_recibe = buscarIdRecibe;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       let ruta_archivo = generarObjetoPlaceholders(
         placeholders,
@@ -880,7 +877,7 @@ const Modales = ({
         recipientPhone,
         mid_mensaje,
         id_recibe,
-        id_plataforma,
+        id_configuracion,
         telefono_configuracion
       );
 

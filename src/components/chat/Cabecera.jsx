@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 
 const Cabecera = ({
   userData,
+  id_configuracion,
   chatMessages,
   opciones,
   setOpciones,
@@ -20,7 +21,8 @@ const Cabecera = ({
   tagList,
   cargar_socket,
   SwitchBot,
-  setMensajesAcumulados
+  setMensajesAcumulados,
+  id_plataforma_conf,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -60,10 +62,10 @@ const Cabecera = ({
 
   useEffect(() => {
     const fetchEstadoNumero = async () => {
-      if (!userData) return;
+      if (!id_configuracion) return;
       try {
         const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
         });
         setEstadoNumero(resp.data.data || []);
       } catch (error) {
@@ -72,7 +74,7 @@ const Cabecera = ({
     };
 
     fetchEstadoNumero();
-  }, [userData]);
+  }, [id_configuracion]);
 
   useEffect(() => {
     const checkBannedStatus = () => {
@@ -94,32 +96,6 @@ const Cabecera = ({
 
     checkBannedStatus();
   }, [estadoNumero]);
-
-  // -------------------------------------------------------
-  //  FUNC: Obtener configuraciones del endpoint
-  // -------------------------------------------------------
-  const fetchConfiguracionAutomatizada = async () => {
-    try {
-      // Ojo: userData.data?.id_plataforma debe existir en tu token
-      const response = await chatApi.post(
-        "whatsapp_managment/configuracionesAutomatizador",
-        {
-          id_plataforma: userData.data?.id_plataforma,
-        }
-      );
-      setConfiguraciones(response.data || []);
-    } catch (error) {
-      console.error("Error al cargar configuraciones automatizadas:", error);
-      setConfiguraciones([]);
-    }
-  };
-
-  // ---- USEEFFECT PARA CARGAR LAS CONFIGURACIONES AUTOMATIZADAS ----
-  useEffect(() => {
-    if (userData) {
-      fetchConfiguracionAutomatizada();
-    }
-  }, [userData]);
 
   // (2) useEffect para detectar clic fuera y cerrar
   useEffect(() => {
@@ -263,11 +239,9 @@ const Cabecera = ({
         <div className="flex items-center space-x-3">
           <div className="text-end">
             <span className="block text-white font-semibold text-lg">
-              {userData?.data?.nombre ?? "Tony Plaza"}
+              {userData?.nombre ?? "Tony Plaza"}
             </span>
-            <span className="text-sm text-white">
-              {userData?.data?.cargo === 1 ? "Administrador" : "Vendedor"}
-            </span>
+            <span className="text-sm text-white">{userData?.rol}</span>
           </div>
           <img
             className="rounded-full w-12 h-12 bg-white object-cover"
@@ -346,7 +320,7 @@ const Cabecera = ({
           </a>
 
           <a
-            href={
+            /* href={
               (userData?.data?.id_matriz ?? 1) === 1
                 ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
                     configuraciones[0]?.id ?? ""
@@ -356,7 +330,11 @@ const Cabecera = ({
                     configuraciones[0]?.id ?? ""
                   }`
                 : "#"
-            }
+            } */
+
+            href={`https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
+              id_configuracion ?? ""
+            }`}
             className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
           >
             <i className="bx bxs-bot mr-3 text-gray-600 group-hover:text-blue-600"></i>
@@ -533,23 +511,47 @@ const Cabecera = ({
             animateOut ? "animate-slide-out" : "animate-slide-in"
           }`}
         >
-          <div className="flex justify-center p-4 border-b border-white/10">
-            <div className="flex text-center justify-center">
-              <span className="text-lg font-semibold">
-                Historial de Pedidos
-              </span>
-            </div>
-          </div>
+          {id_plataforma_conf !== null ? (
+            <>
+              <div className="flex justify-center p-4 border-b border-white/10">
+                <div className="flex text-center justify-center">
+                  <span className="text-lg font-semibold">
+                    Historial de Pedidos
+                  </span>
+                </div>
+              </div>
 
-          {/* Cerrar la sección (opciones) */}
-          <div className="absolute top-3 right-4">
-            <button
-              onClick={handleOpciones}
-              className="hover:scale-110 transition-transform"
-            >
-              <i className="bx bx-x text-white text-3xl"></i>
-            </button>
-          </div>
+              {/* Cerrar la sección (opciones) */}
+              <div className="absolute top-3 right-4">
+                <button
+                  onClick={handleOpciones}
+                  className="hover:scale-110 transition-transform"
+                >
+                  <i className="bx bx-x text-white text-3xl"></i>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex justify-center p-4 border-b border-white/10">
+                <div className="flex text-center justify-center">
+                  <span className="text-lg font-semibold">
+                    Informacion Numero
+                  </span>
+                </div>
+              </div>
+
+              {/* Cerrar la sección (opciones) */}
+              <div className="absolute top-3 right-4">
+                <button
+                  onClick={handleOpciones}
+                  className="hover:scale-110 transition-transform"
+                >
+                  <i className="bx bx-x text-white text-3xl"></i>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </>

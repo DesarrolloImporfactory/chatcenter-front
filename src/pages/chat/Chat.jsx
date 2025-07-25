@@ -54,6 +54,10 @@ const Chat = () => {
 
   const [userData, setUserData] = useState(null);
 
+  const [id_configuracion, setId_configuracion] = useState(null);
+
+  const [id_plataforma_conf, setId_plataforma_conf] = useState(null);
+
   const [opciones, setOpciones] = React.useState(false);
 
   const [mostrarAudio, setMostrarAudio] = useState(false);
@@ -140,22 +144,28 @@ const Chat = () => {
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
+
     const ph = p.get("phone");
     const nm = p.get("name") || "";
+    const idp = p.get("id_plataforma_conf");
+    const idc = p.get("id_configuracion");
+
     if (ph) setPendingOpen({ phone: ph, name: nm });
+    if (idc) setId_configuracion(parseInt(idc));
+    setId_plataforma_conf(idp ? parseInt(idp) : null);
   }, []);
 
-  const getChatByPhone = async (phone, id_plataforma) => {
+  const getChatByPhone = async (phone, id_configuracion) => {
     return chatApi.get(
-      `/clientes_chat_center/findFullByPhone/${encodeURIComponent(
+      `/clientes_chat_center/findFullByPhone_desconect/${encodeURIComponent(
         phone
-      )}?id_plataforma=${id_plataforma}`
+      )}?id_configuracion=${id_configuracion}`
     );
   };
 
   /* 2️⃣  cuando ya hay chats */
   useEffect(() => {
-    if (!pendingOpen || !userData) return;
+    if (!pendingOpen || !id_configuracion) return;
 
     const { phone, name } = pendingOpen;
 
@@ -173,10 +183,7 @@ const Chat = () => {
     // 2.2  Búsqueda directa en BD (NO crea chat)
     (async () => {
       try {
-        const { data } = await getChatByPhone(
-          phone,
-          userData.data.id_plataforma
-        );
+        const { data } = await getChatByPhone(phone, id_configuracion);
         // 200 => lo encontró
         setMensajesAcumulados((prev) => [data.data, ...prev]);
         handleSelectChat(data.data);
@@ -196,7 +203,7 @@ const Chat = () => {
         setPendingOpen(null);
       }
     })();
-  }, [pendingOpen, userData]);
+  }, [pendingOpen, id_configuracion]);
 
   const toggleCrearEtiquetaModal = () => {
     fetchTags();
@@ -215,7 +222,7 @@ const Chat = () => {
       const response = await chatApi.post(
         "/etiquetas_chat_center/obtenerEtiquetas",
         {
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
         }
       );
 
@@ -283,7 +290,7 @@ const Chat = () => {
     telefono_recibe,
     mid_mensaje,
     id_recibe,
-    id_plataforma,
+    id_configuracion,
     telefono_configuracion
   ) => {
     try {
@@ -296,7 +303,7 @@ const Chat = () => {
           id_recibe,
           ruta_archivo,
           telefono_recibe,
-          id_plataforma,
+          id_configuracion,
           telefono_configuracion,
         }
       );
@@ -452,20 +459,17 @@ const Chat = () => {
     setSeleccionado(true); // Indica que hay un número seleccionado
 
     // Llama a la API para obtener el id_recibe
-    const idRecibe = await buscar_id_recibe(
-      phoneNumber,
-      userData.data?.id_plataforma
-    );
+    const idRecibe = await buscar_id_recibe(phoneNumber, id_configuracion);
     setBuscarIdRecibe(idRecibe); // Guarda el ID recibido en el estado
   };
 
-  const buscar_id_recibe = async (recipientPhone, plataforma) => {
+  const buscar_id_recibe = async (recipientPhone, id_configuracion) => {
     try {
       const response = await chatApi.post(
         "/clientes_chat_center/buscar_id_recibe",
         {
           telefono: recipientPhone,
-          id_plataforma: plataforma,
+          id_configuracion: id_configuracion,
         }
       );
 
@@ -610,7 +614,7 @@ const Chat = () => {
       mensaje,
       tipo_mensaje: file ? "document" : "text",
       to: selectedChat.celular_cliente,
-      id_plataforma: userData.data?.id_plataforma,
+      id_configuracion: id_configuracion,
       file,
       dataAdmin,
     });
@@ -716,7 +720,6 @@ const Chat = () => {
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
-      let id_plataforma = userData.data?.id_plataforma;
       let telefono_configuracion = dataAdmin.telefono;
       agregar_mensaje_enviado(
         "Archivo guardado en: " + audioUrl,
@@ -725,7 +728,7 @@ const Chat = () => {
         numeroDestino,
         mid_mensaje,
         id_recibe,
-        id_plataforma,
+        id_configuracion,
         telefono_configuracion
       );
     } catch (error) {
@@ -991,7 +994,7 @@ const Chat = () => {
         const response = await chatApi.post(
           "/etiquetas_chat_center/obtenerEtiquetas",
           {
-            id_plataforma: userData.data?.id_plataforma,
+            id_configuracion: id_configuracion,
           }
         );
 
@@ -1007,18 +1010,23 @@ const Chat = () => {
       }
     };
 
-    if (userData != null) {
+    if (id_configuracion != null) {
       fetchEtiquetas();
     }
-  }, [userData]);
+  }, [id_configuracion]);
   /* fin cosumir api de etiquetas */
 
   useEffect(() => {
     if (isSocketConnected && userData) {
       console.time("⏱ Tiempo hasta llegada de CHATS");
 
+      // Limpiar listeners existentes antes de registrar nuevos
+      socketRef.current.off("RECEIVED_MESSAGE");
+      socketRef.current.off("DATA_FACTURA_RESPONSE");
+      socketRef.current.off("DATA_NOVEDADES");
+
       // Emitir el evento con los filtros y la paginación
-      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+      socketRef.current.emit("GET_CHATS", id_configuracion, {
         cursorFecha: null,
         cursorId: null,
         filtros: {
@@ -1048,7 +1056,7 @@ const Chat = () => {
 
       socketRef.current.on("USER_ADDED", (data) => {});
 
-      socketRef.current.emit("GET_DATA_ADMIN", userData.data?.id_plataforma);
+      socketRef.current.emit("GET_DATA_ADMIN", id_configuracion);
       socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
         setDataAdmin(data);
 
@@ -1070,10 +1078,13 @@ const Chat = () => {
         /* funcion cargar templates */
         cargarTemplates(data); // Llamar a cargarTemplates cuando el socket esté conectado
       });
-      socketRef.current.emit("GET_PROVINCIAS", userData.data?.id_plataforma);
-      socketRef.current.on("DATA_PROVINCIAS_RESPONSE", (data) => {
-        setProvincias(data);
-      });
+
+      if (id_plataforma_conf !== null) {
+        socketRef.current.emit("GET_PROVINCIAS", id_plataforma_conf);
+        socketRef.current.on("DATA_PROVINCIAS_RESPONSE", (data) => {
+          setProvincias(data);
+        });
+      }
 
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
         /* console.log("XD:", data); */
@@ -1181,15 +1192,17 @@ const Chat = () => {
         }
       });
 
-      socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
-        setFacturasChatSeleccionado(data.facturas);
-        setGuiasChatSeleccionado(data.guias);
-      });
+      if (id_plataforma_conf !== null) {
+        socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
+          setFacturasChatSeleccionado(data.facturas);
+          setGuiasChatSeleccionado(data.guias);
+        });
 
-      socketRef.current.on("DATA_NOVEDADES", (data) => {
-        setNovedades_gestionadas(data.gestionadas);
-        setNovedades_noGestionadas(data.no_gestionadas);
-      });
+        socketRef.current.on("DATA_NOVEDADES", (data) => {
+          setNovedades_gestionadas(data.gestionadas);
+          setNovedades_noGestionadas(data.no_gestionadas);
+        });
+      }
     }
   }, [isSocketConnected, userData, selectedChat]);
 
@@ -1207,7 +1220,7 @@ const Chat = () => {
   useEffect(() => {
     const cargarChats = async () => {
       if (socketRef.current && isSocketConnected) {
-        socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+        socketRef.current.emit("GET_CHATS", id_configuracion, {
           limit: 10,
           cursorFecha,
           cursorId,
@@ -1248,7 +1261,7 @@ const Chat = () => {
       setCursorId(null);
 
       if (socketRef.current && isSocketConnected) {
-        socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+        socketRef.current.emit("GET_CHATS", id_configuracion, {
           limit: 10,
           cursorFecha: null,
           cursorId: null,
@@ -1293,7 +1306,7 @@ const Chat = () => {
   useEffect(() => {
     if (seRecibioMensaje) {
       // Obtener los chats recientes (carga inicial con cursores nulos)
-      socketRef.current.emit("GET_CHATS", userData.data?.id_plataforma, {
+      socketRef.current.emit("GET_CHATS", id_configuracion, {
         limit: 10,
         cursorFecha: null, // Cargar desde el más reciente
         cursorId: null,
@@ -1340,7 +1353,7 @@ const Chat = () => {
       if (selectedChat != null) {
         socketRef.current.emit("GET_CHATS_BOX", {
           chatId: selectedChat.id,
-          plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
         });
 
         const handleChatBoxResponse = (data) => {
@@ -1382,7 +1395,7 @@ const Chat = () => {
       // Emitir la solicitud para obtener los mensajes del chat seleccionado
       socketRef.current.emit("GET_CHATS_BOX", {
         chatId: selectedChat.id,
-        plataforma: userData.data?.id_plataforma,
+        id_configuracion: id_configuracion,
       });
 
       // Función manejadora para actualizar los mensajes del chat
@@ -1396,10 +1409,12 @@ const Chat = () => {
         setMensajesMostrados(20); // Asegurar que el estado coincide con los mensajes iniciales
       };
 
-      socketRef.current.emit("GET_FACTURAS", {
-        id_plataforma: userData.data?.id_plataforma,
-        telefono: selectedChat.celular_cliente,
-      });
+      if (id_plataforma_conf !== null) {
+        socketRef.current.emit("GET_FACTURAS", {
+          id_plataforma: id_plataforma_conf,
+          telefono: selectedChat.celular_cliente,
+        });
+      }
 
       // Escuchar la respuesta del socket
       socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
@@ -1433,7 +1448,7 @@ const Chat = () => {
       // Si hay algo en el término de búsqueda, realiza la búsqueda en el socket
       if (socketRef.current) {
         socketRef.current.emit("GET_TEMPLATES", {
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
           palabraClave: menuSearchTerm,
         });
 
@@ -1453,7 +1468,7 @@ const Chat = () => {
       // Si el campo de búsqueda está vacío, mostrar todos los templates
       if (socketRef.current) {
         socketRef.current.emit("GET_TEMPLATES", {
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
           palabraClave: "", // Filtro vacío para obtener todos los templates
         });
 
@@ -1477,7 +1492,7 @@ const Chat = () => {
     if (menuSearchTermNumeroCliente.length > 0) {
       // Emitir el evento al servidor
       socketRef.current.emit("GET_CELLPHONES", {
-        id_plataforma: userData.data?.id_plataforma,
+        id_configuracion: id_configuracion,
         texto: menuSearchTermNumeroCliente,
       });
 
@@ -1531,7 +1546,7 @@ const Chat = () => {
     if (socketRef.current) {
       // Emitir evento para solicitar datos actualizados
       socketRef.current.emit("GET_FACTURAS", {
-        id_plataforma: userData.data?.id_plataforma, // Ajusta con la info necesaria
+        id_plataforma: id_plataforma_conf, // Ajusta con la info necesaria
         telefono: selectedChat.celular_cliente,
       });
 
@@ -1774,6 +1789,7 @@ const Chat = () => {
       {/* Cabecera */}
       <Cabecera
         userData={userData}
+        id_configuracion={id_configuracion}
         chatMessages={chatMessages}
         opciones={opciones}
         setOpciones={setOpciones}
@@ -1790,6 +1806,7 @@ const Chat = () => {
         cargar_socket={cargar_socket}
         SwitchBot={SwitchBot}
         setMensajesAcumulados={setMensajesAcumulados}
+        id_plataforma_conf={id_plataforma_conf}
       />
       {/* Historial de chats */}
       <Sidebar
@@ -1881,6 +1898,7 @@ const Chat = () => {
         provincias={provincias}
         socketRef={socketRef}
         userData={userData}
+        id_configuracion={id_configuracion}
         setFacturasChatSeleccionado={setFacturasChatSeleccionado}
         guiasChatSeleccionado={guiasChatSeleccionado}
         novedades_gestionadas={novedades_gestionadas}
@@ -1902,6 +1920,7 @@ const Chat = () => {
         dataAdmin={dataAdmin}
         buscar_id_recibe={buscar_id_recibe}
         agregar_mensaje_enviado={agregar_mensaje_enviado}
+        id_plataforma_conf={id_plataforma_conf}
       />
       {/* MODALES */}
       <Modales
@@ -1921,6 +1940,7 @@ const Chat = () => {
         handleSelectPhoneNumber={handleSelectPhoneNumber}
         selectedPhoneNumber={selectedPhoneNumber}
         userData={userData}
+        id_configuracion={id_configuracion}
         tipo_modalEnviarArchivo={tipo_modalEnviarArchivo}
         modal_enviarArchivos={modal_enviarArchivos}
         handleModal_enviarArchivos={handleModal_enviarArchivos}

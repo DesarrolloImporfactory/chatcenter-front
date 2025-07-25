@@ -140,7 +140,9 @@ const Conexiones = () => {
                 {/* Chat */}
                 <div
                   className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                  onClick={() => navigate("/chat")}
+                  onClick={() =>
+                    navigate("/chat?id_configuracion=" + config.id)
+                  }
                 >
                   <i className="bx bx-chat text-2xl"></i>
                   <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
