@@ -274,14 +274,15 @@ const Cabecera = ({
         <div className="mt-6">
           {/* Volver a Imporsuit */}
           <a
-            href={`https://new.imporsuitpro.com/acceso/jwt_home/${localStorage.getItem(
-              "token"
-            )}`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/conexiones");
+            }}
             className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
           >
             <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600">
-              Volver a Imporsuit
+              Volver a Conexiones
             </span>
           </a>
           {/* Chat Center */}
@@ -310,7 +311,9 @@ const Cabecera = ({
             }`}
             onClick={(e) => {
               e.preventDefault();
-              navigate("/administrador-whatsapp");
+              navigate(
+                "/administrador-whatsapp?id_configuracion=" + id_configuracion
+              );
             }}
           >
             <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>

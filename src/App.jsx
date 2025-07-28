@@ -12,6 +12,7 @@ import PlanesView from "./pages/planes/PlanesView";
 
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
+import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import Conexiones from "./pages/conexiones/Conexiones";
 function App() {
@@ -56,9 +57,9 @@ function App() {
           <Route
             path="/conexiones"
             element={
-              <MainLayout>
+              <MainLayout_conexiones>
                 <Conexiones />
-              </MainLayout>
+              </MainLayout_conexiones>
             }
           />
 

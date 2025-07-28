@@ -18,6 +18,7 @@ const AdministradorPlantillas2 = () => {
   const [userData, setUserData] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+  const [id_configuracion, setId_configuracion] = useState(null);
 
   const navigate = useNavigate();
 
@@ -91,6 +92,16 @@ const AdministradorPlantillas2 = () => {
       });
     };
   });
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+
+    /* const idp = p.get("id_plataforma_conf"); */
+    const idc = p.get("id_configuracion");
+
+    if (idc) setId_configuracion(parseInt(idc));
+    /* setId_plataforma_conf(idp ? parseInt(idp) : null); */
+  }, []);
 
   const handleConnectWhatsApp = () => {
     if (!window.FB) {
@@ -239,7 +250,7 @@ const AdministradorPlantillas2 = () => {
       if (!userData) return;
       try {
         const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
         });
         setPhoneNumbers(resp.data.data || []);
       } catch (error) {
@@ -250,7 +261,7 @@ const AdministradorPlantillas2 = () => {
     if (currentTab === "numbers") {
       fetchPhoneNumbers();
     }
-  }, [userData, currentTab]);
+  }, [userData, currentTab, id_configuracion]);
 
   useEffect(() => {
     if (currentTab === "answers-fast") {

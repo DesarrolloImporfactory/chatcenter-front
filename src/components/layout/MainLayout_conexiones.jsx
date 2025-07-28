@@ -52,22 +52,6 @@ function MainLayout({ children }) {
     }
   }, [userData]);
 
-  /*  useEffect(() => {
-    const fetchEstadoNumero = async () => {
-      if (!userData) return;
-      try {
-        const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
-          id_plataforma: userData.data?.id_plataforma,
-        });
-        setEstadoNumero(resp.data.data || []);
-      } catch (error) {
-        console.error("Error al obtener phone_numbers:", error);
-      }
-    };
-
-    fetchEstadoNumero();
-  }, [userData]); */
-
   useEffect(() => {
     const checkBannedStatus = () => {
       const isBanned = estadoNumero.some((num) => num.status === "BANNED");
@@ -119,20 +103,6 @@ function MainLayout({ children }) {
     }
   };
 
-  // -------------------------------------------------------
-  // FUNC: Redirigir a la tabla de automatizadores
-  // -------------------------------------------------------
-  const handleIrAutomatizadores = (idConfig) => {
-    // userData.data?.id_matriz es 1 o 2
-    if (userData.data?.id_matriz === 1) {
-      window.location.href = `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${idConfig}`;
-    } else if (userData.data?.id_matriz === 2) {
-      window.location.href = `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${idConfig}`;
-    } else {
-      console.warn("Valor de matriz no reconocido:", userData.data?.id_matriz);
-    }
-  };
-
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -166,24 +136,9 @@ function MainLayout({ children }) {
     setSliderOpen(!sliderOpen);
   };
 
-  // Funciones de navegación
-  const handleReturnToImporsuit = () => {
-    const token = localStorage.getItem("token");
-    window.location.href =
-      "https://new.imporsuitpro.com/acceso/jwt_home/" + token;
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     window.location.href = "/login";
-  };
-
-  const irAChatCenter = () => {
-    navigate("/chat");
-  };
-
-  const irAPlantillas = () => {
-    navigate("/administrador-whatsapp");
   };
 
   return (
@@ -208,86 +163,9 @@ function MainLayout({ children }) {
             ${sliderOpen ? "w-64" : "w-0"}
           `}
         >
-          {/* Encabezado del slider */}
-          {/* <div className="h-[80px] px-5 flex items-center justify-between bg-[#171931] text-white">
-            <h2 className="font-bold text-lg">Menú</h2>
-            <button onClick={() => setSliderOpen(false)}>
-              <i className="bx bx-x text-2xl"></i>
-            </button>
-          </div> */}
 
           {/* Opciones del slider */}
           <div className="mt-6">
-            {/* Volver a Imporsuit */}
-            <a
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/conexiones");
-              }}
-              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
-            >
-              <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Volver a Conexiones
-              </span>
-            </a>
-
-            {/* Chat Center */}
-            <a
-              href="/chat"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/chat" ? "bg-gray-200" : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/chat");
-              }}
-            >
-              <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Chat Center
-              </span>
-            </a>
-
-            {/* WhatsApp */}
-            <a
-              href="/administrador-whatsapp"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/administrador-whatsapp"
-                  ? "bg-gray-200"
-                  : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/administrador-whatsapp");
-              }}
-            >
-              <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                WhatsApp
-              </span>
-            </a>
-
-            {/* Enlace Automatizador */}
-            <a
-              href={
-                (userData?.data?.id_matriz ?? 1) === 1
-                  ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
-                      configuraciones[0]?.id ?? ""
-                    }`
-                  : (userData?.data?.id_matriz ?? 1) === 2
-                  ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${
-                      configuraciones[0]?.id ?? ""
-                    }`
-                  : "#"
-              }
-              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
-            >
-              <i className="bx bxs-bot mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Automatizador
-              </span>
-            </a>
 
             {/* Cerrar sesión */}
             <button
