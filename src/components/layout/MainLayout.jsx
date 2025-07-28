@@ -243,7 +243,7 @@ function MainLayout({ children }) {
               onClick={(e) => {
                 e.preventDefault();
                 navigate(
-                  "/chat?=id_configuracion" +
+                  "/chat?id_configuracion=" +
                     id_configuracion +
                     "&id_plataforma_conf=" +
                     id_plataforma_conf
@@ -267,7 +267,7 @@ function MainLayout({ children }) {
               onClick={(e) => {
                 e.preventDefault();
                 navigate(
-                  "/administrador-whatsapp?=id_configuracion" +
+                  "/administrador-whatsapp?id_configuracion=" +
                     id_configuracion +
                     "&id_plataforma_conf=" +
                     id_plataforma_conf
