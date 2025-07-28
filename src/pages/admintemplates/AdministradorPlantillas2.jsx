@@ -19,6 +19,7 @@ const AdministradorPlantillas2 = () => {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [id_configuracion, setId_configuracion] = useState(null);
+  const [id_plataforma_conf, setId_plataforma_conf] = useState(null);
 
   const navigate = useNavigate();
 

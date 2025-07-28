@@ -17,9 +17,21 @@ function MainLayout({ children }) {
   const [userData, setUserData] = useState(null);
   const [configuraciones, setConfiguraciones] = useState([]);
   const [estadoNumero, setEstadoNumero] = useState([]);
+  const [id_configuracion, setId_configuracion] = useState(null);
+  const [id_plataforma_conf, setId_plataforma_conf] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+
+    const idp = p.get("id_plataforma_conf");
+    const idc = p.get("id_configuracion");
+
+    if (idc) setId_configuracion(parseInt(idc));
+    setId_plataforma_conf(idp ? parseInt(idp) : null);
+  }, []);
 
   useEffect(() => {
     //Verificamos si hay token en localStorage
@@ -122,16 +134,6 @@ function MainLayout({ children }) {
   // -------------------------------------------------------
   // FUNC: Redirigir a la tabla de automatizadores
   // -------------------------------------------------------
-  const handleIrAutomatizadores = (idConfig) => {
-    // userData.data?.id_matriz es 1 o 2
-    if (userData.data?.id_matriz === 1) {
-      window.location.href = `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${idConfig}`;
-    } else if (userData.data?.id_matriz === 2) {
-      window.location.href = `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${idConfig}`;
-    } else {
-      console.warn("Valor de matriz no reconocido:", userData.data?.id_matriz);
-    }
-  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -240,7 +242,12 @@ function MainLayout({ children }) {
               }`}
               onClick={(e) => {
                 e.preventDefault();
-                navigate("/chat");
+                navigate(
+                  "/chat?=id_configuracion" +
+                    id_configuracion +
+                    "&id_plataforma_conf=" +
+                    id_plataforma_conf
+                );
               }}
             >
               <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
@@ -259,7 +266,12 @@ function MainLayout({ children }) {
               }`}
               onClick={(e) => {
                 e.preventDefault();
-                navigate("/administrador-whatsapp");
+                navigate(
+                  "/administrador-whatsapp?=id_configuracion" +
+                    id_configuracion +
+                    "&id_plataforma_conf=" +
+                    id_plataforma_conf
+                );
               }}
             >
               <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
@@ -270,17 +282,10 @@ function MainLayout({ children }) {
 
             {/* Enlace Automatizador */}
             <a
-              href={
-                (userData?.data?.id_matriz ?? 1) === 1
-                  ? `https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
-                      configuraciones[0]?.id ?? ""
-                    }`
-                  : (userData?.data?.id_matriz ?? 1) === 2
-                  ? `https://automatizador.merkapro.ec/tabla_automatizadores.php?id_configuracion=${
-                      configuraciones[0]?.id ?? ""
-                    }`
-                  : "#"
-              }
+              href={`https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
+                id_configuracion ??
+                "" + "&id_plataforma_conf=" + id_plataforma_conf
+              }`}
               className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
             >
               <i className="bx bxs-bot mr-3 text-gray-600 group-hover:text-blue-600"></i>

@@ -312,7 +312,10 @@ const Cabecera = ({
             onClick={(e) => {
               e.preventDefault();
               navigate(
-                "/administrador-whatsapp?id_configuracion=" + id_configuracion
+                "/administrador-whatsapp?id_configuracion=" +
+                  id_configuracion +
+                  "&id_plataforma_conf=" +
+                  id_plataforma_conf
               );
             }}
           >
