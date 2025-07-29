@@ -18,14 +18,27 @@ const Conexiones = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return navigate("/login");
-
+  
     const decoded = jwtDecode(token);
     if (decoded.exp < Date.now() / 1000) {
       localStorage.removeItem("token");
       return navigate("/login");
     }
-
+  
     setUserData(decoded);
+  
+    // Mostrar mensaje si hay un plan activado
+    const planActivadoData = localStorage.getItem("plan_activado");
+    if (planActivadoData) {
+      const plan = JSON.parse(planActivadoData);
+      Swal.fire({
+        icon: "success",
+        title: "¡Plan activado!",
+        text: `El plan "${plan.nombre}" se activó correctamente.`,
+        confirmButtonText: "Aceptar",
+      });
+      localStorage.removeItem("plan_activado");
+    }
   }, []);
 
   useEffect(() => {
