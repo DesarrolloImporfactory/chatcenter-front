@@ -152,7 +152,13 @@ const Chat = () => {
 
     if (ph) setPendingOpen({ phone: ph, name: nm });
     if (idc) setId_configuracion(parseInt(idc));
-    setId_plataforma_conf(idp ? parseInt(idp) : null);
+
+    // Aquí ajustamos el valor de id_plataforma_conf
+    if (idp === "null") {
+      setId_plataforma_conf(null);
+    } else {
+      setId_plataforma_conf(idp ? parseInt(idp) : null);
+    }
   }, []);
 
   const getChatByPhone = async (phone, id_configuracion) => {
@@ -1847,6 +1853,7 @@ const Chat = () => {
         setMensajesVisibles={setMensajesVisibles}
         scrollRef={scrollRef}
         handleScrollMensajes={handleScrollMensajes}
+        id_plataforma_conf={id_plataforma_conf}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

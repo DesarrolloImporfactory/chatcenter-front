@@ -39,6 +39,7 @@ export const Sidebar = ({
   setMensajesVisibles,
   scrollRef,
   handleScrollMensajes,
+  id_plataforma_conf,
 }) => {
   return (
     <>
@@ -116,50 +117,54 @@ export const Sidebar = ({
                 }}
               />
 
-              {/* Select para etiquetas */}
-              <Select
-                isClearable
-                options={[
-                  { value: "gestionadas", label: "Gestionadas" },
-                  { value: "no_gestionadas", label: "No Gestionadas" },
-                ]}
-                value={selectedNovedad} // Estado para el select de transportadora
-                onChange={(selectedOption) =>
-                  setSelectedNovedad(selectedOption)
-                }
-                placeholder="Selecciona novedad"
-                className="w-full mb-4"
-                classNamePrefix="react-select"
-                menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
-                styles={{
-                  menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
-                }}
-              />
+              {/* Select para Novedades */}
+              {id_plataforma_conf !== null && (
+                <Select
+                  isClearable
+                  options={[
+                    { value: "gestionadas", label: "Gestionadas" },
+                    { value: "no_gestionadas", label: "No Gestionadas" },
+                  ]}
+                  value={selectedNovedad} // Estado para el select de transportadora
+                  onChange={(selectedOption) =>
+                    setSelectedNovedad(selectedOption)
+                  }
+                  placeholder="Selecciona novedad"
+                  className="w-full mb-4"
+                  classNamePrefix="react-select"
+                  menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
+                  styles={{
+                    menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
+                  }}
+                />
+              )}
 
               {/* Select para transportadora */}
-              <Select
-                isClearable
-                options={[
-                  { value: "LAAR", label: "Laar" },
-                  { value: "SPEED", label: "Speed" },
-                  { value: "SERVIENTREGA", label: "Servientrega" },
-                  { value: "GINTRACOM", label: "Gintracom" },
-                ]}
-                value={selectedTransportadora} // Estado para el select de transportadora
-                onChange={(selectedOption) => {
-                  setSelectedTransportadora(selectedOption);
-                  if (!selectedOption) {
-                    setSelectedEstado([]); // Limpia el estado si se borra la transportadora
-                  }
-                }}
-                placeholder="Selecciona transportadora"
-                className="w-full mb-4"
-                classNamePrefix="react-select"
-                menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
-                styles={{
-                  menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
-                }}
-              />
+              {id_plataforma_conf !== null && (
+                <Select
+                  isClearable
+                  options={[
+                    { value: "LAAR", label: "Laar" },
+                    { value: "SPEED", label: "Speed" },
+                    { value: "SERVIENTREGA", label: "Servientrega" },
+                    { value: "GINTRACOM", label: "Gintracom" },
+                  ]}
+                  value={selectedTransportadora} // Estado para el select de transportadora
+                  onChange={(selectedOption) => {
+                    setSelectedTransportadora(selectedOption);
+                    if (!selectedOption) {
+                      setSelectedEstado([]); // Limpia el estado si se borra la transportadora
+                    }
+                  }}
+                  placeholder="Selecciona transportadora"
+                  className="w-full mb-4"
+                  classNamePrefix="react-select"
+                  menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
+                  styles={{
+                    menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
+                  }}
+                />
+              )}
 
               {/* Select para estados (siempre oculto hasta que se seleccione transportadora) */}
               {selectedTransportadora ? (

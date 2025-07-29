@@ -97,11 +97,17 @@ const AdministradorPlantillas2 = () => {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
 
-    /* const idp = p.get("id_plataforma_conf"); */
+    const idp = p.get("id_plataforma_conf");
     const idc = p.get("id_configuracion");
 
     if (idc) setId_configuracion(parseInt(idc));
-    /* setId_plataforma_conf(idp ? parseInt(idp) : null); */
+
+    // Validación para el valor 'null' en id_plataforma_conf
+    if (idp === "null") {
+      setId_plataforma_conf(null);
+    } else {
+      setId_plataforma_conf(idp ? parseInt(idp) : null);
+    }
   }, []);
 
   const handleConnectWhatsApp = () => {
