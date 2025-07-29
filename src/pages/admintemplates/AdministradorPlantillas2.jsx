@@ -276,7 +276,7 @@ const AdministradorPlantillas2 = () => {
       const response = await chatApi.post(
         "/whatsapp_managment/obtenerPlantillasPlataforma",
         {
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
         }
       );
 
@@ -383,7 +383,7 @@ const AdministradorPlantillas2 = () => {
     try {
       const resp = await chatApi.post(
         "/whatsapp_managment/obtenerTemplatesWhatsapp",
-        { id_plataforma: userData.data?.id_plataforma }
+        { id_configuracion: id_configuracion }
       );
 
       /*  La ruta Node devuelve el JSON crudo de Meta:
@@ -428,7 +428,7 @@ const AdministradorPlantillas2 = () => {
       const response = await chatApi.post(
         "/whatsapp_managment/crearPlantillasAutomaticas",
         {
-          id_plataforma: userData.data.id_plataforma,
+          id_configuracion: id_configuracion,
         }
       );
 
@@ -1413,7 +1413,7 @@ const AdministradorPlantillas2 = () => {
     try {
       const resp = await chatApi.post("/whatsapp_managment/CrearPlantilla", {
         ...payload,
-        id_plataforma: userData.data?.id_plataforma,
+        id_configuracion: id_configuracion,
       });
       if (resp.data.success) {
         setStatusMessage({
