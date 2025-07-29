@@ -97,11 +97,17 @@ const AdministradorPlantillas2 = () => {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
 
-    /* const idp = p.get("id_plataforma_conf"); */
+    const idp = p.get("id_plataforma_conf");
     const idc = p.get("id_configuracion");
 
     if (idc) setId_configuracion(parseInt(idc));
-    /* setId_plataforma_conf(idp ? parseInt(idp) : null); */
+
+    // Validación para el valor 'null' en id_plataforma_conf
+    if (idp === "null") {
+      setId_plataforma_conf(null);
+    } else {
+      setId_plataforma_conf(idp ? parseInt(idp) : null);
+    }
   }, []);
 
   const handleConnectWhatsApp = () => {
@@ -374,11 +380,8 @@ const AdministradorPlantillas2 = () => {
   // ---------------------------
   // Función para cargar Plantillas
   // ---------------------------
-  // ────────────────────────────────────────────────────────────────
-  //  Sustituir TODO el bloque anterior de fetchPlantillas por esto
-  // ────────────────────────────────────────────────────────────────
   const fetchPlantillas = async () => {
-    if (!userData) return;
+    if (!userData || id_configuracion === null) return;
 
     try {
       const resp = await chatApi.post(
@@ -395,6 +398,7 @@ const AdministradorPlantillas2 = () => {
          "paging": { … }
        }
     */
+      console.log("Respuesta de plantillas:", resp.data); // V
       setPlantillas(resp.data.data || []); // ← ahora viene en resp.data.data
     } catch (error) {
       console.error("Error al cargar las plantillas:", error);
@@ -406,11 +410,12 @@ const AdministradorPlantillas2 = () => {
   };
 
   // 3. Cargar Plantillas cuando currentTab === "templates"
+  // Plantillas
   useEffect(() => {
-    if (currentTab === "templates") {
+    if (currentTab === "templates" && id_configuracion !== null) {
       fetchPlantillas();
     }
-  }, [currentTab]);
+  }, [currentTab, id_configuracion]); // ← agregado id_configuracion
 
   // Tiempo de espera para que desaparezca el mensaje (4s)
   useEffect(() => {
@@ -1699,7 +1704,6 @@ const AdministradorPlantillas2 = () => {
 
       {mostrarModalPlantillaRapida && (
         <CrearPlantillaRapidaModal
-          idPlataforma={userData.data?.id_plataforma}
           onClose={() => setMostrarModalPlantillaRapida(false)}
           onSuccess={fetchRespuestasRapidas}
           setStatusMessage={setStatusMessage}

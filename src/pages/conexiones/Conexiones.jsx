@@ -155,7 +155,8 @@ const Conexiones = () => {
                 <div
                   className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
                   onClick={() =>
-                    navigate("/chat?id_configuracion=" + config.id)
+                    navigate("/chat?id_configuracion=" + config.id + "&id_plataforma_conf=" +
+                  config.id_plataforma)
                   }
                 >
                   <i className="bx bx-chat text-2xl"></i>
