@@ -12,7 +12,7 @@ import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 
 const AdministradorPlantillas2 = () => {
-  const [currentTab, setCurrentTab] = useState("settings");
+  const [currentTab, setCurrentTab] = useState("numbers");
   const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [plantillas, setPlantillas] = useState([]);
   const [userData, setUserData] = useState(null);
