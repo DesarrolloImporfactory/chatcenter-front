@@ -1,13 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import chatApi from "../../api/chatcenter";
 
-const CrearPlantillaRapidaModal = ({ onClose, onSuccess, idPlataforma, setStatusMessage }) => {
+const CrearPlantillaRapidaModal = ({
+  onClose,
+  onSuccess,
+  setStatusMessage,
+}) => {
   const [atajo, setAtajo] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [loading, setLoading] = useState(false);
+  const [idConfigFromURL, setIdConfigFromURL] = useState(null);
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const idc = p.get("id_configuracion");
+    if (idc) setIdConfigFromURL(parseInt(idc));
+  }, []);
 
   const handleCrear = async () => {
-    if (!atajo || !mensaje) {
+    if (!atajo || !mensaje || !idConfigFromURL) {
       setStatusMessage({
         type: "error",
         text: "Por favor completa todos los campos.",
@@ -15,23 +26,28 @@ const CrearPlantillaRapidaModal = ({ onClose, onSuccess, idPlataforma, setStatus
       return;
     }
 
+    const body = {
+      atajo,
+      mensaje,
+      id_configuracion: idConfigFromURL,
+    };
+
     setLoading(true);
     try {
-      const resp = await chatApi.post("/whatsapp_managment/crearPlantillaRapida", {
-        atajo,
-        mensaje,
-        id_plataforma: idPlataforma,
-      });
+      const resp = await chatApi.post(
+        "/whatsapp_managment/crearPlantillaRapida",
+        body
+      );
 
       if (resp.data.success) {
         setStatusMessage({
           type: "success",
           text: "Respuesta rápida creada correctamente.",
         });
-        setAtajo("");      // Limpiar campos (opcional)
-        setMensaje("");    // Limpiar campos (opcional)
-        onSuccess();       // Recargar respuestas
-        onClose();         // 🔐 Cerrar el modal
+        setAtajo("");
+        setMensaje("");
+        onSuccess();
+        onClose();
       } else {
         setStatusMessage({
           type: "error",
@@ -75,7 +91,7 @@ const CrearPlantillaRapidaModal = ({ onClose, onSuccess, idPlataforma, setStatus
             onClick={() => {
               setAtajo("");
               setMensaje("");
-              onClose(); // ✅ Cerrar modal
+              onClose();
             }}
             className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400"
           >

@@ -374,11 +374,8 @@ const AdministradorPlantillas2 = () => {
   // ---------------------------
   // Función para cargar Plantillas
   // ---------------------------
-  // ────────────────────────────────────────────────────────────────
-  //  Sustituir TODO el bloque anterior de fetchPlantillas por esto
-  // ────────────────────────────────────────────────────────────────
   const fetchPlantillas = async () => {
-    if (!userData) return;
+    if (!userData || id_configuracion === null) return;
 
     try {
       const resp = await chatApi.post(
@@ -395,6 +392,7 @@ const AdministradorPlantillas2 = () => {
          "paging": { … }
        }
     */
+      console.log("Respuesta de plantillas:", resp.data); // V
       setPlantillas(resp.data.data || []); // ← ahora viene en resp.data.data
     } catch (error) {
       console.error("Error al cargar las plantillas:", error);
@@ -406,11 +404,12 @@ const AdministradorPlantillas2 = () => {
   };
 
   // 3. Cargar Plantillas cuando currentTab === "templates"
+  // Plantillas
   useEffect(() => {
-    if (currentTab === "templates") {
+    if (currentTab === "templates" && id_configuracion !== null) {
       fetchPlantillas();
     }
-  }, [currentTab]);
+  }, [currentTab, id_configuracion]); // ← agregado id_configuracion
 
   // Tiempo de espera para que desaparezca el mensaje (4s)
   useEffect(() => {
@@ -1699,7 +1698,6 @@ const AdministradorPlantillas2 = () => {
 
       {mostrarModalPlantillaRapida && (
         <CrearPlantillaRapidaModal
-          idPlataforma={userData.data?.id_plataforma}
           onClose={() => setMostrarModalPlantillaRapida(false)}
           onSuccess={fetchRespuestasRapidas}
           setStatusMessage={setStatusMessage}
