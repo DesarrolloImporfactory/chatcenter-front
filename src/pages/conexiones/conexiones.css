@@ -106,44 +106,6 @@
 }
 
 
-/* Estilos para la tarjeta */
-.card-hover {
-  position: relative;
-  background-color: #171931; /* Color base de la tarjeta */
-  /* Quitamos el overflow: hidden para permitir que los tooltips sean visibles */
-  overflow: visible; /* Hacemos visible todo el contenido de la tarjeta */ 
-  animation: entradaSuave 0.6s ease-out forwards; /* La tarjeta hace la animación de entrada */
-  transition: color 0.3s ease; /* Solo para el color del texto */
-  
-}
-
-/* Gradiente animado para simular el efecto de pintado */
-.card-hover::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 8px;
-  background: linear-gradient(90deg, #666, #aaa); /* Gradiente de colores como pincel */
-  background-size: 200% 100%; /* Aumentamos el tamaño del fondo para el movimiento */
-  background-position: -100%;
-  animation: pintar 2s ease-out forwards; /* El fondo se rellena de izquierda a derecha */
-  z-index: -1; /* Asegura que el gradiente esté detrás del contenido de la tarjeta */
-}
-
-/* Cambios de color al pasar el mouse sobre la tarjeta */
-.card-hover:hover {
-  color: #333; /* Texto oscuro para mayor legibilidad */
-}
-
-/* Cambiar color del texto cuando el mouse pasa por la tarjeta */
-.card-hover:hover h3,
-.card-hover:hover .text-gray-300 {
-  color: #fff; /* Cambia el color del texto a blanco */
-}
-
 /* Efecto de brillo en los iconos */
 .card-hover:hover .bx {
   filter: brightness(1.5); /* Hace que los iconos brillen un poco al pasar el mouse */

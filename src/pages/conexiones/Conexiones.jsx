@@ -91,10 +91,13 @@ const Conexiones = () => {
       <div className="flex justify-end pb-6">
         <button
           onClick={() => handleAbrirConfiguracionAutomatizada(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-md transition-all duration-300"
+          className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-full shadow-lg transition duration-300 ease-in-out transform group hover:scale-100 hover:shadow-lg relative"
         >
-          <i className="bx bx-plus text-xl"></i>
-          <span>Agregar configuración</span>
+          <i className="bx bx-cog text-2xl"></i>
+          {/* Tooltip */}
+          <span className="tooltip">
+            Agregar configuración
+          </span>
         </button>
       </div>
 
@@ -112,30 +115,30 @@ const Conexiones = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {configuracionAutomatizada.map((config, idx) => (
             <div
               key={idx}
-              className=" relative bg-white border rounded-lg shadow-md p-5 max-w-sm w-full hover:shadow-xl transition-all"
+              className=" relative bg-white border border-gray-800 rounded-xl shadow-lg p-6 max-w-sm w-full transition-all duration-300 hover:bg-white hover:shadow-xl hover:scale-105 card-hover"
             >
               {/* Título */}
-              <div className="flex items-center gap-2 mb-2">
-                <i className="bx bx-layer text-2xl text-blue-600"></i>
-                <h3 className="text-lg font-bold text-gray-800 tracking-wide">
+              <div className="flex items-center gap-3 mb-4">
+                <i className="bx bx-layer text-2xl text-blue-600 group-hover:text-blue-400 transition-all duration-300 hover:scale-110"></i>
+                <h3 className="text-lg font-semibold text-gray-500 tracking-wide">
                   {config.nombre_configuracion}
                 </h3>
               </div>
 
               {/* Teléfono */}
               <div className="flex items-center gap-2 text-base text-gray-700 mb-4">
-                <i className="bx bx-phone-call text-xl text-green-600"></i>
+                <i className="bx bx-phone-call text-xl text-green-600 group-hover:text-green-400 transition-all duration-300 hover:scale-110 hover:sacudir"></i>
                 <span>{config.telefono}</span>
               </div>
 
               {/* Método de pago */}
-              <div>
+              <div className="mb-4">
                 <span
-                  className={`text-sm font-semibold px-3 py-1 rounded-full ${
+                  className={`text-sm font-semibold px-4 py-1 rounded-full ${
                     config.metodo_pago === 1
                       ? "bg-green-100 text-green-700"
                       : "bg-red-100 text-red-600"
@@ -147,10 +150,10 @@ const Conexiones = () => {
               </div>
 
               {/* Iconos persistentes con tooltip individual */}
-              <div className="absolute top-3 right-3 flex gap-3">
+              <div className="absolute top-3 right-3 flex gap-4">
                 {/* Configuración */}
                 <div
-                  className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
+                  className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition-all duration-300 transform hover:scale-110 hover:shadow-xl"
                   onClick={() =>
                     navigate(
                       "/administrador-whatsapp?id_configuracion=" +
@@ -160,7 +163,7 @@ const Conexiones = () => {
                     )
                   }
                 >
-                  <i className="bx bx-cog text-2xl"></i>
+                  <i className="bx bx-cog text-2xl text-blue-600 group-hover:text-blue-400 transition-all duration-300"></i>
                   <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                     Ir a configuración
                   </span>
@@ -171,7 +174,7 @@ const Conexiones = () => {
                   className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
                   onClick={() => handleConectarMetaDeveloper(config)}
                 >
-                  <i className="bx bxl-meta text-2xl"></i>
+                  <i className="bx bxl-meta text-2xl text-blue-600 group-hover:text-blue-400 transition-all duration-300"></i>
                   <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                     Conectar con Meta Developer
                   </span>
@@ -189,7 +192,7 @@ const Conexiones = () => {
                     )
                   }
                 >
-                  <i className="bx bx-chat text-2xl"></i>
+                  <i className="bx bx-chat text-2xl text-green-600 group-hover:text-green-400 transition-all duration-300"></i>
                   <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                     Ir al chat
                   </span>
