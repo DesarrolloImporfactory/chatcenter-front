@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
 import chatApi from "../../api/chatcenter";
 
-const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStatusMessage }) => {
+const VerPlantillaGuiasGeneradas = ({ onClose, setStatusMessage }) => {
   const [seleccionada, setSeleccionada] = useState(null);
   const [loading, setLoading] = useState(false);
   const [plantillasMeta, setPlantillasMeta] = useState([]);
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const id_configuracion = parseInt(searchParams.get("id_configuracion"));
 
   useEffect(() => {
     const fetchTemplatesMeta = async () => {
@@ -12,26 +15,29 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
         // 1. Traemos todas las plantillas de Meta
         const resp = await chatApi.post(
           "/whatsapp_managment/obtenerTemplatesWhatsapp",
-          { id_plataforma: idPlataforma }
+          { id_configuracion: id_configuracion }
         );
-  
-        const metaList = resp.data?.data || [];     // ← crudo de Meta
-  
+
+        const metaList = resp.data?.data || [];
+
         // 2. Convertimos al formato que la UI espera
         const templates = metaList.map((tpl) => ({
           id_template: tpl.id,
           nombre: tpl.name,
         }));
-  
+
         setPlantillasMeta(templates);
-  
+
         // 3. Leemos la configuración actual para marcar la seleccionada
         const configResp = await chatApi.post(
           "/whatsapp_managment/obtenerConfiguracion",
-          { id_plataforma: idPlataforma }
+          { id_configuracion: id_configuracion }
         );
-  
-        if (configResp.data.success && configResp.data.config?.template_generar_guia) {
+
+        if (
+          configResp.data.success &&
+          configResp.data.config?.template_generar_guia
+        ) {
           setSeleccionada(configResp.data.config.template_generar_guia);
         }
       } catch (err) {
@@ -42,10 +48,9 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
         });
       }
     };
-  
+
     fetchTemplatesMeta();
-  }, [idPlataforma]);
-  
+  }, [id_configuracion]);
 
   const handleGuardar = async () => {
     if (!seleccionada) {
@@ -59,10 +64,13 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
     try {
       setLoading(true);
 
-      const resp = await chatApi.put("/whatsapp_managment/editarConfiguracion", {
-        id_template_whatsapp: seleccionada,
-        id_plataforma: idPlataforma,
-      });
+      const resp = await chatApi.put(
+        "/whatsapp_managment/editarConfiguracion",
+        {
+          id_template_whatsapp: seleccionada,
+          id_configuracion: id_configuracion,
+        }
+      );
 
       if (resp.data.success) {
         setStatusMessage({
@@ -73,7 +81,9 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
       } else {
         setStatusMessage({
           type: "info",
-          text: resp.data.message || "La plantilla ya estaba asignada como principal.",
+          text:
+            resp.data.message ||
+            "La plantilla ya estaba asignada como principal.",
         });
       }
     } catch (error) {
@@ -90,7 +100,9 @@ const VerPlantillaGuiasGeneradas = ({ idPlataforma, respuestas, onClose, setStat
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[9999]">
       <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-md">
-        <h2 className="text-lg font-semibold mb-4">Selecciona la plantilla que sera enviada cuando generes una guía</h2>
+        <h2 className="text-lg font-semibold mb-4">
+          Selecciona la plantilla que sera enviada cuando generes una guía
+        </h2>
 
         <div className="space-y-3 max-h-64 overflow-y-auto">
           {plantillasMeta.map((r) => (

@@ -5,6 +5,7 @@ import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
 import botImage from "../../assets/bot.png";
 import "./conexiones.css";
+import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
 
 const Conexiones = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
@@ -12,9 +13,40 @@ const Conexiones = () => {
   );
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
-
   const [mostrarErrorBot, setMostrarErrorBot] = useState(false);
+  const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
+    useState(false);
+  const [statusMessage, setStatusMessage] = useState(null);
 
+  const handleAbrirConfiguracionAutomatizada = () => {
+    setModalConfiguracionAutomatizada(true);
+  };
+
+  // 1. Definir fetchConfiguracionAutomatizada fuera del useEffect
+  const fetchConfiguracionAutomatizada = async () => {
+    if (!userData) return;
+
+    try {
+      const response = await chatApi.post("configuraciones/listar_conexiones", {
+        id_usuario: userData.id_usuario,
+      });
+      setConfiguracionAutomatizada(response.data.data || []);
+    } catch (error) {
+      if (error.response?.status === 403) {
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          confirmButtonText: "OK",
+        }).then(() => navigate("/planes_view"));
+      } else if (error.response?.status === 400) {
+        setMostrarErrorBot(true);
+      } else {
+        console.error("Error al cargar configuración:", error);
+      }
+    }
+  };
+
+  // 2. Llamar fetchConfiguracionAutomatizada cuando el componente se monta
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return navigate("/login");
@@ -41,35 +73,14 @@ const Conexiones = () => {
     }
   }, []);
 
+  // 3. Llamar a fetchConfiguracionAutomatizada cuando el usuario esté disponible
   useEffect(() => {
-    if (!userData) return;
-
-    const fetchConfiguracionAutomatizada = async () => {
-      try {
-        const response = await chatApi.post(
-          "configuraciones/listar_conexiones",
-          {
-            id_usuario: userData.id_usuario,
-          }
-        );
-        setConfiguracionAutomatizada(response.data.data || []);
-      } catch (error) {
-        if (error.response?.status === 403) {
-          Swal.fire({
-            icon: "error",
-            title: error.response?.data?.message,
-            confirmButtonText: "OK",
-          }).then(() => navigate("/planes_view"));
-        } else if (error.response?.status === 400) {
-          setMostrarErrorBot(true);
-        } else {
-          console.error("Error al cargar configuración:", error);
-        }
-      }
-    };
-
-    fetchConfiguracionAutomatizada();
+    if (userData) {
+      fetchConfiguracionAutomatizada();
+    }
   }, [userData]);
+
+  // 4. Lógica para Conectar con Meta Developer
 
   return (
     <div className="relative p-6 min-h-screen bg-gray-50 pt-[5%]">
@@ -79,9 +90,7 @@ const Conexiones = () => {
 
       <div className="flex justify-end pb-6">
         <button
-          onClick={() => {
-            /* tu lógica aquí */
-          }}
+          onClick={() => handleAbrirConfiguracionAutomatizada(true)}
           className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-md transition-all duration-300"
         >
           <i className="bx bx-plus text-xl"></i>
@@ -142,8 +151,14 @@ const Conexiones = () => {
                 {/* Configuración */}
                 <div
                   className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
-                  onClick={() => navigate("/administrador-whatsapp?id_configuracion=" + config.id +"&id_plataforma_conf=" +
-                  config.id_plataforma)}
+                  onClick={() =>
+                    navigate(
+                      "/administrador-whatsapp?id_configuracion=" +
+                        config.id +
+                        "&id_plataforma_conf=" +
+                        config.id_plataforma
+                    )
+                  }
                 >
                   <i className="bx bx-cog text-2xl"></i>
                   <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
@@ -151,12 +166,27 @@ const Conexiones = () => {
                   </span>
                 </div>
 
+                {/* Conectar Meta Developer */}
+                <div
+                  className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
+                  onClick={() => handleConectarMetaDeveloper(config)}
+                >
+                  <i className="bx bxl-meta text-2xl"></i>
+                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                    Conectar con Meta Developer
+                  </span>
+                </div>
+
                 {/* Chat */}
                 <div
                   className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
                   onClick={() =>
-                    navigate("/chat?id_configuracion=" + config.id + "&id_plataforma_conf=" +
-                  config.id_plataforma)
+                    navigate(
+                      "/chat?id_configuracion=" +
+                        config.id +
+                        "&id_plataforma_conf=" +
+                        config.id_plataforma
+                    )
                   }
                 >
                   <i className="bx bx-chat text-2xl"></i>
@@ -168,6 +198,14 @@ const Conexiones = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {ModalConfiguracionAutomatizada && (
+        <CrearConfiguracionModal
+          onClose={() => setModalConfiguracionAutomatizada(false)}
+          fetchConfiguraciones={fetchConfiguracionAutomatizada}
+          setStatusMessage={setStatusMessage}
+        />
       )}
     </div>
   );

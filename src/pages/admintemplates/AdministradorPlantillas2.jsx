@@ -398,7 +398,6 @@ const AdministradorPlantillas2 = () => {
          "paging": { … }
        }
     */
-      console.log("Respuesta de plantillas:", resp.data); // V
       setPlantillas(resp.data.data || []); // ← ahora viene en resp.data.data
     } catch (error) {
       console.error("Error al cargar las plantillas:", error);
@@ -415,7 +414,7 @@ const AdministradorPlantillas2 = () => {
     if (currentTab === "templates" && id_configuracion !== null) {
       fetchPlantillas();
     }
-  }, [currentTab, id_configuracion]); // ← agregado id_configuracion
+  }, [currentTab, id_configuracion]);
 
   // Tiempo de espera para que desaparezca el mensaje (4s)
   useEffect(() => {
@@ -1040,7 +1039,7 @@ const AdministradorPlantillas2 = () => {
     return (
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
         <div className="flex justify-between mb-4">
-          <h2 className="text-lg font-semibold">Configuraciones </h2>
+          <h2 className="text-lg font-semibold">Conexiones </h2>
           <div className="flex gap-2">
             {configuracionAutomatizada.length === 0 && (
               <>
@@ -1682,7 +1681,7 @@ const AdministradorPlantillas2 = () => {
             }`}
             onClick={() => setCurrentTab("settings")}
           >
-            <i className="fas fa-cog"></i> Configuraciones
+            <i className="fas fa-cog"></i> Conexiones
           </button>
         </div>
       </div>
