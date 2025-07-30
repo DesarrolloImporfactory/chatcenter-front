@@ -4,7 +4,7 @@ import chatApi from "../../api/chatcenter";
 import i_meta from "../../assets/icon_me_ta.png";
 import Swal from "sweetalert2";
 
-
+/* actualizacion */
 
 const PlanesView = () => {
   const navigate = useNavigate();

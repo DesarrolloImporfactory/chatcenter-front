@@ -10,3 +10,147 @@
 .animate-bounce-slow {
   animation: bounce 1.5s infinite;
 }
+
+/* Animación de entrada suave para las tarjetas */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Tooltip estilizado con flechita */
+.tooltip {
+  position: absolute;
+  left: -300%; /* Coloca el tooltip a la izquierda del botón */
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #000; /* Negro mate */
+  color: white;
+  font-size: 16px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  white-space: nowrap; /* Evitar que el texto se rompa en varias líneas */
+}
+
+.group:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Flechita del tooltip */
+.tooltip::after {
+  content: "";
+  position: absolute;
+  top: 50%;  /* Alineamos la flecha al centro vertical */
+  left: 100%;  /* Colocamos la flecha a la derecha del tooltip */
+  margin-top: 0;  /* Alineamos la flecha verticalmente */
+  border-left: 15px solid #000;
+  border-right: 5px solid transparent;
+  border-top: 5px solid transparent; /* Flecha del color del fondo del tooltip */
+  border-bottom: 5px solid transparent;
+  
+  /* Ajustamos la forma de la flecha */
+  transform: translateY(-50%); /* Asegura que esté perfectamente centrada */
+}
+
+/* Rotación del ícono del engranaje */
+.group:hover .bx-cog {
+  transform: rotate(180deg);
+  transition: transform 0.3s ease;
+}
+
+/* Animación de sacudida con rotación ligera */
+@keyframes sacudir {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-6deg); /* Gira ligeramente a la izquierda */
+  }
+  50% {
+    transform: rotate(6deg); /* Gira ligeramente a la derecha */
+  }
+  75% {
+    transform: rotate(-6deg); /* Gira ligeramente a la izquierda */
+  }
+  100% {
+    transform: rotate(0deg); /* Vuelve a la posición inicial */
+  }
+}
+
+/* Solo activamos la animación al pasar el mouse y que se ejecute una sola vez */
+.hover\:sacudir:hover {
+  animation: sacudir 0.6s ease-in-out forwards; /* 'forwards' mantiene el estado final de la animación */
+}
+
+/* Animación de relleno con pincel */
+@keyframes pintar {
+  0% {
+    background-position: -100%; /* El gradiente empieza fuera del borde izquierdo */
+  }
+  100% {
+    background-position: 100%; /* El gradiente se mueve hasta el borde derecho */
+  }
+}
+
+
+/* Estilos para la tarjeta */
+.card-hover {
+  position: relative;
+  background-color: #171931; /* Color base de la tarjeta */
+  /* Quitamos el overflow: hidden para permitir que los tooltips sean visibles */
+  overflow: visible; /* Hacemos visible todo el contenido de la tarjeta */ 
+  animation: entradaSuave 0.6s ease-out forwards; /* La tarjeta hace la animación de entrada */
+  transition: color 0.3s ease; /* Solo para el color del texto */
+  
+}
+
+/* Gradiente animado para simular el efecto de pintado */
+.card-hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #666, #aaa); /* Gradiente de colores como pincel */
+  background-size: 200% 100%; /* Aumentamos el tamaño del fondo para el movimiento */
+  background-position: -100%;
+  animation: pintar 2s ease-out forwards; /* El fondo se rellena de izquierda a derecha */
+  z-index: -1; /* Asegura que el gradiente esté detrás del contenido de la tarjeta */
+}
+
+/* Cambios de color al pasar el mouse sobre la tarjeta */
+.card-hover:hover {
+  color: #333; /* Texto oscuro para mayor legibilidad */
+}
+
+/* Cambiar color del texto cuando el mouse pasa por la tarjeta */
+.card-hover:hover h3,
+.card-hover:hover .text-gray-300 {
+  color: #fff; /* Cambia el color del texto a blanco */
+}
+
+/* Efecto de brillo en los iconos */
+.card-hover:hover .bx {
+  filter: brightness(1.5); /* Hace que los iconos brillen un poco al pasar el mouse */
+}
+
+
+
+
+
+
