@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
-import i_meta from "../../assets/icon_me_ta.png";
 import Swal from "sweetalert2";
 
 /* actualizacion */
@@ -157,14 +156,12 @@ const PlanesView = () => {
                   </li>
                 
                   <li className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width={24} height={24} fill={"currentColor"} viewBox="0 0 24 24">
-                      <path d="M3 4.5v5c0 .83.67 1.5 1.5 1.5h5c.83 0 1.5-.67 1.5-1.5v-5c0-.83-.67-1.5-1.5-1.5h-5C3.67 3 3 3.67 3 4.5M5 5h4v4H5zM3 19.5c0 .83.67 1.5 1.5 1.5h5c.83 0 1.5-.67 1.5-1.5v-5c0-.83-.67-1.5-1.5-1.5h-5c-.83 0-1.5.67-1.5 1.5zM5 15h4v4H5zM19.5 3h-5c-.83 0-1.5.67-1.5 1.5v5c0 .83.67 1.5 1.5 1.5h5c.83 0 1.5-.67 1.5-1.5v-5c0-.83-.67-1.5-1.5-1.5M19 9h-4V5h4zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM17 17h2v2h-2zM19 19h2v2h-2zM15 19h2v2h-2zM17 13h2v2h-2zM19 15h2v2h-2z"></path>
-                    </svg>
+                    <i class='bx bxl-meta'></i>
                     QR incluido
                   </li>
                 
                   <li className="flex items-center gap-2">
-                    <img src={i_meta} alt="Meta Icon" className="w-5 h-5 brightness-0 invert opacity-80" />
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAt5JREFUSEuF1kuIHFUUBuDvCIOPEJ/oQsjCxASibkQmC1ERd8aFEVEE3Qo+8IEYiMFtlJhkIQTGgK5V0Jho9hIQRIOiRPCFMosEY3wSY4hocqzqutVdU1PdU3RTVX3vPf85//nvfzsIIuuPZPTaPEy7mgnjab353dH6uf7OvPoLOqFXzGYqwOwiuqOD6TcJl6Gan2Wc9EgYVzgNeFqEgjMti2m9mRGuWbKkhdN6cCnux+bgTIoD5HvjypooN+IZXIUPsF841RfIEMDa4LPk8iXdDwvSUzgn3CW9j1Udhn/Hbfi6S/sYoBS+Gp8EG5NTeNsIKLaInJPeJXaRH+FzYjt5NHgk2S2ckDbhWJtcAzDmLnaI3C5HE+ZxogDfLRyU5ojT5GncUFH0R6eCrXgFC3iiFVKXoosL8pWF//09ip6LtKfswW3BznY/lt7MkceC1cka/NaCtBU8lmJB5GKkdcn5CcAoxEPBmyXoYrAh+ben8pfwAl7Ejr5MD+BeYW9pZreAa/AtLsLftXKCbcnOng3cERxOcZi8cwLQeNHR5CY8Hry2tPxRsx/Ey8SiyH3Sf5r5NXB7XYvj+B4b+lZRq6ZW0a34uLPoHuJQzW+9CGeFI9ItqNV0e2/r/UWcJy+b9KCJdrbK8MJKLTdLXxSAS/CNpmlbcLCobl76tMx5FK93pHgSV7dG2lXRd1iP56tK9uACvIUHKireKfeuL+1NnsSfjWTjJ5HrpTrOD7i+X8GrxNPkP1XGbxSd1436ecR1+LVnAzWdX+I6fIVDFfcPB2tS7CbrfVHOg4bEVfiwbLDWco9L9xFHhk+hmCfrNfXa1iF+KQmdrBPq2/UVwmZpbUVVvVv34UxncU+Vo9d1FU3PVrayET9WYLtGKiru0POi2UfNUPRJ4sOjPS/qnoJdcx8w+mlond9XPjJnnI5dOXWb3z8NxxUsn9T2edLe5XjdcMPZDAIMZrdie3oA5a/Q/w1I/CAXiIl9AAAAAElFTkSuQmCC" alt="Meta Icon" className="w-5 h-5 brightness-0 invert opacity-80" />
                     Meta habilitado
                   </li>
                 </ul>
