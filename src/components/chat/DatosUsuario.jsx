@@ -1227,7 +1227,7 @@ const DatosUsuario = ({
 
       let id_recibe = await buscar_id_recibe(
         numeroDestino,
-        formulario.get("id_plataforma")
+        id_configuracion
       );
 
       agregar_mensaje_enviado(
@@ -1237,7 +1237,7 @@ const DatosUsuario = ({
         numeroDestino,
         dataAdmin.id_telefono,
         id_recibe,
-        formulario.get("id_plataforma"),
+        id_configuracion,
         telefono_configuracion
       );
 
