@@ -13,6 +13,7 @@ const CrearConfiguracionModal = ({
   const [idBusinessAccount, setIdBusinessAccount] = useState("");
   const [tokenApi, setTokenApi] = useState("");
   const [userData, setUserData] = useState(null);
+  const [idConfiguracion, setIdConfiguracion] = useState(null);
 
   const [step, setStep] = useState(1); // Paso 1 o 2
   const [countryCode, setCountryCode] = useState("EC"); // Código de país por defecto (Ecuador)
@@ -101,7 +102,12 @@ const CrearConfiguracionModal = ({
           });
           onClose();
           if (fetchConfiguraciones) fetchConfiguraciones();
+
+          // Guardar el id_configuracion para usarlo en el paso 2
+          const idConfiguracion = resp.data.id_configuracion;
           setStep(2);
+
+          setIdConfiguracion(idConfiguracion);
         } else {
           setStatusMessage({
             type: "error",
@@ -120,10 +126,10 @@ const CrearConfiguracionModal = ({
         const resp = await chatApi.post(
           "/whatsapp_managment/actualizarConfiguracionMeta",
           {
-            id_configuracion: 1, // Aquí debes insertar el ID de la configuración
             id_telefono: idWhatsapp,
             id_whatsapp: idBusinessAccount,
             token: tokenApi,
+            id_configuracion: idConfiguracion, // Usar id_configuracion
           }
         );
 

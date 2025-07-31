@@ -6,6 +6,7 @@ import chatApi from "../../api/chatcenter";
 import botImage from "../../assets/bot.png";
 import "./conexiones.css";
 import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
+import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConfiguracionModalWhatsappBusiness";
 
 const Conexiones = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
@@ -16,10 +17,24 @@ const Conexiones = () => {
   const [mostrarErrorBot, setMostrarErrorBot] = useState(false);
   const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
     useState(false);
+  const [
+    ModalConfiguracionWhatsappBusiness,
+    setModalConfiguracionWhatsappBusiness,
+  ] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+  const [idConfiguracion, setIdConfiguracion] = useState(null);
+  const [NombreConfiguracion, setNombreConfiguracion] = useState(null);
+  const [telefono, setTelefono] = useState(null);
 
   const handleAbrirConfiguracionAutomatizada = () => {
     setModalConfiguracionAutomatizada(true);
+  };
+
+  const handleConectarWhatsappBussines = (config) => {
+    setIdConfiguracion(config.id);
+    setNombreConfiguracion(config.nombre_configuracion);
+    setTelefono(config.telefono);
+    setModalConfiguracionWhatsappBusiness(true);
   };
 
   // 1. Definir fetchConfiguracionAutomatizada fuera del useEffect
@@ -50,15 +65,15 @@ const Conexiones = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return navigate("/login");
-  
+
     const decoded = jwtDecode(token);
     if (decoded.exp < Date.now() / 1000) {
       localStorage.removeItem("token");
       return navigate("/login");
     }
-  
+
     setUserData(decoded);
-  
+
     // Mostrar mensaje si hay un plan activado
     const planActivadoData = localStorage.getItem("plan_activado");
     if (planActivadoData) {
@@ -95,9 +110,7 @@ const Conexiones = () => {
         >
           <i className="bx bx-cog text-2xl"></i>
           {/* Tooltip */}
-          <span className="tooltip">
-            Agregar configuración
-          </span>
+          <span className="tooltip">Agregar configuración</span>
         </button>
       </div>
 
@@ -180,6 +193,17 @@ const Conexiones = () => {
                   </span>
                 </div>
 
+                {/* Configurar Modal */}
+                <div
+                  className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
+                  onClick={() => handleConectarWhatsappBussines(config)}
+                >
+                  <i className="bx bxl-whatsapp text-2xl"></i>
+                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                    Conectar WhatsApp Business
+                  </span>
+                </div>
+
                 {/* Chat */}
                 <div
                   className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
@@ -208,6 +232,17 @@ const Conexiones = () => {
           onClose={() => setModalConfiguracionAutomatizada(false)}
           fetchConfiguraciones={fetchConfiguracionAutomatizada}
           setStatusMessage={setStatusMessage}
+        />
+      )}
+
+      {ModalConfiguracionWhatsappBusiness && (
+        <CrearConfiguracionModalWhatsappBusiness
+          onClose={() => setModalConfiguracionWhatsappBusiness(false)}
+          fetchConfiguraciones={fetchConfiguracionAutomatizada}
+          setStatusMessage={setStatusMessage}
+          idConfiguracion={idConfiguracion}
+          nombre_configuracion={NombreConfiguracion}
+          telefono={telefono}
         />
       )}
     </div>
