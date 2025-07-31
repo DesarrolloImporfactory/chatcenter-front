@@ -99,7 +99,7 @@ export default function Login() {
             </li>
             <li className="flex gap-2">
               <i className="bx bx-check text-green-400 mt-[2px]" />
-              Integración con Imporsuit y Bussines Manager.
+              Integración con Imporsuit y Business Manager.
             </li>
           </ul>
           <div className="grid grid-cols-2 gap-4 mt-8 text-center">
