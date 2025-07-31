@@ -106,9 +106,9 @@ const Conexiones = () => {
       <div className="flex justify-end pb-6">
         <button
           onClick={() => handleAbrirConfiguracionAutomatizada(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-full shadow-lg transition duration-300 ease-in-out transform group hover:scale-100 hover:shadow-lg relative"
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-green-600 to-emerald-500 text-white rounded-xl shadow-xl transition-all duration-300 ease-in-out transform group hover:scale-[1.03] hover:shadow-2xl hover:brightness-110 relative backdrop-blur-sm"
         >
-          <i className="bx bx-cog text-2xl"></i>
+          <i className="bx bx-cog text-2xl transition-all duration-300 group-hover:brightness-150 group-hover:drop-shadow-[0_0_6px_#ffffff80]"></i>
           {/* Tooltip */}
           <span className="tooltip">Agregar configuración</span>
         </button>
@@ -128,7 +128,7 @@ const Conexiones = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           {configuracionAutomatizada.map((config, idx) => (
             <div
               key={idx}
@@ -163,7 +163,7 @@ const Conexiones = () => {
               </div>
 
               {/* Iconos persistentes con tooltip individual */}
-              <div className="absolute top-3 right-3 flex gap-4">
+              <div className="absolute top-3 right-3 flex gap-2">
                 {/* Configuración */}
                 <div
                   className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition-all duration-300 transform hover:scale-110 hover:shadow-xl"
@@ -198,7 +198,7 @@ const Conexiones = () => {
                   className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
                   onClick={() => handleConectarWhatsappBussines(config)}
                 >
-                  <i className="bx bxl-whatsapp text-2xl"></i>
+                  <i className="bx bxl-whatsapp text-2xl text-green-600 group-hover:text-green-400 transition-all duration-300"></i>
                   <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                     Conectar WhatsApp Business
                   </span>
