@@ -30,7 +30,7 @@
 /* Tooltip estilizado con flechita */
 .tooltip {
   position: absolute;
-  left: -300%; /* Coloca el tooltip a la izquierda del botón */
+  left: -400%; /* Coloca el tooltip a la izquierda del botón */
   top: 50%;
   transform: translateY(-50%);
   background-color: #000; /* Negro mate */
