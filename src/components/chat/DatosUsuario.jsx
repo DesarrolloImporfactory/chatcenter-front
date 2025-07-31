@@ -34,6 +34,7 @@ const DatosUsuario = ({
   buscar_id_recibe,
   agregar_mensaje_enviado,
   id_plataforma_conf,
+  id_usuario_conf,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -43,6 +44,7 @@ const DatosUsuario = ({
   const [accion, setAccion] = useState(null);
   const [datosNovedadExtra, setDatosNovedadExtra] = useState(null);
   const [tipo_novedad, setTipo_novedad] = useState(null);
+  const [isPriceQuantity, setIsPriceQuantity] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [nivel, setNivel] = useState(null);
@@ -85,8 +87,8 @@ const DatosUsuario = ({
       formData.append("celular", datosNovedadExtra.factura[0].telefono);
       formData.append("observacion", observacionLaar || "");
       formData.append("observacionA", solucionLaar || "");
-      formData.append("id", userData ? userData.data?.id : 0); // id_usuario de la talba users de imporsuit
-      formData.append("id_plataforma", userData.data?.id_plataforma);
+      formData.append("id", id_usuario_conf ? id_usuario_conf : 0); // id_usuario de la talba users de imporsuit
+      formData.append("id_plataforma", id_plataforma_conf);
 
       const res = await fetch(
         `https://new.imporsuitpro.com/novedades/solventarNovedadLaar`,
@@ -153,8 +155,8 @@ const DatosUsuario = ({
     formData.append("recaudo", tipoGintra === "recaudo" ? valorRecaudar : "");
     formData.append("fecha", tipoGintra !== "rechazar" ? fechaGintra : "");
     formData.append("guia", novedadSeleccionada.guia_novedad);
-    formData.append("id", userData ? userData.data?.id : 0);
-    formData.append("id_plataforma", userData.data?.id_plataforma);
+    formData.append("id", id_usuario_conf ? id_usuario_conf : 0);
+    formData.append("id_plataforma", id_plataforma_conf);
 
     try {
       const response = await fetch(
@@ -207,8 +209,8 @@ const DatosUsuario = ({
       formData.append("guia", novedadSeleccionada?.guia_novedad);
       formData.append("observacion", observacionServi);
       formData.append("id_novedad", novedadSeleccionada?.id_novedad);
-      formData.append("id", userData ? userData.data?.id : 0);
-      formData.append("id_plataforma", userData.data?.id_plataforma);
+      formData.append("id", id_usuario_conf ? id_usuario_conf : 0);
+      formData.append("id_plataforma", id_plataforma_conf);
 
       const res = await fetch(
         "https://new.imporsuitpro.com/novedades/solventarNovedadServientrega",
@@ -453,8 +455,8 @@ const DatosUsuario = ({
       formulario.append("otros", getValues("otros") || 0);
       formulario.append("impuestos", getValues("impuestos") || 0);
     }
-    formulario.append("id", userData ? userData.data?.id : 0);
-    formulario.append("id_plataforma", userData.data?.id_plataforma);
+    formulario.append("id", id_usuario_conf ? id_usuario_conf : 0);
+    formulario.append("id_plataforma", id_plataforma_conf);
     formulario.append("productos", JSON.stringify(lista_productos));
 
     console.log("transportadora", transportadora);
@@ -597,6 +599,17 @@ const DatosUsuario = ({
 
   const agregarProducto = async (producto) => {
     try {
+      // Verificar si el producto ya está en la factura (para evitar duplicados)
+      const productoExistente = facturaSeleccionada.productos.some(
+        (p) => p.id_producto === producto.id_producto
+      );
+
+      if (productoExistente) {
+        console.log("El producto ya está en la factura.");
+        return; // Si ya existe, no lo agregamos
+      }
+
+      // Hacer el POST a la API para agregar el producto
       const response = await chatApi.post("/product/agregarProducto", {
         id_factura: facturaSeleccionada.id_factura,
         id_producto: producto.id_producto,
@@ -606,24 +619,42 @@ const DatosUsuario = ({
         precio: producto.pvp,
       });
 
-      console.log(response.data);
+      if (response.status === 200) {
+        // Actualizar facturaSeleccionada y facturasChatSeleccionado
+        setFacturaSeleccionada((prevState) => ({
+          ...prevState,
+          productos: [
+            ...prevState.productos,
+            {
+              ...producto,
+              cantidad: 1,
+              precio_venta: producto.pvp,
+              total: producto.pvp * 1,
+            },
+          ],
+          monto_factura: prevState.monto_factura + producto.pvp * 1, // Actualizar monto
+        }));
 
-      // Actualizar el estado del componente
-      setFacturaSeleccionada((prevState) => ({
-        ...prevState,
-        productos: [
-          ...prevState.productos,
-          {
-            ...producto,
-            cantidad: 1,
-            precio_venta: producto.pvp,
-            total: producto.pvp * 1,
-          },
-        ],
-      }));
-
-      recargarDatosFactura();
-      handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+        setFacturasChatSeleccionado((prevChat) =>
+          prevChat.map((factura) =>
+            factura.id_factura === facturaSeleccionada.id_factura
+              ? {
+                  ...factura,
+                  productos: [
+                    ...factura.productos,
+                    {
+                      ...producto,
+                      cantidad: 1,
+                      precio_venta: producto.pvp,
+                      total: producto.pvp * 1,
+                    },
+                  ],
+                  monto_factura: factura.monto_factura + producto.pvp * 1, // Actualizar monto
+                }
+              : factura
+          )
+        );
+      }
     } catch (error) {
       console.error("Error al agregar el producto:", error);
     }
@@ -637,15 +668,18 @@ const DatosUsuario = ({
 
   useEffect(() => {
     if (opciones) {
-      // Solo ejecuta el efecto si opciones es true
-      setFacturaSeleccionada({});
-      if (facturasChatSeleccionado) {
-        if (facturasChatSeleccionado.length === 1) {
-          handleFacturaSeleccionada(facturasChatSeleccionado[0]);
-        } else if (guiasChatSeleccionado.length === 1) {
-          handleGuiaSeleccionada(guiasChatSeleccionado[0]);
+      if (!isPriceQuantity) {
+        // Solo ejecuta el efecto si opciones es true
+        setFacturaSeleccionada({});
+        if (facturasChatSeleccionado) {
+          if (facturasChatSeleccionado.length === 1) {
+            handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+          } else if (guiasChatSeleccionado.length === 1) {
+            handleGuiaSeleccionada(guiasChatSeleccionado[0]);
+          }
         }
       }
+      setIsPriceQuantity(false);
     }
   }, [facturasChatSeleccionado, opciones]);
 
@@ -700,6 +734,7 @@ const DatosUsuario = ({
 
   // Manejo de cambio de cantidad
   const handleCantidadChange = (producto, increment) => {
+    setIsPriceQuantity(true);
     setFacturaSeleccionada((prev) => {
       const productosActualizados = prev.productos.map((p) =>
         p.id_detalle === producto.id_detalle
@@ -709,11 +744,30 @@ const DatosUsuario = ({
             }
           : p
       );
-      return {
+
+      // Actualizamos facturaSeleccionada
+      const updatedFacturaSeleccionada = {
         ...prev,
         productos: productosActualizados,
         monto_factura: prev.monto_factura + producto.precio_venta * increment,
       };
+
+      // Ahora, actualizamos facturaChatSeleccionado
+      setFacturasChatSeleccionado((prevChat) => {
+        // Encontrar la factura correspondiente en facturaChatSeleccionado
+        const updatedFacturas = prevChat.map((factura) =>
+          factura.id_factura === updatedFacturaSeleccionada.id_factura
+            ? {
+                ...factura,
+                productos: productosActualizados,
+                monto_factura: updatedFacturaSeleccionada.monto_factura,
+              }
+            : factura
+        );
+        return updatedFacturas;
+      });
+
+      return updatedFacturaSeleccionada;
     });
   };
 
@@ -723,7 +777,7 @@ const DatosUsuario = ({
       socketRef.current.emit("GET_TARIFAS", {
         ciudad: document.querySelector("#ciudad").value,
         provincia: facturaSeleccionada.provincia,
-        id_plataforma: userData.data?.id_plataforma,
+        id_plataforma: id_plataforma_conf,
         monto_factura:
           Number(document.querySelector("#total")?.textContent) || total,
         recaudo: document.querySelector("#cod_entrega").value,
@@ -753,13 +807,40 @@ const DatosUsuario = ({
 
   // Manejo de cambio de precio
   const handlePrecioChange = (producto, nuevoPrecio) => {
+    setIsPriceQuantity(true);
     setFacturaSeleccionada((prev) => {
       const productosActualizados = prev.productos.map((p) =>
         p.id_detalle === producto.id_detalle
           ? { ...p, precio_venta: parseFloat(nuevoPrecio) || 0 }
           : p
       );
-      return { ...prev, productos: productosActualizados };
+
+      // Actualizamos facturaSeleccionada
+      const updatedFacturaSeleccionada = {
+        ...prev,
+        productos: productosActualizados,
+        monto_factura: productosActualizados.reduce(
+          (total, producto) =>
+            total + producto.precio_venta * producto.cantidad,
+          0
+        ),
+      };
+
+      // Ahora, actualizamos facturaChatSeleccionado
+      setFacturasChatSeleccionado((prevChat) => {
+        const updatedFacturas = prevChat.map((factura) =>
+          factura.id_factura === updatedFacturaSeleccionada.id_factura
+            ? {
+                ...factura,
+                productos: productosActualizados,
+                monto_factura: updatedFacturaSeleccionada.monto_factura,
+              }
+            : factura
+        );
+        return updatedFacturas;
+      });
+
+      return updatedFacturaSeleccionada;
     });
   };
 
@@ -930,6 +1011,7 @@ const DatosUsuario = ({
       console.error("Transportadora desconocida");
     }
   };
+
   const eliminar = (id) => {
     Swal.fire({
       title: "¿Estás seguro?",
@@ -943,17 +1025,30 @@ const DatosUsuario = ({
       if (result.isConfirmed) {
         let id_detalle = id;
         chatApi
-          .post("/product/eliminarProducto", {
-            id_detalle,
-          })
+          .post("/product/eliminarProducto", { id_detalle })
           .then((response) => {
-            // Actualizar estado para reflejar el cambio
+            // Eliminar producto de facturaSeleccionada
             setFacturaSeleccionada((prevState) => ({
               ...prevState,
               productos: prevState.productos.filter(
                 (producto) => producto.id_detalle !== id
               ),
             }));
+
+            // Eliminar producto de facturasChatSeleccionado
+            setFacturasChatSeleccionado((prevChat) =>
+              prevChat.map((factura) =>
+                factura.id_factura === facturaSeleccionada.id_factura
+                  ? {
+                      ...factura,
+                      productos: factura.productos.filter(
+                        (producto) => producto.id_detalle !== id
+                      ),
+                    }
+                  : factura
+              )
+            );
+
             Swal.fire("Eliminado", "El producto ha sido eliminado.", "success");
           })
           .catch((error) => {
@@ -1223,7 +1318,7 @@ const DatosUsuario = ({
 
   const recargarPedido = () => {
     socketRef.current.emit("GET_FACTURAS", {
-      id_plataforma: userData.data?.id_plataforma,
+      id_plataforma: id_plataforma_conf,
       telefono: selectedChat.celular_cliente,
     });
   };
@@ -1251,7 +1346,7 @@ const DatosUsuario = ({
     chatApi
       .post("/facturas_cot/info-cliente", {
         telefono: clean,
-        id_plataforma: userData.data?.id_plataforma,
+        id_plataforma: id_plataforma_conf,
       })
       .then(({ data }) => {
         if (data.status !== 200) throw new Error("Error de servidor");
@@ -1393,7 +1488,7 @@ const DatosUsuario = ({
               facturaSeleccionada.numero_factura ? "bg-white" : "bg-[#171931]"
             }  
           `}
-        >
+        >      
           {id_plataforma_conf !== null ? (
             <>
               {isModalOpen && (
@@ -3005,7 +3100,6 @@ const DatosUsuario = ({
                                                       producto,
                                                       1
                                                     );
-                                                    handleSetTarifas();
                                                   }}
                                                 >
                                                   <svg
@@ -3034,7 +3128,6 @@ const DatosUsuario = ({
                                                       producto,
                                                       -1
                                                     );
-                                                    handleSetTarifas();
                                                   }}
                                                 >
                                                   <svg

@@ -58,6 +58,8 @@ const Chat = () => {
 
   const [id_plataforma_conf, setId_plataforma_conf] = useState(null);
 
+  const [id_usuario_conf, setId_usuario_conf] = useState(null);
+
   const [opciones, setOpciones] = React.useState(false);
 
   const [mostrarAudio, setMostrarAudio] = useState(false);
@@ -158,6 +160,33 @@ const Chat = () => {
       setId_plataforma_conf(null);
     } else {
       setId_plataforma_conf(idp ? parseInt(idp) : null);
+    }
+
+    // Solo hacer la solicitud fetch cuando id_plataforma_conf está disponible
+    if (idp && idp !== "null") {
+      const fetchData = async () => {
+        try {
+          const res = await chatApi.post(
+            "plataformas/obtener_usuario_plataforma",
+            { id_plataforma: idp }
+          );
+
+          if (res.status === 200) {
+            const data = res.data;
+
+            setId_usuario_conf(data.data.id_usuario);
+          } else {
+            console.error(
+              "Error al obtener el usuario de la plataforma:",
+              res.data
+            );
+          }
+        } catch (error) {
+          console.error("Error en la consulta:", error);
+        }
+      };
+
+      fetchData();
     }
   }, []);
 
@@ -1928,6 +1957,7 @@ const Chat = () => {
         buscar_id_recibe={buscar_id_recibe}
         agregar_mensaje_enviado={agregar_mensaje_enviado}
         id_plataforma_conf={id_plataforma_conf}
+        id_usuario_conf={id_usuario_conf}
       />
       {/* MODALES */}
       <Modales
