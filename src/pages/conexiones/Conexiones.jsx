@@ -37,6 +37,102 @@ const Conexiones = () => {
     setModalConfiguracionWhatsappBusiness(true);
   };
 
+  //Cargamos el SDK de Facebook una sola vez
+  useEffect(() => {
+    if (!document.getElementById("facebook-jssdk")) {
+      const script = document.createElement("script");
+      script.id = "facebook-jssdk";
+      script.src = "https://connect.facebook.net/en_US/sdk.js";
+      script.aync = true;
+      script.defer = true;
+      document.body.appendChild(script);
+    }
+
+    // Cuando el script cargue, Facebook invocará window.fbAsyncInit
+    window.fbAsyncInit = () => {
+      window.FB.init({
+        appId: "1211546113231811", // <--- tu App ID real
+        autoLogAppEvents: true,
+        xfbml: true,
+        version: "v22.0", // O la versión que quieras
+      });
+    };
+  });
+
+  const handleConectarMetaDeveloper = () => {
+    if (!window.FB) {
+      setStatusMessage({
+        type: "error",
+        text: "El SDK de Facebook aún no está listo.",
+      });
+      return;
+    }
+
+    window.FB.login(
+      (response) => {
+        // callback síncrono ↓
+        (async () => {
+          const code = response?.authResponse?.code;
+          console.log("CODE FRESCO:", code);
+          // return;
+
+          if (!code) {
+            setStatusMessage({
+              type: "error",
+              text: "No se recibió el código de autorización.",
+            });
+            return;
+          }
+
+          try {
+            const { data } = await chatApi.post(
+              "/whatsapp_managment/embeddedSignupComplete",
+              {
+                code,
+                id_usuario: userData.id_usuario,
+              }
+            );
+
+            if (data.success) {
+              setStatusMessage({
+                type: "success",
+                text: "✅ Número conectado correctamente.",
+              });
+              setCurrentTab("numbers");
+            } else {
+              throw new Error(data.message || "Error inesperado.");
+            }
+          } catch (err) {
+            console.error(err);
+
+            const mensaje =
+              err?.response?.data?.message || "Error al activar el número.";
+            const linkWhatsApp = err?.response?.data?.contacto;
+
+            setStatusMessage({
+              type: "error",
+              text: linkWhatsApp
+                ? `${mensaje} 👉 Haz clic aquí para contactarnos por WhatsApp: `
+                : mensaje,
+              extra: linkWhatsApp ? linkWhatsApp : null,
+            });
+          }
+        })(); // ← IIFE asíncrona
+      },
+      {
+        config_id: "2295613834169297",
+        response_type: "code",
+        override_default_response_type: true,
+        scope: "whatsapp_business_management,whatsapp_business_messaging",
+        extras: {
+          featureType: "whatsapp_business_app_onboarding",
+          setup: {},
+          sessionInfoVersion: "3",
+        },
+      }
+    );
+  };
+
   // 1. Definir fetchConfiguracionAutomatizada fuera del useEffect
   const fetchConfiguracionAutomatizada = async () => {
     if (!userData) return;

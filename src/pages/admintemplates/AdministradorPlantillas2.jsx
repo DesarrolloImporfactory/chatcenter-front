@@ -1040,7 +1040,7 @@ const AdministradorPlantillas2 = () => {
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
         <div className="flex justify-between mb-4">
           <h2 className="text-lg font-semibold">Conexiones </h2>
-          <div className="flex gap-2">
+          {/* <div className="flex gap-2">
             {configuracionAutomatizada.length === 0 && (
               <>
                 <button
@@ -1058,7 +1058,7 @@ const AdministradorPlantillas2 = () => {
                 </button>
               </>
             )}
-          </div>
+          </div> */}
         </div>
 
         <table className="min-w-full border bg-white shadow rounded-lg">
