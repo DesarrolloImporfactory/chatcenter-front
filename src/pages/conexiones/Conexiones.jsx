@@ -183,26 +183,46 @@ const Conexiones = () => {
                 </div>
 
                 {/* Conectar Meta Developer */}
-                <div
-                  className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
-                  onClick={() => handleConectarMetaDeveloper(config)}
-                >
-                  <i className="bx bxl-meta text-2xl text-blue-600 group-hover:text-blue-400 transition-all duration-300"></i>
-                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    Conectar con Meta Developer
-                  </span>
-                </div>
+                {!config.conectado ? (
+                  <div
+                    className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
+                    onClick={() => handleConectarMetaDeveloper(config)}
+                  >
+                    <i className="bx bxl-meta text-2xl"></i>
+                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                      Conectar con Meta Developer
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative group text-blue-600">
+                    <i className="bx bxl-meta text-2xl"></i>
+                    {/* Tooltip */}
+                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                      Meta Business conectado
+                    </span>
+                  </div>
+                )}
 
-                {/* Configurar Modal */}
-                <div
-                  className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
-                  onClick={() => handleConectarWhatsappBussines(config)}
-                >
-                  <i className="bx bxl-whatsapp text-2xl text-green-600 group-hover:text-green-400 transition-all duration-300"></i>
-                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    Conectar WhatsApp Business
-                  </span>
-                </div>
+                {/* Conectar WhatsApp Business */}
+                {!config.conectado ? (
+                  <div
+                    className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
+                    onClick={() => handleConectarWhatsappBussines(config)}
+                  >
+                    <i className="bx bxl-whatsapp text-2xl"></i>
+                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                      Conectar WhatsApp Business
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative group text-green-600">
+                    <i className="bx bxl-whatsapp text-2xl"></i>
+                    {/* Tooltip */}
+                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                      WhatsApp vinculado
+                    </span>
+                  </div>
+                )}
 
                 {/* Chat */}
                 <div
