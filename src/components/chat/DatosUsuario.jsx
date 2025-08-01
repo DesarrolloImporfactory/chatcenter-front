@@ -544,6 +544,9 @@ const DatosUsuario = ({
   const [modal_google_maps, setModal_google_maps] = useState(false);
   const [idProductoVenta, setIdProductoVenta] = useState("");
   const [nombreBodega, setNombreBodega] = useState("");
+  const [isClosing, setIsClosing] = useState(false);
+  const [isClosingNovedades, setIsClosingNovedades] = useState(false); // animacion para botones en historial de pedidos
+
 
   const productosPorPagina = 5; // Define cuántos productos mostrar por página
   const images = [
@@ -731,6 +734,37 @@ const DatosUsuario = ({
   const toggleAcordeonNovedades = () => {
     setIsOpenNovedades(!isOpenNovedades);
   };
+  /* animacion para botones ordenes y novedades - historial de pedidos */
+  const handleToggleOrdenes = () => {
+  if (isOpen) {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+    }, 300); // Tiempo de animación de salida
+  } else {
+    setIsOpen(true);
+    setIsOpenNovedades(false);
+    setIsClosing(false);
+    setIsClosingNovedades(false);
+  }
+};
+
+const handleToggleNovedades = () => {
+  if (isOpenNovedades) {
+    setIsClosingNovedades(true);
+    setTimeout(() => {
+      setIsOpenNovedades(false);
+      setIsClosingNovedades(false);
+    }, 300);
+  } else {
+    setIsOpenNovedades(true);
+    setIsOpen(false);
+    setIsClosing(false);
+    setIsClosingNovedades(false);
+  }
+};
+
 
   // Manejo de cambio de cantidad
   const handleCantidadChange = (producto, increment) => {
@@ -1695,276 +1729,301 @@ const DatosUsuario = ({
                 </div>
               )}
 
-              <div className="flex justify-center overflow-y-auto h-full md:h-[750px]">
+              <div className="flex justify-center overflow-y-auto h-full md:h-[750px] custom-scrollbar">
                 <div className="w-full max-w-3xl mx-auto">
-                  {/* Botón del acordeón */}
-                  <div
-                    className="cursor-pointer bg-blue-600 text-white px-6 py-3 flex justify-between items-center rounded-t-lg shadow-md"
-                    onClick={toggleAcordeon}
-                  >
-                    <span className="text-base font-semibold">Ordenes</span>
-                    <i
-                      className={`bx ${
-                        isOpen ? "bx-chevron-up" : "bx-chevron-down"
-                      } text-xl transition-transform duration-300`}
-                    ></i>
-                  </div>
 
-                  {/* Contenido del acordeón */}
-                  <div
-                    className={`overflow-hidden pt-1 bg-[#12172e] rounded-b-lg shadow-md transition-all duration-500 ${
-                      isOpen ? "max-h-96" : "max-h-0"
-                    }`}
-                  >
-                    {/* Botones para alternar entre "Pedidos" y "Guias" */}
-                    <div className="flex flex-row py-3 gap-3">
-                      <button
-                        className={`flex-1 px-6 py-3 ${
-                          activeTab === "pedidos"
-                            ? "bg-purple-600"
-                            : "bg-purple-500 hover:bg-purple-400"
-                        } text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
-                        onClick={() => setActiveTab("pedidos")}
-                      >
-                        Pedidos
-                      </button>
-                      <button
-                        className={`flex-1 px-6 py-3 ${
-                          activeTab === "guias"
-                            ? "bg-purple-600"
-                            : "bg-purple-500 hover:bg-purple-400"
-                        } text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
-                        onClick={() => setActiveTab("guias")}
-                      >
-                        Guias
-                      </button>
+                  {/* Información del cliente - Premium con íconos */}
+                  <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
+
+
+                    <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col items-center gap-4 animate-fadeInOnce">
+                      {/* Avatar */}
+                      <div className="bg-[#2a2343] p-2 rounded-full shadow-md">
+                        <img
+                          src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                          alt="Avatar"
+                          className="w-16 h-16 rounded-full object-cover border-2 border-violet-400"
+                        />
+                      </div>
+
+                      {/* Título */}
+                      <h2 className="text-white text-lg font-bold tracking-wide uppercase">Información del cliente</h2>
+
+                      {/* Datos */}
+                      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 text-white/90">
+                        <div className="flex items-center gap-3">
+                           <i className="bx bx-id-card text-2xl text-violet-300 group-hover:glow-cart transition-all duration-300"></i>
+                          <div>
+                            <p className="text-xs text-white/60">Nombre</p>
+                            <p className="text-sm font-semibold">{selectedChat?.nombre_cliente || "N/A"}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <i className="bx bx-phone-call text-2xl text-violet-300 group-hover:glow-cart transition-all duration-300"></i>
+                          <div>
+                            <p className="text-xs text-white/60">Teléfono</p>
+                            <p className="text-sm font-semibold">{selectedChat?.celular_cliente || "N/A"}</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Contenido dinámico de la tabla */}
-                    <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80">
-                      <table className="table-auto w-full border-collapse border border-gray-700">
-                        <thead className="bg-blue-700 text-white">
-                          <tr>
-                            {activeTab === "pedidos" ? (
-                              <>
-                                <th className="border px-4 py-2 text-sm">
-                                  Número Factura
-                                </th>
-                                <th className="border px-4 py-2 text-sm">
-                                  Nombre Cliente
-                                </th>
-                                <th className="border px-4 py-2 text-sm">
-                                  Acción
-                                </th>
-                              </>
-                            ) : (
-                              <>
-                                <th className="border px-4 py-2 text-sm">
-                                  Número Guía
-                                </th>
-                                <th className="border px-4 py-2 text-sm">
-                                  Estado
-                                </th>
-                                <th className="border px-4 py-2 text-sm">
-                                  Acción
-                                </th>
-                              </>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {activeTab === "pedidos"
-                            ? facturasChatSeleccionado?.map(
-                                (factura, index) => (
+                  </div>
+
+
+                  <div className="flex justify-center gap-3 mb-4 opacity-0 animate-slideInRightOnce delay-[000ms]">
+
+                    
+                    {/* Ordenes y guias */}
+                    <button
+                      className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                        isOpen
+                          ? "bg-[#1e3a5f] border-blue-400"
+                          : "bg-[#162c4a] border-transparent hover:border-blue-300"
+                      }`}
+                      onClick={() => {
+                        setIsOpen((prev) => !prev);
+                        setIsOpenNovedades(false);
+                      }}
+                    >
+                      <i
+                        className={`bx bx-package text-xl transition-all duration-300 ${
+                          isOpen ? "glow-yellow" : "text-yellow-300 group-hover:text-yellow-200"
+                        }`}
+                      ></i>
+                      <span className="text-white">Órdenes</span>
+                    </button>
+                      
+                    <button
+                      className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                        isOpenNovedades
+                          ? "bg-[#1f2c47] border-blue-400"
+                          : "bg-[#121e36] border-transparent hover:border-blue-300"
+                      }`}
+                      onClick={() => {
+                        setIsOpenNovedades((prev) => !prev);
+                        setIsOpen(false);
+                      }}
+                    >
+                      <i
+                        className={`bx bx-bell text-xl transition-all duration-300 ${
+                          isOpenNovedades ? "glow-yellow" : "text-yellow-300 group-hover:text-yellow-200"
+                        }`}
+                      ></i>
+                      <span className="text-white">Novedades</span>
+                    </button>
+
+
+
+                  </div>
+
+                  {isOpen && (
+                    <div
+                      className={`transition-all duration-300 ease-in-out transform origin-top ${
+                        isOpen
+                          ? "opacity-100 scale-100 max-h-[1000px] pointer-events-auto"
+                          : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
+                      } bg-[#12172e] rounded-lg shadow-md`}
+                    >
+                      {/* Botones de Pedidos y Guias */}
+                      <div className="flex flex-row py-3 gap-4 animate-fadeInBtn">
+                        <button
+                          className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                            activeTab === "pedidos"
+                              ? "bg-[#1f1b2e] border-violet-400"
+                              : "bg-[#15121f] border-transparent hover:border-violet-300"
+                          }`}
+                          onClick={() => setActiveTab("pedidos")}
+                        >
+                          <i
+                            className={`bx bx-cart text-xl transition-all duration-300 ${
+                              activeTab === "pedidos" ? "glow-cart" : "text-violet-300 group-hover:text-violet-200"
+                            }`}
+                          ></i>
+                          <span className="text-white">Pedidos</span>
+                        </button>
+                          
+                        <button
+                          className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                            activeTab === "guias"
+                              ? "bg-[#1a2b27] border-emerald-400"
+                              : "bg-[#101f1d] border-transparent hover:border-emerald-300"
+                          }`}
+                          onClick={() => setActiveTab("guias")}
+                        >
+                          <i
+                            className={`bx bx-send text-xl transition-all duration-300 ${
+                              activeTab === "guias" ? "glow-guias" : "text-emerald-300 group-hover:text-emerald-200"
+                            }`}
+                          ></i>
+                          <span className="text-white">Guías</span>
+                        </button>
+                      </div>
+
+
+
+                      {/* Tabla dinámica */}
+                      <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80 transition-all duration-500 ease-out transform animate-fadeTable custom-scrollbar">
+                        <table className="w-full table-auto border-separate border-spacing-y-2">
+                          <thead className="bg-gradient-to-r from-blue-800 to-blue-700 text-white text-sm">
+                            <tr>
+                              {activeTab === "pedidos" ? (
+                                <>
+                                  <th className="px-4 py-2 text-left rounded-tl-md">Número Factura</th>
+                                  <th className="px-4 py-2 text-left">Nombre Cliente</th>
+                                  <th className="px-4 py-2 text-center rounded-tr-md">Acción</th>
+                                </>
+                              ) : (
+                                <>
+                                  <th className="px-4 py-2 text-left rounded-tl-md">Número Guía</th>
+                                  <th className="px-4 py-2 text-left">Estado</th>
+                                  <th className="px-4 py-2 text-center rounded-tr-md">Acción</th>
+                                </>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {activeTab === "pedidos"
+                              ? facturasChatSeleccionado?.map((factura, index) => (
                                   <tr
                                     key={index}
-                                    className="hover:bg-blue-800 text-white text-sm"
+                                    className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
                                   >
-                                    <td className="border px-4 py-2">
-                                      {factura.numero_factura}
-                                    </td>
-                                    <td className="border px-4 py-2">
-                                      {factura.nombre}
-                                    </td>
-                                    <td className="border px-4 py-2">
+                                    <td className="px-4 py-3 rounded-l-md">{factura.numero_factura}</td>
+                                    <td className="px-4 py-3">{factura.nombre}</td>
+                                    <td className="px-4 py-3 text-center rounded-r-md">
                                       <button
-                                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                                        onClick={() =>
-                                          handleFacturaSeleccionada(factura)
-                                        }
+                                        className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-4 py-2 rounded-md transition duration-200"
+                                        onClick={() => handleFacturaSeleccionada(factura)}
                                       >
                                         Ver
                                       </button>
                                     </td>
                                   </tr>
-                                )
-                              )
-                            : guiasChatSeleccionado?.map((guia, index) => {
-                                // Llamar a la función con los parámetros correctos
-                                const { color, estado_guia } =
-                                  obtenerEstadoGuia(
-                                    guia.transporte, // El sistema (LAAR, SERVIENTREGA, etc.)
-                                    guia.estado_guia_sistema // El estado numérico
+                                ))
+                              : guiasChatSeleccionado?.map((guia, index) => {
+                                  const { color, estado_guia } = obtenerEstadoGuia(
+                                    guia.transporte,
+                                    guia.estado_guia_sistema
                                   );
-
-                                return (
-                                  <tr
-                                    key={index}
-                                    className="hover:bg-blue-800 text-white text-sm"
-                                  >
-                                    <td className="border px-4 py-2">
-                                      {guia.numero_guia}
-                                    </td>
-                                    <td className="border px-4 py-2">
-                                      {/* Mostrar el estado dinámico con estilo */}
-                                      <span
-                                        className={`text-xs sm:text-sm px-2 py-1 rounded-full ${color}`}
-                                      >
-                                        {estado_guia}
-                                      </span>
-                                    </td>
-                                    <td className="border px-4 py-2">
-                                      <button
-                                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                                        onClick={() =>
-                                          handleGuiaSeleccionada(guia)
-                                        }
-                                      >
-                                        Ver
-                                      </button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* acordeon 2 */}
-                  {/* Botón del acordeón 2 */}
-                  <div
-                    className="cursor-pointer bg-blue-600 text-white px-6 py-3 flex justify-between items-center rounded-t-lg shadow-md"
-                    onClick={toggleAcordeonNovedades}
-                  >
-                    <span className="text-base font-semibold">Novedades</span>
-                    <i
-                      className={`bx ${
-                        isOpenNovedades ? "bx-chevron-up" : "bx-chevron-down"
-                      } text-xl transition-transform duration-300`}
-                    ></i>
-                  </div>
-
-                  {/* Contenido del acordeón */}
-                  <div
-                    className={`overflow-hidden bg-[#12172e] rounded-b-lg shadow-md transition-all duration-500 ${
-                      isOpenNovedades ? "max-h-96" : "max-h-0"
-                    }`}
-                  >
-                    {/* Botones para alternar entre "Gestionadas" y "No gestionadas" */}
-                    <div className="flex flex-row py-3 gap-3">
-                      <button
-                        className={`flex-1 px-6 py-3 ${
-                          activeTabNovedad === "gestionadas"
-                            ? "bg-purple-600"
-                            : "bg-purple-500 hover:bg-purple-400"
-                        } text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
-                        onClick={() => setActiveTabNovedad("gestionadas")}
-                      >
-                        Gestionadas
-                      </button>
-                      <button
-                        className={`flex-1 px-6 py-3 ${
-                          activeTabNovedad === "no_gestionadas"
-                            ? "bg-purple-600"
-                            : "bg-purple-500 hover:bg-purple-400"
-                        } text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105`}
-                        onClick={() => setActiveTabNovedad("no_gestionadas")}
-                      >
-                        No gestionadas
-                      </button>
-                    </div>
-
-                    {/* Contenido dinámico de la tabla */}
-                    <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80">
-                      <table className="table-auto w-full border-collapse border border-gray-700">
-                        <thead className="bg-blue-700 text-white">
-                          <tr>
-                            <>
-                              <th className="border px-4 py-2 text-sm">
-                                Número Guia
-                              </th>
-                              <th className="border px-4 py-2 text-sm">
-                                Nombre Cliente
-                              </th>
-                              <th className="border px-4 py-2 text-sm">
-                                Detalle
-                              </th>
-                            </>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {activeTabNovedad === "gestionadas"
-                            ? novedades_gestionadas?.map((novedades, index) => (
-                                <tr
-                                  key={index}
-                                  className="hover:bg-blue-800 text-white text-sm"
-                                >
-                                  <td className="border px-4 py-2">
-                                    {novedades.guia_novedad}
-                                  </td>
-                                  <td className="border px-4 py-2">
-                                    {novedades.cliente_novedad}
-                                  </td>
-                                  <td className="border px-4 py-2">
-                                    <button
-                                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                                      onClick={() =>
-                                        handleDetalleNovedad(
-                                          novedades,
-                                          "gestionada"
-                                        )
-                                      }
-                                    >
-                                      Ver
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))
-                            : novedades_noGestionadas?.map(
-                                (novedades, index) => {
+                                
                                   return (
                                     <tr
                                       key={index}
-                                      className="hover:bg-blue-800 text-white text-sm"
+                                      className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
                                     >
-                                      <td className="border px-4 py-2">
-                                        {novedades.guia_novedad}
+                                      <td className="px-4 py-3 rounded-l-md">{guia.numero_guia}</td>
+                                      <td className="px-4 py-3">
+                                        <span className={`text-xs px-3 py-1 rounded-full ${color}`}>
+                                          {estado_guia}
+                                        </span>
                                       </td>
-                                      <td className="border px-4 py-2">
-                                        {novedades.cliente_novedad}
-                                      </td>
-                                      <td className="border px-4 py-2">
+                                      <td className="px-4 py-3 text-center rounded-r-md">
                                         <button
-                                          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                                          onClick={() =>
-                                            handleDetalleNovedad(
-                                              novedades,
-                                              "no_gestionada"
-                                            )
-                                          }
+                                          className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-4 py-2 rounded-md transition duration-200"
+                                          onClick={() => handleGuiaSeleccionada(guia)}
                                         >
                                           Ver
                                         </button>
                                       </td>
                                     </tr>
                                   );
-                                }
-                              )}
-                        </tbody>
-                      </table>
+                                })}
+                          </tbody>
+                        </table>
+                      </div>
+
                     </div>
-                  </div>
+                  )}
+
+                  {isOpenNovedades && (
+                    <div
+                      className={`transition-all duration-300 ease-in-out transform origin-top ${
+                        isOpenNovedades
+                          ? "opacity-100 scale-100 max-h-[1000px] pointer-events-auto"
+                          : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
+                      } bg-[#12172e] rounded-lg shadow-md`}
+                    >
+                      <div className="flex flex-row py-2 gap-3 animate-fadeInBtn">
+                        <button
+                          className={`group flex items-center justify-center gap-2 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                            activeTabNovedad === "gestionadas"
+                              ? "bg-[#2d1b3f] border-violet-400"
+                              : "bg-[#20152d] border-transparent hover:border-violet-300"
+                          }`}
+                          onClick={() => setActiveTabNovedad("gestionadas")}
+                        >
+                          <i
+                            className={`bx bx-check-circle text-xl transition-all duration-300 ${
+                              activeTabNovedad === "gestionadas"
+                                ? "glow-cart"
+                                : "text-violet-300 group-hover:text-violet-200"
+                            }`}
+                          ></i>
+                          <span className="text-white">Gestionadas</span>
+                        </button>
+                          
+                        <button
+                          className={`group flex items-center justify-center gap-2 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                            activeTabNovedad === "no_gestionadas"
+                              ? "bg-[#2d1b3f] border-violet-400"
+                              : "bg-[#20152d] border-transparent hover:border-violet-300"
+                          }`}
+                          onClick={() => setActiveTabNovedad("no_gestionadas")}
+                        >
+                          <i
+                            className={`bx bx-error-circle text-xl transition-all duration-300 ${
+                              activeTabNovedad === "no_gestionadas"
+                                ? "glow-cart"
+                                : "text-violet-300 group-hover:text-violet-200"
+                            }`}
+                          ></i>
+                          <span className="text-white">No gestionadas</span>
+                        </button>
+                      </div>
+
+                      <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80 transition-all duration-500 ease-out transform animate-fadeTable custom-scrollbar">
+                        <table className="w-full table-auto border-separate border-spacing-y-2">
+                          <thead className="bg-gradient-to-r from-blue-800 to-blue-700 text-white text-sm">
+                            <tr>
+                              <th className="px-4 py-2 text-left rounded-tl-md">Número Guía</th>
+                              <th className="px-4 py-2 text-left">Nombre Cliente</th>
+                              <th className="px-4 py-2 text-center rounded-tr-md">Detalle</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(activeTabNovedad === "gestionadas"
+                              ? novedades_gestionadas
+                              : novedades_noGestionadas
+                            )?.map((novedades, index) => (
+                              <tr
+                                key={index}
+                                className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
+                              >
+                                <td className="px-4 py-3 rounded-l-md">{novedades.guia_novedad}</td>
+                                <td className="px-4 py-3">{novedades.cliente_novedad}</td>
+                                <td className="px-4 py-3 text-center rounded-r-md">
+                                  <button
+                                    className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-4 py-2 rounded-md transition duration-200"
+                                    onClick={() =>
+                                      handleDetalleNovedad(
+                                        novedades,
+                                        activeTabNovedad === "gestionadas" ? "gestionada" : "no_gestionada"
+                                      )
+                                    }
+                                  >
+                                    Ver
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                    </div>
+                  )}
+
                   {/* acordeon 2 */}
 
                   {/* Modal de detalle novedad */}
