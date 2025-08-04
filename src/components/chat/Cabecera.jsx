@@ -517,47 +517,25 @@ const Cabecera = ({
             animateOut ? "animate-slide-out" : "animate-slide-in"
           }`}
         >
-          {id_plataforma_conf !== null ? (
-            <>
-              <div className="flex justify-center p-4 border-b border-white/10">
-                <div className="flex text-center justify-center">
-                  <span className="text-lg font-semibold">
-                    Historial de Pedidos
-                  </span>
-                </div>
+          <>
+            <div className="flex justify-center p-4 border-b border-white/10">
+              <div className="flex text-center justify-center">
+                <span className="text-lg font-semibold">
+                  Informacion Numero
+                </span>
               </div>
+            </div>
 
-              {/* Cerrar la sección (opciones) */}
-              <div className="absolute top-3 right-4">
-                <button
-                  onClick={handleOpciones}
-                  className="hover:scale-110 transition-transform"
-                >
-                  <i className="bx bx-x text-white text-3xl"></i>
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex justify-center p-4 border-b border-white/10">
-                <div className="flex text-center justify-center">
-                  <span className="text-lg font-semibold">
-                    Informacion Numero
-                  </span>
-                </div>
-              </div>
-
-              {/* Cerrar la sección (opciones) */}
-              <div className="absolute top-3 right-4">
-                <button
-                  onClick={handleOpciones}
-                  className="hover:scale-110 transition-transform"
-                >
-                  <i className="bx bx-x text-white text-3xl"></i>
-                </button>
-              </div>
-            </>
-          )}
+            {/* Cerrar la sección (opciones) */}
+            <div className="absolute top-3 right-4">
+              <button
+                onClick={handleOpciones}
+                className="hover:scale-110 transition-transform"
+              >
+                <i className="bx bx-x text-white text-3xl"></i>
+              </button>
+            </div>
+          </>
         </div>
       )}
     </>
