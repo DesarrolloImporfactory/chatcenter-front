@@ -9,6 +9,7 @@ import AdministradorPlantillas from "./pages/admintemplates/AdministradorPlantil
 import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
 import Chat from "./pages/chat/Chat";
 import PlanesView from "./pages/planes/PlanesView";
+import MiPlan from "./pages/facturacion/Miplan";
 
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
@@ -65,7 +66,17 @@ function App() {
 
           {/* PlanesView */}
           <Route path="/planes_view" element={<PlanesView />} />
+          {/* Miplan */}
+          <Route path="/Miplan" element={
+            <MainLayout>
+              <MiPlan /> 
+            </MainLayout>
+            }
+            />
         </Route>
+
+        
+        
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
