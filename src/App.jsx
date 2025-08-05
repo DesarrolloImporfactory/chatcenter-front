@@ -16,6 +16,8 @@ import MainLayout from "./components/layout/MainLayout";
 import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import Conexiones from "./pages/conexiones/Conexiones";
+import Calendario from "./pages/calendario/Calendario";
+
 function App() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
@@ -55,6 +57,16 @@ function App() {
             }
           />
 
+          {/*administrador-pruebas se renombra y pasa a produccion*/}
+          <Route
+            path="/calendario"
+            element={
+              <MainLayout>
+                <Calendario />
+              </MainLayout>
+            }
+          />
+
           <Route
             path="/conexiones"
             element={
@@ -67,16 +79,15 @@ function App() {
           {/* PlanesView */}
           <Route path="/planes_view" element={<PlanesView />} />
           {/* Miplan */}
-          <Route path="/Miplan" element={
-            <MainLayout>
-              <MiPlan /> 
-            </MainLayout>
+          <Route
+            path="/Miplan"
+            element={
+              <MainLayout>
+                <MiPlan />
+              </MainLayout>
             }
-            />
+          />
         </Route>
-
-        
-        
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />

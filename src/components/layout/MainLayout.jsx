@@ -300,19 +300,41 @@ function MainLayout({ children }) {
               </span>
             </a>
 
+            {/* Calendario */}
+            <a
+              href="/calendario"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/calendario" ? "bg-gray-200" : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(
+                  "/calendario?id_configuracion=" +
+                    id_configuracion +
+                    "&id_plataforma_conf=" +
+                    id_plataforma_conf
+                );
+              }}
+            >
+              <i className="bx bx-calendar text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Calendario
+              </span>
+            </a>
+
             {/* Ver datos de facturacion de Plan */}
-          <a
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/Miplan");
-            }}
-            className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
-          >
-            <i className="bx bxs-credit-card text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600">
-              Mi Plan
-            </span>
-          </a>
+            <a
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/Miplan");
+              }}
+              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
+            >
+              <i className="bx bxs-credit-card text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Mi Plan
+              </span>
+            </a>
 
             {/* Cerrar sesión */}
             <button
