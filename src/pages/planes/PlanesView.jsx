@@ -131,80 +131,74 @@ const PlanesView = () => {
         <div className="py-10" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
-  {planes.map((plan) => {
-  const isSelected = planSeleccionado === plan.id_plan;
-
-  // Asigna imagen según nombre_plan
-  let imagen = "pviewb.png"; // default
-  if (plan.nombre_plan.includes("Conexión")) imagen = "pviewc.png";
-  if (plan.nombre_plan.includes("Premium")) imagen = "pviewp.png";
-
-  return (
-    <div
-      key={plan.id_plan}
-      className={`relative bg-white border rounded-2xl overflow-hidden transition-all duration-300 ease-in-out 
-        ${isSelected ? "ring-2 ring-green-500 scale-[1.01]" : "hover:shadow-lg"}
-      `}
-    >
-      {/* Encabezado */}
-      <button
-        onClick={() =>
-          setPlanSeleccionado(isSelected ? null : plan.id_plan)
-        }
-        className="w-full text-left px-6 py-5 flex justify-between items-center"
-      >
-        <div>
-          <h3 className="text-xl font-bold text-gray-900">{plan.nombre_plan}</h3>
-          <p className="text-sm text-gray-500">{plan.descripcion_plan}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-extrabold text-gray-800">
-            ${parseFloat(plan.precio_plan).toFixed(2)}
-          </span>
-          <span className="text-sm font-normal text-gray-500">/mes</span>
-          <svg
-            className={`w-5 h-5 transform transition-transform duration-300 ${
-              isSelected ? "rotate-180" : "rotate-0"
-            }`}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </button>
-
-      {/* Imagen si no está seleccionada */}
-      {!isSelected && (
-        <img
-          src={`src/assets/${imagen}`}
-          alt={`Vista previa ${plan.nombre_plan}`}
-          className="w-full h-48 object-cover"
-        />
-      )}
-
-      {/* Características si está seleccionada */}
-      {isSelected && (
-        <div className="px-6 pb-6 animate-fade-in">
-          <ul className="mt-4 space-y-3 text-sm text-gray-700">
-            <li>👥 {plan.max_subusuarios} subusuarios incluidos</li>
-            <li>📲 Código QR personalizado</li>
-            <li>🤖 Integración con Meta</li>
-            {plan.ahorro && Number(plan.ahorro) > 0 && (
-              <li>💰 Ahorro mensual de ${plan.ahorro}</li>
-            )}
-          </ul>
-
+          {planes.map((plan) => {
+          const isSelected = planSeleccionado === plan.id_plan;
           
-        </div>
-      )}
-    </div>
-  );
-})}
+          // Asigna imagen según nombre_plan
+          let imagen = "pviewb.png"; // default
+          if (plan.nombre_plan.includes("Conexión")) imagen = "pviewc.png";
+          if (plan.nombre_plan.includes("Premium")) imagen = "pviewp.png";
+          
+          return (
+            <div
+              key={plan.id_plan}
+              className={`relative bg-white rounded-3xl overflow-hidden shadow-xl transition-transform duration-300 ease-in-out transform
+                ${isSelected ? "ring-4 ring-green-400 scale-105" : "hover:scale-[1.02]"}
+              `}
+            >
+              <button
+                onClick={() =>
+                  setPlanSeleccionado(isSelected ? null : plan.id_plan)
+                }
+                className="w-full text-left"
+              >
+                {/* Imagen superior */}
+                {!isSelected && (
+                  <img
+                    src={`src/assets/${imagen}`}
+                    alt={`Vista previa ${plan.nombre_plan}`}
+                    className="w-full h-40 object-cover rounded-t-3xl"
+                  />
+                )}
 
-</div>
+                {/* Contenido */}
+                <div className="px-6 py-6">
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <h3 className="text-2xl font-extrabold text-gray-900">{plan.nombre_plan}</h3>
+                      <p className="text-sm text-gray-500">{plan.descripcion_plan}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-bold text-gray-800">
+                        ${parseFloat(plan.precio_plan).toFixed(2)}
+                      </span>
+                      <span className="text-sm text-gray-500"> /mes</span>
+                    </div>
+                  </div>
+              
+                  {/* Características solo si está seleccionada */}
+                  {isSelected && (
+                    <>
+                      <ul className="mt-4 space-y-3 text-sm text-gray-700">
+                        <li>👥 {plan.max_subusuarios} subusuarios incluidos</li>
+                        <li>📲 Código QR personalizado</li>
+                        <li>🤖 Integración con Meta</li>
+                        {plan.ahorro && Number(plan.ahorro) > 0 && (
+                          <li>💰 Ahorro mensual de ${plan.ahorro}</li>
+                        )}
+                      </ul>
+                      
+                      
+                    </>
+                  )}
+                </div>
+              </button>
+            </div>
+
+          );
+        })}
+
+        </div>
 
 
 
