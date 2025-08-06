@@ -98,9 +98,8 @@ const AdministradorPlantillas2 = () => {
   });
 
   useEffect(() => {
-
     const idp = localStorage.getItem("id_plataforma_conf");
-    const idc = localStorage.getItem('id_configuracion');
+    const idc = localStorage.getItem("id_configuracion");
 
     if (idc) setId_configuracion(parseInt(idc));
 
@@ -1473,9 +1472,31 @@ const AdministradorPlantillas2 = () => {
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
         {/* CARD */}
         <div
-          onClick={openModalVinculacionesImporsuit}
-          className="cursor-pointer max-w-56 mx-auto bg-white rounded-xl overflow-hidden shadow-lg transform transition duration-300 hover:scale-105 hover:shadow-2xl"
+          onClick={() => {
+            if (id_plataforma_conf === null) {
+              openModalVinculacionesImporsuit();
+            }
+          }}
+          className={`relative cursor-pointer max-w-56 mx-auto bg-white rounded-xl overflow-hidden shadow-lg transform transition duration-300 ${
+            id_plataforma_conf === null
+              ? "hover:scale-105 hover:shadow-2xl"
+              : "opacity-90 cursor-default"
+          }`}
         >
+          {/* 🔘 Estado de vinculación */}
+          <div className="absolute top-2 right-2 z-10">
+            {id_plataforma_conf === null ? (
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                🔴 Desconectado
+              </span>
+            ) : (
+              <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                🟢 Conectado
+              </span>
+            )}
+          </div>
+
+          {/* Imagen */}
           <div className="bg-[#171931] flex justify-center items-center p-4">
             <img
               src={log_imporsuitImage}
@@ -1483,6 +1504,8 @@ const AdministradorPlantillas2 = () => {
               className="w-60 h-30"
             />
           </div>
+
+          {/* Título */}
           <div className="p-4 text-center">
             <h3 className="text-lg font-semibold text-gray-800">Imporsuit</h3>
           </div>
