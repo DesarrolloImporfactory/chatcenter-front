@@ -1,0 +1,79 @@
+/* Cabecera de columna: inicial + número */
+.fc-colhead {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+.fc-colhead span {
+  color: #6b7280;
+  font-size: 12px;
+}
+.fc-colhead b {
+  font-weight: 600;
+}
+
+/* Franja "Todo el día" ligeramente gris */
+.fc .fc-timegrid .fc-timegrid-allday {
+  background: #fafafa;
+}
+
+/* Etiquetas de horas más sutiles */
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-timegrid-slot-label-cushion {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Now indicator más visible */
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #2563eb;
+}
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: #2563eb;
+}
+
+/* Modal SweetAlert2 compacto y responsive */
+.swal2-responsive {
+  border-radius: 12px;
+}
+.swal-form {
+  display: grid;
+  gap: 10px;
+}
+.swal-form .swal-row {
+  display: block;
+}
+.swal-form .grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Compactar controles del modal */
+.swal-compact .swal2-input,
+.swal-compact .swal2-textarea,
+.swal-compact .swal2-select {
+  width: 100% !important;
+  margin: 4px 0 !important;
+  font-size: 14px !important;
+}
+.swal-compact .swal2-input {
+  height: 36px !important;
+  padding: 6px 10px !important;
+}
+.swal-compact .swal2-textarea {
+  min-height: 72px !important;
+  padding: 8px 10px !important;
+}
+
+@media (max-width: 640px) {
+  .swal-form .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* (opcional) título del calendario en minúsculas */
+.fc .fc-toolbar-title {
+  text-transform: lowercase;
+}

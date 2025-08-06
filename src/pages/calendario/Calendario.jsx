@@ -1,38 +1,76 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import esLocale from "@fullcalendar/core/locales/es";
+import chatApi from "../../api/chatcenter";
+import Swal from "sweetalert2";
+import "./Calendario.css";
 
-// import "@fullcalendar/core/index.css";
-// import "@fullcalendar/daygrid/index.css";
-// import "@fullcalendar/timegrid/index.css";
-// import "@fullcalendar/list/index.css";
+const WEEKDAYS = ["D", "L", "Ma", "Mi", "J", "V", "S"];
+
+// === Helpers ===
+// ISO con offset local (YYYY-MM-DDTHH:mm:ss-05:00)
+function toLocalOffsetISO(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const off = -d.getTimezoneOffset();
+  const sign = off >= 0 ? "+" : "-";
+  const hh = pad(Math.floor(Math.abs(off) / 60));
+  const mm = pad(Math.abs(off) % 60);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}:00${sign}${hh}:${mm}`;
+}
+// Badge GMT actual
+function gmtBadgeFromNow() {
+  const off = -new Date().getTimezoneOffset();
+  const sign = off >= 0 ? "+" : "-";
+  const a = Math.abs(off);
+  const hh = String(Math.floor(a / 60)).padStart(2, "0");
+  const mm = String(a % 60).padStart(2, "0");
+  return `GMT ${sign}${hh}:${mm}`;
+}
+// Color estable desde un número/id
+function colorFromId(id) {
+  let x = Number(id) || 0;
+  x = (x ^ 0x9e3779b9) >>> 0;
+  const r = x & 0xff;
+  const g = (x >> 8) & 0xff;
+  const b = (x >> 16) & 0xff;
+  const toHex = (n) => n.toString(16).padStart(2, "0");
+  return `#${toHex(160 + (r % 80))}${toHex(120 + (g % 80))}${toHex(
+    120 + (b % 80)
+  )}`;
+}
 
 export default function Calendario() {
   const calendarRef = useRef(null);
   const [view, setView] = useState("timeGridWeek");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [loading, setLoading] = useState(false);
 
-  // Demo de usuarios (luego lo cargas desde tu API)
-  const usuarios = useMemo(
-    () => [
-      { id: 1, nombre: "Sebastian Ordoñez", color: "#3b82f6", checked: true },
-    ],
-    []
+  // Query params
+  const search = new URLSearchParams(window.location.search);
+  const accountId = Number(search.get("id_configuracion")); // para asegurar calendario
+  const ownerUserId = Number(search.get("id_usuario")); // <- usado para listar sub-usuarios reales
+
+  // id de calendario (devuelto por /calendars/ensure)
+  const [calendarId, setCalendarId] = useState(null);
+
+  // Zona horaria del cliente (para crear/mover)
+  const bookedTz =
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Guayaquil";
+
+  // Usuarios reales para asignar/filtrar
+  const [usuarios, setUsuarios] = useState([]); // { id, nombre, color, checked }
+
+  // ids seleccionados para filtrar
+  const selectedUserIds = useMemo(
+    () => usuarios.filter((u) => u.checked).map((u) => u.id),
+    [usuarios]
   );
-
-  // Eventos de ejemplo (luego reemplazas por tu API)
-  const events = [
-    {
-      id: "1",
-      title: "Llamada con cliente",
-      start: new Date(),
-      end: new Date(new Date().getTime() + 60 * 60 * 1000),
-    },
-  ];
 
   const api = () => calendarRef.current?.getApi();
 
@@ -40,23 +78,451 @@ export default function Calendario() {
     api()?.today();
     setCurrentDate(new Date(api()?.getDate() || new Date()));
   };
-
   const gotoPrev = () => {
     api()?.prev();
     setCurrentDate(new Date(api()?.getDate() || new Date()));
   };
-
   const gotoNext = () => {
     api()?.next();
     setCurrentDate(new Date(api()?.getDate() || new Date()));
   };
-
   const changeView = (v) => {
     setView(v);
     api()?.changeView(v);
   };
 
-  // Mini-calendario (sidebar)
+  // 1) Asegurar/crear calendario al montar
+  useEffect(() => {
+    const ensureCalendar = async () => {
+      try {
+        const { data } = await chatApi.post("/calendars/ensure", {
+          account_id: accountId,
+          name: "Calendario principal",
+        });
+        setCalendarId(data?.calendar?.id ?? null);
+      } catch (e) {
+        console.error("No se pudo asegurar el calendario:", e);
+        Swal.fire("Error", "No se pudo preparar el calendario.", "error");
+      }
+    };
+    ensureCalendar();
+  }, [accountId]);
+
+  // 2) Cargar usuarios reales (para asignación/filtro)
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const { data } = await chatApi.post(
+          "/usuarios_chat_center/listarUsuarios",
+          { id_usuario: ownerUserId }
+        );
+        const rows = Array.isArray(data?.data) ? data.data : [];
+        const mapped = rows.map((r, i) => {
+          // 👇 usa id_sub_usuario como id del usuario asignable (cámbialo si prefieres id_usuario)
+          const id = r.id_sub_usuario ?? r.id_usuario;
+          const nombre = r.nombre_encargado || r.usuario || `Usuario ${i + 1}`;
+          return {
+            id,
+            nombre,
+            color: colorFromId(id),
+            checked: true,
+          };
+        });
+        setUsuarios(mapped.length ? mapped : []);
+      } catch (err) {
+        console.error("No se pudieron cargar usuarios reales:", err);
+        // fallback mínimo
+        setUsuarios([
+          { id: 1, nombre: "Usuario", color: "#3b82f6", checked: true },
+        ]);
+      }
+    };
+    loadUsers();
+  }, [ownerUserId]);
+
+  // Color por usuario asignado
+  function colorForUser(userId) {
+    const u = usuarios.find((x) => x.id === Number(userId));
+    return u?.color || "#3b82f6";
+  }
+
+  // ------- Modal reutilizable (crear/editar) -------
+  async function openApptModal({
+    mode, // 'create' | 'edit'
+    initial,
+    lockDateTime = false,
+  }) {
+    const i = {
+      title: initial?.title || "",
+      status: initial?.status || "scheduled",
+      date: (initial?.date || new Date()).toISOString().slice(0, 10),
+      startTime:
+        initial?.startTime ||
+        (initial?.start
+          ? new Date(initial.start).toTimeString().slice(0, 5)
+          : "09:00"),
+      endTime:
+        initial?.endTime ||
+        (initial?.end
+          ? new Date(initial.end).toTimeString().slice(0, 5)
+          : "09:30"),
+      assigned_user_id: initial?.assigned_user_id ?? "",
+      location_text: initial?.location_text || "",
+      meeting_url: initial?.meeting_url || "",
+      description: initial?.description || "",
+      invitees: (initial?.invitees || []).map((x) => x.email).join(", "),
+    };
+
+    const disabledAttr = lockDateTime ? "disabled" : "";
+
+    const html = `
+      <div class="swal-form swal-compact">
+        <div class="swal-row">
+          <label>Título *</label>
+          <input id="f-title" class="swal2-input" placeholder="Llamada con cliente" value="${i.title.replaceAll(
+            '"',
+            "&quot;"
+          )}" />
+        </div>
+
+        <div class="swal-row grid2">
+          <div>
+            <label>Fecha *</label>
+            <input id="f-date" type="date" class="swal2-input" value="${
+              i.date
+            }" ${disabledAttr}/>
+          </div>
+          <div>
+            <label>Estado</label>
+            <select id="f-status" class="swal2-input">
+              ${["scheduled", "confirmed", "completed", "cancelled", "blocked"]
+                .map(
+                  (st) =>
+                    `<option value="${st}" ${
+                      i.status === st ? "selected" : ""
+                    }>${st}</option>`
+                )
+                .join("")}
+            </select>
+          </div>
+        </div>
+
+        <div class="swal-row grid2">
+          <div>
+            <label>Hora inicio *</label>
+            <input id="f-start" type="time" class="swal2-input" value="${
+              i.startTime
+            }" ${disabledAttr}/>
+          </div>
+          <div>
+            <label>Hora fin *</label>
+            <input id="f-end" type="time" class="swal2-input" value="${
+              i.endTime
+            }" ${disabledAttr}/>
+          </div>
+        </div>
+
+        <div class="swal-row grid2">
+          <div>
+            <label>Asignado a</label>
+            <select id="f-assigned" class="swal2-input">
+              <option value="">(Sin asignar)</option>
+              ${usuarios
+                .map(
+                  (u) =>
+                    `<option value="${u.id}" ${
+                      Number(i.assigned_user_id) === Number(u.id)
+                        ? "selected"
+                        : ""
+                    }>${u.nombre}</option>`
+                )
+                .join("")}
+            </select>
+          </div>
+          <div>
+            <label>Ubicación</label>
+            <input id="f-location" class="swal2-input" placeholder="Oficina / Dirección" value="${i.location_text.replaceAll(
+              '"',
+              "&quot;"
+            )}" />
+          </div>
+        </div>
+
+        <div class="swal-row">
+          <label>URL de reunión</label>
+          <input id="f-meet" class="swal2-input" placeholder="https://meet..." value="${i.meeting_url.replaceAll(
+            '"',
+            "&quot;"
+          )}" />
+        </div>
+
+        <div class="swal-row">
+          <label>Invitados (emails, separados por coma)</label>
+          <input id="f-invitees" class="swal2-input" value="${i.invitees.replaceAll(
+            '"',
+            "&quot;"
+          )}" />
+        </div>
+
+        <div class="swal-row">
+          <label>Descripción</label>
+          <textarea id="f-desc" class="swal2-textarea">${i.description
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")}</textarea>
+        </div>
+      </div>
+    `;
+
+    const { isConfirmed, value } = await Swal.fire({
+      title: mode === "create" ? "Nueva cita" : "Editar cita",
+      html,
+      width: 520, // más compacto
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: mode === "create" ? "Crear" : "Guardar",
+      cancelButtonText: "Cancelar",
+      customClass: {
+        popup: "swal2-responsive",
+        confirmButton:
+          "px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700",
+        cancelButton:
+          "px-3 py-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300",
+      },
+      preConfirm: () => {
+        const get = (id) => document.getElementById(id)?.value?.trim();
+        const title = get("f-title");
+        const dateStr = get("f-date");
+        const startStr = get("f-start");
+        const endStr = get("f-end");
+        const status = get("f-status") || "scheduled";
+        const assigned = get("f-assigned");
+        const location = get("f-location") || null;
+        const meet = get("f-meet") || null;
+        const desc = get("f-desc") || null;
+        const inviteesRaw = get("f-invitees") || "";
+
+        if (!title) {
+          Swal.showValidationMessage("El título es obligatorio.");
+          return false;
+        }
+
+        let startISO, endISO;
+        if (lockDateTime) {
+          startISO = toLocalOffsetISO(initial.start);
+          endISO = toLocalOffsetISO(initial.end);
+        } else {
+          if (!dateStr || !startStr || !endStr) {
+            Swal.showValidationMessage(
+              "Completa fecha, hora inicio y hora fin."
+            );
+            return false;
+          }
+          const [sh, sm] = startStr.split(":").map(Number);
+          const [eh, em] = endStr.split(":").map(Number);
+          const s = new Date(dateStr + "T00:00:00");
+          s.setHours(sh, sm, 0, 0);
+          const e = new Date(dateStr + "T00:00:00");
+          e.setHours(eh, em, 0, 0);
+          if (e <= s) {
+            Swal.showValidationMessage(
+              "La hora fin debe ser mayor que la hora inicio."
+            );
+            return false;
+          }
+          startISO = toLocalOffsetISO(s);
+          endISO = toLocalOffsetISO(e);
+        }
+
+        const invitees = inviteesRaw
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean)
+          .map((email) => ({ email }));
+
+        return {
+          title,
+          status,
+          assigned_user_id: assigned ? Number(assigned) : null,
+          location_text: location,
+          meeting_url: meet,
+          description: desc,
+          start: startISO,
+          end: endISO,
+          booked_tz: bookedTz,
+          invitees,
+        };
+      },
+    });
+
+    if (!isConfirmed) return null;
+    return value;
+  }
+
+  // --------- Fuente de eventos ----------
+  const fetchEvents = useCallback(
+    (info, successCallback) => {
+      if (!calendarId) {
+        successCallback([]);
+        return;
+      }
+      const params = {
+        calendar_id: calendarId,
+        start: info.start.toISOString(),
+        end: info.end.toISOString(),
+      };
+      if (selectedUserIds.length) params.user_ids = selectedUserIds.join(",");
+
+      chatApi
+        .get("/appointments", { params })
+        .then(({ data }) => {
+          const mapped = (data?.events ?? []).map((e) => {
+            const assigned =
+              e?.extendedProps?.assigned_user_id ?? e?.assigned_user_id ?? null;
+            return {
+              ...e,
+              backgroundColor: colorForUser(assigned),
+              borderColor: colorForUser(assigned),
+            };
+          });
+          successCallback(mapped);
+        })
+        .catch((err) => {
+          console.error("appointments error:", err);
+          successCallback([]);
+          Swal.fire("Error", "No se pudieron cargar los eventos.", "error");
+        });
+    },
+    [calendarId, selectedUserIds, usuarios]
+  );
+
+  // ------ Crear desde selección en grid (fecha/hora bloqueadas) ------
+  const handleSelect = async (info) => {
+    if (!calendarId) return;
+
+    const form = await openApptModal({
+      mode: "create",
+      initial: {
+        start: info.start,
+        end: info.end,
+        date: info.start,
+        startTime: info.start.toTimeString().slice(0, 5),
+        endTime: info.end.toTimeString().slice(0, 5),
+        assigned_user_id: selectedUserIds[0] ?? "",
+      },
+      lockDateTime: true,
+    });
+    if (!form) return;
+
+    try {
+      await chatApi.post("/appointments", {
+        calendar_id: calendarId,
+        ...form,
+      });
+      Swal.fire("Listo", "Cita creada.", "success");
+      api()?.unselect();
+      api()?.refetchEvents();
+    } catch (err) {
+      console.error(err);
+      const msg =
+        err?.response?.data?.message ||
+        "No se pudo crear la cita (conflicto?).";
+      Swal.fire("Error", msg, "error");
+    }
+  };
+
+  // ------ + Nuevo (fecha/hora editables) ------
+  const handleNewClick = async () => {
+    if (!calendarId) {
+      return Swal.fire(
+        "Calendario",
+        "Aún no está listo el calendario.",
+        "info"
+      );
+    }
+    const base = new Date(currentDate);
+    base.setHours(9, 0, 0, 0);
+    const base30 = new Date(base.getTime() + 30 * 60 * 1000);
+
+    const form = await openApptModal({
+      mode: "create",
+      initial: {
+        date: base,
+        start: base,
+        end: base30,
+        startTime: base.toTimeString().slice(0, 5),
+        endTime: base30.toTimeString().slice(0, 5),
+        assigned_user_id: selectedUserIds[0] ?? "",
+      },
+      lockDateTime: false,
+    });
+    if (!form) return;
+
+    try {
+      await chatApi.post("/appointments", {
+        calendar_id: calendarId,
+        ...form,
+      });
+      Swal.fire("Listo", "Cita creada.", "success");
+      api()?.refetchEvents();
+    } catch (err) {
+      console.error(err);
+      const msg = err?.response?.data?.message || "No se pudo crear la cita.";
+      Swal.fire("Error", msg, "error");
+    }
+  };
+
+  // ------ Editar evento completo ------
+  const handleEventClick = async (clickInfo) => {
+    const ev = clickInfo.event;
+    const props = ev.extendedProps || {};
+    const form = await openApptModal({
+      mode: "edit",
+      initial: {
+        title: ev.title,
+        status: props.status || "scheduled",
+        date: ev.start,
+        start: ev.start,
+        end: ev.end || new Date(ev.start.getTime() + 30 * 60000),
+        startTime: ev.start?.toTimeString().slice(0, 5),
+        endTime: (ev.end || ev.start)?.toTimeString().slice(0, 5),
+        assigned_user_id: props.assigned_user_id ?? ev.assigned_user_id ?? "",
+        location_text: props.location_text || "",
+        meeting_url: props.meeting_url || "",
+        description: props.description || "",
+      },
+      lockDateTime: false,
+    });
+    if (!form) return;
+
+    try {
+      await chatApi.patch(`/appointments/${ev.id}`, form);
+      Swal.fire("Guardado", "Cita actualizada.", "success");
+      api()?.refetchEvents();
+    } catch (err) {
+      console.error(err);
+      const msg = err?.response?.data?.message || "No se pudo actualizar.";
+      Swal.fire("Error", msg, "error");
+    }
+  };
+
+  // Drag & drop / resize
+  const handleEventDrop = async (changeInfo) => {
+    try {
+      await chatApi.patch(`/appointments/${changeInfo.event.id}`, {
+        start: changeInfo.event.start.toISOString(),
+        end: changeInfo.event.end?.toISOString(),
+        booked_tz: bookedTz,
+      });
+      Swal.fire("Listo", "Cita reprogramada.", "success");
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "No se pudo reprogramar (conflicto?).", "error");
+      changeInfo.revert();
+    }
+  };
+  const handleEventResize = handleEventDrop;
+
+  // -------- Mini-calendario (sidebar) --------
   const monthStart = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth(),
@@ -70,18 +536,30 @@ export default function Calendario() {
   const startWeekDay = monthStart.getDay(); // 0=Domingo
   const days = [];
   for (let i = 0; i < startWeekDay; i++) days.push(null);
-  for (let d = 1; d <= monthEnd.getDate(); d++)
+  for (let d = 1; d <= monthEnd.getDate(); d++) {
     days.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), d));
+  }
 
   const onMiniClick = (d) => {
     if (!d) return;
     api()?.gotoDate(d);
     setCurrentDate(d);
+    api()?.refetchEvents();
+  };
+
+  // Cabecera personalizada: inicial + número
+  const dayHeaderContent = (arg) => {
+    const dayNames = ["D", "L", "M", "Mi", "J", "V", "S"];
+    const initial = dayNames[arg.date.getDay()];
+    const num = arg.date.getDate();
+    return {
+      html: `<div class="fc-colhead"><span>${initial}</span><b>${num}</b></div>`,
+    };
   };
 
   return (
     <div className="h-full w-full">
-      {/* Tabs superiores */}
+      {/* Tabs/Controles */}
       <div className="bg-white border-b">
         <div className="mx-auto max-w-[1400px] px-4">
           <div className="flex items-center gap-6 h-14">
@@ -106,7 +584,6 @@ export default function Calendario() {
         <div className="grid grid-cols-12 gap-4">
           {/* Calendario principal */}
           <div className="col-span-12 lg:col-span-9">
-            {/* Barra de controles */}
             <div className="bg-white rounded-md shadow-sm border">
               <div className="flex items-center justify-between px-3 py-2">
                 <div className="flex items-center gap-2">
@@ -133,12 +610,14 @@ export default function Calendario() {
                     </button>
                   </div>
                   <div className="ml-3 font-medium">
-                    {/* Rango visible actual */}
                     {api()?.view?.title || ""}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
+                    {gmtBadgeFromNow()}
+                  </span>
                   <div className="hidden md:flex items-center gap-1">
                     <button
                       onClick={() => changeView("timeGridDay")}
@@ -175,7 +654,7 @@ export default function Calendario() {
                   </div>
 
                   <button
-                    onClick={() => alert("Abrir modal: crear cita")}
+                    onClick={handleNewClick}
                     className="ml-2 px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
                   >
                     + Nuevo
@@ -184,7 +663,12 @@ export default function Calendario() {
               </div>
 
               {/* Calendario */}
-              <div className="border-t">
+              <div className="border-t relative">
+                {loading && (
+                  <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-10 text-sm">
+                    Cargando eventos…
+                  </div>
+                )}
                 <FullCalendar
                   ref={calendarRef}
                   locale={esLocale}
@@ -200,17 +684,29 @@ export default function Calendario() {
                   selectable={true}
                   selectMirror={true}
                   nowIndicator={true}
+                  allDaySlot={true}
                   slotMinTime="06:00:00"
                   slotMaxTime="21:00:00"
-                  events={events}
-                  select={(info) => {
-                    // Aquí abrirás tu modal de creación con info.start/info.end
-                    console.log("Seleccionado:", info.start, info.end);
+                  scrollTime="08:00:00"
+                  events={fetchEvents}
+                  loading={(isLoading) => setLoading(isLoading)}
+                  select={handleSelect}
+                  eventClick={handleEventClick}
+                  editable={true}
+                  eventDrop={handleEventDrop}
+                  eventResize={handleEventResize}
+                  eventTimeFormat={{
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
                   }}
-                  eventClick={(info) => {
-                    // Aquí abrirás tu modal de detalle/edición
-                    console.log("Evento:", info.event.id);
+                  slotLabelFormat={{
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
                   }}
+                  dayHeaderContent={dayHeaderContent}
+                  stickyHeaderDates={true}
                   datesSet={(arg) => {
                     setCurrentDate(
                       new Date(arg.start.getTime() + (arg.end - arg.start) / 2)
@@ -225,7 +721,7 @@ export default function Calendario() {
           <div className="col-span-12 lg:col-span-3">
             <div className="bg-white rounded-md shadow-sm border p-3 mb-4">
               <div className="flex items-center justify-between mb-2">
-                <div className="font-medium">
+                <div className="font-medium capitalize">
                   {currentDate.toLocaleString("es-EC", {
                     month: "long",
                     year: "numeric",
@@ -238,6 +734,7 @@ export default function Calendario() {
                       d.setMonth(d.getMonth() - 1);
                       setCurrentDate(d);
                       api()?.gotoDate(d);
+                      api()?.refetchEvents();
                     }}
                     className="px-2 py-1 rounded border hover:bg-gray-50"
                   >
@@ -249,6 +746,7 @@ export default function Calendario() {
                       d.setMonth(d.getMonth() + 1);
                       setCurrentDate(d);
                       api()?.gotoDate(d);
+                      api()?.refetchEvents();
                     }}
                     className="ml-1 px-2 py-1 rounded border hover:bg-gray-50"
                   >
@@ -259,30 +757,41 @@ export default function Calendario() {
 
               {/* Mini calendario */}
               <div className="grid grid-cols-7 text-xs text-center mb-1">
-                {["D", "L", "M", "M", "J", "V", "S"].map((d) => (
-                  <div key={d} className="py-1 text-gray-500">
+                {WEEKDAYS.map((d, i) => (
+                  <div key={i} className="py-1 text-gray-500">
                     {d}
                   </div>
                 ))}
               </div>
+
               <div className="grid grid-cols-7 gap-1 text-sm">
                 {days.map((d, i) => {
+                  const today = new Date();
                   const isToday =
-                    d && d.toDateString() === new Date().toDateString();
+                    d && d.toDateString() === today.toDateString();
+                  const isSelected =
+                    d && d.toDateString() === currentDate.toDateString();
+
                   return (
                     <button
                       key={i}
                       onClick={() => onMiniClick(d)}
-                      className={`h-8 rounded ${
-                        !d
-                          ? ""
-                          : isToday
-                          ? "bg-blue-600 text-white"
-                          : "hover:bg-gray-100"
-                      }`}
+                      className={`h-9 rounded relative
+                        ${
+                          !d
+                            ? ""
+                            : isSelected
+                            ? "ring-2 ring-blue-600"
+                            : "hover:bg-gray-100"
+                        }
+                        ${!d ? "cursor-default" : "cursor-pointer"}
+                      `}
                       disabled={!d}
                     >
                       {d ? d.getDate() : ""}
+                      {isToday && d && (
+                        <span className="absolute left-1/2 -translate-x-1/2 bottom-1 w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                      )}
                     </button>
                   );
                 })}
@@ -293,9 +802,19 @@ export default function Calendario() {
             <div className="bg-white rounded-md shadow-sm border p-3">
               <div className="font-medium mb-2">Usuarios</div>
               <div className="space-y-2">
-                {usuarios.map((u) => (
+                {usuarios.map((u, idx) => (
                   <label key={u.id} className="flex items-center gap-2">
-                    <input type="checkbox" defaultChecked className="h-4 w-4" />
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={u.checked}
+                      onChange={(e) => {
+                        const next = [...usuarios];
+                        next[idx] = { ...next[idx], checked: e.target.checked };
+                        setUsuarios(next);
+                        api()?.refetchEvents();
+                      }}
+                    />
                     <span className="inline-flex items-center gap-2">
                       <span
                         className="inline-block h-3 w-3 rounded-full"
