@@ -1,14 +1,20 @@
 import React, { useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
-import DataTable from "react-data-table-component";
 
 const ProductosView = () => {
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalImagen, setModalImagen] = useState({ abierta: false, url: "" });
-  const [form, setForm] = useState({ nombre: "", descripcion: "", tipo: "", precio: "", id_categoria: "", imagen: null });
+  const [form, setForm] = useState({
+    nombre: "",
+    descripcion: "",
+    tipo: "",
+    precio: "",
+    id_categoria: "",
+    imagen: null,
+  });
   const [editingId, setEditingId] = useState(null);
 
   const fetchData = async () => {
@@ -16,8 +22,12 @@ const ProductosView = () => {
     if (!idc) return Swal.fire("Error", "Falta configuración", "error");
     try {
       const [prodRes, catRes] = await Promise.all([
-        chatApi.post("/productos/listarProductos", { id_configuracion: parseInt(idc) }),
-        chatApi.post("/categorias/listarCategorias", { id_configuracion: parseInt(idc) }),
+        chatApi.post("/productos/listarProductos", {
+          id_configuracion: parseInt(idc),
+        }),
+        chatApi.post("/categorias/listarCategorias", {
+          id_configuracion: parseInt(idc),
+        }),
       ]);
       setProductos(prodRes.data.data);
       setCategorias(catRes.data.data);
@@ -43,10 +53,19 @@ const ProductosView = () => {
 
     try {
       const url = editingId ? "/productos/actualizarProducto" : "/productos/agregarProducto";
-      await chatApi.post(url, data, { headers: { "Content-Type": "multipart/form-data" } });
+      await chatApi.post(url, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       Swal.fire(`Producto ${editingId ? "actualizado" : "agregado"}`, "success");
       setModalOpen(false);
-      setForm({ nombre: "", descripcion: "", tipo: "", precio: "", id_categoria: "", imagen: null });
+      setForm({
+        nombre: "",
+        descripcion: "",
+        tipo: "",
+        precio: "",
+        id_categoria: "",
+        imagen: null,
+      });
       setEditingId(null);
       fetchData();
     } catch {
@@ -56,20 +75,41 @@ const ProductosView = () => {
 
   const openModal = (p = null) => {
     if (p) {
-      setForm({ nombre: p.nombre, descripcion: p.descripcion, tipo: p.tipo, precio: p.precio, id_categoria: p.id_categoria, imagen: null });
+      setForm({
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        tipo: p.tipo,
+        precio: p.precio,
+        id_categoria: p.id_categoria,
+        imagen: null,
+      });
       setEditingId(p.id);
     } else {
-      setForm({ nombre: "", descripcion: "", tipo: "", precio: "", id_categoria: "", imagen: null });
+      setForm({
+        nombre: "",
+        descripcion: "",
+        tipo: "",
+        precio: "",
+        id_categoria: "",
+        imagen: null,
+      });
       setEditingId(null);
     }
     setModalOpen(true);
   };
 
   const handleDelete = async (p) => {
-    const result = await Swal.fire({ title: "Eliminar producto?", text: p.nombre, icon: "warning", showCancelButton: true });
+    const result = await Swal.fire({
+      title: "Eliminar producto?",
+      text: p.nombre,
+      icon: "warning",
+      showCancelButton: true,
+    });
     if (result.isConfirmed) {
       try {
-        await chatApi.delete("/productos/eliminarProducto", { data: { id_producto: p.id } });
+        await chatApi.delete("/productos/eliminarProducto", {
+          data: { id_producto: p.id },
+        });
         Swal.fire("Producto Eliminado", p.nombre, "success");
         fetchData();
       } catch {
@@ -78,51 +118,70 @@ const ProductosView = () => {
     }
   };
 
-  const columns = [
-    { name: "ID", selector: (r) => r.id, sortable: true, maxWidth: "80px" },
-    { name: "Nombre", selector: (r) => r.nombre, sortable: true },
-    { name: "Precio", selector: (r) => `$${r.precio}`, sortable: true },
-    { name: "Tipo", selector: (r) => r.tipo },
-    {
-      name: "Categoría",
-      selector: (r) => categorias.find((c) => c.id === r.id_categoria)?.nombre || "-",
-    },
-    {
-      name: "Imagen",
-      cell: (r) =>
-        r.imagen_url ? (
-          <img
-            src={r.imagen_url}
-            alt={r.nombre}
-            className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-80 transition duration-200"
-            onClick={() => setModalImagen({ abierta: true, url: r.imagen_url })}
-          />
-        ) : (
-          <span className="text-gray-400">—</span>
-        ),
-    },
-    {
-      name: "Acciones",
-      cell: (r) => (
-        <div className="flex gap-2">
-          <button onClick={() => openModal(r)} className="text-yellow-600 hover:underline">Editar</button>
-          <button onClick={() => handleDelete(r)} className="text-red-600 hover:underline">Eliminar</button>
-        </div>
-      ),
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 pt-24 px-6 transition-all duration-300 ease-in-out">
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
-        <header className="bg-blue-700 text-white p-6 flex justify-between items-center rounded-t-xl">
-          <h1 className="text-3xl font-bold tracking-tight">Gestión de Productos</h1>
-          <button onClick={() => openModal()} className="bg-green-500 hover:bg-green-600 transition px-5 py-2 rounded-lg shadow text-white font-medium">
-            + Nuevo Producto
+    <div className="min-h-screen bg-gray-100 pt-24 px-6">
+      <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+        <header className="bg-blue-700 text-white p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-3xl font-bold">Productos</h1>
+          <button
+            onClick={() => openModal()}
+            className="bg-green-500 hover:bg-green-600 transition px-5 py-2 rounded-md shadow text-white font-medium"
+          >
+            + Agregar Producto
           </button>
         </header>
-        <div className="p-6">
-          <DataTable columns={columns} data={productos} pagination highlightOnHover striped noHeader />
+
+        <div className="p-6 overflow-x-auto">
+          {productos.length === 0 ? (
+            <p className="text-gray-500">No hay productos registrados</p>
+          ) : (
+            <table className="w-full table-auto border-collapse">
+              <thead className="bg-gray-50 text-sm text-gray-700">
+                <tr>
+                  <th className="p-3 text-left">ID</th>
+                  <th className="p-3 text-left">Nombre</th>
+                  <th className="p-3 text-left">Precio</th>
+                  <th className="p-3 text-left">Tipo</th>
+                  <th className="p-3 text-left">Categoría</th>
+                  <th className="p-3 text-left">Imagen</th>
+                  <th className="p-3 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productos.map((p) => (
+                  <tr key={p.id} className="border-t hover:bg-gray-100 transition">
+                    <td className="p-3">{p.id}</td>
+                    <td className="p-3">{p.nombre}</td>
+                    <td className="p-3">${p.precio}</td>
+                    <td className="p-3">{p.tipo}</td>
+                    <td className="p-3">
+                      {categorias.find((c) => c.id === p.id_categoria)?.nombre || "-"}
+                    </td>
+                    <td className="p-3">
+                      {p.imagen_url ? (
+                        <img
+                          src={p.imagen_url}
+                          alt={p.nombre}
+                          className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-80 transition"
+                          onClick={() => setModalImagen({ abierta: true, url: p.imagen_url })}
+                        />
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-center space-x-2">
+                      <button onClick={() => openModal(p)} className="text-yellow-600 hover:underline">
+                        Editar
+                      </button>
+                      <button onClick={() => handleDelete(p)} className="text-red-600 hover:underline">
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -134,17 +193,17 @@ const ProductosView = () => {
               {editingId ? "Editar Producto" : "Agregar Producto"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input required placeholder="Nombre" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
+              <input required placeholder="Nombre" className="w-full border rounded p-3"
                 value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-              <textarea placeholder="Descripción" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
+              <textarea placeholder="Descripción" className="w-full border rounded p-3"
                 value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
               <div className="grid grid-cols-2 gap-4">
-                <input required placeholder="Tipo" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
+                <input required placeholder="Tipo" className="w-full border rounded p-3"
                   value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} />
-                <input required type="number" step="0.01" placeholder="Precio" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
+                <input required type="number" step="0.01" placeholder="Precio" className="w-full border rounded p-3"
                   value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} />
               </div>
-              <select required className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
+              <select required className="w-full border rounded p-3"
                 value={form.id_categoria} onChange={(e) => setForm({ ...form, id_categoria: e.target.value })}>
                 <option value="">Seleccione categoría</option>
                 {categorias.map((c) => (
