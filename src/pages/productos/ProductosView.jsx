@@ -44,7 +44,7 @@ const ProductosView = () => {
     try {
       const url = editingId ? "/productos/actualizarProducto" : "/productos/agregarProducto";
       await chatApi.post(url, data, { headers: { "Content-Type": "multipart/form-data" } });
-      Swal.fire("✅", `Producto ${editingId ? "actualizado" : "agregado"}`, "success");
+      Swal.fire(`Producto ${editingId ? "actualizado" : "agregado"}`, "success");
       setModalOpen(false);
       setForm({ nombre: "", descripcion: "", tipo: "", precio: "", id_categoria: "", imagen: null });
       setEditingId(null);
@@ -55,8 +55,13 @@ const ProductosView = () => {
   };
 
   const openModal = (p = null) => {
-    if (p) setForm({ nombre: p.nombre, descripcion: p.descripcion, tipo: p.tipo, precio: p.precio, id_categoria: p.id_categoria, imagen: null }), setEditingId(p.id);
-    else setForm({ nombre: "", descripcion: "", tipo: "", precio: "", id_categoria: "", imagen: null }), setEditingId(null);
+    if (p) {
+      setForm({ nombre: p.nombre, descripcion: p.descripcion, tipo: p.tipo, precio: p.precio, id_categoria: p.id_categoria, imagen: null });
+      setEditingId(p.id);
+    } else {
+      setForm({ nombre: "", descripcion: "", tipo: "", precio: "", id_categoria: "", imagen: null });
+      setEditingId(null);
+    }
     setModalOpen(true);
   };
 
@@ -65,7 +70,7 @@ const ProductosView = () => {
     if (result.isConfirmed) {
       try {
         await chatApi.delete("/productos/eliminarProducto", { data: { id_producto: p.id } });
-        Swal.fire("✅ Eliminado", p.nombre, "success");
+        Swal.fire("Producto Eliminado", p.nombre, "success");
         fetchData();
       } catch {
         Swal.fire("❌", "Error al eliminar", "error");
@@ -89,7 +94,7 @@ const ProductosView = () => {
           <img
             src={r.imagen_url}
             alt={r.nombre}
-            className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-80 transition"
+            className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-80 transition duration-200"
             onClick={() => setModalImagen({ abierta: true, url: r.imagen_url })}
           />
         ) : (
@@ -108,11 +113,11 @@ const ProductosView = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-24 px-6">
-      <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        <header className="bg-blue-700 text-white p-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Productos</h1>
-          <button onClick={() => openModal()} className="bg-green-500 hover:bg-green-600 transition px-5 py-2 rounded-md shadow">
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 pt-24 px-6 transition-all duration-300 ease-in-out">
+      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
+        <header className="bg-blue-700 text-white p-6 flex justify-between items-center rounded-t-xl">
+          <h1 className="text-3xl font-bold tracking-tight">Gestión de Productos</h1>
+          <button onClick={() => openModal()} className="bg-green-500 hover:bg-green-600 transition px-5 py-2 rounded-lg shadow text-white font-medium">
             + Nuevo Producto
           </button>
         </header>
@@ -123,35 +128,35 @@ const ProductosView = () => {
 
       {/* Modal producto */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-6 animate-slide-up">
             <h2 className="text-2xl font-semibold mb-4">
               {editingId ? "Editar Producto" : "Agregar Producto"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input required placeholder="Nombre" className="w-full border rounded p-2"
+              <input required placeholder="Nombre" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
                 value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-              <textarea placeholder="Descripción" className="w-full border rounded p-2"
+              <textarea placeholder="Descripción" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
                 value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
               <div className="grid grid-cols-2 gap-4">
-                <input required placeholder="Tipo" className="w-full border rounded p-2"
+                <input required placeholder="Tipo" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
                   value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} />
-                <input required type="number" step="0.01" placeholder="Precio" className="w-full border rounded p-2"
+                <input required type="number" step="0.01" placeholder="Precio" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
                   value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} />
               </div>
-              <select required className="w-full border rounded p-2"
+              <select required className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
                 value={form.id_categoria} onChange={(e) => setForm({ ...form, id_categoria: e.target.value })}>
                 <option value="">Seleccione categoría</option>
                 {categorias.map((c) => (
                   <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
               </select>
-              <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, imagen: e.target.files[0] })} />
-              <div className="flex justify-end gap-3">
+              <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, imagen: e.target.files[0] })} className="w-full" />
+              <div className="flex justify-end gap-3 pt-4">
                 <button type="button" onClick={() => setModalOpen(false)} className="border px-4 py-2 rounded-lg">
                   Cancelar
                 </button>
-                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow">
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow">
                   {editingId ? "Actualizar" : "Agregar"}
                 </button>
               </div>
@@ -169,7 +174,7 @@ const ProductosView = () => {
           <img
             src={modalImagen.url}
             alt="Vista previa"
-            className="max-h-[90vh] max-w-[90vw] rounded shadow-lg"
+            className="max-h-[90vh] max-w-[90vw] rounded shadow-lg transition-transform duration-300"
           />
         </div>
       )}
