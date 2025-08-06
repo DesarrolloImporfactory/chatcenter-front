@@ -26,6 +26,7 @@ const Cabecera = ({
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sliderOpen, setSliderOpen] = useState(false);
+  const [openProductos, setOpenProductos] = useState(false);
   //Manejo de referencias
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -348,11 +349,66 @@ const Cabecera = ({
               Automatizador
             </span>
           </a>
+
+          {/* Productos y categorias */}
+            {/* Grupo de Productos */}
+            {/* Grupo de Productos sin flecha y con animación */}
+            <div>
+              {/* Botón principal sin ícono de flecha */}
+                <button
+                  onClick={() => setOpenProductos(!openProductos)} // SOLO despliega
+                  className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 transition-colors"
+                >
+
+                <i className="bx bxs-store text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                  Mis Productos
+                </span>
+              </button>
+                        
+              {/* Submenú con animación suave */}
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  openProductos ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                }`}
+              >
+                <div className="ml-10 mt-1 flex flex-col">
+                  <a
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate("/productos");
+                    }}
+                    className={`group flex items-center px-3 py-2 text-left hover:text-green-500 transition-colors ${
+                      location.pathname === "/productos"
+                        ? "text-green-600"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    <i className="bx bx-list-ul text-base mr-2"></i>
+                    <span className="text-sm">Listado</span>
+                  </a>
+                  <a
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate("/categorias");
+                    }}
+                    className={`group flex items-center px-3 py-2 text-left hover:text-green-500 transition-colors ${
+                      location.pathname === "/categorias"
+                        ? "text-green-600"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    <i className="bx bx-grid-alt text-base mr-2"></i>
+                    <span className="text-sm">Categorías</span>
+                  </a>
+                </div>
+              </div>
+            </div>
           {/* Ver datos de facturacion de Plan */}
           <a
             onClick={(e) => {
               e.preventDefault();
-              navigate("/Miplan");
+              navigate("/miplan");
             }}
             className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
           >
