@@ -98,10 +98,9 @@ const AdministradorPlantillas2 = () => {
   });
 
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
 
-    const idp = p.get("id_plataforma_conf");
-    const idc = p.get("id_configuracion");
+    const idp = localStorage.getItem("id_plataforma_conf");
+    const idc = localStorage.getItem('id_configuracion');
 
     if (idc) setId_configuracion(parseInt(idc));
 

@@ -260,83 +260,84 @@ const Conexiones = () => {
 
               {/* Iconos persistentes con tooltip individual */}
               <div className="flex flex-wrap justify-center gap-2 mb-2">
-              {/* Configuración */}
-              <div
-                className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition-all duration-300 transform hover:scale-110"
-                onClick={() =>
-                  navigate(
-                    "/administrador-whatsapp?id_configuracion=" +
-                      config.id +
-                      "&id_plataforma_conf=" +
-                      config.id_plataforma
-                  )
-                }
-              >
-                <i className="bx bx-cog text-xl sm:text-2xl text-blue-600"></i>
-                <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                  Ir a configuración
-                </span>
-              </div>
-              
-              {/* Meta Developer */}
-              {!config.conectado ? (
+                {/* Configuración */}
                 <div
-                  className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
-                  onClick={() => handleConectarMetaDeveloper(config)}
+                  className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition-all duration-300 transform hover:scale-110"
+                  onClick={() => {
+                    localStorage.setItem("id_configuracion", config.id);
+                    localStorage.setItem(
+                      "id_plataforma_conf",
+                      config.id_plataforma
+                    );
+
+                    navigate("/administrador-whatsapp");
+                  }}
                 >
-                  <i className="bx bxl-meta text-xl sm:text-2xl"></i>
+                  <i className="bx bx-cog text-xl sm:text-2xl text-blue-600"></i>
                   <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    Conectar Meta Developer
+                    Ir a configuración
                   </span>
                 </div>
-              ) : (
-                <div className="relative group text-blue-600">
-                  <i className="bx bxl-meta text-xl sm:text-2xl"></i>
-                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    Meta Business conectado
-                  </span>
-                </div>
-              )}
-            
-              {/* WhatsApp */}
-              {!config.conectado ? (
+
+                {/* Meta Developer */}
+                {!config.conectado ? (
+                  <div
+                    className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
+                    onClick={() => handleConectarMetaDeveloper(config)}
+                  >
+                    <i className="bx bxl-meta text-xl sm:text-2xl"></i>
+                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                      Conectar Meta Developer
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative group text-blue-600">
+                    <i className="bx bxl-meta text-xl sm:text-2xl"></i>
+                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                      Meta Business conectado
+                    </span>
+                  </div>
+                )}
+
+                {/* WhatsApp */}
+                {!config.conectado ? (
+                  <div
+                    className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
+                    onClick={() => handleConectarWhatsappBussines(config)}
+                  >
+                    <i className="bx bxl-whatsapp text-xl sm:text-2xl"></i>
+                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                      Conectar WhatsApp Business
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative group text-green-600">
+                    <i className="bx bxl-whatsapp text-xl sm:text-2xl"></i>
+                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                      WhatsApp vinculado
+                    </span>
+                  </div>
+                )}
+
+                {/* Chat */}
                 <div
                   className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                  onClick={() => handleConectarWhatsappBussines(config)}
-                >
-                  <i className="bx bxl-whatsapp text-xl sm:text-2xl"></i>
-                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    Conectar WhatsApp Business
-                  </span>
-                </div>
-              ) : (
-                <div className="relative group text-green-600">
-                  <i className="bx bxl-whatsapp text-xl sm:text-2xl"></i>
-                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    WhatsApp vinculado
-                  </span>
-                </div>
-              )}
-            
-              {/* Chat */}
-              <div
-                className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                onClick={() =>
-                  navigate(
-                    "/chat?id_configuracion=" +
-                      config.id +
-                      "&id_plataforma_conf=" +
+                  onClick={() => {
+                    localStorage.setItem("id_configuracion", config.id);
+                    localStorage.setItem(
+                      "id_plataforma_conf",
                       config.id_plataforma
-                  )
-                }
-              >
-                <i className="bx bx-chat text-xl sm:text-2xl text-green-600 group-hover:text-green-400"></i>
-                <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                  Ir al chat
-                </span>
-              </div>
-            </div>
+                    );
 
+                    navigate("/chat");
+                  }}
+                >
+                  <i className="bx bx-chat text-xl sm:text-2xl text-green-600 group-hover:text-green-400"></i>
+                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                    Ir al chat
+                  </span>
+                </div>
+              </div>
             </div>
           ))}
         </div>

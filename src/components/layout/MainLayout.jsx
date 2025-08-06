@@ -25,10 +25,8 @@ function MainLayout({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-
-    const idp = p.get("id_plataforma_conf");
-    const idc = p.get("id_configuracion");
+    const idp = localStorage.getItem("id_plataforma_conf");
+    const idc = localStorage.getItem("id_configuracion");
 
     if (idc) setId_configuracion(parseInt(idc));
 
@@ -231,6 +229,9 @@ function MainLayout({ children }) {
             <a
               onClick={(e) => {
                 e.preventDefault();
+                localStorage.removeItem("id_configuracion");
+                localStorage.removeItem("id_plataforma_conf");
+
                 navigate("/conexiones");
               }}
               className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
@@ -249,12 +250,11 @@ function MainLayout({ children }) {
               }`}
               onClick={(e) => {
                 e.preventDefault();
-                navigate(
-                  "/chat?id_configuracion=" +
-                    id_configuracion +
-                    "&id_plataforma_conf=" +
-                    id_plataforma_conf
-                );
+
+                localStorage.setItem("id_configuracion", id_configuracion);
+                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+                navigate("/chat");
               }}
             >
               <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
@@ -273,12 +273,11 @@ function MainLayout({ children }) {
               }`}
               onClick={(e) => {
                 e.preventDefault();
-                navigate(
-                  "/administrador-whatsapp?id_configuracion=" +
-                    id_configuracion +
-                    "&id_plataforma_conf=" +
-                    id_plataforma_conf
-                );
+
+                localStorage.setItem("id_configuracion", id_configuracion);
+                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+                navigate("/administrador-whatsapp");
               }}
             >
               <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
@@ -328,21 +327,22 @@ function MainLayout({ children }) {
             {/* Grupo de Productos sin flecha y con animación */}
             <div>
               {/* Botón principal sin ícono de flecha */}
-                <button
-                  onClick={() => setOpenProductos(!openProductos)} // SOLO despliega
-                  className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 transition-colors"
-                >
-
+              <button
+                onClick={() => setOpenProductos(!openProductos)} // SOLO despliega
+                className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 transition-colors"
+              >
                 <i className="bx bxs-store text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
                 <span className="text-lg text-gray-700 group-hover:text-blue-600">
                   Mis Productos
                 </span>
               </button>
-                        
+
               {/* Submenú con animación suave */}
               <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  openProductos ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                  openProductos
+                    ? "max-h-[500px] opacity-100"
+                    : "max-h-0 opacity-0"
                 }`}
               >
                 <div className="ml-10 mt-1 flex flex-col">

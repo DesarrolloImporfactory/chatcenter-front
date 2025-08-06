@@ -149,8 +149,8 @@ const Chat = () => {
 
     const ph = p.get("phone");
     const nm = p.get("name") || "";
-    const idp = p.get("id_plataforma_conf");
-    const idc = p.get("id_configuracion");
+    const idp = localStorage.getItem('id_plataforma_conf');
+    const idc = localStorage.getItem('id_configuracion');
 
     if (ph) setPendingOpen({ phone: ph, name: nm });
     if (idc) setId_configuracion(parseInt(idc));
