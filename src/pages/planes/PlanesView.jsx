@@ -105,7 +105,7 @@ const PlanesView = () => {
   };
 
   const cerrarSesion = () => {
-    localStorage.removeItem("token");
+    localStorage.clear(); // elimina todo
     window.location.href = "/login";
   };
 

@@ -53,7 +53,7 @@ function MainLayout({ children }) {
     //Verificamos si aun no expira
     if (decoded.exp < Date.now() / 1000) {
       //Expirado =?logout
-      localStorage.removeItem("token");
+      localStorage.clear(); // elimina todo
       window.location.href = "/login";
       return;
     }
@@ -181,7 +181,7 @@ function MainLayout({ children }) {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.clear(); // elimina todo
     window.location.href = "/login";
   };
 

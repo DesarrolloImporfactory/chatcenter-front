@@ -970,7 +970,7 @@ const Chat = () => {
       const decoded = jwtDecode(token); // Decodificamos con jwt-decode
       //verificamos si el token ha expirado
       if (decoded.exp < Date.now() / 1000) {
-        localStorage.removeItem("token");
+        localStorage.clear(); // elimina todo
         // Si ha expirado, redirigimos al login
         window.location.href = "/login";
       }

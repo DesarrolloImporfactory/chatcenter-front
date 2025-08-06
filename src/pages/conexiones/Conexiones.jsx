@@ -164,7 +164,7 @@ const Conexiones = () => {
 
     const decoded = jwtDecode(token);
     if (decoded.exp < Date.now() / 1000) {
-      localStorage.removeItem("token");
+      localStorage.clear(); // elimina todo
       return navigate("/login");
     }
 

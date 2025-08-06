@@ -50,7 +50,7 @@ const Cabecera = ({
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.clear(); // elimina todo
     window.location.href = "/login"; // redirige al login
   };
 
@@ -279,7 +279,7 @@ const Cabecera = ({
               e.preventDefault();
               localStorage.removeItem("id_configuracion");
               localStorage.removeItem("id_plataforma_conf");
-              
+
               navigate("/conexiones");
             }}
             className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
