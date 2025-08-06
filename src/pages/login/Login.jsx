@@ -129,14 +129,14 @@ export default function Login() {
 
           {/* Email */}
           <div className="mb-4">
-            <label htmlFor="email" className="sr-only">
+            <label htmlFor="text" className="sr-only">
               Correo electrónico
             </label>
             <input
-              id="email"
-              type="email"
+              id="text"
+              type="text"
               placeholder="usuario o correo electrónico"
-              {...register("usuario", { required: "El email es obligatorio" })}
+              {...register("usuario", { required: "El usuario o email son obligatorios" })}
               className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
                 errors.email
                   ? "border-red-500 focus:ring-red-400"
