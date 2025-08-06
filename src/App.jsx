@@ -10,6 +10,9 @@ import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
 import Chat from "./pages/chat/Chat";
 import PlanesView from "./pages/planes/PlanesView";
 import MiPlan from "./pages/facturacion/Miplan";
+import Productos from "./pages/productos/ProductosView";
+import Categorias from "./pages/categorias/CategoriasView";
+
 
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
@@ -79,14 +82,26 @@ function App() {
           {/* PlanesView */}
           <Route path="/planes_view" element={<PlanesView />} />
           {/* Miplan */}
-          <Route
-            path="/Miplan"
-            element={
-              <MainLayout>
-                <MiPlan />
-              </MainLayout>
+          <Route path="/miplan" element={
+            <MainLayout>
+              <MiPlan /> 
+            </MainLayout>
             }
-          />
+            />
+
+          <Route path="/productos" element={
+            <MainLayout>
+              <Productos /> 
+            </MainLayout>
+            }
+            />
+            
+            <Route path="/categorias" element={
+            <MainLayout>
+              <Categorias /> 
+            </MainLayout>
+            }
+            />
         </Route>
 
         <Route path="/login" element={<Login />} />
