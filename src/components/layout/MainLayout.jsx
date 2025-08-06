@@ -308,12 +308,11 @@ function MainLayout({ children }) {
               }`}
               onClick={(e) => {
                 e.preventDefault();
-                navigate(
-                  "/calendario?id_configuracion=" +
-                    id_configuracion +
-                    "&id_plataforma_conf=" +
-                    id_plataforma_conf
-                );
+
+                localStorage.setItem("id_configuracion", id_configuracion);
+                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+                navigate("/calendario");
               }}
             >
               <i className="bx bx-calendar text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>

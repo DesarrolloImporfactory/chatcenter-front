@@ -12,6 +12,22 @@ import "./Calendario.css";
 const WEEKDAYS = ["D", "L", "Ma", "Mi", "J", "V", "S"];
 
 // === Helpers ===
+function safeJwtDecode(token) {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 // ISO con offset local (YYYY-MM-DDTHH:mm:ss-05:00)
 function toLocalOffsetISO(d) {
   const pad = (n) => String(n).padStart(2, "0");
@@ -23,7 +39,6 @@ function toLocalOffsetISO(d) {
     d.getHours()
   )}:${pad(d.getMinutes())}:00${sign}${hh}:${mm}`;
 }
-// Badge GMT actual
 function gmtBadgeFromNow() {
   const off = -new Date().getTimezoneOffset();
   const sign = off >= 0 ? "+" : "-";
@@ -32,7 +47,6 @@ function gmtBadgeFromNow() {
   const mm = String(a % 60).padStart(2, "0");
   return `GMT ${sign}${hh}:${mm}`;
 }
-// Color estable desde un número/id
 function colorFromId(id) {
   let x = Number(id) || 0;
   x = (x ^ 0x9e3779b9) >>> 0;
@@ -51,10 +65,9 @@ export default function Calendario() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
 
-  // Query params
-  const search = new URLSearchParams(window.location.search);
-  const accountId = Number(search.get("id_configuracion")); // para asegurar calendario
-  const ownerUserId = Number(search.get("id_usuario")); // <- usado para listar sub-usuarios reales
+  // 💡 AHORA vienen del token/localStorage
+  const [accountId, setAccountId] = useState(null); // id_configuracion
+  const [ownerUserId, setOwnerUserId] = useState(null); // id_usuario
 
   // id de calendario (devuelto por /calendars/ensure)
   const [calendarId, setCalendarId] = useState(null);
@@ -65,15 +78,28 @@ export default function Calendario() {
 
   // Usuarios reales para asignar/filtrar
   const [usuarios, setUsuarios] = useState([]); // { id, nombre, color, checked }
-
-  // ids seleccionados para filtrar
   const selectedUserIds = useMemo(
     () => usuarios.filter((u) => u.checked).map((u) => u.id),
     [usuarios]
   );
 
-  const api = () => calendarRef.current?.getApi();
+  // 0) Leer token y setear accountId/ownerUserId
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const payload = token ? safeJwtDecode(token) : null;
 
+    const fromTokenAccount = Number(payload?.id_configuracion) || null;
+    const fromTokenOwner = Number(payload?.id_usuario) || null;
+
+    const fromLSAccount =
+      Number(localStorage.getItem("id_configuracion")) || null;
+    const fromLSOwner = Number(localStorage.getItem("id_usuario")) || null;
+
+    setAccountId(fromTokenAccount ?? fromLSAccount ?? null);
+    setOwnerUserId(fromTokenOwner ?? fromLSOwner ?? null);
+  }, []);
+
+  const api = () => calendarRef.current?.getApi();
   const gotoToday = () => {
     api()?.today();
     setCurrentDate(new Date(api()?.getDate() || new Date()));
@@ -91,8 +117,9 @@ export default function Calendario() {
     api()?.changeView(v);
   };
 
-  // 1) Asegurar/crear calendario al montar
+  // 1) Asegurar/crear calendario (espera a tener accountId)
   useEffect(() => {
+    if (!accountId) return; // <- guardia
     const ensureCalendar = async () => {
       try {
         const { data } = await chatApi.post("/calendars/ensure", {
@@ -108,8 +135,9 @@ export default function Calendario() {
     ensureCalendar();
   }, [accountId]);
 
-  // 2) Cargar usuarios reales (para asignación/filtro)
+  // 2) Cargar usuarios reales (espera a tener ownerUserId)
   useEffect(() => {
+    if (!ownerUserId) return; // <- guardia
     const loadUsers = async () => {
       try {
         const { data } = await chatApi.post(
@@ -118,8 +146,7 @@ export default function Calendario() {
         );
         const rows = Array.isArray(data?.data) ? data.data : [];
         const mapped = rows.map((r, i) => {
-          // 👇 usa id_sub_usuario como id del usuario asignable (cámbialo si prefieres id_usuario)
-          const id = r.id_sub_usuario ?? r.id_usuario;
+          const id = r.id_sub_usuario ?? r.id_usuario; // cambia a r.id_usuario si prefieres
           const nombre = r.nombre_encargado || r.usuario || `Usuario ${i + 1}`;
           return {
             id,
@@ -131,7 +158,6 @@ export default function Calendario() {
         setUsuarios(mapped.length ? mapped : []);
       } catch (err) {
         console.error("No se pudieron cargar usuarios reales:", err);
-        // fallback mínimo
         setUsuarios([
           { id: 1, nombre: "Usuario", color: "#3b82f6", checked: true },
         ]);
@@ -140,18 +166,13 @@ export default function Calendario() {
     loadUsers();
   }, [ownerUserId]);
 
-  // Color por usuario asignado
   function colorForUser(userId) {
     const u = usuarios.find((x) => x.id === Number(userId));
     return u?.color || "#3b82f6";
   }
 
   // ------- Modal reutilizable (crear/editar) -------
-  async function openApptModal({
-    mode, // 'create' | 'edit'
-    initial,
-    lockDateTime = false,
-  }) {
+  async function openApptModal({ mode, initial, lockDateTime = false }) {
     const i = {
       title: initial?.title || "",
       status: initial?.status || "scheduled",
@@ -172,7 +193,6 @@ export default function Calendario() {
       description: initial?.description || "",
       invitees: (initial?.invitees || []).map((x) => x.email).join(", "),
     };
-
     const disabledAttr = lockDateTime ? "disabled" : "";
 
     const html = `
@@ -276,7 +296,7 @@ export default function Calendario() {
     const { isConfirmed, value } = await Swal.fire({
       title: mode === "create" ? "Nueva cita" : "Editar cita",
       html,
-      width: 520, // más compacto
+      width: 520,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: mode === "create" ? "Crear" : "Guardar",
@@ -395,10 +415,9 @@ export default function Calendario() {
     [calendarId, selectedUserIds, usuarios]
   );
 
-  // ------ Crear desde selección en grid (fecha/hora bloqueadas) ------
+  // ------ Crear desde selección (fecha/hora bloqueadas) ------
   const handleSelect = async (info) => {
     if (!calendarId) return;
-
     const form = await openApptModal({
       mode: "create",
       initial: {
@@ -471,7 +490,7 @@ export default function Calendario() {
     }
   };
 
-  // ------ Editar evento completo ------
+  // ------ Editar evento ------
   const handleEventClick = async (clickInfo) => {
     const ev = clickInfo.event;
     const props = ev.extendedProps || {};
@@ -522,7 +541,7 @@ export default function Calendario() {
   };
   const handleEventResize = handleEventDrop;
 
-  // -------- Mini-calendario (sidebar) --------
+  // -------- Mini-calendario --------
   const monthStart = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth(),
@@ -533,7 +552,7 @@ export default function Calendario() {
     currentDate.getMonth() + 1,
     0
   );
-  const startWeekDay = monthStart.getDay(); // 0=Domingo
+  const startWeekDay = monthStart.getDay();
   const days = [];
   for (let i = 0; i < startWeekDay; i++) days.push(null);
   for (let d = 1; d <= monthEnd.getDate(); d++) {
@@ -547,7 +566,6 @@ export default function Calendario() {
     api()?.refetchEvents();
   };
 
-  // Cabecera personalizada: inicial + número
   const dayHeaderContent = (arg) => {
     const dayNames = ["D", "L", "M", "Mi", "J", "V", "S"];
     const initial = dayNames[arg.date.getDay()];
@@ -790,7 +808,7 @@ export default function Calendario() {
                     >
                       {d ? d.getDate() : ""}
                       {isToday && d && (
-                        <span className="absolute left-1/2 -translate-x-1/2 bottom-1 w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                        <span className="absolute left:1/2 -translate-x-1/2 bottom-1 w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                       )}
                     </button>
                   );
