@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from 'jwt-decode';
+import "./usuarios.css";
 
 const UsuariosView = () => {
   const [usuarios, setUsuarios] = useState([]);
@@ -11,10 +12,17 @@ const UsuariosView = () => {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [showPassword, setShowPassword] = useState(false);
+
 
   const fetchUsuarios = async () => {
     const token = localStorage.getItem("token");
-    if (!token) return Swal.fire("Error", "No se encontró token", "error");
+    if (!token) 
+        return Swal.fire({
+          icon: "error",
+          title: "Token faltante",
+          text: "No se encontró token"
+        });
     const decoded = jwtDecode(token);
     const id_usuario = decoded.id_usuario;
 
@@ -22,7 +30,11 @@ const UsuariosView = () => {
       const res = await chatApi.post("/usuarios_chat_center/listarUsuarios", { id_usuario });
       setUsuarios(res.data.data);
     } catch {
-      Swal.fire("Error", "No se pudieron cargar los usuarios", "error");
+      Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudieron cargar los usuarios"
+        });
     }
   };
 
@@ -31,7 +43,12 @@ const UsuariosView = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
-    if (!token) return Swal.fire("Error", "No se encontró token", "error");
+    if (!token) 
+        return Swal.fire({
+                  icon: "error",
+                  title: "Token faltante",
+                  text: "No se encontró token"
+                });
     const decoded = jwtDecode(token);
     const id_usuario = decoded.id_usuario;
 
@@ -43,20 +60,32 @@ const UsuariosView = () => {
           id_sub_usuario: editingId,
           ...payload,
         });
-        Swal.fire("✅", "Usuario actualizado", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Usuario actualizado",
+          text: "Los datos del usuario fueron actualizados correctamente"
+        });
       } else {
         await chatApi.post("/usuarios_chat_center/agregarUsuario", {
           id_usuario,
           ...payload,
         });
-        Swal.fire("✅", "Usuario creado", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Usuario creado",
+          text: "El usuario fue creado correctamente"
+        });
       }
       setModalOpen(false);
       setForm({ usuario: "", password: "", email: "", nombre_encargado: "", rol: "" });
       setEditingId(null);
       fetchUsuarios();
     } catch (error) {
-      Swal.fire("❌", error.response?.data?.message || "Error al guardar", "error");
+      Swal.fire({
+          icon: "error",
+          title: "Error al guardar",
+          text: error.response?.data?.message || "No se pudo guardar el usuario"
+        });
     }
   };
 
@@ -83,10 +112,19 @@ const UsuariosView = () => {
         await chatApi.delete("/usuarios_chat_center/eliminarSubUsuario", {
           data: { id_sub_usuario: u.id_sub_usuario }
         });
-        Swal.fire("✅ Eliminado", u.usuario, "success");
+        Swal.fire({
+          icon: "success",
+          title: "Usuario eliminado",
+          text: u.usuario
+        });
+
         fetchUsuarios();
       } catch {
-        Swal.fire("❌", "Error al eliminar", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Error al eliminar",
+          text: "No se pudo eliminar el usuario"
+        });
       }
     }
   };
@@ -103,8 +141,16 @@ const UsuariosView = () => {
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
         <header className="bg-indigo-700 text-white p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-3xl font-bold">Gestión de Usuarios</h1>
-          <button onClick={() => openModal()} className="bg-green-500 hover:bg-green-600 px-5 py-2 rounded-md shadow text-white font-medium transition">+ Nuevo Usuario</button>
+          <button
+              onClick={() => openModal()}
+              className="group relative flex items-center justify-center px-4 py-2 bg-gradient-to-br from-green-600 to-emerald-500 text-white rounded-xl shadow-xl transition-all duration-300 ease-in-out hover:shadow-2xl hover:brightness-110"
+            >
+              <i className="bx bx-user-plus text-2xl animate-pulse"></i>
+              <span className="tooltip1">Nuevo Usuario</span>
+            </button>
+
         </header>
+
 
         <div className="p-6">
           <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
@@ -156,10 +202,27 @@ const UsuariosView = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <input required placeholder="Usuario" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
                 value={form.usuario} onChange={(e) => setForm({ ...form, usuario: e.target.value })} />
-              {!editingId && (
-                <input required placeholder="Contraseña" type="password" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
-                  value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-              )}
+                {/* revelar contraseña o no */}
+                  {!editingId && (
+                      <div className="relative">
+                        <input
+                          required
+                          placeholder="Contraseña"
+                          type={showPassword ? "text" : "password"}
+                          className="w-full border rounded p-3 pr-10 focus:ring-2 focus:ring-blue-400"
+                          value={form.password}
+                          onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute top-1/2 right-3 transform -translate-y-1/2 text-gray-600 hover:text-blue-500 focus:outline-none"
+                        >
+                          <i className={`bx ${showPassword ? "bx-show" : "bx-hide"} text-xl`}></i>
+                        </button>
+                      </div>
+                    )}
+
               <input required placeholder="Email" type="email" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
                 value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               <input required placeholder="Nombre Encargado" className="w-full border rounded p-3 focus:ring-2 focus:ring-blue-400"
@@ -168,8 +231,7 @@ const UsuariosView = () => {
                 value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })}>
                 <option value="">Seleccione rol</option>
                 <option value="administrador">Administrador</option>
-                <option value="editor">Editor</option>
-                <option value="visor">Visor</option>
+                <option value="ventas">Ventas</option>
               </select>
               <div className="flex justify-end space-x-3 pt-4">
                 <button type="button" onClick={() => setModalOpen(false)} className="border px-4 py-2 rounded-lg">Cancelar</button>

@@ -65,6 +65,11 @@
   transform: translateY(-50%); /* Asegura que esté perfectamente centrada */
 }
 
+/* Rotación del ícono + para agregar configuracion */
+.group:hover .bx-plus {
+  transform: rotate(180deg);
+  transition: transform 0.3s ease;
+}
 /* Rotación del ícono del engranaje */
 .group:hover .bx-cog {
   transform: rotate(180deg);

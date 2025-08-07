@@ -13,15 +13,27 @@ const CategoriasView = () => {
 
   const fetchCategorias = async () => {
     const idc = localStorage.getItem("id_configuracion");
-    if (!idc) return Swal.fire("Error", "Falta configuración", "error");
+    if (!idc) {
+      return Swal.fire({
+        icon: "error",
+        title: "Falta configuración",
+        text: "No se encontró el ID de configuración"
+      });
+    }
+
     try {
       const res = await chatApi.post("/categorias/listarCategorias", {
         id_configuracion: parseInt(idc),
       });
       setCategorias(res.data.data);
     } catch {
-      Swal.fire("Error", "No se pudieron cargar categorías", "error");
-    }
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudieron cargar categorías"
+        });
+      }
+
   };
 
   useEffect(fetchCategorias, []);
@@ -33,17 +45,29 @@ const CategoriasView = () => {
     try {
       if (editingId) {
         await chatApi.post("/categorias/actualizarCategoria", { id_categoria: editingId, ...payload });
-        Swal.fire("✅", "Categoría actualizada", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Categoría actualizada",
+          text: "Se ha actualizado exitosamente"
+        });
       } else {
         await chatApi.post("/categorias/agregarCategoria", { id_configuracion: idc, ...payload });
-        Swal.fire("✅", "Categoría agregada", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Categoría agregada",
+          text: "Se ha guardado correctamente"
+        });
       }
       setModalOpen(false);
       setForm({ nombre: "", descripcion: "" });
       setEditingId(null);
       fetchCategorias();
     } catch {
-      Swal.fire("❌", "No se pudo guardar", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo guardar la categoría"
+      });
     }
   };
 
@@ -58,10 +82,19 @@ const CategoriasView = () => {
     if (result.isConfirmed) {
       try {
         await chatApi.delete("/categorias/eliminarCategoria", { data: { id_categoria: cat.id } });
-        Swal.fire("✅ Eliminado", cat.nombre, "success");
+        Swal.fire({
+          icon: "success",
+          title: "Categoría eliminada",
+          text: cat.nombre
+        });
+
         fetchCategorias();
       } catch {
-        Swal.fire("❌", "Error al eliminar", "error");
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudo eliminar la categoría"
+        });
       }
     }
   };

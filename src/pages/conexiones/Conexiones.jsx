@@ -204,7 +204,7 @@ const Conexiones = () => {
           onClick={() => handleAbrirConfiguracionAutomatizada(true)}
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-green-600 to-emerald-500 text-white rounded-xl shadow-xl transition-all duration-300 ease-in-out transform group hover:scale-[1.03] hover:shadow-2xl hover:brightness-110 relative backdrop-blur-sm"
         >
-          <i className="bx bx-cog text-2xl transition-all duration-300 group-hover:brightness-150 group-hover:drop-shadow-[0_0_6px_#ffffff80]"></i>
+          <i className="bx bx-plus text-2xl transition-all duration-300 group-hover:brightness-150 group-hover:drop-shadow-[0_0_6px_#ffffff80]"></i>
           {/* Tooltip */}
           <span className="tooltip">Agregar configuración</span>
         </button>

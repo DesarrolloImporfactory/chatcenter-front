@@ -14,42 +14,65 @@ const ProductosView = () => {
   const itemsPerPage = 6;
 
   const fetchData = async () => {
-    const idc = localStorage.getItem("id_configuracion");
-    if (!idc) return Swal.fire("Error", "Falta configuración", "error");
-    try {
-      const [prodRes, catRes] = await Promise.all([
-        chatApi.post("/productos/listarProductos", { id_configuracion: parseInt(idc) }),
-        chatApi.post("/categorias/listarCategorias", { id_configuracion: parseInt(idc) }),
-      ]);
-      setProductos(prodRes.data.data);
-      setCategorias(catRes.data.data);
-    } catch {
-      Swal.fire("Error", "No se pudo cargar la información", "error");
-    }
-  };
+  const idc = localStorage.getItem("id_configuracion");
+  if (!idc) {
+    return Swal.fire({
+      icon: "error",
+      title: "Falta configuración",
+      text: "No se encontró el ID de configuración"
+    });
+  }
+
+  try {
+    const [prodRes, catRes] = await Promise.all([
+      chatApi.post("/productos/listarProductos", { id_configuracion: parseInt(idc) }),
+      chatApi.post("/categorias/listarCategorias", { id_configuracion: parseInt(idc) }),
+    ]);
+    setProductos(prodRes.data.data);
+    setCategorias(catRes.data.data);
+  } catch {
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "No se pudo cargar la información"
+    });
+  }
+};
+
 
   useEffect(fetchData, []);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const idc = parseInt(localStorage.getItem("id_configuracion"));
-    const data = new FormData();
-    Object.entries(form).forEach(([k, v]) => v && data.append(k, v));
-    if (editingId) data.append("id_producto", editingId);
-    else data.append("id_configuracion", idc);
+  e.preventDefault();
+  const idc = parseInt(localStorage.getItem("id_configuracion"));
+  const data = new FormData();
+  Object.entries(form).forEach(([k, v]) => v && data.append(k, v));
+  if (editingId) data.append("id_producto", editingId);
+  else data.append("id_configuracion", idc);
 
-    try {
-      const url = editingId ? "/productos/actualizarProducto" : "/productos/agregarProducto";
-      await chatApi.post(url, data, { headers: { "Content-Type": "multipart/form-data" } });
-      Swal.fire(`Producto ${editingId ? "actualizado" : "agregado"}`, "success");
-      setModalOpen(false);
-      setForm({ nombre: "", descripcion: "", tipo: "", precio: "", id_categoria: "", imagen: null });
-      setEditingId(null);
-      fetchData();
-    } catch {
-      Swal.fire("❌", "No se pudo guardar el producto", "error");
-    }
-  };
+  try {
+    const url = editingId ? "/productos/actualizarProducto" : "/productos/agregarProducto";
+    await chatApi.post(url, data, { headers: { "Content-Type": "multipart/form-data" } });
+
+    Swal.fire({
+      icon: "success",
+      title: `Producto ${editingId ? "actualizado" : "agregado"}`,
+      text: "La operación fue exitosa"
+    });
+
+    setModalOpen(false);
+    setForm({ nombre: "", descripcion: "", tipo: "", precio: "", id_categoria: "", imagen: null });
+    setEditingId(null);
+    fetchData();
+  } catch {
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "No se pudo guardar el producto"
+    });
+  }
+};
+
 
   const openModal = (p = null) => {
     if (p) {
@@ -63,17 +86,32 @@ const ProductosView = () => {
   };
 
   const handleDelete = async (p) => {
-    const result = await Swal.fire({ title: "Eliminar producto?", text: p.nombre, icon: "warning", showCancelButton: true });
-    if (result.isConfirmed) {
-      try {
-        await chatApi.delete("/productos/eliminarProducto", { data: { id_producto: p.id } });
-        Swal.fire("Producto Eliminado", p.nombre, "success");
-        fetchData();
-      } catch {
-        Swal.fire("❌", "Error al eliminar", "error");
-      }
+  const result = await Swal.fire({
+    title: "¿Eliminar producto?",
+    text: p.nombre,
+    icon: "warning",
+    showCancelButton: true
+  });
+
+  if (result.isConfirmed) {
+    try {
+      await chatApi.delete("/productos/eliminarProducto", { data: { id_producto: p.id } });
+      Swal.fire({
+        icon: "success",
+        title: "Producto eliminado",
+        text: p.nombre
+      });
+      fetchData();
+    } catch {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo eliminar el producto"
+      });
     }
-  };
+  }
+};
+
 
   const filtered = productos.filter((p) => p.nombre.toLowerCase().includes(search.toLowerCase()));
   const totalPages = Math.ceil(filtered.length / itemsPerPage);

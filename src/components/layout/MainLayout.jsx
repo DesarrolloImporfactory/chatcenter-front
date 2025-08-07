@@ -246,7 +246,7 @@ function MainLayout({ children }) {
             <a
               href="/chat"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/chat" ? "bg-gray-200" : ""
+                location.pathname === "/chat" ? "bg-gray-200 font-semibold" : ""
               }`}
               onClick={(e) => {
                 e.preventDefault();
@@ -268,7 +268,7 @@ function MainLayout({ children }) {
               href="/administrador-whatsapp"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
                 location.pathname === "/administrador-whatsapp"
-                  ? "bg-gray-200"
+                  ? "bg-gray-200 font-semibold"
                   : ""
               }`}
               onClick={(e) => {
@@ -304,7 +304,7 @@ function MainLayout({ children }) {
             <a
               href="/calendario"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/calendario" ? "bg-gray-200" : ""
+                location.pathname === "/calendario" ? "bg-gray-200 font-semibold" : ""
               }`}
               onClick={(e) => {
                 e.preventDefault();
@@ -327,14 +327,25 @@ function MainLayout({ children }) {
             <div>
               {/* Botón principal sin ícono de flecha */}
               <button
-                onClick={() => setOpenProductos(!openProductos)} // SOLO despliega
-                className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 transition-colors"
+                onClick={() => setOpenProductos(!openProductos)}
+                className={`group flex items-center w-full px-5 py-4 text-left rounded ${
+                  location.pathname === "/productos" || location.pathname === "/categorias"
+                    ? "bg-gray-200 font-semibold"
+                    : "hover:bg-gray-100 text-gray-700"
+                }`}
               >
-                <i className="bx bxs-store text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-                <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                <i
+                  className={`bx bxs-store text-2xl mr-3 transition-colors ${
+                    location.pathname === "/productos" || location.pathname === "/categorias"
+                      
+                      
+                  }`}
+                ></i>
+                <span className="text-lg group-hover:text-blue-600">
                   Mis Productos
                 </span>
               </button>
+
 
               {/* Submenú con animación suave */}
               <div
@@ -344,52 +355,61 @@ function MainLayout({ children }) {
                     : "max-h-0 opacity-0"
                 }`}
               >
-                <div className="ml-10 mt-1 flex flex-col">
+                <div className="ml-10 mt-1 flex flex-col cursor-pointer">
                   <a
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.preventDefault();
                       navigate("/productos");
                     }}
-                    className={`group flex items-center px-3 py-2 text-left hover:text-green-500 transition-colors ${
+                    className={`cursor-pointer group flex items-center px-4 py-2 text-sm rounded transition-all duration-200 ${
                       location.pathname === "/productos"
-                        ? "text-green-600"
-                        : "text-gray-700"
+                        ? "text-green-600 font-semibold bg-gray-100 shadow-md"
+                        : "text-gray-700 hover:bg-gray-100"
                     }`}
+
                   >
                     <i className="bx bx-list-ul text-base mr-2"></i>
-                    <span className="text-sm">Listado</span>
+                    Listado
                   </a>
+                  
                   <a
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.preventDefault();
                       navigate("/categorias");
                     }}
-                    className={`group flex items-center px-3 py-2 text-left hover:text-green-500 transition-colors ${
+                    className={`cursor-pointer group flex items-center px-4 py-2 text-sm rounded transition-all duration-200 ${
                       location.pathname === "/categorias"
-                        ? "text-green-600"
-                        : "text-gray-700"
+                        ? "text-green-600 font-semibold bg-gray-100 shadow-md"
+                        : "text-gray-700 hover:bg-gray-100"
                     }`}
+
                   >
                     <i className="bx bx-grid-alt text-base mr-2"></i>
-                    <span className="text-sm">Categorías</span>
+                    Categorías
                   </a>
+
+
                 </div>
               </div>
             </div>
 
             {/* Ver datos de facturacion de Plan */}
-            <a
+            <button
               onClick={(e) => {
                 e.preventDefault();
                 navigate("/Miplan");
               }}
-              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
+              className="cursor group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
             >
               <i className="bx bxs-credit-card text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
                 Mi Plan
               </span>
-            </a>
+            </button>
 
             {/* Cerrar sesión */}
             <button

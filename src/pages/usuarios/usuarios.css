@@ -1,0 +1,32 @@
+.tooltip1 {
+  position: absolute;
+  left: -300%;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #000;
+  color: white;
+  font-size: 16px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  white-space: nowrap;
+}
+
+.group:hover .tooltip1 {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tooltip1::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  border-left: 15px solid #000;
+  border-right: 5px solid transparent;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
