@@ -167,6 +167,17 @@ function MainLayout({ children }) {
           {/* Opciones del slider */}
           <div className="mt-6">
 
+            {/* Usuarios */}
+            <button
+              onClick={() => navigate("/usuarios")}
+              className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
+            >
+              <i className="bx bx-user text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
+                Usuarios
+              </span>
+            </button>
+
             {/* Cerrar sesión */}
             <button
               onClick={handleLogout}

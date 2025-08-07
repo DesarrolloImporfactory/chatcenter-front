@@ -12,6 +12,7 @@ import PlanesView from "./pages/planes/PlanesView";
 import MiPlan from "./pages/facturacion/Miplan";
 import Productos from "./pages/productos/ProductosView";
 import Categorias from "./pages/categorias/CategoriasView";
+import Usuarios from "./pages/usuarios/UsuariosView";
 
 
 // Importamos nuestro Layout
@@ -75,6 +76,15 @@ function App() {
             element={
               <MainLayout_conexiones>
                 <Conexiones />
+              </MainLayout_conexiones>
+            }
+          />
+          {/* vista de usuarios */}
+          <Route
+            path="/usuarios"
+            element={
+              <MainLayout_conexiones>
+                <Usuarios />
               </MainLayout_conexiones>
             }
           />
