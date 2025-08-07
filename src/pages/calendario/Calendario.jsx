@@ -47,16 +47,10 @@ function gmtBadgeFromNow() {
   const mm = String(a % 60).padStart(2, "0");
   return `GMT ${sign}${hh}:${mm}`;
 }
+
 function colorFromId(id) {
-  let x = Number(id) || 0;
-  x = (x ^ 0x9e3779b9) >>> 0;
-  const r = x & 0xff;
-  const g = (x >> 8) & 0xff;
-  const b = (x >> 16) & 0xff;
-  const toHex = (n) => n.toString(16).padStart(2, "0");
-  return `#${toHex(160 + (r % 80))}${toHex(120 + (g % 80))}${toHex(
-    120 + (b % 80)
-  )}`;
+  const hue = (Number(id) * 47) % 360; // 47 es primo → genera buena dispersión
+  return `hsl(${hue} 70% 65%)`; // saturación y luminosidad fijas
 }
 
 export default function Calendario() {
@@ -117,6 +111,17 @@ export default function Calendario() {
     api()?.changeView(v);
   };
 
+  /* ─ 3. mini-plantilla para cada fila de invitado ─ */
+  function inviteeRowTpl({ name = "", email = "", phone = "" } = {}) {
+    return `
+      <div class="flex gap-2 items-center invitee-row">
+        <input placeholder="Nombre"  class="swal2-input flex-1" value="${name}">
+        <input placeholder="Correo*" class="swal2-input flex-1" value="${email}">
+        <input placeholder="Tel."    class="swal2-input flex-1" value="${phone}">
+        <button type="button" class="btn-del-inv text-red-600">✕</button>
+      </div>`;
+  }
+
   // 1) Asegurar/crear calendario (espera a tener accountId)
   useEffect(() => {
     if (!accountId) return; // <- guardia
@@ -167,15 +172,18 @@ export default function Calendario() {
   }, [ownerUserId]);
 
   function colorForUser(userId) {
-    const u = usuarios.find((x) => x.id === Number(userId));
+    const u = usuarios.find((x) => x.id === userId);
     return u?.color || "#3b82f6";
   }
 
-  // ------- Modal reutilizable (crear/editar) -------
+  /*  ───────────────────────────────────────────────────────────────── *
+   *  openApptModal({ mode, initial, lockDateTime })                   *
+   *  ───────────────────────────────────────────────────────────────── */
   async function openApptModal({ mode, initial, lockDateTime = false }) {
+    /* 1️⃣  Datos base que poblarán los campos */
     const i = {
       title: initial?.title || "",
-      status: initial?.status || "scheduled",
+      status: initial?.status || "Agendado",
       date: (initial?.date || new Date()).toISOString().slice(0, 10),
       startTime:
         initial?.startTime ||
@@ -191,141 +199,169 @@ export default function Calendario() {
       location_text: initial?.location_text || "",
       meeting_url: initial?.meeting_url || "",
       description: initial?.description || "",
-      invitees: (initial?.invitees || []).map((x) => x.email).join(", "),
+      inviteesParsed: Array.isArray(initial?.invitees) ? initial.invitees : [], // ← para modo “edit”
     };
     const disabledAttr = lockDateTime ? "disabled" : "";
 
+    /* 2️⃣  HTML del modal (contiene el contenedor #invitees-list) */
     const html = `
-      <div class="swal-form swal-compact">
-        <div class="swal-row">
-          <label>Título *</label>
-          <input id="f-title" class="swal2-input" placeholder="Llamada con cliente" value="${i.title.replaceAll(
-            '"',
-            "&quot;"
-          )}" />
-        </div>
+    <div class="swal-form swal-compact">
 
-        <div class="swal-row grid2">
-          <div>
-            <label>Fecha *</label>
-            <input id="f-date" type="date" class="swal2-input" value="${
-              i.date
-            }" ${disabledAttr}/>
-          </div>
-          <div>
-            <label>Estado</label>
-            <select id="f-status" class="swal2-input">
-              ${["scheduled", "confirmed", "completed", "cancelled", "blocked"]
-                .map(
-                  (st) =>
-                    `<option value="${st}" ${
-                      i.status === st ? "selected" : ""
-                    }>${st}</option>`
-                )
-                .join("")}
-            </select>
-          </div>
-        </div>
+      <!-- Datos básicos -->
+      <div class="swal-row">
+        <label>Título *</label>
+        <input id="f-title" class="swal2-input" placeholder="Llamada con cliente"
+               value="${i.title.replaceAll('"', "&quot;")}" />
+      </div>
 
-        <div class="swal-row grid2">
-          <div>
-            <label>Hora inicio *</label>
-            <input id="f-start" type="time" class="swal2-input" value="${
-              i.startTime
-            }" ${disabledAttr}/>
-          </div>
-          <div>
-            <label>Hora fin *</label>
-            <input id="f-end" type="time" class="swal2-input" value="${
-              i.endTime
-            }" ${disabledAttr}/>
-          </div>
+      <div class="swal-row grid2">
+        <div>
+          <label>Fecha *</label>
+          <input id="f-date" type="date" class="swal2-input" value="${
+            i.date
+          }" ${disabledAttr}/>
         </div>
-
-        <div class="swal-row grid2">
-          <div>
-            <label>Asignado a</label>
-            <select id="f-assigned" class="swal2-input">
-              <option value="">(Sin asignar)</option>
-              ${usuarios
-                .map(
-                  (u) =>
-                    `<option value="${u.id}" ${
-                      Number(i.assigned_user_id) === Number(u.id)
-                        ? "selected"
-                        : ""
-                    }>${u.nombre}</option>`
-                )
-                .join("")}
-            </select>
-          </div>
-          <div>
-            <label>Ubicación</label>
-            <input id="f-location" class="swal2-input" placeholder="Oficina / Dirección" value="${i.location_text.replaceAll(
-              '"',
-              "&quot;"
-            )}" />
-          </div>
-        </div>
-
-        <div class="swal-row">
-          <label>URL de reunión</label>
-          <input id="f-meet" class="swal2-input" placeholder="https://meet..." value="${i.meeting_url.replaceAll(
-            '"',
-            "&quot;"
-          )}" />
-        </div>
-
-        <div class="swal-row">
-          <label>Invitados (emails, separados por coma)</label>
-          <input id="f-invitees" class="swal2-input" value="${i.invitees.replaceAll(
-            '"',
-            "&quot;"
-          )}" />
-        </div>
-
-        <div class="swal-row">
-          <label>Descripción</label>
-          <textarea id="f-desc" class="swal2-textarea">${i.description
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")}</textarea>
+        <div>
+          <label>Estado</label>
+          <select id="f-status" class="swal2-input">
+            ${["Agendado", "Confirmado", "Completado", "Cancelado", "Bloqueado"]
+              .map(
+                (st) =>
+                  `<option value="${st}" ${
+                    i.status === st ? "selected" : ""
+                  }>${st}</option>`
+              )
+              .join("")}
+          </select>
         </div>
       </div>
-    `;
 
+      <div class="swal-row grid2">
+        <div>
+          <label>Hora inicio *</label>
+          <input id="f-start" type="time" class="swal2-input" value="${
+            i.startTime
+          }" ${disabledAttr}/>
+        </div>
+        <div>
+          <label>Hora fin *</label>
+          <input id="f-end" type="time" class="swal2-input" value="${
+            i.endTime
+          }" ${disabledAttr}/>
+        </div>
+      </div>
+
+      <div class="swal-row grid2">
+        <div>
+          <label>Asignado a</label>
+          <select id="f-assigned" class="swal2-input">
+            <option value="">(Sin asignar)</option>
+            ${usuarios
+              .map(
+                (u) =>
+                  `<option value="${u.id}" ${
+                    Number(i.assigned_user_id) === u.id ? "selected" : ""
+                  }>${u.nombre}</option>`
+              )
+              .join("")}
+          </select>
+        </div>
+        <div>
+          <label>Ubicación</label>
+          <input id="f-location" class="swal2-input" placeholder="Oficina / Dirección"
+                 value="${i.location_text.replaceAll('"', "&quot;")}" />
+        </div>
+      </div>
+
+      <div class="swal-row">
+        <label>URL de reunión</label>
+        <input id="f-meet" class="swal2-input" placeholder="https://meet..."
+               value="${i.meeting_url.replaceAll('"', "&quot;")}" />
+      </div>
+
+      <!-- Invitados -->
+      <div class="swal-row">
+        <label>Invitados</label>
+        <div id="invitees-list" class="space-y-2 w-full"></div>
+        <button type="button" id="btn-add-invitee"
+         class="btn-add-inv" title="Añadir invitado">＋</button>
+      </div>
+
+      <div class="swal-row">
+        <label>Descripción</label>
+        <textarea id="f-desc" class="swal2-textarea">${i.description
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")}</textarea>
+      </div>
+
+    </div>`;
+
+    /* 3️⃣  Helpers internos */
+    const inviteeRowTpl = ({ name = "", email = "", phone = "" } = {}) => `
+      <div class="flex gap-2 items-center invitee-row">
+        <input placeholder="Nombre"  class="swal2-input flex-1" value="${name}">
+        <input placeholder="Correo*" class="swal2-input flex-1" value="${email}">
+        <input placeholder="Tel."    class="swal2-input flex-1" value="${phone}">
+        <button type="button" class="btn-del-inv text-red-600">✕</button>
+      </div>`;
+
+    /* 4️⃣  Llamada a SweetAlert2 */
     const { isConfirmed, value } = await Swal.fire({
       title: mode === "create" ? "Nueva cita" : "Editar cita",
       html,
-      width: 520,
+      width: 440,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: mode === "create" ? "Crear" : "Guardar",
       cancelButtonText: "Cancelar",
-      customClass: {
-        popup: "swal2-responsive",
-        confirmButton:
-          "px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700",
-        cancelButton:
-          "px-3 py-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300",
+
+      /* ────── aquí armamos el UI dinámico de invitados ────── */
+      didOpen: () => {
+        const list = document.getElementById("invitees-list");
+        const btnAdd = document.getElementById("btn-add-invitee");
+
+        // Cargar valores previos (o al menos una fila vacía)
+        const rows = i.inviteesParsed.length ? i.inviteesParsed : [{}];
+        rows.forEach((inv) =>
+          list.insertAdjacentHTML("beforeend", inviteeRowTpl(inv))
+        );
+
+        // Añadir fila
+        btnAdd.addEventListener("click", () => {
+          list.insertAdjacentHTML("beforeend", inviteeRowTpl());
+        });
+
+        // Eliminar fila
+        list.addEventListener("click", (e) => {
+          if (e.target.matches(".btn-del-inv")) {
+            e.target.closest(".invitee-row")?.remove();
+            if (!list.children.length)
+              list.insertAdjacentHTML("beforeend", inviteeRowTpl());
+          }
+        });
       },
+
+      /* ────── validaciones y recolección de datos ────── */
       preConfirm: () => {
         const get = (id) => document.getElementById(id)?.value?.trim();
+
+        /* === campos básicos === */
         const title = get("f-title");
         const dateStr = get("f-date");
         const startStr = get("f-start");
         const endStr = get("f-end");
-        const status = get("f-status") || "scheduled";
+        const status = get("f-status") || "Agendado";
         const assigned = get("f-assigned");
         const location = get("f-location") || null;
         const meet = get("f-meet") || null;
         const desc = get("f-desc") || null;
-        const inviteesRaw = get("f-invitees") || "";
 
         if (!title) {
           Swal.showValidationMessage("El título es obligatorio.");
           return false;
         }
 
+        /* === fecha / hora === */
         let startISO, endISO;
         if (lockDateTime) {
           startISO = toLocalOffsetISO(initial.start);
@@ -353,11 +389,19 @@ export default function Calendario() {
           endISO = toLocalOffsetISO(e);
         }
 
-        const invitees = inviteesRaw
-          .split(",")
-          .map((x) => x.trim())
-          .filter(Boolean)
-          .map((email) => ({ email }));
+        /* === invitados === */
+        const invitees = Array.from(
+          document.querySelectorAll("#invitees-list .invitee-row")
+        )
+          .map((r) => {
+            const [nameEl, emailEl, phoneEl] = r.querySelectorAll("input");
+            return {
+              name: nameEl.value.trim(),
+              email: emailEl.value.trim(),
+              phone: phoneEl.value.trim(),
+            };
+          })
+          .filter((inv) => inv.email); // exige al menos correo
 
         return {
           title,
@@ -372,8 +416,17 @@ export default function Calendario() {
           invitees,
         };
       },
+
+      customClass: {
+        popup: "swal2-responsive",
+        confirmButton:
+          "px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700",
+        cancelButton:
+          "px-3 py-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300",
+      },
     });
 
+    /* 5️⃣  Devolver sólo si el usuario confirmó */
     if (!isConfirmed) return null;
     return value;
   }
@@ -396,12 +449,15 @@ export default function Calendario() {
         .get("/appointments", { params })
         .then(({ data }) => {
           const mapped = (data?.events ?? []).map((e) => {
-            const assigned =
-              e?.extendedProps?.assigned_user_id ?? e?.assigned_user_id ?? null;
+            const assigned = Number(
+              e?.extendedProps?.assigned_user_id ?? e?.assigned_user_id ?? NaN
+            ); // ← lo normalizamos a Number sí o sí
+
             return {
               ...e,
               backgroundColor: colorForUser(assigned),
               borderColor: colorForUser(assigned),
+              extendedProps: { ...e.extendedProps, assigned_user_id: assigned },
             };
           });
           successCallback(mapped);
@@ -435,6 +491,7 @@ export default function Calendario() {
     try {
       await chatApi.post("/appointments", {
         calendar_id: calendarId,
+        created_by_user_id: ownerUserId,
         ...form,
       });
       Swal.fire("Listo", "Cita creada.", "success");
@@ -479,6 +536,7 @@ export default function Calendario() {
     try {
       await chatApi.post("/appointments", {
         calendar_id: calendarId,
+        created_by_user_id: ownerUserId,
         ...form,
       });
       Swal.fire("Listo", "Cita creada.", "success");
@@ -498,7 +556,7 @@ export default function Calendario() {
       mode: "edit",
       initial: {
         title: ev.title,
-        status: props.status || "scheduled",
+        status: props.status || "Agendado",
         date: ev.start,
         start: ev.start,
         end: ev.end || new Date(ev.start.getTime() + 30 * 60000),
@@ -508,13 +566,17 @@ export default function Calendario() {
         location_text: props.location_text || "",
         meeting_url: props.meeting_url || "",
         description: props.description || "",
+        invitees: props.invitees || [],
       },
       lockDateTime: false,
     });
     if (!form) return;
 
     try {
-      await chatApi.patch(`/appointments/${ev.id}`, form);
+      await chatApi.patch(`/appointments/${ev.id}`, {
+        ...form,
+        created_by_user_id: ownerUserId,
+      });
       Swal.fire("Guardado", "Cita actualizada.", "success");
       api()?.refetchEvents();
     } catch (err) {
@@ -531,6 +593,7 @@ export default function Calendario() {
         start: changeInfo.event.start.toISOString(),
         end: changeInfo.event.end?.toISOString(),
         booked_tz: bookedTz,
+        created_by_user_id: ownerUserId,
       });
       Swal.fire("Listo", "Cita reprogramada.", "success");
     } catch (err) {
@@ -566,14 +629,91 @@ export default function Calendario() {
     api()?.refetchEvents();
   };
 
-  const dayHeaderContent = (arg) => {
-    const dayNames = ["D", "L", "M", "Mi", "J", "V", "S"];
-    const initial = dayNames[arg.date.getDay()];
+  const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+  function dayHeaderContent(arg) {
+    const txt = dayNames[arg.date.getDay()];
     const num = arg.date.getDate();
     return {
-      html: `<div class="fc-colhead"><span>${initial}</span><b>${num}</b></div>`,
+      html: `<div class="fc-colhead">
+                   <span>${txt}</span><b>${num}</b>
+                 </div>`,
     };
-  };
+  }
+
+  function renderListEvent(arg) {
+    const { event, timeText } = arg;
+    const color = colorForUser(event.extendedProps.assigned_user_id);
+    const urlMeet = event.extendedProps.meeting_url;
+
+    /* Invitados como texto plano  */
+    const invitados = (event.extendedProps.invitees || [])
+      .map((i) => i.name || i.email)
+      .join(", ");
+
+    return {
+      html: `
+      <div class="flex flex-col w-full gap-1">
+
+        <!---- Fila 1 : hora + título (+ icono de reunión) ---------------------->
+        <div class="flex items-center gap-3">
+          <span class="inline-block h-2 w-2 rounded-full"
+                style="background:${color}"></span>
+          <span class="text-xs text-gray-500 w-20 shrink-0">${timeText}</span>
+          <span class="flex-1 truncate font-medium">${event.title}</span>
+
+          ${
+            urlMeet
+              ? `<a href="${urlMeet}" target="_blank" rel="noopener noreferrer"
+                     class="shrink-0" title="Ir a la reunión">
+                     🔗
+                 </a>`
+              : ""
+          }
+        </div>
+
+        <!---- Fila 2 : descripción si existe ---------------------->
+        ${
+          event.extendedProps.description
+            ? `<div class="text-xs text-gray-600 truncate pl-6">
+                 ${event.extendedProps.description}
+               </div>`
+            : ""
+        }
+
+        <!---- Fila 3 : invitados si existen ---------------------->
+        ${
+          invitados
+            ? `<div class="text-xs text-gray-500 truncate pl-6">
+                 ${invitados}
+               </div>`
+            : ""
+        }
+
+      </div>`,
+    };
+  }
+
+  /* Inserta cabecera “Hora | Evento | Invitados” en la vista lista */
+  useEffect(() => {
+    if (!view.startsWith("list")) return;
+
+    const calEl = calendarRef.current?.el;
+    if (!calEl) return;
+
+    const table = calEl.querySelector(".fc-list-table");
+    if (!table || table.dataset.headerInjected) return;
+
+    table.dataset.headerInjected = "1";
+    const thead = document.createElement("thead");
+    thead.innerHTML = `
+    <tr class="text-xs uppercase text-gray-500 bg-gray-50">
+      <th class="w-20 px-3 py-1.5 text-left">Hora</th>
+      <th class="px-3 py-1.5 text-left">Evento</th>
+      <th class="px-3 py-1.5 text-left">Invitados</th>
+    </tr>`;
+    table.prepend(thead);
+  }, [view, currentDate]);
 
   return (
     <div className="h-full w-full">
@@ -681,13 +821,16 @@ export default function Calendario() {
               </div>
 
               {/* Calendario */}
+
               <div className="border-t relative">
                 {loading && (
                   <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-10 text-sm">
                     Cargando eventos…
                   </div>
                 )}
+
                 <FullCalendar
+                  /* Básico -------------------------------------------------------- */
                   ref={calendarRef}
                   locale={esLocale}
                   plugins={[
@@ -699,20 +842,20 @@ export default function Calendario() {
                   initialView="timeGridWeek"
                   height="calc(100vh - 220px)"
                   headerToolbar={false}
-                  selectable={true}
-                  selectMirror={true}
-                  nowIndicator={true}
-                  allDaySlot={true}
-                  slotMinTime="06:00:00"
-                  slotMaxTime="21:00:00"
-                  scrollTime="08:00:00"
-                  events={fetchEvents}
-                  loading={(isLoading) => setLoading(isLoading)}
+                  /* Selección y edición ------------------------------------------ */
+                  selectable
+                  selectMirror
+                  editable
+                  nowIndicator
                   select={handleSelect}
                   eventClick={handleEventClick}
-                  editable={true}
                   eventDrop={handleEventDrop}
                   eventResize={handleEventResize}
+                  /* Horas y formato ---------------------------------------------- */
+                  slotMinTime="06:00:00"
+                  slotMaxTime="24:00:00"
+                  scrollTime="08:00:00"
+                  allDaySlot={true}
                   eventTimeFormat={{
                     hour: "2-digit",
                     minute: "2-digit",
@@ -723,12 +866,49 @@ export default function Calendario() {
                     minute: "2-digit",
                     hour12: false,
                   }}
+                  /* Datos --------------------------------------------------------- */
+                  events={fetchEvents}
+                  loading={setLoading}
+                  /* Cabecera FECHA ------------------------------------------------ */
                   dayHeaderContent={dayHeaderContent}
                   stickyHeaderDates={true}
-                  datesSet={(arg) => {
+                  datesSet={(arg) =>
                     setCurrentDate(
                       new Date(arg.start.getTime() + (arg.end - arg.start) / 2)
-                    );
+                    )
+                  }
+                  /* Vista LISTA – dibujar cada fila ------------------------------ */
+                  views={{
+                    listWeek: {
+                      buttonText: "Lista",
+                      dayHeaderFormat: {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      }, // Jue 7 ago
+                      noEventsContent: "Sin citas", // texto vacío
+                    },
+                    listDay: { buttonText: "Día (lista)" },
+                  }}
+                  eventContent={
+                    view.startsWith("list") ? renderListEvent : undefined
+                  }
+                  /* Enlace 🔗 delante del título en vistas grid ------------------- */
+                  eventDidMount={(info) => {
+                    if (!info.view.type.startsWith("list")) {
+                      const url = info.event.extendedProps.meeting_url;
+                      if (!url) return;
+
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.target = "_blank";
+                      link.rel = "noopener noreferrer";
+                      link.className = "fc-meet-link";
+                      link.title = "Abrir reunión";
+                      link.textContent = "🔗";
+
+                      info.el.querySelector(".fc-event-title")?.prepend(link);
+                    }
                   }}
                 />
               </div>

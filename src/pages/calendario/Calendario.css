@@ -77,3 +77,223 @@
 .fc .fc-toolbar-title {
   text-transform: lowercase;
 }
+
+/* ancho-máximo y padding del popup */
+.swal2-popup.swal2-responsive {
+  max-width: 440px; /* coincide con width JS */
+  padding: 16px 20px;
+}
+
+/* inputs un poco más pequeños */
+.swal-compact .swal2-input {
+  height: 32px !important;
+  font-size: 13px !important;
+  padding: 4px 8px !important;
+}
+.swal-compact .swal2-textarea {
+  min-height: 64px !important;
+  font-size: 13px !important;
+}
+
+/* botón mini “+” para invitados */
+.btn-add-inv {
+  width: 28px;
+  height: 28px;
+  line-height: 26px;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+}
+.btn-add-inv:hover {
+  background: #1e4fd9;
+}
+
+/* ——— contenedor general ——— */
+.ghl-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Tabs estilo GoHighLevel */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 4px;
+}
+.tabs .tab {
+  flex: 1;
+  text-align: center;
+  padding: 6px 0;
+  font-weight: 600;
+  color: #6b7280;
+  border-bottom: 2px solid transparent;
+}
+.tabs .tab.active {
+  color: #2563eb;
+  border-color: #2563eb;
+}
+
+/* Body ⇢ dos columnas */
+.modal-body {
+  display: flex;
+  gap: 24px;
+  max-height: 440px;
+  overflow: auto;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.col-main {
+  flex: 1;
+  min-width: 260px;
+}
+.col-side {
+  width: 260px;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 24px;
+}
+
+/* Campo genérico */
+.fld {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fld label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+.fld small {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Caja de fecha/hora */
+.box-time {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f9fafb;
+}
+.box-time .toggle {
+  display: flex;
+  gap: 6px;
+}
+.tgl {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+}
+.tgl.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+/* Grilla 2 columnas pequeña */
+.fld-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* Link “Añadir descripción” */
+.lnk-add-desc {
+  font-size: 12px;
+  color: #2563eb;
+  cursor: pointer;
+  width: max-content;
+  margin-top: -4px;
+}
+
+/* Botón mini (+ Invitado, + Nota) */
+.btn-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+}
+.btn-mini:hover {
+  background: #f3f4f6;
+}
+.icon-plus {
+  font-size: 16px;
+  line-height: 12px;
+  color: #2563eb;
+}
+
+/* Invitado Row (re-usa los inputs de SweetAlert) */
+.invitee-row {
+  display: flex;
+  gap: 6px;
+}
+.invitee-row input {
+  height: 28px;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+.invitee-row .btn-del-inv {
+  font-size: 14px;
+  line-height: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+/* icono dentro del bloque de evento  */
+.fc-meet-link {
+  margin-right: 4px; /* separa del texto */
+  text-decoration: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+.fc-meet-link:hover {
+  filter: brightness(1.3);
+}
+
+/* Píldora tiempo-lista */
+.fc .fc-list-event-time {
+  display: none;
+} /* ocultamos el viejo tiempo */
+.fc .fc-list-event-title {
+  flex: 1 1 auto;
+} /* que use todo el ancho */
+
+/* Separador suave entre renglones */
+.fc .fc-list-table td {
+  border: 0 !important;
+}
+.fc .fc-list-event {
+  border-bottom: 1px solid #f1f1f1;
+}
+
+/* Cabecera “Jue 7” más compacta */
+.fc .fc-list-day-cushion {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Oculta el puntito por defecto en la vista "list"  */
+.fc .fc-list-event-dot {
+  display: none;
+}
