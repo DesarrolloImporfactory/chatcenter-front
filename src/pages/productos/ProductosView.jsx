@@ -121,7 +121,7 @@ const ProductosView = () => {
     <div className="min-h-screen bg-gray-100 pt-24 px-4 md:px-6">
       <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
         <header className="bg-indigo-700 text-white p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-3xl font-bold">Productos</h1>
+          <h1 className="text-3xl font-bold">Productos o Servicios</h1>
           <button onClick={() => openModal()} className="bg-green-500 hover:bg-green-600 px-5 py-2 rounded-md shadow text-white font-medium transition">+ Agregar Producto</button>
         </header>
         <div className="p-6">

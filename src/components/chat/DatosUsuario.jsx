@@ -547,7 +547,6 @@ const DatosUsuario = ({
   const [isClosing, setIsClosing] = useState(false);
   const [isClosingNovedades, setIsClosingNovedades] = useState(false); // animacion para botones en historial de pedidos
 
-
   const productosPorPagina = 5; // Define cuántos productos mostrar por página
   const images = [
     {
@@ -736,35 +735,34 @@ const DatosUsuario = ({
   };
   /* animacion para botones ordenes y novedades - historial de pedidos */
   const handleToggleOrdenes = () => {
-  if (isOpen) {
-    setIsClosing(true);
-    setTimeout(() => {
+    if (isOpen) {
+      setIsClosing(true);
+      setTimeout(() => {
+        setIsOpen(false);
+        setIsClosing(false);
+      }, 300); // Tiempo de animación de salida
+    } else {
+      setIsOpen(true);
+      setIsOpenNovedades(false);
+      setIsClosing(false);
+      setIsClosingNovedades(false);
+    }
+  };
+
+  const handleToggleNovedades = () => {
+    if (isOpenNovedades) {
+      setIsClosingNovedades(true);
+      setTimeout(() => {
+        setIsOpenNovedades(false);
+        setIsClosingNovedades(false);
+      }, 300);
+    } else {
+      setIsOpenNovedades(true);
       setIsOpen(false);
       setIsClosing(false);
-    }, 300); // Tiempo de animación de salida
-  } else {
-    setIsOpen(true);
-    setIsOpenNovedades(false);
-    setIsClosing(false);
-    setIsClosingNovedades(false);
-  }
-};
-
-const handleToggleNovedades = () => {
-  if (isOpenNovedades) {
-    setIsClosingNovedades(true);
-    setTimeout(() => {
-      setIsOpenNovedades(false);
       setIsClosingNovedades(false);
-    }, 300);
-  } else {
-    setIsOpenNovedades(true);
-    setIsOpen(false);
-    setIsClosing(false);
-    setIsClosingNovedades(false);
-  }
-};
-
+    }
+  };
 
   // Manejo de cambio de cantidad
   const handleCantidadChange = (producto, increment) => {
@@ -1259,10 +1257,7 @@ const handleToggleNovedades = () => {
       // Llamar a la función para guardar el mensaje en la BD
       let telefono_configuracion = dataAdmin.telefono;
 
-      let id_recibe = await buscar_id_recibe(
-        numeroDestino,
-        id_configuracion
-      );
+      let id_recibe = await buscar_id_recibe(numeroDestino, id_configuracion);
 
       agregar_mensaje_enviado(
         templateText, // Texto con {{1}}, {{2}} etc.
@@ -1522,7 +1517,7 @@ const handleToggleNovedades = () => {
               facturaSeleccionada.numero_factura ? "bg-white" : "bg-[#171931]"
             }  
           `}
-        >      
+        >
           {id_plataforma_conf !== null ? (
             <>
               {isModalOpen && (
@@ -1731,11 +1726,8 @@ const handleToggleNovedades = () => {
 
               <div className="flex justify-center overflow-y-auto h-full md:h-[750px] custom-scrollbar">
                 <div className="w-full max-w-3xl mx-auto">
-
                   {/* Información del cliente - Premium con íconos */}
                   <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
-
-
                     <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col items-center gap-4 animate-fadeInOnce">
                       {/* Avatar */}
                       <div className="bg-[#2a2343] p-2 rounded-full shadow-md">
@@ -1747,33 +1739,35 @@ const handleToggleNovedades = () => {
                       </div>
 
                       {/* Título */}
-                      <h2 className="text-white text-lg font-bold tracking-wide uppercase">Información del cliente</h2>
+                      <h2 className="text-white text-lg font-bold tracking-wide uppercase">
+                        Información del cliente
+                      </h2>
 
                       {/* Datos */}
                       <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 text-white/90">
                         <div className="flex items-center gap-3">
-                           <i className="bx bx-id-card text-2xl text-violet-300 group-hover:glow-cart transition-all duration-300"></i>
+                          <i className="bx bx-id-card text-2xl text-violet-300 group-hover:glow-cart transition-all duration-300"></i>
                           <div>
                             <p className="text-xs text-white/60">Nombre</p>
-                            <p className="text-sm font-semibold">{selectedChat?.nombre_cliente || "N/A"}</p>
+                            <p className="text-sm font-semibold">
+                              {selectedChat?.nombre_cliente || "N/A"}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
                           <i className="bx bx-phone-call text-2xl text-violet-300 group-hover:glow-cart transition-all duration-300"></i>
                           <div>
                             <p className="text-xs text-white/60">Teléfono</p>
-                            <p className="text-sm font-semibold">{selectedChat?.celular_cliente || "N/A"}</p>
+                            <p className="text-sm font-semibold">
+                              {selectedChat?.celular_cliente || "N/A"}
+                            </p>
                           </div>
                         </div>
                       </div>
                     </div>
-
                   </div>
 
-
                   <div className="flex justify-center gap-3 mb-4 opacity-0 animate-slideInRightOnce delay-[000ms]">
-
-                    
                     {/* Ordenes y guias */}
                     <button
                       className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
@@ -1788,12 +1782,14 @@ const handleToggleNovedades = () => {
                     >
                       <i
                         className={`bx bx-package text-xl transition-all duration-300 ${
-                          isOpen ? "glow-yellow" : "text-yellow-300 group-hover:text-yellow-200"
+                          isOpen
+                            ? "glow-yellow"
+                            : "text-yellow-300 group-hover:text-yellow-200"
                         }`}
                       ></i>
                       <span className="text-white">Órdenes</span>
                     </button>
-                      
+
                     <button
                       className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isOpenNovedades
@@ -1807,14 +1803,13 @@ const handleToggleNovedades = () => {
                     >
                       <i
                         className={`bx bx-bell text-xl transition-all duration-300 ${
-                          isOpenNovedades ? "glow-yellow" : "text-yellow-300 group-hover:text-yellow-200"
+                          isOpenNovedades
+                            ? "glow-yellow"
+                            : "text-yellow-300 group-hover:text-yellow-200"
                         }`}
                       ></i>
                       <span className="text-white">Novedades</span>
                     </button>
-
-
-
                   </div>
 
                   {isOpen && (
@@ -1837,12 +1832,14 @@ const handleToggleNovedades = () => {
                         >
                           <i
                             className={`bx bx-cart text-xl transition-all duration-300 ${
-                              activeTab === "pedidos" ? "glow-cart" : "text-violet-300 group-hover:text-violet-200"
+                              activeTab === "pedidos"
+                                ? "glow-cart"
+                                : "text-violet-300 group-hover:text-violet-200"
                             }`}
                           ></i>
                           <span className="text-white">Pedidos</span>
                         </button>
-                          
+
                         <button
                           className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                             activeTab === "guias"
@@ -1853,14 +1850,14 @@ const handleToggleNovedades = () => {
                         >
                           <i
                             className={`bx bx-send text-xl transition-all duration-300 ${
-                              activeTab === "guias" ? "glow-guias" : "text-emerald-300 group-hover:text-emerald-200"
+                              activeTab === "guias"
+                                ? "glow-guias"
+                                : "text-emerald-300 group-hover:text-emerald-200"
                             }`}
                           ></i>
                           <span className="text-white">Guías</span>
                         </button>
                       </div>
-
-
 
                       {/* Tabla dinámica */}
                       <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80 transition-all duration-500 ease-out transform animate-fadeTable custom-scrollbar">
@@ -1869,59 +1866,86 @@ const handleToggleNovedades = () => {
                             <tr>
                               {activeTab === "pedidos" ? (
                                 <>
-                                  <th className="px-4 py-2 text-left rounded-tl-md">Número Factura</th>
-                                  <th className="px-4 py-2 text-left">Nombre Cliente</th>
-                                  <th className="px-4 py-2 text-center rounded-tr-md">Acción</th>
+                                  <th className="px-4 py-2 text-left rounded-tl-md">
+                                    Número Factura
+                                  </th>
+                                  <th className="px-4 py-2 text-left">
+                                    Nombre Cliente
+                                  </th>
+                                  <th className="px-4 py-2 text-center rounded-tr-md">
+                                    Acción
+                                  </th>
                                 </>
                               ) : (
                                 <>
-                                  <th className="px-4 py-2 text-left rounded-tl-md">Número Guía</th>
-                                  <th className="px-4 py-2 text-left">Estado</th>
-                                  <th className="px-4 py-2 text-center rounded-tr-md">Acción</th>
+                                  <th className="px-4 py-2 text-left rounded-tl-md">
+                                    Número Guía
+                                  </th>
+                                  <th className="px-4 py-2 text-left">
+                                    Estado
+                                  </th>
+                                  <th className="px-4 py-2 text-center rounded-tr-md">
+                                    Acción
+                                  </th>
                                 </>
                               )}
                             </tr>
                           </thead>
                           <tbody>
                             {activeTab === "pedidos"
-                              ? facturasChatSeleccionado?.map((factura, index) => (
-                                  <tr
-                                    key={index}
-                                    className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
-                                  >
-                                    <td className="px-4 py-3 rounded-l-md">{factura.numero_factura}</td>
-                                    <td className="px-4 py-3">{factura.nombre}</td>
-                                    <td className="px-4 py-3 text-center rounded-r-md">
-                                      <button
-                                        className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-4 py-2 rounded-md transition duration-200"
-                                        onClick={() => handleFacturaSeleccionada(factura)}
-                                      >
-                                        Ver
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
+                              ? facturasChatSeleccionado?.map(
+                                  (factura, index) => (
+                                    <tr
+                                      key={index}
+                                      className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
+                                    >
+                                      <td className="px-4 py-3 rounded-l-md">
+                                        {factura.numero_factura}
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        {factura.nombre}
+                                      </td>
+                                      <td className="px-4 py-3 text-center rounded-r-md">
+                                        <button
+                                          className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-4 py-2 rounded-md transition duration-200"
+                                          onClick={() =>
+                                            handleFacturaSeleccionada(factura)
+                                          }
+                                        >
+                                          Ver
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  )
+                                )
                               : guiasChatSeleccionado?.map((guia, index) => {
-                                  const { color, estado_guia } = obtenerEstadoGuia(
-                                    guia.transporte,
-                                    guia.estado_guia_sistema
-                                  );
-                                
+                                  const { color, estado_guia } =
+                                    obtenerEstadoGuia(
+                                      guia.transporte,
+                                      guia.estado_guia_sistema
+                                    );
+
                                   return (
                                     <tr
                                       key={index}
                                       className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
                                     >
-                                      <td className="px-4 py-3 rounded-l-md">{guia.numero_guia}</td>
+                                      <td className="px-4 py-3 rounded-l-md">
+                                        {guia.numero_guia}
+                                      </td>
                                       <td className="px-4 py-3">
-                                        <span className={`text-xs px-3 py-1 rounded-full ${color}`}>
+                                        <span
+                                          className={`text-xs px-3 py-1 rounded-full ${color}`}
+                                        >
                                           {estado_guia}
                                         </span>
                                       </td>
                                       <td className="px-4 py-3 text-center rounded-r-md">
                                         <button
                                           className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-4 py-2 rounded-md transition duration-200"
-                                          onClick={() => handleGuiaSeleccionada(guia)}
+                                          onClick={() =>
+                                            handleGuiaSeleccionada(guia)
+                                          }
                                         >
                                           Ver
                                         </button>
@@ -1932,7 +1956,6 @@ const handleToggleNovedades = () => {
                           </tbody>
                         </table>
                       </div>
-
                     </div>
                   )}
 
@@ -1962,7 +1985,7 @@ const handleToggleNovedades = () => {
                           ></i>
                           <span className="text-white">Gestionadas</span>
                         </button>
-                          
+
                         <button
                           className={`group flex items-center justify-center gap-2 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                             activeTabNovedad === "no_gestionadas"
@@ -1986,9 +2009,15 @@ const handleToggleNovedades = () => {
                         <table className="w-full table-auto border-separate border-spacing-y-2">
                           <thead className="bg-gradient-to-r from-blue-800 to-blue-700 text-white text-sm">
                             <tr>
-                              <th className="px-4 py-2 text-left rounded-tl-md">Número Guía</th>
-                              <th className="px-4 py-2 text-left">Nombre Cliente</th>
-                              <th className="px-4 py-2 text-center rounded-tr-md">Detalle</th>
+                              <th className="px-4 py-2 text-left rounded-tl-md">
+                                Número Guía
+                              </th>
+                              <th className="px-4 py-2 text-left">
+                                Nombre Cliente
+                              </th>
+                              <th className="px-4 py-2 text-center rounded-tr-md">
+                                Detalle
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2000,15 +2029,21 @@ const handleToggleNovedades = () => {
                                 key={index}
                                 className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
                               >
-                                <td className="px-4 py-3 rounded-l-md">{novedades.guia_novedad}</td>
-                                <td className="px-4 py-3">{novedades.cliente_novedad}</td>
+                                <td className="px-4 py-3 rounded-l-md">
+                                  {novedades.guia_novedad}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {novedades.cliente_novedad}
+                                </td>
                                 <td className="px-4 py-3 text-center rounded-r-md">
                                   <button
                                     className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-4 py-2 rounded-md transition duration-200"
                                     onClick={() =>
                                       handleDetalleNovedad(
                                         novedades,
-                                        activeTabNovedad === "gestionadas" ? "gestionada" : "no_gestionada"
+                                        activeTabNovedad === "gestionadas"
+                                          ? "gestionada"
+                                          : "no_gestionada"
                                       )
                                     }
                                   >
@@ -2020,7 +2055,6 @@ const handleToggleNovedades = () => {
                           </tbody>
                         </table>
                       </div>
-
                     </div>
                   )}
 
@@ -3317,7 +3351,48 @@ const handleToggleNovedades = () => {
             </>
           ) : (
             <div className="flex justify-center overflow-y-auto h-full md:h-[750px]">
-              <div className="w-full max-w-3xl mx-auto"></div>
+              <div className="w-full max-w-3xl mx-auto">
+                {/* Información del cliente - Premium con íconos */}
+                <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
+                  <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col items-center gap-4 animate-fadeInOnce">
+                    {/* Avatar */}
+                    <div className="bg-[#2a2343] p-2 rounded-full shadow-md">
+                      <img
+                        src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                        alt="Avatar"
+                        className="w-16 h-16 rounded-full object-cover border-2 border-violet-400"
+                      />
+                    </div>
+
+                    {/* Título */}
+                    <h2 className="text-white text-lg font-bold tracking-wide uppercase">
+                      Información del cliente
+                    </h2>
+
+                    {/* Datos */}
+                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 text-white/90">
+                      <div className="flex items-center gap-3">
+                        <i className="bx bx-id-card text-2xl text-violet-300 group-hover:glow-cart transition-all duration-300"></i>
+                        <div>
+                          <p className="text-xs text-white/60">Nombre</p>
+                          <p className="text-sm font-semibold">
+                            {selectedChat?.nombre_cliente || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <i className="bx bx-phone-call text-2xl text-violet-300 group-hover:glow-cart transition-all duration-300"></i>
+                        <div>
+                          <p className="text-xs text-white/60">Teléfono</p>
+                          <p className="text-sm font-semibold">
+                            {selectedChat?.celular_cliente || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
