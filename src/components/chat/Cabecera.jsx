@@ -352,6 +352,27 @@ const Cabecera = ({
             </span>
           </a>
 
+          {/* Calendario */}
+            <a
+              href="/calendario"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/calendario" ? "bg-gray-200 font-semibold" : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+
+                localStorage.setItem("id_configuracion", id_configuracion);
+                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+                navigate("/calendario");
+              }}
+            >
+              <i className="bx bx-calendar text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Calendario
+              </span>
+            </a>
+
           {/* Productos y categorias */}
           {/* Grupo de Productos */}
           {/* Grupo de Productos sin flecha y con animación */}

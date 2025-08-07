@@ -8,7 +8,7 @@ const PlanesView = () => {
   const [planes, setPlanes] = useState([]);
   const [planSeleccionado, setPlanSeleccionado] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [autoPlay, setAutoPlay] = useState(true); // Para controlar animación automática
+  const [autoPlay, setAutoPlay] = useState(true);
 
   useEffect(() => {
     const obtenerPlanes = async () => {
@@ -16,7 +16,6 @@ const PlanesView = () => {
         const res = await chatApi.get("planes/listarPlanes");
         setPlanes(res.data.data);
       } catch (error) {
-        console.error("Error al obtener planes:", error);
         Swal.fire({
           icon: "error",
           title: "Error",
@@ -24,32 +23,26 @@ const PlanesView = () => {
         });
       }
     };
-
     obtenerPlanes();
   }, []);
 
-  // Auto despliegue de las cards una por una
   useEffect(() => {
     if (!autoPlay || planes.length === 0) return;
-
     let index = 0;
     const intervalo = setInterval(() => {
       setPlanSeleccionado(planes[index].id_plan);
       index++;
-
       if (index >= planes.length) {
         clearInterval(intervalo);
-        setAutoPlay(false); // se detiene después de recorrer todos
+        setAutoPlay(false);
       }
-    }, 1000); // tiempo entre cada despliegue
-
+    }, 1000);
     return () => clearInterval(intervalo);
   }, [planes, autoPlay]);
 
   const seleccionarPlan = async () => {
     if (!planSeleccionado) return;
     setLoading(true);
-
     try {
       const token = localStorage.getItem("token");
       const decoded = JSON.parse(atob(token.split(".")[1]));
@@ -60,14 +53,12 @@ const PlanesView = () => {
         "stripe_plan/crearSesionPago",
         {
           id_plan: planSeleccionado,
-          id_usuario: id_usuario,
+          id_usuario,
           success_url: `${baseUrl}/conexiones`,
           cancel_url: `${baseUrl}/planes_view`,
         },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -80,24 +71,19 @@ const PlanesView = () => {
               planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan || "",
           })
         );
-
         window.location.href = res.data.url;
       } else {
-        throw new Error("No se recibió la URL de Stripe");
+        throw new Error("No se recibió URL de pago");
       }
     } catch (error) {
-      console.error("Error al crear sesión de Stripe:", error);
-
-      const mensajeError =
-        error?.response?.data?.message ===
-        "Ya tienes un plan activo. No puedes crear una nueva sesión de pago hasta que expire."
-          ? "Ya tienes un plan activo. Espera a que expire antes de seleccionar uno nuevo."
-          : "No se pudo redirigir al pago. Intenta nuevamente.";
-
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: mensajeError,
+        text:
+          error?.response?.data?.message ===
+          "Ya tienes un plan activo. No puedes crear una nueva sesión de pago hasta que expire."
+            ? "Ya tienes un plan activo. Espera que expire antes de seleccionar otro."
+            : "No se pudo redirigir al pago. Intenta nuevamente.",
       });
     } finally {
       setLoading(false);
@@ -105,14 +91,13 @@ const PlanesView = () => {
   };
 
   const cerrarSesion = () => {
-    localStorage.clear(); // elimina todo
+    localStorage.clear();
     window.location.href = "/login";
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f9fafb] to-[#e5e7eb] flex flex-col items-center px-6 py-12">
-      <div className="w-full max-w-6xl relative">
-        {/* Cerrar sesión */}
+      <div className="w-full max-w-6xl">
         <div className="flex justify-end mb-4">
           <button
             onClick={cerrarSesion}
@@ -122,90 +107,78 @@ const PlanesView = () => {
           </button>
         </div>
 
-        <div className="py-10" />
-
         <h2 className="text-4xl font-extrabold text-center mb-10 text-[#171931]">
           Elige tu plan ideal y potencia tu empresa
         </h2>
 
-        <div className="py-10" />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {planes.map((plan) => {
-          const isSelected = planSeleccionado === plan.id_plan;
-          
-          // Asigna imagen según nombre_plan
-          let imagen = "pviewb.png"; // default
-          if (plan.nombre_plan.includes("Conexión")) imagen = "pviewc.png";
-          if (plan.nombre_plan.includes("Premium")) imagen = "pviewp.png";
-          
-          return (
-            <div
-              key={plan.id_plan}
-              className={`relative bg-white rounded-3xl overflow-hidden shadow-xl transition-transform duration-300 ease-in-out transform
-                ${isSelected ? "ring-4 ring-green-400 scale-105" : "hover:scale-[1.02]"}
-              `}
-            >
-              <button
-                onClick={() =>
-                  setPlanSeleccionado(isSelected ? null : plan.id_plan)
-                }
-                className="w-full text-left"
-              >
-                {/* Imagen superior */}
-                {!isSelected && (
-                  <img
-                    src={`src/assets/${imagen}`}
-                    alt={`Vista previa ${plan.nombre_plan}`}
-                    className="w-full h-40 object-cover rounded-t-3xl"
-                  />
-                )}
+            const isSelected = planSeleccionado === plan.id_plan;
+            let imagen = "pviewb.png";
+            if (plan.nombre_plan.includes("Conexión")) imagen = "pviewc.png";
+            if (plan.nombre_plan.includes("Premium")) imagen = "pviewp.png";
 
-                {/* Contenido */}
-                <div className="px-6 py-6">
-                  <div className="flex justify-between items-center mb-3">
-                    <div>
-                      <h3 className="text-2xl font-extrabold text-gray-900">{plan.nombre_plan}</h3>
-                      <p className="text-sm text-gray-500">{plan.descripcion_plan}</p>
+            return (
+              <div
+                key={plan.id_plan}
+                className={`relative bg-white rounded-3xl overflow-hidden shadow-lg transition-transform duration-300 transform ${
+                  isSelected ? "ring-4 ring-green-400 scale-105" : "hover:scale-[1.02]"
+                }`}
+              >
+                <button
+                  onClick={() =>
+                    setPlanSeleccionado(isSelected ? null : plan.id_plan)
+                  }
+                  className="w-full text-left focus:outline-none"
+                >
+                  {/* Imagen superior más pequeña */}
+                  {!isSelected && (
+                    <div className="h-28 overflow-hidden">
+                      <img
+                        src={`src/assets/${imagen}`}
+                        alt={plan.nombre_plan}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-bold text-gray-800">
+                  )}
+
+                  {/* Contenido visual premium */}
+                  <div className="px-6 py-6 bg-gradient-to-br from-white to-gray-50">
+                    <div className="mb-4">
+                      <h3 className="text-2xl font-bold text-gray-900 tracking-tight mb-1">
+                        {plan.nombre_plan}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {plan.descripcion_plan}
+                      </p>
+                    </div>
+
+                    <div className="text-right mb-4">
+                      <span className="text-3xl font-bold text-gray-800">
                         ${parseFloat(plan.precio_plan).toFixed(2)}
                       </span>
-                      <span className="text-sm text-gray-500"> /mes</span>
+                      <span className="text-sm text-gray-500 ml-1">/mes</span>
                     </div>
-                  </div>
-              
-                  {/* Características solo si está seleccionada */}
-                  {isSelected && (
-                    <>
-                      <ul className="mt-4 space-y-3 text-sm text-gray-700">
+
+                    {isSelected && (
+                      <ul className="mt-2 space-y-3 text-sm text-gray-700">
                         <li>👥 {plan.max_subusuarios} subusuarios incluidos</li>
                         <li>📲 Código QR personalizado</li>
                         <li>🤖 Integración con Meta</li>
-                        {plan.ahorro && Number(plan.ahorro) > 0 && (
-                          <li>💰 Ahorro mensual de ${plan.ahorro}</li>
+                        {plan.ahorro > 0 && (
+                          <li className="text-green-600">
+                            💰 Ahorro anual de ${plan.ahorro}
+                          </li>
                         )}
                       </ul>
-                      
-                      
-                    </>
-                  )}
-                </div>
-              </button>
-            </div>
-
-          );
-        })}
-
+                    )}
+                  </div>
+                </button>
+              </div>
+            );
+          })}
         </div>
 
-
-
-
-        <div className="py-10" />
-
-        {/* Botón acción final */}
         {planSeleccionado && (
           <div className="flex justify-center mt-10">
             <button
