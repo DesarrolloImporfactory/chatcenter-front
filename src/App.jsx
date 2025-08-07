@@ -5,7 +5,6 @@ import Login from "./pages/login/Login";
 import Register from "./pages/register/Register";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import AdministradorPlantillas from "./pages/admintemplates/AdministradorPlantillas";
 import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
 import Chat from "./pages/chat/Chat";
 import PlanesView from "./pages/planes/PlanesView";
@@ -39,18 +38,7 @@ function App() {
           />
 
           <Route path="/chat" element={<Chat />} />
-
-          {/* 
-          /administrador-whatsapp, version 1
-        */}
-          <Route
-            path="/administrador-whatsapp-antes"
-            element={
-              <MainLayout>
-                <AdministradorPlantillas />
-              </MainLayout>
-            }
-          />
+          
           {/*administrador-pruebas se renombra y pasa a produccion*/}
           <Route
             path="/administrador-whatsapp"

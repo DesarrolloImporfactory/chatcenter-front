@@ -69,22 +69,6 @@ function MainLayout({ children }) {
     }
   }, [userData]);
 
-  /*  useEffect(() => {
-    const fetchEstadoNumero = async () => {
-      if (!userData) return;
-      try {
-        const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
-          id_plataforma: userData.data?.id_plataforma,
-        });
-        setEstadoNumero(resp.data.data || []);
-      } catch (error) {
-        console.error("Error al obtener phone_numbers:", error);
-      }
-    };
-
-    fetchEstadoNumero();
-  }, [userData]); */
-
   useEffect(() => {
     const checkBannedStatus = () => {
       const isBanned = estadoNumero.some((num) => num.status === "BANNED");
