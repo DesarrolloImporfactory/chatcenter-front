@@ -5,9 +5,8 @@ const VerPlantillaGuiasGeneradas = ({ onClose, setStatusMessage }) => {
   const [seleccionada, setSeleccionada] = useState(null);
   const [loading, setLoading] = useState(false);
   const [plantillasMeta, setPlantillasMeta] = useState([]);
-
-  const searchParams = new URLSearchParams(window.location.search);
-  const id_configuracion = parseInt(searchParams.get("id_configuracion"));
+  
+  const id_configuracion = localStorage.getItem('id_configuracion');
 
   useEffect(() => {
     const fetchTemplatesMeta = async () => {

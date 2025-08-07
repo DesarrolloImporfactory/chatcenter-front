@@ -73,7 +73,7 @@ const Modales = ({
     if (tagName) {
       try {
         const body = {
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
           nombre_etiqueta: tagName,
           color_etiqueta: tagColor,
         };
@@ -120,7 +120,7 @@ const Modales = ({
       const body = {
         id_cliente_chat_center: idClienteChat,
         id_etiqueta: idEtiqueta,
-        id_plataforma: userData.data?.id_plataforma,
+        id_configuracion: id_configuracion,
       };
 
       const { data: result } = await chatApi.post(

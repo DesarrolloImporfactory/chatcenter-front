@@ -326,7 +326,7 @@ const AdministradorPlantillas2 = () => {
     if (!userData) return;
     try {
       const response = await chatApi.post("openai_assistants/info_asistentes", {
-        id_plataforma: userData.data?.id_plataforma,
+        id_configuracion: id_configuracion,
       });
 
       const data = response.data?.data || {};
@@ -1151,7 +1151,7 @@ const AdministradorPlantillas2 = () => {
       const response = await chatApi.post(
         "openai_assistants/actualizar_api_key_openai",
         {
-          id_plataforma: userData.data?.id_plataforma,
+          id_configuracion: id_configuracion,
           api_key: apiKeyInput,
         }
       );
@@ -1165,7 +1165,7 @@ const AdministradorPlantillas2 = () => {
 
     const guardarLogistica = async () => {
       await chatApi.post("openai_assistants/actualizar_ia_logisctica", {
-        id_plataforma: userData.data?.id_plataforma,
+        id_configuracion: id_configuracion,
         nombre_bot: nombreBotLog,
         assistant_id: assistantIdLog,
         activo: activoLog,
@@ -1175,7 +1175,7 @@ const AdministradorPlantillas2 = () => {
 
     const guardarVentas = async () => {
       await chatApi.post("openai_assistants/actualizar_ia_ventas", {
-        id_plataforma: userData.data?.id_plataforma,
+        id_configuracion: id_configuracion,
         nombre_bot: nombreBotVenta,
         assistant_id: assistantIdVenta,
         productos: productosVenta,
@@ -1906,7 +1906,6 @@ const AdministradorPlantillas2 = () => {
       {modalConfigOpen && (
         <VerPlantillaGuiasGeneradas
           respuestas={respuestasRapidas}
-          idPlataforma={userData.data?.id_plataforma}
           onClose={() => setModalConfigOpen(false)}
           setStatusMessage={setStatusMessage}
         />
