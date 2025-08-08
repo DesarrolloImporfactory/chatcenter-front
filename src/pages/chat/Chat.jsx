@@ -1124,7 +1124,7 @@ const Chat = () => {
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
         /* console.log("XD:", data); */
 
-        if (userData.data?.id_plataforma == data.id_plataforma) {
+        if (id_configuracion == data.id_configuracion) {
           setMensajesAcumulados((prevChats) => {
             const actualizado = prevChats.map((chat) => ({ ...chat }));
 
@@ -1198,7 +1198,7 @@ const Chat = () => {
 
             socketRef.current.emit("GET_CHATS_BOX", {
               chatId: selectedChat.id,
-              plataforma: userData.data?.id_plataforma,
+              id_configuracion: id_configuracion,
             });
 
             socketRef.current.once("CHATS_BOX_RESPONSE", (data) => {
