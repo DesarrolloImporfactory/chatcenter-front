@@ -98,22 +98,36 @@ const ProductosView = () => {
   };
 
   const openModal = (p = null) => {
-    if (p) {
-      setForm({ ...p, imagen: null });
-      setEditingId(p.id);
-    } else {
-      setForm({
-        nombre: "",
-        descripcion: "",
-        tipo: "",
-        precio: "",
-        id_categoria: "",
-        imagen: null,
-      });
-      setEditingId(null);
-    }
-    setModalOpen(true);
+  const mapTipo = (t) => {
+    const s = String(t || "").toLowerCase().trim();
+    // Si no viene nada, devolver ""
+    if (!s) return "";
+    // Cualquier cosa que empiece con "ser" lo tomamos como "servicio"
+    if (s.startsWith("ser")) return "servicio";
+    // Cualquier otro caso lo tratamos como "producto"
+    return "producto";
   };
+
+  if (p) {
+    setForm({
+      ...p,
+      tipo: mapTipo(p.tipo), // <-- normaliza al valor del select
+      imagen: null,
+    });
+    setEditingId(p.id);
+  } else {
+    setForm({
+      nombre: "",
+      descripcion: "",
+      tipo: "",
+      precio: "",
+      id_categoria: "",
+      imagen: null,
+    });
+    setEditingId(null);
+  }
+  setModalOpen(true);
+};
 
   const handleDelete = async (p) => {
     const result = await Swal.fire({
@@ -291,13 +305,19 @@ const ProductosView = () => {
                 }
               />
               <div className="grid grid-cols-2 gap-4">
-                <input
+                {/* tipo como select */}
+                <select
                   required
-                  placeholder="Tipo"
                   className="w-full border rounded p-3"
                   value={form.tipo}
                   onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-                />
+                >
+                  <option value="">Seleccione tipo</option>
+                  <option value="producto">Producto</option>
+                  <option value="servicio">Servicio</option>
+                </select>
+                            
+                {/* precio */}
                 <input
                   required
                   type="number"
@@ -308,6 +328,7 @@ const ProductosView = () => {
                   onChange={(e) => setForm({ ...form, precio: e.target.value })}
                 />
               </div>
+
               <select
                 required
                 className="w-full border rounded p-3"
