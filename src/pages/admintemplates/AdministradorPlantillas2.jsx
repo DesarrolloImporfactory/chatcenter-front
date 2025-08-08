@@ -1293,15 +1293,20 @@ const AdministradorPlantillas2 = () => {
     };
 
     const guardarVentas = async () => {
-      await chatApi.post("openai_assistants/actualizar_ia_ventas", {
-        id_configuracion: id_configuracion,
-        nombre_bot: nombreBotVenta,
-        assistant_id: assistantIdVenta,
-        productos: productosVenta,
-        activo: activoVenta,
-      });
-      setShowModalVentas(false);
+      try {
+        await chatApi.post("openai_assistants/actualizar_ia_ventas", {
+          id_configuracion: id_configuracion,
+          nombre_bot: nombreBotVenta,
+          assistant_id: assistantIdVenta,
+          productos: selectedProductos.map(p => p.value), // 👈 array de strings
+          activo: activoVenta,
+        });
+        setShowModalVentas(false);
+      } catch (error) {
+        console.error(error);
+      }
     };
+
 
     return (
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
