@@ -50,9 +50,8 @@ const ProductosView = () => {
     }
   };
 
-  // useEffect(fetchData, []);
   useEffect(() => {
-    fetchData(); // ejecuta la función asíncrona
+    fetchData();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -98,36 +97,33 @@ const ProductosView = () => {
   };
 
   const openModal = (p = null) => {
-  const mapTipo = (t) => {
-    const s = String(t || "").toLowerCase().trim();
-    // Si no viene nada, devolver ""
-    if (!s) return "";
-    // Cualquier cosa que empiece con "ser" lo tomamos como "servicio"
-    if (s.startsWith("ser")) return "servicio";
-    // Cualquier otro caso lo tratamos como "producto"
-    return "producto";
-  };
+    const mapTipo = (t) => {
+      const s = String(t || "").toLowerCase().trim();
+      if (!s) return "";
+      if (s.startsWith("ser")) return "servicio";
+      return "producto";
+    };
 
-  if (p) {
-    setForm({
-      ...p,
-      tipo: mapTipo(p.tipo), // <-- normaliza al valor del select
-      imagen: null,
-    });
-    setEditingId(p.id);
-  } else {
-    setForm({
-      nombre: "",
-      descripcion: "",
-      tipo: "",
-      precio: "",
-      id_categoria: "",
-      imagen: null,
-    });
-    setEditingId(null);
-  }
-  setModalOpen(true);
-};
+    if (p) {
+      setForm({
+        ...p,
+        tipo: mapTipo(p.tipo),
+        imagen: null,
+      });
+      setEditingId(p.id);
+    } else {
+      setForm({
+        nombre: "",
+        descripcion: "",
+        tipo: "",
+        precio: "",
+        id_categoria: "",
+        imagen: null,
+      });
+      setEditingId(null);
+    }
+    setModalOpen(true);
+  };
 
   const handleDelete = async (p) => {
     const result = await Swal.fire({
@@ -168,10 +164,11 @@ const ProductosView = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-24 px-4 md:px-6">
-      <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        <header className="bg-indigo-700 text-white p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-3xl font-bold">Productos o Servicios</h1>
+    <div className="min-h-screen bg-gray-100 pt-24 px-3 md:px-6">
+      {/* Card grande con margen uniforme y sin invadir menú/header */}
+      <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-xl shadow-lg flex flex-col min-h-[82vh]">
+        <header className="bg-indigo-700 text-white p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-md">
+          <h1 className="text-3xl font-bold">Productos</h1>
           <button
             onClick={() => openModal()}
             className="bg-green-500 hover:bg-green-600 px-5 py-2 rounded-md shadow text-white font-medium transition"
@@ -179,8 +176,10 @@ const ProductosView = () => {
             + Agregar Producto
           </button>
         </header>
-        <div className="p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+
+        {/* Contenido elástico con scroll interno si es necesario */}
+        <div className="p-6 flex-1 overflow-hidden flex flex-col">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4 shrink-0">
             <input
               type="text"
               placeholder="Buscar producto..."
@@ -211,77 +210,86 @@ const ProductosView = () => {
               </button>
             </div>
           </div>
+
           {paginated.length === 0 ? (
             <p className="text-gray-500">No hay productos.</p>
           ) : (
-            <table className="w-full table-auto border-collapse text-sm">
-              <thead className="bg-gray-50 text-gray-700 uppercase tracking-wider">
-                <tr>
-                  {[
-                    "ID",
-                    "Nombre",
-                    "Precio",
-                    "Tipo",
-                    "Categoría",
-                    "Imagen",
-                    "Acciones",
-                  ].map((h) => (
-                    <th key={h} className="p-3 text-left">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="border-t hover:bg-gray-100 transition"
-                  >
-                    <td className="p-3">{p.id}</td>
-                    <td className="p-3">{p.nombre}</td>
-                    <td className="p-3">${p.precio}</td>
-                    <td className="p-3">{p.tipo}</td>
-                    <td className="p-3">
-                      {categorias.find((c) => c.id === p.id_categoria)
-                        ?.nombre || "-"}
-                    </td>
-                    <td className="p-3">
-                      {p.imagen_url ? (
-                        <img
-                          src={p.imagen_url}
-                          alt=""
-                          className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-80 transition"
-                          onClick={() =>
-                            setModalImagen({ abierta: true, url: p.imagen_url })
-                          }
-                        />
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-center flex justify-center gap-2">
-                      <button
-                        onClick={() => openModal(p)}
-                        className="text-yellow-600 hover:underline"
+            <div className="flex-1 min-h-0 overflow-auto rounded-md">
+              <div className="overflow-x-auto">
+                <table className="w-full table-auto border-collapse text-sm rounded-md">
+                  <thead className="bg-gray-50 text-gray-700 uppercase tracking-wider">
+                    <tr>
+                      {[
+                        "ID",
+                        "Nombre",
+                        "Precio",
+                        "Tipo",
+                        "Categoría",
+                        "Imagen",
+                        "Acciones",
+                      ].map((h) => (
+                        <th key={h} className="p-3 text-left">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map((p) => (
+                      <tr
+                        key={p.id}
+                        className="border-t hover:bg-gray-100 transition"
                       >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(p)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        <td className="p-3">{p.id}</td>
+                        <td className="p-3">{p.nombre}</td>
+                        <td className="p-3">${p.precio}</td>
+                        <td className="p-3">{p.tipo}</td>
+                        <td className="p-3">
+                          {categorias.find((c) => c.id === p.id_categoria)
+                            ?.nombre || "-"}
+                        </td>
+                        <td className="p-3">
+                          {p.imagen_url ? (
+                            <img
+                              src={p.imagen_url}
+                              alt=""
+                              className="h-12 w-12 object-cover rounded cursor-pointer hover:opacity-80 transition"
+                              onClick={() =>
+                                setModalImagen({
+                                  abierta: true,
+                                  url: p.imagen_url,
+                                })
+                              }
+                            />
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center flex justify-center gap-2">
+                          <button
+                            onClick={() => openModal(p)}
+                            className="text-yellow-600 hover:underline"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p)}
+                            className="text-red-600 hover:underline"
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
+      {/* --- MODAL: agregar/editar (SIN CAMBIOS DE LÓGICA) --- */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity animate-fade-in">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-6 transform transition-all duration-300 animate-slide-up">
@@ -316,7 +324,6 @@ const ProductosView = () => {
                   <option value="producto">Producto</option>
                   <option value="servicio">Servicio</option>
                 </select>
-                            
                 {/* precio */}
                 <input
                   required
@@ -344,6 +351,7 @@ const ProductosView = () => {
                   </option>
                 ))}
               </select>
+
               <input
                 type="file"
                 accept="image/*"
@@ -352,6 +360,7 @@ const ProductosView = () => {
                 }
                 className="w-full"
               />
+
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
@@ -372,6 +381,7 @@ const ProductosView = () => {
         </div>
       )}
 
+      {/* --- MODAL: visor de imagen (SIN CAMBIOS DE LÓGICA) --- */}
       {modalImagen.abierta && (
         <div
           className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"

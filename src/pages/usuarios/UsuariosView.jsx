@@ -168,9 +168,10 @@ const UsuariosView = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 pt-24 px-4 md:px-6">
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
-        <header className="bg-indigo-700 text-white p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="min-h-screen bg-gray-100 pt-24 px-3 md:px-6">
+  {/* Card grande con margen uniforme y sin invadir menú/header */}
+  <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-xl shadow-lg flex flex-col min-h-[82vh]">
+        <header className="bg-indigo-700 text-white p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-md">
           <h1 className="text-3xl font-bold">Gestión de Usuarios</h1>
           <button
             onClick={() => openModal()}
@@ -181,8 +182,9 @@ const UsuariosView = () => {
           </button>
         </header>
 
-        <div className="p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+        {/* Contenido elástico con scroll interno si hace falta */}
+        <div className="p-6 flex-1 overflow-hidden flex flex-col">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4 shrink-0">
             <input
               type="text"
               placeholder="Buscar usuario o email..."
@@ -217,48 +219,53 @@ const UsuariosView = () => {
           {paginated.length === 0 ? (
             <p className="text-gray-500">No hay usuarios registrados</p>
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="text-sm text-gray-700">
-                  <th className="p-3 text-left">Usuario</th>
-                  <th className="p-3 text-left">Email</th>
-                  <th className="p-3 text-left">Nombre</th>
-                  <th className="p-3 text-left">Rol</th>
-                  <th className="text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((u) => (
-                  <tr
-                    key={u.id_sub_usuario}
-                    className="bg-gray-50 hover:bg-gray-100 transition"
-                  >
-                    <td className="p-3 text-left">{u.usuario}</td>
-                    <td className="p-3 text-left">{u.email}</td>
-                    <td className="p-3 text-left">{u.nombre_encargado}</td>
-                    <td className="p-3 text-left">{u.rol}</td>
-                    <td className="p-3 text-center flex justify-center gap-2">
-                      <button
-                        onClick={() => openModal(u)}
-                        className="text-yellow-600 hover:underline"
+            <div className="flex-1 min-h-0 overflow-auto rounded-md">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-sm text-gray-700">
+                      <th className="p-3 text-left">Usuario</th>
+                      <th className="p-3 text-left">Email</th>
+                      <th className="p-3 text-left">Nombre</th>
+                      <th className="p-3 text-left">Rol</th>
+                      <th className="text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map((u) => (
+                      <tr
+                        key={u.id_sub_usuario}
+                        className="bg-gray-50 hover:bg-gray-100 transition"
                       >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(u)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        <td className="p-3 text-left">{u.usuario}</td>
+                        <td className="p-3 text-left">{u.email}</td>
+                        <td className="p-3 text-left">{u.nombre_encargado}</td>
+                        <td className="p-3 text-left">{u.rol}</td>
+                        <td className="p-3 text-center flex justify-center gap-2">
+                          <button
+                            onClick={() => openModal(u)}
+                            className="text-yellow-600 hover:underline"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(u)}
+                            className="text-red-600 hover:underline"
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
+      {/* Modal agregar/editar (sin tocar lógica) */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6 animate-slide-up">
@@ -273,7 +280,6 @@ const UsuariosView = () => {
                 value={form.usuario}
                 onChange={(e) => setForm({ ...form, usuario: e.target.value })}
               />
-              {/* revelar contraseña o no */}
               {!editingId && (
                 <div className="relative">
                   <input

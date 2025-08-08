@@ -128,9 +128,10 @@ const CategoriasView = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-24 px-4 md:px-6">
-      <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        <header className="bg-indigo-700 text-white p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="min-h-screen bg-gray-100 pt-24 px-3 md:px-6">
+      {/* Card grande con margen uniforme y sin invadir menú/header */} 
+      <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-xl shadow-lg flex flex-col min-h-[82vh]">  
+        <header className="bg-indigo-700 text-white p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-md">
           <h1 className="text-3xl font-bold">Categorías</h1>
           <button
             onClick={() => openModal()}
@@ -139,8 +140,10 @@ const CategoriasView = () => {
             + Agregar
           </button>
         </header>
-        <div className="p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+
+        {/* Contenido elástico */}
+        <div className="p-6 flex-1 overflow-hidden flex flex-col">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4 shrink-0">
             <input
               type="text"
               placeholder="Buscar categoría..."
@@ -171,50 +174,59 @@ const CategoriasView = () => {
               </button>
             </div>
           </div>
-          {paginated.length === 0 ? (
-            <p className="text-gray-500 text-center">No hay categorías.</p>
-          ) : (
-            <table className="w-full table-auto border-collapse text-sm">
-              <thead className="bg-gray-50 text-gray-700 uppercase tracking-wider">
-                <tr>
-                  {["ID", "Nombre", "Descripción", "Acciones"].map((h) => (
-                    <th key={h} className="p-3 text-left">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((cat) => (
-                  <tr
-                    key={cat.id}
-                    className="border-t hover:bg-gray-100 transition"
-                  >
-                    <td className="p-3">{cat.id}</td>
-                    <td className="p-3">{cat.nombre}</td>
-                    <td className="p-3">{cat.descripcion}</td>
-                    <td className="p-3 text-center flex justify-center gap-2">
-                      <button
-                        onClick={() => openModal(cat)}
-                        className="text-yellow-600 hover:underline"
+
+          {/* Tabla expandida con scroll si hace falta */}
+          <div className="flex-1 min-h-0 overflow-auto rounded-md">
+            {paginated.length === 0 ? (
+              <p className="text-gray-500 text-center">No hay categorías.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full table-auto border-collapse text-sm">
+                  <thead className="bg-gray-50 text-gray-700 uppercase tracking-wider">
+                    <tr>
+                      {["ID", "Nombre", "Descripción", "Acciones"].map((h) => (
+                        <th key={h} className="p-3 text-left">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map((cat) => (
+                      <tr
+                        key={cat.id}
+                        className="border-t hover:bg-gray-100 transition"
                       >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(cat)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                        <td className="p-3">{cat.id}</td>
+                        <td className="p-3">{cat.nombre}</td>
+                        <td className="p-3">{cat.descripcion}</td>
+                        <td className="p-3 text-center">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => openModal(cat)}
+                              className="text-yellow-600 hover:underline"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(cat)}
+                              className="text-red-600 hover:underline"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Modal agregar/editar (sin cambios de lógica) */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity animate-fade-in">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all duration-300 animate-slide-up">
