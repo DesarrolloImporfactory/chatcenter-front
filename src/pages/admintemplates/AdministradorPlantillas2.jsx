@@ -72,7 +72,36 @@ const AdministradorPlantillas2 = () => {
   const [activoVenta, setActivoVenta] = useState(false);
   const [productosVenta, setProductosVenta] = useState("");
   const [showModalVentas, setShowModalVentas] = useState(false);
+  const [productosLista, setProductosLista] = useState([]);
 
+  useEffect(() => {
+  const fetchProductos = async () => {
+    const idc = localStorage.getItem("id_configuracion");
+    if (!idc) {
+      return Swal.fire({
+        icon: "error",
+        title: "Falta configuración",
+        text: "No se encontró el ID de configuración",
+      });
+    }
+
+    try {
+      const prodRes = await chatApi.post("/productos/listarProductos", {
+        id_configuracion: parseInt(idc),
+      });
+      setProductosLista(prodRes.data.data); // Aquí guardamos los productos
+    } catch {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo cargar la información de productos",
+      });
+    }
+  };
+
+  fetchProductos();
+}, []);
+  
   /* seccion de asistente */
 
   //Cargamos el SDK de Facebook una sola vez
@@ -1369,13 +1398,19 @@ const AdministradorPlantillas2 = () => {
                 onChange={(e) => setAssistantIdVenta(e.target.value)}
                 className="w-full border px-3 py-2 rounded mb-3"
               />
-              <input
-                type="text"
-                placeholder="Productos"
+              <select
                 value={productosVenta}
                 onChange={(e) => setProductosVenta(e.target.value)}
                 className="w-full border px-3 py-2 rounded mb-3"
-              />
+              >
+                <option value="">Selecciona un producto</option>
+                {productosLista.map((producto) => (
+                  <option key={producto.id_producto} value={producto.id_producto}>
+                    {producto.nombre}
+                  </option>
+                ))}
+              </select>
+
 
               <label className="flex items-center gap-2 mb-4">
                 <input
