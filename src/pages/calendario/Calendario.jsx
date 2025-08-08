@@ -661,7 +661,7 @@ export default function Calendario() {
             assigned_user_id:
               Number(e.extendedProps?.assigned_user_id ?? e.assigned_user_id) ||
               null,
-            calendar_name: e.extendedProps?.calendar_name || "—",
+            calendar_name: e.extendedProps?.calendar?.name || "—",
           }))
           .sort((a, b) => new Date(a.start) - new Date(b.start));
         setListRows(rows);
