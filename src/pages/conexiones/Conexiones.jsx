@@ -269,6 +269,10 @@ const Conexiones = () => {
                       "id_plataforma_conf",
                       config.id_plataforma
                     );
+                    localStorage.setItem(
+                      "nombre_configuracion",
+                      config.nombre_configuracion
+                    );
 
                     navigate("/administrador-whatsapp");
                   }}
@@ -327,6 +331,10 @@ const Conexiones = () => {
                     localStorage.setItem(
                       "id_plataforma_conf",
                       config.id_plataforma
+                    );
+                    localStorage.setItem(
+                      "nombre_configuracion",
+                      config.nombre_configuracion
                     );
 
                     navigate("/chat");
