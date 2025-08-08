@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import chatApi from "../../api/chatcenter";
 import CrearPlantillaModal from "./CrearPlantillaModal";
 import VerPlantillaModal from "./VerPlantillaModal";
@@ -10,6 +10,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import log_imporsuitImage from "../../assets/logo_imporsuit.png";
 import "./AdministradorPlantillas2.css";
 import Swal from "sweetalert2";
+import Select, { components } from "react-select";
+import { motion } from "framer-motion"; // opcional si quieres animación
+
 
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
@@ -73,6 +76,93 @@ const AdministradorPlantillas2 = () => {
   const [productosVenta, setProductosVenta] = useState("");
   const [showModalVentas, setShowModalVentas] = useState(false);
   const [productosLista, setProductosLista] = useState([]);
+
+
+  // Opción con check redondo tipo material
+  /** Opción del menú con check elegante */
+  const Option = (props) => {
+    const { isSelected, label } = props;
+    return (
+      <components.Option {...props}>
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex items-center justify-center w-5 h-5 rounded-full border transition
+              ${isSelected ? "bg-gradient-to-br from-indigo-500 to-blue-500 border-indigo-500" : "border-gray-300"}
+            `}
+          >
+            {isSelected && (
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="#fff">
+                <path d="M7.629 13.233L3.9 9.505l1.414-1.414 2.315 2.315 6.06-6.06 1.414 1.414z" />
+              </svg>
+            )}
+          </span>
+          <span className="truncate">{label}</span>
+        </div>
+      </components.Option>
+    );
+  };
+
+  /** Chip premium (ocultamos el label interno y pintamos el nuestro) */
+  const ChipContainer = (props) => {
+    const { children, data } = props; // children ahora solo trae el botón de remove
+    return (
+      <div
+        className="group flex items-center gap-2 mr-2 mb-2 rounded-2xl
+                   bg-white/70 backdrop-blur-sm
+                   border border-slate-200
+                   shadow-[0_2px_8px_rgba(0,0,0,0.06)]
+                   hover:shadow-[0_6px_16px_rgba(0,0,0,0.10)]
+                   transition-all px-3 py-1.5"
+      >
+        <span
+          className="text-[12px] font-semibold tracking-wide
+                     bg-gradient-to-br from-indigo-600 to-blue-600 bg-clip-text text-transparent"
+        >
+          {data.label}
+        </span>
+        {children}
+      </div>
+    );
+  };
+
+  /** Botón de eliminar del chip más “clean” */
+  const ChipRemove = (props) => (
+    <components.MultiValueRemove {...props}>
+      <div
+        className="w-5 h-5 rounded-full grid place-items-center
+                   text-slate-500 group-hover:text-white
+                   group-hover:bg-rose-500 transition"
+        aria-label="Quitar"
+        title="Quitar"
+      >
+        ✕
+      </div>
+    </components.MultiValueRemove>
+  );
+   // Opciones para el select (no cambia tu data)
+  // ✅ usa el campo correcto del backend
+  const productosOptions = useMemo(
+    () =>
+      (productosLista || []).map((p) => ({
+        value: String(p.id ?? p.id_producto), // prioriza 'id', cae a 'id_producto' si existiera
+        label: p.nombre,
+      })),
+    [productosLista]
+  );
+
+  // sigue igual
+  const selectedProductos = useMemo(() => {
+    if (!productosVenta || typeof productosVenta !== "string") return [];
+    const ids = productosVenta.split(",").map(x => x.trim()).filter(Boolean);
+    return productosOptions.filter(opt => ids.includes(opt.value));
+  }, [productosVenta, productosOptions]);
+
+  const handleProductosChange = (selected) => {
+    const ids = (selected || []).map(s => s.value);
+    setProductosVenta(ids.join(",")); // mantienes CSV
+  };
+
+
 
   useEffect(() => {
   const fetchProductos = async () => {
@@ -1398,19 +1488,93 @@ const AdministradorPlantillas2 = () => {
                 onChange={(e) => setAssistantIdVenta(e.target.value)}
                 className="w-full border px-3 py-2 rounded mb-3"
               />
-              <select
-                value={productosVenta}
-                onChange={(e) => setProductosVenta(e.target.value)}
-                className="w-full border px-3 py-2 rounded mb-3"
-              >
-                <option value="">Selecciona un producto</option>
-                {productosLista.map((producto) => (
-                  <option key={producto.id_producto} value={producto.id_producto}>
-                    {producto.nombre}
-                  </option>
-                ))}
-              </select>
-
+              {/* select multi de productos */}
+              <Select
+                isMulti
+                options={productosOptions}
+                value={selectedProductos}
+                onChange={handleProductosChange}
+                placeholder="Selecciona productos"
+                className="w-full mb-3"
+                classNamePrefix="react-select"
+                menuPortalTarget={document.body}
+                components={{
+                  Option,
+                  MultiValueContainer: ChipContainer, // chip custom
+                  MultiValueLabel: () => null,        // 👈 oculta el label interno (no se duplica)
+                  MultiValueRemove: ChipRemove,
+                  IndicatorSeparator: null,
+                }}
+                theme={(t) => ({
+                  ...t,
+                  borderRadius: 14,
+                  colors: {
+                    ...t.colors,
+                    primary: "#4f46e5",     // indigo-600
+                    primary25: "#eef2ff",   // indigo-100
+                    neutral20: "#e5e7eb",   // borde idle
+                    neutral30: "#4f46e5",   // borde hover
+                  },
+                })}
+                styles={{
+                  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                  control: (base, state) => ({
+                    ...base,
+                    minHeight: 54,
+                    paddingLeft: 10,
+                    paddingRight: 10,
+                    borderRadius: 14,
+                    borderColor: state.isFocused ? "#4f46e5" : "#e5e7eb",
+                    boxShadow: state.isFocused
+                      ? "0 0 0 6px rgba(79,70,229,.12)"
+                      : "0 1px 2px rgba(0,0,0,.05)",
+                    background: "linear-gradient(180deg,#ffffff,#fafafa)",
+                    ":hover": { borderColor: "#4f46e5" },
+                  }),
+                  valueContainer: (base) => ({ ...base, paddingTop: 8, paddingBottom: 8, gap: 6, flexWrap: "wrap" }),
+                  placeholder: (base) => ({ ...base, color: "#9ca3af", fontSize: "0.95rem" }),
+                  menu: (base) => ({
+                    ...base,
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    border: "1px solid #e5e7eb",
+                    boxShadow:
+                      "0 24px 48px -12px rgba(0,0,0,.25), 0 12px 24px -12px rgba(0,0,0,.15)",
+                    marginTop: 10,
+                    background: "linear-gradient(180deg,#ffffff,#fbfbfc)",
+                  }),
+                  menuList: (base) => ({
+                    ...base,
+                    padding: 8,
+                    "::-webkit-scrollbar": { width: 8 },
+                    "::-webkit-scrollbar-thumb": { backgroundColor: "#e5e7eb", borderRadius: 999 },
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    margin: "2px 6px",
+                    backgroundColor: state.isSelected
+                      ? "#e0e7ff"
+                      : state.isFocused
+                      ? "#f3f4f6"
+                      : "transparent",
+                    color: "#111827",
+                    cursor: "pointer",
+                    transition: "background-color .15s ease, transform .05s ease",
+                    transform: state.isFocused ? "translateY(-1px)" : "none",
+                  }),
+                  multiValue: (base) => ({ ...base, background: "transparent", display: "flex", alignItems: "center" }),
+                  multiValueRemove: (base) => ({ ...base, padding: 0, ":hover": { backgroundColor: "transparent" } }),
+                  dropdownIndicator: (base, state) => ({
+                    ...base,
+                    padding: 8,
+                    transform: state.selectProps.menuIsOpen ? "rotate(180deg)" : undefined,
+                    transition: "transform .2s ease",
+                  }),
+                  clearIndicator: (base) => ({ ...base, padding: 8, ":hover": { color: "#ef4444" } }),
+                }}
+              />
 
               <label className="flex items-center gap-2 mb-4">
                 <input
