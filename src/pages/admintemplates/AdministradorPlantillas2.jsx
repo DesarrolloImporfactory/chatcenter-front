@@ -2062,7 +2062,7 @@ const AdministradorPlantillas2 = () => {
             }`}
             onClick={() => setCurrentTab("settings")}
           >
-            <i className="fas fa-cog"></i> Conexiones
+            <i className="bx bxs-plug"></i> Conexiones
           </button>
         </div>
       </div>
