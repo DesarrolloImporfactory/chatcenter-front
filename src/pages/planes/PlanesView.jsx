@@ -122,9 +122,11 @@ const PlanesView = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {planes.length === 0 && (
             <>
-              {/* placeholders visuales (UI-only) */}
-              {[0,1,2].map((i) => (
-                <div key={i} className="rounded-3xl p-6 bg-[#f5f4fb] border border-[#c4bde4]/40 animate-pulse h-72" />
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-3xl p-6 bg-[#f5f4fb] border border-[#c4bde4]/40 animate-pulse h-72"
+                />
               ))}
             </>
           )}
@@ -132,10 +134,10 @@ const PlanesView = () => {
           {planes.map((plan) => {
             const isSelected = planSeleccionado === plan.id_plan;
 
-            // imagen por nombre (misma lógica que ya tenías)
-            let imagen = "pviewb.png";
-            if (plan.nombre_plan.includes("Conexión")) imagen = "pviewc.png";
-            if (plan.nombre_plan.includes("Premium")) imagen = "pviewp.png";
+            // imagen por nombre (misma lógica)
+            let imagen = "plan_basico_v2.png";
+            if (plan.nombre_plan.includes("Conexión")) imagen = "plan_conexion_v2.png";
+            if (plan.nombre_plan.includes("Premium")) imagen = "plan_premium_medal.png";
 
             // cintas UI (no afectan lógica)
             const ribbon =
@@ -155,24 +157,30 @@ const PlanesView = () => {
                   ${isSelected ? "scale-[1.02]" : "hover:scale-[1.01]"}
                 `}
               >
-                {/* Ribbon */}
-                {ribbon && (
-                  <div className="absolute left-0 top-4">
-                    <span className="rounded-r-full bg-[#322b4f] text-white text-xs font-semibold px-3 py-1 shadow">
-                      {ribbon}
-                    </span>
-                  </div>
-                )}
-
-                {/* imagen superior (solo si NO está seleccionado) */}
+                {/* imagen superior (solo si NO está seleccionado) con ribbon encima */}
                 {!isSelected && (
-                  <div className="h-28 relative overflow-hidden">
+                  <div className="relative h-28 overflow-hidden">
+                    {/* RIBBON SOBRE LA IMAGEN */}
+                    {ribbon && (
+                      <span className="absolute z-20 left-2 top-2 rounded-full bg-[#322b4f] text-white text-xs font-semibold px-3 py-1 shadow">
+                        {ribbon}
+                      </span>
+                    )}
                     <img
                       src={`src/assets/${imagen}`}
                       alt={plan.nombre_plan}
-                      className="w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover z-0"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent opacity-80" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent opacity-80 z-10" />
+                  </div>
+                )}
+
+                {/* Si está seleccionado (no hay imagen), mostramos el ribbon en la esquina del card */}
+                {isSelected && ribbon && (
+                  <div className="absolute left-0 top-4 z-20">
+                    <span className="rounded-r-full bg-[#322b4f] text-white text-xs font-semibold px-3 py-1 shadow">
+                      {ribbon}
+                    </span>
                   </div>
                 )}
 
