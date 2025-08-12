@@ -104,6 +104,8 @@ export default function Calendario() {
   const [listLoading, setListLoading] = useState(false);
   const [listRows, setListRows] = useState([]);
   const [search, setSearch] = useState("");
+  const [listFilter, setListFilter] = useState("proximas");
+  const [listSort, setListSort] = useState("startAsc");
 
   // 0) Leer token y setear accountId/ownerUserId
   useEffect(() => {
@@ -635,35 +637,39 @@ export default function Calendario() {
       if (!calendarId) return;
       setListLoading(true);
       try {
-        // Rango: semana actual (como en su pantalla objetivo) o próximo mes
-        const start = new Date(centerDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(centerDate);
-        end.setMonth(end.getMonth() + 1);
+        const params = { calendar_id: calendarId };
 
-        const params = {
-          calendar_id: calendarId,
-          start: start.toISOString(),
-          end: end.toISOString(),
-        };
-        if (selectedUserIds.length) params.user_ids = selectedUserIds.join(",");
+        if (selectedUserIds.length) {
+          params.user_ids = selectedUserIds.join(",");
+        }
+
+        // RANGO por filtro:
+        // - 'proximas'  => desde ahora (sin end) -> backend devuelve futuras
+        // - 'cancelado' => SIN rango -> backend devuelve todas y filtramos por estado en front
+        // - 'todos'     => SIN rango -> backend devuelve absolutamente todas
+        if (listFilter === "proximas") {
+          params.start = new Date().toISOString();
+        }
+        // 'cancelado' y 'todos' => no enviamos start/end
 
         const { data } = await chatApi.get("/appointments", { params });
-        const rows = (data?.events ?? [])
-          .map((e, i) => ({
-            id: e.id,
-            title: e.title,
-            start: e.start,
-            end: e.end,
-            meeting_url: e.extendedProps?.meeting_url || null,
-            status: e.extendedProps?.status || "Agendado",
-            invitees: e.extendedProps?.invitees || [],
-            assigned_user_id:
-              Number(e.extendedProps?.assigned_user_id ?? e.assigned_user_id) ||
-              null,
-            calendar_name: e.extendedProps?.calendar?.name || "—",
-          }))
-          .sort((a, b) => new Date(a.start) - new Date(b.start));
+
+        const rows = (data?.events ?? []).map((e) => ({
+          id: e.id,
+          title: e.title,
+          start: e.start,
+          end: e.end,
+          meeting_url: e.extendedProps?.meeting_url || null,
+          status: e.extendedProps?.status || "Agendado",
+          invitees: e.extendedProps?.invitees || [],
+          assigned_user_id:
+            Number(e.extendedProps?.assigned_user_id ?? e.assigned_user_id) ||
+            null,
+          calendar_name: e.extendedProps?.calendar?.name || "—",
+          created_at:
+            e.extendedProps?.created_at || e.created_at || e.createdAt || null,
+        }));
+
         setListRows(rows);
       } catch (e) {
         console.error(e);
@@ -672,7 +678,7 @@ export default function Calendario() {
         setListLoading(false);
       }
     },
-    [calendarId, selectedUserIds, currentDate]
+    [calendarId, selectedUserIds, currentDate, listFilter] // <- importante: depende de listFilter
   );
 
   // Cargar lista cuando cambio a pestaña "list" o cambian filtros
@@ -1056,13 +1062,68 @@ export default function Calendario() {
         {tab === "list" && (
           <div className="bg-white rounded-md border shadow-sm">
             <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600">Próximo</span>
-                <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
-                  {gmtBadgeFromNow()}
-                </span>
-              </div>
+              {/* Filtros a la izquierda */}
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setListFilter("proximas")}
+                  className={`px-3 py-1.5 rounded border text-sm flex items-center gap-1 ${
+                    listFilter === "proximas"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "hover:bg-gray-50"
+                  }`}
+                  title="Citas futuras (no canceladas)"
+                >
+                  <i className="bx bx-time"></i> Próximas
+                </button>
+                <button
+                  onClick={() => setListFilter("cancelado")}
+                  className={`px-3 py-1.5 rounded border text-sm flex items-center gap-1 ${
+                    listFilter === "cancelado"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "hover:bg-gray-50"
+                  }`}
+                  title="Solo canceladas"
+                >
+                  <i className="bx bx-x-circle"></i> Canceladas
+                </button>
+                <button
+                  onClick={() => setListFilter("todos")}
+                  className={`px-3 py-1.5 rounded border text-sm flex items-center gap-1 ${
+                    listFilter === "todos"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "hover:bg-gray-50"
+                  }`}
+                  title="Todas las citas"
+                >
+                  <i className="bx bx-list-ul"></i> Todas
+                </button>
+              </div>
+
+              {/* Orden + búsqueda a la derecha */}
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex items-center gap-2">
+                  <i className="bx bx-sort text-gray-600" />
+                  <span className="text-xs text-gray-600">Ordenar por:</span>
+                  <select
+                    value={listSort}
+                    onChange={(e) => setListSort(e.target.value)}
+                    className="border rounded px-2 py-1 text-sm"
+                  >
+                    <option value="createdAsc">
+                      Fecha añadida - Ascendente
+                    </option>
+                    <option value="createdDesc">
+                      Fecha añadida - Descendente
+                    </option>
+                    <option value="startAsc">
+                      Hora de la cita - Ascendente
+                    </option>
+                    <option value="startDesc">
+                      Hora de la cita - Descendente
+                    </option>
+                  </select>
+                </div>
+
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -1099,13 +1160,63 @@ export default function Calendario() {
                       </td>
                     </tr>
                   ) : (
-                    listRows
-                      .filter((r) =>
+                    (() => {
+                      const now = new Date();
+                      const asTime = (v) =>
+                        v ? new Date(String(v).replace(" ", "T")).getTime() : 0;
+
+                      // 1) Búsqueda
+                      let rows = listRows.filter((r) =>
                         search
                           ? r.title.toLowerCase().includes(search.toLowerCase())
                           : true
-                      )
-                      .map((r, idx) => {
+                      );
+
+                      // 2) Filtro: 'proximas' | 'cancelado' | 'todos'
+                      rows = rows.filter((r) => {
+                        if (listFilter === "proximas") {
+                          return (
+                            new Date(String(r.start).replace(" ", "T")) >=
+                              now && r.status !== "Cancelado"
+                          );
+                        }
+                        if (listFilter === "cancelado")
+                          return r.status === "Cancelado";
+                        return true; // todos
+                      });
+
+                      // 3) Orden: 'createdAsc' | 'createdDesc' | 'startAsc' | 'startDesc'
+                      rows.sort((a, b) => {
+                        if (listSort === "createdAsc")
+                          return (
+                            (a.created_at ? asTime(a.created_at) : a.id) -
+                            (b.created_at ? asTime(b.created_at) : b.id)
+                          );
+                        if (listSort === "createdDesc")
+                          return (
+                            (b.created_at ? asTime(b.created_at) : b.id) -
+                            (a.created_at ? asTime(a.created_at) : a.id)
+                          );
+                        if (listSort === "startDesc")
+                          return asTime(b.start) - asTime(a.start);
+                        // default: startAsc
+                        return asTime(a.start) - asTime(b.start);
+                      });
+
+                      if (!rows.length) {
+                        return (
+                          <tr>
+                            <td
+                              colSpan={8}
+                              className="px-4 py-6 text-center text-gray-500"
+                            >
+                              Sin resultados
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return rows.map((r, idx) => {
                         const owner =
                           usuarios.find((u) => u.id === r.assigned_user_id)
                             ?.nombre || "—";
@@ -1116,6 +1227,19 @@ export default function Calendario() {
                                 .map((i) => i.name || i.email)
                                 .join(", ")
                             : "—";
+
+                        // Normaliza el link para que NO sea relativo (evita imporsuit.www...).
+                        const linkHref = (() => {
+                          const u = (r.meeting_url || "").trim();
+                          if (!u) return null;
+                          if (/^(https?:|mailto:|tel:)/i.test(u)) return u; // absoluto
+                          if (/^www\./i.test(u)) return `https://${u}`; // www.*
+                          if (/^[\w.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(u))
+                            // dominio.tld
+                            return `https://${u}`;
+                          return u; // dejar tal cual si es un código/ID
+                        })();
+
                         return (
                           <tr key={r.id} className="hover:bg-gray-50">
                             <td className="px-4 py-2">{idx + 1}</td>
@@ -1124,12 +1248,12 @@ export default function Calendario() {
                                 <span
                                   className="inline-block h-2.5 w-2.5 rounded-full"
                                   style={{ background: color }}
-                                ></span>
+                                />
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{r.title}</span>
-                                  {r.meeting_url && (
+                                  {linkHref && (
                                     <a
-                                      href={r.meeting_url}
+                                      href={linkHref}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-blue-600"
@@ -1240,17 +1364,8 @@ export default function Calendario() {
                             </td>
                           </tr>
                         );
-                      })
-                  )}
-                  {!listLoading && listRows.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="px-4 py-6 text-center text-gray-500"
-                      >
-                        Sin resultados
-                      </td>
-                    </tr>
+                      });
+                    })()
                   )}
                 </tbody>
               </table>
