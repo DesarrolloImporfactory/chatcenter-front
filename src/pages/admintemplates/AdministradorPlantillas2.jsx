@@ -13,7 +13,6 @@ import Swal from "sweetalert2";
 import Select, { components } from "react-select";
 import { motion } from "framer-motion"; // opcional si quieres animación
 
-
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 
@@ -77,7 +76,6 @@ const AdministradorPlantillas2 = () => {
   const [showModalVentas, setShowModalVentas] = useState(false);
   const [productosLista, setProductosLista] = useState([]);
 
-
   // Opción con check redondo tipo material
   /** Opción del menú con check elegante */
   const Option = (props) => {
@@ -87,7 +85,11 @@ const AdministradorPlantillas2 = () => {
         <div className="flex items-center gap-3">
           <span
             className={`flex items-center justify-center w-5 h-5 rounded-full border transition
-              ${isSelected ? "bg-gradient-to-br from-indigo-500 to-blue-500 border-indigo-500" : "border-gray-300"}
+              ${
+                isSelected
+                  ? "bg-gradient-to-br from-indigo-500 to-blue-500 border-indigo-500"
+                  : "border-gray-300"
+              }
             `}
           >
             {isSelected && (
@@ -139,7 +141,7 @@ const AdministradorPlantillas2 = () => {
       </div>
     </components.MultiValueRemove>
   );
-   // Opciones para el select (no cambia tu data)
+  // Opciones para el select (no cambia tu data)
   // ✅ usa el campo correcto del backend
   const productosOptions = useMemo(
     () =>
@@ -153,45 +155,46 @@ const AdministradorPlantillas2 = () => {
   // sigue igual
   const selectedProductos = useMemo(() => {
     if (!productosVenta || typeof productosVenta !== "string") return [];
-    const ids = productosVenta.split(",").map(x => x.trim()).filter(Boolean);
-    return productosOptions.filter(opt => ids.includes(opt.value));
+    const ids = productosVenta
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    return productosOptions.filter((opt) => ids.includes(opt.value));
   }, [productosVenta, productosOptions]);
 
   const handleProductosChange = (selected) => {
-    const ids = (selected || []).map(s => s.value);
+    const ids = (selected || []).map((s) => s.value);
     setProductosVenta(ids.join(",")); // mantienes CSV
   };
 
-
-
   useEffect(() => {
-  const fetchProductos = async () => {
-    const idc = localStorage.getItem("id_configuracion");
-    if (!idc) {
-      return Swal.fire({
-        icon: "error",
-        title: "Falta configuración",
-        text: "No se encontró el ID de configuración",
-      });
-    }
+    const fetchProductos = async () => {
+      const idc = localStorage.getItem("id_configuracion");
+      if (!idc) {
+        return Swal.fire({
+          icon: "error",
+          title: "Falta configuración",
+          text: "No se encontró el ID de configuración",
+        });
+      }
 
-    try {
-      const prodRes = await chatApi.post("/productos/listarProductos", {
-        id_configuracion: parseInt(idc),
-      });
-      setProductosLista(prodRes.data.data); // Aquí guardamos los productos
-    } catch {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "No se pudo cargar la información de productos",
-      });
-    }
-  };
+      try {
+        const prodRes = await chatApi.post("/productos/listarProductos", {
+          id_configuracion: parseInt(idc),
+        });
+        setProductosLista(prodRes.data.data); // Aquí guardamos los productos
+      } catch {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudo cargar la información de productos",
+        });
+      }
+    };
 
-  fetchProductos();
-}, []);
-  
+    fetchProductos();
+  }, []);
+
   /* seccion de asistente */
 
   //Cargamos el SDK de Facebook una sola vez
@@ -415,9 +418,12 @@ const AdministradorPlantillas2 = () => {
   const fetchConfiguracionAutomatizada = async () => {
     if (!userData) return;
     try {
-      const response = await chatApi.post("configuraciones/listar_conexiones", {
-        id_usuario: userData.id_usuario,
-      });
+      const response = await chatApi.post(
+        "configuraciones/listar_configuraciones",
+        {
+          id_configuracion: id_configuracion,
+        }
+      );
 
       console.table(response.data);
       setConfiguracionAutomatizada(response.data.data || []);
@@ -1298,7 +1304,7 @@ const AdministradorPlantillas2 = () => {
           id_configuracion: id_configuracion,
           nombre_bot: nombreBotVenta,
           assistant_id: assistantIdVenta,
-          productos: selectedProductos.map(p => p.value), // 👈 array de strings
+          productos: selectedProductos.map((p) => p.value), // 👈 array de strings
           activo: activoVenta,
         });
         setShowModalVentas(false);
@@ -1306,7 +1312,6 @@ const AdministradorPlantillas2 = () => {
         console.error(error);
       }
     };
-
 
     return (
       <div className="overflow-visible bg-white p-4 rounded shadow-md relative z-0">
@@ -1506,7 +1511,7 @@ const AdministradorPlantillas2 = () => {
                 components={{
                   Option,
                   MultiValueContainer: ChipContainer, // chip custom
-                  MultiValueLabel: () => null,        // 👈 oculta el label interno (no se duplica)
+                  MultiValueLabel: () => null, // 👈 oculta el label interno (no se duplica)
                   MultiValueRemove: ChipRemove,
                   IndicatorSeparator: null,
                 }}
@@ -1515,10 +1520,10 @@ const AdministradorPlantillas2 = () => {
                   borderRadius: 14,
                   colors: {
                     ...t.colors,
-                    primary: "#4f46e5",     // indigo-600
-                    primary25: "#eef2ff",   // indigo-100
-                    neutral20: "#e5e7eb",   // borde idle
-                    neutral30: "#4f46e5",   // borde hover
+                    primary: "#4f46e5", // indigo-600
+                    primary25: "#eef2ff", // indigo-100
+                    neutral20: "#e5e7eb", // borde idle
+                    neutral30: "#4f46e5", // borde hover
                   },
                 })}
                 styles={{
@@ -1536,8 +1541,18 @@ const AdministradorPlantillas2 = () => {
                     background: "linear-gradient(180deg,#ffffff,#fafafa)",
                     ":hover": { borderColor: "#4f46e5" },
                   }),
-                  valueContainer: (base) => ({ ...base, paddingTop: 8, paddingBottom: 8, gap: 6, flexWrap: "wrap" }),
-                  placeholder: (base) => ({ ...base, color: "#9ca3af", fontSize: "0.95rem" }),
+                  valueContainer: (base) => ({
+                    ...base,
+                    paddingTop: 8,
+                    paddingBottom: 8,
+                    gap: 6,
+                    flexWrap: "wrap",
+                  }),
+                  placeholder: (base) => ({
+                    ...base,
+                    color: "#9ca3af",
+                    fontSize: "0.95rem",
+                  }),
                   menu: (base) => ({
                     ...base,
                     borderRadius: 16,
@@ -1552,7 +1567,10 @@ const AdministradorPlantillas2 = () => {
                     ...base,
                     padding: 8,
                     "::-webkit-scrollbar": { width: 8 },
-                    "::-webkit-scrollbar-thumb": { backgroundColor: "#e5e7eb", borderRadius: 999 },
+                    "::-webkit-scrollbar-thumb": {
+                      backgroundColor: "#e5e7eb",
+                      borderRadius: 999,
+                    },
                   }),
                   option: (base, state) => ({
                     ...base,
@@ -1566,18 +1584,34 @@ const AdministradorPlantillas2 = () => {
                       : "transparent",
                     color: "#111827",
                     cursor: "pointer",
-                    transition: "background-color .15s ease, transform .05s ease",
+                    transition:
+                      "background-color .15s ease, transform .05s ease",
                     transform: state.isFocused ? "translateY(-1px)" : "none",
                   }),
-                  multiValue: (base) => ({ ...base, background: "transparent", display: "flex", alignItems: "center" }),
-                  multiValueRemove: (base) => ({ ...base, padding: 0, ":hover": { backgroundColor: "transparent" } }),
+                  multiValue: (base) => ({
+                    ...base,
+                    background: "transparent",
+                    display: "flex",
+                    alignItems: "center",
+                  }),
+                  multiValueRemove: (base) => ({
+                    ...base,
+                    padding: 0,
+                    ":hover": { backgroundColor: "transparent" },
+                  }),
                   dropdownIndicator: (base, state) => ({
                     ...base,
                     padding: 8,
-                    transform: state.selectProps.menuIsOpen ? "rotate(180deg)" : undefined,
+                    transform: state.selectProps.menuIsOpen
+                      ? "rotate(180deg)"
+                      : undefined,
                     transition: "transform .2s ease",
                   }),
-                  clearIndicator: (base) => ({ ...base, padding: 8, ":hover": { color: "#ef4444" } }),
+                  clearIndicator: (base) => ({
+                    ...base,
+                    padding: 8,
+                    ":hover": { color: "#ef4444" },
+                  }),
                 }}
               />
 
