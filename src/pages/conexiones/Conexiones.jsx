@@ -246,6 +246,9 @@ const Conexiones = () => {
 
               {/* Método de pago */}
               <div className="mb-4">
+                <span className="text-sm font-semibold mr-2">
+                  Método de pago:
+                </span>
                 <span
                   className={`text-sm font-semibold px-4 py-1 rounded-full ${
                     config.metodo_pago === 1
@@ -253,7 +256,6 @@ const Conexiones = () => {
                       : "bg-red-100 text-red-600"
                   }`}
                 >
-                  Método de pago:{" "}
                   {config.metodo_pago === 1 ? "Activo" : "Inactivo"}
                 </span>
               </div>

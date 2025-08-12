@@ -221,7 +221,7 @@ function MainLayout({ children }) {
               className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
             >
               <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              <span className="text-lg text-gray-700 group-hover:text-blue-600 cursor-pointer">
                 Volver a Conexiones
               </span>
             </a>
@@ -288,7 +288,9 @@ function MainLayout({ children }) {
             <a
               href="/calendario"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/calendario" ? "bg-gray-200 font-semibold" : ""
+                location.pathname === "/calendario"
+                  ? "bg-gray-200 font-semibold"
+                  : ""
               }`}
               onClick={(e) => {
                 e.preventDefault();
@@ -313,23 +315,22 @@ function MainLayout({ children }) {
               <button
                 onClick={() => setOpenProductos(!openProductos)}
                 className={`group flex items-center w-full px-5 py-4 text-left rounded ${
-                  location.pathname === "/productos" || location.pathname === "/categorias"
+                  location.pathname === "/productos" ||
+                  location.pathname === "/categorias"
                     ? "bg-gray-200 font-semibold"
                     : "hover:bg-gray-100 text-gray-700"
                 }`}
               >
                 <i
                   className={`bx bxs-store text-2xl mr-3 transition-colors ${
-                    location.pathname === "/productos" || location.pathname === "/categorias"
-                      
-                      
+                    location.pathname === "/productos" ||
+                    location.pathname === "/categorias"
                   }`}
                 ></i>
                 <span className="text-lg group-hover:text-blue-600">
                   Mis Productos
                 </span>
               </button>
-
 
               {/* Submenú con animación suave */}
               <div
@@ -352,12 +353,11 @@ function MainLayout({ children }) {
                         ? "text-green-600 font-semibold bg-gray-100 shadow-md"
                         : "text-gray-700 hover:bg-gray-100"
                     }`}
-
                   >
                     <i className="bx bx-list-ul text-base mr-2"></i>
                     Listado
                   </a>
-                  
+
                   <a
                     role="button"
                     tabIndex={0}
@@ -370,34 +370,31 @@ function MainLayout({ children }) {
                         ? "text-green-600 font-semibold bg-gray-100 shadow-md"
                         : "text-gray-700 hover:bg-gray-100"
                     }`}
-
                   >
                     <i className="bx bx-grid-alt text-base mr-2"></i>
                     Categorías
                   </a>
-
-
                 </div>
               </div>
             </div>
 
             {/* Ver datos de facturacion de Plan */}
             <button
-            
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/miplan");
-            }}
-            className={`cursor group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/miplan" ? "bg-gray-200 font-semibold" : ""
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/miplan");
+              }}
+              className={`cursor group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/miplan"
+                  ? "bg-gray-200 font-semibold"
+                  : ""
               }`}
-            
-          >
-            <i className="bx bxs-credit-card text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600">
-              Mi Plan
-            </span>
-          </button>
+            >
+              <i className="bx bxs-credit-card text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Mi Plan
+              </span>
+            </button>
 
             {/* Cerrar sesión */}
             <button

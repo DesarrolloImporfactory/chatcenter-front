@@ -163,7 +163,6 @@ function MainLayout({ children }) {
             ${sliderOpen ? "w-64" : "w-0"}
           `}
         >
-
           {/* Opciones del slider */}
           <div className="mt-6">
             {/* volver a conexiones */}
@@ -178,12 +177,11 @@ function MainLayout({ children }) {
                 className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
               >
                 <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-                <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                <span className="text-lg text-gray-700 group-hover:text-blue-600 cursor-pointer">
                   Volver a Conexiones
                 </span>
               </a>
             )}
-
 
             {/* Usuarios */}
             <button
@@ -205,7 +203,6 @@ function MainLayout({ children }) {
                 Usuarios
               </span>
             </button>
-
 
             {/* Cerrar sesión */}
             <button

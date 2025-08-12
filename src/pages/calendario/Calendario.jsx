@@ -233,13 +233,13 @@ export default function Calendario() {
     const html = `
     <div class="swal-form swal-compact">
       <div class="swal-row">
-        <label>Título *</label>
+        <label>Título de la cita <span class="req">*</span></label>
         <input id="f-title" class="swal2-input" placeholder="Llamada con cliente"
                value="${i.title.replaceAll('"', "&quot;")}" />
       </div>
       <div class="swal-row grid2">
         <div>
-          <label>Fecha *</label>
+          <label>Fecha <span class="req">*</span></label>
           <input id="f-date" type="date" class="swal2-input" value="${
             i.date
           }" ${disabledAttr}/>
@@ -260,13 +260,13 @@ export default function Calendario() {
       </div>
       <div class="swal-row grid2">
         <div>
-          <label>Hora inicio *</label>
+          <label>Hora inicio <span class="req">*</span></label>
           <input id="f-start" type="time" class="swal2-input" value="${
             i.startTime
           }" ${disabledAttr}/>
         </div>
         <div>
-          <label>Hora fin *</label>
+          <label>Hora fin <span class="req">*</span></label>
           <input id="f-end" type="time" class="swal2-input" value="${
             i.endTime
           }" ${disabledAttr}/>
@@ -274,7 +274,7 @@ export default function Calendario() {
       </div>
       <div class="swal-row grid2">
         <div>
-          <label>Asignado a</label>
+          <label>Miembro del equipo</label>
           <select id="f-assigned" class="swal2-input">
             <option value="">(Sin asignar)</option>
             ${usuarios
@@ -298,11 +298,20 @@ export default function Calendario() {
         <input id="f-meet" class="swal2-input" placeholder="https://meet..."
                value="${i.meeting_url.replaceAll('"', "&quot;")}" />
       </div>
+      
       <div class="swal-row">
-        <label>Invitados</label>
-        <div id="invitees-list" class="space-y-2 w-full"></div>
-        <button type="button" id="btn-add-invitee" class="btn-add-inv" title="Añadir invitado">＋</button>
+        <div class="section-header">
+          <label>Invitados <span class="req">*</span></label>
+          <button type="button" id="btn-add-invitee" class="btn-add-member" title="Agregar miembros">
+            <i class="bx bx-user-plus"></i>
+            <span>Añadir invitados</span>
+          </button>
+        </div>
+        <div id="invitees-scroll">
+          <div id="invitees-list" class="space-y-2 w-full"></div>
+        </div>
       </div>
+
       <div class="swal-row">
         <label>Descripción</label>
         <textarea id="f-desc" class="swal2-textarea">${i.description
@@ -314,7 +323,7 @@ export default function Calendario() {
     const { isConfirmed, value } = await Swal.fire({
       title: mode === "create" ? "Nueva cita" : "Editar cita",
       html,
-      width: 440,
+      width: 780,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: mode === "create" ? "Crear" : "Guardar",
@@ -338,7 +347,17 @@ export default function Calendario() {
         });
       },
       preConfirm: () => {
-        const get = (id) => document.getElementById(id)?.value?.trim();
+        const $ = (id) => document.getElementById(id);
+        const get = (id) => $(id)?.value?.trim();
+
+        // --- limpiar estados previos ---
+        ["f-title", "f-date", "f-start", "f-end"].forEach((id) =>
+          $(id)?.classList.remove("invalid")
+        );
+        document
+          .querySelectorAll("#invitees-list .swal2-input")
+          .forEach((el) => el.classList.remove("invalid"));
+
         const title = get("f-title");
         const dateStr = get("f-date");
         const startStr = get("f-start");
@@ -346,54 +365,116 @@ export default function Calendario() {
         const status = get("f-status") || "Agendado";
         const assigned = get("f-assigned");
         const location = get("f-location") || null;
-        const meet = get("f-meet") || null;
+        const meetRaw = get("f-meet") || null;
         const desc = get("f-desc") || null;
 
-        if (!title) {
-          Swal.showValidationMessage("El título es obligatorio.");
+        // helper para fallar con foco/estilo
+        const fail = (msg, focusId) => {
+          if (focusId) $(focusId)?.classList.add("invalid");
+          Swal.showValidationMessage(msg);
           return false;
-        }
+        };
+
+        // ===== Validaciones requeridas =====
+        if (!title) return fail("El título es obligatorio.", "f-title");
 
         let startISO, endISO;
+
         if (lockDateTime) {
+          // si está bloqueado, tomamos el rango que vino del calendario
           startISO = toLocalOffsetISO(initial.start);
           endISO = toLocalOffsetISO(initial.end);
         } else {
-          if (!dateStr || !startStr || !endStr) {
-            Swal.showValidationMessage(
-              "Completa fecha, hora inicio y hora fin."
-            );
-            return false;
-          }
-          const [sh, sm] = startStr.split(":").map(Number);
-          const [eh, em] = endStr.split(":").map(Number);
+          if (!dateStr) return fail("La fecha es obligatoria.", "f-date");
+          if (!startStr)
+            return fail("La hora de inicio es obligatoria.", "f-start");
+          if (!endStr) return fail("La hora de fin es obligatoria.", "f-end");
+
+          // parsear y validar rango
+          const [sh, sm] = (startStr || "").split(":").map(Number);
+          const [eh, em] = (endStr || "").split(":").map(Number);
+
           const s = new Date(dateStr + "T00:00:00");
-          s.setHours(sh, sm, 0, 0);
+          s.setHours(sh || 0, sm || 0, 0, 0);
+
           const e = new Date(dateStr + "T00:00:00");
-          e.setHours(eh, em, 0, 0);
-          if (e <= s) {
-            Swal.showValidationMessage(
-              "La hora fin debe ser mayor que la hora inicio."
+          e.setHours(eh || 0, em || 0, 0, 0);
+
+          if (!(s instanceof Date) || isNaN(+s))
+            return fail("Fecha/hora de inicio inválida.", "f-start");
+          if (!(e instanceof Date) || isNaN(+e))
+            return fail("Fecha/hora de fin inválida.", "f-end");
+          if (e <= s)
+            return fail(
+              "La hora fin debe ser mayor que la hora inicio.",
+              "f-end"
             );
-            return false;
-          }
+
           startISO = toLocalOffsetISO(s);
           endISO = toLocalOffsetISO(e);
         }
 
-        const invitees = Array.from(
+        // Invitados: al menos 1 con correo válido
+        const inviteeRows = Array.from(
           document.querySelectorAll("#invitees-list .invitee-row")
-        )
-          .map((r) => {
-            const [nameEl, emailEl, phoneEl] = r.querySelectorAll("input");
-            return {
-              name: nameEl.value.trim(),
-              email: emailEl.value.trim(),
-              phone: phoneEl.value.trim(),
-            };
-          })
-          .filter((inv) => inv.email);
+        );
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+        // tomar datos y validar
+        let invitees = inviteeRows.map((r) => {
+          const [nameEl, emailEl, phoneEl] = r.querySelectorAll("input");
+          return {
+            name: nameEl?.value?.trim() || "",
+            email: emailEl?.value?.trim() || "",
+            phone: phoneEl?.value?.trim() || "",
+            _emailEl: emailEl,
+          };
+        });
+
+        // filtrar filas sin nada (si existieran)
+        invitees = invitees.filter((inv) => inv.name || inv.email || inv.phone);
+
+        // requerimos al menos una fila con email válido
+        const withEmail = invitees.filter((inv) => inv.email);
+        if (withEmail.length === 0) {
+          // marcar el primer campo email visible
+          invitees[0]?._emailEl?.classList.add("invalid");
+          return fail(
+            "Agrega al menos un invitado con correo.",
+            invitees[0]?._emailEl?.id
+          );
+        }
+
+        // validar formato de todos los emails presentes
+        for (const inv of withEmail) {
+          if (!emailRegex.test(inv.email)) {
+            inv._emailEl?.classList.add("invalid");
+            return fail(`Correo inválido: ${inv.email}`, inv._emailEl?.id);
+          }
+        }
+
+        // deduplicar por email (case-insensitive)
+        const seen = new Set();
+        invitees = withEmail
+          .filter((inv) => {
+            const key = inv.email.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .map(({ _emailEl, ...rest }) => rest); // quitar referencia interna
+
+        // normalizar URL (opcional, pero útil si el usuario pega "www." o dominio)
+        const meet = (() => {
+          const u = (meetRaw || "").trim();
+          if (!u) return null;
+          if (/^(https?:|mailto:|tel:)/i.test(u)) return u;
+          if (/^www\./i.test(u)) return `https://${u}`;
+          if (/^[\w.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(u)) return `https://${u}`;
+          return u;
+        })();
+
+        // Si todo OK, devolvemos payload
         return {
           title,
           status,
@@ -407,6 +488,7 @@ export default function Calendario() {
           invitees,
         };
       },
+
       customClass: {
         popup: "swal2-responsive",
         confirmButton:
@@ -686,41 +768,6 @@ export default function Calendario() {
     if (tab === "list") loadListRows();
   }, [tab, loadListRows]);
 
-  // ====== Render de evento en vista LISTA de FullCalendar (por si la usa) ======
-  function renderListEvent(arg) {
-    const { event, timeText } = arg;
-    const color = colorForUser(event.extendedProps.assigned_user_id);
-    const urlMeet = event.extendedProps.meeting_url;
-    const invitados = (event.extendedProps.invitees || [])
-      .map((i) => i.name || i.email)
-      .join(", ");
-    return {
-      html: `
-      <div class="flex flex-col w-full gap-1">
-        <div class="flex items-center gap-3">
-          <span class="inline-block h-2 w-2 rounded-full" style="background:${color}"></span>
-          <span class="text-xs text-gray-500 w-20 shrink-0">${timeText}</span>
-          <span class="flex-1 truncate font-medium pl-8">${event.title}</span>
-          ${
-            urlMeet
-              ? `<a href="${urlMeet}" target="_blank" rel="noopener noreferrer" class="shrink-0" title="Ir a la reunión">🔗</a>`
-              : ""
-          }
-        </div>
-        ${
-          event.extendedProps.description
-            ? `<div class="text-xs text-gray-600 truncate pl-8">${event.extendedProps.description}</div>`
-            : ""
-        }
-        ${
-          invitados
-            ? `<div class="text-xs text-gray-500 truncate pl-6">${invitados}</div>`
-            : ""
-        }
-      </div>`,
-    };
-  }
-
   // ====== Handlers de estado en la tabla ======
   const updateStatus = async (rowId, newStatus) => {
     try {
@@ -919,20 +966,29 @@ export default function Calendario() {
                           month: "short",
                         },
                         noEventsContent: "Sin citas",
-                        eventContent: renderListEvent,
                       },
                       listDay: {
                         buttonText: "Día (lista)",
-                        eventContent: renderListEvent,
                       },
                     }}
-                    eventContent={renderListEvent}
                     eventDidMount={(info) => {
                       if (!info.view.type.startsWith("list")) {
-                        const url = info.event.extendedProps.meeting_url;
-                        if (!url) return;
+                        const linkHref = (() => {
+                          const u = String(
+                            info.event.extendedProps.meeting_url || ""
+                          ).trim();
+                          if (!u) return null;
+                          if (/^(https?:|mailto:|tel:)/i.test(u)) return u; // ya absoluto
+                          if (/^www\./i.test(u)) return `https://${u}`; // www.*
+                          if (/^[\w.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(u))
+                            return `https://${u}`; // dominio.tld[/...]
+                          return u; // IDs/códigos internos
+                        })();
+
+                        if (!linkHref) return;
+
                         const link = document.createElement("a");
-                        link.href = url;
+                        link.href = linkHref;
                         link.target = "_blank";
                         link.rel = "noopener noreferrer";
                         link.className = "fc-meet-link";

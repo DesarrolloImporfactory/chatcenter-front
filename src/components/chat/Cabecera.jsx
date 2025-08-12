@@ -285,7 +285,7 @@ const Cabecera = ({
             className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
           >
             <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+            <span className="text-lg text-gray-700 group-hover:text-blue-600 cursor-pointer">
               Volver a Conexiones
             </span>
           </a>
@@ -353,112 +353,107 @@ const Cabecera = ({
           </a>
 
           {/* Calendario */}
-            <a
-              href="/calendario"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/calendario" ? "bg-gray-200 font-semibold" : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
+          <a
+            href="/calendario"
+            className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+              location.pathname === "/calendario"
+                ? "bg-gray-200 font-semibold"
+                : ""
+            }`}
+            onClick={(e) => {
+              e.preventDefault();
 
-                localStorage.setItem("id_configuracion", id_configuracion);
-                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+              localStorage.setItem("id_configuracion", id_configuracion);
+              localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
 
-                navigate("/calendario");
-              }}
-            >
-              <i className="bx bx-calendar text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Calendario
-              </span>
-            </a>
+              navigate("/calendario");
+            }}
+          >
+            <i className="bx bx-calendar text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              Calendario
+            </span>
+          </a>
 
           {/* Productos y categorias */}
           {/* Grupo de Productos */}
           {/* Grupo de Productos sin flecha y con animación */}
           <div>
-              {/* Botón principal sin ícono de flecha */}
-              <button
-                onClick={() => setOpenProductos(!openProductos)}
-                className={`group flex items-center w-full px-5 py-4 text-left rounded ${
-                  location.pathname === "/productos" || location.pathname === "/categorias"
-                    ? "bg-gray-200 font-semibold"
-                    : "hover:bg-gray-100 text-gray-700"
+            {/* Botón principal sin ícono de flecha */}
+            <button
+              onClick={() => setOpenProductos(!openProductos)}
+              className={`group flex items-center w-full px-5 py-4 text-left rounded ${
+                location.pathname === "/productos" ||
+                location.pathname === "/categorias"
+                  ? "bg-gray-200 font-semibold"
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <i
+                className={`bx bxs-store text-2xl mr-3 transition-colors ${
+                  location.pathname === "/productos" ||
+                  location.pathname === "/categorias"
                 }`}
-              >
-                <i
-                  className={`bx bxs-store text-2xl mr-3 transition-colors ${
-                    location.pathname === "/productos" || location.pathname === "/categorias"
-                      
-                      
+              ></i>
+              <span className="text-lg group-hover:text-blue-600">
+                Mis Productos
+              </span>
+            </button>
+
+            {/* Submenú con animación suave */}
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                openProductos
+                  ? "max-h-[500px] opacity-100"
+                  : "max-h-0 opacity-0"
+              }`}
+            >
+              <div className="ml-10 mt-1 flex flex-col cursor-pointer">
+                <a
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/productos");
+                  }}
+                  className={`cursor-pointer group flex items-center px-4 py-2 text-sm rounded transition-all duration-200 ${
+                    location.pathname === "/productos"
+                      ? "text-green-600 font-semibold bg-gray-100 shadow-md"
+                      : "text-gray-700 hover:bg-gray-100"
                   }`}
-                ></i>
-                <span className="text-lg group-hover:text-blue-600">
-                  Mis Productos
-                </span>
-              </button>
+                >
+                  <i className="bx bx-list-ul text-base mr-2"></i>
+                  Listado
+                </a>
 
-
-              {/* Submenú con animación suave */}
-              <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  openProductos
-                    ? "max-h-[500px] opacity-100"
-                    : "max-h-0 opacity-0"
-                }`}
-              >
-                <div className="ml-10 mt-1 flex flex-col cursor-pointer">
-                  <a
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate("/productos");
-                    }}
-                    className={`cursor-pointer group flex items-center px-4 py-2 text-sm rounded transition-all duration-200 ${
-                      location.pathname === "/productos"
-                        ? "text-green-600 font-semibold bg-gray-100 shadow-md"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-
-                  >
-                    <i className="bx bx-list-ul text-base mr-2"></i>
-                    Listado
-                  </a>
-                  
-                  <a
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate("/categorias");
-                    }}
-                    className={`cursor-pointer group flex items-center px-4 py-2 text-sm rounded transition-all duration-200 ${
-                      location.pathname === "/categorias"
-                        ? "text-green-600 font-semibold bg-gray-100 shadow-md"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-
-                  >
-                    <i className="bx bx-grid-alt text-base mr-2"></i>
-                    Categorías
-                  </a>
-
-
-                </div>
+                <a
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/categorias");
+                  }}
+                  className={`cursor-pointer group flex items-center px-4 py-2 text-sm rounded transition-all duration-200 ${
+                    location.pathname === "/categorias"
+                      ? "text-green-600 font-semibold bg-gray-100 shadow-md"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <i className="bx bx-grid-alt text-base mr-2"></i>
+                  Categorías
+                </a>
               </div>
             </div>
+          </div>
           {/* Ver datos de facturacion de Plan */}
           <button
-            
             onClick={(e) => {
               e.preventDefault();
               navigate("/miplan");
             }}
             className={`cursor group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/miplan" ? "bg-gray-200 font-semibold" : ""
-              }`}
-            
+              location.pathname === "/miplan" ? "bg-gray-200 font-semibold" : ""
+            }`}
           >
             <i className="bx bxs-credit-card text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600">

@@ -297,3 +297,316 @@
 .fc .fc-list-event-dot {
   display: none;
 }
+
+/* =========================================
+   MODAL EN DOS COLUMNAS + PACKING DENSO
+   ========================================= */
+
+/* Ancho del popup (grueso sin exagerar) */
+.swal2-popup.swal2-responsive {
+  max-width: 880px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.22),
+    0 2px 6px rgba(17, 24, 39, 0.12) !important;
+  border: 1px solid #eef2f7 !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%) !important;
+  padding: 18px 20px !important;
+}
+
+/* Grid principal del formulario: 2 columnas + relleno denso de huecos */
+.swal-form {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  align-items: start !important; /* alinear cada card al tope */
+  grid-auto-flow: dense !important; /* rellena huecos y SUBE la columna derecha */
+  grid-auto-rows: minmax(min-content, auto) !important;
+}
+
+/* Cada bloque luce card y por defecto va a la columna izquierda */
+.swal-form .swal-row {
+  background: #ffffff;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+}
+
+/* El primer bloque (Título) ocupa ambas columnas */
+.swal-form .swal-row:first-child {
+  grid-column: 1 / -1 !important;
+}
+
+/* Detectar y enviar Invitados y Descripción a la columna derecha */
+.swal-form .swal-row:has(#invitees-list) {
+  grid-column: 2 !important; /* derecha */
+  align-self: start !important; /* tope */
+}
+.swal-form .swal-row:has(#f-desc) {
+  align-self: start !important; /* tope */
+}
+
+/* En móviles, volver a 1 columna */
+@media (max-width: 640px) {
+  .swal2-popup.swal2-responsive {
+    max-width: 96vw !important;
+  }
+  .swal-form {
+    grid-template-columns: 1fr !important;
+    grid-auto-flow: row !important;
+  }
+  .swal-form .swal-row,
+  .swal-form .swal-row:first-child,
+  .swal-form .swal-row:has(#invitees-list),
+  .swal-form .swal-row:has(#f-desc) {
+    grid-column: 1 !important;
+  }
+}
+
+/* =========================================
+   TIPOGRAFÍA Y CONTENEDORES
+   ========================================= */
+
+.swal2-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #111827 !important;
+  margin: 0 0 6px !important;
+}
+
+.swal2-html-container {
+  margin: 0 !important;
+}
+
+/* =========================================
+   INPUTS/SELECT/TEXTAREA COMPACTOS Y LIMPIOS
+   ========================================= */
+
+.swal-compact .swal2-input,
+.swal-compact .swal2-textarea,
+.swal-compact .swal2-select {
+  width: 100% !important;
+  margin: 2px 0 !important;
+  border-radius: 8px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.swal-compact .swal2-input {
+  height: 36px !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+}
+
+.swal-compact .swal2-textarea {
+  min-height: 74px !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+  resize: vertical;
+}
+
+.swal-compact .swal2-input:focus,
+.swal-compact .swal2-textarea:focus,
+.swal-compact .swal2-select:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important;
+  outline: none !important;
+}
+
+.swal-compact ::placeholder {
+  color: #9ca3af;
+}
+
+/* Select con flecha */
+.swal-compact select.swal2-input {
+  padding-right: 28px !important;
+  background-image: linear-gradient(45deg, transparent 50%, #9ca3af 50%),
+    linear-gradient(135deg, #9ca3af 50%, transparent 50%),
+    linear-gradient(to right, #e5e7eb, #e5e7eb);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%, 100% 0;
+  background-size: 5px 5px, 5px 5px, 2.2em 100%;
+  background-repeat: no-repeat;
+}
+
+/* =========================================
+   BOTONES FOOTER
+   ========================================= */
+
+.swal2-actions {
+  margin-top: 10px !important;
+  gap: 8px !important;
+}
+.swal2-styled.swal2-confirm {
+  background: #2563eb !important;
+  border-radius: 10px !important;
+  padding: 8px 14px !important;
+  font-weight: 700 !important;
+}
+.swal2-styled.swal2-confirm:hover {
+  filter: brightness(1.03);
+}
+.swal2-styled.swal2-cancel {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+}
+
+/* =========================================
+   INVITADOS (fila y botón "Añadir miembro")
+   ========================================= */
+
+/* Card de cada invitado */
+.invitee-row {
+  background: #fafbff;
+  border: 1px solid #e6eaf7;
+  border-radius: 10px;
+  padding: 8px;
+}
+.invitee-row + .invitee-row {
+  margin-top: 6px;
+}
+
+/* Inputs de invitado compactos */
+.invitee-row input.swal2-input {
+  height: 32px !important;
+  font-size: 12px !important;
+  padding: 6px 8px !important;
+}
+/* =========================================
+   DESCRIPCIÓN
+   ========================================= */
+
+#f-desc.swal2-textarea {
+  min-height: 150px !important; /* más respiro, sin forzar scroll global */
+  resize: vertical;
+}
+
+/* =========================================
+   MICRO-PULIDOS
+   ========================================= */
+
+.swal2-actions {
+  margin-top: 10px !important;
+  gap: 8px !important;
+}
+.swal2-popup.swal2-responsive * {
+  -webkit-tap-highlight-color: transparent;
+}
+.swal2-popup.swal2-responsive .swal2-input,
+.swal2-popup.swal2-responsive .swal2-textarea,
+.swal2-popup.swal2-responsive .swal2-select {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease, transform 0.04s ease;
+}
+.swal2-popup.swal2-responsive .swal2-input:active,
+.swal2-popup.swal2-responsive .swal2-textarea:active,
+.swal2-popup.swal2-responsive .swal2-select:active {
+  transform: translateY(0.2px);
+}
+
+/* ===== Asterisco rojo en campos requeridos + títulos visualmente consistentes ===== */
+.swal-form .swal-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 6px;
+}
+.swal-form .swal-row label .req {
+  color: #ef4444; /* rojo */
+  font-weight: 800;
+}
+
+/* Cabecera de sección (título a la izquierda, botón a la derecha) */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* ===== Botón "Agregar miembros" con icono bx ===== */
+.btn-add-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  background: #e2ebff;
+  color: #2056cc;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 12px;
+  line-height: 1;
+}
+.btn-add-member i {
+  font-size: 18px; /* icono bx-user-plus */
+  line-height: 1;
+}
+.btn-add-member:hover {
+  filter: brightness(1.05);
+}
+.btn-add-member:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+
+/* ===== Área de invitados con scroll propio (no expande el modal) ===== */
+#invitees-scroll {
+  /* Altura pensada para ~3 filas (ajústala si tus filas son más altas/bajas) */
+  max-height: 170px;
+  overflow: auto;
+  padding-right: 4px; /* deja un poquito de aire para scrollbar */
+  scroll-behavior: smooth;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  background: #fafbff;
+  /* Opcional: si prefieres que SIN invitados no se vea la caja, comenta el background/border */
+}
+
+/* Tuneo de cada fila de invitado (se mantiene compacto) */
+.invitee-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: #fff;
+  border-bottom: 1px dashed #eef2f7;
+}
+#invitees-list .invitee-row:last-child {
+  border-bottom: 0;
+}
+.invitee-row input.swal2-input {
+  height: 32px !important;
+  font-size: 12px !important;
+  padding: 6px 8px !important;
+}
+.invitee-row .btn-del-inv {
+  border: 1px solid #fee2e2;
+  background: #fff1f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.invitee-row .btn-del-inv:hover {
+  filter: brightness(0.98);
+  transform: scale(1.03);
+}
+
+/* ===== Ajustes de modal ancho para el layout en dos columnas que ya tienes ===== */
+.swal2-popup.swal2-responsive {
+  max-width: 880px !important;
+}
+
+/* ===== Si aún tienes estilos antiguos del botón anterior, neutralízalos ===== */
+.btn-add-inv {
+  display: none !important;
+} /* ya no usamos esa clase */
