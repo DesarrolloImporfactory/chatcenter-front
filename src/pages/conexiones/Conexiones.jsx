@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
 import botImage from "../../assets/bot.png";
@@ -8,27 +8,40 @@ import "./conexiones.css";
 import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
 import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConfiguracionModalWhatsappBusiness";
 
+/* Helpers UI */
+const HeaderStat = ({ label, value }) => (
+  <div className="px-4 py-3 rounded-xl bg-white/30 backdrop-blur ring-1 ring-white/50 shadow-sm">
+    <div className="text-xs uppercase tracking-wide text-white/80">{label}</div>
+    <div className="text-lg font-semibold text-white">{value}</div>
+  </div>
+);
+
+const pill = (classes, text) => (
+  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>{text}</span>
+);
+
 const Conexiones = () => {
-  const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
-    []
-  );
+  const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState([]);
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
+
   const [mostrarErrorBot, setMostrarErrorBot] = useState(false);
-  const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
-    useState(false);
-  const [
-    ModalConfiguracionWhatsappBusiness,
-    setModalConfiguracionWhatsappBusiness,
-  ] = useState(false);
+  const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] = useState(false);
+  const [ModalConfiguracionWhatsappBusiness, setModalConfiguracionWhatsappBusiness] = useState(false);
+
   const [statusMessage, setStatusMessage] = useState(null);
   const [idConfiguracion, setIdConfiguracion] = useState(null);
   const [NombreConfiguracion, setNombreConfiguracion] = useState(null);
   const [telefono, setTelefono] = useState(null);
 
-  const handleAbrirConfiguracionAutomatizada = () => {
-    setModalConfiguracionAutomatizada(true);
-  };
+  const [loading, setLoading] = useState(true);
+
+  // Controles de vista
+  const [search, setSearch] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState(""); // "", "conectado", "pendiente"
+  const [filtroPago, setFiltroPago] = useState(""); // "", "activo", "inactivo"
+
+  const handleAbrirConfiguracionAutomatizada = () => setModalConfiguracionAutomatizada(true);
 
   const handleConectarWhatsappBussines = (config) => {
     setIdConfiguracion(config.id);
@@ -37,87 +50,61 @@ const Conexiones = () => {
     setModalConfiguracionWhatsappBusiness(true);
   };
 
-  //Cargamos el SDK de Facebook una sola vez
+  /* SDK Facebook (sin cambios de lógica) */
   useEffect(() => {
     if (!document.getElementById("facebook-jssdk")) {
       const script = document.createElement("script");
       script.id = "facebook-jssdk";
       script.src = "https://connect.facebook.net/en_US/sdk.js";
-      script.aync = true;
+      script.async = true;
       script.defer = true;
       document.body.appendChild(script);
     }
 
-    // Cuando el script cargue, Facebook invocará window.fbAsyncInit
     window.fbAsyncInit = () => {
       window.FB.init({
-        appId: "1211546113231811", // <--- tu App ID real
+        appId: "1211546113231811",
         autoLogAppEvents: true,
         xfbml: true,
-        version: "v22.0", // O la versión que quieras
+        version: "v22.0",
       });
     };
-  });
+  }, []);
 
   const handleConectarMetaDeveloper = () => {
     if (!window.FB) {
-      setStatusMessage({
-        type: "error",
-        text: "El SDK de Facebook aún no está listo.",
-      });
+      setStatusMessage({ type: "error", text: "El SDK de Facebook aún no está listo." });
       return;
     }
 
     window.FB.login(
       (response) => {
-        // callback síncrono ↓
         (async () => {
           const code = response?.authResponse?.code;
-          console.log("CODE FRESCO:", code);
-          // return;
-
           if (!code) {
-            setStatusMessage({
-              type: "error",
-              text: "No se recibió el código de autorización.",
-            });
+            setStatusMessage({ type: "error", text: "No se recibió el código de autorización." });
             return;
           }
-
           try {
-            const { data } = await chatApi.post(
-              "/whatsapp_managment/embeddedSignupComplete",
-              {
-                code,
-                id_usuario: userData.id_usuario,
-              }
-            );
-
+            const { data } = await chatApi.post("/whatsapp_managment/embeddedSignupComplete", {
+              code,
+              id_usuario: userData.id_usuario,
+            });
             if (data.success) {
-              setStatusMessage({
-                type: "success",
-                text: "✅ Número conectado correctamente.",
-              });
-              setCurrentTab("numbers");
+              setStatusMessage({ type: "success", text: "✅ Número conectado correctamente." });
             } else {
               throw new Error(data.message || "Error inesperado.");
             }
           } catch (err) {
-            console.error(err);
-
-            const mensaje =
-              err?.response?.data?.message || "Error al activar el número.";
+            const mensaje = err?.response?.data?.message || "Error al activar el número.";
             const linkWhatsApp = err?.response?.data?.contacto;
-
             setStatusMessage({
               type: "error",
-              text: linkWhatsApp
-                ? `${mensaje} 👉 Haz clic aquí para contactarnos por WhatsApp: `
-                : mensaje,
-              extra: linkWhatsApp ? linkWhatsApp : null,
+              text: linkWhatsApp ? `${mensaje} 👉 Haz clic para contactarnos por WhatsApp` : mensaje,
+              extra: linkWhatsApp || null,
             });
           }
-        })(); // ← IIFE asíncrona
+        })();
       },
       {
         config_id: "2295613834169297",
@@ -133,44 +120,40 @@ const Conexiones = () => {
     );
   };
 
-  // 1. Definir fetchConfiguracionAutomatizada fuera del useEffect
+  /* Data */
   const fetchConfiguracionAutomatizada = async () => {
     if (!userData) return;
-
     try {
+      setLoading(true);
       const response = await chatApi.post("configuraciones/listar_conexiones", {
         id_usuario: userData.id_usuario,
       });
       setConfiguracionAutomatizada(response.data.data || []);
     } catch (error) {
       if (error.response?.status === 403) {
-        Swal.fire({
-          icon: "error",
-          title: error.response?.data?.message,
-          confirmButtonText: "OK",
-        }).then(() => navigate("/planes_view"));
+        Swal.fire({ icon: "error", title: error.response?.data?.message, confirmButtonText: "OK" })
+          .then(() => navigate("/planes_view"));
       } else if (error.response?.status === 400) {
         setMostrarErrorBot(true);
       } else {
         console.error("Error al cargar configuración:", error);
       }
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 2. Llamar fetchConfiguracionAutomatizada cuando el componente se monta
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return navigate("/login");
 
     const decoded = jwtDecode(token);
     if (decoded.exp < Date.now() / 1000) {
-      localStorage.clear(); // elimina todo
+      localStorage.clear();
       return navigate("/login");
     }
-
     setUserData(decoded);
 
-    // Mostrar mensaje si hay un plan activado
     const planActivadoData = localStorage.getItem("plan_activado");
     if (planActivadoData) {
       const plan = JSON.parse(planActivadoData);
@@ -182,177 +165,299 @@ const Conexiones = () => {
       });
       localStorage.removeItem("plan_activado");
     }
-  }, []);
+  }, [navigate]);
 
-  // 3. Llamar a fetchConfiguracionAutomatizada cuando el usuario esté disponible
   useEffect(() => {
-    if (userData) {
-      fetchConfiguracionAutomatizada();
-    }
+    if (userData) fetchConfiguracionAutomatizada();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
-  // 4. Lógica para Conectar con Meta Developer
+  /* Derivados */
+  const stats = useMemo(() => {
+    const total = configuracionAutomatizada.length;
+    const conectados = configuracionAutomatizada.filter((c) => !!c.conectado).length;
+    const pagosActivos = configuracionAutomatizada.filter((c) => Number(c.metodo_pago) === 1).length;
+    return { total, conectados, pendientes: total - conectados, pagosActivos };
+  }, [configuracionAutomatizada]);
 
+  const listaFiltrada = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let data = [...configuracionAutomatizada];
+
+    if (q) {
+      data = data.filter(
+        (c) =>
+          c?.nombre_configuracion?.toLowerCase().includes(q) ||
+          c?.telefono?.toLowerCase().includes(q)
+      );
+    }
+
+    if (filtroEstado) {
+      const objetivo = filtroEstado === "conectado";
+      data = data.filter((c) => (!!c.conectado) === objetivo);
+    }
+
+    if (filtroPago) {
+      const objetivo = filtroPago === "activo" ? 1 : 0;
+      data = data.filter((c) => Number(c.metodo_pago) === objetivo);
+    }
+
+    return data;
+  }, [configuracionAutomatizada, search, filtroEstado, filtroPago]);
+
+  /* UI */
   return (
-    <div className="relative p-6 min-h-screen bg-gray-50 pt-[5%]">
-      <h2 className="text-2xl font-bold mb-6 text-center">
-        Conexiones Configuradas
-      </h2>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pt-24 px-3 md:px-6">
+      <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
+        {/* Header premium */}
+        <header className="relative isolate overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-violet-600 p-6 md:p-7 rounded-t-2xl flex flex-col gap-5">
+            <div className="flex items-start sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                  Conexiones configuradas
+                </h1>
+                <p className="text-white/80 text-sm">
+                  Administra tus números y canales de WhatsApp Business.
+                </p>
+              </div>
 
-      <div className="flex justify-end pb-6">
-        <button
-          onClick={() => handleAbrirConfiguracionAutomatizada(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-green-600 to-emerald-500 text-white rounded-xl shadow-xl transition-all duration-300 ease-in-out transform group hover:scale-[1.03] hover:shadow-2xl hover:brightness-110 relative backdrop-blur-sm"
-        >
-          <i className="bx bx-plus text-2xl transition-all duration-300 group-hover:brightness-150 group-hover:drop-shadow-[0_0_6px_#ffffff80]"></i>
-          {/* Tooltip */}
-          <span className="tooltip">Agregar configuración</span>
-        </button>
+              {/* Mantengo tu botón con ícono y tooltip personalizados */}
+              <button
+                onClick={handleAbrirConfiguracionAutomatizada}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 rounded-lg font-semibold shadow-sm transition group relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+              >
+                <i className="bx bx-plus text-2xl transition-all duration-300 group-hover:brightness-125"></i>
+                <span className="tooltip1">Nueva configuración</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <HeaderStat label="Total conexiones" value={stats.total} />
+              <HeaderStat label="Conectados" value={stats.conectados} />
+              <HeaderStat label="Pendientes" value={stats.pendientes} />
+              <HeaderStat label="Pagos activos" value={stats.pagosActivos} />
+            </div>
+          </div>
+        </header>
+
+        {/* Barra de controles */}
+        <div className="p-6 border-b border-slate-100 bg-white">
+          <div className="max-w-8xl mx-auto flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+            <input
+              type="text"
+              placeholder="Buscar por nombre o teléfono…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full lg:w-1/2 px-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+            />
+
+            <div className="flex gap-3 w-full lg:w-auto">
+              <select
+                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                value={filtroEstado}
+                onChange={(e) => setFiltroEstado(e.target.value)}
+              >
+                <option value="">Todos los estados</option>
+                <option value="conectado">Conectado</option>
+                <option value="pendiente">Pendiente</option>
+              </select>
+
+              <select
+                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                value={filtroPago}
+                onChange={(e) => setFiltroPago(e.target.value)}
+              >
+                <option value="">Todos los pagos</option>
+                <option value="activo">Pago activo</option>
+                <option value="inactivo">Pago inactivo</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Toast de estado (si llega del backend) */}
+        {statusMessage && (
+          <div className="mx-auto mt-4 mb-0 w-[98%] max-w-7xl px-4">
+            <div
+              className={`rounded-lg px-4 py-3 text-sm ${
+                statusMessage.type === "success"
+                  ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
+                  : "bg-rose-50 text-rose-800 ring-1 ring-rose-200"
+              }`}
+            >
+              {statusMessage.text}{" "}
+              {statusMessage.extra && (
+                <a
+                  href={statusMessage.extra}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline font-semibold"
+                >
+                  Abrir WhatsApp
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Contenido */}
+        <div className="p-6">
+          <div className="max-w-8xl mx-auto">
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="h-48 rounded-xl bg-slate-100 animate-pulse" />
+                ))}
+              </div>
+            ) : mostrarErrorBot || listaFiltrada.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center mt-12">
+                <img src={botImage} alt="Robot" className="w-40 h-40 animate-bounce-slow" />
+                <h3 className="mt-4 text-lg font-semibold text-slate-800">Aún no tienes conexiones</h3>
+                <p className="mt-1 text-slate-500 text-sm md:text-base max-w-md">
+                  Crea tu primera conexión y empieza a interactuar con tus clientes al instante.
+                </p>
+                <button
+                  onClick={handleAbrirConfiguracionAutomatizada}
+                  className="mt-4 inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition group relative"
+                >
+                  <i className="bx bx-plus text-2xl"></i>
+                  <span className="tooltip1">Agregar configuración</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {listaFiltrada.map((config, idx) => {
+                  const conectado = !!config.conectado;
+                  const pagoActivo = Number(config.metodo_pago) === 1;
+
+                  return (
+                    <div
+                      key={idx}
+                      className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-5 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
+                    >
+                      {/* Header de card */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-slate-800 truncate">
+                            {config.nombre_configuracion}
+                          </h3>
+                          <div className="mt-2 flex items-center gap-2">
+                            {pill(
+                              conectado
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+                              conectado ? "Conectado" : "Pendiente"
+                            )}
+                            {pill(
+                              pagoActivo
+                                ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
+                                : "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
+                              pagoActivo ? "Pago activo" : "Pago inactivo"
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Mantengo tu estilo de íconos */}
+                        <div className="shrink-0 w-10 h-10 rounded-xl bg-slate-100 ring-1 ring-slate-200 grid place-items-center">
+                          <i className="bx bx-layer text-xl text-blue-600"></i>
+                        </div>
+                      </div>
+
+                      {/* Teléfono */}
+                      <div className="mt-4 flex items-center gap-2 text-sm text-slate-700">
+                        <i className="bx bx-phone-call text-xl text-green-600 hover:sacudir"></i>
+                        <span className="font-medium">{config.telefono}</span>
+                      </div>
+
+                      {/* Acciones (sección estructurada) */}
+                      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                        {/* Configuración */}
+                        <div
+                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
+                          onClick={() => {
+                            localStorage.setItem("id_configuracion", config.id);
+                            localStorage.setItem("id_plataforma_conf", config.id_plataforma);
+                            localStorage.setItem("nombre_configuracion", config.nombre_configuracion);
+                            navigate("/administrador-whatsapp");
+                          }}
+                          title="Ir a configuración"
+                        >
+                          <i className="bx bx-cog text-2xl text-blue-600"></i>
+                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                            Ir a configuración
+                          </span>
+                        </div>
+
+                        {/* Meta Developer */}
+                        {!conectado ? (
+                          <div
+                            className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
+                            onClick={() => handleConectarMetaDeveloper(config)}
+                            title="Conectar Meta Developer"
+                          >
+                            <i className="bx bxl-meta text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Conectar Meta Developer
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="relative group text-blue-600" title="Meta Business conectado">
+                            <i className="bx bxl-meta text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Meta Business conectado
+                            </span>
+                          </div>
+                        )}
+
+                        {/* WhatsApp */}
+                        {!conectado ? (
+                          <div
+                            className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
+                            onClick={() => handleConectarWhatsappBussines(config)}
+                            title="Conectar WhatsApp Business"
+                          >
+                            <i className="bx bxl-whatsapp text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Conectar WhatsApp Business
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="relative group text-green-600" title="WhatsApp vinculado">
+                            <i className="bx bxl-whatsapp text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              WhatsApp vinculado
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Chat */}
+                        <div
+                          className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
+                          onClick={() => {
+                            localStorage.setItem("id_configuracion", config.id);
+                            localStorage.setItem("id_plataforma_conf", config.id_plataforma);
+                            localStorage.setItem("nombre_configuracion", config.nombre_configuracion);
+                            navigate("/chat");
+                          }}
+                          title="Ir al chat"
+                        >
+                          <i className="bx bx-chat text-2xl text-green-600"></i>
+                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                            Ir al chat
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {mostrarErrorBot ? (
-        <div className="flex flex-col items-center justify-center text-center mt-12">
-          <img
-            src={botImage}
-            alt="Robot"
-            className="w-40 h-40 animate-bounce-slow"
-          />
-          <p className="mt-4 text-gray-500 text-sm md:text-base max-w-md">
-            ¡Ups! Aún no tienes ninguna conexión configurada. <br />
-            Crea tu primera conexión y empieza a interactuar con tus clientes al
-            instante 🚀
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          {configuracionAutomatizada.map((config, idx) => (
-            <div
-              key={idx}
-              className=" relative bg-white border border-gray-800 rounded-xl shadow-lg p-6 max-w-sm w-full transition-all duration-300 hover:bg-white hover:shadow-xl hover:scale-105 card-hover"
-            >
-              {/* Título */}
-              <div className="flex items-center gap-3 mb-4">
-                <i className="bx bx-layer text-2xl text-blue-600 group-hover:text-blue-400 transition-all duration-300 hover:scale-110"></i>
-                <h3 className="text-lg font-semibold text-gray-500 tracking-wide">
-                  {config.nombre_configuracion}
-                </h3>
-              </div>
-
-              {/* Teléfono */}
-              <div className="flex items-center gap-2 text-base text-gray-700 mb-4">
-                <i className="bx bx-phone-call text-xl text-green-600 group-hover:text-green-400 transition-all duration-300 hover:scale-110 hover:sacudir"></i>
-                <span>{config.telefono}</span>
-              </div>
-
-              {/* Método de pago */}
-              <div className="mb-4">
-                <span className="text-sm font-semibold mr-2">
-                  Método de pago:
-                </span>
-                <span
-                  className={`text-sm font-semibold px-4 py-1 rounded-full ${
-                    config.metodo_pago === 1
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-600"
-                  }`}
-                >
-                  {config.metodo_pago === 1 ? "Activo" : "Inactivo"}
-                </span>
-              </div>
-
-              {/* Iconos persistentes con tooltip individual */}
-              <div className="flex flex-wrap justify-center gap-2 mb-2">
-                {/* Configuración */}
-                <div
-                  className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition-all duration-300 transform hover:scale-110"
-                  onClick={() => {
-                    localStorage.setItem("id_configuracion", config.id);
-                    localStorage.setItem(
-                      "id_plataforma_conf",
-                      config.id_plataforma
-                    );
-                    localStorage.setItem(
-                      "nombre_configuracion",
-                      config.nombre_configuracion
-                    );
-
-                    navigate("/administrador-whatsapp");
-                  }}
-                >
-                  <i className="bx bx-cog text-xl sm:text-2xl text-blue-600"></i>
-                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    Ir a configuración
-                  </span>
-                </div>
-
-                {/* Meta Developer */}
-                {!config.conectado ? (
-                  <div
-                    className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
-                    onClick={() => handleConectarMetaDeveloper(config)}
-                  >
-                    <i className="bx bxl-meta text-xl sm:text-2xl"></i>
-                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                      Conectar Meta Developer
-                    </span>
-                  </div>
-                ) : (
-                  <div className="relative group text-blue-600">
-                    <i className="bx bxl-meta text-xl sm:text-2xl"></i>
-                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                      Meta Business conectado
-                    </span>
-                  </div>
-                )}
-
-                {/* WhatsApp */}
-                {!config.conectado ? (
-                  <div
-                    className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                    onClick={() => handleConectarWhatsappBussines(config)}
-                  >
-                    <i className="bx bxl-whatsapp text-xl sm:text-2xl"></i>
-                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                      Conectar WhatsApp Business
-                    </span>
-                  </div>
-                ) : (
-                  <div className="relative group text-green-600">
-                    <i className="bx bxl-whatsapp text-xl sm:text-2xl"></i>
-                    <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                      WhatsApp vinculado
-                    </span>
-                  </div>
-                )}
-
-                {/* Chat */}
-                <div
-                  className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                  onClick={() => {
-                    localStorage.setItem("id_configuracion", config.id);
-                    localStorage.setItem(
-                      "id_plataforma_conf",
-                      config.id_plataforma
-                    );
-                    localStorage.setItem(
-                      "nombre_configuracion",
-                      config.nombre_configuracion
-                    );
-
-                    navigate("/chat");
-                  }}
-                >
-                  <i className="bx bx-chat text-xl sm:text-2xl text-green-600 group-hover:text-green-400"></i>
-                  <span className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                    Ir al chat
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
+      {/* Modales */}
       {ModalConfiguracionAutomatizada && (
         <CrearConfiguracionModal
           onClose={() => setModalConfiguracionAutomatizada(false)}
