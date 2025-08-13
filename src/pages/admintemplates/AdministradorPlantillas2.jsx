@@ -168,32 +168,37 @@ const AdministradorPlantillas2 = () => {
   };
 
   useEffect(() => {
-    const fetchProductos = async () => {
-      const idc = localStorage.getItem("id_configuracion");
-      if (!idc) {
-        return Swal.fire({
-          icon: "error",
-          title: "Falta configuración",
-          text: "No se encontró el ID de configuración",
-        });
-      }
+  const fetchProductos = async () => {
+    const idc = localStorage.getItem("id_configuracion");
+    if (!idc) {
+      return Swal.fire({
+        icon: "error",
+        title: "Falta configuración",
+        text: "No se encontró el ID de configuración",
+      });
+    }
 
-      try {
-        const prodRes = await chatApi.post("/productos/listarProductos", {
-          id_configuracion: parseInt(idc),
-        });
-        setProductosLista(prodRes.data.data); // Aquí guardamos los productos
-      } catch {
+    try {
+      const prodRes = await chatApi.post("/productos/listarProductos", {
+        id_configuracion: parseInt(idc),
+      });
+      setProductosLista(prodRes.data.data);
+    } catch (error) {
+      if (currentTab === "asistente") {
         Swal.fire({
           icon: "error",
           title: "Error",
           text: "No se pudo cargar la información de productos",
         });
       }
-    };
+    }
+  };
 
+  if (currentTab === "asistente") {
     fetchProductos();
-  }, []);
+  }
+}, [currentTab]);
+
 
   /* seccion de asistente */
 
