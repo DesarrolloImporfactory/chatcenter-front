@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 
+// IMPORTA CON EXTENSIÓN (ajusta si tus archivos son .webp/.jpg)
+import basico from "../../assets/plan_basico_v2.png";
+import conexion from "../../assets/plan_conexion_v2.png";
+import premium from "../../assets/plan_premium_medal.png";
+
 const PlanesView = () => {
   const navigate = useNavigate();
   const [planes, setPlanes] = useState([]);
@@ -95,6 +100,14 @@ const PlanesView = () => {
     window.location.href = "/login";
   };
 
+  // 🔎 Helper para elegir la imagen según el nombre del plan
+  const getImagenPlan = (nombre = "") => {
+    const n = nombre.toLowerCase();
+    if (n.includes("premium")) return premium;
+    if (n.includes("conexión") || n.includes("conexion")) return conexion; // con y sin tilde
+    return basico;
+  };
+
   return (
     <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12">
       <div className="w-full max-w-6xl">
@@ -134,16 +147,15 @@ const PlanesView = () => {
           {planes.map((plan) => {
             const isSelected = planSeleccionado === plan.id_plan;
 
-            // imagen por nombre (misma lógica)
-            let imagen = "plan_basico_v2.png";
-            if (plan.nombre_plan.includes("Conexión")) imagen = "plan_conexion_v2.png";
-            if (plan.nombre_plan.includes("Premium")) imagen = "plan_premium_medal.png";
+            // ✅ Usa la variable importada directamente
+            const imagen = getImagenPlan(plan.nombre_plan);
 
             // cintas UI (no afectan lógica)
             const ribbon =
-              plan.nombre_plan.toLowerCase().includes("premium")
+              plan.nombre_plan?.toLowerCase().includes("premium")
                 ? "Popular"
-                : plan.nombre_plan.toLowerCase().includes("conexión")
+                : plan.nombre_plan?.toLowerCase().includes("conexión") ||
+                  plan.nombre_plan?.toLowerCase().includes("conexion")
                 ? "Recomendado"
                 : null;
 
@@ -160,14 +172,13 @@ const PlanesView = () => {
                 {/* imagen superior (solo si NO está seleccionado) con ribbon encima */}
                 {!isSelected && (
                   <div className="relative h-28 overflow-hidden">
-                    {/* RIBBON SOBRE LA IMAGEN */}
                     {ribbon && (
                       <span className="absolute z-20 left-2 top-2 rounded-full bg-[#322b4f] text-white text-xs font-semibold px-3 py-1 shadow">
                         {ribbon}
                       </span>
                     )}
                     <img
-                      src={`src/assets/${imagen}`}
+                      src={imagen}               
                       alt={plan.nombre_plan}
                       className="absolute inset-0 w-full h-full object-cover z-0"
                     />
@@ -197,7 +208,6 @@ const PlanesView = () => {
                           {plan.nombre_plan}
                         </h3>
 
-                        {/* check visual si está seleccionado */}
                         {isSelected && (
                           <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
                             ✓
@@ -223,7 +233,7 @@ const PlanesView = () => {
                       </span>
                     </div>
 
-                    {/* beneficios (expandido si seleccionado) */}
+                    {/* beneficios */}
                     {isSelected ? (
                       <ul className="mt-2 grid grid-cols-1 gap-2 text-sm text-[#3b3560]">
                         <li>👥 {plan.max_subusuarios} subusuarios incluidos</li>
