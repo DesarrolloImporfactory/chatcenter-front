@@ -459,6 +459,7 @@ const ProductosView = () => {
                                   src={p.imagen_url}
                                   alt=""
                                   className="h-10 w-10 object-cover"
+                                  crossOrigin="anonymous"
                                 />
                               ) : (
                                 <svg className="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
