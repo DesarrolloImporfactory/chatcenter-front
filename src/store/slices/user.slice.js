@@ -53,6 +53,8 @@ export const newLoginThunk = createAsyncThunk(
     try {
       const { data } = await chatApi.post("/auth/newLogin", credentials);
       localStorage.setItem("token", data.token);
+      localStorage.setItem("id_plataforma", data.id_plataforma);
+      localStorage.setItem("id_configuracion", data.id_configuracion);
       return data.user;
     } catch (err) {
       const msg = err.response?.data?.message || "Credenciales inválidas";
