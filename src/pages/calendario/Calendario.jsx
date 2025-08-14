@@ -107,6 +107,82 @@ export default function Calendario() {
   const [listFilter, setListFilter] = useState("proximas");
   const [listSort, setListSort] = useState("startAsc");
 
+  //GoogleAuth
+  const [googleLinked, setGoogleLinked] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const checkGoogleStatus = useCallback(async () => {
+    try {
+      setGoogleLoading(true);
+      const { data } = await chatApi.get("/google/status"); // { linked, google_email }
+      setGoogleLinked(!!data?.linked);
+      setGoogleEmail(data?.google_email || null);
+    } catch (e) {
+      console.error("google/status error:", e);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkGoogleStatus();
+  }, [checkGoogleStatus]);
+
+  const connectGoogle = async () => {
+    try {
+      const { data } = await chatApi.get("/google/auth-url"); // <- usa tu token
+      const authUrl = data?.url;
+      if (!authUrl) throw new Error("URL no recibida");
+
+      // Abrir en ventana nueva y detectar cierre para refrescar estado
+      const w = window.open(authUrl, "gcalOAuth", "width=520,height=680");
+      if (!w) {
+        // Si el popup fue bloqueado, redirige en la misma pestaña
+        window.location.href = authUrl;
+        return;
+      }
+      const timer = setInterval(async () => {
+        if (w.closed) {
+          clearInterval(timer);
+          await checkGoogleStatus();
+          Swal.fire("Listo", "Google Calendar vinculado.", "success");
+        }
+      }, 800);
+    } catch (e) {
+      console.error(e);
+      Swal.fire(
+        "Error",
+        "No se pudo iniciar la vinculación con Google.",
+        "error"
+      );
+    }
+  };
+
+  const unlinkGoogle = async () => {
+    const ok = (
+      await Swal.fire({
+        title: "Desvincular Google",
+        text: "Se eliminarán las credenciales guardadas.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, desvincular",
+        cancelButtonText: "Cancelar",
+      })
+    ).isConfirmed;
+
+    if (!ok) return;
+
+    try {
+      await chatApi.post("/google/unlink");
+      setGoogleLinked(false);
+      setGoogleEmail(null);
+      Swal.fire("Listo", "Vinculación eliminada.", "success");
+    } catch (e) {
+      console.error(e);
+      Swal.fire("Error", "No se pudo desvincular.", "error");
+    }
+  };
+
   // 0) Leer token y setear accountId/ownerUserId
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -868,6 +944,34 @@ export default function Calendario() {
                     <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
                       {gmtBadgeFromNow()}
                     </span>
+
+                    {/* >>> AQUÍ: Google connect / unlink <<< */}
+                    {googleLinked ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700">
+                          Google conectado
+                          {googleEmail ? ` (${googleEmail})` : ""}
+                        </span>
+                        <button
+                          onClick={unlinkGoogle}
+                          disabled={googleLoading}
+                          className="px-2 py-1 rounded border text-xs hover:bg-gray-50"
+                          title="Quitar vinculación"
+                        >
+                          Desvincular
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={connectGoogle}
+                        disabled={googleLoading}
+                        className="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 text-sm"
+                        title="Conectar con Google Calendar"
+                      >
+                        Conectar Google Calendar
+                      </button>
+                    )}
+
                     <div className="hidden md:flex items-center gap-1">
                       <button
                         onClick={() => changeView("timeGridDay")}
