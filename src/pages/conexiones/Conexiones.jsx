@@ -322,7 +322,7 @@ const Conexiones = () => {
                   className="mt-4 inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition group relative"
                 >
                   <i className="bx bx-plus text-2xl"></i>
-                  <span className="tooltip1">Agregar configuración</span>
+                  <span className="tooltip">Agregar configuración</span>
                 </button>
               </div>
             ) : (
