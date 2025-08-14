@@ -130,14 +130,18 @@ export default function Calendario() {
 
   const connectGoogle = async () => {
     try {
-      const { data } = await chatApi.get("/google/auth-url"); // <- usa tu token
+      if (!calendarId) {
+        Swal.fire("Calendario", "Aún no está listo el calendario.", "info");
+        return;
+      }
+      const { data } = await chatApi.get("/google/auth-url", {
+        params: { calendar_id: calendarId }, // << ¡aquí!
+      });
       const authUrl = data?.url;
       if (!authUrl) throw new Error("URL no recibida");
 
-      // Abrir en ventana nueva y detectar cierre para refrescar estado
       const w = window.open(authUrl, "gcalOAuth", "width=520,height=680");
       if (!w) {
-        // Si el popup fue bloqueado, redirige en la misma pestaña
         window.location.href = authUrl;
         return;
       }

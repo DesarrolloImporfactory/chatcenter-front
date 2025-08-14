@@ -149,8 +149,8 @@ const Chat = () => {
 
     const ph = p.get("phone");
     const nm = p.get("name") || "";
-    const idp = localStorage.getItem('id_plataforma_conf');
-    const idc = localStorage.getItem('id_configuracion');
+    const idp = localStorage.getItem("id_plataforma_conf");
+    const idc = localStorage.getItem("id_configuracion");
 
     if (ph) setPendingOpen({ phone: ph, name: nm });
     if (idc) setId_configuracion(parseInt(idc));
@@ -915,7 +915,13 @@ const Chat = () => {
   }));
 
   useEffect(() => {
-    setFilteredChats(mensajesAcumulados); // Actualizamos filteredChats con mensajesAcumulados
+    const eliminarDuplicadosPorId = (array) =>
+      array.filter(
+        (item, index, self) => index === self.findIndex((t) => t.id === item.id)
+      );
+
+    const sinDuplicados = eliminarDuplicadosPorId(mensajesAcumulados);
+    setFilteredChats(sinDuplicados); // Actualizamos filteredChats con mensajesAcumulados
   }, [mensajesAcumulados]);
 
   /* fin filtro */
@@ -1815,9 +1821,9 @@ const Chat = () => {
   return (
     <div className="sm:grid grid-cols-4">
       <div className="text-sm text-gray-700 fixed bottom-0 z-50 left-2">
-        v1.2 Hecho por{" "}
+        v1.3 Hecho por{" "}
         <a target="_blank" href="https://new.imporsuitpro.com">
-          Imporsuit-pro
+          Imporsuit
         </a>{" "}
         con ❤️
       </div>
