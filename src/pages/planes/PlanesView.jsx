@@ -14,9 +14,11 @@ const PlanesView = () => {
   const [planSeleccionado, setPlanSeleccionado] = useState(null);
   const [loading, setLoading] = useState(false);
 
-
-  /* 🔹 NUEVO: mapa con info de Stripe por id_plan */
+  // Info de Stripe para mostrar precios reales (si la tienes)
   const [stripeMap, setStripeMap] = useState({});
+
+  // NUEVO: id del plan ACTUAL del usuario
+  const [currentPlanId, setCurrentPlanId] = useState(null);
 
   useEffect(() => {
     const obtenerPlanes = async () => {
@@ -34,18 +36,17 @@ const PlanesView = () => {
     obtenerPlanes();
   }, []);
 
-  /* traer precios reales de Stripe y mapear por id_plan (NO rompe tu flujo actual) */
+  // Precios de Stripe (opcional, ya lo tenías)
   useEffect(() => {
     const syncStripePrices = async () => {
       try {
         const res = await chatApi.get("stripe_plan/stripe");
         const map = {};
         (res.data?.data || []).forEach((p) => {
-          // p.id_plan viene de tu DB, p.stripe_price es unit_amount en centavos
           map[p.id_plan] = {
-            stripe_price: p.stripe_price,            // centavos
-            stripe_interval: p.stripe_interval,      // 'month' | 'year'...
-            stripe_price_id: p.stripe_price_id,      // price_xxx
+            stripe_price: p.stripe_price,       // centavos
+            stripe_interval: p.stripe_interval, // 'month' | 'year'
+            stripe_price_id: p.stripe_price_id, // price_xxx
           };
         });
         setStripeMap(map);
@@ -56,7 +57,27 @@ const PlanesView = () => {
     syncStripePrices();
   }, []);
 
-  
+  // NUEVO: obtener el plan actual del usuario
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const decoded = JSON.parse(atob(token.split(".")[1]));
+        const id_usuario = decoded.id_usuario || decoded.id_users;
+
+        const { data } = await chatApi.post(
+          "stripe_plan/obtenerSuscripcionActiva",
+          { id_usuario },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        setCurrentPlanId(data?.plan?.id_plan ?? null);
+      } catch (err) {
+        console.warn("No se pudo obtener el plan actual:", err?.response?.data || err.message);
+      }
+    })();
+  }, []);
 
   const seleccionarPlan = async () => {
     if (!planSeleccionado) return;
@@ -91,7 +112,6 @@ const PlanesView = () => {
         );
         window.location.href = res.data.url;
       } else {
-        // Si es upgrade prorrateado, el backend no devuelve URL → solo avisa y redirige
         Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success").then(() => {
           window.location.href = "/miplan";
         });
@@ -113,15 +133,13 @@ const PlanesView = () => {
     window.location.href = "/login";
   };
 
-  // 🔎 Helper para elegir la imagen según el nombre del plan
   const getImagenPlan = (nombre = "") => {
     const n = nombre.toLowerCase();
     if (n.includes("premium")) return premium;
-    if (n.includes("conexión") || n.includes("conexion")) return conexion; // con y sin tilde
+    if (n.includes("conexión") || n.includes("conexion")) return conexion;
     return basico;
   };
 
-  /* 🔹 NUEVO: tomar precio desde Stripe (fallback a DB) */
   const getPrecioMostrar = (plan) => {
     const s = stripeMap[plan.id_plan];
     if (s && typeof s.stripe_price === "number") {
@@ -130,13 +148,9 @@ const PlanesView = () => {
     return parseFloat(plan.precio_plan).toFixed(2);
   };
 
-  /* 🔹 NUEVO: intervalo desde Stripe (fallback a "mes") */
   const getIntervalo = (plan) => {
     const s = stripeMap[plan.id_plan];
-    if (s?.stripe_interval) {
-      // traducimos algo amigable si quieres
-      return s.stripe_interval === "year" ? "año" : "mes";
-    }
+    if (s?.stripe_interval) return s.stripe_interval === "year" ? "año" : "mes";
     return "mes";
   };
 
@@ -178,11 +192,9 @@ const PlanesView = () => {
 
           {planes.map((plan) => {
             const isSelected = planSeleccionado === plan.id_plan;
-
-            // ✅ Usa la variable importada directamente
+            const isCurrent = currentPlanId === plan.id_plan; // ✅ NUEVO
             const imagen = getImagenPlan(plan.nombre_plan);
 
-            // cintas UI (no afectan lógica)
             const ribbon =
               plan.nombre_plan?.toLowerCase().includes("premium")
                 ? "Popular"
@@ -195,110 +207,126 @@ const PlanesView = () => {
               <div
                 key={plan.id_plan}
                 className={`
-                  relative group rounded-3xl overflow-hidden border 
-                  ${isSelected ? "border-emerald-400 ring-4 ring-emerald-300/40" : "border-[#c4bde4]/30"}
-                  bg-gradient-to-b from-white to-[#f9f9fd] shadow-lg hover:shadow-xl transition-all duration-300 
-                  ${isSelected ? "scale-[1.02]" : "hover:scale[1.01]"}
+                  relative group rounded-2xl p-[1px]
+                  ${isSelected ? "bg-gradient-to-r from-emerald-400/80 via-emerald-300/40 to-emerald-200/10" : ""}
+                  transition-all duration-300 ease-out hover:-translate-y-1 will-change-transform
                 `}
               >
-                {/* imagen superior (solo si NO está seleccionado) con ribbon encima */}
-                {!isSelected && (
-                  <div className="relative h-28 overflow-hidden">
-                    {ribbon && (
-                      <span className="absolute z-20 left-2 top-2 rounded-full bg-[#322b4f] text-white text-xs font-semibold px-3 py-1 shadow">
-                        {ribbon}
-                      </span>
-                    )}
-                    <img
-                      src={imagen}
-                      alt={plan.nombre_plan}
-                      className="absolute inset-0 w-full h-full object-cover z-0"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent opacity-80 z-10" />
-                  </div>
-                )}
-
-                {/* Si está seleccionado (no hay imagen), mostramos el ribbon en la esquina del card */}
-                {isSelected && ribbon && (
-                  <div className="absolute left-0 top-4 z-20">
-                    <span className="rounded-r-full bg-[#322b4f] text-white text-xs font-semibold px-3 py-1 shadow">
-                      {ribbon}
-                    </span>
-                  </div>
-                )}
-
-                {/* contenido */}
-                <button
-                  onClick={() => setPlanSeleccionado(isSelected ? null : plan.id_plan)}
-                  className="w-full text-left focus:outline-none"
+                {/* Card interna */}
+                <div
+                  className={`
+                    relative overflow-hidden rounded-[calc(1rem-1px)]
+                    bg-white/90 backdrop-blur border border-slate-200/60
+                    shadow-[0_1px_0_0_rgba(255,255,255,0.6)_inset,0_10px_30px_-12px_rgba(23,25,49,0.28)]
+                    transition-shadow duration-300
+                    ${isSelected ? "ring-2 ring-emerald-300/70 shadow-2xl" : ""}
+                  `}
                 >
-                  <div className="px-6 py-6">
-                    {/* título y descripción */}
-                    <div className="mb-5">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-2xl font-bold text-[#2f2b45] tracking-tight">
-                          {plan.nombre_plan}
-                        </h3>
+                  {/* Medallón */}
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 h-16 w-16 rounded-2xl ring-2 ring-white shadow-lg overflow-hidden">
+                    <div className="h-full w-full" style={{ backgroundColor: "#171931" }} />
+                  </div>
 
-                        {isSelected && (
-                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-[#676189] mt-1">
+                  {/* Contenido */}
+                  <div className="px-6 pt-12 pb-6 md:px-7 md:pt-14 md:pb-7">
+                    {/* Etiquetas superiores */}
+                    <div className="flex items-center justify-between">
+                      {ribbon ? (
+                        <span className="rounded-full bg-[#171931] text-white text-[11px] font-semibold px-3 py-1 shadow">
+                          {ribbon}
+                        </span>
+                      ) : <span />}
+
+                      {/* ✅ NUEVO: badge cuando es el plan actual */}
+                      {isCurrent && (
+                        <span className="rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-semibold px-3 py-1 border border-indigo-200">
+                          Tu plan actual
+                        </span>
+                      )}
+
+                      {isSelected && !isCurrent && (
+                        <span className="rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-3 py-1 border border-emerald-200">
+                          Seleccionado
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Título y descripción */}
+                    <div className="mt-3 text-center">
+                      <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">
+                        {plan.nombre_plan}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-slate-600 mt-1">
                         {plan.descripcion_plan}
                       </p>
                     </div>
 
-                    {/* precio (🔹 AHORA usando Stripe si existe) */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="text-right">
-                        <span className="text-3xl font-extrabold text-[#30294a]">
+                    {/* Precio centrado */}
+                    <div className="mt-5 text-center">
+                      <div className="inline-flex items-end gap-1">
+                        <span className="text-3xl md:text-[34px] font-extrabold tracking-tight text-[#171931]">
                           ${getPrecioMostrar(plan)}
                         </span>
-                        <span className="text-sm text-[#7a7499] ml-1">/{getIntervalo(plan)}</span>
+                        <span className="text-sm text-slate-500 mb-1">/{getIntervalo(plan)}</span>
                       </div>
-
-                      <span className="rounded-full border border-[#c4bde4]/50 bg-[#f3f1fb] text-[#4b3f72] text-xs font-semibold px-3 py-1">
-                        Suscripción
-                      </span>
                     </div>
 
-                    {/* beneficios */}
-                    {isSelected ? (
-                      <ul className="mt-2 grid grid-cols-1 gap-2 text-sm text-[#3b3560]">
-                        <li>👥 {plan.max_subusuarios} subusuarios incluidos</li>
-                        <li>📲 Código QR personalizado</li>
-                        <li>🤖 Integración con Meta</li>
-                        {plan.ahorro > 0 && (
-                          <li className="text-emerald-600 font-medium">
-                            💰 Ahorro anual de ${plan.ahorro}
-                          </li>
-                        )}
-                      </ul>
-                    ) : (
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-[#5e5882]">
-                        <div className="rounded-lg bg-[#f5f4fb] border border-[#c4bde4]/40 px-2 py-1.5">
-                          {plan.max_subusuarios} subusuarios
-                        </div>
-                        <div className="rounded-lg bg-[#f5f4fb] border border-[#c4bde4]/40 px-2 py-1.5">
-                          QR personalizado
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </button>
+                    {/* Beneficios */}
+                    <ul className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-slate-700">
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M7.629 13.233l-3.2-3.2 1.414-1.414 1.786 1.786 5.657-5.657 1.414 1.414-7.071 7.071z"/></svg>
+                        {plan.max_subusuarios} subusuarios incluidos
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M7.629 13.233l-3.2-3.2 1.414-1.414 1.786 1.786 5.657-5.657 1.414 1.414-7.071 7.071z"/></svg>
+                        Código QR personalizado
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M7.629 13.233l-3.2-3.2 1.414-1.414 1.786 1.786 5.657-5.657 1.414 1.414-7.071 7.071z"/></svg>
+                        Integración con Meta
+                      </li>
+                      {plan.ahorro > 0 && (
+                        <li className="flex items-center gap-2 text-emerald-600 font-medium">
+                          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M7.629 13.233l-3.2-3.2 1.414-1.414 1.786 1.786 5.657-5.657 1.414 1.414-7.071 7.071z"/></svg>
+                          Ahorro anual de ${plan.ahorro}
+                        </li>
+                      )}
+                    </ul>
 
-                {/* halo inferior decorativo */}
-                <div className="pointer-events-none absolute inset-x-0 -bottom-16 h-24 bg-gradient-to-t from-[#c4bde4]/30 to-transparent blur-2xl opacity-60" />
+                    {/* Acción */}
+                    <div className="mt-6">
+                      <button
+                        onClick={() => {
+                          if (isCurrent) return;            // ✅ no permitir seleccionar el actual
+                          setPlanSeleccionado(plan.id_plan);
+                        }}
+                        disabled={isSelected || isCurrent}   // ✅ deshabilitado si es actual
+                        className={`
+                          w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
+                          transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+                          ${isCurrent
+                            ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                            : isSelected
+                              ? "bg-emerald-600 text-white cursor-default"
+                              : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"}
+                        `}
+                      >
+                        {isCurrent
+                          ? "Tienes este plan actualmente"   // ✅ texto solicitado
+                          : isSelected
+                            ? "Seleccionado"
+                            : "Seleccionar"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* CTA inferior */}
-        {planSeleccionado && (
+        {/* CTA inferior (ocúltalo si, por algún motivo, el seleccionado coincide con el actual) */}
+        {planSeleccionado && planSeleccionado !== currentPlanId && (
           <div className="flex flex-col items-center gap-3 mt-10">
             <div className="text-sm text-[#5a547a]">
               Plan seleccionado:{" "}
