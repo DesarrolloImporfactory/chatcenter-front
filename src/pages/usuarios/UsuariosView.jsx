@@ -7,14 +7,33 @@ import "./usuarios.css";
 const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
   <th
     onClick={() => onSort(k)}
-    className={`p-3 select-none cursor-pointer font-semibold ${align === "right" ? "text-right" : "text-left"}`}
+    className={`p-3 select-none cursor-pointer font-semibold ${
+      align === "right" ? "text-right" : "text-left"
+    }`}
     title="Ordenar"
-    aria-sort={sort.key === k ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+    aria-sort={
+      sort.key === k
+        ? sort.dir === "asc"
+          ? "ascending"
+          : "descending"
+        : "none"
+    }
   >
     <span className="inline-flex items-center gap-1">
       {children}
-      <svg className={`h-3 w-3 transition ${sort.key === k ? "opacity-100" : "opacity-30"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        {sort.key === k && sort.dir === "desc" ? <path d="M14 12l-4 4-4-4h8z" /> : <path d="M6 8l4-4 4 4H6z" />}
+      <svg
+        className={`h-3 w-3 transition ${
+          sort.key === k ? "opacity-100" : "opacity-30"
+        }`}
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        {sort.key === k && sort.dir === "desc" ? (
+          <path d="M14 12l-4 4-4-4h8z" />
+        ) : (
+          <path d="M6 8l4-4 4 4H6z" />
+        )}
       </svg>
     </span>
   </th>
@@ -56,6 +75,10 @@ const UsuariosView = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false); // Controla la vista de opciones de upgrade
+  const [limitMessage, setLimitMessage] = useState(""); // Mensaje de error si se supera el límite
+  const [isClosing, setIsClosing] = useState(false);
+
   const fetchUsuarios = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -90,15 +113,37 @@ const UsuariosView = () => {
     fetchUsuarios();
   }, []);
 
+  const handleClose = () => {
+    setIsClosing(true); // Activa la animación de cierre
+    setTimeout(() => {
+      setModalOpen(false); // Cierra el modal
+      setForm({
+        usuario: "",
+        password: "",
+        email: "",
+        nombre_encargado: "",
+        rol: "",
+      }); // Limpia el formulario
+      setEditingId(null); // Asegura que no esté en modo de edición
+      setShowPassword(false); // Restablece el estado de la contraseña
+      setShowUpgradeOptions(false); // Asegura que no se muestre la opción de upgrade
+      setLimitMessage(""); // Limpia el mensaje de error
+      setUserData(null); // Limpia los datos del usuario
+
+      setIsClosing(false); // Termina la animación
+    }, 300); // El tiempo de animación (ajústalo si es necesario)
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
-    if (!token)
+    if (!token) {
       return Swal.fire({
         icon: "error",
         title: "Token faltante",
         text: "No se encontró token",
       });
+    }
     const decoded = jwtDecode(token);
     const id_usuario = decoded.id_usuario;
 
@@ -134,9 +179,24 @@ const UsuariosView = () => {
         rol: "",
       });
       setEditingId(null);
-      setShowPassword(false);
       fetchUsuarios();
     } catch (error) {
+      const httpStatus = error?.response?.status;
+
+      // Error 403 con QUOTA_EXCEEDED
+      if (
+        httpStatus === 403 &&
+        error?.response?.data?.code === "QUOTA_EXCEEDED"
+      ) {
+        const backendMsg = error?.response?.data?.message;
+        setLimitMessage(
+          backendMsg || "Ha alcanzado el límite de conexiones de su plan."
+        );
+        setShowUpgradeOptions(true); // Muestra las opciones de upgrade
+        return;
+      }
+
+      // Otros errores
       Swal.fire({
         icon: "error",
         title: "Error al guardar",
@@ -203,7 +263,9 @@ const UsuariosView = () => {
 
   const handleSort = (key) => {
     setSort((prev) =>
-      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" }
     );
   };
 
@@ -226,7 +288,9 @@ const UsuariosView = () => {
       );
     }
     if (rolFiltro) {
-      data = data.filter((u) => String(u.rol).toLowerCase() === rolFiltro.toLowerCase());
+      data = data.filter(
+        (u) => String(u.rol).toLowerCase() === rolFiltro.toLowerCase()
+      );
     }
 
     data.sort((a, b) => {
@@ -241,7 +305,10 @@ const UsuariosView = () => {
     return data;
   }, [usuarios, search, rolFiltro, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(listaProcesada.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(listaProcesada.length / itemsPerPage)
+  );
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return listaProcesada.slice(start, start + itemsPerPage);
@@ -250,6 +317,14 @@ const UsuariosView = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, rolFiltro]);
+
+  const onUpgradeClick = () => {
+    window.location.href = "/planes"; // Redirige a la página de planes
+  };
+
+  const onBuyAddonClick = () => {
+    window.location.href = "/planes?addon=conexion"; // Redirige a la página de compra de conexión adicional
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pt-24 px-3 md:px-6">
@@ -262,13 +337,19 @@ const UsuariosView = () => {
                 <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
                   Gestión de Usuarios
                 </h1>
-                <p className="text-white/80 text-sm">Crea, edita y controla accesos del equipo.</p>
+                <p className="text-white/80 text-sm">
+                  Crea, edita y controla accesos del equipo.
+                </p>
               </div>
               <button
                 onClick={() => openModal()}
                 className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
                 </svg>
                 Nuevo
@@ -279,7 +360,10 @@ const UsuariosView = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <HeaderStat label="Total usuarios" value={usuarios.length} />
               <HeaderStat label="En esta vista" value={listaProcesada.length} />
-              <HeaderStat label="Página" value={`${currentPage}/${totalPages}`} />
+              <HeaderStat
+                label="Página"
+                value={`${currentPage}/${totalPages}`}
+              />
               <HeaderStat label="Resultados/página" value={itemsPerPage} />
             </div>
           </div>
@@ -290,7 +374,11 @@ const UsuariosView = () => {
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <div className="relative w-full lg:w-1/2">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
                   <path d="M12.9 14.32a8 8 0 1 1 1.41-1.41l3.39 3.38a1 1 0 0 1-1.42 1.42l-3.38-3.39zM14 8a6 6 0 1 0-12 0 6 6 0 0 0 12 0z" />
                 </svg>
               </span>
@@ -298,7 +386,10 @@ const UsuariosView = () => {
                 type="text"
                 placeholder="Buscar por usuario, email o nombre…"
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
               />
             </div>
@@ -311,7 +402,9 @@ const UsuariosView = () => {
               >
                 <option value="">Todos los roles</option>
                 {rolesDisponibles.map((r) => (
-                  <option key={r} value={r}>{r}</option>
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
                 ))}
               </select>
             </div>
@@ -329,19 +422,31 @@ const UsuariosView = () => {
           ) : listaProcesada.length === 0 ? (
             <div className="flex-1 p-10 text-center flex flex-col items-center justify-center gap-4">
               <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg className="w-10 h-10 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="w-10 h-10 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M21 19l-5.6-5.6a7 7 0 1 0-2 2L19 21l2-2zM5 10a5 5 0 1 1 10 0A5 5 0 0 1 5 10z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-800">Sin usuarios</h3>
-                <p className="text-slate-500">Crea tu primer usuario para empezar.</p>
+                <h3 className="text-lg font-semibold text-slate-800">
+                  Sin usuarios
+                </h3>
+                <p className="text-slate-500">
+                  Crea tu primer usuario para empezar.
+                </p>
               </div>
               <button
                 onClick={() => openModal()}
                 className="inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
                 </svg>
                 Agregar usuario
@@ -353,21 +458,46 @@ const UsuariosView = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 sticky top-0 z-10">
                     <tr className="text-slate-600">
-                      <SortHeader k="usuario" sort={sort} onSort={handleSort}>Usuario</SortHeader>
-                      <SortHeader k="email" sort={sort} onSort={handleSort}>Email</SortHeader>
-                      <SortHeader k="nombre_encargado" sort={sort} onSort={handleSort}>Nombre</SortHeader>
-                      <SortHeader k="rol" sort={sort} onSort={handleSort}>Rol</SortHeader>
-                      <th className="p-3 text-center font-semibold">Acciones</th>
+                      <SortHeader k="usuario" sort={sort} onSort={handleSort}>
+                        Usuario
+                      </SortHeader>
+                      <SortHeader k="email" sort={sort} onSort={handleSort}>
+                        Email
+                      </SortHeader>
+                      <SortHeader
+                        k="nombre_encargado"
+                        sort={sort}
+                        onSort={handleSort}
+                      >
+                        Nombre
+                      </SortHeader>
+                      <SortHeader k="rol" sort={sort} onSort={handleSort}>
+                        Rol
+                      </SortHeader>
+                      <th className="p-3 text-center font-semibold">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginated.map((u) => (
-                      <tr key={u.id_sub_usuario} className="hover:bg-slate-50/60">
-                        <td className="p-3 text-slate-800 font-medium">{u.usuario}</td>
+                      <tr
+                        key={u.id_sub_usuario}
+                        className="hover:bg-slate-50/60"
+                      >
+                        <td className="p-3 text-slate-800 font-medium">
+                          {u.usuario}
+                        </td>
                         <td className="p-3 text-slate-700">{u.email}</td>
-                        <td className="p-3 text-slate-700">{u.nombre_encargado}</td>
+                        <td className="p-3 text-slate-700">
+                          {u.nombre_encargado}
+                        </td>
                         <td className="p-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${rolBadge(u.rol)}`}>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-semibold ${rolBadge(
+                              u.rol
+                            )}`}
+                          >
                             {u.rol || "—"}
                           </span>
                         </td>
@@ -378,7 +508,13 @@ const UsuariosView = () => {
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700"
                               title="Editar"
                             >
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>
+                              <svg
+                                className="w-4 h-4"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
+                              </svg>
                               Editar
                             </button>
                             <button
@@ -386,7 +522,13 @@ const UsuariosView = () => {
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
                               title="Eliminar"
                             >
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3a1 1 0 0 0-1 1v1H4a1 1 0 1 0 0 2h1v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7h1a1 1 0 1 0 0-2h-4V4a1 1 0 0 0-1-1H9zm2 4a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7zm6 0a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7z"/></svg>
+                              <svg
+                                className="w-4 h-4"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M9 3a1 1 0 0 0-1 1v1H4a1 1 0 1 0 0 2h1v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7h1a1 1 0 1 0 0-2h-4V4a1 1 0 0 0-1-1H9zm2 4a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7zm6 0a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7z" />
+                              </svg>
                               Eliminar
                             </button>
                           </div>
@@ -402,14 +544,22 @@ const UsuariosView = () => {
                 <div className="text-sm text-slate-600">
                   Mostrando{" "}
                   <span className="font-semibold text-slate-800">
-                    {Math.min((currentPage - 1) * itemsPerPage + 1, listaProcesada.length)}
+                    {Math.min(
+                      (currentPage - 1) * itemsPerPage + 1,
+                      listaProcesada.length
+                    )}
                   </span>{" "}
                   –{" "}
                   <span className="font-semibold text-slate-800">
-                    {Math.min(currentPage * itemsPerPage, listaProcesada.length)}
+                    {Math.min(
+                      currentPage * itemsPerPage,
+                      listaProcesada.length
+                    )}
                   </span>{" "}
                   de{" "}
-                  <span className="font-semibold text-slate-800">{listaProcesada.length}</span>
+                  <span className="font-semibold text-slate-800">
+                    {listaProcesada.length}
+                  </span>
                 </div>
                 <div className="inline-flex items-center gap-2">
                   <button
@@ -429,11 +579,14 @@ const UsuariosView = () => {
                     ‹
                   </button>
                   <span className="text-sm px-2">
-                    Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                    Página <strong>{currentPage}</strong> de{" "}
+                    <strong>{totalPages}</strong>
                   </span>
                   <button
                     className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
                     disabled={currentPage === totalPages}
                     aria-label="Siguiente"
                   >
@@ -460,124 +613,228 @@ const UsuariosView = () => {
         className="fixed bottom-5 right-5 md:hidden inline-flex items-center justify-center h-12 w-12 rounded-full shadow-lg bg-indigo-600 text-white hover:bg-indigo-700"
         aria-label="Agregar usuario"
       >
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"/></svg>
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
+        </svg>
       </button>
 
       {/* Modal agregar/editar */}
       {modalOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
-          onKeyDown={(e) => e.key === "Escape" && setModalOpen(false)}
+          onKeyDown={(e) => e.key === "Escape" && handleClose()}
         >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-3 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="text-xl font-semibold">{editingId ? "Editar usuario" : "Agregar usuario"}</h2>
+              <h2 className="text-xl font-semibold">
+                {editingId ? "Editar usuario" : "Agregar usuario"}
+              </h2>
               <button
-                onClick={() => setModalOpen(false)}
+                onClick={() => handleClose()}
                 className="p-2 rounded-lg hover:bg-slate-100"
                 aria-label="Cerrar"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z"/></svg>
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z" />
+                </svg>
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
-                  <input
-                    required
-                    placeholder="usuario"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                    value={form.usuario}
-                    onChange={(e) => setForm({ ...form, usuario: e.target.value })}
-                  />
-                </div>
-
-                {!editingId && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-                    <div className="relative">
-                      <input
-                        required
-                        placeholder="••••••••"
-                        type={showPassword ? "text" : "password"}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                        value={form.password}
-                        onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((s) => !s)}
-                        className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-500 hover:text-slate-700"
-                        aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                      >
-                        {showPassword ? (
-                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
-                        ) : (
-                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M3.53 2.47 2.47 3.53 5.2 6.26C3.44 7.54 2.23 9.16 2 9.5c0 0 3 7 10 7 2.05 0 3.82-.5 5.33-1.3l2.14 2.14 1.06-1.06-17-17zM12 6c2.82 0 5.09 1.16 6.78 2.5.78.62 1.42 1.27 1.89 1.81-.29.37-1.42 1.75-3.26 2.86l-2.02-2.02A5 5 0 0 0 9.85 7.7L7.73 5.58C9.03 5.2 10.47 6 12 6z"/></svg>
-                        )}
-                      </button>
-                    </div>
+            {showUpgradeOptions ? (
+              <div className="space-y-4 p-6">
+                {limitMessage && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
+                    {limitMessage}
                   </div>
                 )}
-              </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                  <input
-                    required
-                    type="email"
-                    placeholder="correo@dominio.com"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre encargado</label>
-                  <input
-                    required
-                    placeholder="Nombre y apellido"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                    value={form.nombre_encargado}
-                    onChange={(e) => setForm({ ...form, nombre_encargado: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
-                  <select
-                    required
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                    value={form.rol}
-                    onChange={(e) => setForm({ ...form, rol: e.target.value })}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Card: Actualizar plan */}
+                  <div
+                    className="group rounded-2xl border border-[#171931] p-6 shadow-lg hover:shadow-xl transition-all duration-300 bg-white cursor-pointer transform hover:scale-105"
+                    onClick={onUpgradeClick}
                   >
-                    <option value="">Seleccione rol</option>
-                    <option value="administrador">Administrador</option>
-                    <option value="ventas">Ventas</option>
-                  </select>
+                    <div className="flex items-start justify-between">
+                      <h3 className="text-2xl font-semibold text-[#171931]">
+                        Actualizar plan
+                      </h3>
+                      <span className="inline-flex items-center rounded-full text-xs px-3 py-1 border border-[#171931] bg-[#171931] text-white font-medium">
+                        Recomendado
+                      </span>
+                    </div>
+                    <p className="mt-4 text-sm text-gray-600 leading-6">
+                      Desbloquee más conexiones y funcionalidades elevando su
+                      plan actual. Ideal si su equipo crece o gestiona más
+                      números.
+                    </p>
+                  </div>
+
+                  {/* Card: Comprar conexión adicional */}
+                  <div
+                    className="group rounded-2xl border border-[#171931] p-6 shadow-lg hover:shadow-xl transition-all duration-300 bg-white cursor-pointer transform hover:scale-105"
+                    onClick={onBuyAddonClick}
+                  >
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-2xl font-semibold text-[#171931]">
+                        Comprar conexión adicional
+                      </h3>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-[#171931]">$10</p>
+                        <p className="text-xs text-gray-600">
+                          Adquiera una conexión extra por
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="mt-4 text-sm text-gray-600 leading-6">
+                      Esta conexión queda asociada permanentemente a su cuenta,
+                      sin importar el plan que tenga contratado.
+                    </p>
+                  </div>
                 </div>
               </div>
+            ) : (
+              <form
+                onSubmit={handleSubmit}
+                className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6"
+              >
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Usuario
+                    </label>
+                    <input
+                      required
+                      placeholder="usuario"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                      value={form.usuario}
+                      onChange={(e) =>
+                        setForm({ ...form, usuario: e.target.value })
+                      }
+                    />
+                  </div>
 
-              <div className="md:col-span-2 flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="border border-slate-200 px-4 py-2.5 rounded-lg hover:bg-slate-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-sm"
-                >
-                  {editingId ? "Actualizar" : "Agregar"}
-                </button>
-              </div>
-            </form>
+                  {!editingId && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Contraseña
+                      </label>
+                      <div className="relative">
+                        <input
+                          required
+                          placeholder="••••••••"
+                          type={showPassword ? "text" : "password"}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                          value={form.password}
+                          onChange={(e) =>
+                            setForm({ ...form, password: e.target.value })
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((s) => !s)}
+                          className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                          aria-label={
+                            showPassword
+                              ? "Ocultar contraseña"
+                              : "Mostrar contraseña"
+                          }
+                        >
+                          {showPassword ? (
+                            <svg
+                              className="w-5 h-5"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="w-5 h-5"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M3.53 2.47 2.47 3.53 5.2 6.26C3.44 7.54 2.23 9.16 2 9.5c0 0 3 7 10 7 2.05 0 3.82-.5 5.33-1.3l2.14 2.14 1.06-1.06-17-17zM12 6c2.82 0 5.09 1.16 6.78 2.5.78.62 1.42 1.27 1.89 1.81-.29.37-1.42 1.75-3.26 2.86l-2.02-2.02A5 5 0 0 0 9.85 7.7L7.73 5.58C9.03 5.2 10.47 6 12 6z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      required
+                      type="email"
+                      placeholder="correo@dominio.com"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                      value={form.email}
+                      onChange={(e) =>
+                        setForm({ ...form, email: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Nombre encargado
+                    </label>
+                    <input
+                      required
+                      placeholder="Nombre y apellido"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                      value={form.nombre_encargado}
+                      onChange={(e) =>
+                        setForm({ ...form, nombre_encargado: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Rol
+                    </label>
+                    <select
+                      required
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                      value={form.rol}
+                      onChange={(e) =>
+                        setForm({ ...form, rol: e.target.value })
+                      }
+                    >
+                      <option value="">Seleccione rol</option>
+                      <option value="administrador">Administrador</option>
+                      <option value="ventas">Ventas</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleClose()}
+                    className="border border-slate-200 px-4 py-2.5 rounded-lg hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-sm"
+                  >
+                    {editingId ? "Actualizar" : "Agregar"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

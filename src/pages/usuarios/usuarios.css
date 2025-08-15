@@ -30,3 +30,34 @@
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
 }
+
+/* Añadir animación de cierre */
+.animate-slide-out {
+  animation: slide-out 0.3s ease-out forwards;
+}
+
+@keyframes slide-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-in forwards;
+}
+
+@keyframes slide-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
