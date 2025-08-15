@@ -111,22 +111,31 @@ export default function Calendario() {
   const [googleLinked, setGoogleLinked] = useState(false);
   const [googleEmail, setGoogleEmail] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const checkGoogleStatus = useCallback(async () => {
+  const checkGoogleStatus = useCallback(async (calId) => {
     try {
       setGoogleLoading(true);
-      const { data } = await chatApi.get("/google/status"); // { linked, google_email }
+      if (!calId) {
+        setGoogleLinked(false);
+        setGoogleEmail(null);
+        return;
+      }
+      const { data } = await chatApi.get("/google/status", {
+        params: { calendar_id: calId },
+      });
       setGoogleLinked(!!data?.linked);
       setGoogleEmail(data?.google_email || null);
     } catch (e) {
       console.error("google/status error:", e);
+      setGoogleLinked(false);
+      setGoogleEmail(null);
     } finally {
       setGoogleLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    checkGoogleStatus();
-  }, [checkGoogleStatus]);
+    if (calendarId) checkGoogleStatus(calendarId);
+  }, [calendarId, checkGoogleStatus]);
 
   const connectGoogle = async () => {
     try {
@@ -135,7 +144,7 @@ export default function Calendario() {
         return;
       }
       const { data } = await chatApi.get("/google/auth-url", {
-        params: { calendar_id: calendarId }, // << ¡aquí!
+        params: { calendar_id: calendarId },
       });
       const authUrl = data?.url;
       if (!authUrl) throw new Error("URL no recibida");
@@ -145,11 +154,21 @@ export default function Calendario() {
         window.location.href = authUrl;
         return;
       }
+
       const timer = setInterval(async () => {
         if (w.closed) {
           clearInterval(timer);
-          await checkGoogleStatus();
-          Swal.fire("Listo", "Google Calendar vinculado.", "success");
+          // Revalidar contra el calendario actual
+          const { data: st } = await chatApi.get("/google/status", {
+            params: { calendar_id: calendarId },
+          });
+          setGoogleLinked(!!st?.linked);
+          setGoogleEmail(st?.google_email || null);
+          if (st?.linked) {
+            Swal.fire("Listo", "Google Calendar vinculado.", "success");
+          } else {
+            Swal.fire("Cancelado", "No se completó la vinculación.", "info");
+          }
         }
       }, 800);
     } catch (e) {
@@ -166,7 +185,7 @@ export default function Calendario() {
     const ok = (
       await Swal.fire({
         title: "Desvincular Google",
-        text: "Se eliminarán las credenciales guardadas.",
+        text: "Se eliminarán las credenciales guardadas para este calendario.",
         icon: "warning",
         showCancelButton: true,
         confirmButtonText: "Sí, desvincular",
@@ -177,7 +196,7 @@ export default function Calendario() {
     if (!ok) return;
 
     try {
-      await chatApi.post("/google/unlink");
+      await chatApi.post("/google/unlink", { calendar_id: calendarId });
       setGoogleLinked(false);
       setGoogleEmail(null);
       Swal.fire("Listo", "Vinculación eliminada.", "success");
@@ -871,6 +890,70 @@ export default function Calendario() {
       Swal.fire("Error", "No se pudo actualizar el estado.", "error");
     }
   };
+  // Icono simple "Google Calendar" en SVG (sin dependencias)
+  const GoogleCalendarIcon = ({ className = "w-5 h-5" }) => (
+    <svg
+      viewBox="0 0 128 128"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {/* cuerpo */}
+      <rect
+        x="8"
+        y="12"
+        width="112"
+        height="108"
+        rx="16"
+        ry="16"
+        fill="#fff"
+        stroke="#dadce0"
+        strokeWidth="4"
+      />
+      {/* barra superior azul */}
+      <rect
+        x="8"
+        y="12"
+        width="112"
+        height="28"
+        rx="16"
+        ry="16"
+        fill="#1a73e8"
+      />
+      {/* anillas */}
+      <rect x="28" y="4" width="16" height="24" rx="4" fill="#1a73e8" />
+      <rect x="84" y="4" width="16" height="24" rx="4" fill="#1a73e8" />
+      {/* franja clara */}
+      <rect x="20" y="48" width="88" height="28" fill="#e8f0fe" />
+      {/* 3 bloques de color abajo (Google vibes) */}
+      <path d="M20 88h20v20H20z" fill="#34a853" />
+      <path d="M54 88h20v20H54z" fill="#fbbc05" />
+      <path d="M88 88h20v20H88z" fill="#ea4335" />
+    </svg>
+  );
+
+  // Spinner minimalista para el estado de carga
+  const Spinner = ({ className = "w-4 h-4" }) => (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24">
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeOpacity="0.25"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        d="M22 12a10 10 0 0 1-10 10"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  );
 
   // ====== UI ======
   return (
@@ -953,7 +1036,7 @@ export default function Calendario() {
                     {googleLinked ? (
                       <div className="flex items-center gap-2">
                         <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700">
-                          Google conectado
+                          Google Calendar conectado
                           {googleEmail ? ` (${googleEmail})` : ""}
                         </span>
                         <button
@@ -968,11 +1051,30 @@ export default function Calendario() {
                     ) : (
                       <button
                         onClick={connectGoogle}
-                        disabled={googleLoading}
-                        className="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 text-sm"
-                        title="Conectar con Google Calendar"
+                        disabled={googleLoading || !calendarId}
+                        className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium transition
+                        ${
+                          googleLoading || !calendarId
+                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                            : "bg-white text-gray-800 border-gray-300 hover:border-blue-400 hover:shadow-sm"
+                        }`}
+                        title={
+                          !calendarId
+                            ? "Asegura primero un calendario"
+                            : "Conectar con Google Calendar"
+                        }
                       >
-                        Conectar Google Calendar
+                        {googleLoading ? (
+                          <Spinner />
+                        ) : (
+                          <GoogleCalendarIcon className="w-5 h-5" />
+                        )}
+                        <span>Conectar con Google Calendar</span>
+                        {!googleLoading && (
+                          <span className="hidden sm:inline text-[11px] px-2 py-[2px] rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                            recomendado
+                          </span>
+                        )}
                       </button>
                     )}
 
