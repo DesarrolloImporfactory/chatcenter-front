@@ -333,7 +333,7 @@ const ProductosView = () => {
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header */}
         <header className="relative isolate overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-violet-600 p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
+          <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
             <div className="flex items-start sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Productos</h1>

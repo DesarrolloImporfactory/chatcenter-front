@@ -13,7 +13,10 @@ const PlanesView = () => {
   const [planes, setPlanes] = useState([]);
   const [planSeleccionado, setPlanSeleccionado] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [autoPlay, setAutoPlay] = useState(true);
+
+
+  /* 🔹 NUEVO: mapa con info de Stripe por id_plan */
+  const [stripeMap, setStripeMap] = useState({});
 
   useEffect(() => {
     const obtenerPlanes = async () => {
@@ -31,19 +34,29 @@ const PlanesView = () => {
     obtenerPlanes();
   }, []);
 
+  /* traer precios reales de Stripe y mapear por id_plan (NO rompe tu flujo actual) */
   useEffect(() => {
-    if (!autoPlay || planes.length === 0) return;
-    let index = 0;
-    const intervalo = setInterval(() => {
-      setPlanSeleccionado(planes[index].id_plan);
-      index++;
-      if (index >= planes.length) {
-        clearInterval(intervalo);
-        setAutoPlay(false);
+    const syncStripePrices = async () => {
+      try {
+        const res = await chatApi.get("stripe_plan/stripe");
+        const map = {};
+        (res.data?.data || []).forEach((p) => {
+          // p.id_plan viene de tu DB, p.stripe_price es unit_amount en centavos
+          map[p.id_plan] = {
+            stripe_price: p.stripe_price,            // centavos
+            stripe_interval: p.stripe_interval,      // 'month' | 'year'...
+            stripe_price_id: p.stripe_price_id,      // price_xxx
+          };
+        });
+        setStripeMap(map);
+      } catch (e) {
+        console.warn("No se pudo sincronizar precios desde Stripe:", e?.response?.data || e.message);
       }
-    }, 1000);
-    return () => clearInterval(intervalo);
-  }, [planes, autoPlay]);
+    };
+    syncStripePrices();
+  }, []);
+
+  
 
   const seleccionarPlan = async () => {
     if (!planSeleccionado) return;
@@ -78,18 +91,18 @@ const PlanesView = () => {
         );
         window.location.href = res.data.url;
       } else {
-        throw new Error("No se recibió URL de pago");
+        // Si es upgrade prorrateado, el backend no devuelve URL → solo avisa y redirige
+        Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success").then(() => {
+          window.location.href = "/miplan";
+        });
       }
     } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text:
-          error?.response?.data?.message ===
-          "Ya tienes un plan activo. No puedes crear una nueva sesión de pago hasta que expire."
-            ? "Ya tienes un plan activo. Espera que expire antes de seleccionar otro."
-            : "No se pudo redirigir al pago. Intenta nuevamente.",
-      });
+      const msg =
+        error?.response?.data?.message ===
+        "Ya tienes un plan activo. No puedes crear una nueva sesión de pago hasta que expire."
+          ? "Ya tienes un plan activo. Espera que expire antes de seleccionar otro."
+          : (error?.response?.data?.message || "No se pudo redirigir al pago. Intenta nuevamente.");
+      Swal.fire({ icon: "error", title: "Error", text: msg });
     } finally {
       setLoading(false);
     }
@@ -106,6 +119,25 @@ const PlanesView = () => {
     if (n.includes("premium")) return premium;
     if (n.includes("conexión") || n.includes("conexion")) return conexion; // con y sin tilde
     return basico;
+  };
+
+  /* 🔹 NUEVO: tomar precio desde Stripe (fallback a DB) */
+  const getPrecioMostrar = (plan) => {
+    const s = stripeMap[plan.id_plan];
+    if (s && typeof s.stripe_price === "number") {
+      return (s.stripe_price / 100).toFixed(2);
+    }
+    return parseFloat(plan.precio_plan).toFixed(2);
+  };
+
+  /* 🔹 NUEVO: intervalo desde Stripe (fallback a "mes") */
+  const getIntervalo = (plan) => {
+    const s = stripeMap[plan.id_plan];
+    if (s?.stripe_interval) {
+      // traducimos algo amigable si quieres
+      return s.stripe_interval === "year" ? "año" : "mes";
+    }
+    return "mes";
   };
 
   return (
@@ -166,7 +198,7 @@ const PlanesView = () => {
                   relative group rounded-3xl overflow-hidden border 
                   ${isSelected ? "border-emerald-400 ring-4 ring-emerald-300/40" : "border-[#c4bde4]/30"}
                   bg-gradient-to-b from-white to-[#f9f9fd] shadow-lg hover:shadow-xl transition-all duration-300 
-                  ${isSelected ? "scale-[1.02]" : "hover:scale-[1.01]"}
+                  ${isSelected ? "scale-[1.02]" : "hover:scale[1.01]"}
                 `}
               >
                 {/* imagen superior (solo si NO está seleccionado) con ribbon encima */}
@@ -178,7 +210,7 @@ const PlanesView = () => {
                       </span>
                     )}
                     <img
-                      src={imagen}               
+                      src={imagen}
                       alt={plan.nombre_plan}
                       className="absolute inset-0 w-full h-full object-cover z-0"
                     />
@@ -219,13 +251,13 @@ const PlanesView = () => {
                       </p>
                     </div>
 
-                    {/* precio */}
+                    {/* precio (🔹 AHORA usando Stripe si existe) */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-right">
                         <span className="text-3xl font-extrabold text-[#30294a]">
-                          ${parseFloat(plan.precio_plan).toFixed(2)}
+                          ${getPrecioMostrar(plan)}
                         </span>
-                        <span className="text-sm text-[#7a7499] ml-1">/mes</span>
+                        <span className="text-sm text-[#7a7499] ml-1">/{getIntervalo(plan)}</span>
                       </div>
 
                       <span className="rounded-full border border-[#c4bde4]/50 bg-[#f3f1fb] text-[#4b3f72] text-xs font-semibold px-3 py-1">

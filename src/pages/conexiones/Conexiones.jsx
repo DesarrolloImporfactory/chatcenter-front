@@ -154,17 +154,6 @@ const Conexiones = () => {
     }
     setUserData(decoded);
 
-    const planActivadoData = localStorage.getItem("plan_activado");
-    if (planActivadoData) {
-      const plan = JSON.parse(planActivadoData);
-      Swal.fire({
-        icon: "success",
-        title: "¡Plan activado!",
-        text: `El plan "${plan.nombre}" se activó correctamente.`,
-        confirmButtonText: "Aceptar",
-      });
-      localStorage.removeItem("plan_activado");
-    }
   }, [navigate]);
 
   useEffect(() => {
@@ -211,7 +200,7 @@ const Conexiones = () => {
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
         {/* Header premium */}
         <header className="relative isolate overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-violet-600 p-6 md:p-7 rounded-t-2xl flex flex-col gap-5">
+          <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
             <div className="flex items-start sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
@@ -228,7 +217,7 @@ const Conexiones = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 rounded-lg font-semibold shadow-sm transition group relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
               >
                 <i className="bx bx-plus text-2xl transition-all duration-300 group-hover:brightness-125"></i>
-                <span className="tooltip1">Nueva configuración</span>
+                <span className="tooltip">Nueva configuración</span>
               </button>
             </div>
 
