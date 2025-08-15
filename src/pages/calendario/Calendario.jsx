@@ -111,6 +111,34 @@ export default function Calendario() {
   const [googleLinked, setGoogleLinked] = useState(false);
   const [googleEmail, setGoogleEmail] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const syncNow = useCallback(
+    async (silent = false) => {
+      if (!calendarId) return;
+      try {
+        setSyncing(true);
+        await chatApi.post("/google/sync/pull", { calendar_id: calendarId });
+        api()?.refetchEvents();
+        if (!silent) {
+          Swal.fire(
+            "Sincronizado",
+            "Se importaron cambios de Google.",
+            "success"
+          );
+        }
+      } catch (e) {
+        console.error(e);
+        if (!silent) {
+          Swal.fire("Error", "No se pudo sincronizar con Google.", "error");
+        }
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [calendarId]
+  );
+
   const checkGoogleStatus = useCallback(async (calId) => {
     try {
       setGoogleLoading(true);
@@ -165,7 +193,12 @@ export default function Calendario() {
           setGoogleLinked(!!st?.linked);
           setGoogleEmail(st?.google_email || null);
           if (st?.linked) {
-            Swal.fire("Listo", "Google Calendar vinculado.", "success");
+            await syncNow(true); // pull silencioso inmediato
+            Swal.fire(
+              "Listo",
+              "Google Calendar vinculado y sincronizado.",
+              "success"
+            );
           } else {
             Swal.fire("Cancelado", "No se completó la vinculación.", "info");
           }
@@ -1039,6 +1072,16 @@ export default function Calendario() {
                           Google Calendar conectado
                           {googleEmail ? ` (${googleEmail})` : ""}
                         </span>
+
+                        <button
+                          onClick={() => syncNow(false)}
+                          disabled={syncing}
+                          className="px-2 py-1 rounded border text-xs hover:bg-gray-50 inline-flex items-center gap-1"
+                          title="Forzar importación desde Google ahora"
+                        >
+                          {syncing ? <Spinner /> : "⟳"} Sincronizar ahora
+                        </button>
+
                         <button
                           onClick={unlinkGoogle}
                           disabled={googleLoading}
