@@ -10,6 +10,8 @@ import Swal from "sweetalert2";
 import "./Calendario.css";
 
 const WEEKDAYS = ["D", "L", "Ma", "Mi", "J", "V", "S"];
+const UNASSIGNED_COLOR = "#a78bfa"; // lila suave p/ sin asignar
+const CANCELLED_COLOR = "#9ca3af"; // gris p/ canceladas
 
 // === Helpers ===
 function safeJwtDecode(token) {
@@ -51,12 +53,7 @@ function colorFromId(id) {
   const hue = (Number(id) * 47) % 360;
   return `hsl(${hue} 70% 65%)`;
 }
-function tzSuffix() {
-  const off = -new Date().getTimezoneOffset();
-  const sign = off >= 0 ? "+" : "-";
-  const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, "0");
-  return `(${sign}${hh})`;
-}
+
 function fmtDateTime(d) {
   // "ago. 08, 2025, 08:00 AM (-05)"
   const str = new Date(d).toLocaleString("es-EC", {
@@ -112,6 +109,7 @@ export default function Calendario() {
   const [googleEmail, setGoogleEmail] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [includeUnassigned, setIncludeUnassigned] = useState(true);
 
   const syncNow = useCallback(
     async (silent = false) => {
@@ -334,6 +332,13 @@ export default function Calendario() {
   function colorForUser(userId) {
     const u = usuarios.find((x) => x.id === userId);
     return u?.color || "#3b82f6";
+  }
+
+  function eventColor({ status, assigned }) {
+    const st = String(status || "").toLowerCase();
+    if (st === "cancelado") return CANCELLED_COLOR;
+    if (assigned == null || Number.isNaN(assigned)) return UNASSIGNED_COLOR;
+    return colorForUser(assigned);
   }
 
   /* ─────────────────────────────────────────────────────────────────
@@ -641,10 +646,12 @@ export default function Calendario() {
         successCallback([]);
         return;
       }
+
       const params = {
         calendar_id: calendarId,
         start: info.start.toISOString(),
         end: info.end.toISOString(),
+        include_unassigned: includeUnassigned ? 1 : 0,
       };
       if (selectedUserIds.length) params.user_ids = selectedUserIds.join(",");
 
@@ -652,13 +659,25 @@ export default function Calendario() {
         .get("/appointments", { params })
         .then(({ data }) => {
           const mapped = (data?.events ?? []).map((e) => {
-            const assigned = Number(
-              e?.extendedProps?.assigned_user_id ?? e?.assigned_user_id ?? NaN
-            );
+            const assignedRaw =
+              e?.extendedProps?.assigned_user_id ?? e?.assigned_user_id ?? null;
+            const assigned = assignedRaw == null ? null : Number(assignedRaw);
+            const status = e?.extendedProps?.status || e?.status || "";
+
+            const bg = eventColor({ status, assigned });
+
             return {
               ...e,
-              backgroundColor: colorForUser(assigned),
-              borderColor: colorForUser(assigned),
+              backgroundColor: bg,
+              borderColor: bg,
+              // classes para estilos extra
+              classNames: [
+                String(status).toLowerCase() === "cancelado"
+                  ? "is-cancelled"
+                  : null,
+                assigned == null ? "is-unassigned" : null,
+              ].filter(Boolean),
+              // normaliza assigned en extendedProps (evita NaN)
               extendedProps: { ...e.extendedProps, assigned_user_id: assigned },
             };
           });
@@ -670,7 +689,7 @@ export default function Calendario() {
           Swal.fire("Error", "No se pudieron cargar los eventos.", "error");
         });
     },
-    [calendarId, selectedUserIds, usuarios]
+    [calendarId, selectedUserIds, usuarios, includeUnassigned]
   );
 
   // ------ Crear desde selección (fecha/hora bloqueadas) ------
@@ -856,6 +875,7 @@ export default function Calendario() {
         if (selectedUserIds.length) {
           params.user_ids = selectedUserIds.join(",");
         }
+        if (includeUnassigned) params.include_unassigned = 1;
 
         // RANGO por filtro:
         // - 'proximas'  => desde ahora (sin end) -> backend devuelve futuras
@@ -892,7 +912,7 @@ export default function Calendario() {
         setListLoading(false);
       }
     },
-    [calendarId, selectedUserIds, currentDate, listFilter] // <- importante: depende de listFilter
+    [calendarId, selectedUserIds, currentDate, listFilter, includeUnassigned]
   );
 
   // Cargar lista cuando cambio a pestaña "list" o cambian filtros
@@ -1362,6 +1382,21 @@ export default function Calendario() {
                       </span>
                     </label>
                   ))}
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={includeUnassigned}
+                      onChange={(e) => {
+                        setIncludeUnassigned(e.target.checked);
+                        api()?.refetchEvents();
+                        if (tab === "list") loadListRows();
+                      }}
+                    />
+                    <span>Incluir “Sin asignar”</span>
+                  </label>
                 </div>
               </div>
             </div>
