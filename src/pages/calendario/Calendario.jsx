@@ -430,10 +430,34 @@ export default function Calendario() {
                  value="${i.location_text.replaceAll('"', "&quot;")}" />
         </div>
       </div>
+
       <div class="swal-row">
-        <label>URL de reunión</label>
-        <input id="f-meet" class="swal2-input" placeholder="https://meet..."
-               value="${i.meeting_url.replaceAll('"', "&quot;")}" />
+        <div class="section-header">
+          <label>URL de reunión</label>
+          <div class="flex items-center gap-2">
+            <button type="button" id="btn-gen-meet" class="btn-url-meet" title="Generar enlace de Google Meet">
+              <span class="inline-flex items-center gap-2">
+                <span id="btn-gen-meet-icon" class="inline-flex items-center justify-center w-5 h-5"></span>
+                <span>Generar automáticamente</span>
+              </span>
+            </button>
+            <button type="button" id="btn-clear-meet" class="btn-url-cancel" title="Cancelar" style="display:none;">
+              <i class="bx bx-eraser"></i>
+            </button>
+          </div>
+        </div>
+
+        <input
+          id="f-meet"
+          class="swal2-input"
+          placeholder="https://meet..."
+          value="${i.meeting_url.replaceAll('"', "&quot;")}"
+        />
+        <div id="meet-hint" class="text-xs text-gray-600 mt-1" style="display:none;">
+          Se generará automáticamente al guardar (Google Meet).
+        </div>
+        <!-- bandera oculta para indicar autogeneración -->
+        <input id="f-meet-autogen" type="hidden" value="0" />
       </div>
       
       <div class="swal-row">
@@ -482,6 +506,87 @@ export default function Calendario() {
               list.insertAdjacentHTML("beforeend", inviteeRowTpl());
           }
         });
+
+        // === Google Meet UI ===
+        const DEFAULT_PLACEHOLDER = "https://meet...";
+        const btnIconSlot = document.getElementById("btn-gen-meet-icon");
+        if (btnIconSlot) {
+          btnIconSlot.innerHTML = `
+          <svg viewBox="0 0 128 128" width="20" height="20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+            <rect x="8" y="12" width="112" height="108" rx="16" ry="16" fill="#fff" stroke="#dadce0" stroke-width="4"/>
+            <rect x="8" y="12" width="112" height="28" rx="16" ry="16" fill="#1a73e8"/>
+            <rect x="28" y="4" width="16" height="24" rx="4" fill="#1a73e8"/>
+            <rect x="84" y="4" width="16" height="24" rx="4" fill="#1a73e8"/>
+            <rect x="20" y="48" width="88" height="28" fill="#e8f0fe"/>
+            <path d="M20 88h20v20H20z" fill="#34a853"/>
+            <path d="M54 88h20v20H54z" fill="#fbbc05"/>
+            <path d="M88 88h20v20H88z" fill="#ea4335"/>
+          </svg>
+        `;
+        }
+
+        const $iMeet = document.getElementById("f-meet");
+        const $hint = document.getElementById("meet-hint");
+        const $btnGen = document.getElementById("btn-gen-meet");
+        const $btnClr = document.getElementById("btn-clear-meet");
+        const $autogen = document.getElementById("f-meet-autogen");
+
+        function refreshMeetUI() {
+          const hasVal = !!($iMeet?.value || "").trim();
+          const genOn = $autogen?.value === "1";
+          if ($btnClr) $btnClr.style.display = hasVal || genOn ? "" : "none";
+          if ($hint) $hint.style.display = genOn ? "" : "none";
+        }
+
+        function applyAutogen(on) {
+          if (!$iMeet || !$autogen) return;
+          $autogen.value = on ? "1" : "0";
+          if (on) {
+            // sin confusiones: limpiamos el campo y lo bloqueamos
+            $iMeet.value = "";
+            $iMeet.placeholder = "Se generará al guardar…";
+            $iMeet.setAttribute("disabled", "disabled");
+            $iMeet.classList.add("is-disabled");
+          } else {
+            // restaurar estado manual
+            $iMeet.removeAttribute("disabled");
+            $iMeet.classList.remove("is-disabled");
+            $iMeet.placeholder = DEFAULT_PLACEHOLDER;
+          }
+          refreshMeetUI();
+        }
+
+        // Click en "Generar automáticamente"
+        $btnGen?.addEventListener("click", () => {
+          if (!googleLinked) {
+            Swal.fire(
+              "Google no vinculado",
+              "Conecta Google Calendar para generar un Meet.",
+              "info"
+            );
+            return;
+          }
+          applyAutogen(true);
+        });
+
+        // Click en limpiar/cancelar
+        $btnClr?.addEventListener("click", () => {
+          applyAutogen(false);
+          $iMeet.value = "";
+        });
+
+        // Si el usuario escribe a mano, cancelar autogen
+        $iMeet?.addEventListener("input", () => {
+          if (($iMeet.value || "").trim()) applyAutogen(false);
+        });
+
+        // Estado inicial (por si viene con valor)
+        if ($iMeet && $iMeet.value.trim()) {
+          applyAutogen(false);
+        } else {
+          $iMeet.placeholder = DEFAULT_PLACEHOLDER;
+          refreshMeetUI();
+        }
       },
       preConfirm: () => {
         const $ = (id) => document.getElementById(id);
@@ -601,7 +706,10 @@ export default function Calendario() {
           })
           .map(({ _emailEl, ...rest }) => rest); // quitar referencia interna
 
-        // normalizar URL (opcional, pero útil si el usuario pega "www." o dominio)
+        const autogen =
+          document.getElementById("f-meet-autogen")?.value === "1";
+
+        // normalizar URL manual si NO hay autogen
         const meet = (() => {
           const u = (meetRaw || "").trim();
           if (!u) return null;
@@ -610,19 +718,19 @@ export default function Calendario() {
           if (/^[\w.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(u)) return `https://${u}`;
           return u;
         })();
-
         // Si todo OK, devolvemos payload
         return {
           title,
           status,
           assigned_user_id: assigned ? Number(assigned) : null,
           location_text: location,
-          meeting_url: meet,
+          meeting_url: autogen ? null : meet,
           description: desc,
           start: startISO,
           end: endISO,
           booked_tz: bookedTz,
           invitees,
+          create_meet: autogen,
         };
       },
 
@@ -709,20 +817,64 @@ export default function Calendario() {
     });
     if (!form) return;
     try {
-      await chatApi.post("/appointments", {
+      const { data } = await chatApi.post("/appointments", {
         calendar_id: calendarId,
         created_by_user_id: ownerUserId,
         ...form,
       });
-      Swal.fire("Listo", "Cita creada.", "success");
-      api()?.unselect();
+
+      //intenta obtener la URL devuelta por el backend
+      const meetingUrl =
+        data?.event?.extendedProps?.meeting_url ||
+        data?.event?.meeting_url ||
+        data?.meeting_url ||
+        data?.extendedProps?.meeting_url ||
+        null;
+      //refrescar UI
+
+      Swal.close();
       api()?.refetchEvents();
-      if (tab === "list") loadListRows(); // refresca la tabla si está abierta
+      if (tab === "list") loadListRows();
+
+      //modal con la url y boton de copiar
+      if (meetingUrl) {
+        Swal.fire({
+          icon: "success",
+          title: "Cita creada",
+          html: `
+                  <div class="text-left">
+          <div class="mb-2">Enlace de reunión:</div>
+          <div class="px-3 py-2 rounded border bg-gray-50 break-all" id="meet-url-box">${meetingUrl}</div>
+          <div class="mt-3 flex gap-2">
+            <a href="${meetingUrl}" target="_blank" rel="noopener" class="px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Abrir</a>
+            <button id="btn-copy-meet" class="px-3 py-2 rounded-md border hover:bg-gray-50">Copiar</button>
+          </div>
+        </div>`,
+          showConfirmButton: true,
+          confirmButtonText: "Listo",
+          didOpen: () => {
+            document
+              .getElementById("btn-copy-meet")
+              ?.addEventListener("click", async () => {
+                try {
+                  await navigator.clipboard.writeText(meetingUrl);
+                  Swal.showValidationMessage("");
+                  const btn = document.getElementById("btn-copy-meet");
+                  if (btn) {
+                    const old = btn.textContent;
+                    btn.textContent = "Copiado";
+                    setTimeout(() => (btn.textContent = old), 1200);
+                  }
+                } catch {}
+              });
+          },
+        });
+      } else {
+        Swal.fire("Listo", "Cita creada.", "success");
+      }
     } catch (err) {
       console.error(err);
-      const msg =
-        err?.response?.data?.message ||
-        "No se pudo crear la cita (conflicto?).";
+      const msg = err?.response?.data?.message || "No se pudo crear la cita.";
       Swal.fire("Error", msg, "error");
     }
   };

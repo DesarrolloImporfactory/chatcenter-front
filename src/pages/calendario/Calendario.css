@@ -554,6 +554,35 @@
   outline-offset: 2px;
 }
 
+/* ===== Botón "Crear enlace" con icono bx ===== */
+.btn-url-meet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  background: #d6ebd4;
+  color: #037122;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 12px;
+  line-height: 1;
+}
+/* ===== Botón "Cancelar enlace" con icono bx ===== */
+.btn-url-cancel {
+  border: 1px solid #fee2e2;
+  background: #fff1f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  font-size: 24px;
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
 /* ===== Área de invitados con scroll propio (no expande el modal) ===== */
 #invitees-scroll {
   /* Altura pensada para ~3 filas (ajústala si tus filas son más altas/bajas) */
@@ -623,4 +652,12 @@
 /* Sin asignar: borde punteado para distinguir */
 .fc .is-unassigned {
   border-style: dashed !important;
+}
+
+/* input deshabilitado dentro del Swal */
+.swal2-input.is-disabled,
+.swal2-input[disabled] {
+  background-color: #f6f7f9 !important;
+  color: #6b7280 !important;
+  cursor: not-allowed !important;
 }
