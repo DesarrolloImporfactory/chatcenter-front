@@ -155,20 +155,15 @@ const PlanesView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12">
+    <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12 mt-10">
       <div className="w-full max-w-6xl">
         {/* top bar */}
         <div className="flex justify-end mb-4">
-          <button
-            onClick={cerrarSesion}
-            className="text-sm bg-[#6d5cbf] hover:bg-[#5a4aa5] text-white px-4 py-2 rounded-md shadow transition"
-          >
-            Cerrar sesión
-          </button>
+          
         </div>
 
         {/* header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-10 mt-10">
           <h2 className="text-4xl font-extrabold text-[#2f2b45]">
             Elige tu plan ideal y potencia tu empresa
           </h2>
@@ -192,7 +187,7 @@ const PlanesView = () => {
 
           {planes.map((plan) => {
             const isSelected = planSeleccionado === plan.id_plan;
-            const isCurrent = currentPlanId === plan.id_plan; // ✅ NUEVO
+            const isCurrent = currentPlanId === plan.id_plan; // NUEVO
             const imagen = getImagenPlan(plan.nombre_plan);
 
             const ribbon =
@@ -203,12 +198,17 @@ const PlanesView = () => {
                 ? "Recomendado"
                 : null;
 
+            // ✅ NUEVO: detectar plan básico para mostrar el lazo "mas vendido"
+            const esBasico =
+              (plan.nombre_plan || "").toLowerCase().includes("básico") ||
+              (plan.nombre_plan || "").toLowerCase().includes("basico");
+
             return (
               <div
                 key={plan.id_plan}
                 className={`
                   relative group rounded-2xl p-[1px]
-                  ${isSelected ? "bg-gradient-to-r from-emerald-400/80 via-emerald-300/40 to-emerald-200/10" : ""}
+                  ${isSelected ? "" : ""}
                   transition-all duration-300 ease-out hover:-translate-y-1 will-change-transform
                 `}
               >
@@ -222,10 +222,94 @@ const PlanesView = () => {
                     ${isSelected ? "ring-2 ring-emerald-300/70 shadow-2xl" : ""}
                   `}
                 >
-                  {/* Medallón */}
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 h-16 w-16 rounded-2xl ring-2 ring-white shadow-lg overflow-hidden">
-                    <div className="h-full w-full" style={{ backgroundColor: "#171931" }} />
-                  </div>
+                  {/* Badge superior "mas vendido" — medallón + placa dorada premium */}
+                  {esBasico && (
+                    <div className="absolute inset-x-0 -top-4 flex justify-center z-20 pointer-events-none mt-3">
+                      <svg
+                        className="h-[72px] w-[240px]"
+                        viewBox="0 0 240 72"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <defs>
+                          {/* Borde y placa dorada */}
+                          <linearGradient id="goldEdge" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#CBA24B" />
+                            <stop offset="50%" stopColor="#EAD489" />
+                            <stop offset="100%" stopColor="#B88324" />
+                          </linearGradient>
+                          <linearGradient id="goldFill" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#E0B95A" />
+                            <stop offset="60%" stopColor="#F2DB99" />
+                            <stop offset="100%" stopColor="#D3A23F" />
+                          </linearGradient>
+                          {/* Interior midnight */}
+                          <linearGradient id="midnight" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#171A32" />
+                            <stop offset="100%" stopColor="#0E1226" />
+                          </linearGradient>
+                          {/* Brillo superior del medallón */}
+                          <linearGradient id="softShine" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.35" />
+                            <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+                          </linearGradient>
+                        </defs>
+                  
+                        {/* Medallón */}
+                        <circle cx="120" cy="36" r="30" fill="url(#midnight)" stroke="url(#goldEdge)" strokeWidth="2" />
+                        {/* Anillo interior sutil */}
+                        <circle cx="120" cy="36" r="26" fill="none" stroke="rgba(255,255,255,.18)" strokeWidth="1" />
+                        {/* Brillo superior */}
+                        <path d="M94 22 A26 16 0 0 1 146 22 L146 22 L94 22 Z" fill="url(#softShine)" />
+                  
+                        {/* Estrella pequeña arriba (detallito premium) */}
+                        <path
+                          d="M120 16 l2.8 5.6 6.2.9-4.5 4.3 1.1 6.1-5.6-2.9-5.6 2.9 1.1-6.1-4.5-4.3 6.2-.9z"
+                          fill="url(#goldEdge)"
+                          opacity=".9"
+                        />
+
+                        {/* Placa dorada con muescas (sobre el medallón) */}
+                        <path
+                          d="M64 28 H176 L184 36 L176 44 H64 L56 36 L64 28 Z"
+                          fill="url(#goldFill)"
+                          stroke="url(#goldEdge)"
+                          strokeWidth="1"
+                        />
+                        {/* Brillo de la placa */}
+                        <path d="M64 28 H176 L184 36 H56 L64 28 Z" fill="url(#softShine)" opacity=".6" />
+                  
+                        {/* Texto */}
+                        <text
+                          x="120"
+                          y="39"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="12"
+                          fontWeight="800"
+                          letterSpacing=".20em"
+                          fill="#2E2506"
+                          style={{ textTransform: "uppercase" }}
+                        >
+                          mas vendido
+                        </text>
+                      </svg>
+                    </div>
+                  )}
+
+
+
+
+
+
+
+                  {/* Medallón — oculto en plan básico */}
+                  {!esBasico && (
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 h-16 w-16 rounded-2xl ring-2 ring-white shadow-lg overflow-hidden">
+                      <div className="h-full w-full" style={{ backgroundColor: "#171931" }} />
+                    </div>
+                  )}
+
 
                   {/* Contenido */}
                   <div className="px-6 pt-12 pb-6 md:px-7 md:pt-14 md:pb-7">
@@ -237,7 +321,7 @@ const PlanesView = () => {
                         </span>
                       ) : <span />}
 
-                      {/* ✅ NUEVO: badge cuando es el plan actual */}
+                      {/* NUEVO: badge cuando es el plan actual */}
                       {isCurrent && (
                         <span className="rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-semibold px-3 py-1 border border-indigo-200">
                           Tu plan actual
@@ -297,10 +381,10 @@ const PlanesView = () => {
                     <div className="mt-6">
                       <button
                         onClick={() => {
-                          if (isCurrent) return;            // ✅ no permitir seleccionar el actual
+                          if (isCurrent) return;            // no permitir seleccionar el actual
                           setPlanSeleccionado(plan.id_plan);
                         }}
-                        disabled={isSelected || isCurrent}   // ✅ deshabilitado si es actual
+                        disabled={isSelected || isCurrent}   // deshabilitado si es actual
                         className={`
                           w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
                           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
@@ -312,7 +396,7 @@ const PlanesView = () => {
                         `}
                       >
                         {isCurrent
-                          ? "Tienes este plan actualmente"   // ✅ texto solicitado
+                          ? "Tienes este plan actualmente"
                           : isSelected
                             ? "Seleccionado"
                             : "Seleccionar"}

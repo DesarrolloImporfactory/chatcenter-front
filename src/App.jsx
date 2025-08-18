@@ -21,6 +21,9 @@ import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlanti
 import Conexiones from "./pages/conexiones/Conexiones";
 import Calendario from "./pages/calendario/Calendario";
 
+// Layout planes
+import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
+
 function App() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
@@ -78,7 +81,14 @@ function App() {
           />
 
           {/* PlanesView */}
-          <Route path="/planes_view" element={<PlanesView />} />
+          <Route
+            path="/planes_view"
+            element={
+              <MainLayoutPlanes>
+                <PlanesView />
+              </MainLayoutPlanes>
+            }
+          />
           {/* Miplan */}
           <Route path="/miplan" element={
             <MainLayout>
