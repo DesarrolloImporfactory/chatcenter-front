@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { set, useForm } from "react-hook-form";
 import { addNumberThunk } from "../../store/slices/number.slice";
+import { useNavigate } from "react-router-dom";
 
 import { useDispatch } from "react-redux";
 import EmojiPicker from "emoji-picker-react";
@@ -41,6 +42,7 @@ const Chat = () => {
     }
   };
 
+  const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const [provincias, setProvincias] = useState(null);
@@ -152,29 +154,97 @@ const Chat = () => {
     const idp = localStorage.getItem("id_plataforma_conf");
     const idc = localStorage.getItem("id_configuracion");
 
+    if (!idc) {
+      localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("id_plataforma_conf");
+      navigate("/conexiones");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      const decoded = jwtDecode(token);
+      const usuario = decoded.id_usuario;
+
+      const validar_conexion_usuario = async (id_usuario, id_configuracion) => {
+        try {
+          const res = await chatApi.post(
+            "configuraciones/validar_conexion_usuario",
+            {
+              id_usuario,
+              id_configuracion,
+            }
+          );
+
+          if (res.status === 200) {
+            const coincidencia = res.data.coincidencia;
+
+            if (!coincidencia) {
+              await Swal.fire({
+                icon: "error",
+                title: "Sin permisos a la configuración",
+                text: "Esta configuración no pertenece a tu usuario",
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: true,
+                confirmButtonText: "OK",
+              });
+
+              localStorage.removeItem("id_configuracion");
+              localStorage.removeItem("id_plataforma_conf");
+              navigate("/conexiones");
+            }
+          } else {
+            console.error("Error al validar conexión:", res.data);
+          }
+        } catch (error) {
+          console.error("Error en la validación:", error);
+          await Swal.fire({
+            icon: "error",
+            title: "Sin permisos a la configuración",
+            text: "Esta configuración no pertenece a tu usuario",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            allowEnterKey: true,
+            confirmButtonText: "OK",
+          });
+
+          localStorage.removeItem("id_configuracion");
+          localStorage.removeItem("id_plataforma_conf");
+          navigate("/conexiones");
+        }
+      };
+
+      validar_conexion_usuario(usuario, idc);
+    } else {
+      localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("id_plataforma_conf");
+      navigate("/conexiones");
+      return;
+    }
+
     if (ph) setPendingOpen({ phone: ph, name: nm });
     if (idc) setId_configuracion(parseInt(idc));
 
-    // Aquí ajustamos el valor de id_plataforma_conf
     if (idp === "null") {
       setId_plataforma_conf(null);
     } else {
       setId_plataforma_conf(idp ? parseInt(idp) : null);
     }
 
-    // Solo hacer la solicitud fetch cuando id_plataforma_conf está disponible
     if (idp && idp !== "null") {
       const fetchData = async () => {
         try {
           const res = await chatApi.post(
             "plataformas/obtener_usuario_plataforma",
-            { id_plataforma: idp }
+            {
+              id_plataforma: idp,
+            }
           );
 
           if (res.status === 200) {
-            const data = res.data;
-
-            setId_usuario_conf(data.data.id_usuario);
+            setId_usuario_conf(res.data.data.id_usuario);
           } else {
             console.error(
               "Error al obtener el usuario de la plataforma:",

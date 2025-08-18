@@ -28,6 +28,76 @@ function MainLayout({ children }) {
     const idp = localStorage.getItem("id_plataforma_conf");
     const idc = localStorage.getItem("id_configuracion");
 
+    if (!idc) {
+      localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("id_plataforma_conf");
+      navigate("/conexiones");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      const decoded = jwtDecode(token);
+      const usuario = decoded.id_usuario;
+
+      const validar_conexion_usuario = async (id_usuario, id_configuracion) => {
+        try {
+          const res = await chatApi.post(
+            "configuraciones/validar_conexion_usuario",
+            {
+              id_usuario,
+              id_configuracion,
+            }
+          );
+
+          if (res.status === 200) {
+            const coincidencia = res.data.coincidencia;
+
+            if (!coincidencia) {
+              await Swal.fire({
+                icon: "error",
+                title: "Sin permisos a la configuración",
+                text: "Esta configuración no pertenece a tu usuario",
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: true,
+                confirmButtonText: "OK",
+              });
+
+              localStorage.removeItem("id_configuracion");
+              localStorage.removeItem("id_plataforma_conf");
+              navigate("/conexiones");
+            }
+          } else {
+            console.error("Error al validar conexión:", res.data);
+          }
+        } catch (error) {
+          console.error("Error en la validación:", error);
+          await Swal.fire({
+            icon: "error",
+            title: "Sin permisos a la configuración",
+            text: "Esta configuración no pertenece a tu usuario",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            allowEnterKey: true,
+            confirmButtonText: "OK",
+          });
+
+          localStorage.removeItem("id_configuracion");
+          localStorage.removeItem("id_plataforma_conf");
+          navigate("/conexiones");
+        }
+      };
+
+      validar_conexion_usuario(usuario, idc);
+    } else {
+      localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("id_plataforma_conf");
+      navigate("/conexiones");
+      return;
+    }
+
     if (idc) setId_configuracion(parseInt(idc));
 
     // Validación para el valor 'null' en id_plataforma_conf

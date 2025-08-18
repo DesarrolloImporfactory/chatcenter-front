@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 const currency = new Intl.NumberFormat("es-EC", {
   style: "currency",
@@ -42,15 +43,22 @@ const ProductosView = () => {
 
   const dropRef = useRef(null);
 
+  const navigate = useNavigate();
+
   const fetchData = async () => {
     const idc = localStorage.getItem("id_configuracion");
     if (!idc) {
       setLoading(false);
-      return Swal.fire({
+      Swal.fire({
         icon: "error",
         title: "Falta configuración",
         text: "No se encontró el ID de configuración",
       });
+
+      localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("id_plataforma_conf");
+      navigate("/conexiones");
+      return;
     }
 
     try {
@@ -95,7 +103,9 @@ const ProductosView = () => {
   );
 
   const normalizaTipo = (t) => {
-    const s = String(t || "").toLowerCase().trim();
+    const s = String(t || "")
+      .toLowerCase()
+      .trim();
     if (!s) return "";
     if (s.startsWith("ser")) return "servicio";
     return "producto";
@@ -103,7 +113,9 @@ const ProductosView = () => {
 
   const handleSort = (key) => {
     setSort((prev) =>
-      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" }
     );
   };
 
@@ -121,7 +133,9 @@ const ProductosView = () => {
     }
 
     if (filtroCategoria) {
-      data = data.filter((p) => String(p.id_categoria) === String(filtroCategoria));
+      data = data.filter(
+        (p) => String(p.id_categoria) === String(filtroCategoria)
+      );
     }
 
     if (filtroTipo) {
@@ -147,7 +161,10 @@ const ProductosView = () => {
     return data;
   }, [productos, search, filtroCategoria, filtroTipo, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(listaProcesada.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(listaProcesada.length / itemsPerPage)
+  );
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return listaProcesada.slice(start, start + itemsPerPage);
@@ -173,7 +190,9 @@ const ProductosView = () => {
         ? "/productos/actualizarProducto"
         : "/productos/agregarProducto";
 
-      await chatApi.post(url, data, { headers: { "Content-Type": "multipart/form-data" } });
+      await chatApi.post(url, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       Swal.fire({
         icon: "success",
@@ -272,7 +291,11 @@ const ProductosView = () => {
   const onFilePicked = (file) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      return Swal.fire({ icon: "error", title: "Archivo no válido", text: "Debe ser una imagen." });
+      return Swal.fire({
+        icon: "error",
+        title: "Archivo no válido",
+        text: "Debe ser una imagen.",
+      });
     }
     setForm((prev) => ({ ...prev, imagen: file }));
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -302,13 +325,23 @@ const ProductosView = () => {
       onClick={() => handleSort(k)}
       className={`p-3 select-none cursor-pointer text-${align} font-semibold`}
       title="Ordenar"
-      aria-sort={sort.key === k ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+      aria-sort={
+        sort.key === k
+          ? sort.dir === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
     >
       <span className="inline-flex items-center gap-1">
         {children}
         <svg
-          className={`h-3 w-3 transition ${sort.key === k ? "opacity-100" : "opacity-30"}`}
-          viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
+          className={`h-3 w-3 transition ${
+            sort.key === k ? "opacity-100" : "opacity-30"
+          }`}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
         >
           {sort.key === k && sort.dir === "desc" ? (
             <path d="M14 12l-4 4-4-4h8z" />
@@ -322,7 +355,9 @@ const ProductosView = () => {
 
   const HeaderStat = ({ label, value }) => (
     <div className="px-4 py-3 rounded-xl bg-white/30 backdrop-blur ring-1 ring-white/50 shadow-sm">
-      <div className="text-xs uppercase tracking-wide text-white/80">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-white/80">
+        {label}
+      </div>
       <div className="text-lg font-semibold text-white">{value}</div>
     </div>
   );
@@ -336,16 +371,25 @@ const ProductosView = () => {
           <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
             <div className="flex items-start sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Productos</h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                  Productos
+                </h1>
                 <p className="text-white/80 text-sm">
-                  Administra tu catálogo con una experiencia más fluida y elegante.
+                  Administra tu catálogo con una experiencia más fluida y
+                  elegante.
                 </p>
               </div>
               <button
                 onClick={() => openModal()}
                 className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"/></svg>
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
+                </svg>
                 Agregar
               </button>
             </div>
@@ -355,7 +399,10 @@ const ProductosView = () => {
               <HeaderStat label="Total productos" value={productos.length} />
               <HeaderStat label="Categorías" value={categorias.length} />
               <HeaderStat label="En esta vista" value={listaProcesada.length} />
-              <HeaderStat label="Página" value={`${currentPage}/${totalPages}`} />
+              <HeaderStat
+                label="Página"
+                value={`${currentPage}/${totalPages}`}
+              />
             </div>
           </div>
         </header>
@@ -365,7 +412,11 @@ const ProductosView = () => {
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <div className="relative w-full lg:w-1/2">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
                   <path d="M12.9 14.32a8 8 0 1 1 1.41-1.41l3.39 3.38a1 1 0 0 1-1.42 1.42l-3.38-3.39zM14 8a6 6 0 1 0-12 0 6 6 0 0 0 12 0z" />
                 </svg>
               </span>
@@ -373,7 +424,10 @@ const ProductosView = () => {
                 type="text"
                 placeholder="Buscar por nombre o descripción…"
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
               />
             </div>
@@ -386,7 +440,9 @@ const ProductosView = () => {
               >
                 <option value="">Todas las categorías</option>
                 {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
                 ))}
               </select>
 
@@ -414,19 +470,33 @@ const ProductosView = () => {
           ) : listaProcesada.length === 0 ? (
             <div className="flex-1 p-10 text-center flex flex-col items-center justify-center gap-4">
               <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg className="w-10 h-10 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="w-10 h-10 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M21 19l-5.6-5.6a7 7 0 1 0-2 2L19 21l2-2zM5 10a5 5 0 1 1 10 0A5 5 0 0 1 5 10z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-800">Sin resultados</h3>
-                <p className="text-slate-500">Ajusta los filtros o agrega tu primer producto.</p>
+                <h3 className="text-lg font-semibold text-slate-800">
+                  Sin resultados
+                </h3>
+                <p className="text-slate-500">
+                  Ajusta los filtros o agrega tu primer producto.
+                </p>
               </div>
               <button
                 onClick={() => openModal()}
                 className="inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"/></svg>
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
+                </svg>
                 Agregar producto
               </button>
             </div>
@@ -436,13 +506,21 @@ const ProductosView = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 sticky top-0 z-10">
                     <tr className="text-slate-600">
-                      <SortHeader k="id" align="left">ID</SortHeader>
-                      <SortHeader k="nombre" align="left">Producto</SortHeader>
-                      <SortHeader k="precio" align="right">Precio</SortHeader>
+                      <SortHeader k="id" align="left">
+                        ID
+                      </SortHeader>
+                      <SortHeader k="nombre" align="left">
+                        Producto
+                      </SortHeader>
+                      <SortHeader k="precio" align="right">
+                        Precio
+                      </SortHeader>
                       <th className="p-3 text-left font-semibold">Tipo</th>
                       <th className="p-3 text-left font-semibold">Categoría</th>
                       <th className="p-3 text-center font-semibold">Imagen</th>
-                      <th className="p-3 text-center font-semibold">Acciones</th>
+                      <th className="p-3 text-center font-semibold">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -462,13 +540,19 @@ const ProductosView = () => {
                                   crossOrigin="anonymous"
                                 />
                               ) : (
-                                <svg className="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+                                <svg
+                                  className="w-5 h-5 text-slate-400"
+                                  viewBox="0 0 24 24"
+                                  fill="currentColor"
+                                >
                                   <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6zm3 10h10l-3.5-4.5-2.5 3L9 12l-2 4z" />
                                 </svg>
                               )}
                             </div>
                             <div>
-                              <div className="font-medium text-slate-800">{p.nombre}</div>
+                              <div className="font-medium text-slate-800">
+                                {p.nombre}
+                              </div>
                               {p.descripcion && (
                                 <div className="text-slate-500 line-clamp-1 max-w-[420px]">
                                   {p.descripcion}
@@ -483,8 +567,14 @@ const ProductosView = () => {
                         </td>
 
                         <td className="p-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${badgeClase(p.tipo)}`}>
-                            {normalizaTipo(p.tipo) === "servicio" ? "Servicio" : "Producto"}
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-semibold ${badgeClase(
+                              p.tipo
+                            )}`}
+                          >
+                            {normalizaTipo(p.tipo) === "servicio"
+                              ? "Servicio"
+                              : "Producto"}
                           </span>
                         </td>
 
@@ -498,7 +588,12 @@ const ProductosView = () => {
                               src={p.imagen_url}
                               alt=""
                               className="h-12 w-12 object-cover rounded-md cursor-zoom-in ring-1 ring-slate-200 hover:opacity-90 mx-auto"
-                              onClick={() => setModalImagen({ abierta: true, url: p.imagen_url })}
+                              onClick={() =>
+                                setModalImagen({
+                                  abierta: true,
+                                  url: p.imagen_url,
+                                })
+                              }
                             />
                           ) : (
                             <span className="text-slate-300">—</span>
@@ -512,7 +607,13 @@ const ProductosView = () => {
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700"
                               title="Editar"
                             >
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>
+                              <svg
+                                className="w-4 h-4"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
+                              </svg>
                               Editar
                             </button>
                             <button
@@ -520,7 +621,13 @@ const ProductosView = () => {
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
                               title="Eliminar"
                             >
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3a1 1 0 0 0-1 1v1H4a1 1 0 1 0 0 2h1v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7h1a1 1 0 1 0 0-2h-4V4a1 1 0 0 0-1-1H9zm2 4a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7zm6 0a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7z"/></svg>
+                              <svg
+                                className="w-4 h-4"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M9 3a1 1 0 0 0-1 1v1H4a1 1 0 1 0 0 2h1v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7h1a1 1 0 1 0 0-2h-4V4a1 1 0 0 0-1-1H9zm2 4a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7zm6 0a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7z" />
+                              </svg>
                               Eliminar
                             </button>
                           </div>
@@ -536,14 +643,22 @@ const ProductosView = () => {
                 <div className="text-sm text-slate-600">
                   Mostrando{" "}
                   <span className="font-semibold text-slate-800">
-                    {Math.min((currentPage - 1) * itemsPerPage + 1, listaProcesada.length)}
+                    {Math.min(
+                      (currentPage - 1) * itemsPerPage + 1,
+                      listaProcesada.length
+                    )}
                   </span>{" "}
                   –{" "}
                   <span className="font-semibold text-slate-800">
-                    {Math.min(currentPage * itemsPerPage, listaProcesada.length)}
+                    {Math.min(
+                      currentPage * itemsPerPage,
+                      listaProcesada.length
+                    )}
                   </span>{" "}
                   de{" "}
-                  <span className="font-semibold text-slate-800">{listaProcesada.length}</span>
+                  <span className="font-semibold text-slate-800">
+                    {listaProcesada.length}
+                  </span>
                 </div>
                 <div className="inline-flex items-center gap-2">
                   <button
@@ -563,11 +678,14 @@ const ProductosView = () => {
                     ‹
                   </button>
                   <span className="text-sm px-2">
-                    Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                    Página <strong>{currentPage}</strong> de{" "}
+                    <strong>{totalPages}</strong>
                   </span>
                   <button
                     className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
                     disabled={currentPage === totalPages}
                     aria-label="Siguiente"
                   >
@@ -594,7 +712,9 @@ const ProductosView = () => {
         className="fixed bottom-5 right-5 md:hidden inline-flex items-center justify-center h-12 w-12 rounded-full shadow-lg bg-indigo-600 text-white hover:bg-indigo-700"
         aria-label="Agregar producto"
       >
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"/></svg>
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
+        </svg>
       </button>
 
       {/* MODAL agregar/editar */}
@@ -613,42 +733,63 @@ const ProductosView = () => {
                 className="p-2 rounded-lg hover:bg-slate-100"
                 aria-label="Cerrar"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z"/></svg>
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z" />
+                </svg>
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form
+              onSubmit={handleSubmit}
+              className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6"
+            >
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Nombre
+                  </label>
                   <input
                     required
                     placeholder="Ej. Plan Premium"
                     className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                     value={form.nombre}
-                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, nombre: e.target.value })
+                    }
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Descripción
+                  </label>
                   <textarea
                     placeholder="Detalle del producto o servicio"
                     rows={4}
                     className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none resize-y"
                     value={form.descripcion}
-                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, descripcion: e.target.value })
+                    }
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Tipo
+                    </label>
                     <select
                       required
                       className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                       value={form.tipo}
-                      onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, tipo: e.target.value })
+                      }
                     >
                       <option value="">Seleccione tipo</option>
                       <option value="producto">Producto</option>
@@ -657,9 +798,13 @@ const ProductosView = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Precio</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Precio
+                    </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none">
+                        $
+                      </span>
                       <input
                         required
                         type="number"
@@ -668,19 +813,25 @@ const ProductosView = () => {
                         placeholder="0.00"
                         className="w-full pl-7 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                         value={form.precio}
-                        onChange={(e) => setForm({ ...form, precio: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, precio: e.target.value })
+                        }
                       />
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Categoría
+                  </label>
                   <select
                     required
                     className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                     value={form.id_categoria}
-                    onChange={(e) => setForm({ ...form, id_categoria: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, id_categoria: e.target.value })
+                    }
                   >
                     <option value="">Seleccione categoría</option>
                     {categorias.map((c) => (
@@ -694,7 +845,9 @@ const ProductosView = () => {
 
               {/* Dropzone / preview */}
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-slate-700">Imagen</label>
+                <label className="block text-sm font-medium text-slate-700">
+                  Imagen
+                </label>
 
                 <div
                   ref={dropRef}
@@ -705,7 +858,11 @@ const ProductosView = () => {
                 >
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-slate-500" viewBox="0 0 24 24" fill="currentColor">
+                      <svg
+                        className="w-6 h-6 text-slate-500"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
                         <path d="M19 15v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l5 5h-3v6h-4V8H7l5-5z" />
                       </svg>
                     </div>
@@ -721,7 +878,9 @@ const ProductosView = () => {
                         />
                       </label>
                     </p>
-                    <p className="text-xs text-slate-400">PNG, JPG, WEBP (máx. ~5MB)</p>
+                    <p className="text-xs text-slate-400">
+                      PNG, JPG, WEBP (máx. ~5MB)
+                    </p>
                   </div>
                 </div>
 
@@ -735,7 +894,8 @@ const ProductosView = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+                        if (previewUrl?.startsWith("blob:"))
+                          URL.revokeObjectURL(previewUrl);
                         setPreviewUrl(null);
                         setForm((prev) => ({ ...prev, imagen: null }));
                       }}
@@ -778,7 +938,9 @@ const ProductosView = () => {
         <div
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
           onClick={() => setModalImagen({ abierta: false, url: "" })}
-          onKeyDown={(e) => e.key === "Escape" && setModalImagen({ abierta: false, url: "" })}
+          onKeyDown={(e) =>
+            e.key === "Escape" && setModalImagen({ abierta: false, url: "" })
+          }
         >
           <img
             src={modalImagen.url}
