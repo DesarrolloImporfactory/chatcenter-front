@@ -318,13 +318,67 @@ const UsuariosView = () => {
     setCurrentPage(1);
   }, [search, rolFiltro]);
 
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const addon = qs.get("addon");
+    if (addon === "ok") {
+      Swal.fire({
+        icon: "success",
+        title: "Pago exitoso",
+        text: "Se añadió 1 conexión adicional a tu cuenta.",
+      });
+      fetchUsuarios(); // refresca la lista
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (addon === "cancel") {
+      Swal.fire({
+        icon: "info",
+        title: "Pago cancelado",
+        text: "No se realizó ningún cargo.",
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+
   const onUpgradeClick = () => {
-    window.location.href = "/planes"; // Redirige a la página de planes
+    window.location.href = "/planes_view"; // Redirige a la página de planes
   };
 
-  const onBuyAddonClick = () => {
-    window.location.href = "/planes?addon=conexion"; // Redirige a la página de compra de conexión adicional
+  // Crea la sesión de Stripe (usa el price fijo en el backend)
+  const onBuyAddonClick = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        return Swal.fire({
+          icon: "error",
+          title: "Token faltante",
+          text: "No se encontró token",
+        });
+      }
+      const decoded = jwtDecode(token);
+      const id_usuario = decoded.id_usuario;
+
+      const base = window.location.origin;
+      const res = await chatApi.post("/stripe_plan/crearSesionAddonConexion", {
+        id_usuario,
+        success_url: `${base}/usuarios?addon=ok`,
+        cancel_url: `${base}/usuarios?addon=cancel`,
+      });
+
+      if (res?.data?.url) {
+        window.location.href = res.data.url; // Stripe Checkout
+      } else {
+        throw new Error("No se recibió la URL de Stripe.");
+      }
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo iniciar el pago",
+        text: e?.response?.data?.message || e.message || "Intente nuevamente.",
+      });
+    }
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pt-24 px-3 md:px-6">

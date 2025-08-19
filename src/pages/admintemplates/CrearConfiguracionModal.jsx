@@ -74,12 +74,45 @@ const CrearConfiguracionModal = ({
 
   // Acciones de los CTA en la vista 405 (ajuste aquí su navegación/checkout)
   const onUpgradeClick = () => {
-    window.location.href = "/planes";
+    window.location.href = "/planes_view";
   };
-  const onBuyAddonClick = () => {
-    window.location.href = "/planes?addon=conexion";
+  // Crea la sesión de Stripe (usa el price fijo en el backend)
+  const onBuyAddonClick = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        return Swal.fire({
+          icon: "error",
+          title: "Token faltante",
+          text: "No se encontró token",
+        });
+      }
+      const decoded = jwtDecode(token);
+      const id_usuario = decoded.id_usuario;
+
+      const base = window.location.origin;
+      const res = await chatApi.post("/stripe_plan/crearSesionAddonConexion", {
+        id_usuario,
+        success_url: `${base}/usuarios?addon=ok`,
+        cancel_url: `${base}/usuarios?addon=cancel`,
+      });
+
+      if (res?.data?.url) {
+        window.location.href = res.data.url; // Stripe Checkout
+      } else {
+        throw new Error("No se recibió la URL de Stripe.");
+      }
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo iniciar el pago",
+        text: e?.response?.data?.message || e.message || "Intente nuevamente.",
+      });
+    }
   };
 
+
+  
   const handleAgregarConfiguracion = async () => {
     if (!nombreConfiguracion || !telefono) {
       setStatusMessage({
@@ -248,60 +281,130 @@ const CrearConfiguracionModal = ({
                 initial="hidden"
                 animate="visible"
                 exit="exit"
-                className="space-y-4"
+                className="space-y-6"
               >
+                {/* Aviso de límite */}
                 {limitMessage && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
+                  <div className="rounded-xl border border-amber-300/70 bg-amber-50/90 text-amber-900 px-4 py-3 text-sm font-medium">
                     {limitMessage}
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Card: Actualizar plan */}
-                  <motion.div
-                    variants={cardVariants}
-                    className="group rounded-2xl border border-[#171931] p-6 shadow-xl hover:shadow-2xl transition-all duration-300 bg-gradient-to-r from-[#171931] to-[#0061f2] text-white"
-                    whileHover={{ y: -5 }}
+                {/* Opciones premium (sin sombras) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                  {/* Card: Actualizar plan (morado) */}
+                  <div
                     onClick={onUpgradeClick}
+                    className="
+                      group relative cursor-pointer rounded-2xl
+                      border border-slate-200 bg-white p-6
+                      overflow-hidden
+                      transition-colors duration-200
+                      hover:border-[#6d28d9] focus-within:border-[#6d28d9]
+                    "
                   >
+                    {/* Marcador lateral (inset 1px, sin desbordes) */}
+                    <span
+                      aria-hidden
+                      className="
+                        pointer-events-none absolute top-[1px] bottom-[1px] left-[1px]
+                        w-[6px] rounded-l-2xl
+                        bg-gradient-to-b from-[#8b5cf6] to-[#6d28d9]
+                      "
+                    />
+
                     <div className="flex items-start justify-between">
-                      <h3 className="text-2xl font-semibold">
-                        Actualizar plan
-                      </h3>
-                      <span className="inline-flex items-center rounded-full text-xs px-3 py-1 border border-white bg-white text-[#171931] font-medium">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#f5f3ff] text-[#6d28d9]">
+                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M5 12h2.5v5H5v-5Zm5-4h2.5v9H10V8Zm5 2h2.5v7H15v-7ZM4 20h16v2H4zM21 3l-4.5 4.5-2-2L9 11l-1.5-1.5L3 14V12l4.5-4.5L9 9l5.5-5.5 2 2L21 1v2z"/></svg>
+                        </span>
+                        <h3 className="text-xl font-semibold tracking-tight text-[#171931]">Actualizar plan</h3>
+                      </div>
+                      <span className="inline-flex items-center rounded-full border border-[#6d28d9]/40 bg-[#f5f3ff] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9]">
                         Recomendado
                       </span>
                     </div>
-                    <p className="mt-4 text-sm leading-6">
-                      Desbloquee más conexiones y funcionalidades al elevar su
-                      plan actual. Ideal si su equipo crece o necesita gestionar
-                      más números.
-                    </p>
-                  </motion.div>
 
-                  {/* Card: Conexión adicional */}
-                  <motion.div
-                    variants={cardVariants}
-                    className="group rounded-2xl border border-[#171931] p-6 shadow-xl hover:shadow-2xl transition-all duration-300 bg-gradient-to-r from-[#171931] to-[#ff8c00] text-white"
-                    whileHover={{ y: -5 }}
+                    <p className="mt-4 text-sm leading-6 text-slate-600">
+                      Desbloquee más conexiones y funcionalidades elevando su plan actual.
+                      Ideal para equipos en crecimiento o para gestionar múltiples números.
+                    </p>
+
+                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
+                      Ver planes disponibles
+                      <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Card: Comprar conexión adicional (azul) */}
+                  <div
                     onClick={onBuyAddonClick}
+                    className="
+                      group relative cursor-pointer rounded-2xl
+                      border border-slate-200 bg-white p-6
+                      overflow-hidden
+                      transition-colors duration-200
+                      hover:border-[#1d4ed8] focus-within:border-[#1d4ed8]
+                    "
                   >
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-2xl font-semibold">
-                        Comprar conexión adicional
-                      </h3>
-                      <div className="text-center">
-                        <p className="text-3xl font-bold">$10</p>
-                        <p className="text-xs">
-                          Adquiera una conexión extra por
-                        </p>
+                    {/* Marcador lateral (inset 1px, sin desbordes) */}
+                    <span
+                      aria-hidden
+                      className="
+                        pointer-events-none absolute top-[1px] bottom-[1px] left-[1px]
+                        w-[6px] rounded-l-2xl
+                        bg-gradient-to-b from-[#93c5fd] to-[#1d4ed8]
+                      "
+                    />
+
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#eff6ff] text-[#1d4ed8]">
+                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M10 13a5 5 0 010-7.07l2.83-2.83a5 5 0 117.07 7.07l-1.41 1.41-1.41-1.41 1.41-1.41a3 3 0 10-4.24-4.24L11.41 6.3A3 3 0 1015 9h2a5 5 0 11-8.54 3.54L10 13z"/></svg>
+                        </span>
+                        <h3 className="text-xl font-semibold tracking-tight text-[#171931]">Comprar conexión adicional</h3>
+                      </div>
+                      <div className="text-right leading-none">
+                        <p className="text-3xl font-extrabold text-[#171931]">$10</p>
+                        <p className="text-[11px] text-slate-500">por conexión</p>
                       </div>
                     </div>
-                    <p className="mt-4 text-sm leading-6">
-                      Esta conexión permanecerá asociada permanentemente a su
-                      cuenta, sin importar el plan que tenga contratado.
+
+                    <p className="mt-4 text-sm leading-6 text-slate-600">
+                      Añada una conexión extra asociada a su cuenta, útil para picos de demanda
+                      o campañas específicas.
                     </p>
-                  </motion.div>
+
+                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
+                      Continuar con la compra
+                      <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+
+
+
+
+
+
+
+                {/* Disclaimer empresarial */}
+                <div className="mt-1 border-t border-slate-200 pt-4">
+                  <div className="flex items-start gap-3 text-[12px] text-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mt-[2px] text-slate-500" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2a10 10 0 100 20 10 10 0 000-20Zm1 15h-2v-6h2v6Zm-2-8V7h2v2h-2Z"/>
+                    </svg>
+                    <p>
+                      <span className="font-semibold text-[#171931]">Aviso:</span> las conexiones adicionales
+                      <span className="font-semibold"> solo permanecerán activas</span> mientras exista
+                      un <span className="font-semibold">plan activo</span> en la cuenta.
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             ) : step === 1 ? (
@@ -325,7 +428,7 @@ const CrearConfiguracionModal = ({
                     onChange={(e) => setNombreConfiguracion(e.target.value)}
                   />
                 </div>
-
+            
                 <div className="mb-6">
                   <label className="block text-gray-900 text-sm font-medium mb-2 tracking-wide">
                     Teléfono
@@ -373,7 +476,7 @@ const CrearConfiguracionModal = ({
                     onChange={(e) => setIdWhatsapp(e.target.value)}
                   />
                 </div>
-
+            
                 <div className="mb-6">
                   <label className="block text-gray-900 text-sm font-medium mb-2 tracking-wide">
                     ID WhatsApp Business
@@ -386,7 +489,7 @@ const CrearConfiguracionModal = ({
                     onChange={(e) => setIdBusinessAccount(e.target.value)}
                   />
                 </div>
-
+            
                 <div className="mb-6">
                   <label className="block text-gray-900 text-sm font-medium mb-2 tracking-wide">
                     Token API
@@ -403,6 +506,9 @@ const CrearConfiguracionModal = ({
             )}
           </AnimatePresence>
         </div>
+
+
+
 
         <div className="flex justify-end bg-white p-6 border-t border-gray-100 space-x-3">
           <button
