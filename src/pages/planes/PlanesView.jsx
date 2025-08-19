@@ -119,51 +119,77 @@ const PlanesView = () => {
   }, []);
 
   const seleccionarPlan = async () => {
-    if (!planSeleccionado) return;
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
-      const baseUrl = window.location.origin;
+  if (!planSeleccionado) return;
+  setLoading(true);
 
+  try {
+    const token = localStorage.getItem("token");
+    const decoded = JSON.parse(atob(token.split(".")[1]));
+    const id_usuario = decoded.id_usuario || decoded.id_users;
+    const baseUrl = window.location.origin;
+
+    // ✅ Si el plan seleccionado es el Plan Free (id_plan === 1)
+    if (planSeleccionado === 1) {
       const res = await chatApi.post(
-        "stripe_plan/crearSesionPago",
+        "planes/seleccionarPlan",
         {
-          id_plan: planSeleccionado,
+          id_plan: 1,
           id_usuario,
-          success_url: `${baseUrl}/miplan?addpm=1`,
-          cancel_url: `${baseUrl}/planes_view`,
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
-      if (res.data.url) {
-        localStorage.setItem(
-          "plan_activado",
-          JSON.stringify({
-            id_plan: planSeleccionado,
-            nombre:
-              planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan || "",
-          })
-        );
-        window.location.href = res.data.url;
-      } else {
-        Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success").then(() => {
+      if (res.data.status === "success") {
+        Swal.fire("Listo", "Tu plan gratuito fue activado correctamente.", "success").then(() => {
           window.location.href = "/miplan";
         });
+      } else {
+        throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
       }
-    } catch (error) {
-      const msg =
-        error?.response?.data?.message ===
-        "Ya tienes un plan activo. No puedes crear una nueva sesión de pago hasta que expire."
-          ? "Ya tienes un plan activo. Espera que expire antes de seleccionar otro."
-          : (error?.response?.data?.message || "No se pudo redirigir al pago. Intenta nuevamente.");
-      Swal.fire({ icon: "error", title: "Error", text: msg });
-    } finally {
-      setLoading(false);
+
+      return; // detener aquí, no pasar a Stripe
     }
-  };
+
+    // 🟣 Planes de pago con Stripe
+    const res = await chatApi.post(
+      "stripe_plan/crearSesionPago",
+      {
+        id_plan: planSeleccionado,
+        id_usuario,
+        success_url: `${baseUrl}/miplan?addpm=1`,
+        cancel_url: `${baseUrl}/planes_view`,
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (res.data.url) {
+      localStorage.setItem(
+        "plan_activado",
+        JSON.stringify({
+          id_plan: planSeleccionado,
+          nombre: planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan || "",
+        })
+      );
+      window.location.href = res.data.url;
+    } else {
+      Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success").then(() => {
+        window.location.href = "/miplan";
+      });
+    }
+  } catch (error) {
+    const msg =
+      error?.response?.data?.message ||
+      "No se pudo procesar tu solicitud. Intenta nuevamente.";
+    Swal.fire({ icon: "error", title: "Error", text: msg });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // (opcional) utilidad de imágenes
   const getImagenPlan = (nombre = "") => {
