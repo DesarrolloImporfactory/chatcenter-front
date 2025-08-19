@@ -41,6 +41,16 @@ function toLocalOffsetISO(d) {
     d.getHours()
   )}:${pad(d.getMinutes())}:00${sign}${hh}:${mm}`;
 }
+
+function normalizeMeetingHref(u) {
+  const s = String(u || "").trim();
+  if (!s) return null;
+  if (/^(https?:|mailto:|tel:)/i.test(s)) return s;
+  if (/^www\./i.test(s)) return `https://${s}`;
+  if (/^[\w.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(s)) return `https://${s}`;
+  return s;
+}
+
 function gmtBadgeFromNow() {
   const off = -new Date().getTimezoneOffset();
   const sign = off >= 0 ? "+" : "-";
@@ -842,31 +852,45 @@ export default function Calendario() {
           icon: "success",
           title: "Cita creada",
           html: `
-                  <div class="text-left">
-          <div class="mb-2">Enlace de reunión:</div>
-          <div class="px-3 py-2 rounded border bg-gray-50 break-all" id="meet-url-box">${meetingUrl}</div>
-          <div class="mt-3 flex gap-2">
-            <a href="${meetingUrl}" target="_blank" rel="noopener" class="px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Abrir</a>
-            <button id="btn-copy-meet" class="px-3 py-2 rounded-md border hover:bg-gray-50">Copiar</button>
+      <div class="text-left">
+        <div class="mb-2 text-sm text-gray-600">Enlace de reunión</div>
+
+        <div class="flex items-stretch gap-2">
+          <div class="flex-1 px-3 py-2 rounded border bg-gray-50 break-all text-sm" id="meet-url-box">
+            ${meetingUrl}
           </div>
-        </div>`,
+          
+          <button id="btn-copy-meet"
+                  class="inline-flex items-center justify-center px-3 rounded-md border hover:bg-gray-50 text-sm">
+            Copiar
+          </button>
+        </div>
+
+        <div id="copy-feedback" class="mt-2 text-xs text-green-600 hidden">¡Copiado!</div>
+      </div>`,
           showConfirmButton: true,
           confirmButtonText: "Listo",
+          customClass: {
+            confirmButton:
+              "px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700",
+            popup: "swal2-responsive",
+          },
           didOpen: () => {
-            document
-              .getElementById("btn-copy-meet")
-              ?.addEventListener("click", async () => {
-                try {
-                  await navigator.clipboard.writeText(meetingUrl);
-                  Swal.showValidationMessage("");
-                  const btn = document.getElementById("btn-copy-meet");
-                  if (btn) {
-                    const old = btn.textContent;
-                    btn.textContent = "Copiado";
-                    setTimeout(() => (btn.textContent = old), 1200);
-                  }
-                } catch {}
-              });
+            const copyBtn = document.getElementById("btn-copy-meet");
+            const fb = document.getElementById("copy-feedback");
+            copyBtn?.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(meetingUrl);
+                if (fb) {
+                  fb.classList.remove("hidden");
+                  setTimeout(() => fb.classList.add("hidden"), 1200);
+                }
+                // feedback en el propio botón
+                const old = copyBtn.textContent;
+                copyBtn.textContent = "Copiado ✓";
+                setTimeout(() => (copyBtn.textContent = old), 1200);
+              } catch {}
+            });
           },
         });
       } else {
@@ -926,6 +950,7 @@ export default function Calendario() {
   const handleEventClick = async (clickInfo) => {
     const ev = clickInfo.event;
     const props = ev.extendedProps || {};
+
     const form = await openApptModal({
       mode: "edit",
       initial: {
@@ -946,18 +971,101 @@ export default function Calendario() {
     });
     if (!form) return;
 
+    const oldUrl = props.meeting_url || null;
+
+    // 1) Hacemos el PATCH y atrapamos SOLO errores de red/backend aquí.
+    let data;
     try {
-      await chatApi.patch(`/appointments/${ev.id}`, {
+      const resp = await chatApi.patch(`/appointments/${ev.id}`, {
         ...form,
         created_by_user_id: ownerUserId,
       });
-      Swal.fire("Guardado", "Cita actualizada.", "success");
+      data = resp?.data || {};
+    } catch (err) {
+      console.error("PATCH error:", err);
+      const msg = err?.response?.data?.message || "No se pudo actualizar.";
+      return Swal.fire("Error", msg, "error");
+    }
+
+    // 2) Lógica de UI (si algo falla aquí, NO digamos que falló el update)
+    try {
+      // extraer url nueva (cubre varias formas de respuesta)
+      const newUrl =
+        data?.appointment?.meeting_url ||
+        data?.meeting_url ||
+        data?.appointment?.extendedProps?.meeting_url ||
+        null;
+
+      // reflejar cambios en el evento actual
+      ev.setExtendedProp("meeting_url", newUrl || null);
+      if (form.status) ev.setExtendedProp("status", form.status);
+      if (form.assigned_user_id !== undefined) {
+        ev.setExtendedProp("assigned_user_id", form.assigned_user_id);
+      }
+
+      // refrescos
       api()?.refetchEvents();
       if (tab === "list") loadListRows();
-    } catch (err) {
-      console.error(err);
-      const msg = err?.response?.data?.message || "No se pudo actualizar.";
-      Swal.fire("Error", msg, "error");
+
+      // feedback:
+      // - si hay nuevo link (o cambió), usamos el modal estilizado como el de crear
+      // - si no, un "Guardado" simple
+      if (newUrl && newUrl !== oldUrl) {
+        const meetingUrl = normalizeMeetingHref(newUrl);
+        Swal.fire({
+          icon: "success",
+          title: "Cita actualizada",
+          html: `
+          <div class="text-left">
+            <div class="mb-2 text-sm text-gray-600">Enlace de reunión</div>
+
+            <div class="flex items-stretch gap-2">
+              <div class="flex-1 px-3 py-2 rounded border bg-gray-50 break-all text-sm" id="meet-url-box">
+                ${meetingUrl}
+              </div>
+              
+              <button id="btn-copy-meet"
+                class="inline-flex items-center justify-center px-3 rounded-md border hover:bg-gray-50 text-sm">
+                Copiar
+              </button>
+            </div>
+
+            <div id="copy-feedback" class="mt-2 text-xs text-green-600 hidden">¡Copiado!</div>
+          </div>`,
+          showConfirmButton: true,
+          confirmButtonText: "Listo",
+          customClass: {
+            confirmButton:
+              "px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700",
+            popup: "swal2-responsive",
+          },
+          didOpen: () => {
+            const copyBtn = document.getElementById("btn-copy-meet");
+            const fb = document.getElementById("copy-feedback");
+            copyBtn?.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(meetingUrl);
+                if (fb) {
+                  fb.classList.remove("hidden");
+                  setTimeout(() => fb.classList.add("hidden"), 1200);
+                }
+                const old = copyBtn.textContent;
+                copyBtn.textContent = "Copiado ✓";
+                setTimeout(() => (copyBtn.textContent = old), 1200);
+              } catch {}
+            });
+          },
+        });
+      } else {
+        Swal.fire("Guardado", "Cita actualizada.", "success");
+      }
+    } catch (uiErr) {
+      console.error("UI refresh error:", uiErr);
+      Swal.fire(
+        "Actualizado",
+        "La cita se actualizó, pero hubo un problema al refrescar la interfaz.",
+        "warning"
+      );
     }
   };
 
@@ -1397,30 +1505,33 @@ export default function Calendario() {
                       },
                     }}
                     eventDidMount={(info) => {
-                      if (!info.view.type.startsWith("list")) {
-                        const linkHref = (() => {
-                          const u = String(
-                            info.event.extendedProps.meeting_url || ""
-                          ).trim();
-                          if (!u) return null;
-                          if (/^(https?:|mailto:|tel:)/i.test(u)) return u; // ya absoluto
-                          if (/^www\./i.test(u)) return `https://${u}`; // www.*
-                          if (/^[\w.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(u))
-                            return `https://${u}`; // dominio.tld[/...]
-                          return u; // IDs/códigos internos
-                        })();
+                      // no insertamos nada en vistas tipo lista
+                      if (info.view.type.startsWith("list")) return;
 
-                        if (!linkHref) return;
+                      const href = normalizeMeetingHref(
+                        info.event.extendedProps.meeting_url
+                      );
+                      if (!href) return;
 
-                        const link = document.createElement("a");
-                        link.href = linkHref;
-                        link.target = "_blank";
-                        link.rel = "noopener noreferrer";
-                        link.className = "fc-meet-link";
-                        link.title = "Abrir reunión";
-                        link.textContent = "🔗";
-                        info.el.querySelector(".fc-event-title")?.prepend(link);
-                      }
+                      // evita duplicados si el evento se vuelve a renderizar
+                      const titleEl = info.el.querySelector(".fc-event-title");
+                      if (!titleEl) return;
+                      if (titleEl.querySelector(".fc-meet-link")) return;
+
+                      const link = document.createElement("a");
+                      link.href = href;
+                      link.target = "_blank";
+                      link.rel = "noopener noreferrer";
+                      link.className = "fc-meet-link";
+                      link.title = "Abrir reunión";
+                      link.textContent = "🔗";
+
+                      // 👇 clave para NO abrir el modal de editar:
+                      link.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                      });
+
+                      titleEl.prepend(link);
                     }}
                   />
                 </div>
@@ -1725,16 +1836,7 @@ export default function Calendario() {
                             : "—";
 
                         // Normaliza el link para que NO sea relativo (evita imporsuit.www...).
-                        const linkHref = (() => {
-                          const u = (r.meeting_url || "").trim();
-                          if (!u) return null;
-                          if (/^(https?:|mailto:|tel:)/i.test(u)) return u; // absoluto
-                          if (/^www\./i.test(u)) return `https://${u}`; // www.*
-                          if (/^[\w.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(u))
-                            // dominio.tld
-                            return `https://${u}`;
-                          return u; // dejar tal cual si es un código/ID
-                        })();
+                        const linkHref = normalizeMeetingHref(r.meeting_url);
 
                         return (
                           <tr key={r.id} className="hover:bg-gray-50">
