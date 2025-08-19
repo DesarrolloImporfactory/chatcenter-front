@@ -216,15 +216,90 @@ const PlanesView = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12 mt-10">
       <div className="w-full max-w-6xl">
-        {/* header */}
-        <div className="text-center mb-10 mt-10">
-          <h2 className="text-4xl font-extrabold text-[#2f2b45]">
-            Elige tu plan ideal y potencia tu empresa
-          </h2>
-          <p className="mt-3 text-sm text-[#5a547a]">
-            Planes claros, beneficios reales y un proceso de activación sencillo.
-          </p>
+        {/* HEADER limpio (sin franja) */}
+<div className="relative mb-10 mt-10">
+  <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">
+    Elige tu plan ideal y potencia tu empresa
+  </h2>
+  <p className="mt-3 text-sm text-center text-[#5a547a]">
+    Planes claros, beneficios reales y un proceso de activación sencillo.
+  </p>
+
+  {/* BOTÓN FLOTANTE PREMIUM (arriba derecha) */}
+  {currentPlanId && (
+    <div className="absolute -top-2 right-0">
+      <div className="relative inline-block group">
+        {/* borde metálico sutil SOLO alrededor del botón */}
+        <div className="inline-block p-[2px] rounded-full bg-gradient-to-r from-[#E9E4FF] via-[#CFC3FF] to-[#A792FF] shadow-lg shadow-purple-300/30">
+          <button
+            onClick={() => navigate("/miplan")}
+            aria-label="Ir a Mi Plan"
+            aria-describedby="tooltip-mi-plan"
+            className="
+              inline-flex items-center justify-center
+              h-11 w-11 rounded-full
+              bg-[#111321] backdrop-blur
+              ring-1 ring-white/10
+              transition-all duration-300
+              hover:scale-[1.05] hover:shadow-2xl hover:shadow-purple-400/40
+              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 focus:ring-offset-white
+            "
+          >
+            {/* brillo sutil superior */}
+            <span className="pointer-events-none absolute inset-x-1 top-0 h-1/3 rounded-t-full bg-white/10" />
+            {/* icono corona */}
+            <svg viewBox="0 0 24 24" className="h-5 w-5 text-white/90" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M5 19h14a1 1 0 0 0 1-1v-8.5l-3.4 2.55a1 1 0 0 1-1.41-.17L12 6.89l-3.19 5a1 1 0 0 1-1.41.29L4 9.5V18a1 1 0 0 0 1 1Zm-1 2a3 3 0 0 1-3-3V8a1 1 0 0 1 1.58-.81l3.68 2.76 3.07-4.81a1 1 0 0 1 1.7 0l3.08 4.8 3.67-2.75A1 1 0 0 1 23 8v10a3 3 0 0 1-3 3H4Z"
+              />
+            </svg>
+          </button>
         </div>
+
+        {/* Tooltip empresarial */}
+        <div
+          id="tooltip-mi-plan"
+          role="tooltip"
+          className="
+            pointer-events-none
+            absolute left-1/2 -translate-x-1/2 mt-3
+            opacity-0 translate-y-1
+            group-hover:opacity-100 group-hover:translate-y-0
+            group-focus-within:opacity-100 group-focus-within:translate-y-0
+            transition-all duration-200 ease-out
+            z-50
+          "
+        >
+          <div
+            className="
+              relative rounded-xl px-4 py-2
+              text-[13px] font-medium tracking-wide
+              text-white
+              bg-[#171931]
+              border border-[#2f2b45]/50
+              shadow-[0_14px_40px_-14px_rgba(23,25,49,0.8)]
+            "
+          >
+            Ir a Mi Plan
+            <span
+              className="
+                absolute -top-1.5 left-1/2 -translate-x-1/2
+                w-3 h-3 rotate-45
+                bg-[#171931] border-r border-b border-[#2f2b45]/50
+              "
+            />
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )}
+</div>
+
+
+        
+
 
         {/* grid de planes */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
