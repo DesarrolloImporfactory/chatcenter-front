@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { set, useForm } from "react-hook-form";
 import Swal from "sweetalert2";
 import "./css/DataUsuarioCss.css";
@@ -573,6 +573,11 @@ const DatosUsuario = ({
 
   const cargarProductosAdicionales = async (pagina = 1, searchTerm = "") => {
     try {
+      const id_plataforma_usuario = parseInt(
+        localStorage.getItem("id_plataforma_conf"),
+        10
+      );
+
       const response = await axios.post(
         `${import.meta.env.VITE_socket}/api/v1/product/${
           facturaSeleccionada.productos[0].bodega
@@ -583,6 +588,7 @@ const DatosUsuario = ({
           searchTerm: searchTerm.trim() || null, // Si está vacío, enviamos null
           id_producto: facturaSeleccionada.productos[0].id_producto,
           sku: facturaSeleccionada.productos[0].sku,
+          id_plataforma_usuario,
         },
         {
           headers: {
@@ -601,18 +607,25 @@ const DatosUsuario = ({
 
   const agregarProducto = async (producto) => {
     try {
-      // Verificar si el producto ya está en la factura (para evitar duplicados)
-      const productoExistente = facturaSeleccionada.productos.some(
-        (p) => p.id_producto === producto.id_producto
+      // ⛔ Evitar duplicados (id_producto + sku)
+      const yaExiste = (facturaSeleccionada?.productos || []).some(
+        (p) =>
+          String(p.id_producto) === String(producto.id_producto) &&
+          String(p.sku) === String(producto.sku)
       );
 
-      if (productoExistente) {
-        console.log("El producto ya está en la factura.");
-        return; // Si ya existe, no lo agregamos
+      if (yaExiste) {
+        await Swal.fire({
+          icon: "info",
+          title: "Producto ya agregado",
+          text: "Este producto ya se encuentra en el pedido.",
+          confirmButtonText: "Entendido",
+        });
+        return;
       }
 
-      // Hacer el POST a la API para agregar el producto
-      const response = await chatApi.post("/product/agregarProducto", {
+      // ✅ Agregar
+      const { data, status } = await chatApi.post("/product/agregarProducto", {
         id_factura: facturaSeleccionada.id_factura,
         id_producto: producto.id_producto,
         id_inventario: producto.id_inventario,
@@ -621,12 +634,23 @@ const DatosUsuario = ({
         precio: producto.pvp,
       });
 
-      if (response.status === 200) {
-        // Actualizar facturaSeleccionada y facturasChatSeleccionado
-        setFacturaSeleccionada((prevState) => ({
-          ...prevState,
+      // muchos back devuelven {status: 200, title, message} en data
+      const ok =
+        status === 200 && (data?.status === 200 || data?.status === "200");
+
+      if (ok) {
+        await Swal.fire({
+          icon: "success",
+          title: data?.title || "Éxito",
+          text: data?.message || "Producto agregado correctamente",
+          confirmButtonText: "Perfecto",
+        });
+
+        // 🧭 Actualiza estados locales
+        setFacturaSeleccionada((prev) => ({
+          ...prev,
           productos: [
-            ...prevState.productos,
+            ...prev.productos,
             {
               ...producto,
               cantidad: 1,
@@ -634,7 +658,7 @@ const DatosUsuario = ({
               total: producto.pvp * 1,
             },
           ],
-          monto_factura: prevState.monto_factura + producto.pvp * 1, // Actualizar monto
+          monto_factura: prev.monto_factura + producto.pvp * 1,
         }));
 
         setFacturasChatSeleccionado((prevChat) =>
@@ -651,13 +675,45 @@ const DatosUsuario = ({
                       total: producto.pvp * 1,
                     },
                   ],
-                  monto_factura: factura.monto_factura + producto.pvp * 1, // Actualizar monto
+                  monto_factura: factura.monto_factura + producto.pvp * 1,
                 }
               : factura
           )
         );
+
+        return; // listo
       }
+
+      // ⚠️ Respuesta no OK del backend (pero sin exception)
+      await Swal.fire({
+        icon: "warning",
+        title: data?.title || "Atención",
+        text: data?.message || "No se pudo agregar el producto",
+        confirmButtonText: "Ok",
+      });
     } catch (error) {
+      // 🧯 Errores con response (ej: 409 si el back valida duplicado)
+      const http = error?.response?.status;
+      const msg =
+        error?.response?.data?.message || error?.message || "Error desconocido";
+
+      if (http === 409) {
+        await Swal.fire({
+          icon: "info",
+          title: "Producto ya agregado",
+          text: "Este producto ya está en el pedido.",
+          confirmButtonText: "Entendido",
+        });
+        return;
+      }
+
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: msg,
+        confirmButtonText: "Cerrar",
+      });
+
       console.error("Error al agregar el producto:", error);
     }
   };
@@ -916,23 +972,23 @@ const DatosUsuario = ({
   // Actualización de valores en el servidor
   const handleCambioValores = useCallback(
     async (producto) => {
-      const { id_detalle, cantidad, precio_venta } = producto;
+      if (!producto) return;
 
-      let id_pedido = facturaSeleccionada.id_factura;
-      let precio = precio_venta;
-      let total = cantidad * precio_venta;
+      const { id_detalle, cantidad, precio_venta } = producto;
+      if (!id_detalle) return; // guard extra
+
+      const id_pedido = facturaSeleccionada.id_factura;
+      const precio = Number(precio_venta);
+      const total = Number(cantidad) * Number(precio_venta);
+
       try {
-        const response = await chatApi.post(
-          "/detalle_fact_cot/actualizarDetallePedido",
-          {
-            id_detalle,
-            id_pedido,
-            cantidad,
-            precio,
-            total,
-          }
-        );
-        return () => socketRef.current.off("DATA_TARIFAS_RESPONSE");
+        await chatApi.post("/detalle_fact_cot/actualizarDetallePedido", {
+          id_detalle,
+          id_pedido,
+          cantidad,
+          precio,
+          total,
+        });
       } catch (error) {
         console.error("Error updating values:", error);
       }
@@ -975,14 +1031,18 @@ const DatosUsuario = ({
     }
   }, [ciudades, socketRef, facturaSeleccionada.productos]);
 
+  const ranRef = useRef(false);
+
   useEffect(() => {
-    if (facturaSeleccionada.productos) {
-      facturaSeleccionada.productos.forEach((producto) => {
-        handleCambioValores(producto);
-      });
-      setProductosAdicionales;
-    }
-  }, [facturaSeleccionada.productos]);
+    if (!facturaSeleccionada?.productos) return;
+
+    if (ranRef.current) return; // evita segunda ejecución en StrictMode
+    ranRef.current = true;
+
+    facturaSeleccionada.productos.forEach((producto) => {
+      handleCambioValores(producto);
+    });
+  }, [facturaSeleccionada?.productos, handleCambioValores]);
 
   useEffect(() => {
     // Buscar producto con envio_prioritario == "0"
@@ -3177,9 +3237,12 @@ const DatosUsuario = ({
                                                 className="p-1 text-sm border border-gray-200 w-12 text-center text-[0.65rem] md:text-[0.75rem]"
                                                 id={`cantidad${producto.id_detalle}`}
                                                 onChange={() =>
-                                                  handleCambioValores(
-                                                    producto.id_detalle
-                                                  )
+                                                  handleCambioValores({
+                                                    ...producto,
+                                                    cantidad: Number(
+                                                      e.target.value
+                                                    ),
+                                                  })
                                                 }
                                               />
                                               <div className="grid">
