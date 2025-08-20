@@ -307,7 +307,6 @@ export default function Calendario() {
         setCalendarId(data?.calendar?.id ?? null);
       } catch (e) {
         console.error("No se pudo asegurar el calendario:", e);
-        Swal.fire("Error", "No se pudo preparar el calendario.", "error");
       }
     };
     ensureCalendar();

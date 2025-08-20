@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 
+const PLANES_CALENDARIO = [1, 3, 4];
+
 const Cabecera = ({
   userData,
   id_configuracion,
@@ -52,6 +54,39 @@ const Cabecera = ({
   const handleLogout = () => {
     localStorage.clear(); // elimina todo
     window.location.href = "/login"; // redirige al login
+  };
+
+  const [canAccessCalendar, setCanAccessCalendar] = useState(null);
+
+  useEffect(() => {
+    if (userData) {
+      const permitido = PLANES_CALENDARIO.includes(Number(userData.id_plan));
+      setCanAccessCalendar(permitido);
+    }
+  }, [userData]);
+
+  const handleCalendarioClick = (e) => {
+    e.preventDefault();
+
+    // Mantiene sus setItems actuales
+    localStorage.setItem("id_configuracion", id_configuracion);
+    localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+    if (canAccessCalendar) {
+      navigate("/calendario");
+    } else {
+      Swal.fire({
+        icon: "info",
+        title: "Función bloqueada",
+        html: "Su plan actual no incluye <b>Calendario</b>. Actualice su plan para desbloquear esta sección.",
+        confirmButtonText: "Ver planes",
+        showCancelButton: true,
+        cancelButtonText: "Cerrar",
+        allowOutsideClick: false,
+      }).then((r) => {
+        if (r.isConfirmed) navigate("/planes_view");
+      });
+    }
   };
 
   const handleReturnToImporsuit = () => {
@@ -218,6 +253,8 @@ const Cabecera = ({
     navigater("/chat");
   };
 
+  const isCalendarBlocked = userData && canAccessCalendar === false;
+
   return (
     <>
       {/* Cabecera principal (mobile visible si no hay chat seleccionado, desktop siempre) */}
@@ -352,26 +389,47 @@ const Cabecera = ({
             </span>
           </a>
 
-          {/* Calendario */}
           <a
             href="/calendario"
-            className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-              location.pathname === "/calendario"
-                ? "bg-gray-200 font-semibold"
-                : ""
-            }`}
-            onClick={(e) => {
-              e.preventDefault();
-
-              localStorage.setItem("id_configuracion", id_configuracion);
-              localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
-
-              navigate("/calendario");
-            }}
+            className={`group flex items-center w-full px-5 py-4 text-left transition
+                ${
+                  location.pathname === "/calendario"
+                    ? "bg-gray-200 font-semibold"
+                    : "hover:bg-gray-100"
+                }
+                ${isCalendarBlocked ? "opacity-100" : ""}
+              `}
+            onClick={handleCalendarioClick}
           >
-            <i className="bx bx-calendar text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+            {/* Icono (candado si no tiene acceso) */}
+            <span className="relative mr-3">
+              <i
+                className={`text-2xl bx
+                    ${
+                      isCalendarBlocked
+                        ? "bx-lock-alt text-gray-700 group-hover:text-red-600"
+                        : "bx-calendar text-gray-600 group-hover:text-blue-600"
+                    }
+                  `}
+              ></i>
+            </span>
+
+            {/* Texto + chip “Bloqueado” */}
+            <span
+              className={`text-lg
+                  ${
+                    isCalendarBlocked
+                      ? "text-lg text-gray-700 group-hover:text-red-600"
+                      : "text-lg text-gray-700 group-hover:text-blue-600"
+                  }
+                `}
+            >
               Calendario
+              {isCalendarBlocked && (
+                <span className="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
+                  Bloqueado
+                </span>
+              )}
             </span>
           </a>
 
