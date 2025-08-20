@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useCallback } from "react";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
@@ -17,17 +18,25 @@ const HeaderStat = ({ label, value }) => (
 );
 
 const pill = (classes, text) => (
-  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>{text}</span>
+  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>
+    {text}
+  </span>
 );
 
 const Conexiones = () => {
-  const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState([]);
+  const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
+    []
+  );
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
 
   const [mostrarErrorBot, setMostrarErrorBot] = useState(false);
-  const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] = useState(false);
-  const [ModalConfiguracionWhatsappBusiness, setModalConfiguracionWhatsappBusiness] = useState(false);
+  const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
+    useState(false);
+  const [
+    ModalConfiguracionWhatsappBusiness,
+    setModalConfiguracionWhatsappBusiness,
+  ] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState(null);
   const [idConfiguracion, setIdConfiguracion] = useState(null);
@@ -41,7 +50,8 @@ const Conexiones = () => {
   const [filtroEstado, setFiltroEstado] = useState(""); // "", "conectado", "pendiente"
   const [filtroPago, setFiltroPago] = useState(""); // "", "activo", "inactivo"
 
-  const handleAbrirConfiguracionAutomatizada = () => setModalConfiguracionAutomatizada(true);
+  const handleAbrirConfiguracionAutomatizada = () =>
+    setModalConfiguracionAutomatizada(true);
 
   const handleConectarWhatsappBussines = (config) => {
     setIdConfiguracion(config.id);
@@ -73,7 +83,10 @@ const Conexiones = () => {
 
   const handleConectarMetaDeveloper = () => {
     if (!window.FB) {
-      setStatusMessage({ type: "error", text: "El SDK de Facebook aún no está listo." });
+      setStatusMessage({
+        type: "error",
+        text: "El SDK de Facebook aún no está listo.",
+      });
       return;
     }
 
@@ -82,25 +95,37 @@ const Conexiones = () => {
         (async () => {
           const code = response?.authResponse?.code;
           if (!code) {
-            setStatusMessage({ type: "error", text: "No se recibió el código de autorización." });
+            setStatusMessage({
+              type: "error",
+              text: "No se recibió el código de autorización.",
+            });
             return;
           }
           try {
-            const { data } = await chatApi.post("/whatsapp_managment/embeddedSignupComplete", {
-              code,
-              id_usuario: userData.id_usuario,
-            });
+            const { data } = await chatApi.post(
+              "/whatsapp_managment/embeddedSignupComplete",
+              {
+                code,
+                id_usuario: userData.id_usuario,
+              }
+            );
             if (data.success) {
-              setStatusMessage({ type: "success", text: "✅ Número conectado correctamente." });
+              setStatusMessage({
+                type: "success",
+                text: "✅ Número conectado correctamente.",
+              });
             } else {
               throw new Error(data.message || "Error inesperado.");
             }
           } catch (err) {
-            const mensaje = err?.response?.data?.message || "Error al activar el número.";
+            const mensaje =
+              err?.response?.data?.message || "Error al activar el número.";
             const linkWhatsApp = err?.response?.data?.contacto;
             setStatusMessage({
               type: "error",
-              text: linkWhatsApp ? `${mensaje} 👉 Haz clic para contactarnos por WhatsApp` : mensaje,
+              text: linkWhatsApp
+                ? `${mensaje} 👉 Haz clic para contactarnos por WhatsApp`
+                : mensaje,
               extra: linkWhatsApp || null,
             });
           }
@@ -121,7 +146,7 @@ const Conexiones = () => {
   };
 
   /* Data */
-  const fetchConfiguracionAutomatizada = async () => {
+  const fetchConfiguracionAutomatizada = useCallback(async () => {
     if (!userData) return;
     try {
       setLoading(true);
@@ -129,10 +154,16 @@ const Conexiones = () => {
         id_usuario: userData.id_usuario,
       });
       setConfiguracionAutomatizada(response.data.data || []);
+
+      // resetear error SI cargó algo
+      setMostrarErrorBot(false);
     } catch (error) {
       if (error.response?.status === 403) {
-        Swal.fire({ icon: "error", title: error.response?.data?.message, confirmButtonText: "OK" })
-          .then(() => navigate("/planes_view"));
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          confirmButtonText: "OK",
+        }).then(() => navigate("/planes_view"));
       } else if (error.response?.status === 400) {
         setMostrarErrorBot(true);
       } else {
@@ -141,7 +172,7 @@ const Conexiones = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userData, navigate]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -153,7 +184,6 @@ const Conexiones = () => {
       return navigate("/login");
     }
     setUserData(decoded);
-
   }, [navigate]);
 
   useEffect(() => {
@@ -164,8 +194,12 @@ const Conexiones = () => {
   /* Derivados */
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
-    const conectados = configuracionAutomatizada.filter((c) => !!c.conectado).length;
-    const pagosActivos = configuracionAutomatizada.filter((c) => Number(c.metodo_pago) === 1).length;
+    const conectados = configuracionAutomatizada.filter(
+      (c) => !!c.conectado
+    ).length;
+    const pagosActivos = configuracionAutomatizada.filter(
+      (c) => Number(c.metodo_pago) === 1
+    ).length;
     return { total, conectados, pendientes: total - conectados, pagosActivos };
   }, [configuracionAutomatizada]);
 
@@ -183,7 +217,7 @@ const Conexiones = () => {
 
     if (filtroEstado) {
       const objetivo = filtroEstado === "conectado";
-      data = data.filter((c) => (!!c.conectado) === objetivo);
+      data = data.filter((c) => !!c.conectado === objetivo);
     }
 
     if (filtroPago) {
@@ -296,15 +330,25 @@ const Conexiones = () => {
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {[...Array(8)].map((_, i) => (
-                  <div key={i} className="h-48 rounded-xl bg-slate-100 animate-pulse" />
+                  <div
+                    key={i}
+                    className="h-48 rounded-xl bg-slate-100 animate-pulse"
+                  />
                 ))}
               </div>
             ) : mostrarErrorBot || listaFiltrada.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center mt-12">
-                <img src={botImage} alt="Robot" className="w-40 h-40 animate-bounce-slow" />
-                <h3 className="mt-4 text-lg font-semibold text-slate-800">Aún no tienes conexiones</h3>
+                <img
+                  src={botImage}
+                  alt="Robot"
+                  className="w-40 h-40 animate-bounce-slow"
+                />
+                <h3 className="mt-4 text-lg font-semibold text-slate-800">
+                  Aún no tienes conexiones
+                </h3>
                 <p className="mt-1 text-slate-500 text-sm md:text-base max-w-md">
-                  Crea tu primera conexión y empieza a interactuar con tus clientes al instante.
+                  Crea tu primera conexión y empieza a interactuar con tus
+                  clientes al instante.
                 </p>
                 <button
                   onClick={handleAbrirConfiguracionAutomatizada}
@@ -322,7 +366,7 @@ const Conexiones = () => {
 
                   return (
                     <div
-                      key={idx}
+                      key={config.id}
                       className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-5 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
                     >
                       {/* Header de card */}
@@ -366,8 +410,14 @@ const Conexiones = () => {
                           className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
                           onClick={() => {
                             localStorage.setItem("id_configuracion", config.id);
-                            localStorage.setItem("id_plataforma_conf", config.id_plataforma);
-                            localStorage.setItem("nombre_configuracion", config.nombre_configuracion);
+                            localStorage.setItem(
+                              "id_plataforma_conf",
+                              config.id_plataforma
+                            );
+                            localStorage.setItem(
+                              "nombre_configuracion",
+                              config.nombre_configuracion
+                            );
                             navigate("/administrador-whatsapp");
                           }}
                           title="Ir a configuración"
@@ -391,7 +441,10 @@ const Conexiones = () => {
                             </span>
                           </div>
                         ) : (
-                          <div className="relative group text-blue-600" title="Meta Business conectado">
+                          <div
+                            className="relative group text-blue-600"
+                            title="Meta Business conectado"
+                          >
                             <i className="bx bxl-meta text-2xl"></i>
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                               Meta Business conectado
@@ -403,7 +456,9 @@ const Conexiones = () => {
                         {!conectado ? (
                           <div
                             className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                            onClick={() => handleConectarWhatsappBussines(config)}
+                            onClick={() =>
+                              handleConectarWhatsappBussines(config)
+                            }
                             title="Conectar WhatsApp Business"
                           >
                             <i className="bx bxl-whatsapp text-2xl"></i>
@@ -412,7 +467,10 @@ const Conexiones = () => {
                             </span>
                           </div>
                         ) : (
-                          <div className="relative group text-green-600" title="WhatsApp vinculado">
+                          <div
+                            className="relative group text-green-600"
+                            title="WhatsApp vinculado"
+                          >
                             <i className="bx bxl-whatsapp text-2xl"></i>
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                               WhatsApp vinculado
@@ -425,8 +483,14 @@ const Conexiones = () => {
                           className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
                           onClick={() => {
                             localStorage.setItem("id_configuracion", config.id);
-                            localStorage.setItem("id_plataforma_conf", config.id_plataforma);
-                            localStorage.setItem("nombre_configuracion", config.nombre_configuracion);
+                            localStorage.setItem(
+                              "id_plataforma_conf",
+                              config.id_plataforma
+                            );
+                            localStorage.setItem(
+                              "nombre_configuracion",
+                              config.nombre_configuracion
+                            );
                             navigate("/chat");
                           }}
                           title="Ir al chat"
