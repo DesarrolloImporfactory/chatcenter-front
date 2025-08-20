@@ -204,6 +204,27 @@ function MainLayout({ children }) {
               </span>
             </button>
 
+            {/* Departamentos */}
+            <button
+              onClick={() => navigate("/departamentos")}
+              className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded ${
+                location.pathname === "/departamentos"
+                  ? "bg-gray-100 font-semibold"
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <i
+                className={`bx bx-user text-2xl mr-3 transition-colors ${
+                  location.pathname === "/departamentos"
+                    ? ""
+                    : "text-gray-600 group-hover:text-blue-600"
+                }`}
+              ></i>
+              <span className="text-lg group-hover:text-blue-600">
+                Departamentos
+              </span>
+            </button>
+
             {/* Cerrar sesión */}
             <button
               onClick={handleLogout}
