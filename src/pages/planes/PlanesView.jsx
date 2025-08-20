@@ -214,7 +214,7 @@ const PlanesView = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12 mt-10">
-      <div className="w-full max-w-6xl">
+      <div className="w-full max-w-8xl">
         {/* HEADER */}
         <div className="relative mb-10 mt-10">
           <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">Elige tu plan ideal y potencia tu empresa</h2>
