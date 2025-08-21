@@ -49,6 +49,16 @@ const DatosUsuario = ({
   const [stats, setStats] = useState(null);
   const [nivel, setNivel] = useState(null);
 
+  /* calcular guia directa */
+  const [monto_venta, setMonto_venta] = useState(null);
+  const [costo, setCosto] = useState(null);
+  const [precio_envio_directo, setPrecio_envio_directo] = useState(null);
+  const [fulfillment, setFulfillment] = useState(null);
+  const [total_directo, setTotal_directo] = useState(null);
+  const [validar_generar, setValidar_generar] = useState(false);
+  const [costo_general, setCosto_general] = useState(null);
+  /* const [tarifa_precio, setTarifa_precio] = useState(null); */
+
   /* Laar */
   const [tipoLaar, setTipoLaar] = useState("");
   const [observacionLaar, setObservacionLaar] = useState("");
@@ -655,6 +665,7 @@ const DatosUsuario = ({
               ...producto,
               cantidad: 1,
               precio_venta: producto.pvp,
+              pcp: producto.pcp,
               total: producto.pvp * 1,
             },
           ],
@@ -672,6 +683,7 @@ const DatosUsuario = ({
                       ...producto,
                       cantidad: 1,
                       precio_venta: producto.pvp,
+                      pcp: producto.pcp,
                       total: producto.pvp * 1,
                     },
                   ],
@@ -840,6 +852,15 @@ const DatosUsuario = ({
         monto_factura: prev.monto_factura + producto.precio_venta * increment,
       };
 
+      setSelectedImageId(null);
+      setValidar_generar(false);
+
+      setMonto_venta(null);
+      setCosto(null);
+      setPrecio_envio_directo(null);
+      setFulfillment(null);
+      setTotal_directo(null);
+
       // Ahora, actualizamos facturaChatSeleccionado
       setFacturasChatSeleccionado((prevChat) => {
         // Encontrar la factura correspondiente en facturaChatSeleccionado
@@ -914,6 +935,15 @@ const DatosUsuario = ({
         ),
       };
 
+      setSelectedImageId(null);
+      setValidar_generar(false);
+
+      setMonto_venta(null);
+      setCosto(null);
+      setPrecio_envio_directo(null);
+      setFulfillment(null);
+      setTotal_directo(null);
+
       // Ahora, actualizamos facturaChatSeleccionado
       setFacturasChatSeleccionado((prevChat) => {
         const updatedFacturas = prevChat.map((factura) =>
@@ -930,6 +960,39 @@ const DatosUsuario = ({
 
       return updatedFacturaSeleccionada;
     });
+  };
+
+  const calcularGuiaDirecta = async (data_flete) => {
+    try {
+      const { data } = await chatApi.post("/product/calcularGuiaDirecta", {
+        id_producto: facturaSeleccionada?.productos?.[0]?.id_producto,
+        total, // ya es tu estado
+        tarifa: data_flete,
+        costo: costo_general,
+        id_plataforma: id_plataforma_conf,
+      });
+
+      // ✅ comparar contra número, no string
+      if (data?.status === 200) {
+        const r = data.data || {};
+
+        // El backend devuelve strings con 2 decimales.
+        // Si luego harás cálculos, parsea a número:
+        setMonto_venta(parseFloat(r.total ?? 0));
+        setCosto(parseFloat(r.costo ?? 0));
+        setPrecio_envio_directo(parseFloat(r.tarifa ?? 0));
+        setFulfillment(parseFloat(r.full ?? 0));
+        setTotal_directo(parseFloat(r.resultante ?? 0));
+        setValidar_generar(!!r.generar);
+      } else {
+        console.error(
+          "Error al calcularGuiaDirecta (status lógico no OK):",
+          data
+        );
+      }
+    } catch (error) {
+      console.error("Error al calcularGuiaDirecta (catch):", error);
+    }
   };
 
   const handleImageClick = (id) => {
@@ -954,6 +1017,9 @@ const DatosUsuario = ({
     setSelectedImageId(id);
     setValue("transportadora", id);
     setValue("precio_envio", data_flete);
+
+    /* setTarifa_precio(data_flete); */
+    calcularGuiaDirecta(data_flete);
 
     if (id == 3) {
       setModal_google_maps(true);
@@ -982,13 +1048,26 @@ const DatosUsuario = ({
       const total = Number(cantidad) * Number(precio_venta);
 
       try {
-        await chatApi.post("/detalle_fact_cot/actualizarDetallePedido", {
-          id_detalle,
-          id_pedido,
-          cantidad,
-          precio,
-          total,
-        });
+        const response = await chatApi.post(
+          "/detalle_fact_cot/actualizarDetallePedido",
+          {
+            id_detalle,
+            id_pedido,
+            cantidad,
+            precio,
+            total,
+          }
+        );
+        setSelectedImageId(null);
+        setValidar_generar(false);
+
+        setMonto_venta(null);
+        setCosto(null);
+        setPrecio_envio_directo(null);
+        setFulfillment(null);
+        setTotal_directo(null);
+
+        return () => socketRef.current.off("DATA_TARIFAS_RESPONSE");
       } catch (error) {
         console.error("Error updating values:", error);
       }
@@ -1021,6 +1100,18 @@ const DatosUsuario = ({
     setTotal(nuevoTotal);
   }, [facturaSeleccionada.productos]);
 
+  useEffect(() => {
+    const costo_general =
+      facturaSeleccionada.productos?.reduce(
+        (acumulado, producto) =>
+          acumulado +
+          (Number(producto.pcp) || 0) * (Number(producto.cantidad_tmp) || 0),
+        0
+      ) || 0;
+
+    setCosto_general(costo_general);
+  }, [facturaSeleccionada.productos]);
+
   // Buscar tarifas de envío
   useEffect(() => {
     if (ciudades != null && facturaSeleccionada.productos) {
@@ -1030,18 +1121,21 @@ const DatosUsuario = ({
       // buscar servi
     }
   }, [ciudades, socketRef, facturaSeleccionada.productos]);
-
+  
   const ranRef = useRef(false);
 
   useEffect(() => {
-    if (!facturaSeleccionada?.productos) return;
+    if (facturaSeleccionada.productos) {
+      if (!facturaSeleccionada?.productos) return;
 
     if (ranRef.current) return; // evita segunda ejecución en StrictMode
     ranRef.current = true;
 
-    facturaSeleccionada.productos.forEach((producto) => {
-      handleCambioValores(producto);
-    });
+      facturaSeleccionada.productos.forEach((producto) => {
+        handleCambioValores(producto);
+      });
+      setProductosAdicionales;
+    }
   }, [facturaSeleccionada?.productos, handleCambioValores]);
 
   useEffect(() => {
@@ -3366,12 +3460,44 @@ const DatosUsuario = ({
                                 <span>{nombreBodega}</span>
                               </div>
 
+                              {/* Monto de Venta */}
+                              <div className="flex justify-between mt-3">
+                                <p className="text-lg font-semibold">
+                                  Monto de Venta:
+                                </p>
+                                <span id="monto_venta">{monto_venta}</span>
+                              </div>
+
+                              {/* Costo */}
+                              <div className="flex justify-between mt-3">
+                                <p className="text-lg font-semibold">Costo:</p>
+                                <span id="costo">{costo}</span>
+                              </div>
+
+                              {/* Precio de envio */}
+                              <div className="flex justify-between mt-3">
+                                <p className="text-lg font-semibold">
+                                  Precio de envio:
+                                </p>
+                                <span id="precio_envio_directo">
+                                  {precio_envio_directo}
+                                </span>
+                              </div>
+
+                              {/* Fulfillment */}
+                              <div className="flex justify-between mt-3">
+                                <p className="text-lg font-semibold">
+                                  Fulfillment:
+                                </p>
+                                <span id="fulfillment">{fulfillment}</span>
+                              </div>
+
                               {/* Total final */}
                               <div className="flex justify-between mt-3">
                                 <p className="text-lg font-semibold">
                                   Total Final:
                                 </p>
-                                <span id="total">{total.toFixed(2)}</span>
+                                <span id="total">{total_directo}</span>
                                 <input
                                   type="hidden"
                                   id="factura"
@@ -3385,11 +3511,17 @@ const DatosUsuario = ({
                     </div>
                     <div className="flex gap-3 mx-4">
                       <button
-                        className="bg-green-500 text-white rounded w-28 h-12 flex items-center justify-center"
+                        className={`rounded w-28 h-12 flex items-center justify-center ${
+                          validar_generar
+                            ? "bg-green-500 text-white cursor-pointer"
+                            : "bg-gray-400 text-white cursor-not-allowed"
+                        }`}
                         onClick={handleGenerarGuia}
+                        disabled={!validar_generar}
                       >
                         Generar Guía
                       </button>
+
                       <button
                         className="bg-orange-500 text-white rounded w-28 h-12 flex items-center justify-center"
                         onClick={() =>
