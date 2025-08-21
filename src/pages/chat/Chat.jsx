@@ -1807,6 +1807,9 @@ const Chat = () => {
     } else if (estado == 7) {
       color = "bg-green-500";
       estado_guia = "Entregado";
+    } else if (estado == 8) {
+      color = "bg-red-500";
+      estado_guia = "Anulada";
     } else if (estado == 9) {
       color = "bg-red-500";
       estado_guia = "Devuelto";
@@ -2013,6 +2016,7 @@ const Chat = () => {
         id_configuracion={id_configuracion}
         setFacturasChatSeleccionado={setFacturasChatSeleccionado}
         guiasChatSeleccionado={guiasChatSeleccionado}
+        setGuiasChatSeleccionado={setGuiasChatSeleccionado}
         novedades_gestionadas={novedades_gestionadas}
         novedades_noGestionadas={novedades_noGestionadas}
         validar_estadoLaar={validar_estadoLaar}

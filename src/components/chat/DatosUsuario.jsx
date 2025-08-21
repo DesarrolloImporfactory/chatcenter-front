@@ -14,6 +14,7 @@ const DatosUsuario = ({
   userData,
   id_configuracion,
   guiasChatSeleccionado,
+  setGuiasChatSeleccionado,
   novedades_gestionadas,
   novedades_noGestionadas,
   validar_estadoLaar,
@@ -662,11 +663,18 @@ const DatosUsuario = ({
           productos: [
             ...prev.productos,
             {
-              ...producto,
+              id_detalle: data.id_detalle,
+              numero_factura: facturaSeleccionada.numero_factura,
+              id_factura: facturaSeleccionada.id_factura,
               cantidad: 1,
               precio_venta: producto.pvp,
+              nombre_producto: producto.nombre_producto,
+              sku: producto.sku,
+              id_producto: producto.id_producto,
+              id_inventario: producto.id_inventario,
+              bodega: producto.bodega,
+              envio_prioritario: producto.envio_prioritario,
               pcp: producto.pcp,
-              total: producto.pvp * 1,
             },
           ],
           monto_factura: prev.monto_factura + producto.pvp * 1,
@@ -680,11 +688,18 @@ const DatosUsuario = ({
                   productos: [
                     ...factura.productos,
                     {
-                      ...producto,
+                      id_detalle: data.id_detalle,
+                      numero_factura: facturaSeleccionada.numero_factura,
+                      id_factura: facturaSeleccionada.id_factura,
                       cantidad: 1,
                       precio_venta: producto.pvp,
+                      nombre_producto: producto.nombre_producto,
+                      sku: producto.sku,
+                      id_producto: producto.id_producto,
+                      id_inventario: producto.id_inventario,
+                      bodega: producto.bodega,
+                      envio_prioritario: producto.envio_prioritario,
                       pcp: producto.pcp,
-                      total: producto.pvp * 1,
                     },
                   ],
                   monto_factura: factura.monto_factura + producto.pvp * 1,
@@ -692,6 +707,15 @@ const DatosUsuario = ({
               : factura
           )
         );
+
+        setSelectedImageId(null);
+        setValidar_generar(false);
+
+        setMonto_venta(null);
+        setCosto(null);
+        setPrecio_envio_directo(null);
+        setFulfillment(null);
+        setTotal_directo(null);
 
         return; // listo
       }
@@ -740,12 +764,14 @@ const DatosUsuario = ({
     if (opciones) {
       if (!isPriceQuantity) {
         // Solo ejecuta el efecto si opciones es true
-        setFacturaSeleccionada({});
-        if (facturasChatSeleccionado) {
-          if (facturasChatSeleccionado.length === 1) {
-            handleFacturaSeleccionada(facturasChatSeleccionado[0]);
-          } else if (guiasChatSeleccionado.length === 1) {
-            handleGuiaSeleccionada(guiasChatSeleccionado[0]);
+        if (selectedChat.celular_cliente !== facturaSeleccionada.telefono) {
+          setFacturaSeleccionada({});
+          if (facturasChatSeleccionado) {
+            if (facturasChatSeleccionado.length === 1) {
+              handleFacturaSeleccionada(facturasChatSeleccionado[0]);
+            } else if (guiasChatSeleccionado.length === 1) {
+              handleGuiaSeleccionada(guiasChatSeleccionado[0]);
+            }
           }
         }
       }
@@ -1121,15 +1147,15 @@ const DatosUsuario = ({
       // buscar servi
     }
   }, [ciudades, socketRef, facturaSeleccionada.productos]);
-  
+
   const ranRef = useRef(false);
 
   useEffect(() => {
     if (facturaSeleccionada.productos) {
       if (!facturaSeleccionada?.productos) return;
 
-    if (ranRef.current) return; // evita segunda ejecución en StrictMode
-    ranRef.current = true;
+      if (ranRef.current) return; // evita segunda ejecución en StrictMode
+      ranRef.current = true;
 
       facturaSeleccionada.productos.forEach((producto) => {
         handleCambioValores(producto);
@@ -1234,6 +1260,15 @@ const DatosUsuario = ({
                   : factura
               )
             );
+
+            setSelectedImageId(null);
+            setValidar_generar(false);
+
+            setMonto_venta(null);
+            setCosto(null);
+            setPrecio_envio_directo(null);
+            setFulfillment(null);
+            setTotal_directo(null);
 
             Swal.fire("Eliminado", "El producto ha sido eliminado.", "success");
           })
@@ -1457,7 +1492,7 @@ const DatosUsuario = ({
     }
   };
 
-  const anular_guia = async (numero_guia, accion) => {
+  const anular_guia = async (numero_guia, transportadora, accion) => {
     const formData = new FormData();
     if (accion == "guia") {
       formData.append("guia", numero_guia);
@@ -1492,6 +1527,26 @@ const DatosUsuario = ({
         setFacturaSeleccionada({});
         recargarPedido();
         setGuiaSeleccionada(false);
+
+        let estado = 0;
+        if (transportadora == "SERVIENTREGA") {
+          estado = 101;
+        } else if (transportadora == "LAAR") {
+          estado = 8;
+        } else if (transportadora == "GINTRACOM") {
+          estado = 12;
+        } else if (transportadora == "SPEED") {
+          estado = 8;
+        }
+
+        // Cambiar el estado de `estado_guia_sistema`
+        setGuiasChatSeleccionado((prevState) =>
+          prevState.map((guia) =>
+            guia.numero_guia === numero_guia
+              ? { ...guia, estado_guia_sistema: estado }
+              : guia
+          )
+        );
       }
     } catch (error) {
       console.error("Error al anular la guía de Laar:", error);
@@ -2861,7 +2916,11 @@ const DatosUsuario = ({
                               : "bg-gray-400 text-gray-700 cursor-not-allowed"
                           }`}
                           onClick={() =>
-                            anular_guia(guiaSeleccionada.numero_guia, "guia")
+                            anular_guia(
+                              guiaSeleccionada.numero_guia,
+                              guiaSeleccionada.transporte,
+                              "guia"
+                            )
                           }
                           disabled={!disableAanular} // Si disableAanular es false, se deshabilita
                         >
@@ -3527,6 +3586,7 @@ const DatosUsuario = ({
                         onClick={() =>
                           anular_guia(
                             facturaSeleccionada.numero_factura,
+                            facturaSeleccionada.transporte,
                             "pedido"
                           )
                         }
