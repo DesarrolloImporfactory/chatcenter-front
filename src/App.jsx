@@ -104,14 +104,12 @@ function App() {
             }
           />
           {/* Miplan */}
-          <Route
-            path="/miplan"
-            element={
-              <MainLayout>
-                <MiPlan />
-              </MainLayout>
+          <Route path="/miplan" element={
+            <MainLayout_conexiones>
+              <MiPlan /> 
+            </MainLayout_conexiones>
             }
-          />
+            />
 
           <Route
             path="/productos"
