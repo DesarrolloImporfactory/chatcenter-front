@@ -14,13 +14,14 @@ import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 
-
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
 import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Calendario from "./pages/calendario/Calendario";
+import PoliticasView from "./pages/politicas/PoliticasView";
+import CondicionesView from "./pages/condiciones/CondicionesView";
 
 // Layout planes
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
@@ -29,6 +30,9 @@ function App() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
       <Routes>
+        <Route path="/politica-privacidad" element={<PoliticasView />} />
+        <Route path="/condiciones-servicio" element={<CondicionesView />} />
+
         {/* Rutas protegidas */}
         <Route element={<ProtectedRoutes />}>
           {/* Home envuelto en MainLayout */}
@@ -42,7 +46,7 @@ function App() {
           />
 
           <Route path="/chat" element={<Chat />} />
-          
+
           {/*administrador-pruebas se renombra y pasa a produccion*/}
           <Route
             path="/administrador-whatsapp"
@@ -100,26 +104,32 @@ function App() {
             }
           />
           {/* Miplan */}
-          <Route path="/miplan" element={
-            <MainLayout>
-              <MiPlan /> 
-            </MainLayout>
+          <Route
+            path="/miplan"
+            element={
+              <MainLayout>
+                <MiPlan />
+              </MainLayout>
             }
-            />
+          />
 
-          <Route path="/productos" element={
-            <MainLayout>
-              <Productos /> 
-            </MainLayout>
+          <Route
+            path="/productos"
+            element={
+              <MainLayout>
+                <Productos />
+              </MainLayout>
             }
-            />
-            
-            <Route path="/categorias" element={
-            <MainLayout>
-              <Categorias /> 
-            </MainLayout>
+          />
+
+          <Route
+            path="/categorias"
+            element={
+              <MainLayout>
+                <Categorias />
+              </MainLayout>
             }
-            />
+          />
         </Route>
 
         <Route path="/login" element={<Login />} />
