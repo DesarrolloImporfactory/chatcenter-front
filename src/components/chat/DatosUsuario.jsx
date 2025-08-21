@@ -859,51 +859,161 @@ const DatosUsuario = ({
   };
 
   // Manejo de cambio de cantidad
+  // const handleCantidadChange = (producto, increment) => {
+  //   setIsPriceQuantity(true);
+  //   setFacturaSeleccionada((prev) => {
+  //     const productosActualizados = prev.productos.map((p) =>
+  //       p.id_detalle === producto.id_detalle
+  //         ? {
+  //             ...p,
+  //             cantidad: p.cantidad + increment,
+  //           }
+  //         : p
+  //     );
+
+  //     // Actualizamos facturaSeleccionada
+  //     const updatedFacturaSeleccionada = {
+  //       ...prev,
+  //       productos: productosActualizados,
+  //       monto_factura: prev.monto_factura + producto.precio_venta * increment,
+  //     };
+
+  //     setSelectedImageId(null);
+  //     setValidar_generar(false);
+
+  //     setMonto_venta(null);
+  //     setCosto(null);
+  //     setPrecio_envio_directo(null);
+  //     setFulfillment(null);
+  //     setTotal_directo(null);
+
+  //     // Ahora, actualizamos facturaChatSeleccionado
+  //     setFacturasChatSeleccionado((prevChat) => {
+  //       // Encontrar la factura correspondiente en facturaChatSeleccionado
+  //       const updatedFacturas = prevChat.map((factura) =>
+  //         factura.id_factura === updatedFacturaSeleccionada.id_factura
+  //           ? {
+  //               ...factura,
+  //               productos: productosActualizados,
+  //               monto_factura: updatedFacturaSeleccionada.monto_factura,
+  //             }
+  //           : factura
+  //       );
+  //       return updatedFacturas;
+  //     });
+
+  //     return updatedFacturaSeleccionada;
+  //   });
+  // };
   const handleCantidadChange = (producto, increment) => {
     setIsPriceQuantity(true);
+
+    const nextQty = Math.max(1, (producto.cantidad || 1) + increment);
+    if (nextQty === producto.cantidad) return; // no cambiamos nada si ya está en 1
+
+    // Actualiza facturaSeleccionada
     setFacturaSeleccionada((prev) => {
+      if (!prev?.productos) return prev;
+
       const productosActualizados = prev.productos.map((p) =>
-        p.id_detalle === producto.id_detalle
-          ? {
-              ...p,
-              cantidad: p.cantidad + increment,
-            }
-          : p
+        p.id_detalle === producto.id_detalle ? { ...p, cantidad: nextQty } : p
       );
 
-      // Actualizamos facturaSeleccionada
-      const updatedFacturaSeleccionada = {
+      const delta =
+        (nextQty - producto.cantidad) * (producto.precio_venta || 0);
+
+      const updated = {
         ...prev,
         productos: productosActualizados,
-        monto_factura: prev.monto_factura + producto.precio_venta * increment,
+        monto_factura: prev.monto_factura + delta,
       };
 
-      setSelectedImageId(null);
-      setValidar_generar(false);
-
-      setMonto_venta(null);
-      setCosto(null);
-      setPrecio_envio_directo(null);
-      setFulfillment(null);
-      setTotal_directo(null);
-
-      // Ahora, actualizamos facturaChatSeleccionado
-      setFacturasChatSeleccionado((prevChat) => {
-        // Encontrar la factura correspondiente en facturaChatSeleccionado
-        const updatedFacturas = prevChat.map((factura) =>
-          factura.id_factura === updatedFacturaSeleccionada.id_factura
-            ? {
-                ...factura,
-                productos: productosActualizados,
-                monto_factura: updatedFacturaSeleccionada.monto_factura,
-              }
-            : factura
-        );
-        return updatedFacturas;
-      });
-
-      return updatedFacturaSeleccionada;
+      return updated;
     });
+
+    // Actualiza facturasChatSeleccionado
+    setFacturasChatSeleccionado((prevChat) =>
+      prevChat.map((factura) =>
+        factura.id_factura === facturaSeleccionada.id_factura
+          ? {
+              ...factura,
+              productos: factura.productos.map((p) =>
+                p.id_detalle === producto.id_detalle
+                  ? { ...p, cantidad: nextQty }
+                  : p
+              ),
+              monto_factura:
+                factura.monto_factura +
+                (nextQty - producto.cantidad) * (producto.precio_venta || 0),
+            }
+          : factura
+      )
+    );
+
+    // Reseteos que ya hacías
+    setSelectedImageId(null);
+    setValidar_generar(false);
+    setMonto_venta(null);
+    setCosto(null);
+    setPrecio_envio_directo(null);
+    setFulfillment(null);
+    setTotal_directo(null);
+
+    // Avísale al backend
+    handleCambioValores({ ...producto, cantidad: nextQty });
+  };
+
+  //handle por si el ususario escribe manualmente en el input de cantidad
+  const handleCantidadInputChange = (producto, value) => {
+    setIsPriceQuantity(true);
+
+    const parsed = parseInt(value, 10);
+    const qty = Math.max(1, isNaN(parsed) ? 1 : parsed);
+    if (qty === producto.cantidad) return;
+
+    // Reutilizamos la misma lógica del cambio
+    const diff = qty - producto.cantidad;
+
+    setFacturaSeleccionada((prev) => {
+      if (!prev?.productos) return prev;
+
+      const productosActualizados = prev.productos.map((p) =>
+        p.id_detalle === producto.id_detalle ? { ...p, cantidad: qty } : p
+      );
+
+      return {
+        ...prev,
+        productos: productosActualizados,
+        monto_factura: prev.monto_factura + diff * (producto.precio_venta || 0),
+      };
+    });
+
+    setFacturasChatSeleccionado((prevChat) =>
+      prevChat.map((factura) =>
+        factura.id_factura === facturaSeleccionada.id_factura
+          ? {
+              ...factura,
+              productos: factura.productos.map((p) =>
+                p.id_detalle === producto.id_detalle
+                  ? { ...p, cantidad: qty }
+                  : p
+              ),
+              monto_factura:
+                factura.monto_factura + diff * (producto.precio_venta || 0),
+            }
+          : factura
+      )
+    );
+
+    setSelectedImageId(null);
+    setValidar_generar(false);
+    setMonto_venta(null);
+    setCosto(null);
+    setPrecio_envio_directo(null);
+    setFulfillment(null);
+    setTotal_directo(null);
+
+    handleCambioValores({ ...producto, cantidad: qty });
   };
 
   const handleSetTarifas = () => {
@@ -3386,16 +3496,15 @@ const DatosUsuario = ({
                                               {/* Input de Cantidad */}
                                               <input
                                                 type="number"
+                                                min={1}
                                                 value={producto.cantidad}
                                                 className="p-1 text-sm border border-gray-200 w-12 text-center text-[0.65rem] md:text-[0.75rem]"
                                                 id={`cantidad${producto.id_detalle}`}
-                                                onChange={() =>
-                                                  handleCambioValores({
-                                                    ...producto,
-                                                    cantidad: Number(
-                                                      e.target.value
-                                                    ),
-                                                  })
+                                                onChange={(e) =>
+                                                  handleCantidadInputChange(
+                                                    producto,
+                                                    e.target.value
+                                                  )
                                                 }
                                               />
                                               <div className="grid">
@@ -3430,7 +3539,7 @@ const DatosUsuario = ({
                                                 {/* Botón de Decremento */}
                                                 <button
                                                   type="button"
-                                                  className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-l border border-gray-200"
+                                                  className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-l border border-gray-200 disabled:opacity-50"
                                                   aria-label="Decrease"
                                                   onClick={() => {
                                                     handleCantidadChange(
@@ -3438,6 +3547,9 @@ const DatosUsuario = ({
                                                       -1
                                                     );
                                                   }}
+                                                  disabled={
+                                                    producto.cantidad <= 1
+                                                  } // ← clave
                                                 >
                                                   <svg
                                                     className="w-4 h-4"

@@ -9,16 +9,15 @@ const CrearPlantillaRapidaModal = ({
   const [atajo, setAtajo] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [loading, setLoading] = useState(false);
-  const [idConfigFromURL, setIdConfigFromURL] = useState(null);
+  const [idConfig, setIdConfig] = useState("");
 
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    const idc = p.get("id_configuracion");
-    if (idc) setIdConfigFromURL(parseInt(idc));
-  }, []);
+    const val = localStorage.getItem("id_configuracion");
+    setIdConfig(val);
+  });
 
   const handleCrear = async () => {
-    if (!atajo || !mensaje || !idConfigFromURL) {
+    if (!atajo || !idConfig) {
       setStatusMessage({
         type: "error",
         text: "Por favor completa todos los campos.",
@@ -29,7 +28,7 @@ const CrearPlantillaRapidaModal = ({
     const body = {
       atajo,
       mensaje,
-      id_configuracion: idConfigFromURL,
+      id_configuracion: idConfig,
     };
 
     setLoading(true);
