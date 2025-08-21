@@ -1241,7 +1241,7 @@ const DatosUsuario = ({
       facturaSeleccionada.productos?.reduce(
         (acumulado, producto) =>
           acumulado +
-          (Number(producto.pcp) || 0) * (Number(producto.cantidad_tmp) || 0),
+          (Number(producto.pcp) || 0) * (Number(producto.cantidad) || 0),
         0
       ) || 0;
 
@@ -3707,7 +3707,17 @@ const DatosUsuario = ({
                       </button>
                       <button
                         className="bg-red-500 text-white rounded w-28 h-12 flex items-center justify-center"
-                        onClick={() => setFacturaSeleccionada({})}
+                        onClick={() => {
+                          setSelectedImageId(null);
+                          setValidar_generar(false);
+
+                          setMonto_venta(null);
+                          setCosto(null);
+                          setPrecio_envio_directo(null);
+                          setFulfillment(null);
+                          setTotal_directo(null);
+                          setFacturaSeleccionada({});
+                        }}
                       >
                         Cerrar
                       </button>
