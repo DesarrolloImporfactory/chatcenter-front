@@ -224,20 +224,7 @@ const PlanesView = () => {
             <div className="absolute -top-2 right-0">
               <div className="relative inline-block group">
                 <div className="inline-block p-[2px] rounded-full bg-gradient-to-r from-[#E9E4FF] via-[#CFC3FF] to-[#A792FF] shadow-lg shadow-purple-300/30">
-                  <button
-                    onClick={() => navigate("/miplan")}
-                    aria-label="Ir a Mi Plan"
-                    aria-describedby="tooltip-mi-plan"
-                    className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-[#111321] backdrop-blur ring-1 ring-white/10 transition-all duration-300 hover:scale-[1.05] hover:shadow-2xl hover:shadow-purple-400/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 focus:ring-offset-white"
-                  >
-                    <span className="pointer-events-none absolute inset-x-1 top-0 h-1/3 rounded-t-full bg-white/10" />
-                    <svg viewBox="0 0 24 24" className="h-5 w-5 text-white/90" aria-hidden="true">
-                      <path
-                        fill="currentColor"
-                        d="M5 19h14a1 1 0 0 0 1-1v-8.5l-3.4 2.55a1 1 0 0 1-1.41-.17L12 6.89l-3.19 5a1 1 0 0 1-1.41.29L4 9.5V18a1 1 0 0 0 1 1Zm-1 2a3 3 0 0 1-3-3V8a1 1 0 0 1 1.58-.81l3.68 2.76 3.07-4.81a1 1 0 0 1 1.7 0l3.08 4.8 3.67-2.75A1 1 0 0 1 23 8v10a3 3 0 0 1-3 3H4Z"
-                      />
-                    </svg>
-                  </button>
+                  
                 </div>
                 <div
                   id="tooltip-mi-plan"
