@@ -503,21 +503,7 @@ const Cabecera = ({
               </div>
             </div>
           </div>
-          {/* Ver datos de facturacion de Plan */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/miplan");
-            }}
-            className={`cursor group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-              location.pathname === "/miplan" ? "bg-gray-200 font-semibold" : ""
-            }`}
-          >
-            <i className="bx bxs-credit-card text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600">
-              Mi Plan
-            </span>
-          </button>
+          
 
           {/* Cerrar sesión */}
           <button
