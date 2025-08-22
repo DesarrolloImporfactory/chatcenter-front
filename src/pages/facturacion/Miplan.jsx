@@ -9,8 +9,7 @@ import {
   FaArrowLeft,
   FaExclamationCircle,
 } from "react-icons/fa";
-import { BackExpandArrow } from "../../components/icons/PremiumBackIcons"; 
-
+import { BackExpandArrow } from "../../components/icons/PremiumBackIcons";
 
 // Imágenes usadas por las cards de planes (como en PlanesView.jsx)
 import basico from "../../assets/plan_basico_v2.png";
@@ -70,10 +69,11 @@ const MiPlan = () => {
   // ====== Estados añadidos para integrar PlanesView SIN cambiar de ruta ======
   const [mostrarPlanes, setMostrarPlanes] = useState(false); // controla el slide
   const [planes, setPlanes] = useState([]);
-  const [planSeleccionado, setPlanSeleccionado] = useState(null);
-  const [loadingSeleccion, setLoadingSeleccion] = useState(false); // distinto de 'loading' (cancelar)
   const [stripeMap, setStripeMap] = useState({});
   const [currentPlanId, setCurrentPlanId] = useState(null);
+
+  // NUEVO: loading por plan al seleccionar (flujo 1 paso)
+  const [loadingPlanId, setLoadingPlanId] = useState(null);
 
   // ====== Funciones originales ======
   const obtenerFacturas = async () => {
@@ -216,9 +216,10 @@ const MiPlan = () => {
     syncStripePrices();
   }, []);
 
-  const seleccionarPlan = async () => {
-    if (!planSeleccionado) return;
-    setLoadingSeleccion(true);
+  // ====== NUEVO: selección directa (1 solo paso) ======
+  const handleSeleccionarPlan = async (idPlan) => {
+    if (currentPlanId === idPlan) return; // ya tienes este plan
+    setLoadingPlanId(idPlan);
     try {
       const token = localStorage.getItem("token");
       const decoded = JSON.parse(atob(token.split(".")[1]));
@@ -226,28 +227,27 @@ const MiPlan = () => {
       const baseUrl = window.location.origin;
 
       // Caso plan gratuito (id 1)
-      if (planSeleccionado === 1) {
+      if (idPlan === 1) {
         const res = await chatApi.post(
           "planes/seleccionarPlan",
           { id_plan: 1, id_usuario },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (res.data.status === "success") {
-          Swal.fire("Listo", "Tu plan gratuito fue activado correctamente.", "success").then(() => {
-            setMostrarPlanes(false);
-            obtenerPlanActivo();
-          });
+          await Swal.fire("Listo", "Tu plan gratuito fue activado correctamente.", "success");
+          setMostrarPlanes(false);
+          obtenerPlanActivo();
         } else {
           throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
         }
         return;
       }
 
-      // Caso planes de pago
+      // Caso planes de pago -> crear sesión y redirigir
       const res = await chatApi.post(
         "stripe_plan/crearSesionPago",
         {
-          id_plan: planSeleccionado,
+          id_plan: idPlan,
           id_usuario,
           success_url: `${baseUrl}/miplan?addpm=1`,
           cancel_url: `${baseUrl}/miplan`,
@@ -255,27 +255,25 @@ const MiPlan = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (res.data.url) {
-        // Guardamos hint (opcional) y redirigimos a Stripe
+      if (res.data?.url) {
         localStorage.setItem(
           "plan_activado",
           JSON.stringify({
-            id_plan: planSeleccionado,
-            nombre: planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan || "",
+            id_plan: idPlan,
+            nombre: planes.find((p) => p.id_plan === idPlan)?.nombre_plan || "",
           })
         );
-        window.location.href = res.data.url;
+        window.location.href = res.data.url; // redirección directa a Stripe
       } else {
-        Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success").then(() => {
-          setMostrarPlanes(false);
-          obtenerPlanActivo();
-        });
+        await Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success");
+        setMostrarPlanes(false);
+        obtenerPlanActivo();
       }
     } catch (error) {
       const msg = error?.response?.data?.message || "No se pudo procesar tu solicitud. Intenta nuevamente.";
       Swal.fire({ icon: "error", title: "Error", text: msg });
     } finally {
-      setLoadingSeleccion(false);
+      setLoadingPlanId(null);
     }
   };
 
@@ -575,7 +573,7 @@ const MiPlan = () => {
             <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12">
               <div className="w-full max-w-8xl">
                 {/* HEADER de planes */}
-                <div className="relative mb-10 mt-10">
+                <div className="relative mb-10 mt-10 pl-12 sm:pl-0">
                   <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">
                     Elige tu plan ideal y potencia tu empresa
                   </h2>
@@ -584,39 +582,24 @@ const MiPlan = () => {
                   </p>
 
                   {currentPlanId && (
-                    <div className="absolute -top-3 left-10">
-                      <div className="inline-flex items-center gap-2">
-                        {/* Botón circular con flecha centrada (NO anidamos otro <button>) */}
+                    <div className="absolute top-2 left-3 sm:top-3 sm:left-6 md:-top-3 md:left-10 z-50">
+                      <div className="inline-flex items-center gap-2 [transform-origin:left_top] scale-90 sm:scale-100">
                         <BackExpandArrow
                           onClick={() => setMostrarPlanes(false)}
                           diameter={48}
-                          expandedWidth={160}   // sube un poco si agrandas el texto
+                          expandedWidth={160}
                           iconSize={45}
-                          labelSize={18}        // ⬅️ tamaño del texto
+                          labelSize={18}
                           baseColor="#171931"
                           hoverColor="#22C55E"
-                          labelClassName="font-bold"
+                          /* en móvil solo ícono, desde sm aparece el texto */
+                          labelClassName="font-bold hidden sm:inline"
+                          ariaLabel="Volver a Mi Plan"
+                          title="Volver a Mi Plan"
                         />
-                        
-
-
-                        {/* Tooltip custom */}
-                        <div
-                          role="tooltip"
-                          className="pointer-events-none absolute left-1/2 -translate-x-1/2 mt-3 opacity-0 translate-y-1
-                                     group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 ease-out z-50"
-                        >
-                          <div className="relative rounded-xl px-4 py-2 text-[13px] font-medium tracking-wide text-white
-                                          bg-[#171931] border border-[#2f2b45]/50 shadow-[0_14px_40px_-14px_rgba(23,25,49,0.8)]">
-                            Volver a Mi Plan
-                            <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45
-                                             bg-[#171931] border-r border-b border-[#2f2b45]/50" />
-                          </div>
-                        </div>
                       </div>
                     </div>
                   )}
-
                 </div>
 
                 {/* GRID de cards */}
@@ -633,9 +616,7 @@ const MiPlan = () => {
                   )}
 
                   {planes.map((pl) => {
-                    const isSelected = planSeleccionado === pl.id_plan;
                     const isCurrent = currentPlanId === pl.id_plan;
-
                     const ribbon =
                       pl.nombre_plan?.toLowerCase().includes("premium")
                         ? "Popular"
@@ -704,27 +685,28 @@ const MiPlan = () => {
                               ))}
                             </ul>
 
-                            {/* Botón */}
+                            {/* Botón: flujo de 1 paso */}
                             <div className="mt-6">
                               <button
-                                onClick={() => {
-                                  if (isCurrent) return;
-                                  setPlanSeleccionado(pl.id_plan);
-                                }}
-                                disabled={isSelected || isCurrent}
+                                onClick={() => handleSeleccionarPlan(pl.id_plan)}
+                                disabled={loadingPlanId === pl.id_plan || isCurrent}
                                 className={`
                                   w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
                                   transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
                                   ${
                                     isCurrent
                                       ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                                      : isSelected
-                                      ? "bg-emerald-600 text-white cursor-default"
+                                      : loadingPlanId === pl.id_plan
+                                      ? "bg-emerald-600 text-white cursor-wait"
                                       : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
                                   }
                                 `}
                               >
-                                {isCurrent ? "Tienes este plan actualmente" : isSelected ? "Seleccionado" : "Seleccionar"}
+                                {isCurrent
+                                  ? "Tienes este plan actualmente"
+                                  : loadingPlanId === pl.id_plan
+                                  ? "Procesando..."
+                                  : "Seleccionar"}
                               </button>
                             </div>
                           </div>
@@ -734,24 +716,7 @@ const MiPlan = () => {
                   })}
                 </div>
 
-                {/* CTA inferior */}
-                {planSeleccionado && planSeleccionado !== currentPlanId && (
-                  <div className="flex flex-col items-center gap-3 mt-10">
-                    <div className="text-sm text-[#5a547a]">
-                      Plan seleccionado:{" "}
-                      <span className="font-semibold text-[#2f2b45]">
-                        {planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan}
-                      </span>
-                    </div>
-                    <button
-                      onClick={seleccionarPlan}
-                      disabled={loadingSeleccion}
-                      className="bg-gradient-to-r from-[#6d5cbf] to-[#5a4aa5] hover:from-[#5f51ac] hover:to-[#4a3e88] text-white font-semibold py-3 px-10 rounded-full shadow-lg transition transform hover:scale-[1.03] disabled:opacity-50"
-                    >
-                      {loadingSeleccion ? "Procesando..." : "Elegir este plan"}
-                    </button>
-                  </div>
-                )}
+                {/* (Eliminado) CTA inferior de confirmación: ya no se requiere en flujo 1 paso */}
               </div>
             </div>
           </section>
