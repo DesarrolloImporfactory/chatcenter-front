@@ -45,6 +45,8 @@ const PlanesView = () => {
   const [loading, setLoading] = useState(false);
   const [stripeMap, setStripeMap] = useState({});
   const [currentPlanId, setCurrentPlanId] = useState(null);
+  // ¿El usuario todavía puede usar el free trial?
+  const [trialElegible, setTrialElegible] = useState(true);
 
   /* ===== Datos ===== */
   useEffect(() => {
@@ -58,6 +60,27 @@ const PlanesView = () => {
     };
     obtenerPlanes();
   }, []);
+
+  // Verifica elegibilidad del trial al cargar
+useEffect(() => {
+  (async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const id_usuario = decoded.id_usuario || decoded.id_users;
+
+      const { data } = await chatApi.post(
+        "stripe_plan/trialElegibilidad",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setTrialElegible(Boolean(data?.elegible));
+    } catch (e) {
+      console.warn("trialElegibilidad:", e?.response?.data || e.message);
+    }
+  })();
+}, []);
 
   useEffect(() => {
     const syncStripePrices = async () => {
@@ -109,7 +132,7 @@ const PlanesView = () => {
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const baseUrl = window.location.origin;
 
-      if (planSeleccionado === 1) {
+      /* if (planSeleccionado === 1) {
         const res = await chatApi.post(
           "planes/seleccionarPlan",
           { id_plan: 1, id_usuario },
@@ -123,7 +146,25 @@ const PlanesView = () => {
           throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
         }
         return;
+      } */
+      if (planSeleccionado === 1) {
+        if (!trialElegible) {
+          Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+          return;
+        }
+        const { data } = await chatApi.post(
+          "stripe_plan/crearFreeTrial",
+          {
+            id_usuario,
+            success_url: `${baseUrl}/miplan?trial=ok`,
+            cancel_url: `${baseUrl}/planes_view?trial=cancel`,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (data?.url) window.location.href = data.url; // Redirige a Stripe Checkout (pide tarjeta)
+        return;
       }
+
 
       const res = await chatApi.post(
         "stripe_plan/crearSesionPago",
@@ -329,9 +370,14 @@ const PlanesView = () => {
                       <button
                         onClick={() => {
                           if (isCurrent) return;
+                          // Si es FREE (id 1) y no es elegible, avisar y NO seleccionar
+                          if (plan.id_plan === 1 && !trialElegible) {
+                            Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+                            return;
+                          }
                           setPlanSeleccionado(plan.id_plan);
                         }}
-                        disabled={isSelected || isCurrent}
+                        disabled={isSelected || isCurrent || (plan.id_plan === 1 && !trialElegible)}
                         className={`
                           w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
                           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
@@ -340,12 +386,25 @@ const PlanesView = () => {
                               ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                               : isSelected
                               ? "bg-emerald-600 text-white cursor-default"
+                              : (plan.id_plan === 1 && !trialElegible)
+                              ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                               : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
                           }
                         `}
                       >
-                        {isCurrent ? "Tienes este plan actualmente" : isSelected ? "Seleccionado" : "Seleccionar"}
+                        {isCurrent
+                          ? "Tienes este plan actualmente"
+                          : isSelected
+                          ? "Seleccionado"
+                          : (plan.id_plan === 1 && !trialElegible)
+                          ? "No disponible"
+                          : "Seleccionar"}
                       </button>
+                        
+                      {plan.id_plan === 1 && !trialElegible && (
+                        <p className="mt-2 text-xs text-red-600">Ya usaste tu plan gratuito.</p>
+                      )}
+
                     </div>
                   </div>
                 </div>
@@ -365,11 +424,16 @@ const PlanesView = () => {
             </div>
             <button
               onClick={seleccionarPlan}
-              disabled={loading}
+              disabled={loading || (planSeleccionado === 1 && !trialElegible)}
               className="bg-gradient-to-r from-[#6d5cbf] to-[#5a4aa5] hover:from-[#5f51ac] hover:to-[#4a3e88] text-white font-semibold py-3 px-10 rounded-full shadow-lg transition transform hover:scale-[1.03] disabled:opacity-50"
             >
               {loading ? "Procesando..." : "Elegir este plan"}
             </button>
+                    
+            {planSeleccionado === 1 && !trialElegible && (
+              <div className="mt-2 text-xs text-red-600">Ya usaste tu plan gratuito.</div>
+            )}
+
           </div>
         )}
       </div>

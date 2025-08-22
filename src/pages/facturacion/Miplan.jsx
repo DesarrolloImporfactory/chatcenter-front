@@ -74,6 +74,9 @@ const MiPlan = () => {
 
   // NUEVO: loading por plan al seleccionar (flujo 1 paso)
   const [loadingPlanId, setLoadingPlanId] = useState(null);
+  // NUEVO: ¿todavía puede usar el free trial?
+  const [trialElegible, setTrialElegible] = useState(true);
+
 
   // ====== Funciones originales ======
   const obtenerFacturas = async () => {
@@ -162,6 +165,25 @@ const MiPlan = () => {
     obtenerFacturas();
   }, []);
 
+
+  useEffect(() => {
+      (async () => {
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) return;
+          const { id_usuario, id_users } = JSON.parse(atob(token.split(".")[1]));
+          const { data } = await chatApi.post(
+            "/stripe_plan/trialElegibilidad",
+            { id_usuario: id_usuario || id_users },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          setTrialElegible(Boolean(data?.elegible));
+        } catch (e) {
+          console.warn("trialElegibilidad:", e?.response?.data || e.message);
+        }
+      })();
+    }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pmSaved = params.get("pm_saved");
@@ -227,7 +249,7 @@ const MiPlan = () => {
       const baseUrl = window.location.origin;
 
       // Caso plan gratuito (id 1)
-      if (idPlan === 1) {
+      /* if (idPlan === 1) {
         const res = await chatApi.post(
           "planes/seleccionarPlan",
           { id_plan: 1, id_usuario },
@@ -241,7 +263,23 @@ const MiPlan = () => {
           throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
         }
         return;
+      } */
+
+      if (idPlan === 1) {
+        if (!trialElegible) {
+          await Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+          return;
+        }
+        const { data } = await chatApi.post(
+          "/stripe_plan/crearFreeTrial",
+          { id_usuario, success_url: `${baseUrl}/miplan?trial=ok`, cancel_url: `${baseUrl}/miplan?trial=cancel` },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (data?.url) window.location.href = data.url;
+        return;
       }
+
+      
 
       // Caso planes de pago -> crear sesión y redirigir
       const res = await chatApi.post(
@@ -689,7 +727,11 @@ const MiPlan = () => {
                             <div className="mt-6">
                               <button
                                 onClick={() => handleSeleccionarPlan(pl.id_plan)}
-                                disabled={loadingPlanId === pl.id_plan || isCurrent}
+                                disabled={
+                                  loadingPlanId === pl.id_plan ||
+                                  isCurrent ||
+                                  (pl.id_plan === 1 && !trialElegible) // <-- bloquea Free si ya usó el trial
+                                }
                                 className={`
                                   w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
                                   transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
@@ -698,6 +740,8 @@ const MiPlan = () => {
                                       ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                                       : loadingPlanId === pl.id_plan
                                       ? "bg-emerald-600 text-white cursor-wait"
+                                      : (pl.id_plan === 1 && !trialElegible)
+                                      ? "bg-slate-200 text-slate-500 cursor-not-allowed"   // estiliza card Free bloqueada
                                       : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
                                   }
                                 `}
@@ -706,8 +750,15 @@ const MiPlan = () => {
                                   ? "Tienes este plan actualmente"
                                   : loadingPlanId === pl.id_plan
                                   ? "Procesando..."
+                                  : (pl.id_plan === 1 && !trialElegible)
+                                  ? "No disponible"
                                   : "Seleccionar"}
                               </button>
+                                
+                              {pl.id_plan === 1 && !trialElegible && (
+                                <p className="mt-2 text-xs text-red-600">Ya usaste tu plan gratuito.</p>
+                              )}
+
                             </div>
                           </div>
                         </div>
@@ -715,8 +766,6 @@ const MiPlan = () => {
                     );
                   })}
                 </div>
-
-                {/* (Eliminado) CTA inferior de confirmación: ya no se requiere en flujo 1 paso */}
               </div>
             </div>
           </section>
