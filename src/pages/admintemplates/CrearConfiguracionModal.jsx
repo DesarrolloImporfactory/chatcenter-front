@@ -88,8 +88,8 @@ const CrearConfiguracionModal = ({
       const base = window.location.origin;
       const res = await chatApi.post("/stripe_plan/crearSesionAddonConexion", {
         id_usuario,
-        success_url: `${base}/usuarios?addon=ok`,
-        cancel_url: `${base}/usuarios?addon=cancel`,
+        success_url: `${base}/conexiones?addon=ok`,
+        cancel_url: `${base}/conexiones?addon=cancel`,
       });
 
       if (res?.data?.url) {
@@ -106,39 +106,7 @@ const CrearConfiguracionModal = ({
     }
   };
 
-  const onBuyAddonSubusuarioClick = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        return window.Swal?.fire({
-          icon: "error",
-          title: "Token faltante",
-          text: "No se encontró token",
-        });
-      }
-      const decoded = jwtDecode(token);
-      const id_usuario = decoded.id_usuario;
-
-      const base = window.location.origin;
-      const res = await chatApi.post("/stripe_plan/crearSesionAddonSubusuario", {
-        id_usuario,
-      });
-
-      if (res?.data?.url) {
-        window.location.href = res.data.url; // redirige a Stripe
-      } else {
-        throw new Error("No se recibió la URL de Stripe.");
-      }
-    } catch (e) {
-      window.Swal?.fire({
-        icon: "error",
-        title: "No se pudo iniciar el pago",
-        text: e?.response?.data?.message || e.message || "Intente nuevamente.",
-      });
-    }
-  };
-
-
+  
   const handleAgregarConfiguracion = async () => {
     if (!nombreConfiguracion || !telefono) {
       setStatusMessage?.({
@@ -348,45 +316,7 @@ const CrearConfiguracionModal = ({
                     </div>
                   </div>
 
-                  {/* Card: Comprar subusuario adicional */}
-                  <div
-                    onClick={onBuyAddonSubusuarioClick}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 overflow-hidden transition-colors duration-200 hover:border-[#16a34a] focus-within:border-[#16a34a]"
-                  >
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute top-[1px] bottom-[1px] left-[1px] w-[6px] rounded-l-2xl bg-gradient-to-b from-[#bbf7d0] to-[#16a34a]"
-                    />
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#dcfce7] text-[#16a34a]">
-                          <i class='bx bxs-user-plus'></i>
-                        </span>
-                        <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
-                          Comprar subusuario adicional
-                        </h3>
-                      </div>
-                      <div className="text-right leading-none">
-                        <p className="text-3xl font-extrabold text-[#171931]">
-                          $5
-                        </p>
-                        <p className="text-[11px] text-slate-500">por usuario</p>
-                      </div>
-                    </div>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      Agrega un subusuario extra a tu cuenta para gestionar mensajes.
-                    </p>
-                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
-                      Continuar con la compra
-                      <svg
-                        className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
-                      </svg>
-                    </div>
-                  </div>
+                  
 
                 </div>
 

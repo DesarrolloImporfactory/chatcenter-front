@@ -1,7 +1,9 @@
+// src/views/UsuariosView.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
+import { motion, AnimatePresence } from "framer-motion";
 import "./usuarios.css";
 
 const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
@@ -75,9 +77,16 @@ const UsuariosView = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false); // Controla la vista de opciones de upgrade
-  const [limitMessage, setLimitMessage] = useState(""); // Mensaje de error si se supera el límite
+  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false); // opciones de upgrade
+  const [limitMessage, setLimitMessage] = useState(""); // mensaje límite
   const [isClosing, setIsClosing] = useState(false);
+
+  // Variantes para las transiciones (igual que en CrearConfiguracionModal.jsx)
+  const containerVariants = {
+    hidden: { opacity: 0, y: 12 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.28 } },
+    exit: { opacity: 0, y: 12, transition: { duration: 0.2 } },
+  };
 
   const fetchUsuarios = async () => {
     const token = localStorage.getItem("token");
@@ -114,7 +123,7 @@ const UsuariosView = () => {
   }, []);
 
   const handleClose = () => {
-    setIsClosing(true); // Activa la animación de cierre
+    setIsClosing(true); // Activa la animación de cierre (si usas clases CSS propias)
     setTimeout(() => {
       setModalOpen(false); // Cierra el modal
       setForm({
@@ -126,12 +135,13 @@ const UsuariosView = () => {
       }); // Limpia el formulario
       setEditingId(null); // Asegura que no esté en modo de edición
       setShowPassword(false); // Restablece el estado de la contraseña
-      setShowUpgradeOptions(false); // Asegura que no se muestre la opción de upgrade
+      setShowUpgradeOptions(false); // Oculta upgrade
       setLimitMessage(""); // Limpia el mensaje de error
-      setUserData(null); // Limpia los datos del usuario
+      // Evita error si no existe en este componente
+      if (typeof setUserData === "function") setUserData(null);
 
       setIsClosing(false); // Termina la animación
-    }, 300); // El tiempo de animación (ajústalo si es necesario)
+    }, 300);
   };
 
   const handleSubmit = async (e) => {
@@ -183,7 +193,7 @@ const UsuariosView = () => {
     } catch (error) {
       const httpStatus = error?.response?.status;
 
-      // Error 403 con QUOTA_EXCEEDED
+      // Límite de plan
       if (
         httpStatus === 403 &&
         error?.response?.data?.code === "QUOTA_EXCEEDED"
@@ -192,7 +202,7 @@ const UsuariosView = () => {
         setLimitMessage(
           backendMsg || "Ha alcanzado el límite de conexiones de su plan."
         );
-        setShowUpgradeOptions(true); // Muestra las opciones de upgrade
+        setShowUpgradeOptions(true);
         return;
       }
 
@@ -305,10 +315,7 @@ const UsuariosView = () => {
     return data;
   }, [usuarios, search, rolFiltro, sort]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(listaProcesada.length / itemsPerPage)
-  );
+  const totalPages = Math.max(1, Math.ceil(listaProcesada.length / itemsPerPage));
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return listaProcesada.slice(start, start + itemsPerPage);
@@ -320,14 +327,16 @@ const UsuariosView = () => {
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
-    const addon = qs.get("addon");
+    const addon = qs.get("addon");      // conexiones extra
+    const subu = qs.get("subu");        // subusuarios extra
+
     if (addon === "ok") {
       Swal.fire({
         icon: "success",
         title: "Pago exitoso",
         text: "Se añadió 1 conexión adicional a tu cuenta.",
       });
-      fetchUsuarios(); // refresca la lista
+      fetchUsuarios();
       window.history.replaceState({}, "", window.location.pathname);
     } else if (addon === "cancel") {
       Swal.fire({
@@ -337,15 +346,31 @@ const UsuariosView = () => {
       });
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, []);
 
+    if (subu === "ok") {
+      Swal.fire({
+        icon: "success",
+        title: "Pago exitoso",
+        text: "Se añadió 1 subusuario adicional a tu cuenta.",
+      });
+      fetchUsuarios();
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (subu === "cancel") {
+      Swal.fire({
+        icon: "info",
+        title: "Pago cancelado",
+        text: "No se realizó ningún cargo.",
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const onUpgradeClick = () => {
     window.location.href = "/planes_view"; // Redirige a la página de planes
   };
 
-  // Crea la sesión de Stripe (usa el price fijo en el backend)
-  const onBuyAddonClick = async () => {
+  // NUEVO: Crea la sesión de Stripe - Subusuario adicional
+  const onBuyAddonSubusuarioClick = async () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -359,10 +384,10 @@ const UsuariosView = () => {
       const id_usuario = decoded.id_usuario;
 
       const base = window.location.origin;
-      const res = await chatApi.post("/stripe_plan/crearSesionAddonConexion", {
+      const res = await chatApi.post("/stripe_plan/crearSesionAddonSubusuario", {
         id_usuario,
-        success_url: `${base}/usuarios?addon=ok`,
-        cancel_url: `${base}/usuarios?addon=cancel`,
+        success_url: `${base}/usuarios?addon_subusuario=ok`,
+        cancel_url: `${base}/usuarios?addon_subusuario=cancel`,
       });
 
       if (res?.data?.url) {
@@ -378,7 +403,6 @@ const UsuariosView = () => {
       });
     }
   };
-
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pt-24 px-3 md:px-6">
@@ -465,7 +489,7 @@ const UsuariosView = () => {
           </div>
         </div>
 
-        {/* Contenido (tabla NO centrada a propósito) */}
+        {/* Contenido */}
         <div className="flex-1 overflow-hidden flex flex-col">
           {loading ? (
             <div className="p-6 space-y-2 animate-pulse">
@@ -678,7 +702,7 @@ const UsuariosView = () => {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
           onKeyDown={(e) => e.key === "Escape" && handleClose()}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-3 overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-3overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <h2 className="text-xl font-semibold">
                 {editingId ? "Editar usuario" : "Agregar usuario"}
@@ -698,197 +722,281 @@ const UsuariosView = () => {
               </button>
             </div>
 
-            {showUpgradeOptions ? (
-              <div className="space-y-4 p-6">
-                {limitMessage && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
-                    {limitMessage}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Card: Actualizar plan */}
-                  <div
-                    className="group rounded-2xl border border-[#171931] p-6 shadow-lg hover:shadow-xl transition-all duration-300 bg-white cursor-pointer transform hover:scale-105"
-                    onClick={onUpgradeClick}
+            {/* Contenido con animaciones */}
+            <div className="p-8 space-y-6 bg-white rounded-2xl shadow-xl border border-gray-100">
+              <AnimatePresence mode="wait">
+                {showUpgradeOptions ? (
+                  <motion.div
+                    key="upgrade-view"
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    className="space-y-4"
                   >
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-2xl font-semibold text-[#171931]">
-                        Actualizar plan
-                      </h3>
-                      <span className="inline-flex items-center rounded-full text-xs px-3 py-1 border border-[#171931] bg-[#171931] text-white font-medium">
-                        Recomendado
-                      </span>
+                    {limitMessage && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
+                        {limitMessage}
+                      </div>
+                    )}
+                  
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                      {/* Card: Actualizar plan */}
+                      <div
+                        onClick={onUpgradeClick}
+                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 overflow-hidden transition-colors duration-200 hover:border-[#6d28d9] focus-within:border-[#6d28d9]"
+                      >
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute top-[1px] bottom-[1px] left-[1px] w-[6px] rounded-l-2xl bg-gradient-to-b from-[#8b5cf6] to-[#6d28d9]"
+                        />
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#f5f3ff] text-[#6d28d9]">
+                              <i className="bx bx-refresh" />
+                            </span>
+                            <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
+                              Actualizar plan
+                            </h3>
+                          </div>
+                          <span className="inline-flex items-center rounded-full border border-[#6d28d9]/40 bg-[#f5f3ff] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9]">
+                            Recomendado
+                          </span>
+                        </div>
+                        <p className="mt-4 text-sm leading-6 text-slate-600">
+                          Desbloquee más conexiones elevando su plan actual.
+                        </p>
+                        <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
+                          Ver planes disponibles
+                          <svg
+                            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                  
+                      {/* Card: Comprar subusuario adicional */}
+                      <div
+                        onClick={onBuyAddonSubusuarioClick}
+                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 overflow-hidden transition-colors duration-200 hover:border-[#16a34a] focus-within:border-[#16a34a]"
+                      >
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute top-[1px] bottom-[1px] left-[1px] w-[6px] rounded-l-2xl bg-gradient-to-b from-[#bbf7d0] to-[#16a34a]"
+                        />
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#dcfce7] text-[#16a34a]">
+                              <i className="bx bxs-user-plus" />
+                            </span>
+                            <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
+                              Comprar subusuario adicional
+                            </h3>
+                          </div>
+                          <div className="text-right leading-none">
+                            <p className="text-3xl font-extrabold text-[#171931]">$5</p>
+                            <p className="text-[11px] text-slate-500">por usuario</p>
+                          </div>
+                        </div>
+                        <p className="mt-4 text-sm leading-6 text-slate-600">
+                          Agrega un subusuario extra a tu cuenta para gestionar mensajes.
+                        </p>
+                        <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
+                          Continuar con la compra
+                          <svg
+                            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
+                          </svg>
+                        </div>
+                      </div>
                     </div>
-                    <p className="mt-4 text-sm text-gray-600 leading-6">
-                      Desbloquee más conexiones y funcionalidades elevando su
-                      plan actual. Ideal si su equipo crece o gestiona más
-                      números.
-                    </p>
-                  </div>
-
-                  {/* Card: Comprar conexión adicional */}
-                  <div
-                    className="group rounded-2xl border border-[#171931] p-6 shadow-lg hover:shadow-xl transition-all duration-300 bg-white cursor-pointer transform hover:scale-105"
-                    onClick={onBuyAddonClick}
-                  >
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-2xl font-semibold text-[#171931]">
-                        Comprar conexión adicional
-                      </h3>
-                      <div className="text-center">
-                        <p className="text-3xl font-bold text-[#171931]">$10</p>
-                        <p className="text-xs text-gray-600">
-                          Adquiera una conexión extra por
+                  
+                    {/* Aviso */}
+                    <div className="mt-1 border-t border-slate-200 pt-4">
+                      <div className="flex items-start gap-3 text-[12px] text-slate-600">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 mt-[2px] text-slate-500"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path d="M12 2a10 10 0 100 20 10 10 0 000-20Zm1 15h-2v-6h2v6Zm-2-8V7h2v2h-2Z" />
+                        </svg>
+                        <p>
+                          <span className="font-semibold text-[#171931]">Aviso:</span> los
+                          subusuarios adicionales
+                          <span className="font-semibold"> solo permanecerán activas</span> mientras
+                          exista un <span className="font-semibold">plan activo</span> en la cuenta.
                         </p>
                       </div>
                     </div>
+                  
+                    {/* ⬇️ Botón Cerrar debajo del aviso */}
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleClose}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </motion.div>
 
-                    <p className="mt-4 text-sm text-gray-600 leading-6">
-                      Esta conexión queda asociada permanentemente a su cuenta,
-                      sin importar el plan que tenga contratado.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <form
-                onSubmit={handleSubmit}
-                className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6"
-              >
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Usuario
-                    </label>
-                    <input
-                      required
-                      placeholder="usuario"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                      value={form.usuario}
-                      onChange={(e) =>
-                        setForm({ ...form, usuario: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  {!editingId && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Contraseña
-                      </label>
-                      <div className="relative">
+                ) : (
+                  <motion.form
+                    key="form-view"
+                    onSubmit={handleSubmit}
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                  >
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Usuario
+                        </label>
                         <input
                           required
-                          placeholder="••••••••"
-                          type={showPassword ? "text" : "password"}
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                          value={form.password}
+                          placeholder="usuario"
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                          value={form.usuario}
                           onChange={(e) =>
-                            setForm({ ...form, password: e.target.value })
+                            setForm({ ...form, usuario: e.target.value })
                           }
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((s) => !s)}
-                          className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-500 hover:text-slate-700"
-                          aria-label={
-                            showPassword
-                              ? "Ocultar contraseña"
-                              : "Mostrar contraseña"
+                      </div>
+
+                      {!editingId && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Contraseña
+                          </label>
+                          <div className="relative">
+                            <input
+                              required
+                              placeholder="••••••••"
+                              type={showPassword ? "text" : "password"}
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                              value={form.password}
+                              onChange={(e) =>
+                                setForm({ ...form, password: e.target.value })
+                              }
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword((s) => !s)}
+                              className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                              aria-label={
+                                showPassword
+                                  ? "Ocultar contraseña"
+                                  : "Mostrar contraseña"
+                              }
+                            >
+                              {showPassword ? (
+                                <svg
+                                  className="w-5 h-5"
+                                  viewBox="0 0 24 24"
+                                  fill="currentColor"
+                                >
+                                  <path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
+                                </svg>
+                              ) : (
+                                <svg
+                                  className="w-5 h-5"
+                                  viewBox="0 0 24 24"
+                                  fill="currentColor"
+                                >
+                                  <path d="M3.53 2.47 2.47 3.53 5.2 6.26C3.44 7.54 2.23 9.16 2 9.5c0 0 3 7 10 7 2.05 0 3.82-.5 5.33-1.3l2.14 2.14 1.06-1.06-17-17zM12 6c2.82 0 5.09 1.16 6.78 2.5.78.62 1.42 1.27 1.89 1.81-.29.37-1.42 1.75-3.26 2.86l-2.02-2.02A5 5 0 0 0 9.85 7.7L7.73 5.58C9.03 5.2 10.47 6 12 6z" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          required
+                          type="email"
+                          placeholder="correo@dominio.com"
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                          value={form.email}
+                          onChange={(e) =>
+                            setForm({ ...form, email: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Nombre encargado
+                        </label>
+                        <input
+                          required
+                          placeholder="Nombre y apellido"
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                          value={form.nombre_encargado}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              nombre_encargado: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Rol
+                        </label>
+                        <select
+                          required
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                          value={form.rol}
+                          onChange={(e) =>
+                            setForm({ ...form, rol: e.target.value })
                           }
                         >
-                          {showPassword ? (
-                            <svg
-                              className="w-5 h-5"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                            >
-                              <path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
-                            </svg>
-                          ) : (
-                            <svg
-                              className="w-5 h-5"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                            >
-                              <path d="M3.53 2.47 2.47 3.53 5.2 6.26C3.44 7.54 2.23 9.16 2 9.5c0 0 3 7 10 7 2.05 0 3.82-.5 5.33-1.3l2.14 2.14 1.06-1.06-17-17zM12 6c2.82 0 5.09 1.16 6.78 2.5.78.62 1.42 1.27 1.89 1.81-.29.37-1.42 1.75-3.26 2.86l-2.02-2.02A5 5 0 0 0 9.85 7.7L7.73 5.58C9.03 5.2 10.47 6 12 6z" />
-                            </svg>
-                          )}
-                        </button>
+                          <option value="">Seleccione rol</option>
+                          <option value="administrador">Administrador</option>
+                          <option value="ventas">Ventas</option>
+                        </select>
                       </div>
                     </div>
-                  )}
-                </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      required
-                      type="email"
-                      placeholder="correo@dominio.com"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                      value={form.email}
-                      onChange={(e) =>
-                        setForm({ ...form, email: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Nombre encargado
-                    </label>
-                    <input
-                      required
-                      placeholder="Nombre y apellido"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                      value={form.nombre_encargado}
-                      onChange={(e) =>
-                        setForm({ ...form, nombre_encargado: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Rol
-                    </label>
-                    <select
-                      required
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                      value={form.rol}
-                      onChange={(e) =>
-                        setForm({ ...form, rol: e.target.value })
-                      }
-                    >
-                      <option value="">Seleccione rol</option>
-                      <option value="administrador">Administrador</option>
-                      <option value="ventas">Ventas</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => handleClose()}
-                    className="border border-slate-200 px-4 py-2.5 rounded-lg hover:bg-slate-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-sm"
-                  >
-                    {editingId ? "Actualizar" : "Agregar"}
-                  </button>
-                </div>
-              </form>
-            )}
+                    <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleClose()}
+                        className="border border-slate-200 px-4 py-2.5 rounded-lg hover:bg-slate-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-sm"
+                      >
+                        {editingId ? "Actualizar" : "Agregar"}
+                      </button>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       )}
