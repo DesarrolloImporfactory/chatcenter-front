@@ -2164,7 +2164,7 @@ const DatosUsuario = ({
                       <span className="text-white">Novedades</span>
                     </button>
 
-                    <button
+                    {/* <button
                       className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isOpenMiniCal
                           ? "bg-[#182848] border-blue-400"
@@ -2184,7 +2184,7 @@ const DatosUsuario = ({
                         }`}
                       ></i>
                       <span className="text-white">Calendario</span>
-                    </button>
+                    </button> */}
                   </div>
 
                   {isOpen && (
