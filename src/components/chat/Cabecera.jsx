@@ -599,60 +599,128 @@ const Cabecera = ({
               >
                 {/* Botón principal con flecha */}
                 <button
+                  id="menu-opciones-boton"
                   onClick={toggleOpcionesMenu}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition"
+                  aria-haspopup="menu"
+                  aria-expanded={opcionesMenuOpen}
+                  aria-controls="menu-opciones"
+                  className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-b from-blue-500 to-blue-600
+                             text-white font-semibold rounded-md shadow-sm hover:shadow-md transition-all duration-200
+                             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
                 >
                   <span>Opciones</span>
-                  <i className="bx bx-chevron-down text-xl"></i>
+                  <i
+                    className={`bx bx-chevron-down text-xl transition-transform duration-200 ${
+                      opcionesMenuOpen ? "rotate-180" : ""
+                    }`}
+                    aria-hidden="true"
+                  ></i>
                 </button>
-
+                  
                 {/* Menú desplegable */}
                 {opcionesMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50">
+                  <div
+                    id="menu-opciones"
+                    role="menu"
+                    aria-labelledby="menu-opciones-boton"
+                    className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl border border-slate-200/60
+                               bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 p-2 z-50"
+                  >
+                    {/* caret */}
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -top-1.5 right-6 h-3 w-3 rotate-45
+                                 bg-white border-t border-l border-slate-200/60"
+                    />
+              
                     {/* Opción: Abrir/Cerrar chat */}
                     <button
+                      role="menuitem"
                       onClick={() =>
-                        handleChangeChatStatus(
-                          selectedChat.chat_cerrado === 0 ? 1 : 0
-                        )
+                        handleChangeChatStatus(selectedChat.chat_cerrado === 0 ? 1 : 0)
                       }
-                      className="flex items-center w-full px-4 py-2 text-left text-gray-800 hover:bg-gray-100"
+                      className={`flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm rounded-lg transition-colors
+                        focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                        ${
+                          selectedChat.chat_cerrado === 0
+                            ? "text-red-700 hover:bg-red-50"
+                            : "text-emerald-700 hover:bg-emerald-50"
+                        }`}
                     >
-                      <i className="bx bx-power-off mr-2 text-lg"></i>
-                      {selectedChat.chat_cerrado === 0
-                        ? "Cerrar chat"
-                        : "Abrir chat"}
+                      <span
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-md
+                          ${
+                            selectedChat.chat_cerrado === 0 ? "bg-red-100" : "bg-emerald-100"
+                          }`}
+                        aria-hidden="true"
+                      >
+                        <i
+                          className={`bx bx-power-off text-base ${
+                            selectedChat.chat_cerrado === 0 ? "text-red-700" : "text-emerald-700"
+                          }`}
+                        ></i>
+                      </span>
+                      <span className="flex-1 truncate">
+                        {selectedChat.chat_cerrado === 0 ? "Cerrar chat" : "Abrir chat"}
+                      </span>
                     </button>
-
-                    <hr className="my-1" />
+                        
+                    <hr className="my-2 border-slate-200/70" />
+                        
                     <button
+                      role="menuitem"
                       onClick={toggleTransferirChatModal}
-                      className="flex items-center w-full px-4 py-2 text-left text-gray-800 hover:bg-gray-100"
+                      className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
+                                 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
+                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
-                      <i className="bx bx-transfer-alt mr-2 text-lg"></i>
-                      Transferir chat
+                      <span
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100"
+                        aria-hidden="true"
+                      >
+                        <i className="bx bx-transfer-alt text-base text-slate-700"></i>
+                      </span>
+                      <span className="flex-1 truncate">Transferir chat</span>
                     </button>
-                    <hr className="my-1" />
-
+                        
+                    <hr className="my-2 border-slate-200/70" />
+                        
                     {/* Opción: Etiquetas */}
                     <button
+                      role="menuitem"
                       onClick={toggleAsginarEtiquetaModal}
-                      className="flex items-center w-full px-4 py-2 text-left text-gray-800 hover:bg-gray-100"
+                      className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
+                                 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
+                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
-                      <i className="bx bxs-purchase-tag mr-2 text-lg"></i>
-                      Asignar etiquetas
+                      <span
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100"
+                        aria-hidden="true"
+                      >
+                        <i className="bx bxs-purchase-tag text-base text-slate-700"></i>
+                      </span>
+                      <span className="flex-1 truncate">Asignar etiquetas</span>
                     </button>
-
+                        
                     <button
+                      role="menuitem"
                       onClick={toggleCrearEtiquetaModal}
-                      className="flex items-center w-full px-4 py-2 text-left text-gray-800 hover:bg-gray-100"
+                      className="mt-1 flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
+                                 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
+                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
-                      <i className="bx bx-plus mr-2 text-lg"></i>
-                      Crear etiqueta
+                      <span
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100"
+                        aria-hidden="true"
+                      >
+                        <i className="bx bx-plus text-base text-slate-700"></i>
+                      </span>
+                      <span className="flex-1 truncate">Crear etiqueta</span>
                     </button>
                   </div>
                 )}
               </div>
+
 
               {/* Botón de información (opciones) */}
               <button
