@@ -28,7 +28,7 @@ export default function PoliticasView() {
             <a href="/condiciones-servicio" className="link">
               Condiciones del Servicio
             </a>
-            <a href="sordonez@imporfactorylatam.com" className="link">
+            <a href="info@imporsuit.ec" className="link">
               Contacto
             </a>
           </div>
@@ -90,10 +90,7 @@ export default function PoliticasView() {
             <br />
             Quito, Ecuador
             <br />
-            Correo:{" "}
-            <a href="sordonez@imporfactorylatam.com">
-              sordonez@imporfactorylatam.com
-            </a>
+            Correo: <a href="info@imporsuit.ec">info@imporsuit.ec</a>
             <br />
             Sistema/App: <strong>ImporChat (by Imporfactory)</strong>
           </p>
@@ -238,10 +235,7 @@ export default function PoliticasView() {
             <li>Revocar permisos de Google desde su panel de cuenta.</li>
             <li>
               Contactar a{" "}
-              <a href="mailto:sordonez@imporfactorylatam.com">
-                sordonez@imporfactorylatam.com
-              </a>
-              .
+              <a href="mailto:info@imporsuit.ec">info@imporsuit.ec</a>.
             </li>
           </ul>
         </section>
@@ -271,10 +265,7 @@ export default function PoliticasView() {
           <h2>13. Contacto</h2>
           <p>
             Escríbanos a{" "}
-            <a href="mailto:sordonez@imporfactorylatam.com">
-              sordonez@imporfactorylatam.com
-            </a>
-            .
+            <a href="mailto:info@imporsuit.ec">info@imporsuit.ec</a>.
           </p>
         </section>
 
