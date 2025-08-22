@@ -36,5 +36,14 @@
     opacity: 1;
   }
   
+  /* Prefijo del select: "rs" */
+.rs__dropdown-indicator {
+  transition: transform 200ms ease;
+}
+
+.rs__control--menu-is-open .rs__dropdown-indicator {
+  transform: rotate(180deg);
+}
+
 
 }

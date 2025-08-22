@@ -57,37 +57,122 @@ const Modales = ({
   const [newContactPhone, setNewContactPhone] = useState("");
 
   /* diseño selects */
-  const customSelectStyles = {
-    control: (base, state) => ({
-      ...base,
-      backgroundColor: "white",
-      borderColor: state.isFocused ? "#3b82f6" : "#d1d5db",
-      boxShadow: state.isFocused ? "0 0 0 1px #3b82f6" : "none",
-      "&:hover": {
-        borderColor: "#3b82f6",
-      },
-      padding: "2px",
-    }),
-    option: (base, { isFocused }) => ({
-      ...base,
-      backgroundColor: isFocused ? "#e0f2fe" : "white",
-      color: "black",
-      padding: "10px",
-      cursor: "pointer",
-    }),
-    singleValue: (base) => ({
-      ...base,
-      color: "black",
-    }),
-    placeholder: (base) => ({
-      ...base,
-      color: "#6b7280",
-    }),
-    menu: (base) => ({
-      ...base,
-      zIndex: 100, // Para que no se esconda bajo otros elementos
-    }),
-  };
+  /** Indicadores personalizados (usa tus Boxicons) */
+const DropdownIndicator = (props) => (
+  <components.DropdownIndicator {...props}>
+    <i
+      className={`bx bx-chevron-down transition-transform duration-200 ${
+        props.selectProps.menuIsOpen ? "rotate-180" : ""
+      }`}
+    />
+  </components.DropdownIndicator>
+);
+
+const ClearIndicator = (props) => (
+  <components.ClearIndicator {...props}>
+    <i className="bx bx-x" />
+  </components.ClearIndicator>
+);
+
+/** Colores + radios del tema */
+const customSelectTheme = (theme) => ({
+  ...theme,
+  borderRadius: 12,
+  colors: {
+    ...theme.colors,
+    primary: "#2563eb",     // azul
+    primary25: "#EFF6FF",   // hover opción
+    primary50: "#DBEAFE",   // active opción
+    neutral20: "#cbd5e1",   // borde
+    neutral30: "#94a3b8",   // borde hover
+  },
+});
+
+/** Estilos “glass/premium” + foco accesible */
+const customSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 44,
+    borderRadius: 12,
+    paddingLeft: 6,
+    paddingRight: 6,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    backdropFilter: "saturate(1.2) blur(6px)",
+    borderColor: state.isFocused ? "#3b82f6" : "#e2e8f0",
+    boxShadow: state.isFocused
+      ? "0 0 0 3px rgba(59,130,246,.25)"
+      : "0 1px 2px rgba(2,6,23,.06)",
+    ":hover": {
+      borderColor: state.isFocused ? "#3b82f6" : "#94a3b8",
+    },
+    cursor: "text",
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: "0 4px",
+    gap: 6,
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: "#94a3b8",
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: "#0f172a",
+    fontWeight: 500,
+  }),
+  input: (base) => ({
+    ...base,
+    color: "#0f172a",
+  }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    gap: 6,
+  }),
+  indicatorSeparator: () => ({ display: "none" }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 9999, // por si el modal tiene overflow/oculta
+  }),
+  menu: (base) => ({
+    ...base,
+    borderRadius: 14,
+    marginTop: 8,
+    padding: 4,
+    backgroundColor: "rgba(255,255,255,.92)",
+    backdropFilter: "saturate(1.2) blur(8px)",
+    border: "1px solid rgba(226,232,240,.9)",
+    boxShadow: "0 20px 40px rgba(2,6,23,.12)",
+  }),
+  menuList: (base) => ({
+    ...base,
+    maxHeight: 260,
+    padding: 4,
+  }),
+  option: (base, state) => ({
+    ...base,
+    borderRadius: 10,
+    padding: "10px 12px",
+    color: state.isDisabled
+      ? "#94a3b8"
+      : state.isSelected
+      ? "#0b1324"
+      : "#0f172a",
+    backgroundColor: state.isSelected
+      ? "#DBEAFE"
+      : state.isFocused
+      ? "#F1F5F9"
+      : "transparent",
+    ":active": {
+      backgroundColor: state.isSelected ? "#DBEAFE" : "#E2E8F0",
+    },
+  }),
+  noOptionsMessage: (base) => ({
+    ...base,
+    padding: 12,
+    color: "#64748b",
+  }),
+};
   /* diseño selects */
 
   /* seccion modal enviar archivo */
@@ -138,6 +223,9 @@ const Modales = ({
       alert("Por favor, ingresa un nombre para la etiqueta.");
     }
   };
+
+  /* estilos de select de transferir chat */
+  
 
   const eliminarProducto = async (id_etiqueta) => {
     try {
@@ -1443,132 +1531,324 @@ const Modales = ({
 
       {/* Modal para crear etiqueta */}
       {isCrearEtiquetaModalOpen && (
-        <div className="fixed inset-0 z-20 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-xs w-full">
-            <h3 className="text-lg font-semibold mb-4">Agregar etiqueta</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-1">
-                Nombre etiqueta
-              </label>
-              <input
-                type="text"
-                className="w-full p-2 border rounded"
-                value={tagName}
-                onChange={(e) => setTagName(e.target.value)}
-                placeholder="Ingrese el nombre de la etiqueta"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-1">
-                Color etiqueta
-              </label>
-              <input
-                type="color"
-                className="w-full p-2 border rounded"
-                value={tagColor}
-                onChange={(e) => setTagColor(e.target.value)}
-              />
-            </div>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="crear-etiqueta-titulo"
+        >
+          {/* Fondo: cierra al hacer clic fuera */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={toggleCrearEtiquetaModal}
+            aria-hidden="true"
+          />
 
-            {/* Sección para la lista de etiquetas */}
-            <div className="mt-4 p-4 border-t border-gray-200">
-              <h4 className="text-lg font-semibold mb-2">Lista de etiquetas</h4>
-              {tagList.length > 0 ? (
-                <ul>
-                  {tagList.map((tag, index) => (
-                    <li key={index} className="flex items-center gap-2 mb-2">
-                      <span
-                        className="w-4 h-4 rounded"
-                        style={{ backgroundColor: tag.color_etiqueta }}
-                      ></span>
-                      <span>{tag.nombre_etiqueta}</span>
-                      <button
-                        onClick={() => eliminarProducto(tag.id_etiqueta)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <i className="bx bxs-trash"></i>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No hay etiquetas disponibles.</p>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2">
+          {/* Panel */}
+          <div
+            className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl
+                       ring-1 ring-black/5 border border-slate-200 overflow-hidden"
+            role="document"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between p-4">
+              <div>
+                <h3 id="crear-etiqueta-titulo" className="text-lg font-semibold text-slate-900">
+                  Agregar etiqueta
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Define un nombre y un color. Puedes eliminar desde la lista.
+                </p>
+              </div>
               <button
                 onClick={toggleCrearEtiquetaModal}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full
+                           text-slate-500 hover:text-slate-700 hover:bg-slate-100
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Cerrar"
+                title="Cerrar"
               >
-                Cerrar
-              </button>
-              <button
-                onClick={handleTagCreation}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
-              >
-                Agregar etiqueta
+                <i className="bx bx-x text-lg"></i>
               </button>
             </div>
+      
+            {/* Formulario */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (tagName?.trim()) handleTagCreation();
+              }}
+            >
+              <div className="px-4 pb-4 space-y-5">
+                {/* Nombre */}
+                <div>
+                  <label htmlFor="tag-name" className="block text-sm font-medium text-slate-700">
+                    Nombre etiqueta
+                  </label>
+                  <input
+                    id="tag-name"
+                    type="text"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2
+                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={tagName}
+                    onChange={(e) => setTagName(e.target.value)}
+                    placeholder="Ej. Ventas"
+                  />
+                  {/* Vista previa */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Vista previa:</span>
+                    <span className="inline-flex items-center gap-2 pl-2 pr-2 py-1 rounded-full
+                                     border border-slate-200 bg-white">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: tagColor || "#64748b" }}
+                        aria-hidden="true"
+                      />
+                      <span className="text-xs font-medium text-slate-700">
+                        {tagName?.trim() || "Etiqueta"}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+            
+                {/* Color */}
+                <div>
+                  <label htmlFor="tag-color" className="block text-sm font-medium text-slate-700">
+                    Color etiqueta
+                  </label>
+                  <div className="mt-1 grid grid-cols-[auto,1fr] items-center gap-3">
+                    <input
+                      id="tag-color"
+                      type="color"
+                      className="h-10 w-12 rounded-lg border border-slate-300 cursor-pointer"
+                      value={tagColor}
+                      onChange={(e) => setTagColor(e.target.value)}
+                    />
+                    {/* Campo HEX para editar/pegar el color */}
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm
+                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={tagColor}
+                      onChange={(e) => setTagColor(e.target.value)}
+                      placeholder="#000000"
+                    />
+                  </div>
+            
+                  {/* Colores rápidos (tomados de etiquetas existentes) */}
+                  {tagList?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {[...new Set(tagList.map((t) => t.color_etiqueta).filter(Boolean))]
+                        .slice(0, 8)
+                        .map((c, i) => (
+                          <button
+                            type="button"
+                            key={i}
+                            onClick={() => setTagColor(c)}
+                            className="h-6 w-6 rounded-full border border-white ring-1 ring-slate-300
+                                       hover:ring-blue-500 focus:outline-none focus-visible:ring-2
+                                       focus-visible:ring-blue-500"
+                            style={{ backgroundColor: c }}
+                            aria-label={`Usar color ${c}`}
+                            title={c}
+                          />
+                        ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Lista existente */}
+                <div className="pt-2 border-t border-slate-200">
+                  <h4 className="text-sm font-semibold text-slate-900 mb-2">Lista de etiquetas</h4>
+                  {tagList?.length > 0 ? (
+                    <ul className="max-h-48 overflow-auto space-y-2 pr-1">
+                      {tagList.map((tag) => (
+                        <li
+                          key={tag.id_etiqueta}
+                          className="flex items-center gap-3 px-2 py-2 rounded-lg border border-slate-200"
+                        >
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: tag.color_etiqueta }}
+                            aria-hidden="true"
+                          />
+                          <span
+                            className="flex-1 text-sm text-slate-700 truncate"
+                            title={tag.nombre_etiqueta}
+                          >
+                            {tag.nombre_etiqueta}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => eliminarProducto(tag.id_etiqueta)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full
+                                       text-red-600 hover:bg-red-50
+                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                            aria-label={`Eliminar ${tag.nombre_etiqueta}`}
+                            title="Eliminar"
+                          >
+                            <i className="bx bxs-trash text-base"></i>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="flex items-center gap-2 text-slate-500 text-sm">
+                      <i className="bx bxs-purchase-tag-alt text-base"></i>
+                      <span>No hay etiquetas disponibles.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+                
+              {/* Footer */}
+              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={toggleCrearEtiquetaModal}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md
+                             bg-white border border-slate-200 text-slate-700
+                             hover:bg-slate-100 focus:outline-none
+                             focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  <i className="bx bx-x"></i>
+                  Cerrar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!tagName?.trim()}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-white
+                    ${tagName?.trim()
+                      ? "bg-blue-600 hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
+                      : "bg-blue-400 cursor-not-allowed"}`}
+                >
+                  <i className="bx bx-plus"></i>
+                  Agregar etiqueta
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
+
       {/* Modal para asignar etiqueta */}
       {isAsignarEtiquetaModalOpen && (
-        <div className="fixed inset-0 z-20 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-xs w-full">
-            <h3 className="text-lg font-semibold mb-4">Asignar etiquetas</h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="asignar-etiquetas-titulo"
+        >
+          {/* Fondo */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={toggleAsginarEtiquetaModal}
+            aria-hidden="true"
+          />
 
-            {/* Sección para la lista de etiquetas */}
-            <div className="mt-4 p-4 border-t border-gray-200">
-              {tagList.length > 0 ? (
-                <ul className="space-y-2">
+          {/* Panel */}
+          <div
+            className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl
+                       ring-1 ring-black/5 border border-slate-200 overflow-hidden"
+            role="document"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between p-4">
+              <div>
+                <h3 id="asignar-etiquetas-titulo" className="text-lg font-semibold text-slate-900">
+                  Asignar etiquetas
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500">Haz clic para asignar o quitar.</p>
+              </div>
+              <button
+                onClick={toggleAsginarEtiquetaModal}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full
+                           text-slate-500 hover:text-slate-700 hover:bg-slate-100
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Cerrar"
+                title="Cerrar"
+              >
+                <i className="bx bx-x text-lg"></i>
+              </button>
+            </div>
+      
+            {/* Lista de etiquetas */}
+            <div className="px-4 pb-4 pt-2 max-h-[50vh] overflow-auto">
+              {tagList?.length > 0 ? (
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {tagList.map((tag) => {
-                    // Verificar si la etiqueta está en la lista de asignadas
-                    const isAssigned = tagListAsginadas.some(
-                      (assignedTag) =>
-                        assignedTag.id_etiqueta === tag.id_etiqueta
+                    const isAssigned = tagListAsginadas?.some(
+                      (a) => a.id_etiqueta === tag.id_etiqueta
                     );
-
                     return (
-                      <li
-                        key={tag.id_etiqueta}
-                        onClick={() =>
-                          toggleTagAssignment(tag.id_etiqueta, selectedChat.id)
-                        }
-                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200 
-                    ${
-                      isAssigned
-                        ? "bg-blue-100 border border-blue-300"
-                        : "bg-gray-100 hover:bg-gray-200"
-                    }
-                  `}
-                      >
-                        <span
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: tag.color_etiqueta }}
-                        ></span>
-                        <span className="flex-1 text-gray-700 font-medium">
-                          {tag.nombre_etiqueta}
-                        </span>
-                        {isAssigned && (
-                          <i className="bx bx-check text-blue-600 text-lg"></i>
-                        )}
+                      <li key={tag.id_etiqueta}>
+                        <button
+                          onClick={() =>
+                            toggleTagAssignment(tag.id_etiqueta, selectedChat.id)
+                          }
+                          className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left
+                                     transition-all duration-200 focus:outline-none
+                                     focus-visible:ring-2 focus-visible:ring-blue-500
+                                     ${
+                                       isAssigned
+                                         ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
+                                         : "border-slate-200 bg-white hover:bg-slate-50"
+                                     }`}
+                          aria-pressed={isAssigned}
+                        >
+                          {/* Punto de color */}
+                          <span
+                            aria-hidden="true"
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: tag.color_etiqueta || "#64748b" }}
+                          />
+
+                          {/* Nombre (truncado elegante) */}
+                          <span
+                            className={`flex-1 text-sm font-medium truncate ${
+                              isAssigned ? "text-blue-900" : "text-slate-700"
+                            }`}
+                            title={tag.nombre_etiqueta}
+                          >
+                            {tag.nombre_etiqueta}
+                          </span>
+                          
+                          {/* Estado */}
+                          <span
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full
+                                        ${
+                                          isAssigned
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-slate-100 text-slate-500"
+                                        }`}
+                            aria-hidden="true"
+                          >
+                            <i className={`bx ${isAssigned ? "bx-check" : "bx-plus"} text-base`}></i>
+                          </span>
+                        </button>
                       </li>
                     );
                   })}
                 </ul>
               ) : (
-                <p className="text-gray-500">No hay etiquetas disponibles.</p>
+                <div className="flex items-center gap-2 text-slate-500 text-sm">
+                  <i className="bx bxs-purchase-tag-alt text-base"></i>
+                  <span>No hay etiquetas disponibles.</span>
+                </div>
               )}
             </div>
-
-            <div className="flex justify-end gap-2">
+            
+            {/* Footer */}
+            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
               <button
                 onClick={toggleAsginarEtiquetaModal}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md
+                           bg-white border border-slate-200 text-slate-700
+                           hover:bg-slate-100 focus:outline-none
+                           focus-visible:ring-2 focus-visible:ring-blue-500"
               >
+                <i className="bx bx-x"></i>
                 Cerrar
               </button>
             </div>
@@ -1576,66 +1856,153 @@ const Modales = ({
         </div>
       )}
 
+
       {/* Modal para transferir chats */}
       {transferirChatModalOpen && (
-        <div className="fixed inset-0 z-20 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full text-black">
-            <h3 className="text-lg font-semibold mb-4">Transferir chat</h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="transferir-chat-titulo"
+          onKeyDown={(e) => e.key === "Escape" && toggleTransferirChatModal()}
+        >
+          {/* Fondo: cierra al click */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={toggleTransferirChatModal}
+            aria-hidden="true"
+          />
 
-            {/* Select de usuarios con búsqueda */}
-            <label className="block text-sm font-medium mb-1">
-              Buscar usuario *
-            </label>
-            <Select
-              options={lista_usuarios.map((usuario) => ({
-                value: usuario.id_sub_usuario,
-                label: usuario.nombre_encargado,
-              }))}
-              onChange={(opcion) =>
-                setUsuarioSeleccionado(opcion ? opcion.value : "")
-              }
-              placeholder="Seleccione un usuario"
-              isClearable
-              className="mb-4"
-              styles={customSelectStyles}
-            />
+          {/* Panel */}
+          <div
+            className="relative w-full max-w-lg mx-4 bg-white rounded-2xl shadow-2xl
+                       ring-1 ring-black/5 border border-slate-200 overflow-hidden"
+            role="document"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between p-4">
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full
+                             bg-blue-50 text-blue-600"
+                >
+                  <i className="bx bx-transfer-alt text-xl"></i>
+                </span>
+                <div>
+                  <h3 id="transferir-chat-titulo" className="text-lg font-semibold text-slate-900">
+                    Transferir chat
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Selecciona un usuario y, opcionalmente, un departamento.
+                  </p>
+                </div>
+              </div>
 
-            {/* Select de departamentos con búsqueda */}
-            <label className="block text-sm font-medium mb-1">
-              Buscar departamento
-            </label>
-            <Select
-              options={lista_departamentos.map((dep) => ({
-                value: dep.id_departamento,
-                label: dep.nombre_departamento,
-              }))}
-              onChange={(opcion) =>
-                setDepartamentoSeleccionado(opcion ? opcion.value : "")
-              }
-              placeholder="Seleccione un departamento"
-              isClearable
-              className="mb-4"
-              styles={customSelectStyles}
-            />
-
-            {/* Botones */}
-            <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={toggleTransferirChatModal}
-                className="bg-gray-200 hover:bg-gray-300 text-black px-4 py-2 rounded"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full
+                           text-slate-500 hover:text-slate-700 hover:bg-slate-100
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Cerrar"
+                title="Cerrar"
               >
-                Calcelar
+                <i className="bx bx-x text-lg"></i>
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="px-4 pb-4 space-y-4">
+              {/* Select de usuarios con búsqueda (requerido) */}
+              <div>
+                <label
+                  htmlFor="select-usuario-transfer"
+                  className="block text-sm font-medium text-slate-700 mb-1"
+                >
+                  Buscar usuario <span className="text-red-600">*</span>
+                </label>
+                <Select
+                  inputId="select-usuario-transfer"
+                  options={lista_usuarios.map((u) => ({
+                    value: u.id_sub_usuario,
+                    label: u.nombre_encargado,
+                  }))}
+                  onChange={(opcion) => setUsuarioSeleccionado(opcion ? opcion.value : "")}
+                  placeholder="Seleccione un usuario"
+                  isClearable
+                  className="react-select mb-2"
+                  classNamePrefix="rs"
+                  styles={customSelectStyles}
+                  noOptionsMessage={() => "Sin resultados"}
+                />
+                <p className="text-xs text-slate-500">
+                  {Array.isArray(lista_usuarios) ? `${lista_usuarios.length} usuarios disponibles` : ""}
+                </p>
+              </div>
+                
+              {/* Select de departamentos con búsqueda (opcional) */}
+              <div>
+                <label
+                  htmlFor="select-departamento-transfer"
+                  className="block text-sm font-medium text-slate-700 mb-1"
+                >
+                  Buscar departamento
+                </label>
+                <Select
+                  inputId="select-departamento-transfer"
+                  options={lista_departamentos.map((dep) => ({
+                    value: dep.id_departamento,
+                    label: dep.nombre_departamento,
+                  }))}
+                  onChange={(opcion) =>
+                    setDepartamentoSeleccionado(opcion ? opcion.value : "")
+                  }
+                  placeholder="Seleccione un departamento"
+                  isClearable
+                  className="react-select mb-2"
+                  classNamePrefix="rs"
+                  styles={customSelectStyles}
+                  noOptionsMessage={() => "Sin resultados"}
+                />
+                <p className="text-xs text-slate-500">
+                  {Array.isArray(lista_departamentos)
+                    ? `${lista_departamentos.length} departamentos`
+                    : ""}
+                </p>
+              </div>
+            </div>
+                  
+            {/* Footer */}
+            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
+              <button
+                onClick={toggleTransferirChatModal}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md
+                           bg-white border border-slate-200 text-slate-700
+                           hover:bg-slate-100 focus:outline-none
+                           focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <i className="bx bx-x"></i>
+                Cancelar
               </button>
               <button
                 onClick={handleTransferirChat}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                disabled={!usuarioSeleccionado}
+                title={!usuarioSeleccionado ? "Selecciona un usuario" : "Transferir chat"}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-white
+                  ${
+                    usuarioSeleccionado
+                      ? "bg-blue-600 hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
+                      : "bg-blue-400 cursor-not-allowed"
+                  }`}
               >
+                <i className="bx bx-send"></i>
                 Transferir
               </button>
             </div>
           </div>
         </div>
       )}
+
     </>
   );
 };
