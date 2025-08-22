@@ -3,6 +3,7 @@ import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import { jwtDecode } from "jwt-decode";
 import { useLocation, useNavigate } from "react-router-dom";
+import Select from "react-select";
 
 const Modales = ({
   numeroModal,
@@ -39,6 +40,10 @@ const Modales = ({
   setNumeroModal,
   cargar_socket,
   buscarIdRecibe,
+  transferirChatModalOpen,
+  toggleTransferirChatModal,
+  lista_usuarios,
+  lista_departamentos,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -50,6 +55,40 @@ const Modales = ({
   const [isAddNumberModalOpen, setIsAddNumberModalOpen] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
+
+  /* diseño selects */
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      backgroundColor: "white",
+      borderColor: state.isFocused ? "#3b82f6" : "#d1d5db",
+      boxShadow: state.isFocused ? "0 0 0 1px #3b82f6" : "none",
+      "&:hover": {
+        borderColor: "#3b82f6",
+      },
+      padding: "2px",
+    }),
+    option: (base, { isFocused }) => ({
+      ...base,
+      backgroundColor: isFocused ? "#e0f2fe" : "white",
+      color: "black",
+      padding: "10px",
+      cursor: "pointer",
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: "black",
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: "#6b7280",
+    }),
+    menu: (base) => ({
+      ...base,
+      zIndex: 100, // Para que no se esconda bajo otros elementos
+    }),
+  };
+  /* diseño selects */
 
   /* seccion modal enviar archivo */
 
@@ -894,11 +933,65 @@ const Modales = ({
     }
   };
 
+  /* seccion de transferir chat */
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState("");
+  const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState("");
+
+  const handleTransferirChat = async () => {
+    if (!usuarioSeleccionado || !departamentoSeleccionado) {
+      Toast.fire({
+        icon: "warning",
+        title: "Debes seleccionar un usuario y un departamento.",
+      });
+      return;
+    }
+
+    try {
+      const res = await chatApi.post(
+        "departamentos_chat_center/transferirChat",
+        {
+          id_encargado: usuarioSeleccionado,
+          id_departamento: departamentoSeleccionado,
+          id_cliente_chat_center: selectedChat.id,
+        }
+      );
+
+      if (res.data.status === "success") {
+        Toast.fire({
+          icon: "success",
+          title: res.data.message, // Chat transferido correctamente
+        });
+
+        toggleTransferirChatModal();
+        setUsuarioSeleccionado("");
+        setDepartamentoSeleccionado("");
+      } else {
+        Toast.fire({
+          icon: "error",
+          title: "Ocurrió un problema al transferir el chat.",
+        });
+      }
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        "Error inesperado al transferir el chat.";
+
+      Toast.fire({
+        icon: "error",
+        title: message,
+      });
+
+      console.error("Error al transferir chat:", error);
+    }
+  };
+
+  /* fin seccion de transferir chat */
+
   return (
     <>
       {numeroModal && (
         <div className="fixed inset-0 z-10 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="relative bg-white p-4 rounded-lg max-h-[80%] overflow-y-auto">
+          <div className="relative bg-white p-4 rounded-lg max-h-[80%] overflow-y-auto w-[50%]">
             {/* Botón de cierre con icono en la esquina superior derecha */}
             <button
               onClick={handleNumeroModal}
@@ -980,21 +1073,21 @@ const Modales = ({
                 <h4 className="font-semibold text-lg mb-2">
                   Seleccione un template
                 </h4>
-                <select
+                <Select
                   id="lista_templates"
-                  className="w-full p-2 border rounded mb-4"
-                  onChange={handleTemplateSelect}
-                >
-                  <option value="">Seleccione un template</option>
-                  {templates.map((template, index) => (
-                    <option
-                      key={`${template.name}-${index}`}
-                      value={template.name}
-                    >
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
+                  options={templates.map((template) => ({
+                    value: template.name,
+                    label: template.name,
+                  }))}
+                  placeholder="Seleccione un template"
+                  onChange={(opcion) =>
+                    handleTemplateSelect({
+                      target: { value: opcion ? opcion.value : "" },
+                    })
+                  }
+                  isClearable
+                  styles={customSelectStyles}
+                />
 
                 <textarea
                   id="template_textarea"
@@ -1477,6 +1570,67 @@ const Modales = ({
                 className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para transferir chats */}
+      {transferirChatModalOpen && (
+        <div className="fixed inset-0 z-20 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full text-black">
+            <h3 className="text-lg font-semibold mb-4">Transferir chat</h3>
+
+            {/* Select de usuarios con búsqueda */}
+            <label className="block text-sm font-medium mb-1">
+              Buscar usuario *
+            </label>
+            <Select
+              options={lista_usuarios.map((usuario) => ({
+                value: usuario.id_sub_usuario,
+                label: usuario.nombre_encargado,
+              }))}
+              onChange={(opcion) =>
+                setUsuarioSeleccionado(opcion ? opcion.value : "")
+              }
+              placeholder="Seleccione un usuario"
+              isClearable
+              className="mb-4"
+              styles={customSelectStyles}
+            />
+
+            {/* Select de departamentos con búsqueda */}
+            <label className="block text-sm font-medium mb-1">
+              Buscar departamento
+            </label>
+            <Select
+              options={lista_departamentos.map((dep) => ({
+                value: dep.id_departamento,
+                label: dep.nombre_departamento,
+              }))}
+              onChange={(opcion) =>
+                setDepartamentoSeleccionado(opcion ? opcion.value : "")
+              }
+              placeholder="Seleccione un departamento"
+              isClearable
+              className="mb-4"
+              styles={customSelectStyles}
+            />
+
+            {/* Botones */}
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={toggleTransferirChatModal}
+                className="bg-gray-200 hover:bg-gray-300 text-black px-4 py-2 rounded"
+              >
+                Calcelar
+              </button>
+              <button
+                onClick={handleTransferirChat}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Transferir
               </button>
             </div>
           </div>

@@ -16,8 +16,9 @@ const Cabecera = ({
   setSelectedChat,
   animateOut,
   toggleCrearEtiquetaModal,
-  etiquetasMenuOpen,
-  setEtiquetasMenuOpen,
+  toggleTransferirChatModal,
+  opcionesMenuOpen,
+  setOpcionesMenuOpen,
   toggleAsginarEtiquetaModal,
   tagListAsginadas,
   tagList,
@@ -33,14 +34,13 @@ const Cabecera = ({
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
 
-  const menuRef = useRef(null);
-  const etiquetasMenuRef = useRef(null);
+  const menuOpcionesRef = useRef(null);
 
   //Permitir acceso a location.pathname
   const location = useLocation();
 
-  const toggleEtiquetasMenu = () => {
-    setEtiquetasMenuOpen(!etiquetasMenuOpen);
+  const toggleOpcionesMenu = () => {
+    setOpcionesMenuOpen(!opcionesMenuOpen);
   };
 
   const [configuraciones, setConfiguraciones] = useState([]);
@@ -254,6 +254,29 @@ const Cabecera = ({
   };
 
   const isCalendarBlocked = userData && canAccessCalendar === false;
+
+  /* menu de opciones */
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        menuOpcionesRef.current &&
+        !menuOpcionesRef.current.contains(event.target)
+      ) {
+        setOpcionesMenuOpen(false);
+      }
+    };
+
+    if (opcionesMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [opcionesMenuOpen]);
+  /* fin menu de opciones */
 
   return (
     <>
@@ -503,7 +526,6 @@ const Cabecera = ({
               </div>
             </div>
           </div>
-          
 
           {/* Cerrar sesión */}
           <button
@@ -571,51 +593,61 @@ const Cabecera = ({
                   )
                 }
               />
-              {/* Cerrar/Abrir chat */}
-              <button
-                onClick={() =>
-                  handleChangeChatStatus(
-                    selectedChat.chat_cerrado === 0 ? 1 : 0
-                  )
-                }
-                onMouseEnter={() => setIsHovering(true)}
-                onMouseLeave={() => setIsHovering(false)}
-                className="relative group transition-transform hover:scale-105"
+              <div
+                className="relative inline-block text-left"
+                ref={menuOpcionesRef}
               >
-                <span
-                  className={`${
-                    selectedChat.chat_cerrado === 0
-                      ? "bg-red-500 hover:bg-red-600"
-                      : "bg-green-500 hover:bg-green-600"
-                  } py-2 px-4 rounded-md text-sm font-semibold text-white transition-colors duration-300`}
-                >
-                  {selectedChat.chat_cerrado === 0
-                    ? "Cerrar chat"
-                    : "Abrir chat"}
-                </span>
-              </button>
-
-              {/* Menú de etiquetas */}
-              <div className="relative" ref={etiquetasMenuRef}>
+                {/* Botón principal con flecha */}
                 <button
-                  onClick={toggleEtiquetasMenu}
-                  className="hover:scale-110 transition-transform"
+                  onClick={toggleOpcionesMenu}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition"
                 >
-                  <i className="bx bxs-purchase-tag text-xl"></i>
+                  <span>Opciones</span>
+                  <i className="bx bx-chevron-down text-xl"></i>
                 </button>
-                {etiquetasMenuOpen && (
-                  <div className="absolute top-10 right-0 bg-white rounded shadow-lg py-2 w-40 z-50">
+
+                {/* Menú desplegable */}
+                {opcionesMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50">
+                    {/* Opción: Abrir/Cerrar chat */}
+                    <button
+                      onClick={() =>
+                        handleChangeChatStatus(
+                          selectedChat.chat_cerrado === 0 ? 1 : 0
+                        )
+                      }
+                      className="flex items-center w-full px-4 py-2 text-left text-gray-800 hover:bg-gray-100"
+                    >
+                      <i className="bx bx-power-off mr-2 text-lg"></i>
+                      {selectedChat.chat_cerrado === 0
+                        ? "Cerrar chat"
+                        : "Abrir chat"}
+                    </button>
+
+                    <hr className="my-1" />
+                    <button
+                      onClick={toggleTransferirChatModal}
+                      className="flex items-center w-full px-4 py-2 text-left text-gray-800 hover:bg-gray-100"
+                    >
+                      <i className="bx bx-transfer-alt mr-2 text-lg"></i>
+                      Transferir chat
+                    </button>
+                    <hr className="my-1" />
+
+                    {/* Opción: Etiquetas */}
                     <button
                       onClick={toggleAsginarEtiquetaModal}
-                      className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-200"
+                      className="flex items-center w-full px-4 py-2 text-left text-gray-800 hover:bg-gray-100"
                     >
+                      <i className="bx bxs-purchase-tag mr-2 text-lg"></i>
                       Asignar etiquetas
                     </button>
+
                     <button
-                      type="button"
-                      className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-200"
                       onClick={toggleCrearEtiquetaModal}
+                      className="flex items-center w-full px-4 py-2 text-left text-gray-800 hover:bg-gray-100"
                     >
+                      <i className="bx bx-plus mr-2 text-lg"></i>
                       Crear etiqueta
                     </button>
                   </div>

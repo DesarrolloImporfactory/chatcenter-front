@@ -140,7 +140,7 @@ const Chat = () => {
   const [isCrearEtiquetaModalOpen, setIsCrearEtiquetaModalOpen] =
     useState(false);
 
-  const [etiquetasMenuOpen, setEtiquetasMenuOpen] = useState(false);
+  const [opcionesMenuOpen, setOpcionesMenuOpen] = useState(false);
 
   const [tagList, setTagList] = useState([]);
 
@@ -313,8 +313,8 @@ const Chat = () => {
   const toggleCrearEtiquetaModal = () => {
     fetchTags();
     setIsCrearEtiquetaModalOpen(!isCrearEtiquetaModalOpen);
-    if (etiquetasMenuOpen) {
-      setEtiquetasMenuOpen(!etiquetasMenuOpen);
+    if (opcionesMenuOpen) {
+      setOpcionesMenuOpen(!opcionesMenuOpen);
     }
   };
 
@@ -354,8 +354,8 @@ const Chat = () => {
   const toggleAsginarEtiquetaModal = () => {
     fetchTagsAsginadas();
     setIsAsignarEtiquetaModalOpen(!isAsignarEtiquetaModalOpen);
-    if (etiquetasMenuOpen) {
-      setEtiquetasMenuOpen(!etiquetasMenuOpen);
+    if (opcionesMenuOpen) {
+      setOpcionesMenuOpen(!opcionesMenuOpen);
     }
   };
 
@@ -382,6 +382,53 @@ const Chat = () => {
     }
   };
   /* fin abrir modal asignar etiquetas */
+
+  /* abrir modal transferir chats */
+  const [transferirChatModalOpen, setTransferirChatModalOpen] = useState(false);
+  const [lista_usuarios, setLista_usuarios] = useState([]);
+  const [lista_departamentos, setLista_departamentos] = useState([]);
+
+  const toggleTransferirChatModal = () => {
+    fetchListUsuarios();
+    fetchListDepartamentos();
+    setTransferirChatModalOpen(!transferirChatModalOpen);
+
+    if (opcionesMenuOpen) {
+      setOpcionesMenuOpen(!opcionesMenuOpen);
+    }
+  };
+
+  const fetchListUsuarios = async () => {
+    try {
+      const decoded = jwtDecode(token);
+      const usuario = decoded.id_usuario;
+
+      const res = await chatApi.post("usuarios_chat_center/listarUsuarios", {
+        id_usuario: usuario,
+      });
+      setLista_usuarios(res.data.data);
+    } catch (error) {
+      console.error("Error fetching lista usuarios:", error);
+    }
+  };
+
+  const fetchListDepartamentos = async () => {
+    try {
+      const decoded = jwtDecode(token);
+      const usuario = decoded.id_usuario;
+
+      const res = await chatApi.post(
+        "departamentos_chat_center/listarDepartamentos",
+        {
+          id_usuario: usuario,
+        }
+      );
+      setLista_departamentos(res.data.data);
+    } catch (error) {
+      console.error("Error fetching lista departamentos:", error);
+    }
+  };
+  /* fin abrir modal transferir chats */
 
   /* modal de enviar archivos */
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -1912,8 +1959,9 @@ const Chat = () => {
         setSelectedChat={setSelectedChat}
         animateOut={animateOut}
         toggleCrearEtiquetaModal={toggleCrearEtiquetaModal}
-        setEtiquetasMenuOpen={setEtiquetasMenuOpen}
-        etiquetasMenuOpen={etiquetasMenuOpen}
+        toggleTransferirChatModal={toggleTransferirChatModal}
+        setOpcionesMenuOpen={setOpcionesMenuOpen}
+        opcionesMenuOpen={opcionesMenuOpen}
         toggleAsginarEtiquetaModal={toggleAsginarEtiquetaModal}
         tagListAsginadas={tagListAsginadas}
         tagList={tagList}
@@ -2076,6 +2124,10 @@ const Chat = () => {
         setNumeroModal={setNumeroModal}
         cargar_socket={cargar_socket}
         buscarIdRecibe={buscarIdRecibe}
+        transferirChatModalOpen={transferirChatModalOpen}
+        toggleTransferirChatModal={toggleTransferirChatModal}
+        lista_usuarios={lista_usuarios}
+        lista_departamentos={lista_departamentos}
       />
     </div>
   );
