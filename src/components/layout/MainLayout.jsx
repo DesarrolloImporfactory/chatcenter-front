@@ -252,7 +252,7 @@ function MainLayout({ children }) {
         cancelButtonText: "Cerrar",
         allowOutsideClick: false,
       }).then((r) => {
-        if (r.isConfirmed) navigate("/planes_view");
+        if (r.isConfirmed) navigate("/Miplan");
         else navigate("/conexiones");
       });
     }
@@ -277,7 +277,7 @@ function MainLayout({ children }) {
         cancelButtonText: "Cerrar",
         allowOutsideClick: false,
       }).then((r) => {
-        if (r.isConfirmed) navigate("/planes_view");
+        if (r.isConfirmed) navigate("/Miplan");
       });
     }
   };
