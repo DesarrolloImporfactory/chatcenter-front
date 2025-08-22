@@ -4,6 +4,7 @@ import { set, useForm } from "react-hook-form";
 import Swal from "sweetalert2";
 import "./css/DataUsuarioCss.css";
 import chatApi from "../../api/chatcenter";
+import MiniCalendario from "../calendar/MiniCalendario";
 
 const DatosUsuario = ({
   opciones,
@@ -818,6 +819,7 @@ const DatosUsuario = ({
 
   const [isOpen, setIsOpen] = useState(false); // Estado para controlar si el acordeón está abierto o cerrado
   const [isOpenNovedades, setIsOpenNovedades] = useState(false);
+  const [isOpenMiniCal, setIsOpenMiniCal] = useState(false);
   const [activeTab, setActiveTab] = useState("pedidos"); // Estado para controlar la pestaña activa
   const [activeTabNovedad, setActiveTabNovedad] = useState("no_gestionadas");
 
@@ -2161,6 +2163,28 @@ const DatosUsuario = ({
                       ></i>
                       <span className="text-white">Novedades</span>
                     </button>
+
+                    <button
+                      className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                        isOpenMiniCal
+                          ? "bg-[#182848] border-blue-400"
+                          : "bg-[#111b34] border-transparent hover:border-blue-300"
+                      }`}
+                      onClick={() => {
+                        setIsOpenMiniCal((prev) => !prev);
+                        setIsOpen(false);
+                        setIsOpenNovedades(false);
+                      }}
+                    >
+                      <i
+                        className={`bx bx-calendar text-xl ${
+                          isOpenMiniCal
+                            ? "glow-yellow"
+                            : "text-yellow-300 group-hover:text-yellow-200"
+                        }`}
+                      ></i>
+                      <span className="text-white">Calendario</span>
+                    </button>
                   </div>
 
                   {isOpen && (
@@ -2405,6 +2429,20 @@ const DatosUsuario = ({
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {isOpenMiniCal && (
+                    <div
+                      className={`transition-all duration-300 ease-in-out transform origin-top ${
+                        isOpenMiniCal
+                          ? "opacity-100 scale-100 max-h-[1000px] pointer-events-auto"
+                          : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
+                      } bg-[#12172e] rounded-lg shadow-md`}
+                    >
+                      <div className="p-3">
+                        <MiniCalendario />
                       </div>
                     </div>
                   )}
