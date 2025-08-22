@@ -344,10 +344,10 @@ const MiPlan = () => {
           style={{ transform: mostrarPlanes ? "translateX(-50%)" : "translateX(0%)" }}
         >
           {/* ========= PANE 1: Tu plan actual (contenido original SIN cambios visuales) ========= */}
-          <section className="w-1/2">
-            <div className="mx-auto w-full max-w-screen-2xl">
+          <section className="w-1/2 mt-10">
+            <div className="mx-auto w-full mt-10">
               {/* encabezado */}
-              <div className="mb-6 md:mb-8 px-1 mt-6">
+              <div className="mb-6 md:mb-8 px-1 mt-10">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-[#3b3560]">
                   Tu Plan Actual
                 </h2>
@@ -572,7 +572,7 @@ const MiPlan = () => {
 
           {/* ========= PANE 2: Cards de planes (lo que antes era PlanesView) ========= */}
           <section className="w-1/2">
-            <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12 mt-10">
+            <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12">
               <div className="w-full max-w-8xl">
                 {/* HEADER de planes */}
                 <div className="relative mb-10 mt-10">
