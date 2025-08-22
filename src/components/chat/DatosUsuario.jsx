@@ -5,6 +5,9 @@ import Swal from "sweetalert2";
 import "./css/DataUsuarioCss.css";
 import chatApi from "../../api/chatcenter";
 import MiniCalendario from "../calendar/MiniCalendario";
+import { useNavigate } from "react-router-dom";
+
+const PLANES_CALENDARIO = [1, 3, 4];
 
 const DatosUsuario = ({
   opciones,
@@ -1866,6 +1869,41 @@ const DatosUsuario = ({
     );
   }
 
+  const [canAccessCalendar, setCanAccessCalendar] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return setCanAccessCalendar(false);
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const planId = Number(payload?.id_plan);
+      setCanAccessCalendar(PLANES_CALENDARIO.includes(planId));
+    } catch {
+      setCanAccessCalendar(false);
+    }
+  }, []);
+
+  const handleToggleCalendar = () => {
+    if (canAccessCalendar === false) {
+      Swal.fire({
+        icon: "info",
+        title: "Sección bloqueada",
+        html: "Su plan actual no incluye <b>Calendario</b>.",
+        confirmButtonText: "Ver planes",
+        showCancelButton: true,
+        cancelButtonText: "Cerrar",
+        allowOutsideClick: false,
+      }).then((r) => {
+        if (r.isConfirmed) navigate("/Miplan");
+      });
+      return;
+    }
+    setIsOpenMiniCal((prev) => !prev);
+    setIsOpen(false);
+    setIsOpenNovedades(false);
+  };
+
   return (
     <>
       {opciones && (
@@ -2120,10 +2158,10 @@ const DatosUsuario = ({
                     </div>
                   </div>
 
-                  <div className="flex justify-center gap-3 mb-4 opacity-0 animate-slideInRightOnce delay-[000ms]">
-                    {/* Ordenes y guias */}
+                  <div className="grid grid-cols-2 gap-3 mb-4 opacity-0 animate-slideInRightOnce delay-[0ms]">
+                    {/* Órdenes */}
                     <button
-                      className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                      className={`group w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isOpen
                           ? "bg-[#1e3a5f] border-blue-400"
                           : "bg-[#162c4a] border-transparent hover:border-blue-300"
@@ -2131,6 +2169,7 @@ const DatosUsuario = ({
                       onClick={() => {
                         setIsOpen((prev) => !prev);
                         setIsOpenNovedades(false);
+                        setIsOpenMiniCal(false);
                       }}
                     >
                       <i
@@ -2143,8 +2182,9 @@ const DatosUsuario = ({
                       <span className="text-white">Órdenes</span>
                     </button>
 
+                    {/* Novedades */}
                     <button
-                      className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                      className={`group w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isOpenNovedades
                           ? "bg-[#1f2c47] border-blue-400"
                           : "bg-[#121e36] border-transparent hover:border-blue-300"
@@ -2152,6 +2192,7 @@ const DatosUsuario = ({
                       onClick={() => {
                         setIsOpenNovedades((prev) => !prev);
                         setIsOpen(false);
+                        setIsOpenMiniCal(false);
                       }}
                     >
                       <i
@@ -2164,17 +2205,13 @@ const DatosUsuario = ({
                       <span className="text-white">Novedades</span>
                     </button>
 
-                    {/* <button
-                      className={`group flex items-center justify-center gap-3 flex-1 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                    <button
+                      className={`group col-span-2 w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isOpenMiniCal
                           ? "bg-[#182848] border-blue-400"
                           : "bg-[#111b34] border-transparent hover:border-blue-300"
                       }`}
-                      onClick={() => {
-                        setIsOpenMiniCal((prev) => !prev);
-                        setIsOpen(false);
-                        setIsOpenNovedades(false);
-                      }}
+                      onClick={handleToggleCalendar} // ← antes se hacía el toggle directo
                     >
                       <i
                         className={`bx bx-calendar text-xl ${
@@ -2184,7 +2221,7 @@ const DatosUsuario = ({
                         }`}
                       ></i>
                       <span className="text-white">Calendario</span>
-                    </button> */}
+                    </button>
                   </div>
 
                   {isOpen && (
@@ -2439,10 +2476,13 @@ const DatosUsuario = ({
                         isOpenMiniCal
                           ? "opacity-100 scale-100 max-h-[1000px] pointer-events-auto"
                           : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
-                      } bg-[#12172e] rounded-lg shadow-md`}
+                      } bg-transparent rounded-lg shadow-md`}
                     >
                       <div className="p-3">
-                        <MiniCalendario />
+                        {/* Card propia del calendario con color de texto neutro */}
+                        <div className="rounded-lg shadow-md bg-white text-slate-900">
+                          <MiniCalendario />
+                        </div>
                       </div>
                     </div>
                   )}

@@ -89,6 +89,20 @@ export default function MiniCalendario() {
     })();
   }, [accountId, ownerUserId]);
 
+  // 🔄 Cuando el calendarId esté listo, forzamos a recargar los eventos
+  useEffect(() => {
+    if (calendarId) {
+      calendarRef.current?.getApi()?.refetchEvents();
+    }
+  }, [calendarId]);
+
+  // (opcional) si quieres refrescar cuando llegan los usuarios (por colores)
+  useEffect(() => {
+    if (calendarId) {
+      calendarRef.current?.getApi()?.refetchEvents();
+    }
+  }, [calendarId, usuarios]);
+
   // 2) usuarios reales
   useEffect(() => {
     if (!ownerUserId) return;
@@ -308,6 +322,7 @@ export default function MiniCalendario() {
 
       <div className="rounded-md overflow-hidden bg-white">
         <FullCalendar
+          key={calendarId || "pending-cal"}
           ref={calendarRef}
           locale={esLocale}
           plugins={[dayGridPlugin, interactionPlugin]}
@@ -318,6 +333,7 @@ export default function MiniCalendario() {
           dateClick={handleDateClick}
           eventClick={handleEventClick}
           events={fetchEvents}
+          eventTextColor="#111827"
         />
       </div>
       <p className="mt-2 text-[11px] text-white/60">
