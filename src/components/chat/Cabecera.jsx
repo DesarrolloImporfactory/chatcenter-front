@@ -616,7 +616,7 @@ const Cabecera = ({
                     aria-hidden="true"
                   ></i>
                 </button>
-                  
+
                 {/* Menú desplegable */}
                 {opcionesMenuOpen && (
                   <div
@@ -632,12 +632,14 @@ const Cabecera = ({
                       className="pointer-events-none absolute -top-1.5 right-6 h-3 w-3 rotate-45
                                  bg-white border-t border-l border-slate-200/60"
                     />
-              
+
                     {/* Opción: Abrir/Cerrar chat */}
                     <button
                       role="menuitem"
                       onClick={() =>
-                        handleChangeChatStatus(selectedChat.chat_cerrado === 0 ? 1 : 0)
+                        handleChangeChatStatus(
+                          selectedChat.chat_cerrado === 0 ? 1 : 0
+                        )
                       }
                       className={`flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm rounded-lg transition-colors
                         focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
@@ -650,23 +652,29 @@ const Cabecera = ({
                       <span
                         className={`inline-flex h-8 w-8 items-center justify-center rounded-md
                           ${
-                            selectedChat.chat_cerrado === 0 ? "bg-red-100" : "bg-emerald-100"
+                            selectedChat.chat_cerrado === 0
+                              ? "bg-red-100"
+                              : "bg-emerald-100"
                           }`}
                         aria-hidden="true"
                       >
                         <i
                           className={`bx bx-power-off text-base ${
-                            selectedChat.chat_cerrado === 0 ? "text-red-700" : "text-emerald-700"
+                            selectedChat.chat_cerrado === 0
+                              ? "text-red-700"
+                              : "text-emerald-700"
                           }`}
                         ></i>
                       </span>
                       <span className="flex-1 truncate">
-                        {selectedChat.chat_cerrado === 0 ? "Cerrar chat" : "Abrir chat"}
+                        {selectedChat.chat_cerrado === 0
+                          ? "Cerrar chat"
+                          : "Abrir chat"}
                       </span>
                     </button>
-                        
+
                     <hr className="my-2 border-slate-200/70" />
-                        
+
                     <button
                       role="menuitem"
                       onClick={toggleTransferirChatModal}
@@ -682,9 +690,9 @@ const Cabecera = ({
                       </span>
                       <span className="flex-1 truncate">Transferir chat</span>
                     </button>
-                        
+
                     <hr className="my-2 border-slate-200/70" />
-                        
+
                     {/* Opción: Etiquetas */}
                     <button
                       role="menuitem"
@@ -701,7 +709,7 @@ const Cabecera = ({
                       </span>
                       <span className="flex-1 truncate">Asignar etiquetas</span>
                     </button>
-                        
+
                     <button
                       role="menuitem"
                       onClick={toggleCrearEtiquetaModal}
@@ -720,7 +728,6 @@ const Cabecera = ({
                   </div>
                 )}
               </div>
-
 
               {/* Botón de información (opciones) */}
               <button
@@ -775,11 +782,9 @@ const Cabecera = ({
         >
           <>
             <div className="flex justify-center p-4 border-b border-white/10">
-              <div className="flex text-center justify-center">
-                <span className="text-lg font-semibold">
-                  Informacion Numero
-                </span>
-              </div>
+              <h2 className="text-white text-lg font-bold tracking-wide uppercase">
+                Información del cliente
+              </h2>
             </div>
 
             {/* Cerrar la sección (opciones) */}

@@ -4,6 +4,7 @@ import { set, useForm } from "react-hook-form";
 import Swal from "sweetalert2";
 import "./css/DataUsuarioCss.css";
 import chatApi from "../../api/chatcenter";
+
 const DatosUsuario = ({
   opciones,
   animateOut,
@@ -1825,6 +1826,44 @@ const DatosUsuario = ({
     );
   }
 
+  function MetricCard({
+    title,
+    idHtml,
+    value,
+    color = "",
+    ring,
+    gradient = false,
+    big = false,
+  }) {
+    return (
+      <div
+        className={[
+          "w-24 shrink-0 rounded-lg border p-3 hover:shadow transition",
+          gradient ? "bg-gradient-to-b from-amber-50 to-white" : "bg-white",
+          ring ? `ring-1 ${ring}` : "",
+        ].join(" ")}
+      >
+        <p className="text-xs text-gray-500">{title}</p>
+        <div
+          className={[
+            "mt-1 font-semibold",
+            color,
+            big ? "text-xl" : "text-lg",
+          ].join(" ")}
+        >
+          {/* El número JAMÁS se sale: hace scroll dentro de su cajita si es muy largo */}
+          <span
+            id={idHtml}
+            className="block max-w-full overflow-x-auto whitespace-nowrap font-mono tabular-nums"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {value ?? "—"}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {opciones && (
@@ -2043,24 +2082,17 @@ const DatosUsuario = ({
                 </div>
               )}
 
-              <div className="flex justify-center overflow-y-auto h-full md:h-[750px] custom-scrollbar">
+              <div className="flex items-start justify-center overflow-y-auto h-full md:h-[750px] pt-2 md:pt-4 custom-scrollbar">
                 <div className="w-full max-w-3xl mx-auto">
-                  {/* Información del cliente - Premium con íconos */}
+                  {/* Información del cliente vinculado a Imporsuit */}
                   <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
-                    <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col items-center gap-4 animate-fadeInOnce">
-                      {/* Avatar */}
-                      <div className="bg-[#2a2343] p-2 rounded-full shadow-md">
-                        <img
-                          src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
-                          alt="Avatar"
-                          className="w-16 h-16 rounded-full object-cover border-2 border-violet-400"
-                        />
-                      </div>
-
-                      {/* Título */}
-                      <h2 className="text-white text-lg font-bold tracking-wide uppercase">
-                        Información del cliente
-                      </h2>
+                    <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col gap-4 animate-fadeInOnce">
+                      {/* Avatar + contenido original... */}
+                      <img
+                        src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                        alt="Avatar"
+                        className="block mx-auto w-16 h-16 rounded-full object-cover border-2 border-violet-400"
+                      />
 
                       {/* Datos */}
                       <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 text-white/90">
@@ -3612,63 +3644,84 @@ const DatosUsuario = ({
                                 </table>
                               </div>
 
-                              {/* Botón para añadir producto */}
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setIsModalOpen(true);
-                                }}
-                                className="bg-green-500 text-white text-xs rounded px-4 py-2 mt-2 w-full md:w-auto"
-                              >
-                                Añadir Producto
-                              </button>
+                              <div className="flex items-center justify-between gap-3">
+                                {/* Botón para añadir producto */}
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setIsModalOpen(true);
+                                  }}
+                                  className="group inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
+                                 bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 active:scale-[.98]
+                                 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition mt-3"
+                                  title="Añadir un producto al pedido"
+                                >
+                                  <i className="bx bx-plus text-base"></i>
+                                  Añadir producto
+                                </button>
 
-                              {/* Nombre bodega */}
-                              <div className="flex justify-between mt-3">
-                                <p className="text-lg font-semibold">
-                                  Nombre bodega:
-                                </p>
-                                <span>{nombreBodega}</span>
+                                {/* Bodega */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500">
+                                    Bodega
+                                  </span>
+                                  <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 border">
+                                    {nombreBodega || "—"}
+                                  </span>
+                                </div>
                               </div>
 
-                              {/* Monto de Venta */}
-                              <div className="flex justify-between mt-3">
-                                <p className="text-lg font-semibold">
-                                  Monto de Venta:
-                                </p>
-                                <span id="monto_venta">{monto_venta}</span>
-                              </div>
+                              {/* ===== Resumen del pedido (con scroll horizontal) ===== */}
+                              <div className="mt-3 rounded-xl border bg-white shadow-sm">
+                                <div className="px-4 py-3 border-b flex items-center justify-between">
+                                  <h4 className="text-sm font-semibold text-gray-800">
+                                    Resumen del pedido
+                                  </h4>
+                                  <span className="text-[11px] text-gray-500">
+                                    Actualiza al cambiar cantidades/precios
+                                  </span>
+                                </div>
 
-                              {/* Costo */}
-                              <div className="flex justify-between mt-3">
-                                <p className="text-lg font-semibold">Costo:</p>
-                                <span id="costo">{costo}</span>
-                              </div>
+                                {/* Wrapper con scroll horizontal */}
+                                <div className="px-4 py-3 overflow-x-auto">
+                                  {/* Fila “ancha” que solo crece a lo ancho y permite scroll */}
+                                  <div className="inline-flex gap-3 min-w-max">
+                                    <MetricCard
+                                      title="Monto de Venta"
+                                      idHtml="monto_venta"
+                                      value={monto_venta}
+                                      color="text-emerald-600"
+                                    />
+                                    <MetricCard
+                                      title="Costo Producto"
+                                      idHtml="costo"
+                                      value={costo}
+                                      color="text-rose-600"
+                                    />
+                                    <MetricCard
+                                      title="Precio de envío"
+                                      idHtml="precio_envio_directo"
+                                      value={precio_envio_directo}
+                                      color="text-sky-600"
+                                    />
+                                    <MetricCard
+                                      title="Aplica Fulfillment"
+                                      idHtml="fulfillment"
+                                      value={fulfillment}
+                                      color="text-indigo-600"
+                                    />
+                                    <MetricCard
+                                      title="Ganancia Final"
+                                      idHtml="total"
+                                      value={total_directo}
+                                      color="text-amber-700"
+                                      ring="ring-amber-200"
+                                      gradient
+                                      big
+                                    />
+                                  </div>
+                                </div>
 
-                              {/* Precio de envio */}
-                              <div className="flex justify-between mt-3">
-                                <p className="text-lg font-semibold">
-                                  Precio de envio:
-                                </p>
-                                <span id="precio_envio_directo">
-                                  {precio_envio_directo}
-                                </span>
-                              </div>
-
-                              {/* Fulfillment */}
-                              <div className="flex justify-between mt-3">
-                                <p className="text-lg font-semibold">
-                                  Fulfillment:
-                                </p>
-                                <span id="fulfillment">{fulfillment}</span>
-                              </div>
-
-                              {/* Total final */}
-                              <div className="flex justify-between mt-3">
-                                <p className="text-lg font-semibold">
-                                  Total Final:
-                                </p>
-                                <span id="total">{total_directo}</span>
                                 <input
                                   type="hidden"
                                   id="factura"
@@ -3680,21 +3733,28 @@ const DatosUsuario = ({
                         </div>
                       </form>
                     </div>
-                    <div className="flex gap-3 mx-4">
+                    <div className="flex flex-wrap items-center gap-3 mx-4 mt-4">
+                      {/* Generar guía */}
                       <button
-                        className={`rounded w-28 h-12 flex items-center justify-center ${
-                          validar_generar
-                            ? "bg-green-500 text-white cursor-pointer"
-                            : "bg-gray-400 text-white cursor-not-allowed"
-                        }`}
                         onClick={handleGenerarGuia}
                         disabled={!validar_generar}
+                        className={`group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold shadow-sm transition
+                      ${
+                        validar_generar
+                          ? "bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[.98] focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      }`}
+                        title="Generar la guía con los datos actuales"
                       >
+                        <i className="bx bx-rocket text-base"></i>
                         Generar Guía
                       </button>
 
+                      {/* Cancelar pedido */}
                       <button
-                        className="bg-orange-500 text-white rounded w-28 h-12 flex items-center justify-center"
+                        className="group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold
+                        bg-amber-500 text-white shadow-sm hover:bg-amber-600 active:scale-[.98]
+                        focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
                         onClick={() =>
                           anular_guia(
                             facturaSeleccionada.numero_factura,
@@ -3702,15 +3762,20 @@ const DatosUsuario = ({
                             "pedido"
                           )
                         }
+                        title="Anular el pedido"
                       >
+                        <i className="bx bx-block text-base"></i>
                         Cancelar Pedido
                       </button>
+
+                      {/* Cerrar panel */}
                       <button
-                        className="bg-red-500 text-white rounded w-28 h-12 flex items-center justify-center"
+                        className="group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold
+                        bg-rose-500 text-white shadow-sm hover:bg-rose-600 active:scale-[.98]
+                        focus:outline-none focus:ring-2 focus:ring-rose-400 transition"
                         onClick={() => {
                           setSelectedImageId(null);
                           setValidar_generar(false);
-
                           setMonto_venta(null);
                           setCosto(null);
                           setPrecio_envio_directo(null);
@@ -3718,7 +3783,9 @@ const DatosUsuario = ({
                           setTotal_directo(null);
                           setFacturaSeleccionada({});
                         }}
+                        title="Cerrar y limpiar selección"
                       >
+                        <i className="bx bx-x text-base"></i>
                         Cerrar
                       </button>
                     </div>
@@ -3727,24 +3794,18 @@ const DatosUsuario = ({
               </div>
             </>
           ) : (
-            <div className="flex justify-center overflow-y-auto h-full md:h-[750px]">
+            <div className="flex items-start justify-center overflow-y-auto h-full md:h-[750px] pt-2 md:pt-4">
               <div className="w-full max-w-3xl mx-auto">
-                {/* Información del cliente - Premium con íconos */}
+                {/* Información del cliente*/}
                 <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
-                  <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col items-center gap-4 animate-fadeInOnce">
-                    {/* Avatar */}
-                    <div className="bg-[#2a2343] p-2 rounded-full shadow-md">
-                      <img
-                        src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
-                        alt="Avatar"
-                        className="w-16 h-16 rounded-full object-cover border-2 border-violet-400"
-                      />
-                    </div>
+                  <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col gap-4 animate-fadeInOnce">
+                    {/* Avatar + contenido original... */}
 
-                    {/* Título */}
-                    <h2 className="text-white text-lg font-bold tracking-wide uppercase">
-                      Información del cliente
-                    </h2>
+                    <img
+                      src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                      alt="Avatar"
+                      className="block mx-auto w-16 h-16 rounded-full object-cover border-2 border-violet-400"
+                    />
 
                     {/* Datos */}
                     <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 text-white/90">
