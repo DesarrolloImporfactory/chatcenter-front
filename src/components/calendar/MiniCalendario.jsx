@@ -378,6 +378,7 @@ export default function MiniCalendario() {
           eventClick={handleEventClick}
           events={fetchEvents}
           eventTextColor="#111827"
+          eventClassNames={() => ["cursor-pointer"]}
         />
       </div>
       <p className="mt-2 text-[11px] text-white/60">

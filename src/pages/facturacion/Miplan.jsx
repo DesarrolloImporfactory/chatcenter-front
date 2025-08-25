@@ -45,13 +45,28 @@ const Liston = ({ texto, color = "recomendado" }) => {
 
 /* ========= Iconos de features (de PlanesView) ========= */
 const IconoCheck = () => (
-  <svg className="w-4 h-4 shrink-0 mt-[2px]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+  <svg
+    className="w-4 h-4 shrink-0 mt-[2px]"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden="true"
+  >
     <path d="M7.629 13.233l-3.2-3.2 1.414-1.414 1.786 1.786 5.657-5.657 1.414 1.414-7.071 7.071z" />
   </svg>
 );
 const IconoX = () => (
-  <svg className="w-4 h-4 shrink-0 mt-[2px]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-    <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2" fill="none" />
+  <svg
+    className="w-4 h-4 shrink-0 mt-[2px]"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden="true"
+  >
+    <path
+      d="M6 6l8 8M14 6l-8 8"
+      stroke="currentColor"
+      strokeWidth="2"
+      fill="none"
+    />
   </svg>
 );
 
@@ -76,7 +91,6 @@ const MiPlan = () => {
   const [loadingPlanId, setLoadingPlanId] = useState(null);
   // NUEVO: ¿todavía puede usar el free trial?
   const [trialElegible, setTrialElegible] = useState(true);
-
 
   // ====== Funciones originales ======
   const obtenerFacturas = async () => {
@@ -165,24 +179,23 @@ const MiPlan = () => {
     obtenerFacturas();
   }, []);
 
-
   useEffect(() => {
-      (async () => {
-        try {
-          const token = localStorage.getItem("token");
-          if (!token) return;
-          const { id_usuario, id_users } = JSON.parse(atob(token.split(".")[1]));
-          const { data } = await chatApi.post(
-            "/stripe_plan/trialElegibilidad",
-            { id_usuario: id_usuario || id_users },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setTrialElegible(Boolean(data?.elegible));
-        } catch (e) {
-          console.warn("trialElegibilidad:", e?.response?.data || e.message);
-        }
-      })();
-    }, []);
+    (async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const { id_usuario, id_users } = JSON.parse(atob(token.split(".")[1]));
+        const { data } = await chatApi.post(
+          "/stripe_plan/trialElegibilidad",
+          { id_usuario: id_usuario || id_users },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setTrialElegible(Boolean(data?.elegible));
+      } catch (e) {
+        console.warn("trialElegibilidad:", e?.response?.data || e.message);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -211,7 +224,11 @@ const MiPlan = () => {
       const res = await chatApi.get("planes/listarPlanes");
       setPlanes(res.data.data || []);
     } catch {
-      Swal.fire({ icon: "error", title: "Error", text: "No se pudieron cargar los planes." });
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudieron cargar los planes.",
+      });
     }
   };
 
@@ -228,7 +245,10 @@ const MiPlan = () => {
       });
       setStripeMap(map);
     } catch (e) {
-      console.warn("No se pudo sincronizar precios desde Stripe:", e?.response?.data || e.message);
+      console.warn(
+        "No se pudo sincronizar precios desde Stripe:",
+        e?.response?.data || e.message
+      );
     }
   };
 
@@ -267,19 +287,25 @@ const MiPlan = () => {
 
       if (idPlan === 1) {
         if (!trialElegible) {
-          await Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+          await Swal.fire(
+            "No disponible",
+            "Ya usaste tu plan gratuito.",
+            "info"
+          );
           return;
         }
         const { data } = await chatApi.post(
           "/stripe_plan/crearFreeTrial",
-          { id_usuario, success_url: `${baseUrl}/miplan?trial=ok`, cancel_url: `${baseUrl}/miplan?trial=cancel` },
+          {
+            id_usuario,
+            success_url: `${baseUrl}/miplan?trial=ok`,
+            cancel_url: `${baseUrl}/miplan?trial=cancel`,
+          },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (data?.url) window.location.href = data.url;
         return;
       }
-
-      
 
       // Caso planes de pago -> crear sesión y redirigir
       const res = await chatApi.post(
@@ -303,12 +329,18 @@ const MiPlan = () => {
         );
         window.location.href = res.data.url; // redirección directa a Stripe
       } else {
-        await Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success");
+        await Swal.fire(
+          "Listo",
+          "Tu plan fue actualizado correctamente.",
+          "success"
+        );
         setMostrarPlanes(false);
         obtenerPlanActivo();
       }
     } catch (error) {
-      const msg = error?.response?.data?.message || "No se pudo procesar tu solicitud. Intenta nuevamente.";
+      const msg =
+        error?.response?.data?.message ||
+        "No se pudo procesar tu solicitud. Intenta nuevamente.";
       Swal.fire({ icon: "error", title: "Error", text: msg });
     } finally {
       setLoadingPlanId(null);
@@ -324,7 +356,8 @@ const MiPlan = () => {
 
   const getPrecioMostrar = (pl) => {
     const s = stripeMap[pl.id_plan];
-    if (s && typeof s.stripe_price === "number") return (s.stripe_price / 100).toFixed(2);
+    if (s && typeof s.stripe_price === "number")
+      return (s.stripe_price / 100).toFixed(2);
     return parseFloat(pl.precio_plan).toFixed(2);
   };
 
@@ -337,7 +370,8 @@ const MiPlan = () => {
   const buildFeatures = (pl) => {
     const nombre = (pl?.nombre_plan || "").toLowerCase();
     const esFree = nombre.includes("free") || nombre.includes("gratuito");
-    const esConexion = nombre.includes("conexión") || nombre.includes("conexion");
+    const esConexion =
+      nombre.includes("conexión") || nombre.includes("conexion");
     const desactivaCitas = esFree || esConexion;
 
     return [
@@ -352,7 +386,10 @@ const MiPlan = () => {
       { label: "Área de productos y servicios", enabled: true },
       { label: "Automatizador", enabled: true },
       { label: "IA de agendamiento de citas", enabled: !desactivaCitas },
-      { label: "Calendario de programación de citas", enabled: !desactivaCitas },
+      {
+        label: "Calendario de programación de citas",
+        enabled: !desactivaCitas,
+      },
     ];
   };
 
@@ -363,11 +400,16 @@ const MiPlan = () => {
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center">
           <div
             className="rounded-2xl px-6 py-5 text-white shadow-2xl border border-[#c4bde4]/30"
-            style={{ background: "linear-gradient(180deg, #4b3f72 0%, #322b4f 60%, #1f1a33 100%)" }}
+            style={{
+              background:
+                "linear-gradient(180deg, #4b3f72 0%, #322b4f 60%, #1f1a33 100%)",
+            }}
           >
             <div className="flex items-center gap-3">
               <FaSyncAlt className="animate-spin" />
-              <span className="text-sm sm:text-base font-semibold">{overlayTexto}</span>
+              <span className="text-sm sm:text-base font-semibold">
+                {overlayTexto}
+              </span>
             </div>
           </div>
         </div>
@@ -377,7 +419,9 @@ const MiPlan = () => {
       <div className="relative overflow-hidden">
         <div
           className="flex transition-transform duration-500 ease-in-out w-[200%]"
-          style={{ transform: mostrarPlanes ? "translateX(-50%)" : "translateX(0%)" }}
+          style={{
+            transform: mostrarPlanes ? "translateX(-50%)" : "translateX(0%)",
+          }}
         >
           {/* ========= PANE 1: Tu plan actual (contenido original SIN cambios visuales) ========= */}
           <section className="w-1/2 mt-10">
@@ -388,7 +432,8 @@ const MiPlan = () => {
                   Tu Plan Actual
                 </h2>
                 <p className="mt-2 text-[#5a547a] text-xs sm:text-sm">
-                  Administra tu suscripción y consulta tu historial de facturación.
+                  Administra tu suscripción y consulta tu historial de
+                  facturación.
                 </p>
               </div>
 
@@ -442,24 +487,40 @@ const MiPlan = () => {
                                 setLoadingGestion(true);
                                 try {
                                   const token = localStorage.getItem("token");
-                                  const { id_usuario, id_users } = JSON.parse(atob(token.split(".")[1]));
+                                  const { id_usuario, id_users } = JSON.parse(
+                                    atob(token.split(".")[1])
+                                  );
                                   const res = await chatApi.post(
                                     "/stripe_plan/portalGestionMetodos",
                                     { id_usuario: id_usuario || id_users },
-                                    { headers: { Authorization: `Bearer ${token}` } }
+                                    {
+                                      headers: {
+                                        Authorization: `Bearer ${token}`,
+                                      },
+                                    }
                                   );
                                   window.location.href = res.data.url;
                                 } catch (e) {
                                   console.error(e);
-                                  Swal.fire("Error", "No se pudo abrir el portal de métodos.", "error");
+                                  Swal.fire(
+                                    "Error",
+                                    "No se pudo abrir el portal de métodos.",
+                                    "error"
+                                  );
                                   setLoadingGestion(false);
                                 }
                               }}
                               disabled={loadingGestion || loadingAgregar}
                               className={`inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold border border-[#c4bde4]/40 text-white transition focus:outline-none focus:ring-2 focus:ring-[#c4bde4]/50
-                                ${loadingGestion || loadingAgregar ? "opacity-60 cursor-not-allowed" : "hover:bg-[#c4bde4]/10"}`}
+                                ${
+                                  loadingGestion || loadingAgregar
+                                    ? "opacity-60 cursor-not-allowed"
+                                    : "hover:bg-[#c4bde4]/10"
+                                }`}
                             >
-                              {loadingGestion ? <FaSyncAlt className="animate-spin" /> : null}
+                              {loadingGestion ? (
+                                <FaSyncAlt className="animate-spin" />
+                              ) : null}
                               Gestionar métodos de pago
                             </button>
 
@@ -470,24 +531,40 @@ const MiPlan = () => {
                                 setLoadingAgregar(true);
                                 try {
                                   const token = localStorage.getItem("token");
-                                  const { id_usuario, id_users } = JSON.parse(atob(token.split(".")[1]));
+                                  const { id_usuario, id_users } = JSON.parse(
+                                    atob(token.split(".")[1])
+                                  );
                                   const res = await chatApi.post(
                                     "/stripe_plan/portalAddPaymentMethod",
                                     { id_usuario: id_usuario || id_users },
-                                    { headers: { Authorization: `Bearer ${token}` } }
+                                    {
+                                      headers: {
+                                        Authorization: `Bearer ${token}`,
+                                      },
+                                    }
                                   );
                                   window.location.href = res.data.url;
                                 } catch (e) {
                                   console.error(e);
-                                  Swal.fire("Error", "No se pudo iniciar el flujo para agregar tarjeta.", "error");
+                                  Swal.fire(
+                                    "Error",
+                                    "No se pudo iniciar el flujo para agregar tarjeta.",
+                                    "error"
+                                  );
                                   setLoadingAgregar(false);
                                 }
                               }}
                               disabled={loadingGestion || loadingAgregar}
                               className={`inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold text-emerald-300 transition focus:outline-none focus:ring-2 focus:ring-emerald-400/40
-                                ${loadingGestion || loadingAgregar ? "opacity-60 cursor-not-allowed" : "hover:text-emerald-200 hover:bg-emerald-600/10"}`}
+                                ${
+                                  loadingGestion || loadingAgregar
+                                    ? "opacity-60 cursor-not-allowed"
+                                    : "hover:text-emerald-200 hover:bg-emerald-600/10"
+                                }`}
                             >
-                              {loadingAgregar ? <FaSyncAlt className="animate-spin" /> : null}
+                              {loadingAgregar ? (
+                                <FaSyncAlt className="animate-spin" />
+                              ) : null}
                               Agregar método de pago
                             </button>
                           </div>
@@ -498,26 +575,42 @@ const MiPlan = () => {
                           {(() => {
                             const hoy = new Date();
                             const fin = new Date(plan.fecha_renovacion);
-                            const diasRestantes = Math.ceil((fin - hoy) / (1000 * 60 * 60 * 24));
+                            const diasRestantes = Math.ceil(
+                              (fin - hoy) / (1000 * 60 * 60 * 24)
+                            );
                             let color = "text-emerald-400";
                             if (diasRestantes <= 5) color = "text-red-400";
-                            else if (diasRestantes <= 15) color = "text-orange-400";
+                            else if (diasRestantes <= 15)
+                              color = "text-orange-400";
 
                             const inicioPeriodo = new Date(fin);
-                            inicioPeriodo.setMonth(inicioPeriodo.getMonth() - 1);
+                            inicioPeriodo.setMonth(
+                              inicioPeriodo.getMonth() - 1
+                            );
                             const totalMs = fin - inicioPeriodo;
-                            const transcurridoMs = Math.min(Math.max(hoy - inicioPeriodo, 0), totalMs);
+                            const transcurridoMs = Math.min(
+                              Math.max(hoy - inicioPeriodo, 0),
+                              totalMs
+                            );
                             const porcentaje = Math.max(
                               0,
-                              Math.min(100, Math.round((transcurridoMs / totalMs) * 100))
+                              Math.min(
+                                100,
+                                Math.round((transcurridoMs / totalMs) * 100)
+                              )
                             );
 
                             return (
                               <>
-                                <p className={`text-xs sm:text-sm font-medium ${color}`}>
-                                  El plan culmina: {fin.toLocaleDateString()} ({diasRestantes} días restantes)
+                                <p
+                                  className={`text-xs sm:text-sm font-medium ${color}`}
+                                >
+                                  El plan culmina: {fin.toLocaleDateString()} (
+                                  {diasRestantes} días restantes)
                                 </p>
-                                <p className={`text-xs sm:text-sm font-medium mt-1 ${color}`}>
+                                <p
+                                  className={`text-xs sm:text-sm font-medium mt-1 ${color}`}
+                                >
                                   Renovación: {fin.toLocaleDateString()}
                                 </p>
 
@@ -544,7 +637,9 @@ const MiPlan = () => {
                         )}
                       </>
                     ) : (
-                      <div className="text-[#e0dcf3]">No tienes un plan activo.</div>
+                      <div className="text-[#e0dcf3]">
+                        No tienes un plan activo.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -553,7 +648,9 @@ const MiPlan = () => {
                 <div className="xl:col-span-1">
                   <div className="rounded-3xl p-5 sm:p-6 bg-gradient-to-b from-[#4b3f72] via-[#322b4f] to-[#1f1a33] text-white backdrop-blur-xl border border-[#c4bde4]/30 shadow-lg shadow-[#c4bde4]/10 hover:shadow-[0_0_25px_rgba(196,189,228,0.25)] transition-shadow duration-300 h-full xl:sticky xl:top-6">
                     <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <h4 className="text-base sm:text-lg font-semibold text-white">Facturas</h4>
+                      <h4 className="text-base sm:text-lg font-semibold text-white">
+                        Facturas
+                      </h4>
                       <button
                         onClick={obtenerFacturas}
                         disabled={cargandoFacturas}
@@ -564,7 +661,9 @@ const MiPlan = () => {
                               : "bg-[#6d5cbf] hover:bg-[#5a4aa5] text-white"
                           }`}
                       >
-                        <FaSyncAlt className={cargandoFacturas ? "animate-spin" : ""} />
+                        <FaSyncAlt
+                          className={cargandoFacturas ? "animate-spin" : ""}
+                        />
                         {cargandoFacturas ? "Actualizando" : "Actualizar"}
                       </button>
                     </div>
@@ -579,7 +678,9 @@ const MiPlan = () => {
                             <div className="flex items-center justify-between gap-4">
                               <div className="min-w-0">
                                 <p className="text-sm text-white">
-                                  {new Date(f.created * 1000).toLocaleDateString()}
+                                  {new Date(
+                                    f.created * 1000
+                                  ).toLocaleDateString()}
                                 </p>
                                 <p className="text-xs text-[#e0dcf3] truncate">
                                   USD {(f.amount_paid / 100).toFixed(2)}
@@ -598,7 +699,9 @@ const MiPlan = () => {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-[#e0dcf3]">Aún no hay facturas para mostrar.</p>
+                      <p className="text-sm text-[#e0dcf3]">
+                        Aún no hay facturas para mostrar.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -616,7 +719,8 @@ const MiPlan = () => {
                     Elige tu plan ideal y potencia tu empresa
                   </h2>
                   <p className="mt-3 text-sm text-center text-[#5a547a]">
-                    Planes claros, beneficios reales y un proceso de activación sencillo.
+                    Planes claros, beneficios reales y un proceso de activación
+                    sencillo.
                   </p>
 
                   {currentPlanId && (
@@ -629,11 +733,11 @@ const MiPlan = () => {
                           iconSize={45}
                           labelSize={18}
                           baseColor="#171931"
-                          hoverColor="#22C55E"
+                          hoverColor="#171931"
                           /* en móvil solo ícono, desde sm aparece el texto */
                           labelClassName="font-bold hidden sm:inline"
-                          ariaLabel="Volver a Mi Plan"
-                          title="Volver a Mi Plan"
+                          ariaLabel="Volver"
+                          title="Volver"
                         />
                       </div>
                     </div>
@@ -655,13 +759,14 @@ const MiPlan = () => {
 
                   {planes.map((pl) => {
                     const isCurrent = currentPlanId === pl.id_plan;
-                    const ribbon =
-                      pl.nombre_plan?.toLowerCase().includes("premium")
-                        ? "Popular"
-                        : pl.nombre_plan?.toLowerCase().includes("conexión") ||
-                          pl.nombre_plan?.toLowerCase().includes("conexion")
-                        ? "Recomendado"
-                        : null;
+                    const ribbon = pl.nombre_plan
+                      ?.toLowerCase()
+                      .includes("premium")
+                      ? "Popular"
+                      : pl.nombre_plan?.toLowerCase().includes("conexión") ||
+                        pl.nombre_plan?.toLowerCase().includes("conexion")
+                      ? "Recomendado"
+                      : null;
 
                     const esBasico =
                       (pl.nombre_plan || "").toLowerCase().includes("básico") ||
@@ -683,9 +788,15 @@ const MiPlan = () => {
                           "
                         >
                           {/* Listones */}
-                          {esBasico && <Liston texto="Más vendido" color="vendido" />}
-                          {!esBasico && ribbon === "Recomendado" && <Liston texto="Recomendado" color="recomendado" />}
-                          {!esBasico && ribbon === "Popular" && <Liston texto="Popular" color="popular" />}
+                          {esBasico && (
+                            <Liston texto="Más vendido" color="vendido" />
+                          )}
+                          {!esBasico && ribbon === "Recomendado" && (
+                            <Liston texto="Recomendado" color="recomendado" />
+                          )}
+                          {!esBasico && ribbon === "Popular" && (
+                            <Liston texto="Popular" color="popular" />
+                          )}
 
                           {/* Contenido */}
                           <div className="px-6 pt-16 pb-6 md:px-7 md:pt-20 md:pb-7 flex flex-col h-full">
@@ -705,19 +816,30 @@ const MiPlan = () => {
                                 <span className="text-3xl md:text-[34px] font-extrabold tracking-tight text-[#171931]">
                                   ${getPrecioMostrar(pl)}
                                 </span>
-                                <span className="text-sm text-slate-500 mb-1">/{getIntervalo(pl)}</span>
+                                <span className="text-sm text-slate-500 mb-1">
+                                  /{getIntervalo(pl)}
+                                </span>
                               </div>
                             </div>
 
                             {/* Beneficios */}
                             <ul className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-x-3 text-sm flex-1 md:w-[100%] mx-auto">
                               {features.map((f, idx) => (
-                                <li key={idx} className={f.enabled ? "text-slate-700" : "text-slate-400"}>
+                                <li
+                                  key={idx}
+                                  className={
+                                    f.enabled
+                                      ? "text-slate-700"
+                                      : "text-slate-400"
+                                  }
+                                >
                                   <div className="grid grid-cols-[12px_1fr] items-start gap-2">
                                     <span className="inline-flex h-4 w-4 items-center justify-center mt-[2px]">
                                       {f.enabled ? <IconoCheck /> : <IconoX />}
                                     </span>
-                                    <span className="leading-relaxed text-left">{f.label}</span>
+                                    <span className="leading-relaxed text-left">
+                                      {f.label}
+                                    </span>
                                   </div>
                                 </li>
                               ))}
@@ -726,7 +848,9 @@ const MiPlan = () => {
                             {/* Botón: flujo de 1 paso */}
                             <div className="mt-6">
                               <button
-                                onClick={() => handleSeleccionarPlan(pl.id_plan)}
+                                onClick={() =>
+                                  handleSeleccionarPlan(pl.id_plan)
+                                }
                                 disabled={
                                   loadingPlanId === pl.id_plan ||
                                   isCurrent ||
@@ -740,8 +864,8 @@ const MiPlan = () => {
                                       ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                                       : loadingPlanId === pl.id_plan
                                       ? "bg-emerald-600 text-white cursor-wait"
-                                      : (pl.id_plan === 1 && !trialElegible)
-                                      ? "bg-slate-200 text-slate-500 cursor-not-allowed"   // estiliza card Free bloqueada
+                                      : pl.id_plan === 1 && !trialElegible
+                                      ? "bg-slate-200 text-slate-500 cursor-not-allowed" // estiliza card Free bloqueada
                                       : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
                                   }
                                 `}
@@ -750,15 +874,16 @@ const MiPlan = () => {
                                   ? "Tienes este plan actualmente"
                                   : loadingPlanId === pl.id_plan
                                   ? "Procesando..."
-                                  : (pl.id_plan === 1 && !trialElegible)
+                                  : pl.id_plan === 1 && !trialElegible
                                   ? "No disponible"
                                   : "Seleccionar"}
                               </button>
-                                
-                              {pl.id_plan === 1 && !trialElegible && (
-                                <p className="mt-2 text-xs text-red-600">Ya usaste tu plan gratuito.</p>
-                              )}
 
+                              {pl.id_plan === 1 && !trialElegible && (
+                                <p className="mt-2 text-xs text-red-600">
+                                  Ya usaste tu plan gratuito.
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
