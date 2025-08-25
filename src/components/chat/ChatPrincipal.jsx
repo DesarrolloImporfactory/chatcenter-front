@@ -146,6 +146,11 @@ const ChatPrincipal = ({
                       }
                     `}
                   >
+                    {mensaje.responsable && (
+                      <div className="text-[13px] font-bold text-gray-800 mb-1 leading-none">
+                        Enviado por {mensaje.responsable}:
+                      </div>
+                    )}
                     {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
                     <span className="text-sm pb-2 inline-block">
                       {/* Tipo: TEXT */}

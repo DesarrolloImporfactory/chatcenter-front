@@ -34,7 +34,7 @@ const Modales = ({
   setTagList,
   fetchTags,
   isAsignarEtiquetaModalOpen,
-  toggleAsginarEtiquetaModal,
+  toggleAsignarEtiquetaModal,
   tagListAsginadas,
   setTagListAsginadas,
   setNumeroModal,
@@ -1743,7 +1743,7 @@ const customSelectStyles = {
           {/* Fondo */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={toggleAsginarEtiquetaModal}
+            onClick={toggleAsignarEtiquetaModal}
             aria-hidden="true"
           />
 
@@ -1762,7 +1762,7 @@ const customSelectStyles = {
                 <p className="mt-0.5 text-xs text-slate-500">Haz clic para asignar o quitar.</p>
               </div>
               <button
-                onClick={toggleAsginarEtiquetaModal}
+                onClick={toggleAsignarEtiquetaModal}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full
                            text-slate-500 hover:text-slate-700 hover:bg-slate-100
                            focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
@@ -1842,7 +1842,7 @@ const customSelectStyles = {
             {/* Footer */}
             <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
               <button
-                onClick={toggleAsginarEtiquetaModal}
+                onClick={toggleAsignarEtiquetaModal}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-md
                            bg-white border border-slate-200 text-slate-700
                            hover:bg-slate-100 focus:outline-none

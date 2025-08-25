@@ -62,6 +62,8 @@ const Chat = () => {
 
   const [id_sub_usuario_global, setId_sub_usuario_global] = useState(null);
 
+  const [nombre_encargado_global, setNombre_encargado_global] = useState(null);
+
   const [rol_usuario_global, setRol_usuario_global] = useState(null);
 
   const [id_usuario_conf, setId_usuario_conf] = useState(null);
@@ -185,6 +187,7 @@ const Chat = () => {
 
       setId_sub_usuario_global(decoded.id_sub_usuario);
       setRol_usuario_global(decoded.rol);
+      setNombre_encargado_global(decoded.nombre_encargado);
 
       const validar_conexion_usuario = async (id_usuario, id_configuracion) => {
         try {
@@ -370,7 +373,7 @@ const Chat = () => {
   const [isAsignarEtiquetaModalOpen, setIsAsignarEtiquetaModalOpen] =
     useState(false);
 
-  const toggleAsginarEtiquetaModal = () => {
+  const toggleAsignarEtiquetaModal = () => {
     fetchTagsAsginadas();
     setIsAsignarEtiquetaModalOpen(!isAsignarEtiquetaModalOpen);
     if (opcionesMenuOpen) {
@@ -476,6 +479,7 @@ const Chat = () => {
           telefono_recibe,
           id_configuracion,
           telefono_configuracion,
+          responsable: nombre_encargado_global,
         }
       );
 
@@ -557,6 +561,7 @@ const Chat = () => {
             texto_mensaje: texto_mensaje,
             tipo_mensaje: tipo_mensaje,
             visto: 1,
+            responsable: nombre_encargado_global,
           };
 
           actualizado.push(nuevoMensaje);
@@ -1055,7 +1060,7 @@ const Chat = () => {
   const asignarChat = async () => {
     try {
       const res = await chatApi.post(
-        "departamentos_chat_center/asginar_encargado",
+        "departamentos_chat_center/asignar_encargado",
         {
           id_encargado: id_sub_usuario_global,
           id_cliente_chat_center: selectedChat.id,
@@ -2120,7 +2125,7 @@ const Chat = () => {
         toggleTransferirChatModal={toggleTransferirChatModal}
         setOpcionesMenuOpen={setOpcionesMenuOpen}
         opcionesMenuOpen={opcionesMenuOpen}
-        toggleAsginarEtiquetaModal={toggleAsginarEtiquetaModal}
+        toggleAsignarEtiquetaModal={toggleAsignarEtiquetaModal}
         tagListAsginadas={tagListAsginadas}
         tagList={tagList}
         cargar_socket={cargar_socket}
@@ -2276,7 +2281,7 @@ const Chat = () => {
         setTagList={setTagList}
         fetchTags={fetchTags}
         isAsignarEtiquetaModalOpen={isAsignarEtiquetaModalOpen}
-        toggleAsginarEtiquetaModal={toggleAsginarEtiquetaModal}
+        toggleAsignarEtiquetaModal={toggleAsignarEtiquetaModal}
         tagListAsginadas={tagListAsginadas}
         setTagListAsginadas={setTagListAsginadas}
         setNumeroModal={setNumeroModal}

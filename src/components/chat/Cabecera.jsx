@@ -19,7 +19,7 @@ const Cabecera = ({
   toggleTransferirChatModal,
   opcionesMenuOpen,
   setOpcionesMenuOpen,
-  toggleAsginarEtiquetaModal,
+  toggleAsignarEtiquetaModal,
   tagListAsginadas,
   tagList,
   cargar_socket,
@@ -696,7 +696,7 @@ const Cabecera = ({
                     {/* Opción: Etiquetas */}
                     <button
                       role="menuitem"
-                      onClick={toggleAsginarEtiquetaModal}
+                      onClick={toggleAsignarEtiquetaModal}
                       className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
                                  text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
                                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
