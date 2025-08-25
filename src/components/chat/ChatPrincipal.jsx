@@ -148,9 +148,22 @@ const ChatPrincipal = ({
                   >
                     {mensaje.responsable && (
                       <div className="text-[13px] font-bold text-gray-800 mb-1 leading-none">
-                        Enviado por {mensaje.responsable}:
+                        Enviado por{" "}
+                        {mensaje.responsable === "IA_logistica"
+                          ? "IA Logística"
+                          : mensaje.responsable === "IA_ventas"
+                          ? "IA Ventas"
+                          : [
+                              "webook",
+                              "automatizador",
+                              "automatizador_wait",
+                            ].includes(mensaje.responsable)
+                          ? "Automatizador"
+                          : mensaje.responsable}
+                        :
                       </div>
                     )}
+
                     {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
                     <span className="text-sm pb-2 inline-block">
                       {/* Tipo: TEXT */}
