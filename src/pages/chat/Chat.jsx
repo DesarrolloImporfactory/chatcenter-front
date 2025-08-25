@@ -60,6 +60,10 @@ const Chat = () => {
 
   const [id_plataforma_conf, setId_plataforma_conf] = useState(null);
 
+  const [id_sub_usuario_global, setId_sub_usuario_global] = useState(null);
+
+  const [rol_usuario_global, setRol_usuario_global] = useState(null);
+
   const [id_usuario_conf, setId_usuario_conf] = useState(null);
 
   const [opciones, setOpciones] = React.useState(false);
@@ -136,6 +140,18 @@ const Chat = () => {
   const [novedades_gestionadas, setNovedades_gestionadas] = useState(null);
   const [novedades_noGestionadas, setNovedades_noGestionadas] = useState(null);
 
+  const Toast = Swal.mixin({
+    toast: true,
+    position: "top-end", // Puedes cambiar a 'bottom-end', 'top-start', etc.
+    showConfirmButton: false,
+    timer: 3000, // Duración en ms
+    timerProgressBar: true,
+    didOpen: (toast) => {
+      toast.addEventListener("mouseenter", Swal.stopTimer);
+      toast.addEventListener("mouseleave", Swal.resumeTimer);
+    },
+  });
+
   /* abrir modal crear etiquetas */
   const [isCrearEtiquetaModalOpen, setIsCrearEtiquetaModalOpen] =
     useState(false);
@@ -166,6 +182,9 @@ const Chat = () => {
     if (token) {
       const decoded = jwtDecode(token);
       const usuario = decoded.id_usuario;
+
+      setId_sub_usuario_global(decoded.id_sub_usuario);
+      setRol_usuario_global(decoded.rol);
 
       const validar_conexion_usuario = async (id_usuario, id_configuracion) => {
         try {
@@ -1031,6 +1050,121 @@ const Chat = () => {
     label: etiqueta.nombre_etiqueta,
   }));
 
+  /* validador encargado selectedChat */
+
+  const asignarChat = async () => {
+    try {
+      const res = await chatApi.post(
+        "departamentos_chat_center/asginar_encargado",
+        {
+          id_encargado: id_sub_usuario_global,
+          id_cliente_chat_center: selectedChat.id,
+        }
+      );
+
+      if (res.data.status === "success") {
+        Toast.fire({
+          icon: "success",
+          title: res.data.message,
+        });
+
+        setSelectedChat((prev) => ({
+          ...prev,
+          id_encargado: id_sub_usuario_global,
+        }));
+      } else {
+        Toast.fire({
+          icon: "error",
+          title: "Ocurrió un problema al transferir el chat.",
+        });
+      }
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        "Error inesperado al transferir el chat.";
+
+      Toast.fire({
+        icon: "error",
+        title: message,
+      });
+
+      console.error("Error al transferir chat:", error);
+    }
+  };
+
+  const showAsignarChatDialog = () => {
+    Swal.fire({
+      title: "Este chat no tiene asesor asignado",
+      text: "¿Deseas asignarte este cliente?",
+      icon: "question",
+      showCancelButton: false,
+      showConfirmButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      html: `
+      <button id="btn-asignar" class="swal2-confirm swal2-styled">Asignarme</button>
+      <button id="btn-cancelar" class="swal2-cancel swal2-styled">Cancelar</button>
+    `,
+      didOpen: () => {
+        const btnAsignar = document.getElementById("btn-asignar");
+        const btnCancelar = document.getElementById("btn-cancelar");
+
+        btnAsignar.addEventListener("click", async () => {
+          await asignarChat(); // ejecutar lógica de asignación
+          Swal.close(); // cerrar modal
+        });
+
+        btnCancelar.addEventListener("click", () => {
+          Swal.close();
+          setSelectedChat(null); // también limpiamos si cancela
+        });
+      },
+    });
+  };
+
+  const showAsignarChatDialogAdministrador = () => {
+    Swal.fire({
+      title: "Este chat no tiene asesor asignado",
+      text: "¿Deseas asignarte este cliente?",
+      icon: "question",
+      showCancelButton: true,
+      showDenyButton: true, // Añadimos el botón "Asignar a alguien más"
+      confirmButtonText: "Asignarme",
+      cancelButtonText: "No asignarme",
+      denyButtonText: "Asignar a alguien más", // El botón adicional
+      allowOutsideClick: false, // Impide clic fuera del Swal
+      allowEscapeKey: false, // Impide cerrar con ESC
+      preConfirm: () => {
+        asignarChat(); // Función para asignarse al chat
+      },
+      denyAction: () => {
+        asignarAAlguienMas(); // Función para asignar el chat a otro usuario
+      },
+      willClose: () => {
+        setSelectedChat(null);
+      },
+    });
+  };
+
+  // Función para asignar el chat a otro usuario
+  const asignarAAlguienMas = () => {
+    console.log("Chat asignado a otro usuario");
+  };
+
+  useEffect(() => {
+    if (selectedChat && !selectedChat.id_encargado) {
+      /* if (rol_usuario_global == "administrador") {
+        showAsignarChatDialogAdministrador();
+      } else {
+        showAsignarChatDialog();
+      } */
+
+      showAsignarChatDialog();
+    }
+  }, [selectedChat]);
+
+  /* validador encargado selectedChat */
+
   useEffect(() => {
     const eliminarDuplicadosPorId = (array) =>
       array.filter(
@@ -1184,18 +1318,24 @@ const Chat = () => {
       socketRef.current.off("DATA_NOVEDADES");
 
       // Emitir el evento con los filtros y la paginación
-      socketRef.current.emit("GET_CHATS", id_configuracion, {
-        cursorFecha: null,
-        cursorId: null,
-        filtros: {
-          searchTerm,
-          selectedEtiquetas,
-          selectedEstado,
-          selectedTransportadora,
-          selectedNovedad,
-          selectedTab,
-        },
-      });
+      socketRef.current.emit(
+        "GET_CHATS",
+        id_configuracion,
+        id_sub_usuario_global,
+        rol_usuario_global,
+        {
+          cursorFecha: null,
+          cursorId: null,
+          filtros: {
+            searchTerm,
+            selectedEtiquetas,
+            selectedEstado,
+            selectedTransportadora,
+            selectedNovedad,
+            selectedTab,
+          },
+        }
+      );
 
       socketRef.current.once("CHATS", (data) => {
         if (data.length > 0) {
@@ -1378,19 +1518,25 @@ const Chat = () => {
   useEffect(() => {
     const cargarChats = async () => {
       if (socketRef.current && isSocketConnected) {
-        socketRef.current.emit("GET_CHATS", id_configuracion, {
-          limit: 10,
-          cursorFecha,
-          cursorId,
-          filtros: {
-            searchTerm,
-            selectedEtiquetas,
-            selectedEstado,
-            selectedTransportadora,
-            selectedNovedad,
-            selectedTab,
-          },
-        });
+        socketRef.current.emit(
+          "GET_CHATS",
+          id_configuracion,
+          id_sub_usuario_global,
+          rol_usuario_global,
+          {
+            limit: 10,
+            cursorFecha,
+            cursorId,
+            filtros: {
+              searchTerm,
+              selectedEtiquetas,
+              selectedEstado,
+              selectedTransportadora,
+              selectedNovedad,
+              selectedTab,
+            },
+          }
+        );
 
         socketRef.current.once("CHATS", (data) => {
           if (data.length > 0) {
@@ -1419,19 +1565,25 @@ const Chat = () => {
       setCursorId(null);
 
       if (socketRef.current && isSocketConnected) {
-        socketRef.current.emit("GET_CHATS", id_configuracion, {
-          limit: 10,
-          cursorFecha: null,
-          cursorId: null,
-          filtros: {
-            searchTerm,
-            selectedEtiquetas,
-            selectedEstado,
-            selectedTransportadora,
-            selectedNovedad,
-            selectedTab,
-          },
-        });
+        socketRef.current.emit(
+          "GET_CHATS",
+          id_configuracion,
+          id_sub_usuario_global,
+          rol_usuario_global,
+          {
+            limit: 10,
+            cursorFecha: null,
+            cursorId: null,
+            filtros: {
+              searchTerm,
+              selectedEtiquetas,
+              selectedEstado,
+              selectedTransportadora,
+              selectedNovedad,
+              selectedTab,
+            },
+          }
+        );
 
         socketRef.current.once("CHATS", (data) => {
           if (data.length > 0) {
@@ -1464,19 +1616,25 @@ const Chat = () => {
   useEffect(() => {
     if (seRecibioMensaje) {
       // Obtener los chats recientes (carga inicial con cursores nulos)
-      socketRef.current.emit("GET_CHATS", id_configuracion, {
-        limit: 10,
-        cursorFecha: null, // Cargar desde el más reciente
-        cursorId: null,
-        filtros: {
-          searchTerm,
-          selectedEtiquetas,
-          selectedEstado,
-          selectedTransportadora,
-          selectedNovedad,
-          selectedTab,
-        },
-      });
+      socketRef.current.emit(
+        "GET_CHATS",
+        id_configuracion,
+        id_sub_usuario_global,
+        rol_usuario_global,
+        {
+          limit: 10,
+          cursorFecha: null, // Cargar desde el más reciente
+          cursorId: null,
+          filtros: {
+            searchTerm,
+            selectedEtiquetas,
+            selectedEstado,
+            selectedTransportadora,
+            selectedNovedad,
+            selectedTab,
+          },
+        }
+      );
 
       socketRef.current.once("CHATS", (data) => {
         if (data.length > 0) {
