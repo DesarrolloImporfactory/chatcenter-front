@@ -1908,7 +1908,7 @@ const DatosUsuario = ({
     <>
       {opciones && (
         <div
-          className={`relative col-span-1 h-[calc(100vh_-_130px)] overflow-hidden text-white px-4 duration-700 transition-all ${
+          className={`relative col-span-1 h-[calc(100vh_-_130px)] h-full overflow-hidden text-white px-4 duration-700 transition-all ${
             animateOut ? "animate-slide-out" : "animate-slide-in"
           } ${
             facturaSeleccionada.numero_factura ? "bg-white" : "bg-[#171931]"

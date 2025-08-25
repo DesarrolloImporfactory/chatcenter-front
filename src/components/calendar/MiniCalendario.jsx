@@ -150,15 +150,17 @@ export default function MiniCalendario() {
   const fetchEvents = useCallback(
     (info, success) => {
       if (!calendarId) return success([]);
+      const allUserIds = usuarios.map((u) => u.id);
+      const params = {
+        calendar_id: calendarId,
+        start: info.start.toISOString(),
+        end: info.end.toISOString(),
+        include_unassigned: 1,
+      };
+      if (allUserIds.length) params.user_ids = allUserIds.join(",");
+
       chatApi
-        .get("/appointments", {
-          params: {
-            calendar_id: calendarId,
-            start: info.start.toISOString(),
-            end: info.end.toISOString(),
-            include_unassigned: 1,
-          },
-        })
+        .get("/appointments", { params })
         .then(({ data }) => {
           const mapped = (data?.events ?? []).map((e) => {
             const assignedRaw =
@@ -201,13 +203,55 @@ export default function MiniCalendario() {
     if (!form) return;
 
     try {
-      await chatApi.post("/appointments", {
+      const { data } = await chatApi.post("/appointments", {
         calendar_id: calendarId,
         created_by_user_id: ownerUserId,
         ...form,
       });
-      Swal.fire("Listo", "Cita creada.", "success");
+
       calendarRef.current?.getApi()?.refetchEvents();
+
+      //intenta obtener la URL devuelta por el backend
+      const meetingUrl =
+        data?.event?.extendedProps?.meeting_url ||
+        data?.event?.meeting_url ||
+        data?.meeting_url ||
+        data?.extendedProps?.meeting_url ||
+        null;
+
+      if (meetingUrl) {
+        const href = normalizeMeetingHref(meetingUrl);
+        Swal.fire({
+          icon: "success",
+          title: "Cita creada",
+          html: `
+         <div class="text-left">
+           <div class="mb-2 text-sm text-gray-600">Enlace de reunión</div>
+           <div class="flex items-stretch gap-2">
+             <div class="flex-1 px-3 py-2 rounded border bg-gray-50 break-all text-sm" id="meet-url-box">${href}</div>
+             <button id="btn-copy-meet" class="inline-flex items-center justify-center px-3 rounded-md border hover:bg-gray-50 text-sm">Copiar</button>
+           </div>
+           <div id="copy-feedback" class="mt-2 text-xs text-green-600 hidden">¡Copiado!</div>
+         </div>`,
+          confirmButtonText: "Listo",
+          didOpen: () => {
+            const copyBtn = document.getElementById("btn-copy-meet");
+            const fb = document.getElementById("copy-feedback");
+            copyBtn?.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(href);
+                fb?.classList.remove("hidden");
+                setTimeout(() => fb?.classList.add("hidden"), 1200);
+                const old = copyBtn.textContent;
+                copyBtn.textContent = "Copiado ✓";
+                setTimeout(() => (copyBtn.textContent = old), 1200);
+              } catch {}
+            });
+          },
+        });
+      } else {
+        Swal.fire("Listo", "Cita creada.", "success");
+      }
     } catch (err) {
       const msg = err?.response?.data?.message || "No se pudo crear la cita.";
       Swal.fire("Error", msg, "error");
