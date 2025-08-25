@@ -19,6 +19,7 @@ import MainLayout from "./components/layout/MainLayout";
 import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import Conexiones from "./pages/conexiones/Conexiones";
+import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import Calendario from "./pages/calendario/Calendario";
 import PoliticasView from "./pages/politicas/PoliticasView";
 import CondicionesView from "./pages/condiciones/CondicionesView";
@@ -75,6 +76,15 @@ function App() {
               </MainLayout_conexiones>
             }
           />
+
+          <Route
+            path="/conexionespruebas"
+            element={
+              <MainLayout_conexiones>
+                <Conexionespruebas />
+              </MainLayout_conexiones>
+            }
+          />
           {/* vista de usuarios */}
           <Route
             path="/usuarios"
@@ -104,12 +114,14 @@ function App() {
             }
           />
           {/* Miplan */}
-          <Route path="/miplan" element={
-            <MainLayout_conexiones>
-              <MiPlan /> 
-            </MainLayout_conexiones>
+          <Route
+            path="/miplan"
+            element={
+              <MainLayout_conexiones>
+                <MiPlan />
+              </MainLayout_conexiones>
             }
-            />
+          />
 
           <Route
             path="/productos"
