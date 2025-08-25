@@ -165,23 +165,30 @@ function MainLayout({ children }) {
         >
           {/* Opciones del slider */}
           <div className="mt-6">
-            {/* volver a conexiones */}
-            {location.pathname !== "/conexiones" && (
-              <a
-                onClick={(e) => {
-                  e.preventDefault();
-                  localStorage.removeItem("id_configuracion");
-                  localStorage.removeItem("id_plataforma_conf");
-                  navigate("/conexiones");
-                }}
-                className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
-              >
-                <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-                <span className="text-lg text-gray-700 group-hover:text-blue-600 cursor-pointer">
-                  Volver a Conexiones
-                </span>
-              </a>
-            )}
+            {/* Conexiones */}
+            <button
+              onClick={() => {
+                localStorage.removeItem("id_configuracion");
+                localStorage.removeItem("id_plataforma_conf");
+                navigate("/conexiones");
+              }}
+              className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded ${
+                location.pathname === "/conexiones"
+                  ? "bg-gray-100 font-semibold"
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <i
+                className={`bx bx-log-in text-2xl mr-3 transition-colors ${
+                  location.pathname === "/conexiones"
+                    ? ""
+                    : "text-gray-600 group-hover:text-blue-600"
+                }`}
+              ></i>
+              <span className="text-lg group-hover:text-blue-600">
+                Conexiones
+              </span>
+            </button>
 
             {/* Usuarios */}
             <button

@@ -342,11 +342,11 @@ const Cabecera = ({
 
               navigate("/conexiones");
             }}
-            className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
+            className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 cursor-pointer"
           >
             <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600 cursor-pointer">
-              Volver a Conexiones
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              Conexiones
             </span>
           </a>
           {/* Chat Center */}
