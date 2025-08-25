@@ -1908,13 +1908,11 @@ const DatosUsuario = ({
     <>
       {opciones && (
         <div
-          className={`relative col-span-1 h-[calc(100vh_-_130px)] text-white overflow-y-auto px-4  duration-700 transition-all ${
+          className={`relative col-span-1 h-[calc(100vh_-_130px)] overflow-hidden text-white px-4 duration-700 transition-all ${
             animateOut ? "animate-slide-out" : "animate-slide-in"
-          }
-            ${
-              facturaSeleccionada.numero_factura ? "bg-white" : "bg-[#171931]"
-            }  
-          `}
+          } ${
+            facturaSeleccionada.numero_factura ? "bg-white" : "bg-[#171931]"
+          }`}
         >
           {id_plataforma_conf !== null ? (
             <>
@@ -3193,686 +3191,696 @@ const DatosUsuario = ({
               Nuevo Pedido
             </button> */}
                 {facturaSeleccionada.numero_factura && (
-                  <div className="absolute text-black left-0 bg-white h-full w-full ">
-                    <div className="flex justify-between items-center p-4">
-                      {generandoGuia == true ? (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                          <div className="bg-white p-6 rounded-lg shadow-lg text-black text-center">
-                            <h1 className="text-2xl font-semibold mb-4">
-                              Generando Guía
-                            </h1>
-                            <div className="flex flex-col items-center space-y-4">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-                              <span className="text-lg">
-                                Espere por favor...
-                              </span>
+                  <div className="absolute inset-0 z-20 bg-white text-black">
+                    <div className="h-full overflow-y-auto">
+                      <div className="max-w-5xl mx-auto p-4">
+                        {generandoGuia == true ? (
+                          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                            <div className="bg-white p-6 rounded-lg shadow-lg text-black text-center">
+                              <h1 className="text-2xl font-semibold mb-4">
+                                Generando Guía
+                              </h1>
+                              <div className="flex flex-col items-center space-y-4">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+                                <span className="text-lg">
+                                  Espere por favor...
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ) : (
-                        ""
-                      )}
-                      <form
-                        className="flex flex-col gap-2 w-full md:grid md:grid-cols-2"
-                        onSubmit={handleSubmit(onSubmit)}
-                      >
-                        {/* hiddens */}
-                        <input
-                          type="hidden"
-                          id="nombreO"
-                          {...register("nombreO")}
-                        />
-                        <input
-                          type="hidden"
-                          id="provinciaO"
-                          {...register("provinciaO")}
-                        />
-                        <input
-                          type="hidden"
-                          id="ciudadO"
-                          {...register("ciudadO")}
-                        />
-                        <input
-                          type="hidden"
-                          id="direccionO"
-                          {...register("direccionO")}
-                        />
-                        <input
-                          type="hidden"
-                          id="celularO"
-                          {...register("celularO")}
-                        />
-                        <input
-                          type="hidden"
-                          id="referenciaO"
-                          {...register("referenciaO")}
-                        />
-                        <input
-                          type="hidden"
-                          id="numero_factura"
-                          {...register("numero_factura")}
-                        />
-                        <input
-                          type="hidden"
-                          id="precio_envio"
-                          {...register("precio_envio")}
-                        />
-                        <input
-                          type="hidden"
-                          id="monto_factura"
-                          {...register("monto_factura")}
-                        />
-                        <input
-                          type="hidden"
-                          id="flete"
-                          {...register("flete")}
-                        />
-                        <input
-                          type="hidden"
-                          id="seguro"
-                          {...register("seguro")}
-                        />
-                        <input
-                          type="hidden"
-                          id="comision"
-                          {...register("comision")}
-                        />
-                        <input
-                          type="hidden"
-                          id="otros"
-                          {...register("otros")}
-                        />
-                        <input
-                          type="hidden"
-                          id="transportadora"
-                          {...register("transportadora")}
-                        />
-                        <input
-                          type="hidden"
-                          id="impuestos"
-                          {...register("impuestos")}
-                        />
+                        ) : (
+                          ""
+                        )}
+                        <form
+                          className="flex flex-col gap-2 w-full md:grid md:grid-cols-2"
+                          onSubmit={handleSubmit(onSubmit)}
+                        >
+                          {/* hiddens */}
+                          <input
+                            type="hidden"
+                            id="nombreO"
+                            {...register("nombreO")}
+                          />
+                          <input
+                            type="hidden"
+                            id="provinciaO"
+                            {...register("provinciaO")}
+                          />
+                          <input
+                            type="hidden"
+                            id="ciudadO"
+                            {...register("ciudadO")}
+                          />
+                          <input
+                            type="hidden"
+                            id="direccionO"
+                            {...register("direccionO")}
+                          />
+                          <input
+                            type="hidden"
+                            id="celularO"
+                            {...register("celularO")}
+                          />
+                          <input
+                            type="hidden"
+                            id="referenciaO"
+                            {...register("referenciaO")}
+                          />
+                          <input
+                            type="hidden"
+                            id="numero_factura"
+                            {...register("numero_factura")}
+                          />
+                          <input
+                            type="hidden"
+                            id="precio_envio"
+                            {...register("precio_envio")}
+                          />
+                          <input
+                            type="hidden"
+                            id="monto_factura"
+                            {...register("monto_factura")}
+                          />
+                          <input
+                            type="hidden"
+                            id="flete"
+                            {...register("flete")}
+                          />
+                          <input
+                            type="hidden"
+                            id="seguro"
+                            {...register("seguro")}
+                          />
+                          <input
+                            type="hidden"
+                            id="comision"
+                            {...register("comision")}
+                          />
+                          <input
+                            type="hidden"
+                            id="otros"
+                            {...register("otros")}
+                          />
+                          <input
+                            type="hidden"
+                            id="transportadora"
+                            {...register("transportadora")}
+                          />
+                          <input
+                            type="hidden"
+                            id="impuestos"
+                            {...register("impuestos")}
+                          />
 
-                        <div>
-                          <label
-                            htmlFor="nombreCliente"
-                            className="text-sm font-medium"
-                          >
-                            Nombre Cliente
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Nombre Cliente"
-                            {...register("nombreCliente")}
-                            className="p-2 border rounded w-full"
-                          />
-                        </div>
-                        <div>
-                          <label
-                            htmlFor="telefono"
-                            className="text-sm font-medium"
-                          >
-                            Teléfono
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Teléfono Cliente"
-                            {...register("telefono")}
-                            className="p-2 border rounded w-full"
-                          />
-                        </div>
-                        <div>
-                          <label
-                            htmlFor=""
-                            id="provincia"
-                            className="text-sm font-medium"
-                          >
-                            Provincia
-                          </label>
-                          {provincias && (
-                            <select
+                          <div>
+                            <label
+                              htmlFor="nombreCliente"
+                              className="text-sm font-medium"
+                            >
+                              Nombre Cliente
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Nombre Cliente"
+                              {...register("nombreCliente")}
                               className="p-2 border rounded w-full"
-                              {...register("provincia")}
-                              onChange={(e) => {
-                                const nuevaProvincia = e.target.value;
-                                setFacturaSeleccionada((prev) => ({
-                                  ...prev,
-                                  provincia: nuevaProvincia,
-                                  ciudad_cot: "", // Resetear la ciudad cuando cambia la provincia
-                                }));
-                              }}
+                            />
+                          </div>
+                          <div>
+                            <label
+                              htmlFor="telefono"
+                              className="text-sm font-medium"
                             >
-                              <option value="">Seleccione una provincia</option>
-                              {provincias.map((provincia, index) => (
-                                <option
-                                  key={index}
-                                  value={provincia.codigo_provincia}
-                                >
-                                  {provincia.provincia}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                        <div>
-                          <label htmlFor="" className="text-sm font-medium">
-                            Ciudad
-                          </label>
-                          {ciudades && (
-                            <select
-                              id="ciudad"
+                              Teléfono
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Teléfono Cliente"
+                              {...register("telefono")}
                               className="p-2 border rounded w-full"
-                              {...register("ciudad")}
-                              onChange={(e) => {
-                                const nuevaCiudad = e.target.value;
-                                setFacturaSeleccionada((prev) => ({
-                                  ...prev,
-                                  ciudad_cot: nuevaCiudad,
-                                }));
-                                handleSetTarifas();
-                              }}
+                            />
+                          </div>
+                          <div>
+                            <label
+                              htmlFor=""
+                              id="provincia"
+                              className="text-sm font-medium"
                             >
-                              <option value="">Seleccione una ciudad</option>
-                              {ciudades.map((ciudad, index) => (
-                                <option
-                                  key={index}
-                                  value={ciudad.id_cotizacion}
-                                >
-                                  {ciudad.ciudad}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                        <div>
-                          <label htmlFor="" className="text-sm font-medium">
-                            Calle principal
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Calle principal"
-                            maxLength="100"
-                            {...register("callePrincipal")}
-                            className="p-2 border rounded w-full"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="" className="text-sm font-medium">
-                            Calle secundaria
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Calle secundaria"
-                            maxLength="100"
-                            {...register("calleSecundaria")}
-                            className="p-2 border rounded w-full"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="" className="text-sm font-medium">
-                            Referencia
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Referencia"
-                            maxLength="200"
-                            {...register("referencia")}
-                            className="p-2 border rounded w-full"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="" className="text-sm font-medium">
-                            Observación
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Observación"
-                            maxLength="200"
-                            {...register("observacion")}
-                            className="p-2 border rounded w-full"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <label htmlFor="" className="text-sm font-medium">
-                            Nombre responsable
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Nombre responsable (Opcional)"
-                            {...register("nombre_responsable")}
-                            className="p-2 border rounded w-full"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <label htmlFor="" className="text-sm font-medium">
-                            Tipo de Entrega
-                          </label>
-                          <select
-                            name="cod"
-                            {...register("cod_entrega")}
-                            id="cod_entrega"
-                            className="p-2 border rounded w-full"
-                          >
-                            <option value="1">Con recaudo</option>
-                            <option value="2">SIn recaudo</option>
-                          </select>
-
-                          <TarjetaHistorial stats={stats} nivel={nivel} />
-
-                          {mostrarAlerta && (
-                            <div
-                              className="bg-yellow-100 text-yellow-800 text-sm px-4 py-3 rounded border border-yellow-300 mt-2"
-                              role="alert"
-                            >
-                              El cliente registra 1 o más devoluciones en
-                              nuestro sistema.
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="col-span-2">
-                          <div className="grid md:grid-cols-2 lg:grid-cols-4 justify-center items-center gap-4">
-                            {images.map((image) => (
-                              <div
-                                key={image.id}
-                                className="grid justify-center"
+                              Provincia
+                            </label>
+                            {provincias && (
+                              <select
+                                className="p-2 border rounded w-full"
+                                {...register("provincia")}
+                                onChange={(e) => {
+                                  const nuevaProvincia = e.target.value;
+                                  setFacturaSeleccionada((prev) => ({
+                                    ...prev,
+                                    provincia: nuevaProvincia,
+                                    ciudad_cot: "", // Resetear la ciudad cuando cambia la provincia
+                                  }));
+                                }}
                               >
-                                <img
-                                  src={image.src}
-                                  alt={image.alt}
-                                  className={`w-20 cursor-pointer transform transition duration-300 ${
-                                    selectedImageId === image.id
-                                      ? "filter-none shadow-lg border-2 border-blue-500"
-                                      : "filter grayscale"
-                                  } hover:scale-105 hover:shadow-lg hover:grayscale-0 rounded-t-md`}
-                                  onClick={() => handleImageClick(image.id)}
-                                />
-                                {/* Precio de Flete */}
-                                <div className="text-center bg-black/90 text-white rounded-b-md">
-                                  {tarifas ? (
-                                    <span
-                                      className={`text-sm ${
-                                        (image.id === 1 &&
-                                          tarifas.servientrega > 0) ||
-                                        (image.id === 2 && tarifas.laar > 0) ||
-                                        (image.id === 3 && tarifas.speed > 0) ||
-                                        (image.id === 4 &&
-                                          tarifas.gintracom > 0)
-                                          ? "text-green-400"
-                                          : "text-red-500"
-                                      }`}
-                                    >
-                                      $
-                                      <p id={`flete_${image.id}`}>
-                                        {image.id === 1
-                                          ? tarifas.servientrega
-                                          : image.id === 2
-                                          ? tarifas.laar
-                                          : image.id === 3
-                                          ? tarifas.speed
-                                          : image.id === 4
-                                          ? tarifas.gintracom
-                                          : 0}
-                                      </p>
-                                    </span>
-                                  ) : (
-                                    <span className="text-sm">0</span>
-                                  )}
-                                </div>
+                                <option value="">
+                                  Seleccione una provincia
+                                </option>
+                                {provincias.map((provincia, index) => (
+                                  <option
+                                    key={index}
+                                    value={provincia.codigo_provincia}
+                                  >
+                                    {provincia.provincia}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                          <div>
+                            <label htmlFor="" className="text-sm font-medium">
+                              Ciudad
+                            </label>
+                            {ciudades && (
+                              <select
+                                id="ciudad"
+                                className="p-2 border rounded w-full"
+                                {...register("ciudad")}
+                                onChange={(e) => {
+                                  const nuevaCiudad = e.target.value;
+                                  setFacturaSeleccionada((prev) => ({
+                                    ...prev,
+                                    ciudad_cot: nuevaCiudad,
+                                  }));
+                                  handleSetTarifas();
+                                }}
+                              >
+                                <option value="">Seleccione una ciudad</option>
+                                {ciudades.map((ciudad, index) => (
+                                  <option
+                                    key={index}
+                                    value={ciudad.id_cotizacion}
+                                  >
+                                    {ciudad.ciudad}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                          <div>
+                            <label htmlFor="" className="text-sm font-medium">
+                              Calle principal
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Calle principal"
+                              maxLength="100"
+                              {...register("callePrincipal")}
+                              className="p-2 border rounded w-full"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="" className="text-sm font-medium">
+                              Calle secundaria
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Calle secundaria"
+                              maxLength="100"
+                              {...register("calleSecundaria")}
+                              className="p-2 border rounded w-full"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="" className="text-sm font-medium">
+                              Referencia
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Referencia"
+                              maxLength="200"
+                              {...register("referencia")}
+                              className="p-2 border rounded w-full"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="" className="text-sm font-medium">
+                              Observación
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Observación"
+                              maxLength="200"
+                              {...register("observacion")}
+                              className="p-2 border rounded w-full"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label htmlFor="" className="text-sm font-medium">
+                              Nombre responsable
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Nombre responsable (Opcional)"
+                              {...register("nombre_responsable")}
+                              className="p-2 border rounded w-full"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label htmlFor="" className="text-sm font-medium">
+                              Tipo de Entrega
+                            </label>
+                            <select
+                              name="cod"
+                              {...register("cod_entrega")}
+                              id="cod_entrega"
+                              className="p-2 border rounded w-full"
+                            >
+                              <option value="1">Con recaudo</option>
+                              <option value="2">SIn recaudo</option>
+                            </select>
+
+                            <TarjetaHistorial stats={stats} nivel={nivel} />
+
+                            {mostrarAlerta && (
+                              <div
+                                className="bg-yellow-100 text-yellow-800 text-sm px-4 py-3 rounded border border-yellow-300 mt-2"
+                                role="alert"
+                              >
+                                El cliente registra 1 o más devoluciones en
+                                nuestro sistema.
                               </div>
-                            ))}
+                            )}
                           </div>
 
-                          {/* Modal Google Maps */}
-                          {modal_google_maps && (
-                            <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-                              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-                                <h2 className="text-lg font-bold text-gray-800 mb-4">
-                                  Google Maps Link
-                                </h2>
-                                <div>
-                                  {/* Input para el link */}
-                                  <input
-                                    type="text"
-                                    placeholder="Pega el link de Google Maps aquí"
-                                    className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-                                    {...register("url_google_speed_pedido")}
+                          <div className="col-span-2">
+                            <div className="grid md:grid-cols-2 lg:grid-cols-4 justify-center items-center gap-4">
+                              {images.map((image) => (
+                                <div
+                                  key={image.id}
+                                  className="grid justify-center"
+                                >
+                                  <img
+                                    src={image.src}
+                                    alt={image.alt}
+                                    className={`w-20 cursor-pointer transform transition duration-300 ${
+                                      selectedImageId === image.id
+                                        ? "filter-none shadow-lg border-2 border-blue-500"
+                                        : "filter grayscale"
+                                    } hover:scale-105 hover:shadow-lg hover:grayscale-0 rounded-t-md`}
+                                    onClick={() => handleImageClick(image.id)}
                                   />
+                                  {/* Precio de Flete */}
+                                  <div className="text-center bg-black/90 text-white rounded-b-md">
+                                    {tarifas ? (
+                                      <span
+                                        className={`text-sm ${
+                                          (image.id === 1 &&
+                                            tarifas.servientrega > 0) ||
+                                          (image.id === 2 &&
+                                            tarifas.laar > 0) ||
+                                          (image.id === 3 &&
+                                            tarifas.speed > 0) ||
+                                          (image.id === 4 &&
+                                            tarifas.gintracom > 0)
+                                            ? "text-green-400"
+                                            : "text-red-500"
+                                        }`}
+                                      >
+                                        $
+                                        <p id={`flete_${image.id}`}>
+                                          {image.id === 1
+                                            ? tarifas.servientrega
+                                            : image.id === 2
+                                            ? tarifas.laar
+                                            : image.id === 3
+                                            ? tarifas.speed
+                                            : image.id === 4
+                                            ? tarifas.gintracom
+                                            : 0}
+                                        </p>
+                                      </span>
+                                    ) : (
+                                      <span className="text-sm">0</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="flex justify-end gap-2">
-                                  {/* Botón Cancelar */}
-                                  <button
-                                    onClick={() => setModal_google_maps(false)} // Cierra el modal sin guardar
-                                    className="px-4 py-2 bg-gray-300 text-black text-sm rounded-md hover:bg-gray-400"
-                                  >
-                                    Cancelar
-                                  </button>
-                                  {/* Botón Guardar */}
-                                  <button
-                                    onClick={() => setModal_google_maps(false)}
-                                    className="px-4 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600"
-                                  >
-                                    Guardar
-                                  </button>
+                              ))}
+                            </div>
+
+                            {/* Modal Google Maps */}
+                            {modal_google_maps && (
+                              <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+                                <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                                  <h2 className="text-lg font-bold text-gray-800 mb-4">
+                                    Google Maps Link
+                                  </h2>
+                                  <div>
+                                    {/* Input para el link */}
+                                    <input
+                                      type="text"
+                                      placeholder="Pega el link de Google Maps aquí"
+                                      className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                                      {...register("url_google_speed_pedido")}
+                                    />
+                                  </div>
+                                  <div className="flex justify-end gap-2">
+                                    {/* Botón Cancelar */}
+                                    <button
+                                      onClick={() =>
+                                        setModal_google_maps(false)
+                                      } // Cierra el modal sin guardar
+                                      className="px-4 py-2 bg-gray-300 text-black text-sm rounded-md hover:bg-gray-400"
+                                    >
+                                      Cancelar
+                                    </button>
+                                    {/* Botón Guardar */}
+                                    <button
+                                      onClick={() =>
+                                        setModal_google_maps(false)
+                                      }
+                                      className="px-4 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600"
+                                    >
+                                      Guardar
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </div>
 
-                        {/* Acordeon de productos */}
-                        <div className="col-span-2 ">
-                          <button
-                            className="flex justify-between w-full text-left py-3 px-3 bg-[#171931] text-white rounded-t-lg"
-                            type="button"
-                          >
-                            <h3 className="font-medium">Productos</h3>
-                            <span>{isAccordionOpen ? "▲" : "▼"}</span>
-                          </button>
-                          {isAccordionOpen && (
-                            <div className="p-1 text-sm border border-gray-200 rounded-b-lg bg-white">
-                              {/* Estructura de la tabla */}
-                              <div className="overflow-x-auto">
-                                <table className="table-auto w-full">
-                                  <thead>
-                                    <tr>
-                                      <th className="border px-2 py-2 text-xs md:px-4 w-full md:text-sm">
-                                        Nombre
-                                      </th>
-                                      <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                                        Cantidad
-                                      </th>
-                                      <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                                        Precio
-                                      </th>
-                                      <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                                        Total
-                                      </th>
-                                      <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
-                                        Borrar
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {/* Mapeo para las filas de productos */}
-                                    {facturaSeleccionada.productos?.map(
-                                      (producto, index) => (
-                                        <tr key={index}>
-                                          <td className="border px-2 md:px-4 py-2 text-[0.65rem] w-full md:text-[0.75rem]">
-                                            {producto.nombre_producto}
-                                          </td>
-                                          <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                                            <div className="flex items-center space-x-1">
-                                              {/* Input de Cantidad */}
+                          {/* Acordeon de productos */}
+                          <div className="col-span-2 ">
+                            <button
+                              className="flex justify-between w-full text-left py-3 px-3 bg-[#171931] text-white rounded-t-lg"
+                              type="button"
+                            >
+                              <h3 className="font-medium">Productos</h3>
+                              <span>{isAccordionOpen ? "▲" : "▼"}</span>
+                            </button>
+                            {isAccordionOpen && (
+                              <div className="p-1 text-sm border border-gray-200 rounded-b-lg bg-white">
+                                {/* Estructura de la tabla */}
+                                <div className="overflow-x-auto">
+                                  <table className="table-auto w-full">
+                                    <thead>
+                                      <tr>
+                                        <th className="border px-2 py-2 text-xs md:px-4 w-full md:text-sm">
+                                          Nombre
+                                        </th>
+                                        <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                          Cantidad
+                                        </th>
+                                        <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                          Precio
+                                        </th>
+                                        <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                          Total
+                                        </th>
+                                        <th className="border px-2 py-2 text-xs md:px-4 md:text-sm">
+                                          Borrar
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {/* Mapeo para las filas de productos */}
+                                      {facturaSeleccionada.productos?.map(
+                                        (producto, index) => (
+                                          <tr key={index}>
+                                            <td className="border px-2 md:px-4 py-2 text-[0.65rem] w-full md:text-[0.75rem]">
+                                              {producto.nombre_producto}
+                                            </td>
+                                            <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                                              <div className="flex items-center space-x-1">
+                                                {/* Input de Cantidad */}
+                                                <input
+                                                  type="number"
+                                                  min={1}
+                                                  value={producto.cantidad}
+                                                  className="p-1 text-sm border border-gray-200 w-12 text-center text-[0.65rem] md:text-[0.75rem]"
+                                                  id={`cantidad${producto.id_detalle}`}
+                                                  onChange={(e) =>
+                                                    handleCantidadInputChange(
+                                                      producto,
+                                                      e.target.value
+                                                    )
+                                                  }
+                                                />
+                                                <div className="grid">
+                                                  {/* Botón de Incremento */}
+                                                  <button
+                                                    type="button"
+                                                    className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-r border border-gray-200"
+                                                    aria-label="Increase"
+                                                    onClick={() => {
+                                                      handleCantidadChange(
+                                                        producto,
+                                                        1
+                                                      );
+                                                    }}
+                                                  >
+                                                    <svg
+                                                      className="w-4 h-4"
+                                                      xmlns="http://www.w3.org/2000/svg"
+                                                      width="24"
+                                                      height="24"
+                                                      viewBox="0 0 24 24"
+                                                      fill="none"
+                                                      stroke="currentColor"
+                                                      strokeWidth="2"
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                    >
+                                                      <path d="M5 12h14"></path>
+                                                      <path d="M12 5v14"></path>
+                                                    </svg>
+                                                  </button>
+                                                  {/* Botón de Decremento */}
+                                                  <button
+                                                    type="button"
+                                                    className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-l border border-gray-200 disabled:opacity-50"
+                                                    aria-label="Decrease"
+                                                    onClick={() => {
+                                                      handleCantidadChange(
+                                                        producto,
+                                                        -1
+                                                      );
+                                                    }}
+                                                    disabled={
+                                                      producto.cantidad <= 1
+                                                    } // ← clave
+                                                  >
+                                                    <svg
+                                                      className="w-4 h-4"
+                                                      xmlns="http://www.w3.org/2000/svg"
+                                                      width="24"
+                                                      height="24"
+                                                      viewBox="0 0 24 24"
+                                                      fill="none"
+                                                      stroke="currentColor"
+                                                      strokeWidth="2"
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                    >
+                                                      <path d="M5 12h14"></path>
+                                                    </svg>
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
                                               <input
-                                                type="number"
-                                                min={1}
-                                                value={producto.cantidad}
-                                                className="p-1 text-sm border border-gray-200 w-12 text-center text-[0.65rem] md:text-[0.75rem]"
-                                                id={`cantidad${producto.id_detalle}`}
+                                                type="text"
+                                                value={producto.precio_venta}
+                                                className="py-2 px-3 border rounded w-16 text-[0.65rem] md:text-[0.75rem]"
+                                                id={`precio${producto.id_detalle}`}
                                                 onChange={(e) =>
-                                                  handleCantidadInputChange(
+                                                  handlePrecioChange(
                                                     producto,
                                                     e.target.value
                                                   )
                                                 }
                                               />
-                                              <div className="grid">
-                                                {/* Botón de Incremento */}
-                                                <button
-                                                  type="button"
-                                                  className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-r border border-gray-200"
-                                                  aria-label="Increase"
-                                                  onClick={() => {
-                                                    handleCantidadChange(
-                                                      producto,
-                                                      1
-                                                    );
-                                                  }}
-                                                >
-                                                  <svg
-                                                    className="w-4 h-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="24"
-                                                    height="24"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                  >
-                                                    <path d="M5 12h14"></path>
-                                                    <path d="M12 5v14"></path>
-                                                  </svg>
-                                                </button>
-                                                {/* Botón de Decremento */}
-                                                <button
-                                                  type="button"
-                                                  className="inline-flex justify-center items-center text-sm font-medium bg-gray-50 text-gray-800 hover:bg-gray-100 p-1 rounded-l border border-gray-200 disabled:opacity-50"
-                                                  aria-label="Decrease"
-                                                  onClick={() => {
-                                                    handleCantidadChange(
-                                                      producto,
-                                                      -1
-                                                    );
-                                                  }}
-                                                  disabled={
-                                                    producto.cantidad <= 1
-                                                  } // ← clave
-                                                >
-                                                  <svg
-                                                    className="w-4 h-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="24"
-                                                    height="24"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                  >
-                                                    <path d="M5 12h14"></path>
-                                                  </svg>
-                                                </button>
-                                              </div>
-                                            </div>
-                                          </td>
-                                          <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                                            <input
-                                              type="text"
-                                              value={producto.precio_venta}
-                                              className="py-2 px-3 border rounded w-16 text-[0.65rem] md:text-[0.75rem]"
-                                              id={`precio${producto.id_detalle}`}
-                                              onChange={(e) =>
-                                                handlePrecioChange(
-                                                  producto,
-                                                  e.target.value
-                                                )
-                                              }
-                                            />
-                                          </td>
-                                          <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
-                                            <input
-                                              type="text"
-                                              value={
-                                                producto.precio_venta *
-                                                producto.cantidad
-                                              }
-                                              className="py-2 px-3 border rounded w-16 text-[0.65rem] md:text-[0.75rem]"
-                                              readOnly
-                                              id={`total${producto.id_detalle}`}
-                                            />
-                                          </td>
-                                          <td className="border px-2 md:px-4 py-2 text-center">
-                                            <button
-                                              className="bg-red-500 text-white rounded p-1 w-full md:w-auto"
-                                              onClick={() =>
-                                                eliminar(producto.id_detalle)
-                                              }
-                                            >
-                                              <i className="bx bx-trash"></i>
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      )
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
+                                            </td>
+                                            <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
+                                              <input
+                                                type="text"
+                                                value={
+                                                  producto.precio_venta *
+                                                  producto.cantidad
+                                                }
+                                                className="py-2 px-3 border rounded w-16 text-[0.65rem] md:text-[0.75rem]"
+                                                readOnly
+                                                id={`total${producto.id_detalle}`}
+                                              />
+                                            </td>
+                                            <td className="border px-2 md:px-4 py-2 text-center">
+                                              <button
+                                                className="bg-red-500 text-white rounded p-1 w-full md:w-auto"
+                                                onClick={() =>
+                                                  eliminar(producto.id_detalle)
+                                                }
+                                              >
+                                                <i className="bx bx-trash"></i>
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        )
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
 
-                              <div className="flex items-center justify-between gap-3">
-                                {/* Botón para añadir producto */}
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setIsModalOpen(true);
-                                  }}
-                                  className="group inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
+                                <div className="flex items-center justify-between gap-3">
+                                  {/* Botón para añadir producto */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setIsModalOpen(true);
+                                    }}
+                                    className="group inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
                                  bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 active:scale-[.98]
                                  focus:outline-none focus:ring-2 focus:ring-emerald-400 transition mt-3"
-                                  title="Añadir un producto al pedido"
-                                >
-                                  <i className="bx bx-plus text-base"></i>
-                                  Añadir producto
-                                </button>
+                                    title="Añadir un producto al pedido"
+                                  >
+                                    <i className="bx bx-plus text-base"></i>
+                                    Añadir producto
+                                  </button>
 
-                                {/* Bodega */}
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-500">
-                                    Bodega
-                                  </span>
-                                  <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 border">
-                                    {nombreBodega || "—"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* ===== Resumen del pedido (con scroll horizontal) ===== */}
-                              <div className="mt-3 rounded-xl border bg-white shadow-sm">
-                                <div className="px-4 py-3 border-b flex items-center justify-between">
-                                  <h4 className="text-sm font-semibold text-gray-800">
-                                    Resumen del pedido
-                                  </h4>
-                                  <span className="text-[11px] text-gray-500">
-                                    Actualiza al cambiar cantidades/precios
-                                  </span>
-                                </div>
-
-                                {/* Wrapper con scroll horizontal */}
-                                <div className="px-4 py-3 overflow-x-auto">
-                                  {/* Fila “ancha” que solo crece a lo ancho y permite scroll */}
-                                  <div className="inline-flex gap-3 min-w-max">
-                                    <MetricCard
-                                      title="Monto de Venta"
-                                      idHtml="monto_venta"
-                                      value={monto_venta}
-                                      color="text-emerald-600"
-                                    />
-                                    <MetricCard
-                                      title="Costo Producto"
-                                      idHtml="costo"
-                                      value={costo}
-                                      color="text-rose-600"
-                                    />
-                                    <MetricCard
-                                      title="Precio de envío"
-                                      idHtml="precio_envio_directo"
-                                      value={precio_envio_directo}
-                                      color="text-sky-600"
-                                    />
-                                    <MetricCard
-                                      title="Aplica Fulfillment"
-                                      idHtml="fulfillment"
-                                      value={fulfillment}
-                                      color="text-indigo-600"
-                                    />
-                                    <MetricCard
-                                      title="Ganancia Final"
-                                      idHtml="total"
-                                      value={total_directo}
-                                      color="text-amber-700"
-                                      ring="ring-amber-200"
-                                      gradient
-                                      big
-                                    />
+                                  {/* Bodega */}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-500">
+                                      Bodega
+                                    </span>
+                                    <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 border">
+                                      {nombreBodega || "—"}
+                                    </span>
                                   </div>
                                 </div>
 
-                                <input
-                                  type="hidden"
-                                  id="factura"
-                                  value={facturaSeleccionada.id_factura}
-                                />
+                                {/* ===== Resumen del pedido (con scroll horizontal) ===== */}
+                                <div className="mt-3 rounded-xl border bg-white shadow-sm">
+                                  <div className="px-4 py-3 border-b flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-gray-800">
+                                      Resumen del pedido
+                                    </h4>
+                                    <span className="text-[11px] text-gray-500">
+                                      Actualiza al cambiar cantidades/precios
+                                    </span>
+                                  </div>
+
+                                  {/* Wrapper con scroll horizontal */}
+                                  <div className="px-4 py-3 overflow-x-auto">
+                                    {/* Fila “ancha” que solo crece a lo ancho y permite scroll */}
+                                    <div className="inline-flex gap-3 min-w-max">
+                                      <MetricCard
+                                        title="Monto de Venta"
+                                        idHtml="monto_venta"
+                                        value={monto_venta}
+                                        color="text-emerald-600"
+                                      />
+                                      <MetricCard
+                                        title="Costo Producto"
+                                        idHtml="costo"
+                                        value={costo}
+                                        color="text-rose-600"
+                                      />
+                                      <MetricCard
+                                        title="Precio de envío"
+                                        idHtml="precio_envio_directo"
+                                        value={precio_envio_directo}
+                                        color="text-sky-600"
+                                      />
+                                      <MetricCard
+                                        title="Aplica Fulfillment"
+                                        idHtml="fulfillment"
+                                        value={fulfillment}
+                                        color="text-indigo-600"
+                                      />
+                                      <MetricCard
+                                        title="Ganancia Final"
+                                        idHtml="total"
+                                        value={total_directo}
+                                        color="text-amber-700"
+                                        ring="ring-amber-200"
+                                        gradient
+                                        big
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <input
+                                    type="hidden"
+                                    id="factura"
+                                    value={facturaSeleccionada.id_factura}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      </form>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 mx-4 mt-4">
-                      {/* Generar guía */}
-                      <button
-                        onClick={handleGenerarGuia}
-                        disabled={!validar_generar}
-                        className={`group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold shadow-sm transition
+                            )}
+                          </div>
+                        </form>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 mx-4 mt-4">
+                        {/* Generar guía */}
+                        <button
+                          onClick={handleGenerarGuia}
+                          disabled={!validar_generar}
+                          className={`group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold shadow-sm transition
                       ${
                         validar_generar
                           ? "bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[.98] focus:outline-none focus:ring-2 focus:ring-emerald-400"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       }`}
-                        title="Generar la guía con los datos actuales"
-                      >
-                        <i className="bx bx-rocket text-base"></i>
-                        Generar Guía
-                      </button>
+                          title="Generar la guía con los datos actuales"
+                        >
+                          <i className="bx bx-rocket text-base"></i>
+                          Generar Guía
+                        </button>
 
-                      {/* Cancelar pedido */}
-                      <button
-                        className="group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold
+                        {/* Cancelar pedido */}
+                        <button
+                          className="group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold
                         bg-amber-500 text-white shadow-sm hover:bg-amber-600 active:scale-[.98]
                         focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
-                        onClick={() =>
-                          anular_guia(
-                            facturaSeleccionada.numero_factura,
-                            facturaSeleccionada.transporte,
-                            "pedido"
-                          )
-                        }
-                        title="Anular el pedido"
-                      >
-                        <i className="bx bx-block text-base"></i>
-                        Cancelar Pedido
-                      </button>
+                          onClick={() =>
+                            anular_guia(
+                              facturaSeleccionada.numero_factura,
+                              facturaSeleccionada.transporte,
+                              "pedido"
+                            )
+                          }
+                          title="Anular el pedido"
+                        >
+                          <i className="bx bx-block text-base"></i>
+                          Cancelar Pedido
+                        </button>
 
-                      {/* Cerrar panel */}
-                      <button
-                        className="group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold
+                        {/* Cerrar panel */}
+                        <button
+                          className="group inline-flex items-center justify-center gap-2 px-4 h-11 rounded-lg text-sm font-semibold
                         bg-rose-500 text-white shadow-sm hover:bg-rose-600 active:scale-[.98]
                         focus:outline-none focus:ring-2 focus:ring-rose-400 transition"
-                        onClick={() => {
-                          setSelectedImageId(null);
-                          setValidar_generar(false);
-                          setMonto_venta(null);
-                          setCosto(null);
-                          setPrecio_envio_directo(null);
-                          setFulfillment(null);
-                          setTotal_directo(null);
-                          setFacturaSeleccionada({});
-                        }}
-                        title="Cerrar y limpiar selección"
-                      >
-                        <i className="bx bx-x text-base"></i>
-                        Cerrar
-                      </button>
+                          onClick={() => {
+                            setSelectedImageId(null);
+                            setValidar_generar(false);
+                            setMonto_venta(null);
+                            setCosto(null);
+                            setPrecio_envio_directo(null);
+                            setFulfillment(null);
+                            setTotal_directo(null);
+                            setFacturaSeleccionada({});
+                          }}
+                          title="Cerrar y limpiar selección"
+                        >
+                          <i className="bx bx-x text-base"></i>
+                          Cerrar
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
             </>
           ) : (
-            <div className="flex items-start justify-center overflow-y-auto h-full md:h-[750px] pt-2 md:pt-4">
+            <div className="flex items-start justify-center overflow-y-auto h-full md:h-[750px] pt-2 md:pt-4 custom-scrollbar">
               <div className="w-full max-w-3xl mx-auto">
                 {/* Información del cliente*/}
                 <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
@@ -3908,6 +3916,41 @@ const DatosUsuario = ({
                     </div>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4 opacity-0 animate-slideInRightOnce delay-[0ms]">
+                  <button
+                    className={`group col-span-2 w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                      isOpenMiniCal
+                        ? "bg-[#182848] border-blue-400"
+                        : "bg-[#111b34] border-transparent hover:border-blue-300"
+                    }`}
+                    onClick={handleToggleCalendar} // ← antes se hacía el toggle directo
+                  >
+                    <i
+                      className={`bx bx-calendar text-xl ${
+                        isOpenMiniCal
+                          ? "glow-yellow"
+                          : "text-yellow-300 group-hover:text-yellow-200"
+                      }`}
+                    ></i>
+                    <span className="text-white">Calendario</span>
+                  </button>
+                </div>
+                {isOpenMiniCal && (
+                  <div
+                    className={`transition-all duration-300 ease-in-out transform origin-top ${
+                      isOpenMiniCal
+                        ? "opacity-100 scale-100 max-h-[1000px] pointer-events-auto"
+                        : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
+                    } bg-transparent rounded-lg shadow-md`}
+                  >
+                    <div className="p-3">
+                      <div className="rounded-lg shadow-md bg-white text-slate-900">
+                        <MiniCalendario />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
