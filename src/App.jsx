@@ -20,6 +20,8 @@ import Departamentos from "./pages/departamentos/DepartamentosView";
 import MainLayout from "./components/layout/MainLayout";
 import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
+import Asistentes from "./pages/asistentes/Asistentes";
+import Vinculaciones from "./pages/vinculaciones/Vinculaciones";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import Calendario from "./pages/calendario/Calendario";
@@ -60,7 +62,24 @@ function App() {
             }
           />
 
-          {/*administrador-pruebas se renombra y pasa a produccion*/}
+          <Route
+            path="/asistentes"
+            element={
+              <MainLayout>
+                <Asistentes />
+              </MainLayout>
+            }
+          />
+
+          <Route
+            path="/vinculaciones"
+            element={
+              <MainLayout>
+                <Vinculaciones />
+              </MainLayout>
+            }
+          />
+
           <Route
             path="/calendario"
             element={

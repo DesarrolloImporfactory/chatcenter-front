@@ -168,37 +168,36 @@ const AdministradorPlantillas2 = () => {
   };
 
   useEffect(() => {
-  const fetchProductos = async () => {
-    const idc = localStorage.getItem("id_configuracion");
-    if (!idc) {
-      return Swal.fire({
-        icon: "error",
-        title: "Falta configuración",
-        text: "No se encontró el ID de configuración",
-      });
-    }
-
-    try {
-      const prodRes = await chatApi.post("/productos/listarProductos", {
-        id_configuracion: parseInt(idc),
-      });
-      setProductosLista(prodRes.data.data);
-    } catch (error) {
-      if (currentTab === "asistente") {
-        Swal.fire({
+    const fetchProductos = async () => {
+      const idc = localStorage.getItem("id_configuracion");
+      if (!idc) {
+        return Swal.fire({
           icon: "error",
-          title: "Error",
-          text: "No se pudo cargar la información de productos",
+          title: "Falta configuración",
+          text: "No se encontró el ID de configuración",
         });
       }
+
+      try {
+        const prodRes = await chatApi.post("/productos/listarProductos", {
+          id_configuracion: parseInt(idc),
+        });
+        setProductosLista(prodRes.data.data);
+      } catch (error) {
+        if (currentTab === "asistente") {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "No se pudo cargar la información de productos",
+          });
+        }
+      }
+    };
+
+    if (currentTab === "asistente") {
+      fetchProductos();
     }
-  };
-
-  if (currentTab === "asistente") {
-    fetchProductos();
-  }
-}, [currentTab]);
-
+  }, [currentTab]);
 
   /* seccion de asistente */
 
@@ -2046,7 +2045,7 @@ const AdministradorPlantillas2 = () => {
             }`}
             onClick={() => setCurrentTab("numbers")}
           >
-            <i className="fas fa-address-book"></i> Números
+            <i className="fas fa-address-book"></i> Número
           </button>
 
           <button
@@ -2071,7 +2070,7 @@ const AdministradorPlantillas2 = () => {
             <i className="fas fa-bolt"></i> Respuestas rápidas
           </button>
 
-          <button
+          {/* <button
             className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
               currentTab === "asistente"
                 ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
@@ -2080,9 +2079,9 @@ const AdministradorPlantillas2 = () => {
             onClick={() => setCurrentTab("asistente")}
           >
             <i className="fas fa-cog"></i> Asistentes
-          </button>
+          </button> */}
 
-          <button
+          {/* <button
             className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
               currentTab === "vinculaciones"
                 ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
@@ -2091,7 +2090,7 @@ const AdministradorPlantillas2 = () => {
             onClick={() => setCurrentTab("vinculaciones")}
           >
             <i className="fa-solid fa-puzzle-piece"></i> Vinculaciones
-          </button>
+          </button> */}
 
           <button
             className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
