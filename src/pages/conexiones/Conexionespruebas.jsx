@@ -103,7 +103,7 @@ const Conexionespruebas = () => {
           }
           try {
             const { data } = await chatApi.post(
-              "/whatsapp_managment/embeddedSignupComplete",
+              "/cloudapi/embeddedSignupComplete",
               {
                 code,
                 id_usuario: userData.id_usuario,
