@@ -8,7 +8,9 @@ import { useDispatch } from "react-redux";
 import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
 import Chat from "./pages/chat/Chat";
 import PlanesView from "./pages/planes/PlanesView";
+import PlanesViewPrueba from "./pages/planes/PlanesViewPrueba";
 import MiPlan from "./pages/facturacion/Miplan";
+import MiPlanPrueba from "./pages/facturacion/MiplanPrueba";
 import Productos from "./pages/productos/ProductosView";
 import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
@@ -113,12 +115,28 @@ function App() {
               </MainLayoutPlanes>
             }
           />
+          <Route
+            path="/planes_view_prueba"
+            element={
+              <MainLayoutPlanes>
+                <PlanesViewPrueba />
+              </MainLayoutPlanes>
+            }
+          />
           {/* Miplan */}
           <Route
             path="/miplan"
             element={
               <MainLayout_conexiones>
                 <MiPlan />
+              </MainLayout_conexiones>
+            }
+          />
+          <Route
+            path="/miplan_prueba"
+            element={
+              <MainLayout_conexiones>
+                <MiPlanPrueba />
               </MainLayout_conexiones>
             }
           />

@@ -269,7 +269,7 @@ const MiPlan = () => {
       const baseUrl = window.location.origin;
 
       // Caso plan gratuito (id 1)
-      if (idPlan === 1) {
+      /* if (idPlan === 1) {
         const res = await chatApi.post(
           "planes/seleccionarPlan",
           { id_plan: 1, id_usuario },
@@ -283,9 +283,9 @@ const MiPlan = () => {
           throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
         }
         return;
-      }
+      } */
 
-      /* if (idPlan === 1) {
+      if (idPlan === 1) {
         if (!trialElegible) {
           await Swal.fire(
             "No disponible",
@@ -305,7 +305,7 @@ const MiPlan = () => {
         );
         if (data?.url) window.location.href = data.url;
         return;
-      } */
+      }
 
       // Caso planes de pago -> crear sesión y redirigir
       const res = await chatApi.post(

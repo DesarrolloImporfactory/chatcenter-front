@@ -132,7 +132,7 @@ useEffect(() => {
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const baseUrl = window.location.origin;
 
-      if (planSeleccionado === 1) {
+      /* if (planSeleccionado === 1) {
         const res = await chatApi.post(
           "planes/seleccionarPlan",
           { id_plan: 1, id_usuario },
@@ -146,8 +146,8 @@ useEffect(() => {
           throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
         }
         return;
-      }
-      /* if (planSeleccionado === 1) {
+      } */
+      if (planSeleccionado === 1) {
         if (!trialElegible) {
           Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
           return;
@@ -163,7 +163,7 @@ useEffect(() => {
         );
         if (data?.url) window.location.href = data.url; // Redirige a Stripe Checkout (pide tarjeta)
         return;
-      } */
+      }
 
 
       const res = await chatApi.post(
