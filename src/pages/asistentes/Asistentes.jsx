@@ -291,13 +291,13 @@ const Asistentes = () => {
               <h3 className="font-semibold">Completa tu vinculación</h3>
               <p className="text-sm mt-1">
                 Para habilitar el asistente de Logística, vincula tu cuenta con
-                Imporsuit en la sección <strong>Vinculaciones</strong>.
+                Imporsuit en la sección <strong>Integraciones</strong>.
               </p>
               <a
-                href="/vinculaciones"
+                href="/integraciones"
                 className="inline-block mt-2 text-amber-900 underline underline-offset-2 hover:text-amber-700"
               >
-                Ir a Vinculaciones →
+                Ir a Integraciones →
               </a>
             </div>
           </div>
