@@ -164,6 +164,12 @@ const Conexiones = () => {
           title: error.response?.data?.message,
           confirmButtonText: "OK",
         }).then(() => navigate("/planes_view"));
+      } else if (error.response?.status === 402) {
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          confirmButtonText: "OK",
+        }).then(() => navigate("/planes_view"));
       } else if (error.response?.status === 400) {
         setMostrarErrorBot(true);
       } else {
