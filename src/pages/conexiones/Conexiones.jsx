@@ -169,7 +169,7 @@ const Conexiones = () => {
           icon: "error",
           title: error.response?.data?.message,
           confirmButtonText: "OK",
-        }).then(() => navigate("/planes_view"));
+        }).then(() => navigate("/miplan"));
       } else if (error.response?.status === 400) {
         setMostrarErrorBot(true);
       } else {
