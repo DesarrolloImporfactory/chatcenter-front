@@ -388,6 +388,52 @@ const Cabecera = ({
             </span>
           </a>
 
+          {/* Asistentes */}
+          <a
+            href="/asistentes"
+            className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+              location.pathname === "/asistentes"
+                ? "bg-gray-200 font-semibold"
+                : ""
+            }`}
+            onClick={(e) => {
+              e.preventDefault();
+
+              localStorage.setItem("id_configuracion", id_configuracion);
+              localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+              navigate("/asistentes");
+            }}
+          >
+            <i className="bx bx-support text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              Asistentes
+            </span>
+          </a>
+
+          {/* Vinculaciones */}
+          <a
+            href="/vinculaciones"
+            className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+              location.pathname === "/vinculaciones"
+                ? "bg-gray-200 font-semibold"
+                : ""
+            }`}
+            onClick={(e) => {
+              e.preventDefault();
+
+              localStorage.setItem("id_configuracion", id_configuracion);
+              localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+              navigate("/vinculaciones");
+            }}
+          >
+            <i className="bx bx-plug text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              Integraciones
+            </span>
+          </a>
+
           <a
             /* href={
               (userData?.data?.id_matriz ?? 1) === 1
