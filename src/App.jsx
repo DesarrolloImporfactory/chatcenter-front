@@ -72,7 +72,7 @@ function App() {
           />
 
           <Route
-            path="/vinculaciones"
+            path="/integraciones"
             element={
               <MainLayout>
                 <Vinculaciones />
