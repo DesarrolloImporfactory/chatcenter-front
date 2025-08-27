@@ -49,8 +49,8 @@ const Vinculaciones = () => {
       if (res.status === 200) {
         Swal.fire({
           icon: "success",
-          title: "Vinculación exitosa",
-          text: "Se ha vinculado correctamente con Imporsuit",
+          title: "Integración exitosa",
+          text: "Se ha integrado correctamente con Imporsuit",
           confirmButtonColor: "#3085d6",
         });
         setShowModalVinculacionesImporsuit(false);
