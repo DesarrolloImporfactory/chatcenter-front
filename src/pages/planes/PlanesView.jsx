@@ -123,6 +123,40 @@ useEffect(() => {
     })();
   }, []);
 
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("setup") === "ok") {
+      activarPlanFree();
+    }
+  }, []);
+  
+  const activarPlanFree = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const id_usuario = decoded.id_usuario || decoded.id_users;
+    
+      const res = await chatApi.post(
+        "planes/seleccionarPlan",
+        { id_plan: 1, id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    
+      if (res.data.status === "success") {
+        Swal.fire("Listo", "Tu plan gratuito fue activado correctamente. Se cobrará automáticamente al finalizar.", "success").then(() => {
+          window.location.href = "/miplan";
+        });
+      } else {
+        throw new Error(res.data.message);
+      }
+    } catch (error) {
+      const msg = error?.response?.data?.message || "No se pudo activar el plan gratuito.";
+      Swal.fire("Error", msg, "error");
+    }
+  };
+
+
   const seleccionarPlan = async () => {
     if (!planSeleccionado) return;
     setLoading(true);
@@ -133,20 +167,19 @@ useEffect(() => {
       const baseUrl = window.location.origin;
 
       if (planSeleccionado === 1) {
-        const res = await chatApi.post(
-          "planes/seleccionarPlan",
-          { id_plan: 1, id_usuario },
+        const { data } = await chatApi.post(
+          "stripe_plan/crearSesionFreeSetup",
+          { id_usuario },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (res.data.status === "success") {
-          Swal.fire("Listo", "Tu plan gratuito fue activado correctamente.", "success").then(() => {
-            window.location.href = "/miplan";
-          });
+        if (data?.url) {
+          window.location.href = data.url;
+          return;
         } else {
-          throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
+          throw new Error("No se pudo crear la sesión de setup para el plan gratuito.");
         }
-        return;
       }
+
       /* if (planSeleccionado === 1) {
         if (!trialElegible) {
           Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");

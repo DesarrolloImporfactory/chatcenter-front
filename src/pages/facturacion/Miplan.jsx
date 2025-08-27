@@ -258,6 +258,39 @@ const MiPlan = () => {
     syncStripePrices();
   }, []);
 
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("setup") === "ok") {
+      activarPlanFree();
+    }
+  }, []);
+  
+  const activarPlanFree = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const id_usuario = decoded.id_usuario || decoded.id_users;
+    
+      const res = await chatApi.post(
+        "planes/seleccionarPlan",
+        { id_plan: 1, id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    
+      if (res.data.status === "success") {
+        Swal.fire("Listo", "Tu plan gratuito fue activado correctamente. Se cobrará automáticamente al finalizar.", "success").then(() => {
+          window.location.href = "/miplan";
+        });
+      } else {
+        throw new Error(res.data.message);
+      }
+    } catch (error) {
+      const msg = error?.response?.data?.message || "No se pudo activar el plan gratuito.";
+      Swal.fire("Error", msg, "error");
+    }
+  };
+
   // ====== NUEVO: selección directa (1 solo paso) ======
   const handleSeleccionarPlan = async (idPlan) => {
     if (currentPlanId === idPlan) return; // ya tienes este plan
@@ -269,20 +302,18 @@ const MiPlan = () => {
       const baseUrl = window.location.origin;
 
       // Caso plan gratuito (id 1)
-      if (idPlan === 1) {
-        const res = await chatApi.post(
-          "planes/seleccionarPlan",
-          { id_plan: 1, id_usuario },
+      if (planSeleccionado === 1) {
+        const { data } = await chatApi.post(
+          "stripe_plan/crearSesionFreeSetup",
+          { id_usuario },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (res.data.status === "success") {
-          await Swal.fire("Listo", "Tu plan gratuito fue activado correctamente.", "success");
-          setMostrarPlanes(false);
-          obtenerPlanActivo();
+        if (data?.url) {
+          window.location.href = data.url;
+          return;
         } else {
-          throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
+          throw new Error("No se pudo crear la sesión de setup para el plan gratuito.");
         }
-        return;
       }
 
       /* if (idPlan === 1) {
