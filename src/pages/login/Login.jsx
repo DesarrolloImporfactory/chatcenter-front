@@ -77,7 +77,7 @@ export default function Login() {
               aria-hidden="true"
             />
             <span className="text-xl font-semibold tracking-wide">
-              ChatCenter
+              ImporChat
             </span>
           </header>
           <h1 className="text-3xl font-extrabold mb-4 leading-tight">
@@ -136,7 +136,9 @@ export default function Login() {
               id="text"
               type="text"
               placeholder="usuario o correo electrónico"
-              {...register("usuario", { required: "El usuario o email son obligatorios" })}
+              {...register("usuario", {
+                required: "El usuario o email son obligatorios",
+              })}
               className={`w-full p-3 rounded border focus:outline-none focus:ring-2 ${
                 errors.email
                   ? "border-red-500 focus:ring-red-400"
@@ -229,11 +231,25 @@ export default function Login() {
               Regístrate aquí
             </span>
           </p>
-          <p className="mt-4 text-[11px] text-gray-400 leading-tight text-center">
-            Al iniciar sesión aceptas nuestros
-            <Link to="/terminos" className="underline ml-1">
-              Términos y Condiciones
-            </Link>
+          <p className="mt-4 text-[13px] text-gray-600 leading-tight text-center">
+            Al iniciar sesión, usted acepta nuestras{" "}
+            <a
+              href="/condiciones-servicio"
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Condiciones de servicio
+            </a>{" "}
+            y nuestra{" "}
+            <a
+              href="/politica-privacidad"
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Política de privacidad
+            </a>
             .
           </p>
           <div className="flex items-center justify-center gap-1 mt-7 text-[13px] text-gray-500">
@@ -245,16 +261,37 @@ export default function Login() {
 
       {/* ---- Footer ---- */}
       <footer className="absolute bottom-4 inset-x-0 text-center text-gray-400 text-[10px]">
-        Desarrollado por{" "}
-        <a
-          href="https://new.imporsuitpro.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-400 hover:underline"
-        >
-          Imporsuit
-        </a>{" "}
-        © {new Date().getFullYear()}
+        <nav className="space-x-3">
+          <a
+            href="/condiciones-servicio"
+            className="hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Condiciones de servicio
+          </a>
+          <span>•</span>
+          <a
+            href="/politica-privacidad"
+            className="hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Política de privacidad
+          </a>
+        </nav>
+        <div className="mt-1">
+          Desarrollado por{" "}
+          <a
+            href="https://new.imporsuitpro.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            Imporsuit
+          </a>{" "}
+          © {new Date().getFullYear()}
+        </div>
       </footer>
     </div>
   );
