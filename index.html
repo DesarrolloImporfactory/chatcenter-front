@@ -1,37 +1,51 @@
 <!DOCTYPE html>
 <html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="https://new.imporsuitpro.com/public/img/favicon_chat_center.png"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+      rel="stylesheet"
+    />
+    <title>Chat Center</title>
+    <script
+      src="https://kit.fontawesome.com/0022adc953.js"
+      crossorigin="anonymous"
+    ></script>
+    <meta
+      name="google-site-verification"
+      content="e4o4ZzOAt41v_dwAWv7_qQNfwhDiAgtYbhJTIue-el8"
+    />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="https://new.imporsuitpro.com/public/img/favicon_chat_center.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
-  <title>Chat Center</title>
-  <script src="https://kit.fontawesome.com/0022adc953.js" crossorigin="anonymous"></script>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      const pathname = window.location.pathname;
+      const search = window.location.search;
 
-</head>
+      const isLoginWithParams =
+        pathname === "/login" &&
+        search.includes("token=") &&
+        search.includes("tienda=");
 
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
-  <script>
-  const pathname = window.location.pathname;
-  const search = window.location.search;
+      const token = localStorage.getItem("token");
 
-  const isLoginWithParams = pathname === "/login" && search.includes("token=") && search.includes("tienda=");
-
-  const token = localStorage.getItem("token");
-
-  if (token && token !== "undefined" && token !== "") {
-    if (pathname === "/login" && !isLoginWithParams || pathname === "/") {
-      window.location.href = "/chat";
-    }
-  } else {
-    if ((pathname === "/chat" || pathname === "/") && !isLoginWithParams) {
-      window.location.href = "/login";
-    }
-  }
-</script>
-</body>
-
+      if (token && token !== "undefined" && token !== "") {
+        if ((pathname === "/login" && !isLoginWithParams) || pathname === "/") {
+          window.location.href = "/chat";
+        }
+      } else {
+        if ((pathname === "/chat" || pathname === "/") && !isLoginWithParams) {
+          window.location.href = "/login";
+        }
+      }
+    </script>
+  </body>
 </html>
