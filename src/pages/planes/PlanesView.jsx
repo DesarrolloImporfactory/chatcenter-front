@@ -168,6 +168,26 @@ useEffect(() => {
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const baseUrl = window.location.origin;
 
+
+      /* if (planSeleccionado === 1) {
+        if (!trialElegible) {
+          Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+          return;
+        }
+        const { data } = await chatApi.post(
+          "stripe_plan/crearFreeTrial",
+          {
+            id_usuario,
+            success_url: `${baseUrl}/miplan?trial=ok`,
+            cancel_url: `${baseUrl}/planes_view?trial=cancel`,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (data?.url) window.location.href = data.url; // Redirige a Stripe Checkout (pide tarjeta)
+        return;
+      } */
+
+
       // FREE (id 1) → Setup de tarjeta (misma lógica que ya tenías)
       if (idPlan === 1) {
         if (!trialElegible) {
