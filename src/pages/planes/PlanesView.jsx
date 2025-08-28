@@ -436,7 +436,7 @@ useEffect(() => {
         </div>
 
         {/* CTA inferior */}
-        {planSeleccionado && planSeleccionado !== currentPlanId && (
+        {/* {planSeleccionado && planSeleccionado !== currentPlanId && (
           <div className="flex flex-col items-center gap-3 mt-10">
             <div className="text-sm text-[#5a547a]">
               Plan seleccionado:{" "}
@@ -457,7 +457,7 @@ useEffect(() => {
             )}
 
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
