@@ -605,23 +605,26 @@ const Asistentes = () => {
             </select>
 
             {/* Fuente de productos */}
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fuente de productos para la IA
-            </label>
-            <select
-              value={tomar_productos}
-              onChange={(e) => {
-                const nuevaFuente = e.target.value; // 'call_center' | 'imporsuit'
-                setTomar_productos(nuevaFuente);
-                // Limpieza inmediata por UX (además del useEffect):
-                setProductosLista([]);
-                setProductosLista([]);
-              }}
-              className="w-full border px-3 py-2 rounded mb-3"
-            >
-              <option value="chat_center">Call Center</option>
-              <option value="imporsuit">Imporsuit</option>
-            </select>
+            {idPlataformaConf && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fuente de productos para la IA
+                </label>
+                <select
+                  value={tomar_productos}
+                  onChange={(e) => {
+                    const nuevaFuente = e.target.value; // 'chat_center' | 'imporsuit'
+                    setTomar_productos(nuevaFuente);
+                    // Limpieza inmediata por UX (además del useEffect):
+                    setProductosLista([]); // Limpiar los productos antes de cargar nuevos
+                  }}
+                  className="w-full border px-3 py-2 rounded mb-3"
+                >
+                  <option value="chat_center">Call Center</option>
+                  <option value="imporsuit">Imporsuit</option>
+                </select>
+              </div>
+            )}
 
             <Select
               isMulti
