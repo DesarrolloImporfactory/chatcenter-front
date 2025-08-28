@@ -88,7 +88,9 @@ const Asistentes = () => {
   const [nombreBotVenta, setNombreBotVenta] = useState("");
   const [assistantIdVenta, setAssistantIdVenta] = useState("");
   const [activoVenta, setActivoVenta] = useState(false);
-  const [productosVenta, setProductosVenta] = useState("");
+  const [productosVenta, setProductosVenta] = useState([]);
+  const [tomar_productos, setTomar_productos] = useState("chat_Center");
+  const [tiempo_remarketing, setTiempo_remarketing] = useState("0");
   const [showModalVentas, setShowModalVentas] = useState(false);
 
   // Productos (para IA ventas)
@@ -128,23 +130,64 @@ const Asistentes = () => {
     }
   };
 
-  const fetchProductos = async () => {
+  useEffect(() => {
+    if (asistenteVentas) {
+      setNombreBotVenta(asistenteVentas.nombre_bot || "");
+      setAssistantIdVenta(asistenteVentas.assistant_id || "");
+      setActivoVenta(!!asistenteVentas.activo);
+
+      // Sincronizar productos
+      const productos = asistenteVentas.productos || [];
+      setProductosVenta(productos); // Mantenerlo como array de productos (["4225"])
+
+      setTomar_productos(
+        asistenteVentas.tomar_productos === "imporsuit"
+          ? "imporsuit"
+          : "chat_center"
+      );
+      setTiempo_remarketing(String(asistenteVentas.tiempo_remarketing || "0"));
+    }
+  }, [asistenteVentas]);
+
+  const fetchProductos = async (fuente) => {
     if (!id_configuracion) return;
+
     try {
-      const prodRes = await chatApi.post("/productos/listarProductos", {
-        id_configuracion: id_configuracion,
-      });
+      let prodRes;
+
+      if (fuente === "imporsuit") {
+        if (!idPlataformaConf) return;
+        prodRes = await chatApi.post("/productos/listarProductosImporsuit", {
+          id_plataforma: idPlataformaConf,
+        });
+      } else {
+        // 'chat_center' (su endpoint actual)
+        prodRes = await chatApi.post("/productos/listarProductos", {
+          id_configuracion,
+        });
+      }
+
       setProductosLista(prodRes.data.data || []);
     } catch (error) {
       console.error("No se pudo cargar la información de productos.", error);
+      setProductosLista([]);
     }
   };
 
   useEffect(() => {
     if (!id_configuracion) return;
     fetchAsistenteAutomatizado();
-    fetchProductos();
   }, [id_configuracion]);
+
+  useEffect(() => {
+    if (!id_configuracion) return;
+
+    // Resetear selección al cambiar la fuente
+    setProductosVenta([]); // limpia selección (react-select leerá '' y quedará vacío)
+    setProductosLista([]); // opcional: limpia opciones mientras llega la data
+
+    fetchProductos(tomar_productos);
+  }, [id_configuracion, tomar_productos]);
 
   /** Sincroniza estados visuales con datos del backend */
   useEffect(() => {
@@ -157,7 +200,45 @@ const Asistentes = () => {
       setNombreBotVenta(asistenteVentas.nombre_bot || "");
       setAssistantIdVenta(asistenteVentas.assistant_id || "");
       setActivoVenta(!!asistenteVentas.activo);
-      setProductosVenta(asistenteVentas.productos || "");
+      // --- Normalización de productos a array de strings ---
+      (function normalizeProductos() {
+        try {
+          const raw = asistenteVentas.productos;
+          if (Array.isArray(raw)) {
+            setProductosVenta(raw.map(String));
+            return;
+          }
+          if (typeof raw === "string") {
+            const t = raw.trim();
+            if (t.startsWith("[")) {
+              // Viene como JSON stringificado
+              const arr = JSON.parse(t);
+              setProductosVenta((Array.isArray(arr) ? arr : [arr]).map(String));
+              return;
+            }
+            // Viene como CSV "10478,20511"
+            const arr = t
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .map(String);
+            setProductosVenta(arr);
+            return;
+          }
+          setProductosVenta([]);
+        } catch {
+          setProductosVenta([]);
+        }
+      })();
+
+      // Fuente estándar
+      setTomar_productos(
+        asistenteVentas.tomar_productos === "imporsuit"
+          ? "imporsuit"
+          : "chat_center"
+      );
+      // Tiempo remarketing como string ("1","3","5","10","20")
+      setTiempo_remarketing(String(asistenteVentas.tiempo_remarketing || "0"));
     }
   }, [asistenteLogistico, asistenteVentas]);
 
@@ -172,19 +253,15 @@ const Asistentes = () => {
   );
 
   const selectedProductos = useMemo(() => {
-    if (!productosVenta || typeof productosVenta !== "string") return [];
-    const ids = productosVenta
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-    return productosOptions.filter((opt) => ids.includes(opt.value));
+    if (!Array.isArray(productosVenta)) return [];
+    const ids = new Set(productosVenta.map(String));
+    return productosOptions.filter((opt) => ids.has(opt.value));
   }, [productosVenta, productosOptions]);
 
   const handleProductosChange = (selected) => {
-    const ids = (selected || []).map((s) => s.value);
-    setProductosVenta(ids.join(","));
+    const ids = (selected || []).map((s) => String(s.value));
+    setProductosVenta(ids); // ← array de strings
   };
-
   /** Acciones */
   const guardarApiKey = async (apiKeyInput) => {
     try {
@@ -226,8 +303,10 @@ const Asistentes = () => {
         id_configuracion: id_configuracion,
         nombre_bot: nombreBotVenta,
         assistant_id: assistantIdVenta,
-        productos: selectedProductos.map((p) => p.value), // array string
+        productos: productosVenta, // ← ya es array de strings, p.ej. ["10478","20511"]
         activo: activoVenta,
+        tiempo_remarketing: Number(tiempo_remarketing),
+        tomar_productos,
       });
       setShowModalVentas(false);
       await fetchAsistenteAutomatizado();
@@ -507,6 +586,42 @@ const Asistentes = () => {
               onChange={(e) => setAssistantIdVenta(e.target.value)}
               className="w-full border px-3 py-2 rounded mb-3"
             />
+
+            {/* Tiempo de remarketing */}
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tiempo de remarketing
+            </label>
+            <select
+              value={tiempo_remarketing}
+              onChange={(e) => setTiempo_remarketing(e.target.value)}
+              className="w-full border px-3 py-2 rounded mb-3"
+            >
+              <option value="0">Seleccione una hora</option>
+              <option value="1">1 hora</option>
+              <option value="3">3 horas</option>
+              <option value="5">5 horas</option>
+              <option value="10">10 horas</option>
+              <option value="20">20 horas</option>
+            </select>
+
+            {/* Fuente de productos */}
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fuente de productos para la IA
+            </label>
+            <select
+              value={tomar_productos}
+              onChange={(e) => {
+                const nuevaFuente = e.target.value; // 'call_center' | 'imporsuit'
+                setTomar_productos(nuevaFuente);
+                // Limpieza inmediata por UX (además del useEffect):
+                setProductosLista([]);
+                setProductosLista([]);
+              }}
+              className="w-full border px-3 py-2 rounded mb-3"
+            >
+              <option value="chat_center">Call Center</option>
+              <option value="imporsuit">Imporsuit</option>
+            </select>
 
             <Select
               isMulti

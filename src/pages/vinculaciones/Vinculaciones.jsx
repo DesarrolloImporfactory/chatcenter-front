@@ -50,11 +50,22 @@ const Vinculaciones = () => {
         Swal.fire({
           icon: "success",
           title: "Integración exitosa",
-          text: "Se ha integrado correctamente con Imporsuit",
+          html: `
+            <p>Se ha integrado correctamente con <strong>Imporsuit</strong>.</p>
+            <p>Al integrarse con la <strong>IA de Ventas</strong>, ahora podrá elegir si desea alimentar la IA con:</p>
+            <ul style="text-align: left; margin-top: 10px;">
+              <li>✅ Productos de Chat Center</li>
+              <li>✅ Productos de Imporsuit</li>
+            </ul>
+          `,
           confirmButtonColor: "#3085d6",
+          confirmButtonText: "Entendido",
         });
+
+        localStorage.setItem("id_plataforma_conf", res.data.id_plataforma);
+        setId_plataforma_conf(res.data.id_plataforma);
+
         setShowModalVinculacionesImporsuit(false);
-        // Opcional: window.location.reload();
       }
     } catch (error) {
       if (error.response && error.response.status === 401) {
