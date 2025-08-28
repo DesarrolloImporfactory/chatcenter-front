@@ -303,6 +303,10 @@ const MiPlan = () => {
 
       // Caso plan gratuito (id 1)
       if (planSeleccionado === 1) {
+        if (!trialElegible) {
+          Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+          return;
+        }
         const { data } = await chatApi.post(
           "stripe_plan/crearSesionFreeSetup",
           { id_usuario },

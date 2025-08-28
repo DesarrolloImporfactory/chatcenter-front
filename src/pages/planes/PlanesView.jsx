@@ -130,19 +130,19 @@ useEffect(() => {
       activarPlanFree();
     }
   }, []);
-  
+
   const activarPlanFree = async () => {
     try {
       const token = localStorage.getItem("token");
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
-    
+
       const res = await chatApi.post(
         "planes/seleccionarPlan",
         { id_plan: 1, id_usuario },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-    
+
       if (res.data.status === "success") {
         Swal.fire("Listo", "Tu plan gratuito fue activado correctamente. Se cobrará automáticamente al finalizar.", "success").then(() => {
           window.location.href = "/miplan";
@@ -157,8 +157,10 @@ useEffect(() => {
   };
 
 
-  const seleccionarPlan = async () => {
-    if (!planSeleccionado) return;
+  // Antes: const seleccionarPlan = async () => { ... usa planSeleccionado ... }
+
+  const seleccionarPlan = async (idPlan) => {
+    if (!idPlan) return;
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
@@ -166,7 +168,12 @@ useEffect(() => {
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const baseUrl = window.location.origin;
 
-      if (planSeleccionado === 1) {
+      // FREE (id 1) → Setup de tarjeta (misma lógica que ya tenías)
+      if (idPlan === 1) {
+        if (!trialElegible) {
+          Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+          return;
+        }
         const { data } = await chatApi.post(
           "stripe_plan/crearSesionFreeSetup",
           { id_usuario },
@@ -180,29 +187,11 @@ useEffect(() => {
         }
       }
 
-      /* if (planSeleccionado === 1) {
-        if (!trialElegible) {
-          Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
-          return;
-        }
-        const { data } = await chatApi.post(
-          "stripe_plan/crearFreeTrial",
-          {
-            id_usuario,
-            success_url: `${baseUrl}/miplan?trial=ok`,
-            cancel_url: `${baseUrl}/planes_view?trial=cancel`,
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (data?.url) window.location.href = data.url; // Redirige a Stripe Checkout (pide tarjeta)
-        return;
-      } */
-
-
+      // Plan de pago → Checkout (suscripción o delta)
       const res = await chatApi.post(
         "stripe_plan/crearSesionPago",
         {
-          id_plan: planSeleccionado,
+          id_plan: idPlan,
           id_usuario,
           success_url: `${baseUrl}/miplan?addpm=1`,
           cancel_url: `${baseUrl}/planes_view`,
@@ -210,12 +199,12 @@ useEffect(() => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (res.data.url) {
+      if (res.data?.url) {
         localStorage.setItem(
           "plan_activado",
           JSON.stringify({
-            id_plan: planSeleccionado,
-            nombre: planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan || "",
+            id_plan: idPlan,
+            nombre: planes.find((p) => p.id_plan === idPlan)?.nombre_plan || "",
           })
         );
         window.location.href = res.data.url;
@@ -231,6 +220,7 @@ useEffect(() => {
       setLoading(false);
     }
   };
+
 
   const getImagenPlan = (nombre = "") => {
     const n = nombre.toLowerCase();
@@ -403,14 +393,13 @@ useEffect(() => {
                       <button
                         onClick={() => {
                           if (isCurrent) return;
-                          // Si es FREE (id 1) y no es elegible, avisar y NO seleccionar
                           if (plan.id_plan === 1 && !trialElegible) {
                             Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
                             return;
                           }
-                          setPlanSeleccionado(plan.id_plan);
+                          seleccionarPlan(plan.id_plan); // ← ahora ejecuta el flujo directamente
                         }}
-                        disabled={isSelected || isCurrent || (plan.id_plan === 1 && !trialElegible)}
+                        disabled={loading || isCurrent || (plan.id_plan === 1 && !trialElegible)}
                         className={`
                           w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
                           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
