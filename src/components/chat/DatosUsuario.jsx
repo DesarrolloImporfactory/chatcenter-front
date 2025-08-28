@@ -395,6 +395,51 @@ const DatosUsuario = ({
       return;
     }
 
+    // 🔐 VALIDACIÓN PREVIA
+    try {
+      await chatApi.post("/pedidos/validar_productos_guia", {
+        lista: lista_productos,
+        id_plataforma: id_plataforma_conf,
+      });
+    } catch (err) {
+      const rsp = err?.response?.data || err;
+
+      const html = `
+      <div class="validador-wrap">
+        <p class="validador-intro">
+          Revise los siguientes ítems. Puede ajustar cantidades, quitar productos o reemplazarlos.
+        </p>
+        <div class="validador-list">
+          ${(rsp?.invalidos || [])
+            .map(
+              (it) => `
+            <div class="validador-item">
+              <div class="validador-name"> <strong> -${
+                it.nombre
+              } </strong> </div>
+              <div class="validador-chips">
+                ${it.motivos
+                  .map((m) => `<span class="chip">${m}</span>`)
+                  .join("")}
+              </div>
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+
+      Swal.fire({
+        icon: "error",
+        title: rsp?.title || "Producto con problemas",
+        html,
+      });
+
+      setGenerandoGuia(false);
+      return;
+    }
+
     setGenerandoGuia(true);
 
     const costoFlete = getValues("precio_envio");
