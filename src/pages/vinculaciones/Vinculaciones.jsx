@@ -62,8 +62,13 @@ const Vinculaciones = () => {
           confirmButtonText: "Entendido",
         });
 
-        localStorage.setItem("id_plataforma_conf", res.data.id_plataforma);
         setId_plataforma_conf(res.data.id_plataforma);
+
+        const id = res.data.id_plataforma ?? null;
+        localStorage.setItem("id_plataforma_conf", id);
+        window.dispatchEvent(
+          new CustomEvent("imporsuit:linked", { detail: { id } })
+        );
 
         setShowModalVinculacionesImporsuit(false);
       }

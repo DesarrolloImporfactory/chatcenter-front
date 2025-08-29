@@ -29,8 +29,10 @@ const ProductosView = () => {
     precio: "",
     id_categoria: "",
     imagen: null,
+    video: null,
   });
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewVideo, setPreviewVideo] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
   const [search, setSearch] = useState("");
@@ -208,6 +210,7 @@ const ProductosView = () => {
         precio: "",
         id_categoria: "",
         imagen: null,
+        video: null,
       });
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
@@ -235,10 +238,12 @@ const ProductosView = () => {
         precio: p.precio ?? "",
         id_categoria: p.id_categoria ?? "",
         imagen: null, // se sube solo si cambia
+        video: null,
       });
       setEditingId(p.id);
       // si tiene imagen actual, la mostramos aparte
       setPreviewUrl(p.imagen_url || null);
+      setPreviewVideo(p.video_url || null);
     } else {
       setForm({
         nombre: "",
@@ -247,9 +252,11 @@ const ProductosView = () => {
         precio: "",
         id_categoria: "",
         imagen: null,
+        video: null,
       });
       setEditingId(null);
       setPreviewUrl(null);
+      setPreviewVideo(null);
     }
     setModalOpen(true);
   };
@@ -909,6 +916,81 @@ const ProductosView = () => {
                 {!previewUrl && editingId && (
                   <div className="text-xs text-slate-500">
                     * Si no seleccionas una imagen, se conserva la actual.
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-slate-700">
+                  Video (opcional)
+                </label>
+
+                <div
+                  className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center transition ring-0"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && file.type.startsWith("video/")) {
+                      const url = URL.createObjectURL(file);
+                      setPreviewVideo(url);
+                      setForm((prev) => ({ ...prev, video: file }));
+                    }
+                  }}
+                >
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                      <svg
+                        className="w-6 h-6 text-slate-500"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Arrastra un video aquí o{" "}
+                      <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
+                        selecciona un archivo
+                        <input
+                          type="file"
+                          accept="video/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file && file.type.startsWith("video/")) {
+                              const url = URL.createObjectURL(file);
+                              setPreviewVideo(url);
+                              setForm((prev) => ({ ...prev, video: file }));
+                            }
+                          }}
+                        />
+                      </label>
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      MP4, WEBM, etc. (máx. ~50MB)
+                    </p>
+                  </div>
+                </div>
+
+                {previewVideo && (
+                  <div className="relative">
+                    <video
+                      controls
+                      className="w-full max-h-64 rounded-lg ring-1 ring-slate-200"
+                      src={previewVideo}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        URL.revokeObjectURL(previewVideo);
+                        setPreviewVideo(null);
+                        setForm((prev) => ({ ...prev, video: null }));
+                      }}
+                      className="absolute top-2 right-2 bg-white/90 hover:bg-white text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
+                    >
+                      Quitar
+                    </button>
                   </div>
                 )}
               </div>

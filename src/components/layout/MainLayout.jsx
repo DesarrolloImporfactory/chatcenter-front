@@ -28,6 +28,12 @@ function MainLayout({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
+  const handler = (e) => setId_plataforma_conf(e.detail.id ?? null);
+  window.addEventListener("imporsuit:linked", handler);
+  return () => window.removeEventListener("imporsuit:linked", handler);
+}, []);
+
+  useEffect(() => {
     const idp = localStorage.getItem("id_plataforma_conf");
     const idc = localStorage.getItem("id_configuracion");
 
