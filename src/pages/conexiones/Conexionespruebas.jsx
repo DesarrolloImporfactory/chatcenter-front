@@ -145,6 +145,8 @@ const Conexiones = () => {
     );
   };
 
+  const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
+
   // NUEVO: abre el flujo OAuth del backend (construye la login URL y redirige)
   const handleConectarFacebookInbox = async (config) => {
     try {
@@ -154,11 +156,10 @@ const Conexiones = () => {
       const { data } = await chatApi.get("/messenger/facebook/login-url", {
         params: {
           id_configuracion: config.id, // 👈 usamos id_configuracion
-          redirect_uri: window.location.origin + "/conexionespruebas", // 👈 agrega EXACTAMENTE esta URL en tu App de Meta (Valid OAuth Redirect URIs)
+          redirect_uri: window.location.origin + "/conexionespruebas", //Oauth validado en meta
+          config_id: FB_FBL_CONFIG_ID_MESSENGER,
         },
       });
-
-      if (!data?.url) throw new Error("No se recibió login URL.");
       window.location.href = data.url; // redirige al diálogo de Facebook
     } catch (err) {
       console.error(err);
