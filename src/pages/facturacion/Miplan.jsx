@@ -201,12 +201,21 @@ const MiPlan = () => {
     const params = new URLSearchParams(window.location.search);
     const pmSaved = params.get("pm_saved");
     const setupOk = params.get("setup");
+    const addpm = params.get("addpm");
 
     if (pmSaved === "1" || setupOk === "ok") {
       Swal.fire("Listo", "Tarjeta guardada correctamente.", "success");
       const url = new URL(window.location.href);
       url.searchParams.delete("pm_saved");
       url.searchParams.delete("setup");
+      window.history.replaceState({}, document.title, url.pathname);
+      obtenerFacturas();
+      obtenerPlanActivo();
+    }
+    if (addpm === "1") {
+      Swal.fire("Listo", "Tu suscripción fue procesada. Estamos sincronizando tu plan.", "success");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("addpm");
       window.history.replaceState({}, document.title, url.pathname);
       obtenerFacturas();
       obtenerPlanActivo();
@@ -302,7 +311,7 @@ const MiPlan = () => {
       const baseUrl = window.location.origin;
 
       // Caso plan gratuito (id 1)
-      if (planSeleccionado === 1) {
+      if (idPlan === 1) {
         if (!trialElegible) {
           Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
           return;
