@@ -743,9 +743,9 @@ const MiPlan = () => {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-[#e0dcf3]">
-                        Aún no hay facturas para mostrar.
-                      </p>
+                      <div className="flex-1 min-h-[700px] grid place-items-center rounded-2xl bg-[#322b4f]/40 border border-[#c4bde4]/20">
+                         <p className="text-sm text-[#e0dcf3]">Aún no hay facturas para mostrar.</p>
+                       </div>
                     )}
                   </div>
                 </div>
