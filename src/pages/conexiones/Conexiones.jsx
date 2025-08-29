@@ -50,6 +50,9 @@ const Conexiones = () => {
   const [filtroEstado, setFiltroEstado] = useState(""); // "", "conectado", "pendiente"
   const [filtroPago, setFiltroPago] = useState(""); // "", "activo", "inactivo"
 
+  // Nuevo: estado para bloquear el botón mientras se ejecuta la acción
+  const [suspendiendoId, setSuspendiendoId] = useState(null);
+
   const handleAbrirConfiguracionAutomatizada = () =>
     setModalConfiguracionAutomatizada(true);
 
@@ -59,6 +62,48 @@ const Conexiones = () => {
     setTelefono(config.telefono);
     setModalConfiguracionWhatsappBusiness(true);
   };
+
+  // Nuevo: toggle de suspensión (optimista con refresh del backend)
+  // arriba ya tienes: import Swal from "sweetalert2"; ✅
+
+  const confirmarEliminar = async (config) => {
+    if (!userData) return;
+
+    const res = await Swal.fire({
+      title: "Eliminar conexión",
+      text: "Se eliminará esta conexión y no se podrá recuperar. ¿Deseas continuar?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#ef4444",
+      reverseButtons: true,
+    });
+
+    if (!res.isConfirmed) return;
+
+    try {
+      setSuspendiendoId(config.id);
+      await chatApi.post("configuraciones/toggle_suspension", {
+        id_configuracion: config.id,
+        id_usuario: userData.id_usuario,
+        suspendido: true, // ← aquí está la “eliminación”: SUSPENDER
+      });
+
+      // Optimista: esconder de la UI
+      setConfiguracionAutomatizada(prev => prev.filter(c => c.id !== config.id));
+
+      setStatusMessage({ type: "success", text: "Conexión eliminada." });
+    } catch (err) {
+      setStatusMessage({
+        type: "error",
+        text: err?.response?.data?.message || "No se pudo suspender la conexión.",
+      });
+    } finally {
+      setSuspendiendoId(null);
+    }
+  };
+
 
   /* SDK Facebook (sin cambios de lógica) */
   useEffect(() => {
@@ -398,9 +443,25 @@ const Conexiones = () => {
                         </div>
 
                         {/* Mantengo tu estilo de íconos */}
-                        <div className="shrink-0 w-10 h-10 rounded-xl bg-slate-100 ring-1 ring-slate-200 grid place-items-center">
-                          <i className="bx bx-layer text-xl text-blue-600"></i>
-                        </div>
+
+                        {/* icono para suspender conexion */}
+                        <button
+                          type="button"
+                          onClick={() => confirmarEliminar(config)}
+                          disabled={suspendiendoId === config.id}
+                          className={[
+                            "shrink-0 w-10 h-10 rounded-xl grid place-items-center ring-1 transition",
+                            "bg-rose-50 ring-rose-200 text-rose-600",
+                            suspendiendoId === config.id ? "opacity-60 cursor-not-allowed" : "hover:scale-105 hover:bg-rose-100"
+                          ].join(" ")}
+                          title="Eliminar conexión"
+                          aria-label="Eliminar conexión"
+                        >
+                          <i className="bx bx-trash text-xl"></i>
+                        </button>
+
+
+
                       </div>
 
                       {/* Teléfono */}
