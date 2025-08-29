@@ -690,7 +690,7 @@ const MiPlan = () => {
 
                 {/* panel facturas */}
                 <div className="xl:col-span-1">
-                  <div className="rounded-3xl p-5 sm:p-6 bg-gradient-to-b from-[#4b3f72] via-[#322b4f] to-[#1f1a33] text-white backdrop-blur-xl border border-[#c4bde4]/30 shadow-lg shadow-[#c4bde4]/10 hover:shadow-[0_0_25px_rgba(196,189,228,0.25)] transition-shadow duration-300 h-full xl:sticky xl:top-6">
+                  <div className="rounded-3xl p-5 sm:p-6 bg-gradient-to-b from-[#4b3f72] via-[#322b4f] to-[#1f1a33] text-white backdrop-blur-xl border border-[#c4bde4]/30 shadow-lg shadow-[#c4bde4]/10 hover:shadow-[0_0_25px_rgba(196,189,228,0.25)] transition-shadow duration-300 h-full min-h-[680px] md:min-h-[760px] xl:min-h-[820px] FLEX FLEX-COL xl:sticky xl:top-6">
                     <div className="flex items-center justify-between mb-3 sm:mb-4">
                       <h4 className="text-base sm:text-lg font-semibold text-white">
                         Facturas
@@ -713,7 +713,7 @@ const MiPlan = () => {
                     </div>
 
                     {facturas.length > 0 ? (
-                      <div className="max-h-[50vh] md:max-h-[60vh] xl:max-h-[460px] overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+                      <div className="max-h-[50vh] md:max-h-[60vh] xl:max-h-[700px] overflow-y-auto space-y-3 pr-1 custom-scrollbar">
                         {facturas.map((f) => (
                           <div
                             key={f.id}
