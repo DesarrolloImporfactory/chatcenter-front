@@ -44,6 +44,7 @@ const ProductosView = () => {
   const itemsPerPage = 6;
 
   const dropRef = useRef(null);
+  const dropVideoRef = useRef(null);
 
   const navigate = useNavigate();
 
@@ -88,9 +89,11 @@ const ProductosView = () => {
 
   useEffect(() => {
     fetchData();
-    // cleanup preview url cuando desmonta
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (previewUrl && previewUrl.startsWith("blob:"))
+        URL.revokeObjectURL(previewUrl);
+      if (previewVideo && previewVideo.startsWith("blob:"))
+        URL.revokeObjectURL(previewVideo);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -214,6 +217,7 @@ const ProductosView = () => {
       });
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+      setPreviewVideo(null);
       setEditingId(null);
       fetchData();
     } catch {
@@ -324,6 +328,55 @@ const ProductosView = () => {
   };
   const onDragLeave = () => {
     dropRef.current?.classList.remove("ring-indigo-300", "bg-indigo-50/40");
+  };
+
+  // ------- dropzone video (nuevo) -------
+  const MAX_VIDEO_MB = 50;
+
+  const onVideoPicked = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      return Swal.fire({
+        icon: "error",
+        title: "Archivo no válido",
+        text: "Debe ser un video.",
+      });
+    }
+    const sizeMB = file.size / (1024 * 1024);
+    if (sizeMB > MAX_VIDEO_MB) {
+      return Swal.fire({
+        icon: "error",
+        title: "Video demasiado grande",
+        text: `El tamaño máximo permitido es ${MAX_VIDEO_MB} MB.`,
+      });
+    }
+    setForm((prev) => ({ ...prev, video: file }));
+    if (previewVideo && previewVideo.startsWith("blob:"))
+      URL.revokeObjectURL(previewVideo);
+    const url = URL.createObjectURL(file);
+    setPreviewVideo(url);
+  };
+
+  const onVideoDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    onVideoPicked(file);
+    dropVideoRef.current?.classList.remove(
+      "ring-indigo-300",
+      "bg-indigo-50/40"
+    );
+  };
+
+  const onVideoDragOver = (e) => {
+    e.preventDefault();
+    dropVideoRef.current?.classList.add("ring-indigo-300", "bg-indigo-50/40");
+  };
+  const onVideoDragLeave = () => {
+    dropVideoRef.current?.classList.remove(
+      "ring-indigo-300",
+      "bg-indigo-50/40"
+    );
   };
 
   // ------- UI -------
@@ -730,8 +783,8 @@ const ProductosView = () => {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
           onKeyDown={(e) => e.key === "Escape" && setModalOpen(false)}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-3 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-3 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
               <h2 className="text-xl font-semibold">
                 {editingId ? "Editar producto" : "Agregar producto"}
               </h2>
@@ -752,7 +805,7 @@ const ProductosView = () => {
 
             <form
               onSubmit={handleSubmit}
-              className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6"
+              className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6"
             >
               <div className="space-y-4">
                 <div>
@@ -896,7 +949,7 @@ const ProductosView = () => {
                     <img
                       src={previewUrl}
                       alt="Vista previa"
-                      className="w-full max-h-64 object-cover rounded-lg ring-1 ring-slate-200"
+                      className="w-full max-h-48 object-cover rounded-lg ring-1 ring-slate-200"
                     />
                     <button
                       type="button"
@@ -926,17 +979,11 @@ const ProductosView = () => {
                 </label>
 
                 <div
+                  ref={dropVideoRef}
                   className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center transition ring-0"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file && file.type.startsWith("video/")) {
-                      const url = URL.createObjectURL(file);
-                      setPreviewVideo(url);
-                      setForm((prev) => ({ ...prev, video: file }));
-                    }
-                  }}
+                  onDrop={onVideoDrop}
+                  onDragOver={onVideoDragOver}
+                  onDragLeave={onVideoDragLeave}
                 >
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
@@ -956,14 +1003,7 @@ const ProductosView = () => {
                           type="file"
                           accept="video/*"
                           className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file && file.type.startsWith("video/")) {
-                              const url = URL.createObjectURL(file);
-                              setPreviewVideo(url);
-                              setForm((prev) => ({ ...prev, video: file }));
-                            }
-                          }}
+                          onChange={(e) => onVideoPicked(e.target.files?.[0])}
                         />
                       </label>
                     </p>
@@ -977,7 +1017,7 @@ const ProductosView = () => {
                   <div className="relative">
                     <video
                       controls
-                      className="w-full max-h-64 rounded-lg ring-1 ring-slate-200"
+                      className="w-full max-h-48 rounded-lg ring-1 ring-slate-200"
                       src={previewVideo}
                     />
                     <button
