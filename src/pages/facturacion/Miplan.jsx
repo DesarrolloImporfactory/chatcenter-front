@@ -10,6 +10,10 @@ import {
   FaExclamationCircle,
 } from "react-icons/fa";
 import { BackExpandArrow } from "../../components/icons/PremiumBackIcons";
+// arriba del archivo, junto con los demás imports
+import CardPlanPersonalizado from "../../pages/planes/CardPlanPersonalizado"; 
+// o: import CardPlanPersonalizado from "../../components/CardPlanPersonalizado";
+
 
 // Imágenes usadas por las cards de planes (como en PlanesView.jsx)
 import basico from "../../assets/plan_basico_v2.png";
@@ -91,6 +95,22 @@ const MiPlan = () => {
   const [loadingPlanId, setLoadingPlanId] = useState(null);
   // NUEVO: ¿todavía puede usar el free trial?
   const [trialElegible, setTrialElegible] = useState(true);
+  const [addons, setAddons] = useState(null);
+
+
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await chatApi.get("stripe_plan/addons");
+        setAddons(data?.data?.addons || null);
+      } catch (e) {
+        console.warn("No se pudieron cargar addons:", e?.response?.data || e.message);
+      }
+    })();
+  }, []);
+
+
 
   // ====== Funciones originales ======
   const obtenerFacturas = async () => {
@@ -802,6 +822,20 @@ const MiPlan = () => {
                   )}
 
                   {planes.map((pl) => {
+
+                    // si es el plan personalizado, usamos la card especial
+                    if (Number(pl.id_plan) === 5) {
+                      return (
+                        <CardPlanPersonalizado
+                          key={pl.id_plan}
+                          plan={pl}
+                          stripeMap={stripeMap}
+                          currentPlanId={currentPlanId}
+                          addons={addons}
+                        />
+                      );
+                    }
+
                     const isCurrent = currentPlanId === pl.id_plan;
                     const ribbon = pl.nombre_plan
                       ?.toLowerCase()

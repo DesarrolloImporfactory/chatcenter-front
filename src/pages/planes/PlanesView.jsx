@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import CardPlanPersonalizado from "../../pages/planes/CardPlanPersonalizado";
+
 
 import basico from "../../assets/plan_basico_v2.png";
 import conexion from "../../assets/plan_conexion_v2.png";
@@ -47,6 +49,19 @@ const PlanesView = () => {
   const [currentPlanId, setCurrentPlanId] = useState(null);
   // ¿El usuario todavía puede usar el free trial?
   const [trialElegible, setTrialElegible] = useState(true);
+
+  const [addons, setAddons] = useState(null);
+useEffect(() => {
+  (async () => {
+    try {
+      const { data } = await chatApi.get("stripe_plan/addons"); // ya te pasé este endpoint
+      setAddons(data?.data?.addons || null);
+    } catch (e) {
+      console.warn("No se pudieron cargar addons:", e?.response?.data || e.message);
+    }
+  })();
+}, []);
+
 
   /* ===== Datos ===== */
   useEffect(() => {
@@ -352,6 +367,18 @@ useEffect(() => {
               (plan.nombre_plan || "").toLowerCase().includes("basico");
 
             const features = buildFeatures(plan);
+
+            if (Number(plan.id_plan) === 5) {
+    return (
+      <CardPlanPersonalizado
+        key={plan.id_plan}
+        plan={plan}
+        stripeMap={stripeMap}
+        currentPlanId={currentPlanId}
+        addons={addons}
+      />
+    );
+  }
 
             return (
               <div
