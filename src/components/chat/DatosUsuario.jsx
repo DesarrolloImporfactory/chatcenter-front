@@ -2165,7 +2165,7 @@ const DatosUsuario = ({
                 </div>
               )}
 
-              <div className="flex items-start justify-center overflow-y-auto h-full md:h-[850px] pt-2 md:pt-4 custom-scrollbar">
+              <div className="flex items-start justify-center overflow-y-auto h-full pt-2 md:pt-4 custom-scrollbar">
                 <div className="w-full max-w-3xl mx-auto">
                   {/* Información del cliente vinculado a Imporsuit */}
                   <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
