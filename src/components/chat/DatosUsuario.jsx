@@ -1170,7 +1170,7 @@ const DatosUsuario = ({
         setPrecio_envio_directo(parseFloat(r.tarifa ?? 0));
         setFulfillment(parseFloat(r.full ?? 0));
         setTotal_directo(parseFloat(r.resultante ?? 0));
-        setValidar_generar(!!r.generar);
+        setValidar_generar(r.generar > 0);
       } else {
         console.error(
           "Error al calcularGuiaDirecta (status lógico no OK):",
@@ -1953,7 +1953,7 @@ const DatosUsuario = ({
     <>
       {opciones && (
         <div
-          className={`relative col-span-1 h-[calc(100vh_-_130px)] h-full overflow-hidden text-white px-4 duration-700 transition-all ${
+          className={`relative col-span-1 h-[calc(100vh_-_130px)] overflow-y-auto custom-scrollbar text-white px-4 duration-700 transition-all ${
             animateOut ? "animate-slide-out" : "animate-slide-in"
           } ${
             facturaSeleccionada.numero_factura ? "bg-white" : "bg-[#171931]"
