@@ -500,11 +500,11 @@ const Conexiones = () => {
                           <div
                             className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
                             onClick={() => handleConectarMetaDeveloper(config)}
-                            title="Conectar Meta Developer"
+                            title="Conectar Bussines Manager"
                           >
                             <i className="bx bxl-meta text-2xl"></i>
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar Meta Developer
+                              Conectar Bussines Manager
                             </span>
                           </div>
                         ) : (
