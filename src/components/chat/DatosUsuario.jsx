@@ -2169,7 +2169,7 @@ const DatosUsuario = ({
                 <div className="w-full max-w-3xl mx-auto">
                   {/* Información del cliente vinculado a Imporsuit */}
                   <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
-                    <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col gap-4 animate-fadeInOnce">
+                    <div className="w-full bg-[#162c4a] rounded-xl shadow-lg px-6 py-5 flex flex-col gap-4 animate-fadeInOnce">
                       {/* Avatar + contenido original... */}
                       <img
                         src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
@@ -2229,8 +2229,8 @@ const DatosUsuario = ({
                     <button
                       className={`group w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isOpenNovedades
-                          ? "bg-[#1f2c47] border-blue-400"
-                          : "bg-[#121e36] border-transparent hover:border-blue-300"
+                          ? "bg-[#1e3a5f] border-blue-400"
+                          : "bg-[#162c4a] border-transparent hover:border-blue-300"
                       }`}
                       onClick={() => {
                         setIsOpenNovedades((prev) => !prev);
@@ -2251,8 +2251,8 @@ const DatosUsuario = ({
                     <button
                       className={`group col-span-2 w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isOpenMiniCal
-                          ? "bg-[#182848] border-blue-400"
-                          : "bg-[#111b34] border-transparent hover:border-blue-300"
+                          ? "bg-[#1e3a5f] border-blue-400"
+                          : "bg-[#162c4a] border-transparent hover:border-blue-300"
                       }`}
                       onClick={handleToggleCalendar} // ← antes se hacía el toggle directo
                     >
@@ -3935,7 +3935,7 @@ const DatosUsuario = ({
               <div className="w-full max-w-3xl mx-auto">
                 {/* Información del cliente*/}
                 <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
-                  <div className="w-full bg-[#1f1b2e] rounded-xl shadow-lg px-6 py-5 flex flex-col gap-4 animate-fadeInOnce">
+                  <div className="w-full bg-[#162c4a] rounded-xl shadow-lg px-6 py-5 flex flex-col gap-4 animate-fadeInOnce">
                     {/* Avatar + contenido original... */}
 
                     <img
@@ -3972,8 +3972,8 @@ const DatosUsuario = ({
                   <button
                     className={`group col-span-2 w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                       isOpenMiniCal
-                        ? "bg-[#182848] border-blue-400"
-                        : "bg-[#111b34] border-transparent hover:border-blue-300"
+                        ? "bg-[#1e3a5f] border-blue-400"
+                          : "bg-[#162c4a] border-transparent hover:border-blue-300"
                     }`}
                     onClick={handleToggleCalendar} // ← antes se hacía el toggle directo
                   >
