@@ -1604,6 +1604,9 @@ const DatosUsuario = ({
 
       console.log("Mensaje enviado con éxito:", data);
 
+      // Extraer wamid del mensaje de plantilla
+      const wamid = data?.messages?.[0]?.id || null;
+
       // Llamar a la función para guardar el mensaje en la BD
       let telefono_configuracion = dataAdmin.telefono;
 
@@ -1617,7 +1620,10 @@ const DatosUsuario = ({
         dataAdmin.id_telefono,
         id_recibe,
         id_configuracion,
-        telefono_configuracion
+        telefono_configuracion,
+        wamid,
+        "",
+        ""
       );
 
       return { success: true, data };
@@ -3973,7 +3979,7 @@ const DatosUsuario = ({
                     className={`group col-span-2 w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                       isOpenMiniCal
                         ? "bg-[#1e3a5f] border-blue-400"
-                          : "bg-[#162c4a] border-transparent hover:border-blue-300"
+                        : "bg-[#162c4a] border-transparent hover:border-blue-300"
                     }`}
                     onClick={handleToggleCalendar} // ← antes se hacía el toggle directo
                   >

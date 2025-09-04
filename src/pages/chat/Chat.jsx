@@ -465,7 +465,10 @@ const Chat = () => {
     mid_mensaje,
     id_recibe,
     id_configuracion,
-    telefono_configuracion
+    telefono_configuracion,
+    wamid,
+    template_name,
+    language_code
   ) => {
     try {
       const response = await chatApi.post(
@@ -480,6 +483,9 @@ const Chat = () => {
           id_configuracion,
           telefono_configuracion,
           responsable: nombre_encargado_global,
+          id_wamid_mensaje: wamid,
+          template_name: template_name,
+          language_code: language_code,
         }
       );
 
@@ -894,6 +900,9 @@ const Chat = () => {
 
       console.log("Audio enviado con éxito a WhatsApp:", result);
 
+      // Extraer el wamid del audio enviado
+      const wamid = result?.messages?.[0]?.id || null;
+
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
       let telefono_configuracion = dataAdmin.telefono;
@@ -905,7 +914,10 @@ const Chat = () => {
         mid_mensaje,
         id_recibe,
         id_configuracion,
-        telefono_configuracion
+        telefono_configuracion,
+        wamid,
+        "",
+        ""
       );
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
@@ -2215,6 +2227,8 @@ const Chat = () => {
         handleScroll={handleScroll}
         ScrollToBottomButton={ScrollToBottomButton}
         handleCloseModal={handleCloseModal}
+        dataAdmin={dataAdmin}
+        setMensajesOrdenados={setMensajesOrdenados}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
