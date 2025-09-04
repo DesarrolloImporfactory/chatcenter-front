@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
-import { jwtDecode } from "jwt-decode";
-import { useLocation, useNavigate } from "react-router-dom";
 import Select from "react-select";
 
 const Modales = ({
@@ -53,8 +51,78 @@ const Modales = ({
 
   // Estado para el modal "Añadir número"
   const [isAddNumberModalOpen, setIsAddNumberModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState("nuevo");
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
+  // 🔎 query controlada para la pestaña "Buscar contacto"
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // 🧹 reset integral del modal de número
+  const resetNumeroModalState = () => {
+    setModalTab("nuevo");
+    setNewContactName("");
+    setNewContactPhone("");
+
+    setTemplateName("");
+    setTemplateText("");
+    setPlaceholders([]);
+    setPlaceholderValues({});
+
+    setSearchQuery("");
+    if (inputRefNumeroTelefono?.current)
+      inputRefNumeroTelefono.current.value = "";
+
+    // deselecciona destinatario si quedó alguno
+    if (selectedPhoneNumber) handleSelectPhoneNumber("");
+  };
+
+  // cerrar modal con limpieza
+  const onCloseNumeroModal = () => {
+    resetNumeroModalState();
+    handleNumeroModal();
+  };
+
+  // ✨ resaltar coincidencias en nombre/teléfono
+  const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const highlightMatch = (text, query) => {
+    if (!query) return text;
+    const parts = String(text ?? "").split(
+      new RegExp(`(${escapeRegExp(query)})`, "ig")
+    );
+    return parts.map((p, i) =>
+      p.toLowerCase() === query.toLowerCase() ? (
+        <mark key={i} className="bg-yellow-100 rounded px-0.5">
+          {p}
+        </mark>
+      ) : (
+        p
+      )
+    );
+  };
+
+  // ✅ template listo para enviar (nombre + destinatario + placeholders completos)
+  const allPlaceholdersFilled = placeholders.every(
+    (ph) => (placeholderValues[ph] || "").trim().length > 0
+  );
+  const templateReady =
+    Boolean(templateName) &&
+    Boolean(selectedPhoneNumber) &&
+    (placeholders.length === 0 || allPlaceholdersFilled);
+
+  // 🔎 filtra por nombre o teléfono en cliente (fallback si el server solo busca por número)
+  const filteredResults =
+    (searchResultsNumeroCliente || []).filter((r) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        String(r.nombre_cliente || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(r.celular_cliente || "")
+          .toLowerCase()
+          .includes(q)
+      );
+    }) || [];
 
   /* diseño selects */
   /** Indicadores personalizados (usa tus Boxicons) */
@@ -826,54 +894,50 @@ const Modales = ({
   // Manejar la adición del nuevo número
   const handleAddNewContact = async () => {
     if (!newContactName || !newContactPhone) {
-      Toast.fire({
-        icon: "warning",
-        title: "Por favor ingrese el nombre y el número de teléfono.",
-      });
+      Toast.fire({ icon: "warning", title: "Ingresa nombre y teléfono." });
       return;
     }
 
     try {
-      const response = await chatApi.post(
+      const { data } = await chatApi.post(
         "/clientes_chat_center/agregarNumeroChat",
         {
           nombre: newContactName,
           telefono: newContactPhone,
           apellido: "",
-          id_configuracion: id_configuracion,
+          id_configuracion,
         }
       );
 
-      const data = response.data;
-
       if (data.status == 400) {
-        Toast.fire({
-          icon: "error",
-          title: "Error al añadir contacto",
-        });
+        Toast.fire({ icon: "error", title: "Error al añadir contacto" });
+        return;
       }
 
-      Toast.fire({
-        icon: "success",
-        title: "Contacto añadido correctamente",
-      });
+      Toast.fire({ icon: "success", title: "Contacto añadido" });
 
-      handleOptionSelectNumeroTelefono({
-        nombre_cliente: newContactName,
-        celular_cliente: newContactPhone,
-      });
+      // Marca al nuevo contacto como destinatario
+      handleSelectPhoneNumber(newContactPhone);
 
-      closeAddNumberModal();
+      // Cambia de pestaña: búsqueda + plantilla
+      setModalTab("buscar");
+
+      //controla el input y dispara la búsqueda del padre
+      setSearchQuery(newContactPhone);
+      if (inputRefNumeroTelefono?.current) {
+        inputRefNumeroTelefono.current.value = newContactPhone;
+        const ev = new Event("input", { bubbles: true });
+        inputRefNumeroTelefono.current.dispatchEvent(ev);
+      }
+
+      // Limpia los campos del form "nuevo"
+      setNewContactName("");
+      setNewContactPhone("");
     } catch (error) {
       console.error("Error al añadir el contacto:", error);
-      Toast.fire({
-        icon: "error",
-        title: "Error al añadir el contacto",
-      });
+      Toast.fire({ icon: "error", title: "Error al añadir el contacto" });
     }
   };
-
-  // Resto del código de selección de template, placeholders, y envío...
 
   // Manejar la selección del template, extraer el texto, placeholders y el idioma
   const handleTemplateSelect = (event) => {
@@ -1029,13 +1093,14 @@ const Modales = ({
         telefono_configuracion,
         wamid,
         templateName,
-        selectedLanguage,
+        selectedLanguage
       );
 
       /* cargar socket */
       /* cargar_socket(); */
 
-      setNumeroModal(false);
+      resetNumeroModalState();
+      handleNumeroModal();
     } catch (error) {
       console.error("Error al enviar el template:", error);
       Toast.fire({
@@ -1099,191 +1164,306 @@ const Modales = ({
 
   /* fin seccion de transferir chat */
 
+  const registeredNumero = register("numero", {
+    required: "El número es obligatorio",
+  });
   return (
     <>
       {numeroModal && (
-        <div className="fixed inset-0 z-10 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="relative bg-white p-4 rounded-lg max-h-[80%] overflow-y-auto w-[50%]">
-            {/* Botón de cierre con icono en la esquina superior derecha */}
-            <button
-              onClick={handleNumeroModal}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-6 h-6"
+        <div
+          className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-nuevo-chat-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onCloseNumeroModal();
+          }} // cierra al click fuera
+        >
+          <div className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <h2
+                id="modal-nuevo-chat-title"
+                className="text-lg font-semibold text-slate-900"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+                Nuevo chat
+              </h2>
 
-            <h2 className="text-xl font-medium">Agregar número</h2>
-            <form
-              className="grid items-center gap-2 my-4"
-              onSubmit={handleSubmit(handleNumeroModalForm)}
-            >
-              <input
-                type="text"
-                placeholder="Número de teléfono"
-                id="numeroAdd"
-                onInput={handleInputChange_numeroCliente}
-                ref={inputRefNumeroTelefono}
-                className="p-2 border rounded"
-                {...register("numero", {
-                  required: "El número es obligatorio",
-                })}
-              />
-
-              {/* Resultados de la búsqueda de números de clientes */}
-              <ul className="space-y-2 max-h-64 overflow-y-auto">
-                <li
-                  className="cursor-pointer hover:bg-gray-200 p-2 rounded"
-                  onClick={openAddNumberModal}
+              {/* Tabs */}
+              <div className="inline-flex rounded-lg bg-slate-100 border border-slate-200 p-1">
+                <button
+                  type="button"
+                  onClick={() => setModalTab("nuevo")}
+                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition
+              ${
+                modalTab === "nuevo"
+                  ? "bg-white shadow-sm text-slate-900"
+                  : "text-slate-600 hover:text-slate-800"
+              }`}
                 >
+                  Añadir número
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab("buscar")}
+                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition
+              ${
+                modalTab === "buscar"
+                  ? "bg-white shadow-sm text-slate-900"
+                  : "text-slate-600 hover:text-slate-800"
+              }`}
+                >
+                  Buscar contacto
+                </button>
+              </div>
+
+              <button
+                onClick={onCloseNumeroModal}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Cerrar"
+                title="Cerrar"
+              >
+                <i className="bx bx-x text-2xl" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+              {/* TAB: AÑADIR NÚMERO */}
+              {modalTab === "nuevo" && (
+                <form className="grid gap-3">
                   <div>
-                    <strong>+ Añadir número</strong>
-                  </div>
-                </li>
-                {searchResultsNumeroCliente.length > 0 ? (
-                  searchResultsNumeroCliente.map((result, index) => (
-                    <li
-                      key={index}
-                      onClick={() =>
-                        handleSelectPhoneNumber(result.celular_cliente)
-                      }
-                      className={`cursor-pointer p-2 rounded ${
-                        selectedPhoneNumber === result.celular_cliente
-                          ? "bg-gray-300"
-                          : "hover:bg-gray-200"
-                      }`}
-                    >
-                      <div>
-                        <strong>Nombre:</strong> {result.nombre_cliente}
-                      </div>
-                      <div>
-                        <strong>Teléfono:</strong> {result.celular_cliente}
-                      </div>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-gray-500">No hay resultados</li>
-                )}
-              </ul>
-            </form>
-
-            {/* Sección de template que solo se muestra si 'seleccionado' es true */}
-            {seleccionado && (
-              <form className="mt-4 p-4 border rounded bg-gray-50">
-                <h4 className="font-semibold text-lg mb-2">
-                  Seleccione un template
-                </h4>
-                <Select
-                  id="lista_templates"
-                  options={templates.map((template) => ({
-                    value: template.name,
-                    label: template.name,
-                  }))}
-                  placeholder="Seleccione un template"
-                  onChange={(opcion) =>
-                    handleTemplateSelect({
-                      target: { value: opcion ? opcion.value : "" },
-                    })
-                  }
-                  isClearable
-                  styles={customSelectStyles}
-                />
-
-                <textarea
-                  id="template_textarea"
-                  rows="8"
-                  value={templateText}
-                  readOnly
-                  onChange={handleTextareaChange}
-                  className="w-full p-2 border rounded mb-4"
-                ></textarea>
-
-                {/* Inputs dinámicos para cada placeholder */}
-                {placeholders.map((placeholder) => (
-                  <div key={placeholder} className="mb-2">
-                    <label className="block text-sm font-semibold mb-1">
-                      {`Valor para {{${placeholder}}}`}
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Nombre
                     </label>
                     <input
                       type="text"
-                      className="w-full p-2 border rounded"
-                      value={placeholderValues[placeholder] || ""}
-                      onChange={(e) =>
-                        handlePlaceholderChange(placeholder, e.target.value)
-                      }
+                      className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm
+                           focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                      value={newContactName}
+                      onChange={(e) => setNewContactName(e.target.value)}
+                      placeholder="Nombre del contacto"
                     />
                   </div>
-                ))}
+                  <div>
+                    <label
+                      htmlFor="numeroAdd"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Teléfono
+                    </label>
+                    <div className="relative">
+                      <i className="bx bx-phone absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                      <input
+                        type="text"
+                        id="numeroAdd"
+                        placeholder="Ej: 5939XXXXXXXX"
+                        className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
+                             focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        value={newContactPhone}
+                        onChange={(e) => setNewContactPhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </form>
+              )}
 
-                <button
-                  type="button"
-                  onClick={enviarTemplate}
-                  className="bg-green-500 text-white px-4 py-2 rounded"
+              {/* TAB: BUSCAR CONTACTO */}
+              {modalTab === "buscar" && (
+                <form
+                  className="space-y-3"
+                  onSubmit={handleSubmit(handleNumeroModalForm)}
                 >
-                  Enviar Template
-                </button>
-              </form>
-            )}
+                  <label
+                    htmlFor="numeroBuscar"
+                    className="text-sm font-medium text-slate-700"
+                  >
+                    Buscar por nombre o teléfono
+                  </label>
+                  <div className="relative">
+                    <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input
+                      type="text"
+                      id="numeroBuscar"
+                      placeholder="Escribe para buscar…"
+                      value={searchQuery}
+                      name={registeredNumero.name}
+                      onBlur={registeredNumero.onBlur}
+                      ref={(el) => {
+                        // combinar refs: la de RHF y la tuya
+                        registeredNumero.ref(el);
+                        if (inputRefNumeroTelefono)
+                          inputRefNumeroTelefono.current = el;
+                      }}
+                      onChange={(e) => {
+                        // tu lógica
+                        setSearchQuery(e.target.value);
+                        handleInputChange_numeroCliente(e);
+                        // notificar a RHF para que mantenga su estado interno
+                        registeredNumero.onChange(e);
+                      }}
+                      className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
+                    focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                    />
+                  </div>
 
-            <button
-              onClick={handleNumeroModal}
-              className="bg-red-500 text-white px-4 py-2 rounded mt-2"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <ul className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+                      {filteredResults.length > 0 ? (
+                        filteredResults.map((result, index) => {
+                          const active =
+                            selectedPhoneNumber === result.celular_cliente;
+                          return (
+                            <li
+                              key={index}
+                              onClick={() =>
+                                handleSelectPhoneNumber(result.celular_cliente)
+                              }
+                              className={`cursor-pointer px-3 py-2 transition ${
+                                active
+                                  ? "bg-blue-50 ring-1 ring-inset ring-blue-200"
+                                  : "hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className="text-sm">
+                                <span className="font-semibold text-slate-900">
+                                  Nombre:&nbsp;
+                                </span>
+                                <span className="text-slate-700">
+                                  {highlightMatch(
+                                    result.nombre_cliente,
+                                    searchQuery
+                                  )}
+                                </span>
+                              </div>
+                              <div className="text-sm">
+                                <span className="font-semibold text-slate-900">
+                                  Teléfono:&nbsp;
+                                </span>
+                                <span className="text-slate-700">
+                                  {highlightMatch(
+                                    result.celular_cliente,
+                                    searchQuery
+                                  )}
+                                </span>
+                              </div>
+                            </li>
+                          );
+                        })
+                      ) : (
+                        <li className="px-3 py-3 text-sm text-slate-500">
+                          No hay resultados
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </form>
+              )}
 
-      {/* Modal para añadir nuevo número */}
-      {isAddNumberModalOpen && (
-        <div className="fixed inset-0 z-20 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-xs w-full">
-            <h3 className="text-lg font-semibold mb-4">Añadir nuevo número</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-1">Nombre</label>
-              <input
-                type="text"
-                className="w-full p-2 border rounded"
-                value={newContactName}
-                onChange={(e) => setNewContactName(e.target.value)}
-              />
+              {/* TEMPLATE — solo si hay destinatario elegido */}
+              {modalTab === "buscar" && selectedPhoneNumber && (
+                <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+                  <h4 className="font-semibold text-base text-slate-900">
+                    Enviar template
+                  </h4>
+
+                  <Select
+                    id="lista_templates"
+                    options={templates.map((t) => ({
+                      value: t.name,
+                      label: t.name,
+                    }))}
+                    placeholder="Seleccione un template"
+                    onChange={(opcion) =>
+                      handleTemplateSelect({
+                        target: { value: opcion ? opcion.value : "" },
+                      })
+                    }
+                    isClearable
+                    styles={customSelectStyles}
+                    classNamePrefix="react-select"
+                  />
+
+                  <div>
+                    <label
+                      htmlFor="template_textarea"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Vista previa
+                    </label>
+                    <textarea
+                      id="template_textarea"
+                      rows="8"
+                      value={templateText}
+                      readOnly
+                      onChange={handleTextareaChange}
+                      className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-800 outline-none
+                           focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  {placeholders.map((ph) => (
+                    <div key={ph}>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        {`Valor para {{${ph}}}`}
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
+                             focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        value={placeholderValues[ph] || ""}
+                        onChange={(e) =>
+                          handlePlaceholderChange(ph, e.target.value)
+                        }
+                      />
+                    </div>
+                  ))}
+
+                  <div className="flex justify-between items-center">
+                    {!templateReady && (
+                      <p className="text-xs text-slate-500">
+                        Completa todos los campos del template para enviar.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={enviarTemplate}
+                      disabled={!templateReady}
+                      className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4
+                      ${
+                        templateReady
+                          ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
+                          : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                      }`}
+                    >
+                      <i className="bx bx-send" />
+                      Enviar template
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-1">
-                Teléfono
-              </label>
-              <input
-                type="text"
-                className="w-full p-2 border rounded"
-                value={newContactPhone}
-                onChange={(e) => setNewContactPhone(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t bg-slate-50 flex justify-end">
+              {modalTab === "nuevo" && (
+                <div className="flex justify-end mr-3">
+                  <button
+                    type="button"
+                    onClick={handleAddNewContact}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
+                  >
+                    <i className="bx bx-check" />
+                    Crear
+                  </button>
+                </div>
+              )}
+
               <button
-                onClick={closeAddNumberModal}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+                onClick={onCloseNumeroModal}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
               >
                 Cerrar
-              </button>
-              <button
-                onClick={handleAddNewContact}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
-              >
-                Añadir
               </button>
             </div>
           </div>

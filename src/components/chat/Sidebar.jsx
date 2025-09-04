@@ -1,6 +1,44 @@
 import Select from "react-select";
 import { useMemo } from "react";
 
+// ——— Utils de texto ———
+const normalizeSpaces = (s = "") => String(s).replace(/\s+/g, " ").trim();
+
+const toTitleCaseEs = (str = "") => {
+  const ex = new Set([
+    "de",
+    "del",
+    "la",
+    "las",
+    "el",
+    "los",
+    "y",
+    "e",
+    "o",
+    "u",
+    "en",
+    "al",
+    "a",
+    "con",
+    "por",
+    "para",
+  ]);
+  const words = str.toLowerCase().split(" ");
+  return words
+    .map((w, i) =>
+      i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)
+    )
+    .join(" ");
+};
+
+const formatNombreCliente = (nombre = "") => {
+  const s = normalizeSpaces(nombre);
+  // Si viene todo en mayúsculas y contiene letras, lo pasamos a Title Case
+  const hasLetters = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(s);
+  if (hasLetters && s === s.toUpperCase()) return toTitleCaseEs(s);
+  return s;
+};
+
 export const Sidebar = ({
   setSearchTerm,
   setNumeroModal,
@@ -151,7 +189,7 @@ export const Sidebar = ({
       }`}
     >
       {/* Contenedor principal */}
-      <div className="mx-3 my-3 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
+      <div className="ml-3 mr-0 my-3 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
         {/* Header pegajoso con tabs + búsqueda */}
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
           {/* Tabs */}
@@ -207,8 +245,8 @@ export const Sidebar = ({
             <button
               onClick={setNumeroModal}
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
-              title="Crear chat / agregar número"
-              aria-label="Agregar número"
+              title="Nuevo chat"
+              aria-label="Nuevo chat"
             >
               <i className="bx bx-plus text-xl" />
             </button>
@@ -417,10 +455,10 @@ export const Sidebar = ({
                     seleccionado ? "bg-slate-50" : "bg-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="grid grid-cols-[3rem_1fr_auto] grid-rows-[auto_auto] items-center gap-x-3">
                     {/* Avatar */}
                     <div
-                      className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ${
+                      className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 row-span-2 col-[1] ${
                         mensaje.mensajes_pendientes > 0
                           ? "ring-blue-500"
                           : "ring-slate-200"
@@ -434,63 +472,29 @@ export const Sidebar = ({
                       />
                     </div>
 
-                    {/* Información */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold text-slate-900">
-                          {acortarTexto(mensaje.nombre_cliente, 10, 25)}
-                        </span>
-                        {estado_guia && (
-                          <span
-                            className={`ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${
-                              color || "bg-slate-400"
-                            }`}
-                          >
-                            {estado_guia}
-                          </span>
+                    {/* Nombre (fila 1, centro) */}
+                    <div className="min-w-0 col-[2] flex items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-slate-900">
+                        {acortarTexto(
+                          formatNombreCliente(mensaje.nombre_cliente),
+                          10,
+                          25
                         )}
-                      </div>
-
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
-                        <span className="truncate">
-                          {acortarTexto(mensaje.celular_cliente, 10, 15)}
-                        </span>
-                        <span className="select-none text-slate-300">•</span>
-                        <span className="truncate">
-                          {mensaje.texto_mensaje?.length > chatTemporales
-                            ? mensaje.texto_mensaje.includes("{{") &&
-                              mensaje.ruta_archivo
-                              ? (() => {
-                                  try {
-                                    const valores = JSON.parse(
-                                      mensaje.ruta_archivo
-                                    );
-                                    const txt = mensaje.texto_mensaje.replace(
-                                      /\{\{(.*?)\}\}/g,
-                                      (m, key) => valores[key.trim()] || m
-                                    );
-                                    return `${txt.substring(
-                                      0,
-                                      chatTemporales
-                                    )}…`;
-                                  } catch (e) {
-                                    return `${mensaje.texto_mensaje.substring(
-                                      0,
-                                      chatTemporales
-                                    )}…`;
-                                  }
-                                })()
-                              : `${mensaje.texto_mensaje.substring(
-                                  0,
-                                  chatTemporales
-                                )}…`
-                            : mensaje.texto_mensaje}
-                        </span>
-                      </div>
+                      </span>
                     </div>
 
-                    {/* Lateral derecho */}
-                    <div className="flex shrink-0 flex-col items-end justify-between gap-1">
+                    {/* Lateral derecho (fila 1, derecha) */}
+                    <div className="col-[3] row-[1] flex shrink-0 flex-col items-end gap-1">
+                      {estado_guia && (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${
+                            color || "bg-slate-400"
+                          }`}
+                          title={`Estado: ${estado_guia}`}
+                        >
+                          {estado_guia}
+                        </span>
+                      )}
                       <span className="text-[11px] text-slate-500">
                         {formatFecha(mensaje.mensaje_created_at)}
                       </span>
@@ -499,6 +503,45 @@ export const Sidebar = ({
                           {mensaje.mensajes_pendientes}
                         </span>
                       )}
+                    </div>
+
+                    {/* Fila 2: teléfono + preview, ocupando hasta la derecha */}
+                    <div className="col-[2/4] min-w-0 flex items-center gap-2 text-xs text-slate-500">
+                      <span
+                        className="whitespace-nowrap"
+                        title={mensaje.celular_cliente}
+                      >
+                        {mensaje.celular_cliente}
+                      </span>
+                      <span className="select-none text-slate-300">•</span>
+
+                      <span className="truncate" title={mensaje.texto_mensaje}>
+                        {mensaje.texto_mensaje?.length > chatTemporales
+                          ? mensaje.texto_mensaje.includes("{{") &&
+                            mensaje.ruta_archivo
+                            ? (() => {
+                                try {
+                                  const valores = JSON.parse(
+                                    mensaje.ruta_archivo
+                                  );
+                                  const txt = mensaje.texto_mensaje.replace(
+                                    /\{\{(.*?)\}\}/g,
+                                    (m, key) => valores[key.trim()] || m
+                                  );
+                                  return `${txt.substring(0, chatTemporales)}…`;
+                                } catch (e) {
+                                  return `${mensaje.texto_mensaje.substring(
+                                    0,
+                                    chatTemporales
+                                  )}…`;
+                                }
+                              })()
+                            : `${mensaje.texto_mensaje.substring(
+                                0,
+                                chatTemporales
+                              )}…`
+                          : mensaje.texto_mensaje}
+                      </span>
                     </div>
                   </div>
                 </li>
