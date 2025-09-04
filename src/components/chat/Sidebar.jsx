@@ -1,5 +1,5 @@
 import Select from "react-select";
-import { useState, useRef, useEffect } from "react";
+import { useMemo } from "react";
 
 export const Sidebar = ({
   setSearchTerm,
@@ -41,317 +41,480 @@ export const Sidebar = ({
   handleScrollMensajes,
   id_plataforma_conf,
 }) => {
+  // —— Estilos consistentes para react-select ———————————————————————
+  const selectStyles = useMemo(
+    () => ({
+      control: (base, state) => ({
+        ...base,
+        borderRadius: 12,
+        borderColor: state.isFocused ? "#2563eb" : "#e5e7eb",
+        boxShadow: state.isFocused
+          ? "0 0 0 4px rgba(37, 99, 235, .15)"
+          : "none",
+        minHeight: 44,
+        ":hover": { borderColor: state.isFocused ? "#2563eb" : "#cbd5e1" },
+      }),
+      menu: (base) => ({ ...base, borderRadius: 12, overflow: "hidden" }),
+      option: (base, { isFocused, isSelected }) => ({
+        ...base,
+        backgroundColor: isSelected
+          ? "#2563eb"
+          : isFocused
+          ? "#eff6ff"
+          : undefined,
+        color: isSelected ? "#fff" : "#0f172a",
+      }),
+      multiValue: (base) => ({
+        ...base,
+        borderRadius: 9999,
+        backgroundColor: "#eef2ff",
+      }),
+      multiValueLabel: (base) => ({
+        ...base,
+        color: "#1e293b",
+        fontWeight: 600,
+      }),
+      multiValueRemove: (base) => ({
+        ...base,
+        ":hover": { backgroundColor: "#dbeafe", color: "#0f172a" },
+      }),
+      placeholder: (base) => ({ ...base, color: "#64748b" }),
+      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    }),
+    []
+  );
+
+  // —— Chips de filtros activos ————————————————————————————————
+  const FilterChip = ({ label, onClear }) => (
+    <button
+      type="button"
+      onClick={onClear}
+      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+      title="Quitar filtro"
+    >
+      <i className="bx bx-filter-alt text-sm" />
+      {label}
+      <i className="bx bx-x text-base" />
+    </button>
+  );
+
+  // —— Estado/Badge de guía unificado ————————————————————————————
+  const obtenerEstadoGuia = (transporte, estadoFactura, novedadInfo) => {
+    let estado_guia = { color: "", estado_guia: "" };
+
+    switch (transporte) {
+      case "LAAR":
+        estado_guia = validar_estadoLaar(estadoFactura);
+        break;
+      case "SERVIENTREGA":
+        estado_guia = validar_estadoServi(estadoFactura);
+        break;
+      case "GINTRACOM":
+        estado_guia = validar_estadoGintracom(estadoFactura);
+        break;
+      case "SPEED":
+        estado_guia = validar_estadoSpeed(estadoFactura);
+        break;
+      default:
+        estado_guia = { color: "", estado_guia: "" };
+        break;
+    }
+
+    // Ajuste cuando hay novedad resuelta
+    if (estado_guia.estado_guia === "Novedad") {
+      try {
+        const parsed =
+          typeof novedadInfo === "string"
+            ? JSON.parse(novedadInfo)
+            : novedadInfo;
+        if (parsed?.terminado === 1 || parsed?.solucionada === 1) {
+          estado_guia = {
+            estado_guia: "Novedad resuelta",
+            color: "bg-yellow-500",
+          };
+        }
+      } catch (err) {
+        console.error("Error al parsear novedad_info:", err);
+      }
+    }
+
+    return estado_guia;
+  };
+
+  // —— Render ————————————————————————————————————————————————
   return (
-    <>
-      {" "}
-      <div
-        ref={scrollRef}
-        onScroll={handleScrollMensajes}
-        className={`bg-white overflow-y-auto overflow-x-hidden h-[calc(100vh_-_130px)] ${
-          selectedChat ? "hidden sm:block" : "block"
-        }`}
-      >
-        <div className="p-4">
-          {/* Buscador */}
-          <div className="flex flex-col items-center gap-2">
-            {/* Pestañas de filtro */}
-            <div className="flex w-full justify-between border-b border-gray-500">
+    <aside
+      ref={scrollRef}
+      onScroll={handleScrollMensajes}
+      className={`h-[calc(100vh_-_130px)] overflow-y-auto overflow-x-hidden ${
+        selectedChat ? "hidden sm:block" : "block"
+      }`}
+    >
+      {/* Contenedor principal */}
+      <div className="mx-3 my-3 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
+        {/* Header pegajoso con tabs + búsqueda */}
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          {/* Tabs */}
+          <div className="flex items-center justify-between px-4 pt-4">
+            <div className="inline-flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1">
               <button
-                className={`flex-1 text-center py-2 font-semibold transition ${
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
                   selectedTab === "abierto"
-                    ? "border-b-2 border-blue-500 text-blue-500"
-                    : "text-gray-400 hover:text-gray-300"
+                    ? "bg-white text-slate-900 shadow"
+                    : "text-slate-500 hover:text-slate-700"
                 }`}
                 onClick={() => setSelectedTab("abierto")}
               >
-                <i className="bx bx-download pr-2"></i> ABIERTO
+                <i className="bx bx-download mr-2 align-[-2px]" /> ABIERTO
               </button>
               <button
-                className={`flex-1 text-center py-2 font-semibold transition ${
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
                   selectedTab === "resueltos"
-                    ? "border-b-2 border-blue-500 text-blue-500"
-                    : "text-gray-400 hover:text-gray-300"
+                    ? "bg-white text-slate-900 shadow"
+                    : "text-slate-500 hover:text-slate-700"
                 }`}
                 onClick={() => setSelectedTab("resueltos")}
               >
-                <i className="bx bx-check pr-2"></i> RESUELTOS
+                <i className="bx bx-check mr-2 align-[-2px]" /> RESUELTOS
               </button>
             </div>
-            <div className="flex w-full items-center gap-2">
+          </div>
+
+          {/* Buscar + acciones */}
+          <div className="flex items-center gap-2 px-4 py-3">
+            <div className="relative w-full">
+              <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar"
-                className="w-full p-2 border rounded"
+                placeholder="Buscar por nombre o número…"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-8 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Buscar chats"
               />
-              <i
-                onClick={setNumeroModal}
-                className="bg-blue-500 text-white rounded hover:cursor-pointer hover:bg-blue-400 text-2xl p-1 bx bx-plus-circle"
-              ></i>
-              <i
-                onClick={handleFiltro_chats}
-                className="text-gray-600 rounded hover:cursor-pointer hover:text-black text-2xl p-1 bx bx-filter"
-              ></i>
+              {searchTerm?.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  title="Limpiar búsqueda"
+                >
+                  <i className="bx bx-x text-lg" />
+                </button>
+              )}
             </div>
-            {/* Div con animación */}
-            <div
-              className={`mt-4 transform transition-all duration-500 ${
-                filtro_chats
-                  ? "opacity-100 scale-100 max-h-screen w-full"
-                  : "opacity-0 scale-95 max-h-0 w-full overflow-hidden"
-              }`}
+
+            <button
+              onClick={setNumeroModal}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+              title="Crear chat / agregar número"
+              aria-label="Agregar número"
             >
-              {/* Select para etiquetas */}
+              <i className="bx bx-plus text-xl" />
+            </button>
+
+            <button
+              onClick={handleFiltro_chats}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition ${
+                filtro_chats
+                  ? "border-blue-200 bg-blue-50 text-blue-600"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+              title="Mostrar filtros"
+              aria-expanded={!!filtro_chats}
+              aria-controls="sidebar-filtros"
+            >
+              <i className="bx bx-filter-alt text-xl" />
+            </button>
+          </div>
+
+          {/* Panel de filtros (colapsable) */}
+          <div
+            id="sidebar-filtros"
+            className={`grid gap-3 px-4 pb-4 transition-all duration-300 ${
+              filtro_chats
+                ? "max-h-[600px] opacity-100"
+                : "max-h-0 overflow-hidden opacity-0"
+            }`}
+          >
+            {/* Etiquetas */}
+            <Select
+              isMulti
+              options={etiquetasOptions}
+              value={selectedEtiquetas}
+              onChange={handleChange}
+              placeholder="Selecciona etiquetas"
+              className="w-full"
+              classNamePrefix="react-select"
+              menuPortalTarget={document.body}
+              styles={selectStyles}
+            />
+
+            {/* Novedad */}
+            {id_plataforma_conf !== null && (
               <Select
-                isMulti
-                options={etiquetasOptions}
-                value={selectedEtiquetas}
-                onChange={handleChange}
-                placeholder="Selecciona etiquetas"
-                className="w-full mb-4"
+                isClearable
+                options={[
+                  { value: "gestionadas", label: "Gestionadas" },
+                  { value: "no_gestionadas", label: "No gestionadas" },
+                ]}
+                value={selectedNovedad}
+                onChange={(opt) => setSelectedNovedad(opt)}
+                placeholder="Selecciona novedad"
+                className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
-                styles={{
-                  menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
-                }}
+                menuPortalTarget={document.body}
+                styles={selectStyles}
               />
+            )}
 
-              {/* Select para Novedades */}
-              {id_plataforma_conf !== null && (
-                <Select
-                  isClearable
-                  options={[
-                    { value: "gestionadas", label: "Gestionadas" },
-                    { value: "no_gestionadas", label: "No Gestionadas" },
-                  ]}
-                  value={selectedNovedad} // Estado para el select de transportadora
-                  onChange={(selectedOption) =>
-                    setSelectedNovedad(selectedOption)
-                  }
-                  placeholder="Selecciona novedad"
-                  className="w-full mb-4"
-                  classNamePrefix="react-select"
-                  menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
-                  styles={{
-                    menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
-                  }}
-                />
-              )}
+            {/* Transportadora */}
+            {id_plataforma_conf !== null && (
+              <Select
+                isClearable
+                options={[
+                  { value: "LAAR", label: "Laar" },
+                  { value: "SPEED", label: "Speed" },
+                  { value: "SERVIENTREGA", label: "Servientrega" },
+                  { value: "GINTRACOM", label: "Gintracom" },
+                ]}
+                value={selectedTransportadora}
+                onChange={(opt) => {
+                  setSelectedTransportadora(opt);
+                  if (!opt) setSelectedEstado([]);
+                }}
+                placeholder="Selecciona transportadora"
+                className="w-full"
+                classNamePrefix="react-select"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
+            )}
 
-              {/* Select para transportadora */}
-              {id_plataforma_conf !== null && (
-                <Select
-                  isClearable
-                  options={[
-                    { value: "LAAR", label: "Laar" },
-                    { value: "SPEED", label: "Speed" },
-                    { value: "SERVIENTREGA", label: "Servientrega" },
-                    { value: "GINTRACOM", label: "Gintracom" },
-                  ]}
-                  value={selectedTransportadora} // Estado para el select de transportadora
-                  onChange={(selectedOption) => {
-                    setSelectedTransportadora(selectedOption);
-                    if (!selectedOption) {
-                      setSelectedEstado([]); // Limpia el estado si se borra la transportadora
-                    }
-                  }}
-                  placeholder="Selecciona transportadora"
-                  className="w-full mb-4"
-                  classNamePrefix="react-select"
-                  menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
-                  styles={{
-                    menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
-                  }}
-                />
-              )}
+            {/* Estado (solo visible con transportadora) */}
+            {selectedTransportadora && (
+              <Select
+                isClearable
+                options={[
+                  { value: "Generada", label: "Generada / Por recolectar" },
+                  {
+                    value: "En transito",
+                    label: "En tránsito / Procesamiento / En ruta",
+                  },
+                  { value: "Entregada", label: "Entregada" },
+                  { value: "Novedad", label: "Novedad" },
+                  { value: "Devolucion", label: "Devolución" },
+                ]}
+                value={selectedEstado}
+                onChange={(opt) => setSelectedEstado(opt)}
+                placeholder="Selecciona estado"
+                className="w-full"
+                classNamePrefix="react-select"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
+            )}
 
-              {/* Select para estados (siempre oculto hasta que se seleccione transportadora) */}
-              {selectedTransportadora ? (
-                <div className="transition-all duration-500 opacity-100 scale-100 max-h-screen mb-4">
-                  <Select
-                    isClearable
-                    options={[
-                      { value: "Generada", label: "Generada / Por recolectar" },
-                      {
-                        value: "En transito",
-                        label: "En transito / Procesamiento / En ruta",
-                      },
-                      { value: "Entregada", label: "Entregada" },
-                      { value: "Novedad", label: "Novedad" },
-                      { value: "Devolucion", label: "Devolución" },
-                    ]}
-                    value={selectedEstado} // Estado para el select de estado
-                    onChange={(selectedOption) =>
-                      setSelectedEstado(selectedOption)
-                    }
-                    placeholder="Selecciona estado"
-                    className="w-full"
-                    classNamePrefix="react-select"
-                    menuPortalTarget={document.body} // Renderiza el menú en el body para evitar problemas de scroll
-                    styles={{
-                      menuPortal: (base) => ({ ...base, zIndex: 9999 }), // Asegura que el menú esté encima de otros elementos
+            {/* Chips de filtros activos */}
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {Array.isArray(selectedEtiquetas) &&
+                selectedEtiquetas.length > 0 &&
+                selectedEtiquetas.map((e) => (
+                  <FilterChip
+                    key={e.value}
+                    label={`Etiqueta: ${e.label}`}
+                    onClear={() => {
+                      const next = selectedEtiquetas.filter(
+                        (x) => x.value !== e.value
+                      );
+                      setSelectedEtiquetas(next);
                     }}
                   />
-                </div>
-              ) : (
-                <div className="hidden"></div>
+                ))}
+
+              {selectedNovedad && (
+                <FilterChip
+                  label={`Novedad: ${selectedNovedad.label}`}
+                  onClear={() => setSelectedNovedad(null)}
+                />
               )}
+
+              {selectedTransportadora && (
+                <FilterChip
+                  label={`Transp.: ${selectedTransportadora.label}`}
+                  onClear={() => {
+                    setSelectedTransportadora(null);
+                    setSelectedEstado([]);
+                  }}
+                />
+              )}
+
+              {selectedEstado && selectedEstado.label && (
+                <FilterChip
+                  label={`Estado: ${selectedEstado.label}`}
+                  onClear={() => setSelectedEstado(null)}
+                />
+              )}
+
+              {Array.isArray(selectedEtiquetas) &&
+                selectedEtiquetas.length +
+                  (selectedNovedad ? 1 : 0) +
+                  (selectedTransportadora ? 1 : 0) +
+                  (selectedEstado ? 1 : 0) >
+                  0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEtiquetas([]);
+                      setSelectedNovedad(null);
+                      setSelectedTransportadora(null);
+                      setSelectedEstado([]);
+                    }}
+                    className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  >
+                    Limpiar filtros <i className="bx bx-eraser" />
+                  </button>
+                )}
             </div>
           </div>
-          <ul className="">
-            {/* Verificar si no hay mensajes */}
-            {filteredChats.length === 0 ? (
-              mensajesAcumulados.length === 0 ? (
-                // Aún no llegan los mensajes, mostrar loader
-                <div className="h-64 flex justify-center items-center">
+        </div>
+
+        {/* Lista de chats */}
+        <ul className="divide-y divide-slate-100 flex-1">
+          {filteredChats.length === 0 ? (
+            mensajesAcumulados.length === 0 ? (
+              <div className="flex h-64 items-center justify-center">
+                {Loading ? (
                   <Loading />
-                </div>
-              ) : (
-                // Ya llegaron pero no hay coincidencias
-                <div className="h-64 flex justify-center items-center text-gray-500">
-                  No se encontraron chats.
-                </div>
-              )
+                ) : (
+                  <div className="text-slate-500">Cargando…</div>
+                )}
+              </div>
             ) : (
-              filteredChats.slice(0, mensajesVisibles).map((mensaje, index) => {
-                // Función para validar el estado de la guía según la transportadora
-                const obtenerEstadoGuia = (
-                  transporte,
-                  estadoFactura,
-                  novedadInfo
-                ) => {
-                  let estado_guia = { color: "", estado_guia: "" };
+              <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
+                <i className="bx bx-chat text-4xl" />
+                <p className="text-sm">
+                  No se encontraron chats con esos filtros.
+                </p>
+              </div>
+            )
+          ) : (
+            filteredChats.slice(0, mensajesVisibles).map((mensaje) => {
+              const { color, estado_guia } = obtenerEstadoGuia(
+                mensaje.transporte,
+                mensaje.estado_factura,
+                mensaje.novedad_info
+              );
 
-                  switch (transporte) {
-                    case "LAAR":
-                      estado_guia = validar_estadoLaar(estadoFactura);
-                      break;
-                    case "SERVIENTREGA":
-                      estado_guia = validar_estadoServi(estadoFactura);
-                      break;
-                    case "GINTRACOM":
-                      estado_guia = validar_estadoGintracom(estadoFactura);
-                      break;
-                    case "SPEED":
-                      estado_guia = validar_estadoSpeed(estadoFactura);
-                      break;
-                    default:
-                      estado_guia = { color: "", estado_guia: "" }; // No mostrar nada si es desconocido
-                      break;
-                  }
+              const seleccionado = selectedChat === mensaje;
 
-                  // Validar si el estado de la guía es "Novedad"
-                  if (estado_guia.estado_guia === "Novedad") {
-                    try {
-                      // Parsear novedad_info si es string, o usar directamente si es un objeto
-                      const parsedNovedadInfo =
-                        typeof novedadInfo === "string"
-                          ? JSON.parse(novedadInfo)
-                          : novedadInfo;
-
-                      // Verificar si "terminado" o "solucionada" es igual a 1
-                      if (
-                        parsedNovedadInfo?.terminado === 1 ||
-                        parsedNovedadInfo?.solucionada === 1
-                      ) {
-                        // Si es resuelta, cambiar estado_guia y color
-                        estado_guia.estado_guia = "Novedad resuelta";
-                        estado_guia.color = "bg-yellow-500";
-                      }
-                    } catch (error) {
-                      console.error("Error al parsear novedad_info:", error);
-                    }
-                  }
-
-                  return estado_guia; // Devuelve el objeto completo con estado_guia y color
-                };
-
-                // Obtener el estado de la guía
-                const { color, estado_guia } = obtenerEstadoGuia(
-                  mensaje.transporte,
-                  mensaje.estado_factura,
-                  mensaje.novedad_info // Pasar novedad_info al obtenerEstadoGuia
-                );
-
-                return (
-                  <li
-                    key={mensaje.id}
-                    className={`flex items-center justify-between p-2 hover:bg-gray-200 ${
-                      selectedChat === mensaje ? "bg-gray-200" : ""
-                    }`}
-                    onClick={() => handleSelectChat(mensaje)}
-                  >
-                    <div className="flex items-center space-x-3 relative w-full sm:w-auto">
+              // Render de línea
+              return (
+                <li
+                  key={mensaje.id}
+                  onClick={() => handleSelectChat(mensaje)}
+                  className={`group relative cursor-pointer px-3 py-2 transition hover:bg-slate-50 sm:px-4 ${
+                    seleccionado ? "bg-slate-50" : "bg-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Avatar */}
+                    <div
+                      className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ${
+                        mensaje.mensajes_pendientes > 0
+                          ? "ring-blue-500"
+                          : "ring-slate-200"
+                      }`}
+                    >
                       <img
-                        className="rounded-full w-10 h-10 sm:w-12 sm:h-12"
                         src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
-                        alt="Profile"
+                        alt="Avatar"
+                        className="h-full w-full object-cover"
+                        loading="lazy"
                       />
-                      <div className="flex-1 min-w-0">
-                        {/* Nombre del cliente */}
-                        <span className="block text-black font-medium truncate">
+                    </div>
+
+                    {/* Información */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-slate-900">
                           {acortarTexto(mensaje.nombre_cliente, 10, 25)}
                         </span>
-                        {/* Número de teléfono */}
-                        <span className="text-xs sm:text-sm text-black truncate">
+                        {estado_guia && (
+                          <span
+                            className={`ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${
+                              color || "bg-slate-400"
+                            }`}
+                          >
+                            {estado_guia}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                        <span className="truncate">
                           {acortarTexto(mensaje.celular_cliente, 10, 15)}
                         </span>
-                        {/* Texto del mensaje */}
-                        <span className="block text-xs sm:text-sm text-gray-600 truncate">
+                        <span className="select-none text-slate-300">•</span>
+                        <span className="truncate">
                           {mensaje.texto_mensaje?.length > chatTemporales
                             ? mensaje.texto_mensaje.includes("{{") &&
                               mensaje.ruta_archivo
-                              ? mensaje.texto_mensaje
-                                  .replace(/\{\{(.*?)\}\}/g, (match, key) => {
+                              ? (() => {
+                                  try {
                                     const valores = JSON.parse(
                                       mensaje.ruta_archivo
                                     );
-                                    return valores[key.trim()] || match;
-                                  })
-                                  .substring(0, chatTemporales) + "..."
-                              : mensaje.texto_mensaje.substring(
+                                    const txt = mensaje.texto_mensaje.replace(
+                                      /\{\{(.*?)\}\}/g,
+                                      (m, key) => valores[key.trim()] || m
+                                    );
+                                    return `${txt.substring(
+                                      0,
+                                      chatTemporales
+                                    )}…`;
+                                  } catch (e) {
+                                    return `${mensaje.texto_mensaje.substring(
+                                      0,
+                                      chatTemporales
+                                    )}…`;
+                                  }
+                                })()
+                              : `${mensaje.texto_mensaje.substring(
                                   0,
                                   chatTemporales
-                                ) + "..."
+                                )}…`
                             : mensaje.texto_mensaje}
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end justify-between ml-2 sm:ml-4">
-                      {/* Estado de la guía (arriba a la derecha) */}
-                      {estado_guia && (
-                        <span
-                          className={`text-xs sm:text-sm px-2 py-1 rounded-full text-white mb-1 ${color}`}
-                        >
-                          {estado_guia}
-                        </span>
-                      )}
-                      {/* Hora del mensaje */}
-                      <span className="text-xs sm:text-sm text-gray-600">
+
+                    {/* Lateral derecho */}
+                    <div className="flex shrink-0 flex-col items-end justify-between gap-1">
+                      <span className="text-[11px] text-slate-500">
                         {formatFecha(mensaje.mensaje_created_at)}
                       </span>
-                      {/* Mensajes acumulados */}
                       {mensaje.mensajes_pendientes > 0 && (
-                        <span className="mt-1 w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+                        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-[11px] font-semibold text-white">
                           {mensaje.mensajes_pendientes}
                         </span>
                       )}
                     </div>
-                  </li>
-                );
-              })
-            )}
-            {mensajesVisibles < filteredChats.length && (
-              <div className="flex justify-center py-4">
-                <span className="text-sm text-gray-500 animate-pulse">
-                  Cargando más chats...
-                </span>
-              </div>
-            )}
-          </ul>
-        </div>
+                  </div>
+                </li>
+              );
+            })
+          )}
+
+          {mensajesVisibles < filteredChats.length && (
+            <div className="flex justify-center py-4">
+              <span className="animate-pulse text-sm text-slate-500">
+                Cargando más chats…
+              </span>
+            </div>
+          )}
+        </ul>
       </div>
-    </>
+    </aside>
   );
 };
