@@ -5,7 +5,6 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import CardPlanPersonalizado from "../../pages/planes/CardPlanPersonalizado";
 
-
 import basico from "../../assets/plan_basico_v2.png";
 import conexion from "../../assets/plan_conexion_v2.png";
 import premium from "../../assets/plan_premium_medal.png";
@@ -19,25 +18,23 @@ const Liston = ({ texto, color = "recomendado" }) => {
   };
   const colorClase = colores[color] || "bg-gray-800 text-white";
 
-  // Reemplaza el return del componente Liston por este:
-return (
-  <div className="pointer-events-none absolute top-2 right-2 w-28 h-28 overflow-hidden z-40">
-    <div
-      className={[
-        "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-        "rotate-45",
-        colorClase,
-        "shadow-md rounded-[2px] px-3 py-[5px]",
-        "text-[10px] md:text-[11px] font-extrabold uppercase leading-none",
-        "whitespace-nowrap text-center",
-        "min-w-[150px]",
-      ].join(" ")}
-    >
-      {texto}
+  return (
+    <div className="pointer-events-none absolute top-2 right-2 w-28 h-28 overflow-hidden z-40">
+      <div
+        className={[
+          "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+          "rotate-45",
+          colorClase,
+          "shadow-md rounded-[2px] px-3 py-[5px]",
+          "text-[10px] md:text-[11px] font-extrabold uppercase leading-none",
+          "whitespace-nowrap text-center",
+          "min-w-[150px]",
+        ].join(" ")}
+      >
+        {texto}
+      </div>
     </div>
-  </div>
-);
-
+  );
 };
 
 const PlanesView = () => {
@@ -51,17 +48,16 @@ const PlanesView = () => {
   const [trialElegible, setTrialElegible] = useState(true);
 
   const [addons, setAddons] = useState(null);
-useEffect(() => {
-  (async () => {
-    try {
-      const { data } = await chatApi.get("stripe_plan/addons"); // ya te pasé este endpoint
-      setAddons(data?.data?.addons || null);
-    } catch (e) {
-      console.warn("No se pudieron cargar addons:", e?.response?.data || e.message);
-    }
-  })();
-}, []);
-
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await chatApi.get("stripe_plan/addons"); // ya te pasé este endpoint
+        setAddons(data?.data?.addons || null);
+      } catch (e) {
+        console.warn("No se pudieron cargar addons:", e?.response?.data || e.message);
+      }
+    })();
+  }, []);
 
   /* ===== Datos ===== */
   useEffect(() => {
@@ -77,32 +73,32 @@ useEffect(() => {
   }, []);
 
   // Verifica elegibilidad del trial al cargar
-useEffect(() => {
-  (async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const decoded = JSON.parse(atob(token.split(".")[1]));
+        const id_usuario = decoded.id_usuario || decoded.id_users;
 
-      const { data } = await chatApi.post(
-        "stripe_plan/trialElegibilidad",
-        { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setTrialElegible(Boolean(data?.elegible));
-    } catch (e) {
-      console.warn("trialElegibilidad:", e?.response?.data || e.message);
-    }
-  })();
-}, []);
+        const { data } = await chatApi.post(
+          "stripe_plan/trialElegibilidad",
+          { id_usuario },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setTrialElegible(Boolean(data?.elegible));
+      } catch (e) {
+        console.warn("trialElegibilidad:", e?.response?.data || e.message);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const syncStripePrices = async () => {
       try {
-        const res = await chatApi.get("stripe_plan/stripe");
+        const { data } = await chatApi.get("stripe_plan/stripe");
         const map = {};
-        (res.data?.data || []).forEach((p) => {
+        (data?.data || []).forEach((p) => {
           map[p.id_plan] = {
             stripe_price: p.stripe_price,
             stripe_interval: p.stripe_interval,
@@ -138,42 +134,20 @@ useEffect(() => {
     })();
   }, []);
 
-
+  /* ====== IMPORTANTE: eliminamos el efecto que activaba FREE con ?setup=ok (lo hará el webhook al volver del Checkout del trial) ======
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("setup") === "ok") {
       activarPlanFree();
     }
   }, []);
+  */
 
-  const activarPlanFree = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
-
-      const res = await chatApi.post(
-        "planes/seleccionarPlan",
-        { id_plan: 1, id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (res.data.status === "success") {
-        Swal.fire("Listo", "Tu plan gratuito fue activado correctamente. Se cobrará automáticamente al finalizar.", "success").then(() => {
-          window.location.href = "/miplan";
-        });
-      } else {
-        throw new Error(res.data.message);
-      }
-    } catch (error) {
-      const msg = error?.response?.data?.message || "No se pudo activar el plan gratuito.";
-      Swal.fire("Error", msg, "error");
-    }
-  };
-
+  /* ====== IMPORTANTE: eliminamos la activación manual del FREE (ahora se hace vía webhook) ======
+  const activarPlanFree = async () => { ... }
+  */
 
   // Antes: const seleccionarPlan = async () => { ... usa planSeleccionado ... }
-
   const seleccionarPlan = async (idPlan) => {
     if (!idPlan) return;
     setLoading(true);
@@ -183,10 +157,11 @@ useEffect(() => {
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const baseUrl = window.location.origin;
 
-
-      /* if (planSeleccionado === 1) {
+      // ====== CAMBIO SOLO PARA PLAN FREE (id 1): usar Checkout de SUSCRIPCIÓN con TRIAL ======
+      if (idPlan === 1) {
         if (!trialElegible) {
           Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+          setLoading(false);
           return;
         }
         const { data } = await chatApi.post(
@@ -198,27 +173,11 @@ useEffect(() => {
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (data?.url) window.location.href = data.url; // Redirige a Stripe Checkout (pide tarjeta)
-        return;
-      } */
-
-
-      // FREE (id 1) → Setup de tarjeta (misma lógica que ya tenías)
-      if (idPlan === 1) {
-        if (!trialElegible) {
-          Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
-          return;
-        }
-        const { data } = await chatApi.post(
-          "stripe_plan/crearSesionFreeSetup",
-          { id_usuario },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
         if (data?.url) {
-          window.location.href = data.url;
-          return;
+          window.location.href = data.url; // Redirige a Stripe Checkout (pide tarjeta y crea la suscripción en trial)
+          return; // ← Importante: no seguir con crearSesionPago
         } else {
-          throw new Error("No se pudo crear la sesión de setup para el plan gratuito.");
+          throw new Error("No se pudo crear la sesión de free trial.");
         }
       }
 
@@ -246,6 +205,7 @@ useEffect(() => {
       } else {
         Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success").then(() => {
           window.location.href = "/miplan";
+          return;
         });
       }
     } catch (error) {
@@ -255,7 +215,6 @@ useEffect(() => {
       setLoading(false);
     }
   };
-
 
   const getImagenPlan = (nombre = "") => {
     const n = nombre.toLowerCase();
@@ -316,15 +275,17 @@ useEffect(() => {
       <div className="w-full max-w-8xl">
         {/* HEADER */}
         <div className="relative mb-10 mt-10">
-          <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">Elige tu plan ideal y potencia tu empresa</h2>
-          <p className="mt-3 text-sm text-center text-[#5a547a]">Planes claros, beneficios reales y un proceso de activación sencillo.</p>
+          <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">
+            Elige tu plan ideal y potencia tu empresa
+          </h2>
+          <p className="mt-3 text-sm text-center text-[#5a547a]">
+            Planes claros, beneficios reales y un proceso de activación sencillo.
+          </p>
 
           {currentPlanId && (
             <div className="absolute -top-2 right-0">
               <div className="relative inline-block group">
-                <div className="inline-block p-[2px] rounded-full bg-gradient-to-r from-[#E9E4FF] via-[#CFC3FF] to-[#A792FF] shadow-lg shadow-purple-300/30">
-                  
-                </div>
+                <div className="inline-block p-[2px] rounded-full bg-gradient-to-r from-[#E9E4FF] via-[#CFC3FF] to-[#A792FF] shadow-lg shadow-purple-300/30"></div>
                 <div
                   id="tooltip-mi-plan"
                   role="tooltip"
@@ -345,7 +306,10 @@ useEffect(() => {
           {planes.length === 0 && (
             <>
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="rounded-3xl p-6 bg-[#f5f4fb] border border-[#c4bde4]/40 animate-pulse h-[520px]" />
+                <div
+                  key={i}
+                  className="rounded-3xl p-6 bg-[#f5f4fb] border border-[#c4bde4]/40 animate-pulse h-[520px]"
+                />
               ))}
             </>
           )}
@@ -368,17 +332,18 @@ useEffect(() => {
 
             const features = buildFeatures(plan);
 
+            // Card de Plan Personalizado (id 5) tal cual lo tenías
             if (Number(plan.id_plan) === 5) {
-    return (
-      <CardPlanPersonalizado
-        key={plan.id_plan}
-        plan={plan}
-        stripeMap={stripeMap}
-        currentPlanId={currentPlanId}
-        addons={addons}
-      />
-    );
-  }
+              return (
+                <CardPlanPersonalizado
+                  key={plan.id_plan}
+                  plan={plan}
+                  stripeMap={stripeMap}
+                  currentPlanId={currentPlanId}
+                  addons={addons}
+                />
+              );
+            }
 
             return (
               <div
@@ -402,8 +367,12 @@ useEffect(() => {
                   <div className="px-6 pt-16 pb-6 md:px-7 md:pt-20 md:pb-7 flex flex-col h-full">
                     {/* Título y descripción (misma altura en todas) */}
                     <div className="text-center min-h-[92px]">
-                      <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">{plan.nombre_plan}</h3>
-                      <p className="text-sm leading-relaxed text-slate-600 mt-1">{plan.descripcion_plan}</p>
+                      <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">
+                        {plan.nombre_plan}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-slate-600 mt-1">
+                        {plan.descripcion_plan}
+                      </p>
                     </div>
 
                     {/* Precio (misma altura) */}
@@ -416,12 +385,10 @@ useEffect(() => {
                       </div>
                     </div>
 
-                    {/* Beneficios: misma cantidad y orden para todas */}
-                    {/* Beneficios (centrados en 2 columnas) */}
+                    {/* Beneficios */}
                     <ul className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-x-3 text-sm flex-1 md:w-[100%] mx-auto">
                       {features.map((f, idx) => (
                         <li key={idx} className={f.enabled ? "text-slate-700" : "text-slate-400"}>
-                          {/* mini-grid: [icono | texto] para alinear perfecto */}
                           <div className="grid grid-cols-[12px_1fr] items-start gap-2">
                             <span className="inline-flex h-4 w-4 items-center justify-center mt-[2px]">
                               {f.enabled ? <IconoCheck /> : <IconoX />}
@@ -432,9 +399,6 @@ useEffect(() => {
                       ))}
                     </ul>
 
-
-
-
                     {/* Botón siempre al mismo nivel */}
                     <div className="mt-6">
                       <button
@@ -444,7 +408,7 @@ useEffect(() => {
                             Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
                             return;
                           }
-                          seleccionarPlan(plan.id_plan); // ← ahora ejecuta el flujo directamente
+                          seleccionarPlan(plan.id_plan);
                         }}
                         disabled={loading || isCurrent || (plan.id_plan === 1 && !trialElegible)}
                         className={`
@@ -469,11 +433,10 @@ useEffect(() => {
                           ? "No disponible"
                           : "Seleccionar"}
                       </button>
-                        
+
                       {plan.id_plan === 1 && !trialElegible && (
                         <p className="mt-2 text-xs text-red-600">Ya usaste tu plan gratuito.</p>
                       )}
-
                     </div>
                   </div>
                 </div>
@@ -482,29 +445,8 @@ useEffect(() => {
           })}
         </div>
 
-        {/* CTA inferior */}
-        {/* {planSeleccionado && planSeleccionado !== currentPlanId && (
-          <div className="flex flex-col items-center gap-3 mt-10">
-            <div className="text-sm text-[#5a547a]">
-              Plan seleccionado:{" "}
-              <span className="font-semibold text-[#2f2b45]">
-                {planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan}
-              </span>
-            </div>
-            <button
-              onClick={seleccionarPlan}
-              disabled={loading || (planSeleccionado === 1 && !trialElegible)}
-              className="bg-gradient-to-r from-[#6d5cbf] to-[#5a4aa5] hover:from-[#5f51ac] hover:to-[#4a3e88] text-white font-semibold py-3 px-10 rounded-full shadow-lg transition transform hover:scale-[1.03] disabled:opacity-50"
-            >
-              {loading ? "Procesando..." : "Elegir este plan"}
-            </button>
-                    
-            {planSeleccionado === 1 && !trialElegible && (
-              <div className="mt-2 text-xs text-red-600">Ya usaste tu plan gratuito.</div>
-            )}
-
-          </div>
-        )} */}
+        {/* CTA inferior (opcional) */}
+        {/* ... */}
       </div>
     </div>
   );

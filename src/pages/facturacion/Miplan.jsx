@@ -11,7 +11,7 @@ import {
 } from "react-icons/fa";
 import { BackExpandArrow } from "../../components/icons/PremiumBackIcons";
 // arriba del archivo, junto con los demás imports
-import CardPlanPersonalizado from "../../pages/planes/CardPlanPersonalizado"; 
+import CardPlanPersonalizado from "../../pages/planes/CardPlanPersonalizado";
 // o: import CardPlanPersonalizado from "../../components/CardPlanPersonalizado";
 
 
@@ -97,8 +97,6 @@ const MiPlan = () => {
   const [trialElegible, setTrialElegible] = useState(true);
   const [addons, setAddons] = useState(null);
 
-
-
   useEffect(() => {
     (async () => {
       try {
@@ -109,8 +107,6 @@ const MiPlan = () => {
       }
     })();
   }, []);
-
-
 
   // ====== Funciones originales ======
   const obtenerFacturas = async () => {
@@ -217,26 +213,36 @@ const MiPlan = () => {
     })();
   }, []);
 
+  // === Manejo de parámetros de retorno desde Stripe (AÑADIMOS trial=ok) ===
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pmSaved = params.get("pm_saved");
     const setupOk = params.get("setup");
     const addpm = params.get("addpm");
+    const trialOk = params.get("trial"); // NUEVO
+
+    const limpiar = (keys) => {
+      const url = new URL(window.location.href);
+      keys.forEach((k) => url.searchParams.delete(k));
+      window.history.replaceState({}, document.title, url.pathname + (url.search || ""));
+    };
 
     if (pmSaved === "1" || setupOk === "ok") {
       Swal.fire("Listo", "Tarjeta guardada correctamente.", "success");
-      const url = new URL(window.location.href);
-      url.searchParams.delete("pm_saved");
-      url.searchParams.delete("setup");
-      window.history.replaceState({}, document.title, url.pathname);
+      limpiar(["pm_saved", "setup"]);
       obtenerFacturas();
       obtenerPlanActivo();
     }
     if (addpm === "1") {
       Swal.fire("Listo", "Tu suscripción fue procesada. Estamos sincronizando tu plan.", "success");
-      const url = new URL(window.location.href);
-      url.searchParams.delete("addpm");
-      window.history.replaceState({}, document.title, url.pathname);
+      limpiar(["addpm"]);
+      obtenerFacturas();
+      obtenerPlanActivo();
+    }
+    if (trialOk === "ok") {
+      // El webhook ya debió activar FREE y setear fecha_renovacion=trial_end
+      Swal.fire("¡Listo!", "Tu prueba gratuita de 15 días está activa.", "success");
+      limpiar(["trial"]);
       obtenerFacturas();
       obtenerPlanActivo();
     }
@@ -287,38 +293,17 @@ const MiPlan = () => {
     syncStripePrices();
   }, []);
 
-
+  // ====== (ELIMINADO) efecto y función de activar plan FREE por ?setup=ok ======
+  // Ya NO activamos manualmente el FREE con setup=ok; ahora el flujo usa suscripción con trial y lo hace el webhook.
+  /*
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("setup") === "ok") {
       activarPlanFree();
     }
   }, []);
-  
-  const activarPlanFree = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
-    
-      const res = await chatApi.post(
-        "planes/seleccionarPlan",
-        { id_plan: 1, id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    
-      if (res.data.status === "success") {
-        Swal.fire("Listo", "Tu plan gratuito fue activado correctamente. Se cobrará automáticamente al finalizar.", "success").then(() => {
-          window.location.href = "/miplan";
-        });
-      } else {
-        throw new Error(res.data.message);
-      }
-    } catch (error) {
-      const msg = error?.response?.data?.message || "No se pudo activar el plan gratuito.";
-      Swal.fire("Error", msg, "error");
-    }
-  };
+  const activarPlanFree = async () => { ... }
+  */
 
   // ====== NUEVO: selección directa (1 solo paso) ======
   const handleSeleccionarPlan = async (idPlan) => {
@@ -330,32 +315,10 @@ const MiPlan = () => {
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const baseUrl = window.location.origin;
 
-      // Caso plan gratuito (id 1)
+      // === FREE (id 1) → Checkout de suscripción con TRIAL (guarda tarjeta y crea sub en trial) ===
       if (idPlan === 1) {
         if (!trialElegible) {
           Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
-          return;
-        }
-        const { data } = await chatApi.post(
-          "stripe_plan/crearSesionFreeSetup",
-          { id_usuario },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (data?.url) {
-          window.location.href = data.url;
-          return;
-        } else {
-          throw new Error("No se pudo crear la sesión de setup para el plan gratuito.");
-        }
-      }
-
-      /* if (idPlan === 1) {
-        if (!trialElegible) {
-          await Swal.fire(
-            "No disponible",
-            "Ya usaste tu plan gratuito.",
-            "info"
-          );
           return;
         }
         const { data } = await chatApi.post(
@@ -367,9 +330,13 @@ const MiPlan = () => {
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (data?.url) window.location.href = data.url;
-        return;
-      } */
+        if (data?.url) {
+          window.location.href = data.url; // redirige a Stripe Checkout
+          return;
+        } else {
+          throw new Error("No se pudo crear la sesión de free trial.");
+        }
+      }
 
       // Caso planes de pago -> crear sesión y redirigir
       const res = await chatApi.post(
@@ -393,11 +360,7 @@ const MiPlan = () => {
         );
         window.location.href = res.data.url; // redirección directa a Stripe
       } else {
-        await Swal.fire(
-          "Listo",
-          "Tu plan fue actualizado correctamente.",
-          "success"
-        );
+        await Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success");
         setMostrarPlanes(false);
         obtenerPlanActivo();
       }
@@ -433,7 +396,7 @@ const MiPlan = () => {
 
   const buildFeatures = (pl) => {
     const nombre = (pl?.nombre_plan || "").toLowerCase();
-    const esFree = nombre.includes("free") || nombre.includes("gratuito");
+       const esFree = nombre.includes("free") || nombre.includes("gratuito");
     const esConexion =
       nombre.includes("conexión") || nombre.includes("conexion");
     const desactivaCitas = esFree || esConexion;
@@ -527,7 +490,7 @@ const MiPlan = () => {
 
                           {/* botones */}
                           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                            {/* ESTE botón se cambió: ahora abre el panel deslizante */}
+                            {/* Cambiar plan → abre el panel deslizante */}
                             <button
                               onClick={() => setMostrarPlanes(true)}
                               className="inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold bg-[#6d5cbf] hover:bg-[#5a4aa5] active:bg-[#4a3e88] transition focus:outline-none focus:ring-2 focus:ring-[#c4bde4]/50"
