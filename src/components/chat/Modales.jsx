@@ -58,121 +58,121 @@ const Modales = ({
 
   /* diseño selects */
   /** Indicadores personalizados (usa tus Boxicons) */
-const DropdownIndicator = (props) => (
-  <components.DropdownIndicator {...props}>
-    <i
-      className={`bx bx-chevron-down transition-transform duration-200 ${
-        props.selectProps.menuIsOpen ? "rotate-180" : ""
-      }`}
-    />
-  </components.DropdownIndicator>
-);
+  const DropdownIndicator = (props) => (
+    <components.DropdownIndicator {...props}>
+      <i
+        className={`bx bx-chevron-down transition-transform duration-200 ${
+          props.selectProps.menuIsOpen ? "rotate-180" : ""
+        }`}
+      />
+    </components.DropdownIndicator>
+  );
 
-const ClearIndicator = (props) => (
-  <components.ClearIndicator {...props}>
-    <i className="bx bx-x" />
-  </components.ClearIndicator>
-);
+  const ClearIndicator = (props) => (
+    <components.ClearIndicator {...props}>
+      <i className="bx bx-x" />
+    </components.ClearIndicator>
+  );
 
-/** Colores + radios del tema */
-const customSelectTheme = (theme) => ({
-  ...theme,
-  borderRadius: 12,
-  colors: {
-    ...theme.colors,
-    primary: "#2563eb",     // azul
-    primary25: "#EFF6FF",   // hover opción
-    primary50: "#DBEAFE",   // active opción
-    neutral20: "#cbd5e1",   // borde
-    neutral30: "#94a3b8",   // borde hover
-  },
-});
-
-/** Estilos “glass/premium” + foco accesible */
-const customSelectStyles = {
-  control: (base, state) => ({
-    ...base,
-    minHeight: 44,
+  /** Colores + radios del tema */
+  const customSelectTheme = (theme) => ({
+    ...theme,
     borderRadius: 12,
-    paddingLeft: 6,
-    paddingRight: 6,
-    backgroundColor: "rgba(255,255,255,0.9)",
-    backdropFilter: "saturate(1.2) blur(6px)",
-    borderColor: state.isFocused ? "#3b82f6" : "#e2e8f0",
-    boxShadow: state.isFocused
-      ? "0 0 0 3px rgba(59,130,246,.25)"
-      : "0 1px 2px rgba(2,6,23,.06)",
-    ":hover": {
-      borderColor: state.isFocused ? "#3b82f6" : "#94a3b8",
+    colors: {
+      ...theme.colors,
+      primary: "#2563eb", // azul
+      primary25: "#EFF6FF", // hover opción
+      primary50: "#DBEAFE", // active opción
+      neutral20: "#cbd5e1", // borde
+      neutral30: "#94a3b8", // borde hover
     },
-    cursor: "text",
-  }),
-  valueContainer: (base) => ({
-    ...base,
-    padding: "0 4px",
-    gap: 6,
-  }),
-  placeholder: (base) => ({
-    ...base,
-    color: "#94a3b8",
-  }),
-  singleValue: (base) => ({
-    ...base,
-    color: "#0f172a",
-    fontWeight: 500,
-  }),
-  input: (base) => ({
-    ...base,
-    color: "#0f172a",
-  }),
-  indicatorsContainer: (base) => ({
-    ...base,
-    gap: 6,
-  }),
-  indicatorSeparator: () => ({ display: "none" }),
-  menuPortal: (base) => ({
-    ...base,
-    zIndex: 9999, // por si el modal tiene overflow/oculta
-  }),
-  menu: (base) => ({
-    ...base,
-    borderRadius: 14,
-    marginTop: 8,
-    padding: 4,
-    backgroundColor: "rgba(255,255,255,.92)",
-    backdropFilter: "saturate(1.2) blur(8px)",
-    border: "1px solid rgba(226,232,240,.9)",
-    boxShadow: "0 20px 40px rgba(2,6,23,.12)",
-  }),
-  menuList: (base) => ({
-    ...base,
-    maxHeight: 260,
-    padding: 4,
-  }),
-  option: (base, state) => ({
-    ...base,
-    borderRadius: 10,
-    padding: "10px 12px",
-    color: state.isDisabled
-      ? "#94a3b8"
-      : state.isSelected
-      ? "#0b1324"
-      : "#0f172a",
-    backgroundColor: state.isSelected
-      ? "#DBEAFE"
-      : state.isFocused
-      ? "#F1F5F9"
-      : "transparent",
-    ":active": {
-      backgroundColor: state.isSelected ? "#DBEAFE" : "#E2E8F0",
-    },
-  }),
-  noOptionsMessage: (base) => ({
-    ...base,
-    padding: 12,
-    color: "#64748b",
-  }),
-};
+  });
+
+  /** Estilos “glass/premium” + foco accesible */
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: 44,
+      borderRadius: 12,
+      paddingLeft: 6,
+      paddingRight: 6,
+      backgroundColor: "rgba(255,255,255,0.9)",
+      backdropFilter: "saturate(1.2) blur(6px)",
+      borderColor: state.isFocused ? "#3b82f6" : "#e2e8f0",
+      boxShadow: state.isFocused
+        ? "0 0 0 3px rgba(59,130,246,.25)"
+        : "0 1px 2px rgba(2,6,23,.06)",
+      ":hover": {
+        borderColor: state.isFocused ? "#3b82f6" : "#94a3b8",
+      },
+      cursor: "text",
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: "0 4px",
+      gap: 6,
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: "#94a3b8",
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: "#0f172a",
+      fontWeight: 500,
+    }),
+    input: (base) => ({
+      ...base,
+      color: "#0f172a",
+    }),
+    indicatorsContainer: (base) => ({
+      ...base,
+      gap: 6,
+    }),
+    indicatorSeparator: () => ({ display: "none" }),
+    menuPortal: (base) => ({
+      ...base,
+      zIndex: 9999, // por si el modal tiene overflow/oculta
+    }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: 14,
+      marginTop: 8,
+      padding: 4,
+      backgroundColor: "rgba(255,255,255,.92)",
+      backdropFilter: "saturate(1.2) blur(8px)",
+      border: "1px solid rgba(226,232,240,.9)",
+      boxShadow: "0 20px 40px rgba(2,6,23,.12)",
+    }),
+    menuList: (base) => ({
+      ...base,
+      maxHeight: 260,
+      padding: 4,
+    }),
+    option: (base, state) => ({
+      ...base,
+      borderRadius: 10,
+      padding: "10px 12px",
+      color: state.isDisabled
+        ? "#94a3b8"
+        : state.isSelected
+        ? "#0b1324"
+        : "#0f172a",
+      backgroundColor: state.isSelected
+        ? "#DBEAFE"
+        : state.isFocused
+        ? "#F1F5F9"
+        : "transparent",
+      ":active": {
+        backgroundColor: state.isSelected ? "#DBEAFE" : "#E2E8F0",
+      },
+    }),
+    noOptionsMessage: (base) => ({
+      ...base,
+      padding: 12,
+      color: "#64748b",
+    }),
+  };
   /* diseño selects */
 
   /* seccion modal enviar archivo */
@@ -225,7 +225,6 @@ const customSelectStyles = {
   };
 
   /* estilos de select de transferir chat */
-  
 
   const eliminarProducto = async (id_etiqueta) => {
     try {
@@ -407,6 +406,9 @@ const customSelectStyles = {
 
       console.log("Imagen enviada con éxito a WhatsApp:", result);
 
+      // Extraer wamid de la respuesta
+      const wamid = result?.messages?.[0]?.id || null;
+
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
       let telefono_configuracion = dataAdmin.telefono;
@@ -418,7 +420,10 @@ const customSelectStyles = {
         mid_mensaje,
         id_recibe,
         id_configuracion,
-        telefono_configuracion
+        telefono_configuracion,
+        wamid,
+        "",
+        ""
       );
 
       /* cargar socket */
@@ -587,6 +592,9 @@ const customSelectStyles = {
 
       console.log("Documento enviado con éxito a WhatsApp:", result);
 
+      // Extraer wamid de la respuesta
+      const wamid = result?.messages?.[0]?.id || null;
+
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
       let telefono_configuracion = dataAdmin.telefono;
@@ -598,7 +606,10 @@ const customSelectStyles = {
         mid_mensaje,
         id_recibe,
         id_configuracion,
-        telefono_configuracion
+        telefono_configuracion,
+        wamid,
+        "",
+        ""
       );
 
       /* cargar socket */
@@ -769,6 +780,9 @@ const customSelectStyles = {
 
       console.log("Video enviado con éxito a WhatsApp:", result);
 
+      // Extraer wamid de la respuesta
+      const wamid = result?.messages?.[0]?.id || null;
+
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
       let telefono_configuracion = dataAdmin.telefono;
@@ -780,7 +794,10 @@ const customSelectStyles = {
         mid_mensaje,
         id_recibe,
         id_configuracion,
-        telefono_configuracion
+        telefono_configuracion,
+        wamid,
+        "",
+        ""
       );
 
       /* cargar socket */
@@ -983,6 +1000,10 @@ const customSelectStyles = {
       }
 
       const data = await response.json();
+
+      // Extraer el wamid de la respuesta
+      const wamid = data?.messages?.[0]?.id || null;
+
       /* console.log("Template enviado exitosamente:", data); */
       Toast.fire({
         icon: "success",
@@ -1005,7 +1026,10 @@ const customSelectStyles = {
         mid_mensaje,
         id_recibe,
         id_configuracion,
-        telefono_configuracion
+        telefono_configuracion,
+        wamid,
+        templateName,
+        selectedLanguage,
       );
 
       /* cargar socket */
@@ -1181,6 +1205,7 @@ const customSelectStyles = {
                   id="template_textarea"
                   rows="8"
                   value={templateText}
+                  readOnly
                   onChange={handleTextareaChange}
                   className="w-full p-2 border rounded mb-4"
                 ></textarea>
@@ -1553,7 +1578,10 @@ const customSelectStyles = {
             {/* Header */}
             <div className="flex items-start justify-between p-4">
               <div>
-                <h3 id="crear-etiqueta-titulo" className="text-lg font-semibold text-slate-900">
+                <h3
+                  id="crear-etiqueta-titulo"
+                  className="text-lg font-semibold text-slate-900"
+                >
                   Agregar etiqueta
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
@@ -1571,7 +1599,7 @@ const customSelectStyles = {
                 <i className="bx bx-x text-lg"></i>
               </button>
             </div>
-      
+
             {/* Formulario */}
             <form
               onSubmit={(e) => {
@@ -1582,7 +1610,10 @@ const customSelectStyles = {
               <div className="px-4 pb-4 space-y-5">
                 {/* Nombre */}
                 <div>
-                  <label htmlFor="tag-name" className="block text-sm font-medium text-slate-700">
+                  <label
+                    htmlFor="tag-name"
+                    className="block text-sm font-medium text-slate-700"
+                  >
                     Nombre etiqueta
                   </label>
                   <input
@@ -1596,9 +1627,13 @@ const customSelectStyles = {
                   />
                   {/* Vista previa */}
                   <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Vista previa:</span>
-                    <span className="inline-flex items-center gap-2 pl-2 pr-2 py-1 rounded-full
-                                     border border-slate-200 bg-white">
+                    <span className="text-xs text-slate-500">
+                      Vista previa:
+                    </span>
+                    <span
+                      className="inline-flex items-center gap-2 pl-2 pr-2 py-1 rounded-full
+                                     border border-slate-200 bg-white"
+                    >
                       <span
                         className="h-2.5 w-2.5 rounded-full"
                         style={{ backgroundColor: tagColor || "#64748b" }}
@@ -1610,10 +1645,13 @@ const customSelectStyles = {
                     </span>
                   </div>
                 </div>
-            
+
                 {/* Color */}
                 <div>
-                  <label htmlFor="tag-color" className="block text-sm font-medium text-slate-700">
+                  <label
+                    htmlFor="tag-color"
+                    className="block text-sm font-medium text-slate-700"
+                  >
                     Color etiqueta
                   </label>
                   <div className="mt-1 grid grid-cols-[auto,1fr] items-center gap-3">
@@ -1634,11 +1672,15 @@ const customSelectStyles = {
                       placeholder="#000000"
                     />
                   </div>
-            
+
                   {/* Colores rápidos (tomados de etiquetas existentes) */}
                   {tagList?.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {[...new Set(tagList.map((t) => t.color_etiqueta).filter(Boolean))]
+                      {[
+                        ...new Set(
+                          tagList.map((t) => t.color_etiqueta).filter(Boolean)
+                        ),
+                      ]
                         .slice(0, 8)
                         .map((c, i) => (
                           <button
@@ -1656,10 +1698,12 @@ const customSelectStyles = {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Lista existente */}
                 <div className="pt-2 border-t border-slate-200">
-                  <h4 className="text-sm font-semibold text-slate-900 mb-2">Lista de etiquetas</h4>
+                  <h4 className="text-sm font-semibold text-slate-900 mb-2">
+                    Lista de etiquetas
+                  </h4>
                   {tagList?.length > 0 ? (
                     <ul className="max-h-48 overflow-auto space-y-2 pr-1">
                       {tagList.map((tag) => (
@@ -1700,7 +1744,7 @@ const customSelectStyles = {
                   )}
                 </div>
               </div>
-                
+
               {/* Footer */}
               <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
                 <button
@@ -1718,9 +1762,11 @@ const customSelectStyles = {
                   type="submit"
                   disabled={!tagName?.trim()}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-white
-                    ${tagName?.trim()
-                      ? "bg-blue-600 hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
-                      : "bg-blue-400 cursor-not-allowed"}`}
+                    ${
+                      tagName?.trim()
+                        ? "bg-blue-600 hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
+                        : "bg-blue-400 cursor-not-allowed"
+                    }`}
                 >
                   <i className="bx bx-plus"></i>
                   Agregar etiqueta
@@ -1730,7 +1776,6 @@ const customSelectStyles = {
           </div>
         </div>
       )}
-
 
       {/* Modal para asignar etiqueta */}
       {isAsignarEtiquetaModalOpen && (
@@ -1756,10 +1801,15 @@ const customSelectStyles = {
             {/* Header */}
             <div className="flex items-start justify-between p-4">
               <div>
-                <h3 id="asignar-etiquetas-titulo" className="text-lg font-semibold text-slate-900">
+                <h3
+                  id="asignar-etiquetas-titulo"
+                  className="text-lg font-semibold text-slate-900"
+                >
                   Asignar etiquetas
                 </h3>
-                <p className="mt-0.5 text-xs text-slate-500">Haz clic para asignar o quitar.</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Haz clic para asignar o quitar.
+                </p>
               </div>
               <button
                 onClick={toggleAsignarEtiquetaModal}
@@ -1772,7 +1822,7 @@ const customSelectStyles = {
                 <i className="bx bx-x text-lg"></i>
               </button>
             </div>
-      
+
             {/* Lista de etiquetas */}
             <div className="px-4 pb-4 pt-2 max-h-[50vh] overflow-auto">
               {tagList?.length > 0 ? (
@@ -1785,7 +1835,10 @@ const customSelectStyles = {
                       <li key={tag.id_etiqueta}>
                         <button
                           onClick={() =>
-                            toggleTagAssignment(tag.id_etiqueta, selectedChat.id)
+                            toggleTagAssignment(
+                              tag.id_etiqueta,
+                              selectedChat.id
+                            )
                           }
                           className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left
                                      transition-all duration-200 focus:outline-none
@@ -1801,7 +1854,9 @@ const customSelectStyles = {
                           <span
                             aria-hidden="true"
                             className="h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: tag.color_etiqueta || "#64748b" }}
+                            style={{
+                              backgroundColor: tag.color_etiqueta || "#64748b",
+                            }}
                           />
 
                           {/* Nombre (truncado elegante) */}
@@ -1813,7 +1868,7 @@ const customSelectStyles = {
                           >
                             {tag.nombre_etiqueta}
                           </span>
-                          
+
                           {/* Estado */}
                           <span
                             className={`inline-flex h-6 w-6 items-center justify-center rounded-full
@@ -1824,7 +1879,11 @@ const customSelectStyles = {
                                         }`}
                             aria-hidden="true"
                           >
-                            <i className={`bx ${isAssigned ? "bx-check" : "bx-plus"} text-base`}></i>
+                            <i
+                              className={`bx ${
+                                isAssigned ? "bx-check" : "bx-plus"
+                              } text-base`}
+                            ></i>
                           </span>
                         </button>
                       </li>
@@ -1838,7 +1897,7 @@ const customSelectStyles = {
                 </div>
               )}
             </div>
-            
+
             {/* Footer */}
             <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
               <button
@@ -1855,7 +1914,6 @@ const customSelectStyles = {
           </div>
         </div>
       )}
-
 
       {/* Modal para transferir chats */}
       {transferirChatModalOpen && (
@@ -1890,7 +1948,10 @@ const customSelectStyles = {
                   <i className="bx bx-transfer-alt text-xl"></i>
                 </span>
                 <div>
-                  <h3 id="transferir-chat-titulo" className="text-lg font-semibold text-slate-900">
+                  <h3
+                    id="transferir-chat-titulo"
+                    className="text-lg font-semibold text-slate-900"
+                  >
                     Transferir chat
                   </h3>
                   <p className="mt-0.5 text-xs text-slate-500">
@@ -1927,7 +1988,9 @@ const customSelectStyles = {
                     value: u.id_sub_usuario,
                     label: u.nombre_encargado,
                   }))}
-                  onChange={(opcion) => setUsuarioSeleccionado(opcion ? opcion.value : "")}
+                  onChange={(opcion) =>
+                    setUsuarioSeleccionado(opcion ? opcion.value : "")
+                  }
                   placeholder="Seleccione un usuario"
                   isClearable
                   className="react-select mb-2"
@@ -1936,10 +1999,12 @@ const customSelectStyles = {
                   noOptionsMessage={() => "Sin resultados"}
                 />
                 <p className="text-xs text-slate-500">
-                  {Array.isArray(lista_usuarios) ? `${lista_usuarios.length} usuarios disponibles` : ""}
+                  {Array.isArray(lista_usuarios)
+                    ? `${lista_usuarios.length} usuarios disponibles`
+                    : ""}
                 </p>
               </div>
-                
+
               {/* Select de departamentos con búsqueda (opcional) */}
               <div>
                 <label
@@ -1971,7 +2036,7 @@ const customSelectStyles = {
                 </p>
               </div>
             </div>
-                  
+
             {/* Footer */}
             <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
               <button
@@ -1987,7 +2052,11 @@ const customSelectStyles = {
               <button
                 onClick={handleTransferirChat}
                 disabled={!usuarioSeleccionado}
-                title={!usuarioSeleccionado ? "Selecciona un usuario" : "Transferir chat"}
+                title={
+                  !usuarioSeleccionado
+                    ? "Selecciona un usuario"
+                    : "Transferir chat"
+                }
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-white
                   ${
                     usuarioSeleccionado
@@ -2002,7 +2071,6 @@ const customSelectStyles = {
           </div>
         </div>
       )}
-
     </>
   );
 };
