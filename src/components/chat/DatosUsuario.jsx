@@ -3677,7 +3677,7 @@ const DatosUsuario = ({
                                                   type="number"
                                                   min={1}
                                                   value={producto.cantidad}
-                                                  className="p-1 text-sm border border-gray-200 w-12 text-center text-[0.65rem] md:text-[0.75rem]"
+                                                  className="no-spinners p-1 text-sm border border-gray-200 w-12 text-center text-[0.65rem] md:text-[0.75rem]"
                                                   id={`cantidad${producto.id_detalle}`}
                                                   onChange={(e) =>
                                                     handleCantidadInputChange(
@@ -3750,9 +3750,9 @@ const DatosUsuario = ({
                                             </td>
                                             <td className="border px-1 md:px-4 py-2 text-[0.65rem] md:text-[0.75rem]">
                                               <input
-                                                type="text"
+                                                type="number"
                                                 value={producto.precio_venta}
-                                                className="py-2 px-3 border rounded w-16 text-[0.65rem] md:text-[0.75rem]"
+                                                className="no-spinners py-2 px-3 border rounded w-16 text-[0.65rem] md:text-[0.75rem] "
                                                 id={`precio${producto.id_detalle}`}
                                                 onChange={(e) =>
                                                   handlePrecioChange(
