@@ -41,6 +41,20 @@ const DatosUsuario = ({
   agregar_mensaje_enviado,
   id_plataforma_conf,
   id_usuario_conf,
+  monto_venta,
+  setMonto_venta,
+  costo,
+  setCosto,
+  precio_envio_directo,
+  setPrecio_envio_directo,
+  fulfillment,
+  setFulfillment,
+  total_directo,
+  setTotal_directo,
+  validar_generar,
+  setValidar_generar,
+  selectedImageId,
+  setSelectedImageId,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -55,15 +69,7 @@ const DatosUsuario = ({
   const [stats, setStats] = useState(null);
   const [nivel, setNivel] = useState(null);
 
-  /* calcular guia directa */
-  const [monto_venta, setMonto_venta] = useState(null);
-  const [costo, setCosto] = useState(null);
-  const [precio_envio_directo, setPrecio_envio_directo] = useState(null);
-  const [fulfillment, setFulfillment] = useState(null);
-  const [total_directo, setTotal_directo] = useState(null);
-  const [validar_generar, setValidar_generar] = useState(false);
   const [costo_general, setCosto_general] = useState(null);
-  /* const [tarifa_precio, setTarifa_precio] = useState(null); */
 
   /* Laar */
   const [tipoLaar, setTipoLaar] = useState("");
@@ -594,7 +600,6 @@ const DatosUsuario = ({
   };
   const [generandoGuia, setGenerandoGuia] = useState(false);
   const [facturaSeleccionada, setFacturaSeleccionada] = useState({});
-  const [selectedImageId, setSelectedImageId] = useState(null);
   const [isAccordionOpen, setIsAccordionOpen] = useState(true);
   const [total, setTotal] = useState(0);
   const [ciudades, setCiudades] = useState(null);

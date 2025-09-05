@@ -142,6 +142,16 @@ const Chat = () => {
   const [novedades_gestionadas, setNovedades_gestionadas] = useState(null);
   const [novedades_noGestionadas, setNovedades_noGestionadas] = useState(null);
 
+  /* calcular guia directa */
+  const [monto_venta, setMonto_venta] = useState(null);
+  const [costo, setCosto] = useState(null);
+  const [precio_envio_directo, setPrecio_envio_directo] = useState(null);
+  const [fulfillment, setFulfillment] = useState(null);
+  const [total_directo, setTotal_directo] = useState(null);
+  const [validar_generar, setValidar_generar] = useState(false);
+
+  const [selectedImageId, setSelectedImageId] = useState(null);
+
   const Toast = Swal.mixin({
     toast: true,
     position: "top-end", // Puedes cambiar a 'bottom-end', 'top-start', etc.
@@ -1039,6 +1049,14 @@ const Chat = () => {
     setScrollOffset(0); // Reinicia el offset
     setSelectedChat(chat); // Cambia el chat seleccionado
     setMensaje(""); // Vacía el input
+
+    setSelectedImageId(null);
+    setValidar_generar(false);
+    setMonto_venta(null);
+    setCosto(null);
+    setPrecio_envio_directo(null);
+    setFulfillment(null);
+    setTotal_directo(null);
 
     // Forzar el scroll al final después de que los mensajes se procesen
     setTimeout(() => {
@@ -2263,6 +2281,20 @@ const Chat = () => {
         agregar_mensaje_enviado={agregar_mensaje_enviado}
         id_plataforma_conf={id_plataforma_conf}
         id_usuario_conf={id_usuario_conf}
+        monto_venta={monto_venta}
+        setMonto_venta={setMonto_venta}
+        costo={costo}
+        setCosto={setCosto}
+        precio_envio_directo={precio_envio_directo}
+        setPrecio_envio_directo={setPrecio_envio_directo}
+        fulfillment={fulfillment}
+        setFulfillment={setFulfillment}
+        total_directo={total_directo}
+        setTotal_directo={setTotal_directo}
+        validar_generar={validar_generar}
+        setValidar_generar={setValidar_generar}
+        selectedImageId={selectedImageId}
+        setSelectedImageId={setSelectedImageId}
       />
       {/* MODALES */}
       <Modales
