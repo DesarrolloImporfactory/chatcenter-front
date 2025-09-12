@@ -23,6 +23,60 @@ import SwitchBot from "../../components/chat/SwitchBot";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 
+// Mapeo de conversaciones Messenger -> formato Sidebar
+function mapMsConvToSidebar(row) {
+  // elige fecha segura: last_message_at || mensaje_created_at || updated_at || first_contact_at
+  const rawFecha =
+    row.last_message_at ??
+    row.mensaje_created_at ??
+    row.updated_at ??
+    row.first_contact_at ??
+    null;
+
+  // normaliza a ISO string para tu formatFecha (que espera algo parseable)
+  const d =
+    rawFecha instanceof Date
+      ? rawFecha
+      : rawFecha
+      ? new Date(rawFecha)
+      : new Date();
+  const mensaje_created_at = isNaN(+d) ? new Date() : d; // evita Invalid Date
+
+  return {
+    id: row.id,
+    source: "ms",
+    mensaje_created_at: mensaje_created_at.toISOString(),
+    texto_mensaje: row.preview ?? row.texto_mensaje ?? "",
+    celular_cliente: row.psid ?? row.celular_cliente,
+    mensajes_pendientes: (row.unread_count ?? row.mensajes_pendientes) || 0,
+    visto: 0,
+    nombre_cliente:
+      row.customer_name ??
+      row.nombre_cliente ??
+      `Facebook • ${String((row.psid ?? row.celular_cliente) || "").slice(-6)}`,
+    id_encargado: row.id_encargado ?? null,
+    etiquetas: [],
+    transporte: null,
+    estado_factura: null,
+    novedad_info: null,
+  };
+}
+
+// Mapeo de mensajes Messenger -> formato ChatPrincipal
+function mapMsMessageToUI(m) {
+  return {
+    id: m.id,
+    rol_mensaje: m.rol_mensaje, // 1 = out, 0 = in
+    texto_mensaje: m.texto_mensaje || "",
+    tipo_mensaje: m.tipo_mensaje || "text",
+    ruta_archivo: m.ruta_archivo || null,
+    mid_mensaje: m.mid_mensaje || null,
+    visto: m.visto || 0,
+    created_at: m.created_at,
+    responsable: m.responsable || "",
+  };
+}
+
 const Chat = () => {
   const formatFecha = (fechaISO) => {
     const fecha = new Date(fechaISO);
@@ -151,6 +205,10 @@ const Chat = () => {
   const [validar_generar, setValidar_generar] = useState(false);
 
   const [selectedImageId, setSelectedImageId] = useState(null);
+
+  // Canal activo y conversación Messenger activa
+  const [activeChannel, setActiveChannel] = useState("whatsapp"); // 'whatsapp' | 'messenger' | 'all'
+  const [msActiveConversationId, setMsActiveConversationId] = useState(null);
 
   const Toast = Swal.mixin({
     toast: true,
@@ -299,6 +357,65 @@ const Chat = () => {
       )}?id_configuracion=${id_configuracion}`
     );
   };
+
+  async function fetchMsConversations() {
+    if (!id_configuracion) return;
+    const { data } = await chatApi.get("/messenger/conversations", {
+      params: { id_configuracion, limit: 50 },
+    });
+    const items = (data.items || []).map(mapMsConvToSidebar);
+
+    // Mezcla con tus chats existentes sin duplicar
+    setMensajesAcumulados((prev) => {
+      const byKey = new Map(
+        prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
+      );
+      for (const it of items) {
+        byKey.set(`ms:${it.id}`, it);
+      }
+      // Devuelve array ordenado por fecha desc
+      return Array.from(byKey.values()).sort(
+        (a, b) =>
+          new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+      );
+    });
+  }
+
+  useEffect(() => {
+    if (isSocketConnected && id_configuracion) {
+      fetchMsConversations();
+    }
+  }, [isSocketConnected, id_configuracion]);
+
+  async function openMessengerConversation(conv) {
+    setActiveChannel("messenger");
+    setMsActiveConversationId(conv.id);
+    setSelectedChat(conv); // Para que la UI derecha se actualice
+    setMensajesMostrados(20);
+    setScrollOffset(0);
+    setMensaje("");
+
+    // Únete al room para tiempo real
+    socketRef.current.emit("MS_JOIN_CONV", {
+      conversation_id: conv.id,
+      id_configuracion,
+    });
+
+    // Carga historial por REST
+    const { data } = await chatApi.get(
+      `/messenger/conversations/${conv.id}/messages`,
+      {
+        params: { limit: 50 },
+      }
+    );
+    const mapped = (data.items || []).map(mapMsMessageToUI);
+
+    setChatMessages([{ id: conv.id, mensajes: mapped }]);
+    const ordered = mapped.sort(
+      (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    );
+    setMensajesOrdenados(ordered.slice(-20));
+  }
 
   /* 2️⃣  cuando ya hay chats */
   useEffect(() => {
@@ -570,7 +687,7 @@ const Chat = () => {
           const nuevoMensaje = {
             celular_recibe: id_recibe,
             created_at: fechaMySQL,
-            id: "",
+            id: `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
             mid_mensaje: mid_mensaje,
             rol_mensaje: 1,
             ruta_archivo: ruta_archivo,
@@ -797,11 +914,37 @@ const Chat = () => {
   };
 
   const handleSendMessage = () => {
+    const text = (mensaje || "").trim();
+    if (!text || !selectedChat) return;
+
+    if (selectedChat.source === "ms") {
+      // Enviar por Messenger (socket gateway)
+      const tempId = "tmp-" + Date.now();
+      const optimistic = {
+        id: tempId,
+        rol_mensaje: 1,
+        texto_mensaje: text,
+        tipo_mensaje: "text",
+        created_at: new Date().toISOString(),
+        visto: 0,
+        responsable: "Tú",
+      };
+      setMensajesOrdenados((prev) => [...prev, optimistic]);
+
+      socketRef.current.emit("MS_SEND", {
+        conversation_id: selectedChat.id,
+        text,
+      });
+
+      setMensaje("");
+      setFile(null);
+      return;
+    }
+
+    // (lo tuyo actual para WhatsApp)
     console.log("Mensaje enviado:", mensaje, file);
     setMensaje("");
     setFile(null);
-
-    // Enviar el mensaje al servidor de WebSockets
     socketRef.current.emit("SEND_MESSAGE", {
       mensaje,
       tipo_mensaje: file ? "document" : "text",
@@ -810,16 +953,6 @@ const Chat = () => {
       file,
       dataAdmin,
     });
-
-    socketRef.current.on("MESSAGE_RESPONSE", (data) => {
-      console.log(data);
-    });
-
-    // Cleanup para evitar múltiples listeners
-
-    return () => {
-      socketRef.current.off("UPDATE_CHAT");
-    };
   };
 
   const uploadAudio = (audioBlob) => {
@@ -1041,15 +1174,10 @@ const Chat = () => {
   /* fin seccion de carga de mensaje */
 
   const handleSelectChat = (chat) => {
-    // Reinicia los estados relacionados con los mensajes y el scroll
-    setChatMessages([]); // Limpia mensajes previos
-    setFacturasChatSeleccionado(null); // Limpia las facturas seleccionadas
-    setGuiaSeleccionada(null); // Limpia la guía seleccionada
-    setMensajesMostrados(20); // Reinicia los mensajes mostrados
-    setScrollOffset(0); // Reinicia el offset
-    setSelectedChat(chat); // Cambia el chat seleccionado
-    setMensaje(""); // Vacía el input
-
+    setChatMessages([]);
+    setMensajesMostrados(20);
+    setScrollOffset(0);
+    setMensaje("");
     setSelectedImageId(null);
     setValidar_generar(false);
     setMonto_venta(null);
@@ -1058,13 +1186,20 @@ const Chat = () => {
     setFulfillment(null);
     setTotal_directo(null);
 
-    // Forzar el scroll al final después de que los mensajes se procesen
+    if (chat.source === "ms") {
+      openMessengerConversation(chat);
+      return;
+    }
+
+    // — WhatsApp (lo que ya tenías) —
+    setSelectedChat(chat);
+    setActiveChannel("whatsapp");
     setTimeout(() => {
       if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop =
           chatContainerRef.current.scrollHeight;
       }
-    }, 200); // Espera a que los mensajes se actualicen antes de ajustar el scroll
+    }, 200);
   };
 
   /* filtro */
@@ -1089,12 +1224,21 @@ const Chat = () => {
 
   const asignarChat = async () => {
     try {
+      const payload =
+        selectedChat.source === "ms"
+          ? {
+              source: "ms",
+              id_encargado: id_sub_usuario_global,
+              id_conversation: selectedChat.id,
+            }
+          : {
+              source: "wa",
+              id_encargado: id_sub_usuario_global,
+              id_cliente_chat_center: selectedChat.id,
+            };
       const res = await chatApi.post(
         "departamentos_chat_center/asignar_encargado",
-        {
-          id_encargado: id_sub_usuario_global,
-          id_cliente_chat_center: selectedChat.id,
-        }
+        payload
       );
 
       if (res.data.status === "success") {
@@ -1738,47 +1882,45 @@ const Chat = () => {
   }, [seRecibioMensaje, selectedChat, userData, getOrderedChats]);
 
   useEffect(() => {
-    if (selectedChat && userData && isSocketConnected) {
-      console.log("Chat seleccionado:", selectedChat);
-      fetchTags();
-      fetchTagsAsginadas();
+    if (!selectedChat || !userData || !isSocketConnected) {
+      setChatMessages([]);
+      setMensajesOrdenados([]);
+      return;
+    }
 
-      // Emitir la solicitud para obtener los mensajes del chat seleccionado
-      socketRef.current.emit("GET_CHATS_BOX", {
-        chatId: selectedChat.id,
-        id_configuracion: id_configuracion,
-      });
+    console.log("Chat seleccionado:", selectedChat);
+    fetchTags();
+    fetchTagsAsginadas();
 
-      // Función manejadora para actualizar los mensajes del chat
-      const handleChatBoxResponse = (data) => {
-        console.log("Mensajes recibidos:", data);
-        setChatMessages(data);
-
-        // Ordena y limita los mensajes
-        const orderedMessages = getOrderedChats();
-        setMensajesOrdenados(orderedMessages.slice(-20)); // Limitar a los últimos 20 mensajes
-        setMensajesMostrados(20); // Asegurar que el estado coincide con los mensajes iniciales
-      };
-
+    // ⚠️ Si es Messenger, NO usar GET_CHATS_BOX ni su listener
+    if (selectedChat.source === "ms") {
       if (id_plataforma_conf !== null) {
         socketRef.current.emit("GET_FACTURAS", {
           id_plataforma: id_plataforma_conf,
           telefono: selectedChat.celular_cliente,
         });
       }
-
-      // Escuchar la respuesta del socket
-      socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
-
-      // Cleanup: eliminar el listener al cambiar de chat
-      return () => {
-        socketRef.current.off("CHATS_BOX_RESPONSE", handleChatBoxResponse);
-      };
-    } else {
-      // Si no hay chat seleccionado, vaciar los mensajes
-      setChatMessages([]);
-      setMensajesOrdenados([]);
+      return; // <- clave: no registres CHATS_BOX_RESPONSE aquí
     }
+
+    // WhatsApp / otros canales
+    socketRef.current.emit("GET_CHATS_BOX", {
+      chatId: selectedChat.id,
+      id_configuracion,
+    });
+
+    const handleChatBoxResponse = (data) => {
+      console.log("Mensajes recibidos:", data);
+      setChatMessages(data);
+      const orderedMessages = getOrderedChats();
+      setMensajesOrdenados(orderedMessages.slice(-20));
+      setMensajesMostrados(20);
+    };
+
+    socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
+    return () => {
+      socketRef.current.off("CHATS_BOX_RESPONSE", handleChatBoxResponse);
+    };
   }, [selectedChat, userData, isSocketConnected]);
 
   useEffect(() => {
@@ -1836,7 +1978,7 @@ const Chat = () => {
         };
       }
     }
-  }, [menuSearchTerm, socketRef.current]);
+  }, [menuSearchTerm, isSocketConnected, id_configuracion]);
 
   // useEffect para ejecutar la búsqueda cuando cambia el término de búsqueda telefono
   useEffect(() => {
@@ -2130,6 +2272,101 @@ const Chat = () => {
       setProvinciaCiudad({ provincia: "Sin datos", ciudad: "Sin datos" });
     }
   };
+
+  // Escuchar eventos de Messenger cuando el socket esté listo
+  useEffect(() => {
+    if (!isSocketConnected || !socketRef.current) return;
+
+    const onMsMessage = ({ conversation_id, message }) => {
+      const mapped = mapMsMessageToUI({
+        id: message.id,
+        rol_mensaje: message.direction === "out" ? 1 : 0,
+        texto_mensaje: message.text || "",
+        tipo_mensaje: message.attachments ? "attachment" : "text",
+        ruta_archivo: message.attachments
+          ? JSON.stringify(message.attachments)
+          : null,
+        mid_mensaje: message.mid || null,
+        visto: message.status === "read" ? 1 : 0,
+        created_at: message.created_at || new Date().toISOString(),
+        responsable:
+          message.responsable || (message.direction === "out" ? "Página" : ""),
+      });
+
+      // 1) Si estoy viendo esa conversación, pinto en vivo
+      if (
+        selectedChat?.source === "ms" &&
+        Number(selectedChat.id) === Number(conversation_id)
+      ) {
+        setMensajesOrdenados((prev) => [...prev, mapped]);
+        // Scroll al final, sin saltos
+        requestAnimationFrame(() => {
+          if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop =
+              chatContainerRef.current.scrollHeight;
+          }
+        });
+        return;
+      }
+
+      // 2) Si es otra conversación, actualizo el sidebar (preview, fecha, +pendiente y la subo)
+      setMensajesAcumulados((prev) => {
+        const out = [...prev];
+        const idx = out.findIndex(
+          (x) => x.source === "ms" && Number(x.id) === Number(conversation_id)
+        );
+        if (idx !== -1) {
+          const row = out[idx];
+          const next = {
+            ...row,
+            texto_mensaje: message.text || row.texto_mensaje,
+            mensaje_created_at: mapped.created_at,
+            mensajes_pendientes:
+              (row.mensajes_pendientes || 0) +
+              (message.direction === "in" ? 1 : 0),
+          };
+          out.splice(idx, 1);
+          out.unshift(next);
+        }
+        return out;
+      });
+    };
+
+    const onMsConvUpsert = (upd) => {
+      // Refresca/inyecta la fila de la izquierda (preview, fecha, unread) y reordena
+      setMensajesAcumulados((prev) => {
+        const out = [...prev];
+        const idx = out.findIndex(
+          (x) => x.source === "ms" && Number(x.id) === Number(upd.id)
+        );
+        if (idx !== -1) {
+          out[idx] = {
+            ...out[idx],
+            mensaje_created_at: upd.last_message_at,
+            texto_mensaje: upd.preview ?? out[idx].texto_mensaje,
+            mensajes_pendientes:
+              upd.unread_count ?? out[idx].mensajes_pendientes,
+          };
+        } else {
+          // Si aún no existe en el listado, lo agregamos ya mapeado
+          out.unshift(mapMsConvToSidebar(upd));
+        }
+        out.sort(
+          (a, b) =>
+            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+        );
+        return out;
+      });
+    };
+
+    socketRef.current.on("MS_MESSAGE", onMsMessage);
+    socketRef.current.on("MS_CONV_UPSERT", onMsConvUpsert);
+
+    return () => {
+      socketRef.current?.off("MS_MESSAGE", onMsMessage);
+      socketRef.current?.off("MS_CONV_UPSERT", onMsConvUpsert);
+    };
+  }, [isSocketConnected, selectedChat]);
 
   return (
     <div className="sm:grid grid-cols-4">

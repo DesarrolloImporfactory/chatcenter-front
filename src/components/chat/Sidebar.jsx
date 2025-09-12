@@ -513,6 +513,12 @@ export const Sidebar = ({
                       >
                         {mensaje.celular_cliente}
                       </span>
+
+                      {mensaje.source === "ms" && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                          Messenger
+                        </span>
+                      )}
                       <span className="select-none text-slate-300">•</span>
 
                       <span className="truncate" title={mensaje.texto_mensaje}>

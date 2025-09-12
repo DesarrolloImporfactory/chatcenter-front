@@ -580,6 +580,13 @@ const ChatPrincipal = ({
               {/* Mapeo de mensajes */}
               <>
                 {mensajesActuales.map((mensaje) => {
+                  const key =
+                    mensaje.id ??
+                    mensaje.mid_mensaje ??
+                    `${mensaje.created_at}-${(
+                      mensaje.texto_mensaje || ""
+                    ).slice(0, 16)}`;
+
                   const hasError = !!mensaje?.error_meta;
                   const errorText = hasError
                     ? mensaje.error_meta.mensaje_error ||
@@ -590,7 +597,7 @@ const ChatPrincipal = ({
 
                   return (
                     <div
-                      key={mensaje.id} // evita Math.random() para claves estables
+                      key={key}
                       className={`flex ${
                         mensaje.rol_mensaje === 1
                           ? "justify-end"
