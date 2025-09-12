@@ -1194,6 +1194,19 @@ const Chat = () => {
     // — WhatsApp (lo que ya tenías) —
     setSelectedChat(chat);
     setActiveChannel("whatsapp");
+
+    // pedir facturas/guías apenas seleccionas un chat de WhatsApp
+    if (
+      id_plataforma_conf !== null &&
+      socketRef.current &&
+      chat.celular_cliente
+    ) {
+      socketRef.current.emit("GET_FACTURAS", {
+        id_plataforma: id_plataforma_conf,
+        telefono: chat.celular_cliente,
+      });
+    }
+
     setTimeout(() => {
       if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop =
