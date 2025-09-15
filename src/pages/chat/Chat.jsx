@@ -952,6 +952,7 @@ const Chat = () => {
       id_configuracion: id_configuracion,
       file,
       dataAdmin,
+      nombre_encargado :nombre_encargado_global
     });
   };
 
