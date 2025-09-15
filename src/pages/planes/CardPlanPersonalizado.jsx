@@ -12,6 +12,9 @@ export default function CardPlanPersonalizado({
   const [nConexiones, setNConexiones] = useState(null);
   const [maxSubusuarios, setMaxSubusuarios] = useState(null);
 
+  const [esPlanPersonalizado, setEsPlanPersonalizado] = useState(false);
+
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     const fetchPersonalizado = async () => {
@@ -28,10 +31,20 @@ export default function CardPlanPersonalizado({
         if (data?.plan_personalizado) {
           setNConexiones(data.plan_personalizado.n_conexiones);
           setMaxSubusuarios(data.plan_personalizado.max_subusuarios);
+                
+          // solo si el plan personalizado corresponde a esta card
+          if (data.plan_personalizado.id_plan === plan.id_plan) {
+            setEsPlanPersonalizado(true);
+          } else {
+            setEsPlanPersonalizado(false);
+          }
         } else {
           setNConexiones(0);
           setMaxSubusuarios(0);
+          setEsPlanPersonalizado(false);
         }
+
+
       } catch (e) {
         console.error("❌ No se pudo cargar el plan personalizado:", e?.message);
         setNConexiones(0);
@@ -249,7 +262,7 @@ export default function CardPlanPersonalizado({
           <div className="mt-6">
             <button
               onClick={handleCheckout}
-              disabled={disabled || currentPlanId === plan.id_plan}
+              disabled={disabled || (esPlanPersonalizado && currentPlanId === plan.id_plan)}
               className={`w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
                 currentPlanId === plan.id_plan
                   ? "bg-slate-200 text-slate-500 cursor-not-allowed"
@@ -258,7 +271,10 @@ export default function CardPlanPersonalizado({
                   : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
               }`}
             >
-              {currentPlanId === plan.id_plan ? "Tienes este plan actualmente" : "Seleccionar"}
+              {esPlanPersonalizado && currentPlanId === plan.id_plan
+                ? "Tienes este plan actualmente"
+                : "Seleccionar"}
+
             </button>
           </div>
         </div>
