@@ -11,169 +11,162 @@ export default function CardPlanPersonalizado({
 }) {
   const [nConexiones, setNConexiones] = useState(null);
   const [maxSubusuarios, setMaxSubusuarios] = useState(null);
-
-  // Datos opcionales que puede devolver el nuevo endpoint
-  const [totalDesdeAPI, setTotalDesdeAPI] = useState(null); // { base_cents, conn_addon_cents, sub_addon_cents, total_cents, intervalo }
   const [idPlanBasePersonalizado, setIdPlanBasePersonalizado] = useState(null);
-  const [esPlanPersonalizado, setEsPlanPersonalizado] = useState(false);
-
-  // Cargar la configuración actual del plan personalizado
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    const fetchFromMiPlanPersonalizado = async () => {
-      // Nuevo endpoint agregado en backend: GET /api/v1/stripe_plan/miPlanPersonalizado
-      const resp = await chatApi.get("/stripe_plan/miPlanPersonalizado", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const payload = resp?.data?.data || null;
-      if (!payload) return false;
-
-      const per = payload.personalizado || null; // { id_plan_base, n_conexiones, max_subusuarios }
-      const base = payload.base_plan || null;    // { id_plan, nombre_plan, ... }
-      const s    = payload.stripe || null;       // { base_cents, conn_addon_cents, sub_addon_cents, total_cents, intervalo }
-      const esActual = Boolean(payload.es_actual);
-
-      if (per) {
-        const nConn = clamp(Number(per.n_conexiones ?? 0), 0, 10);
-        const nSubs = clamp(Number(per.max_subusuarios ?? 0), 0, 10);
-        setNConexiones(nConn);
-        setMaxSubusuarios(nSubs);
-        setIdPlanBasePersonalizado(Number(per.id_plan_base ?? base?.id_plan ?? 5));
-        setTotalDesdeAPI(s || null);
-
-        // Esta card es la actual si el backend dice es_actual y el plan base coincide con la card
-        const esEstaCard = esActual && Number(base?.id_plan ?? per?.id_plan_base) === Number(plan.id_plan);
-        setEsPlanPersonalizado(esEstaCard);
-      } else {
-        // No hay personalizado
-        setNConexiones(0);
-        setMaxSubusuarios(0);
-        setIdPlanBasePersonalizado(null);
-        setTotalDesdeAPI(null);
-        setEsPlanPersonalizado(false);
-      }
-
-      return true;
-    };
-
-    const fetchFromObtenerPersonalizado = async () => {
-      // Fallback al endpoint existente: POST /api/v1/stripe_plan/obtenerPlanPersonalizadoUsuario
-      const resp = await chatApi.post(
-        "/stripe_plan/obtenerPlanPersonalizadoUsuario",
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      // Este endpoint suele devolver la fila en data.data
-      const row = resp?.data?.data || resp?.data?.plan_personalizado || null;
-
-      if (row) {
-        const nConn = clamp(Number(row.n_conexiones ?? 0), 0, 10);
-        const nSubs = clamp(Number(row.max_subusuarios ?? 0), 0, 10);
-        const planBase = Number(row.id_plan_base ?? row.id_plan ?? 5);
-
-        setNConexiones(nConn);
-        setMaxSubusuarios(nSubs);
-        setIdPlanBasePersonalizado(planBase);
-
-        // No tenemos bandera es_actual desde este endpoint, así que
-        // marcamos como actual si al menos coincide con esta card
-        setEsPlanPersonalizado(planBase === plan.id_plan);
-        setTotalDesdeAPI(null);
-      } else {
-        setNConexiones(0);
-        setMaxSubusuarios(0);
-        setIdPlanBasePersonalizado(null);
-        setEsPlanPersonalizado(false);
-        setTotalDesdeAPI(null);
-      }
-    };
-
-    (async () => {
-      try {
-        // 1) Intentar con el nuevo endpoint
-        const ok = await fetchFromMiPlanPersonalizado();
-        if (!ok) {
-          // 2) Si no existe o devuelve vacío, intentar con el endpoint anterior
-          await fetchFromObtenerPersonalizado();
-        }
-      } catch (e) {
-        // 3) Último fallback: endpoint anterior
-        try {
-          await fetchFromObtenerPersonalizado();
-        } catch (err) {
-          console.error("❌ No se pudo cargar el plan personalizado:", err?.message || err);
-          setNConexiones(0);
-          setMaxSubusuarios(0);
-          setIdPlanBasePersonalizado(null);
-          setEsPlanPersonalizado(false);
-          setTotalDesdeAPI(null);
-        }
-      }
-    })();
-  }, [plan?.id_plan]);
+  const [esEstaCardActual, setEsEstaCardActual] = useState(false);
 
   const MAX_CONEXIONES = 10;
   const MAX_SUBUSUARIOS = 10;
 
-  // Precio base desde Stripe/BD (fallback local)
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      // Sin token no podemos pedir la config → mostramos 0 pero no null
+      setNConexiones(0);
+      setMaxSubusuarios(0);
+      setIdPlanBasePersonalizado(null);
+      setEsEstaCardActual(Number(currentPlanId) === Number(plan.id_plan));
+      return;
+    }
+
+    // util: decodifica el jwt local para obtener id_usuario/id_users
+    const getUserIdFromToken = () => {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload?.id_usuario ?? payload?.id_users ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    const parseRow = (raw) => {
+      if (!raw) return null;
+      const row = Array.isArray(raw) ? raw[0] : raw;
+      return {
+        id_plan_base: Number(
+          row?.id_plan_base ?? row?.id_plan ?? row?.plan_base ?? NaN
+        ),
+        n_conexiones: Number(row?.n_conexiones ?? row?.conexiones ?? 0),
+        max_subusuarios: Number(row?.max_subusuarios ?? row?.subusuarios ?? 0),
+      };
+    };
+
+    const fetchPersonalizado = async () => {
+      try {
+        const id_usuario = getUserIdFromToken();
+        if (!id_usuario) {
+          throw new Error("Token sin id_usuario/id_users");
+        }
+
+        // ⚠️ IMPORTANTE: sin “/” inicial y MANDANDO id_usuario en el body
+        const resp = await chatApi.post(
+          "stripe_plan/obtenerPlanPersonalizadoUsuario",
+          { id_usuario },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        // La respuesta puede venir en distintas formas
+        const payload =
+          resp?.data?.data ??
+          resp?.data?.plan_personalizado ??
+          resp?.data ??
+          null;
+
+        const row = parseRow(payload);
+
+        if (row?.id_plan_base) {
+          const nConn = clamp(row.n_conexiones, 0, MAX_CONEXIONES);
+          const nSubs = clamp(row.max_subusuarios, 0, MAX_SUBUSUARIOS);
+
+          setNConexiones(nConn);
+          setMaxSubusuarios(nSubs);
+          setIdPlanBasePersonalizado(row.id_plan_base);
+
+          // Esta card se marca como actual si:
+          // 1) el plan activo del usuario coincide con esta card
+          // 2) o la configuración guardada (id_plan_base) coincide con esta card
+          const esActual =
+            Number(currentPlanId) === Number(plan.id_plan) ||
+            Number(row.id_plan_base) === Number(plan.id_plan);
+          setEsEstaCardActual(Boolean(esActual));
+        } else {
+          // No hay config guardada para este usuario
+          setNConexiones(0);
+          setMaxSubusuarios(0);
+          setIdPlanBasePersonalizado(null);
+          setEsEstaCardActual(Number(currentPlanId) === Number(plan.id_plan));
+        }
+      } catch (e) {
+        console.error(
+          "❌ obtenerPlanPersonalizadoUsuario:",
+          e?.response?.data || e.message
+        );
+        // Fallback seguro
+        setNConexiones(0);
+        setMaxSubusuarios(0);
+        setIdPlanBasePersonalizado(null);
+        setEsEstaCardActual(Number(currentPlanId) === Number(plan.id_plan));
+      }
+    };
+
+    fetchPersonalizado();
+  }, [plan?.id_plan, currentPlanId]);
+
+  // ====== Precios ======
   const s = stripeMap?.[plan.id_plan];
-  const baseCentsFallback = useMemo(() => {
+  const baseCents = useMemo(() => {
     if (s && typeof s.stripe_price === "number") return s.stripe_price;
     return Math.round(Number(plan.precio_plan || 0) * 100);
   }, [s, plan]);
 
-  // Intervalo mostrado
   const intervalo = useMemo(() => {
-    const i =
-      totalDesdeAPI?.intervalo ||
-      (s?.stripe_interval ? s.stripe_interval : "month");
-    return i === "year" ? "año" : "mes";
-  }, [totalDesdeAPI?.intervalo, s?.stripe_interval]);
+    const iv = s?.stripe_interval === "year" ? "año" : "mes";
+    return iv || "mes";
+  }, [s?.stripe_interval]);
 
-  // Addons (fallback local)
-  const connCentsFallback = Number(addons?.conexion?.unit_amount || 0);
-  const subCentsFallback = Number(addons?.subusuario?.unit_amount || 0);
-
-  // Total mostrado (prioriza lo calculado por backend)
-  const totalCents = useMemo(() => {
-    if (typeof totalDesdeAPI?.total_cents === "number") {
-      return totalDesdeAPI.total_cents;
-    }
-    // Fallback al cálculo en el front
-    return (
-      Number(baseCentsFallback || 0) +
-      Number(nConexiones || 0) * connCentsFallback +
-      Number(maxSubusuarios || 0) * subCentsFallback
+  // Si existen addons específicos de personalizado, se usan; si no, los generales
+  const connCents = useMemo(() => {
+    return Number(
+      addons?.personalizado?.conexion?.unit_amount ??
+        addons?.conexion?.unit_amount ??
+        0
     );
-  }, [
-    totalDesdeAPI?.total_cents,
-    baseCentsFallback,
-    nConexiones,
-    maxSubusuarios,
-    connCentsFallback,
-    subCentsFallback,
-  ]);
+  }, [addons]);
+
+  const subCents = useMemo(() => {
+    return Number(
+      addons?.personalizado?.subusuario?.unit_amount ??
+        addons?.subusuario?.unit_amount ??
+        0
+    );
+  }, [addons]);
+
+  const totalCents = useMemo(() => {
+    const n = Number(nConexiones || 0);
+    const sbs = Number(maxSubusuarios || 0);
+    return Number(baseCents || 0) + n * connCents + sbs * subCents;
+  }, [baseCents, nConexiones, maxSubusuarios, connCents, subCents]);
 
   const totalFmt = (totalCents / 100).toFixed(2);
 
-  // Deshabilitar checkout si no hay cantidades o si esta card ya es la actual
-  const esEstaCardLaActual =
-    esPlanPersonalizado || Number(currentPlanId) === Number(plan.id_plan);
+  // ====== UI / Controles ======
   const disabledPorCantidades =
     Number(nConexiones) === 0 && Number(maxSubusuarios) === 0;
 
   const incCon = () => {
+    if (esEstaCardActual) return;
     if (nConexiones < MAX_CONEXIONES) setNConexiones(nConexiones + 1);
   };
   const decCon = () => {
+    if (esEstaCardActual) return;
     if (nConexiones > 0) setNConexiones(nConexiones - 1);
   };
   const incSub = () => {
+    if (esEstaCardActual) return;
     if (maxSubusuarios < MAX_SUBUSUARIOS)
       setMaxSubusuarios(maxSubusuarios + 1);
   };
   const decSub = () => {
+    if (esEstaCardActual) return;
     if (maxSubusuarios > 0) setMaxSubusuarios(maxSubusuarios - 1);
   };
 
@@ -226,6 +219,11 @@ export default function CardPlanPersonalizado({
     return <div>Cargando plan personalizado...</div>;
   }
 
+  const botonDeshabilitado = esEstaCardActual || disabledPorCantidades;
+  const textoBoton = esEstaCardActual
+    ? "Tienes este plan actualmente"
+    : "Seleccionar";
+
   return (
     <div className="relative group rounded-2xl p-[1px] transition-all duration-300 ease-out hover:-translate-y-1 h-full">
       <div
@@ -236,9 +234,8 @@ export default function CardPlanPersonalizado({
           h-full flex flex-col
         "
       >
-        {/* Contenido */}
         <div className="px-6 pt-16 pb-6 md:px-7 md:pt-20 md:pb-7 flex flex-col h-full">
-          {/* Título y descripción */}
+          {/* Título */}
           <div className="text-center min-h-[92px]">
             <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">
               {plan?.nombre_plan || "Plan Personalizado"}
@@ -268,8 +265,8 @@ export default function CardPlanPersonalizado({
                 <button
                   className="px-2 py-1 border border-slate-300 rounded-md"
                   onClick={decCon}
-                  disabled={esEstaCardLaActual}
-                  title={esEstaCardLaActual ? "Este es tu plan activo" : ""}
+                  disabled={esEstaCardActual}
+                  title={esEstaCardActual ? "Este es tu plan activo" : ""}
                 >
                   -
                 </button>
@@ -279,8 +276,8 @@ export default function CardPlanPersonalizado({
                 <button
                   className="px-2 py-1 border border-slate-300 rounded-md"
                   onClick={incCon}
-                  disabled={esEstaCardLaActual}
-                  title={esEstaCardLaActual ? "Este es tu plan activo" : ""}
+                  disabled={esEstaCardActual}
+                  title={esEstaCardActual ? "Este es tu plan activo" : ""}
                 >
                   +
                 </button>
@@ -298,8 +295,8 @@ export default function CardPlanPersonalizado({
                 <button
                   className="px-2 py-1 border border-slate-300 rounded-md"
                   onClick={decSub}
-                  disabled={esEstaCardLaActual}
-                  title={esEstaCardLaActual ? "Este es tu plan activo" : ""}
+                  disabled={esEstaCardActual}
+                  title={esEstaCardActual ? "Este es tu plan activo" : ""}
                 >
                   -
                 </button>
@@ -309,8 +306,8 @@ export default function CardPlanPersonalizado({
                 <button
                   className="px-2 py-1 border border-slate-300 rounded-md"
                   onClick={incSub}
-                  disabled={esEstaCardLaActual}
-                  title={esEstaCardLaActual ? "Este es tu plan activo" : ""}
+                  disabled={esEstaCardActual}
+                  title={esEstaCardActual ? "Este es tu plan activo" : ""}
                 >
                   +
                 </button>
@@ -352,16 +349,16 @@ export default function CardPlanPersonalizado({
           <div className="mt-6">
             <button
               onClick={handleCheckout}
-              disabled={disabledPorCantidades || esEstaCardLaActual}
+              disabled={botonDeshabilitado}
               className={`w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                esEstaCardLaActual
+                esEstaCardActual
                   ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                   : disabledPorCantidades
                   ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                   : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
               }`}
             >
-              {esEstaCardLaActual ? "Tienes este plan actualmente" : "Seleccionar"}
+              {textoBoton}
             </button>
           </div>
         </div>
@@ -370,8 +367,7 @@ export default function CardPlanPersonalizado({
   );
 }
 
-/* utils */
 function clamp(n, min, max) {
-  if (Number.isNaN(n)) return min;
-  return Math.max(min, Math.min(max, n));
+  const x = Number.isFinite(n) ? n : min;
+  return Math.max(min, Math.min(max, x));
 }
