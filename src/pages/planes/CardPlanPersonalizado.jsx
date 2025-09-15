@@ -1,5 +1,5 @@
 // src/pages/planes/CardPlanPersonalizado.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 
@@ -9,8 +9,39 @@ export default function CardPlanPersonalizado({
   currentPlanId,
   addons,
 }) {
-  const [nConexiones, setNConexiones] = useState(0);
-  const [maxSubusuarios, setMaxSubusuarios] = useState(0);
+  const [nConexiones, setNConexiones] = useState(null);
+  const [maxSubusuarios, setMaxSubusuarios] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const fetchPersonalizado = async () => {
+      try {
+        const { data } = await chatApi.post(
+          "/stripe_plan/obtenerPlanPersonalizadoUsuario",
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (data?.plan_personalizado) {
+          setNConexiones(data.plan_personalizado.n_conexiones);
+          setMaxSubusuarios(data.plan_personalizado.max_subusuarios);
+        } else {
+          setNConexiones(0);
+          setMaxSubusuarios(0);
+        }
+      } catch (e) {
+        console.error("❌ No se pudo cargar el plan personalizado:", e?.message);
+        setNConexiones(0);
+        setMaxSubusuarios(0);
+      }
+    };
+    fetchPersonalizado();
+  }, []);
+
+
 
   const MAX_CONEXIONES = 10;
   const MAX_SUBUSUARIOS = 10;
@@ -46,6 +77,7 @@ export default function CardPlanPersonalizado({
   const decSub = () => {
     if (maxSubusuarios > 0) setMaxSubusuarios(maxSubusuarios - 1);
   };
+
 
   const IconoCheck = () => (
     <svg
@@ -106,8 +138,13 @@ export default function CardPlanPersonalizado({
     { label: "IA de agendamiento de citas", enabled: true },
     { label: "Calendario de programación de citas", enabled: true },
   ];
+  if (nConexiones === null || maxSubusuarios === null) {
+    return <div>Cargando plan personalizado...</div>;
+  }
 
   return (
+
+    
     <div className="relative group rounded-2xl p-[1px] transition-all duration-300 ease-out hover:-translate-y-1 h-full">
       <div
         className="
