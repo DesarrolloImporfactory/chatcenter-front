@@ -78,6 +78,8 @@ export const Sidebar = ({
   scrollRef,
   handleScrollMensajes,
   id_plataforma_conf,
+  setSelectedPedidos_confirmados,
+  selectedPedidos_confirmados,
 }) => {
   // —— Estilos consistentes para react-select ———————————————————————
   const selectStyles = useMemo(
@@ -409,6 +411,23 @@ export const Sidebar = ({
                 : "max-h-0 overflow-hidden opacity-0"
             }`}
           >
+            {/* Pedidos Confirmados */}
+            {id_plataforma_conf !== null && (
+              <Select
+                isClearable
+                options={[
+                  { value: "1", label: "Pedidos confirmados" },
+                  { value: "0", label: "Pedidos no confirmados" },
+                ]}
+                value={selectedPedidos_confirmados}
+                onChange={(opt) => setSelectedPedidos_confirmados(opt)}
+                placeholder="Seleccione pedidos confirmados"
+                className="w-full"
+                classNamePrefix="react-select"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
+            )}
             {/* Etiquetas */}
             <Select
               isMulti
@@ -606,7 +625,11 @@ export const Sidebar = ({
                   key={mensaje.id}
                   onClick={() => handleSelectChat(mensaje)}
                   className={`group relative cursor-pointer px-3 py-2 transition hover:bg-slate-50 sm:px-4 ${
-                    seleccionado ? "bg-slate-50" : "bg-white"
+                    seleccionado
+                      ? "bg-slate-50"
+                      : mensaje.pedido_confirmado === 1
+                      ? "bg-green-300"
+                      : "bg-white"
                   }`}
                 >
                   <div className="grid grid-cols-[3rem_1fr_auto] grid-rows-[auto_auto] items-center gap-x-3">

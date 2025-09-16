@@ -1264,6 +1264,8 @@ const Chat = () => {
   const [selectedEstado, setSelectedEstado] = useState([]);
   const [selectedTransportadora, setSelectedTransportadora] = useState(null);
   const [selectedNovedad, setSelectedNovedad] = useState(null);
+  const [selectedPedidos_confirmados, setSelectedPedidos_confirmados] =
+    useState([]);
   const [selectedTab, setSelectedTab] = useState("abierto");
   const [filteredChats, setFilteredChats] = useState([]);
   const [offset, setOffset] = useState(0);
@@ -1604,6 +1606,7 @@ const Chat = () => {
             selectedTransportadora,
             selectedNovedad,
             selectedTab,
+            selectedPedidos_confirmados,
           },
         }
       );
@@ -1805,6 +1808,7 @@ const Chat = () => {
               selectedTransportadora,
               selectedNovedad,
               selectedTab,
+              selectedPedidos_confirmados,
             },
           }
         );
@@ -1852,6 +1856,7 @@ const Chat = () => {
               selectedTransportadora,
               selectedNovedad,
               selectedTab,
+              selectedPedidos_confirmados,
             },
           }
         );
@@ -1876,6 +1881,7 @@ const Chat = () => {
     selectedTransportadora,
     selectedNovedad,
     selectedTab,
+    selectedPedidos_confirmados,
   ]);
 
   function cargar_socket() {
@@ -1903,6 +1909,7 @@ const Chat = () => {
             selectedTransportadora,
             selectedNovedad,
             selectedTab,
+            selectedPedidos_confirmados,
           },
         }
       );
@@ -2603,6 +2610,8 @@ const Chat = () => {
         scrollRef={scrollRef}
         handleScrollMensajes={handleScrollMensajes}
         id_plataforma_conf={id_plataforma_conf}
+        selectedPedidos_confirmados={selectedPedidos_confirmados}
+        setSelectedPedidos_confirmados={setSelectedPedidos_confirmados}
       />
       {/* todos los mensajes */}
       <ChatPrincipal
