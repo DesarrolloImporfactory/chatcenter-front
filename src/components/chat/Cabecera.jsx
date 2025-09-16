@@ -494,10 +494,16 @@ const Cabecera = ({
                 `}
             >
               Calendario
-              {isCalendarBlocked && (
+              {isCalendarBlocked ? (
                 <span className="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
                   Bloqueado
                 </span>
+              ) : (
+                canAccessCalendar === true && (
+                  <span className="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
+                    Beta
+                  </span>
+                )
               )}
             </span>
           </a>

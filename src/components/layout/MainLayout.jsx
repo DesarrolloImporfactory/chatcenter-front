@@ -28,10 +28,10 @@ function MainLayout({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-  const handler = (e) => setId_plataforma_conf(e.detail.id ?? null);
-  window.addEventListener("imporsuit:linked", handler);
-  return () => window.removeEventListener("imporsuit:linked", handler);
-}, []);
+    const handler = (e) => setId_plataforma_conf(e.detail.id ?? null);
+    window.addEventListener("imporsuit:linked", handler);
+    return () => window.removeEventListener("imporsuit:linked", handler);
+  }, []);
 
   useEffect(() => {
     const idp = localStorage.getItem("id_plataforma_conf");
@@ -499,9 +499,13 @@ function MainLayout({ children }) {
                 `}
               >
                 Calendario
-                {isCalendarBlocked && (
+                {isCalendarBlocked ? (
                   <span className="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
                     Bloqueado
+                  </span>
+                ) : (
+                  <span className="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
+                    Beta
                   </span>
                 )}
               </span>

@@ -91,19 +91,21 @@ const Conexiones = () => {
       });
 
       // Optimista: esconder de la UI
-      setConfiguracionAutomatizada(prev => prev.filter(c => c.id !== config.id));
+      setConfiguracionAutomatizada((prev) =>
+        prev.filter((c) => c.id !== config.id)
+      );
 
       setStatusMessage({ type: "success", text: "Conexión eliminada." });
     } catch (err) {
       setStatusMessage({
         type: "error",
-        text: err?.response?.data?.message || "No se pudo suspender la conexión.",
+        text:
+          err?.response?.data?.message || "No se pudo suspender la conexión.",
       });
     } finally {
       setSuspendiendoId(null);
     }
   };
-
 
   /* SDK Facebook (sin cambios de lógica) */
   useEffect(() => {
@@ -189,6 +191,128 @@ const Conexiones = () => {
       }
     );
   };
+
+  const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
+
+  // NUEVO: abre el flujo OAuth del backend (construye la login URL y redirige)
+  const handleConectarFacebookInbox = async (config) => {
+    try {
+      // guardo la config para usarla al volver del callback
+      localStorage.setItem("id_configuracion_fb", String(config.id));
+
+      const { data } = await chatApi.get("/messenger/facebook/login-url", {
+        params: {
+          id_configuracion: config.id, // 👈 usamos id_configuracion
+          redirect_uri: window.location.origin + "/conexionespruebas", //Oauth validado en meta
+          config_id: FB_FBL_CONFIG_ID_MESSENGER,
+        },
+      });
+      window.location.href = data.url; // redirige al diálogo de Facebook
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Error",
+        "No se pudo iniciar la conexión con Facebook.",
+        "error"
+      );
+    }
+  };
+
+  // NUEVO: selector de página con SweetAlert (drop-down)
+  const pickPageWithSwal = async (pages) => {
+    // pages: [{id, name}]
+    const inputOptions = pages.reduce((acc, p) => {
+      acc[p.id] = `${p.name} (ID: ${p.id})`;
+      return acc;
+    }, {});
+    const { value: pageId } = await Swal.fire({
+      title: "Selecciona la página a conectar",
+      input: "select",
+      inputOptions,
+      inputPlaceholder: "Página de Facebook",
+      showCancelButton: true,
+      confirmButtonText: "Conectar",
+      cancelButtonText: "Cancelar",
+    });
+    return pageId; // puede ser undefined si canceló
+  };
+
+  // NUEVO: al volver de Facebook con ?code=..., hacemos exchange -> list pages -> connect
+  useEffect(() => {
+    const run = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const error = params.get("error");
+      if (!code || error) return;
+
+      try {
+        const id_configuracion =
+          localStorage.getItem("id_configuracion_fb") ||
+          localStorage.getItem("id_configuracion") || // por si ya lo usas en otros flujos
+          "";
+
+        if (!id_configuracion) {
+          throw new Error("Falta id_configuracion para completar la conexión.");
+        }
+
+        // 1) Intercambia el code por token de usuario (largo) y crea la sesión OAuth
+        const { data: ex } = await chatApi.post(
+          "/messenger/facebook/oauth/exchange",
+          {
+            code,
+            id_configuracion, // 👈 server ya lo usa en tu versión
+            redirect_uri: window.location.origin + "/conexionespruebas",
+          }
+        );
+
+        // 2) Lista páginas del usuario (usando oauth_session_id)
+        const { data: pagesRes } = await chatApi.get(
+          "/messenger/facebook/pages",
+          { params: { oauth_session_id: ex.oauth_session_id } }
+        );
+
+        if (!pagesRes?.pages?.length) {
+          throw new Error(
+            "No se encontraron páginas en la cuenta de Facebook."
+          );
+        }
+
+        // 3) El usuario elige la página
+        const pageId = await pickPageWithSwal(pagesRes.pages);
+        if (!pageId) {
+          // Limpia la URL y aborta
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, "", cleanUrl);
+          return;
+        }
+
+        // 4) Conecta (suscribe y guarda token en DB)
+        await chatApi.post("/messenger/facebook/connect", {
+          oauth_session_id: ex.oauth_session_id,
+          id_configuracion,
+          page_id: pageId,
+        });
+
+        Swal.fire("¡Listo!", "Página conectada y suscrita ✅", "success");
+
+        // refresca tarjetas
+        await fetchConfiguracionAutomatizada();
+      } catch (e) {
+        console.error(e);
+        Swal.fire(
+          "Error",
+          e?.message || "No fue posible conectar la página",
+          "error"
+        );
+      } finally {
+        // Limpia querystring y storage temporal
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, "", cleanUrl);
+        localStorage.removeItem("id_configuracion_fb");
+      }
+    };
+    run();
+  }, []);
 
   /* Data */
   const fetchConfiguracionAutomatizada = useCallback(async () => {
@@ -452,16 +576,15 @@ const Conexiones = () => {
                           className={[
                             "shrink-0 w-10 h-10 rounded-xl grid place-items-center ring-1 transition",
                             "bg-rose-50 ring-rose-200 text-rose-600",
-                            suspendiendoId === config.id ? "opacity-60 cursor-not-allowed" : "hover:scale-105 hover:bg-rose-100"
+                            suspendiendoId === config.id
+                              ? "opacity-60 cursor-not-allowed"
+                              : "hover:scale-105 hover:bg-rose-100",
                           ].join(" ")}
                           title="Eliminar conexión"
                           aria-label="Eliminar conexión"
                         >
                           <i className="bx bx-trash text-xl"></i>
                         </button>
-
-
-
                       </div>
 
                       {/* Teléfono */}
@@ -492,6 +615,19 @@ const Conexiones = () => {
                           <i className="bx bx-cog text-2xl text-blue-600"></i>
                           <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                             Ir a configuración
+                          </span>
+                        </div>
+
+                        {/* Facebook Inbox (Messenger) */}
+                        <div
+                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
+                          onClick={() => handleConectarFacebookInbox(config)}
+                          title="Conectar Inbox de Messenger"
+                        >
+                          {/* usa el icono que prefieras. Si tienes boxicons: bxl-messenger / bxl-facebook */}
+                          <i className="bx bxl-messenger text-2xl"></i>
+                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                            Conectar Inbox de Messenger
                           </span>
                         </div>
 

@@ -1,5 +1,5 @@
 import Select from "react-select";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 // ——— Utils de texto ———
 const normalizeSpaces = (s = "") => String(s).replace(/\s+/g, " ").trim();
@@ -179,7 +179,8 @@ export const Sidebar = ({
     return estado_guia;
   };
 
-  // —— Render ————————————————————————————————————————————————
+  const [channelFilter, setChannelFilter] = useState("all");
+
   return (
     <aside
       ref={scrollRef}
@@ -190,7 +191,7 @@ export const Sidebar = ({
     >
       {/* Contenedor principal */}
       <div className="ml-3 mr-0 my-3 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
-        {/* Header pegajoso con tabs + búsqueda */}
+        {/* Header pegajoso con tabs + búsqueda/acciones */}
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
           {/* Tabs */}
           <div className="flex items-center justify-between px-4 pt-4">
@@ -218,14 +219,15 @@ export const Sidebar = ({
             </div>
           </div>
 
-          {/* Buscar + acciones */}
-          <div className="flex items-center gap-2 px-4 py-3">
+          {/* Toolbar en dos filas (más respiro visual) */}
+          <div className="px-4 py-3 space-y-3">
+            {/* Fila 1: Búsqueda */}
             <div className="relative w-full">
               <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar por nombre o número…"
-                className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-8 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                placeholder="Buscar por nombre o número de teléfono.."
+                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-10 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 aria-label="Buscar chats"
@@ -242,28 +244,163 @@ export const Sidebar = ({
               )}
             </div>
 
-            <button
-              onClick={setNumeroModal}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
-              title="Nuevo chat"
-              aria-label="Nuevo chat"
-            >
-              <i className="bx bx-plus text-xl" />
-            </button>
+            {/* Fila 2: Acciones (izq) + Canal (der) */}
+            <div className="flex items-center gap-3 w-full">
+              {/* Selector de canal (responsive, no desborda) */}
+              <details className="relative ml-auto shrink-0">
+                <summary
+                  className="list-none inline-flex w-[199px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none"
+                  title="Filtrar por canal"
+                  onClick={(e) => e.stopPropagation()} // evita interferencia con clicks cercanos
+                >
+                  {/* Ícono dinámico según canal seleccionado */}
+                  {(() => {
+                    if (channelFilter === "wa") {
+                      return (
+                        <i className="bx bxl-whatsapp text-lg text-green-600 shrink-0" />
+                      );
+                    }
+                    if (channelFilter === "ms") {
+                      return (
+                        <i className="bx bxl-messenger text-lg text-blue-600 shrink-0" />
+                      );
+                    }
+                    if (channelFilter === "ig") {
+                      return (
+                        <i className="bx bxl-instagram text-lg text-pink-500 shrink-0" />
+                      );
+                    }
+                    return (
+                      <i className="bx bx-layout text-lg text-slate-600 shrink-0" />
+                    );
+                  })()}
 
-            <button
-              onClick={handleFiltro_chats}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition ${
-                filtro_chats
-                  ? "border-blue-200 bg-blue-50 text-blue-600"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-              title="Mostrar filtros"
-              aria-expanded={!!filtro_chats}
-              aria-controls="sidebar-filtros"
-            >
-              <i className="bx bx-filter-alt text-xl" />
-            </button>
+                  {/* Texto visible también en móvil, truncable */}
+                  <span className="flex-1 min-w-0 whitespace-nowrap truncate">
+                    <span className="font-bold">
+                      {channelFilter === "wa"
+                        ? "WhatsApp"
+                        : channelFilter === "ms"
+                        ? "Messenger"
+                        : channelFilter === "ig"
+                        ? "Instagram"
+                        : "Todos los canales"}
+                    </span>
+                  </span>
+
+                  {/* Chevron */}
+                  <i className="bx bx-chevron-down text-lg ml-1 shrink-0" />
+                </summary>
+
+                {/* Menú con ancho fijo y sin desbordar en viewport */}
+                <div className="absolute right-0 mt-2 w-[199px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 z-30">
+                  <button
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
+                      channelFilter === "all"
+                        ? "bg-slate-100 text-slate-900"
+                        : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChannelFilter("all");
+                      const d = e.currentTarget.closest("details");
+                      if (d) d.open = false;
+                    }}
+                  >
+                    <i className="bx bx-layout text-base text-slate-500" />
+                    Todos los canales
+                  </button>
+
+                  <button
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
+                      channelFilter === "wa"
+                        ? "bg-slate-100 text-slate-900"
+                        : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChannelFilter("wa");
+                      const d = e.currentTarget.closest("details");
+                      if (d) d.open = false;
+                    }}
+                  >
+                    <i className="bx bxl-whatsapp text-base text-green-600" />
+                    WhatsApp
+                  </button>
+
+                  <button
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
+                      channelFilter === "ms"
+                        ? "bg-slate-100 text-slate-900"
+                        : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChannelFilter("ms");
+                      const d = e.currentTarget.closest("details");
+                      if (d) d.open = false;
+                    }}
+                  >
+                    <i className="bx bxl-messenger text-base text-blue-600" />
+                    Messenger
+                  </button>
+
+                  <button
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${
+                      channelFilter === "ig"
+                        ? "bg-slate-100 text-slate-900"
+                        : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChannelFilter("ig");
+                      const d = e.currentTarget.closest("details");
+                      if (d) d.open = false;
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <i className="bx bxl-instagram text-base text-pink-500" />
+                      Instagram
+                    </span>
+                    <span className="rounded-full bg-pink-500 px-2 py-[1px] text-[10px] font-bold uppercase tracking-wider text-white">
+                      Próx.
+                    </span>
+                  </button>
+                </div>
+              </details>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // evita que interfiera con el <details> de al lado
+                  handleFiltro_chats();
+                }}
+                aria-pressed={!!filtro_chats}
+                className={`relative inline-flex h-11 items-center rounded-xl border px-3 text-slate-700 shadow-sm transition ${
+                  filtro_chats
+                    ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+                title="Mostrar filtros"
+                aria-controls="sidebar-filtros"
+              >
+                <i className="bx bx-filter-alt text-xl" />
+                <span className="ml-2 hidden text-sm md:inline font-bold">
+                  Filtros
+                </span>
+              </button>
+              <button
+                onClick={() => setNumeroModal(true)}
+                className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+                title="Nuevo chat"
+                aria-label="Nuevo chat"
+              >
+                <i className="bx bx-plus text-xl" />
+              </button>
+            </div>
           </div>
 
           {/* Panel de filtros (colapsable) */}
@@ -288,7 +425,7 @@ export const Sidebar = ({
               styles={selectStyles}
             />
 
-            {/* Novedad */}
+            {/* Novedad (si hay plataforma) */}
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
@@ -419,34 +556,54 @@ export const Sidebar = ({
 
         {/* Lista de chats */}
         <ul className="divide-y divide-slate-100 flex-1">
-          {filteredChats.length === 0 ? (
-            mensajesAcumulados.length === 0 ? (
-              <div className="flex h-64 items-center justify-center">
-                {Loading ? (
-                  <Loading />
-                ) : (
-                  <div className="text-slate-500">Cargando…</div>
-                )}
-              </div>
-            ) : (
-              <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
-                <i className="bx bx-chat text-4xl" />
-                <p className="text-sm">
-                  No se encontraron chats con esos filtros.
-                </p>
-              </div>
-            )
-          ) : (
-            filteredChats.slice(0, mensajesVisibles).map((mensaje) => {
+          {(() => {
+            // Filtra por canal: 'wa' | 'ms' | 'ig' | 'all'
+            const list =
+              channelFilter === "ms"
+                ? filteredChats.filter((c) => c.source === "ms")
+                : channelFilter === "wa"
+                ? filteredChats.filter((c) => c.source !== "ms")
+                : channelFilter === "ig"
+                ? [] // sin IG aún
+                : filteredChats;
+
+            if (channelFilter === "ig") {
+              return (
+                <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
+                  <i className="bx bxl-instagram text-4xl text-pink-500/70" />
+                  <p className="text-sm font-semibold">Instagram</p>
+                  <p className="text-xs">¡Próximamente en este panel!</p>
+                </div>
+              );
+            }
+
+            if (list.length === 0) {
+              return mensajesAcumulados.length === 0 ? (
+                <div className="flex h-64 items-center justify-center">
+                  {Loading ? (
+                    <Loading />
+                  ) : (
+                    <div className="text-slate-500">Cargando…</div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
+                  <i className="bx bx-chat text-4xl" />
+                  <p className="text-sm">
+                    No se encontraron chats con esos filtros.
+                  </p>
+                </div>
+              );
+            }
+
+            return list.slice(0, mensajesVisibles).map((mensaje) => {
               const { color, estado_guia } = obtenerEstadoGuia(
                 mensaje.transporte,
                 mensaje.estado_factura,
                 mensaje.novedad_info
               );
-
               const seleccionado = selectedChat === mensaje;
 
-              // Render de línea
               return (
                 <li
                   key={mensaje.id}
@@ -465,14 +622,18 @@ export const Sidebar = ({
                       }`}
                     >
                       <img
-                        src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                        src={
+                          mensaje.profile_pic_url
+                            ? mensaje.profile_pic_url
+                            : "https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                        }
                         alt="Avatar"
                         className="h-full w-full object-cover"
                         loading="lazy"
                       />
                     </div>
 
-                    {/* Nombre (fila 1, centro) */}
+                    {/* Nombre */}
                     <div className="min-w-0 col-[2] flex items-center gap-2">
                       <span className="truncate text-sm font-semibold text-slate-900">
                         {acortarTexto(
@@ -483,7 +644,7 @@ export const Sidebar = ({
                       </span>
                     </div>
 
-                    {/* Lateral derecho (fila 1, derecha) */}
+                    {/* Lateral derecho */}
                     <div className="col-[3] row-[1] flex shrink-0 flex-col items-end gap-1">
                       {estado_guia && (
                         <span
@@ -505,20 +666,24 @@ export const Sidebar = ({
                       )}
                     </div>
 
-                    {/* Fila 2: teléfono + preview, ocupando hasta la derecha */}
+                    {/* Teléfono + preview */}
                     <div className="col-[2/4] min-w-0 flex items-center gap-2 text-xs text-slate-500">
                       <span
                         className="whitespace-nowrap"
                         title={mensaje.celular_cliente}
                       >
-                        {mensaje.celular_cliente}
+                        {mensaje.source === "ms"
+                          ? "Facebook"
+                          : mensaje.celular_cliente}
                       </span>
 
                       {mensaje.source === "ms" && (
                         <span className="ml-2 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                          <i className="bx bxl-messenger mr-1 text-base" />
                           Messenger
                         </span>
                       )}
+
                       <span className="select-none text-slate-300">•</span>
 
                       <span className="truncate" title={mensaje.texto_mensaje}>
@@ -552,10 +717,18 @@ export const Sidebar = ({
                   </div>
                 </li>
               );
-            })
-          )}
+            });
+          })()}
 
-          {mensajesVisibles < filteredChats.length && (
+          {/* Loader "cargando más" respetando el filtro de canal */}
+          {mensajesVisibles <
+            (channelFilter === "ms"
+              ? filteredChats.filter((c) => c.source === "ms").length
+              : channelFilter === "wa"
+              ? filteredChats.filter((c) => c.source !== "ms").length
+              : channelFilter === "ig"
+              ? 0
+              : filteredChats.length) && (
             <div className="flex justify-center py-4">
               <span className="animate-pulse text-sm text-slate-500">
                 Cargando más chats…

@@ -523,6 +523,13 @@ const ChatPrincipal = ({
     }
   };
 
+  const [hide24hBanner, setHide24hBanner] = useState(false);
+
+  // cuando cambia el chat seleccionado, resetea
+  useEffect(() => {
+    setHide24hBanner(false);
+  }, [selectedChat?.id, selectedChat?.source]);
+
   return (
     <>
       <div
@@ -539,12 +546,12 @@ const ChatPrincipal = ({
       >
         {/* Si no hay chat seleccionado */}
         {selectedChat === null ? (
-          <div className="flex justify-center items-center h-[calc(80vh_-_110px)]">
-            <img
-              src="https://new.imporsuitpro.com/public/img/banner_chat_center.gif"
-              alt="Sin chat seleccionado"
-              className="w-[38em]"
-            />
+          <div className="flex h-[calc(80vh_-_110px)] items-center justify-center">
+            <i className="bx bx-chat text-4xl text-slate-500 m-3" />
+
+            <p className="text-5x1 text-slate-500 -mt-1 ">
+              Seleccione una conversación para empezar a chatear
+            </p>
           </div>
         ) : (
           <div className="flex flex-col h-[calc(100vh_-_110px)] relative">
@@ -885,36 +892,94 @@ const ChatPrincipal = ({
               <ScrollToBottomButton containerRef={chatContainerRef} />
             </div>
 
-            {/* ALTO: Lógica de 24 horas */}
-            {ultimoMensaje &&
+            {/* Ventana de 24 horas (UI informativa por canal) */}
+            {selectedChat &&
+              !hide24hBanner &&
               (() => {
-                const fechaUltimoMensaje = new Date(ultimoMensaje.created_at);
-                const fechaActual = new Date();
-                const diferenciaHoras =
-                  (fechaActual - fechaUltimoMensaje) / (1000 * 60 * 60);
+                const isMessenger = selectedChat.source === "ms";
+                const refDateISO = isMessenger
+                  ? selectedChat.last_incoming_at ||
+                    selectedChat.mensaje_created_at
+                  : ultimoMensaje?.created_at;
 
-                if (diferenciaHoras > 24) {
+                if (!refDateISO) return null;
+
+                const diffHrs =
+                  (Date.now() - new Date(refDateISO).getTime()) /
+                  (1000 * 60 * 60);
+
+                if (diffHrs <= 24) return null;
+
+                // WhatsApp
+                if (!isMessenger) {
                   return (
                     <div className="absolute bottom-[0%] bg-yellow-100 border border-yellow-500 rounded shadow-lg p-4 w-full z-10">
-                      <p className="text-sm text-yellow-700">
-                        <strong>Atención: </strong>Han pasado más de 24 horas
-                        desde la última interacción con el cliente, para empezar
-                        la conversación en Whatsapp API se requiere una
-                        plantilla de Facebook.
-                      </p>
-                      <button
-                        className="mt-3 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-all duration-200"
-                        onClick={() => {
-                          handleSelectPhoneNumber(selectedChat.celular_cliente);
-                          setNumeroModal(true);
-                        }}
-                      >
-                        Click para responder con plantilla
-                      </button>
+                      <div className="flex items-start gap-3">
+                        <p className="text-sm text-yellow-700 flex-1">
+                          <strong>Atención: </strong>Han pasado más de 24 horas.
+                          En WhatsApp API necesitas responder con una{" "}
+                          <b>plantilla</b>.
+                        </p>
+                        <button
+                          className="text-yellow-700/70 hover:text-yellow-900"
+                          onClick={() => setHide24hBanner(true)}
+                          title="Cerrar"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-all duration-200"
+                          onClick={() => {
+                            handleSelectPhoneNumber(
+                              selectedChat.celular_cliente
+                            );
+                            setNumeroModal(true);
+                          }}
+                        >
+                          Responder con plantilla
+                        </button>
+                        <button
+                          className="px-3 py-2 rounded-md border border-yellow-400 text-yellow-700 hover:bg-yellow-50"
+                          onClick={() => setHide24hBanner(true)}
+                        >
+                          Entendido
+                        </button>
+                      </div>
                     </div>
                   );
                 }
-                return null;
+
+                // Messenger
+                return (
+                  <div className="absolute bottom-[0%] bg-blue-50 border border-blue-300 rounded shadow-lg p-4 w-full z-10">
+                    <div className="flex items-start gap-3">
+                      <p className="text-sm text-blue-800 flex-1">
+                        Han pasado más de 24 horas. Al enviar, usaré la etiqueta{" "}
+                        <b>HUMAN_AGENT</b> o el mensaje fallará por políticas de
+                        Meta.
+                      </p>
+                      <button
+                        className="text-blue-700/70 hover:text-blue-900"
+                        onClick={() => setHide24hBanner(true)}
+                        title="Cerrar"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="mt-3">
+                      <button
+                        className="px-3 py-2 rounded-md border border-blue-300 text-blue-700 hover:bg-blue-50"
+                        onClick={() => setHide24hBanner(true)}
+                      >
+                        Entendido
+                      </button>
+                    </div>
+                  </div>
+                );
               })()}
 
             {/* Campo para enviar mensajes */}

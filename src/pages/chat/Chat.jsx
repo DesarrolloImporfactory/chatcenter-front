@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { set, useForm } from "react-hook-form";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useForm } from "react-hook-form";
 import { addNumberThunk } from "../../store/slices/number.slice";
 import { useNavigate } from "react-router-dom";
 
@@ -9,7 +9,7 @@ import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
-import { da, es } from "date-fns/locale"; // Importa el locale para español
+import { es } from "date-fns/locale"; // Importa el locale para español
 
 import Cabecera from "../../components/chat/Cabecera";
 import { Sidebar } from "../../components/chat/Sidebar";
@@ -22,29 +22,28 @@ import SwitchBot from "../../components/chat/SwitchBot";
 
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import { useMemo } from "react";
 
 // Mapeo de conversaciones Messenger -> formato Sidebar
 function mapMsConvToSidebar(row) {
-  // elige fecha segura: last_message_at || mensaje_created_at || updated_at || first_contact_at
   const rawFecha =
     row.last_message_at ??
     row.mensaje_created_at ??
     row.updated_at ??
     row.first_contact_at ??
     null;
-
-  // normaliza a ISO string para tu formatFecha (que espera algo parseable)
   const d =
     rawFecha instanceof Date
       ? rawFecha
       : rawFecha
       ? new Date(rawFecha)
       : new Date();
-  const mensaje_created_at = isNaN(+d) ? new Date() : d; // evita Invalid Date
+  const mensaje_created_at = isNaN(+d) ? new Date() : d;
 
   return {
     id: row.id,
     source: "ms",
+    page_id: row.page_id,
     mensaje_created_at: mensaje_created_at.toISOString(),
     texto_mensaje: row.preview ?? row.texto_mensaje ?? "",
     celular_cliente: row.psid ?? row.celular_cliente,
@@ -53,27 +52,13 @@ function mapMsConvToSidebar(row) {
     nombre_cliente:
       row.customer_name ??
       row.nombre_cliente ??
-      `Facebook • ${String((row.psid ?? row.celular_cliente) || "").slice(-6)}`,
+      (row.psid ? `Facebook • ${String(row.psid).slice(-6)}` : "Facebook"),
+    profile_pic_url: row.profile_pic_url || null,
     id_encargado: row.id_encargado ?? null,
     etiquetas: [],
     transporte: null,
     estado_factura: null,
     novedad_info: null,
-  };
-}
-
-// Mapeo de mensajes Messenger -> formato ChatPrincipal
-function mapMsMessageToUI(m) {
-  return {
-    id: m.id,
-    rol_mensaje: m.rol_mensaje, // 1 = out, 0 = in
-    texto_mensaje: m.texto_mensaje || "",
-    tipo_mensaje: m.tipo_mensaje || "text",
-    ruta_archivo: m.ruta_archivo || null,
-    mid_mensaje: m.mid_mensaje || null,
-    visto: m.visto || 0,
-    created_at: m.created_at,
-    responsable: m.responsable || "",
   };
 }
 
@@ -379,6 +364,31 @@ const Chat = () => {
           new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
       );
     });
+
+    // 🔄 Refresca perfiles que falten (nombre/foto) y vuelve a pedir la lista
+    try {
+      await chatApi.post("/messenger/profiles/refresh-missing", {
+        id_configuracion,
+        limit: 50,
+      });
+
+      const again = await chatApi.get("/messenger/conversations", {
+        params: { id_configuracion, limit: 50 },
+      });
+      const againItems = (again.data.items || []).map(mapMsConvToSidebar);
+      setMensajesAcumulados((prev) => {
+        const byKey = new Map(
+          prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
+        );
+        for (const it of againItems) byKey.set(`ms:${it.id}`, it);
+        return Array.from(byKey.values()).sort(
+          (a, b) =>
+            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+        );
+      });
+    } catch (err) {
+      console.warn("Profiles refresh error:", err);
+    }
   }
 
   useEffect(() => {
@@ -386,6 +396,23 @@ const Chat = () => {
       fetchMsConversations();
     }
   }, [isSocketConnected, id_configuracion]);
+
+  // Mapeo de mensajes Messenger -> formato ChatPrincipal
+  function mapMsMessageToUI(m) {
+    return {
+      id: m.id,
+      rol_mensaje: m.rol_mensaje, // 1 = out, 0 = in
+      texto_mensaje: m.texto_mensaje || "",
+      tipo_mensaje: m.tipo_mensaje || "text",
+      ruta_archivo: m.ruta_archivo || null,
+      mid_mensaje: m.mid_mensaje || null,
+      visto: m.visto || 0,
+      created_at: m.created_at,
+      // ⬇️ si viene desde /messages (REST) usa el join "responsable"; fallback a tu global
+      responsable:
+        m.rol_mensaje === 1 ? m.responsable || nombre_encargado_global : "",
+    };
+  }
 
   async function openMessengerConversation(conv) {
     setActiveChannel("messenger");
@@ -791,14 +818,14 @@ const Chat = () => {
     }
   };
 
-  const getOrderedChats = () => {
+  const getOrderedChats = useCallback(() => {
     const todosLosMensajes = chatMessages.flatMap((chat) => chat.mensajes);
     return todosLosMensajes.sort((a, b) => {
       const fechaA = new Date(a.created_at);
       const fechaB = new Date(b.created_at);
       return fechaA - fechaB;
     });
-  };
+  }, [chatMessages]);
 
   const handleOptionSelect = (option) => {
     setMensaje(option); // Pon el texto seleccionado en el campo de entrada
@@ -856,6 +883,7 @@ const Chat = () => {
     handleSubmit,
     register,
     setValue,
+    reset,
     formState: { errors },
   } = useForm();
 
@@ -918,8 +946,9 @@ const Chat = () => {
     if (!text || !selectedChat) return;
 
     if (selectedChat.source === "ms") {
-      // Enviar por Messenger (socket gateway)
-      const tempId = "tmp-" + Date.now();
+      const tempId =
+        "tmp-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+
       const optimistic = {
         id: tempId,
         rol_mensaje: 1,
@@ -927,14 +956,26 @@ const Chat = () => {
         tipo_mensaje: "text",
         created_at: new Date().toISOString(),
         visto: 0,
-        responsable: "Tú",
+        responsable: nombre_encargado_global,
       };
       setMensajesOrdenados((prev) => [...prev, optimistic]);
 
-      socketRef.current.emit("MS_SEND", {
+      const diffHrs =
+        (Date.now() - new Date(selectedChat.mensaje_created_at).getTime()) /
+        36e5;
+
+      const payload = {
         conversation_id: selectedChat.id,
         text,
-      });
+        ...(diffHrs > 24
+          ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
+          : {}),
+        agent_id: id_sub_usuario_global,
+        agent_name: nombre_encargado_global,
+        client_tmp_id: tempId,
+      };
+
+      socketRef.current.emit("MS_SEND", payload);
 
       setMensaje("");
       setFile(null);
@@ -952,7 +993,7 @@ const Chat = () => {
       id_configuracion: id_configuracion,
       file,
       dataAdmin,
-      nombre_encargado :nombre_encargado_global
+      nombre_encargado: nombre_encargado_global,
     });
   };
 
@@ -1229,10 +1270,14 @@ const Chat = () => {
   const [cursorFecha, setCursorFecha] = useState(null);
   const [cursorId, setCursorId] = useState(null);
 
-  const etiquetasOptions = etiquetas_api.map((etiqueta) => ({
-    value: etiqueta.id_etiqueta,
-    label: etiqueta.nombre_etiqueta,
-  }));
+  const etiquetasOptions = useMemo(
+    () =>
+      etiquetas_api.map((e) => ({
+        value: e.id_etiqueta,
+        label: e.nombre_etiqueta,
+      })),
+    [etiquetas_api]
+  );
 
   /* validador encargado selectedChat */
 
@@ -1344,17 +1389,50 @@ const Chat = () => {
     console.log("Chat asignado a otro usuario");
   };
 
-  useEffect(() => {
-    if (selectedChat && !selectedChat.id_encargado) {
-      /* if (rol_usuario_global == "administrador") {
-        showAsignarChatDialogAdministrador();
-      } else {
-        showAsignarChatDialog();
-      } */
+  // helper robusto
+  const isValidOwner = (v) => !(v === null || v === undefined || v === "null");
 
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    // 🔵 MESSENGER
+    if (selectedChat.source === "ms") {
+      // Si localmente ya consta encargado, no preguntar
+      if (isValidOwner(selectedChat.id_encargado)) return;
+
+      // Fallback: consulta al backend el estado real del encargado
+      (async () => {
+        try {
+          const { data } = await chatApi.get("/messenger/conversations", {
+            params: { id_configuracion, limit: 50 },
+          });
+          const owner =
+            data?.item?.id_encargado ??
+            data?.id_encargado ??
+            data?.encargado_id ??
+            null;
+
+          // actualiza el seleccionado con el valor real
+          setSelectedChat((prev) => ({ ...prev, id_encargado: owner }));
+
+          if (!isValidOwner(owner)) {
+            showAsignarChatDialog();
+          }
+        } catch (e) {
+          // si falla la verificación, como último recurso pregunta
+          showAsignarChatDialog();
+        }
+      })();
+
+      return; // no continuar con rama WhatsApp
+    }
+
+    // 🟢 WHATSAPP (igual que antes)
+    if (!isValidOwner(selectedChat.id_encargado)) {
       showAsignarChatDialog();
     }
-  }, [selectedChat]);
+    // ⚠️ Dependencias limitadas para no re-disparar innecesariamente
+  }, [selectedChat?.id, selectedChat?.source]);
 
   /* validador encargado selectedChat */
 
@@ -1377,7 +1455,7 @@ const Chat = () => {
     setMensaje(value);
 
     // Detecta si el texto es solo "/" y no hay texto previo
-    if (value === "/" && mensaje.length === 0) {
+    if (value.length === 1 && value === "/") {
       setIsCommandActive(true);
       setIsChatBlocked(true); // Bloquea el chat
 
@@ -2292,7 +2370,7 @@ const Chat = () => {
     if (!isSocketConnected || !socketRef.current) return;
 
     const onMsMessage = ({ conversation_id, message }) => {
-      const mapped = mapMsMessageToUI({
+      const mapped = {
         id: message.id,
         rol_mensaje: message.direction === "out" ? 1 : 0,
         texto_mensaje: message.text || "",
@@ -2303,17 +2381,43 @@ const Chat = () => {
         mid_mensaje: message.mid || null,
         visto: message.status === "read" ? 1 : 0,
         created_at: message.created_at || new Date().toISOString(),
-        responsable:
-          message.responsable || (message.direction === "out" ? "Página" : ""),
-      });
+        responsable: message.direction === "out" ? message.agent_name : "",
+        client_tmp_id: message.client_tmp_id || null, // 👈
+      };
 
-      // 1) Si estoy viendo esa conversación, pinto en vivo
       if (
         selectedChat?.source === "ms" &&
         Number(selectedChat.id) === Number(conversation_id)
       ) {
-        setMensajesOrdenados((prev) => [...prev, mapped]);
-        // Scroll al final, sin saltos
+        setMensajesOrdenados((prev) => {
+          // 1) reemplazo por client_tmp_id si viene
+          if (mapped.rol_mensaje === 1 && mapped.client_tmp_id) {
+            const idx = prev.findIndex((m) => m.id === mapped.client_tmp_id);
+            if (idx !== -1) {
+              const next = [...prev];
+              next[idx] = { ...mapped, id: mapped.id }; // sustituye el tmp por el real
+              return next;
+            }
+          }
+          // 2) fallback por mismo texto (tu heurística actual)
+          if (mapped.rol_mensaje === 1) {
+            const rprev = [...prev].reverse();
+            const idxRev = rprev.findIndex(
+              (m) =>
+                m.id?.startsWith?.("tmp-") &&
+                m.rol_mensaje === 1 &&
+                m.texto_mensaje === mapped.texto_mensaje
+            );
+            if (idxRev !== -1) {
+              const realIdx = prev.length - 1 - idxRev;
+              const next = [...prev];
+              next[realIdx] = mapped;
+              return next;
+            }
+          }
+          return [...prev, mapped];
+        });
+
         requestAnimationFrame(() => {
           if (chatContainerRef.current) {
             chatContainerRef.current.scrollTop =
@@ -2380,6 +2484,51 @@ const Chat = () => {
       socketRef.current?.off("MS_MESSAGE", onMsMessage);
       socketRef.current?.off("MS_CONV_UPSERT", onMsConvUpsert);
     };
+  }, [isSocketConnected, selectedChat]);
+
+  useEffect(() => {
+    if (!isSocketConnected || !socketRef.current) return;
+
+    const onMsSendError = ({ conversation_id, error, client_tmp_id }) => {
+      if (
+        !(
+          selectedChat?.source === "ms" &&
+          Number(selectedChat.id) === Number(conversation_id)
+        )
+      ) {
+        return;
+      }
+      const msgText =
+        error?.error?.message ||
+        (typeof error === "string" ? error : "No se pudo enviar el mensaje");
+
+      // Si tenemos client_tmp_id, marcamos ese; si no, marcamos el último tmp
+      setMensajesOrdenados((prev) => {
+        const next = [...prev];
+        let idx = -1;
+        if (client_tmp_id) {
+          idx = next.findIndex((m) => m.id === client_tmp_id);
+        }
+        if (idx === -1) {
+          idx = [...next]
+            .reverse()
+            .findIndex(
+              (m) => String(m.id).startsWith("tmp-") && m.rol_mensaje === 1
+            );
+          if (idx !== -1) idx = next.length - 1 - idx;
+        }
+        if (idx !== -1) {
+          next[idx] = {
+            ...next[idx],
+            error_meta: { mensaje_error: msgText },
+          };
+        }
+        return next;
+      });
+    };
+
+    socketRef.current.on("MS_SEND_ERROR", onMsSendError);
+    return () => socketRef.current.off("MS_SEND_ERROR", onMsSendError);
   }, [isSocketConnected, selectedChat]);
 
   return (
