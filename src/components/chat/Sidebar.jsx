@@ -366,9 +366,6 @@ export const Sidebar = ({
                       <i className="bx bxl-instagram text-base text-pink-500" />
                       Instagram
                     </span>
-                    <span className="rounded-full bg-pink-500 px-2 py-[1px] text-[10px] font-bold uppercase tracking-wider text-white">
-                      Próx.
-                    </span>
                   </button>
                 </div>
               </details>
