@@ -12,6 +12,7 @@ export default function CardPlanPersonalizado({
   const [nConexiones, setNConexiones] = useState(null);
   const [maxSubusuarios, setMaxSubusuarios] = useState(null);
   const [idPlanBasePersonalizado, setIdPlanBasePersonalizado] = useState(null);
+  const [tieneConfigGuardada, setTieneConfigGuardada] = useState(false);
   const [esEstaCardActual, setEsEstaCardActual] = useState(false);
 
   const MAX_CONEXIONES = 10;
@@ -80,19 +81,18 @@ export default function CardPlanPersonalizado({
           setNConexiones(nConn);
           setMaxSubusuarios(nSubs);
           setIdPlanBasePersonalizado(row.id_plan_base);
+          setTieneConfigGuardada(true);
 
-          // Esta card se marca como actual si:
-          // 1) el plan activo del usuario coincide con esta card
-          // 2) o la configuración guardada (id_plan_base) coincide con esta card
-          const esActual =
-            Number(currentPlanId) === Number(plan.id_plan) ||
-            Number(row.id_plan_base) === Number(plan.id_plan);
+          // 👇 Solo se marca como ACTUAL si el plan activo coincide.
+          // La config guardada NO implica plan activo (puede estar pendiente de pago).
+          const esActual = Number(currentPlanId) === Number(plan.id_plan);
           setEsEstaCardActual(Boolean(esActual));
         } else {
           // No hay config guardada para este usuario
           setNConexiones(0);
           setMaxSubusuarios(0);
           setIdPlanBasePersonalizado(null);
+          setTieneConfigGuardada(false);
           setEsEstaCardActual(Number(currentPlanId) === Number(plan.id_plan));
         }
       } catch (e) {
@@ -221,8 +221,8 @@ export default function CardPlanPersonalizado({
 
   const botonDeshabilitado = esEstaCardActual || disabledPorCantidades;
   const textoBoton = esEstaCardActual
-    ? "Tienes este plan actualmente"
-    : "Seleccionar";
+   ? "Tienes este plan actualmente"
+   : (tieneConfigGuardada ? "Pagar configuración guardada" : "Seleccionar");
 
   return (
     <div className="relative group rounded-2xl p-[1px] transition-all duration-300 ease-out hover:-translate-y-1 h-full">
