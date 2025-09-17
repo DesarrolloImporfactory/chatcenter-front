@@ -530,6 +530,20 @@ const ChatPrincipal = ({
     setHide24hBanner(false);
   }, [selectedChat?.id, selectedChat?.source]);
 
+  const isMessenger = selectedChat?.source === "ms";
+  const chatBgStyle = isMessenger
+    ? { backgroundColor: "#FFFFFF" } // fondo blanco para Messenger
+    : {
+        backgroundColor: "#DAD3CC",
+        backgroundImage:
+          'url("https://new.imporsuitpro.com/public/img/fondo_chat_center.png")',
+        backgroundSize: "contain",
+        backgroundRepeat: "repeat",
+        backgroundPosition: "center",
+        backgroundBlendMode: "overlay",
+        opacity: 0.9,
+      };
+
   return (
     <>
       <div
@@ -573,16 +587,7 @@ const ChatPrincipal = ({
                 p-4
                 pb-12
               "
-              style={{
-                backgroundColor: "#DAD3CC",
-                backgroundImage:
-                  'url("https://new.imporsuitpro.com/public/img/fondo_chat_center.png")',
-                backgroundSize: "contain",
-                backgroundRepeat: "repeat",
-                backgroundPosition: "center",
-                backgroundBlendMode: "overlay",
-                opacity: 0.9, // Ajusta si quieres
-              }}
+              style={chatBgStyle}
             >
               {/* Mapeo de mensajes */}
               <>
@@ -601,6 +606,25 @@ const ChatPrincipal = ({
                         ? `Error código ${mensaje.error_meta.codigo_error}`
                         : "Error al enviar este mensaje")
                     : "";
+
+                  //paleta de burbuja segun canal y rol
+                  const bubblePaletteClass =
+                    mensaje.rol_mensaje === 1
+                      ? isMessenger
+                        ? "bg-[#0084FF] text-white" //Enviado en messenger
+                        : "bg-[#DCF8C6]" //enviado en WhatsApp
+                      : isMessenger
+                      ? "bg-gray-100 text-gray-900" //recibido en Messeger
+                      : "bg-white"; //recibido en WhatsApp
+
+                  //color time stamp segun canal y rol
+                  const timestampClass = isMessenger
+                    ? mensaje.rol_mensaje === 1
+                      ? "text-white/90"
+                      : "text-gray-500"
+                    : mensaje.rol_mensaje === 1
+                    ? "text-gray-700"
+                    : "text-gray-500";
 
                   return (
                     <div
@@ -633,11 +657,7 @@ const ChatPrincipal = ({
                         className={`
                           relative p-3 rounded-lg min-w-[20%] max-w-[70%]
                           whitespace-pre-wrap break-words shadow-md
-                          ${
-                            mensaje.rol_mensaje === 1
-                              ? "bg-[#DCF8C6]"
-                              : "bg-white"
-                          }
+                          ${bubblePaletteClass}
                           ${hasError ? "ring-1 ring-red-600/90" : ""}
                         `}
                         title={hasError ? errorText : undefined}
@@ -873,11 +893,7 @@ const ChatPrincipal = ({
                         <span
                           className={`
                           absolute bottom-1 right-2 text-xs
-                          ${
-                            mensaje.rol_mensaje === 1
-                              ? "text-gray-700"
-                              : "text-gray-500"
-                          }
+                          ${timestampClass}
                         `}
                         >
                           {formatFecha(mensaje.created_at)}
