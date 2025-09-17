@@ -36,11 +36,12 @@ export default function Login() {
     const token = query.get("token");
     const tienda = query.get("tienda");
     const phone = query.get("phone");
+    const tipo = query.get("tipo");
 
     if (token && tienda) {
       localStorage.removeItem("token");
 
-      dispatch(newLoginThunk({ token, tienda }))
+      dispatch(newLoginThunk({ token, tienda, tipo }))
         .unwrap()
         .then(() => {
           console.log("Login automático exitoso");
