@@ -46,6 +46,7 @@ const ChatPrincipal = ({
   handleCloseModal,
   dataAdmin,
   setMensajesOrdenados,
+  onSendMsAttachment,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -544,18 +545,107 @@ const ChatPrincipal = ({
         opacity: 0.9,
       };
 
+  // refs para file inputs
+  const imageInputRef = useRef(null);
+  const videoInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // helper: subir a tu uploader S3
+  async function uploadToS3(file) {
+    const form = new FormData();
+    form.append("file", file); // nombre del campo esperado por tu uploader
+
+    const resp = await fetch(
+      "https://uploader.imporfactory.app/api/files/upload",
+      {
+        method: "POST",
+        body: form,
+      }
+    );
+    const json = await resp.json();
+    if (!json?.success) throw new Error("Error subiendo archivo");
+    return json.data; // { url, fileName, size, mimeType, ... }
+  }
+
+  async function handleMessengerFilePicked(kind, file) {
+    if (!file || !selectedChat || selectedChat.source !== "ms") return;
+
+    try {
+      // 1) Subir a S3
+      const up = await uploadToS3(file); // up.url, up.fileName, up.mimeType, up.size
+
+      // 2) Pintar mensaje optimista
+      const clientTmpId =
+        "tmp-file-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+      const created = new Date().toISOString();
+
+      // Mapear a tus tipos de burbuja existentes
+      const tipo =
+        kind === "image" ? "image" : kind === "video" ? "video" : "document"; // otros archivos como documento
+
+      // Para documentos, tu UI original espera un JSON; incluimos datos completos.
+      const ruta_archivo =
+        tipo === "document"
+          ? JSON.stringify({
+              ruta: up.url,
+              nombre: up.fileName,
+              size: up.size,
+              mimeType: up.mimeType,
+            })
+          : up.url; // imágenes/videos: usaremos la URL directa
+
+      // Optimista
+      setMensajesOrdenados((prev) => [
+        ...prev,
+        {
+          id: clientTmpId,
+          rol_mensaje: 1,
+          texto_mensaje: "",
+          tipo_mensaje: tipo,
+          ruta_archivo,
+          mid_mensaje: null,
+          visto: 0,
+          created_at: created,
+          responsable: dataAdmin?.nombre_encargado || "", // o nombre_encargado_global si lo tienes aquí
+          agent_id: null, // opcional, lo marcará el backend en la confirmación
+          client_tmp_id: clientTmpId,
+        },
+      ]);
+
+      // 3) Enviar por socket (sube al padre)
+      onSendMsAttachment({
+        kind,
+        url: up.url,
+        name: up.fileName,
+        mimeType: up.mimeType,
+        size: up.size,
+        clientTmpId,
+      });
+
+      setIsMenuOpen(false);
+    } catch (err) {
+      console.error("MS attach error:", err);
+      alert("No se pudo subir/enviar el archivo.");
+    } finally {
+      // limpiar value para permitir volver a elegir el mismo archivo
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      if (videoInputRef.current) videoInputRef.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   return (
     <>
       <div
         className={`
-          ${opciones ? "col-span-2" : "col-span-3"}
-          relative
-          ${
-            selectedChat === null || (opciones && window.innerWidth <= 640)
-              ? "hidden sm:block"
-              : "block"
-          }
-        `}
+        ${opciones ? "col-span-2" : "col-span-3"}
+        relative
+        ${
+          selectedChat === null || (opciones && window.innerWidth <= 640)
+            ? "hidden sm:block"
+            : "block"
+        }
+      `}
         // Quita el bg-gray-100 y aplicaremos fondo custom adentro
       >
         {/* Si no hay chat seleccionado */}
@@ -570,23 +660,22 @@ const ChatPrincipal = ({
         ) : (
           <div className="flex flex-col h-[calc(100vh_-_110px)] relative">
             {/* 
-              1) Contenedor principal del chat, 
-                 con fondo color + imagen, 
-                 estilo "WhatsApp".
-            */}
+            1) Contenedor principal del chat, 
+               con fondo color + imagen (WhatsApp) o blanco (Messenger)
+          */}
             <div
               ref={chatContainerRef}
               onScroll={handleScroll}
               className="
-                flex
-                flex-col
-                flex-grow
-                space-y-5
-                max-h-[calc(100vh_-_180px)]
-                overflow-y-auto
-                p-4
-                pb-12
-              "
+              flex
+              flex-col
+              flex-grow
+              space-y-5
+              max-h-[calc(100vh_-_180px)]
+              overflow-y-auto
+              p-4
+              pb-12
+            "
               style={chatBgStyle}
             >
               {/* Mapeo de mensajes */}
@@ -607,17 +696,17 @@ const ChatPrincipal = ({
                         : "Error al enviar este mensaje")
                     : "";
 
-                  //paleta de burbuja segun canal y rol
+                  // paleta de burbuja segun canal y rol
                   const bubblePaletteClass =
                     mensaje.rol_mensaje === 1
                       ? isMessenger
-                        ? "bg-[#0084FF] text-white" //Enviado en messenger
-                        : "bg-[#DCF8C6]" //enviado en WhatsApp
+                        ? "bg-[#0084FF] text-white" // Enviado en Messenger
+                        : "bg-[#DCF8C6]" // Enviado en WhatsApp
                       : isMessenger
-                      ? "bg-gray-100 text-gray-900" //recibido en Messeger
-                      : "bg-white"; //recibido en WhatsApp
+                      ? "bg-gray-100 text-gray-900" // Recibido en Messenger
+                      : "bg-white"; // Recibido en WhatsApp
 
-                  //color time stamp segun canal y rol
+                  // color timestamp segun canal y rol
                   const timestampClass = isMessenger
                     ? mensaje.rol_mensaje === 1
                       ? "text-white/90"
@@ -640,11 +729,11 @@ const ChatPrincipal = ({
                         <button
                           onClick={() => onReenviar(mensaje)}
                           className="
-                            self-center mr-2 px-2 py-1 text-xs rounded-full
-                            border border-red-200 bg-red-50/80 hover:bg-red-100
-                            text-red-600 flex items-center gap-1
-                            transition-colors
-                          "
+                          self-center mr-2 px-2 py-1 text-xs rounded-full
+                          border border-red-200 bg-red-50/80 hover:bg-red-100
+                          text-red-600 flex items-center gap-1
+                          transition-colors
+                        "
                           title="Reintentar envío"
                         >
                           <i className="bx bx-redo text-xl" />
@@ -655,19 +744,19 @@ const ChatPrincipal = ({
                       {/* Burbuja */}
                       <div
                         className={`
-                          relative p-3 rounded-lg min-w-[20%] max-w-[70%]
-                          whitespace-pre-wrap break-words shadow-md
-                          ${bubblePaletteClass}
-                          ${hasError ? "ring-1 ring-red-600/90" : ""}
-                        `}
+                        relative p-3 rounded-lg min-w-[20%] max-w-[70%]
+                        whitespace-pre-wrap break-words shadow-md
+                        ${bubblePaletteClass}
+                        ${hasError ? "ring-1 ring-red-600/90" : ""}
+                      `}
                         title={hasError ? errorText : undefined}
                       >
                         {/* Alerta interna si hubo error */}
                         {hasError && (
                           <div
                             className="mb-2 -mt-1 -mx-1 px-1.5 py-0.5 text-[11px] leading-none
-                              flex items-center gap-1
-                              text-red-600/90"
+                            flex items-center gap-1
+                            text-red-600/90"
                           >
                             <span className="inline-block h-3 w-[3px] rounded bg-red-600/90" />
                             <i
@@ -677,18 +766,17 @@ const ChatPrincipal = ({
                             <span>Error al enviar: </span>
                             {mensaje.error_meta?.codigo_error && (
                               <span className="opacity-90">
-                                {mensaje.error_meta?.codigo_error &&
-                                  (() => {
-                                    const code = String(
-                                      mensaje.error_meta.codigo_error
-                                    );
-                                    const label = ERROR_MAP[code];
-                                    return (
-                                      <span className="opacity-90">
-                                        {label ? `${label}` : `(${code})`}
-                                      </span>
-                                    );
-                                  })()}
+                                {(() => {
+                                  const code = String(
+                                    mensaje.error_meta.codigo_error
+                                  );
+                                  const label = ERROR_MAP[code];
+                                  return (
+                                    <span className="opacity-90">
+                                      {label ? `${label}` : `(${code})`}
+                                    </span>
+                                  );
+                                })()}
                               </span>
                             )}
                           </div>
@@ -754,69 +842,98 @@ const ChatPrincipal = ({
                             />
                           ) : mensaje.tipo_mensaje === "image" ? (
                             /* Tipo: IMAGEN */
-                            <ImageWithModal mensaje={mensaje} />
+                            isMessenger ? (
+                              <img
+                                className="max-w-xs rounded-lg shadow"
+                                src={
+                                  /^https?:\/\//.test(mensaje.ruta_archivo)
+                                    ? mensaje.ruta_archivo
+                                    : "https://new.imporsuitpro.com/" +
+                                      mensaje.ruta_archivo
+                                }
+                                alt="Imagen"
+                              />
+                            ) : (
+                              <ImageWithModal mensaje={mensaje} />
+                            )
                           ) : mensaje.tipo_mensaje === "document" ? (
                             /* Tipo: DOCUMENT */
-                            <div className="p-2">
-                              <a
-                                href={`https://new.imporsuitpro.com/${
-                                  JSON.parse(mensaje.ruta_archivo).ruta
-                                }`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg shadow-md hover:bg-gray-100 transition-colors"
-                              >
-                                <span className="text-2xl">
-                                  <i
-                                    className={`${
-                                      getFileIcon(
-                                        JSON.parse(mensaje.ruta_archivo)
-                                          .ruta.split(".")
-                                          .pop()
-                                      ).icon
-                                    } ${
-                                      getFileIcon(
-                                        JSON.parse(mensaje.ruta_archivo)
-                                          .ruta.split(".")
-                                          .pop()
-                                      ).color
-                                    }`}
-                                  ></i>
-                                </span>
-                                <div className="flex flex-col">
-                                  <span className="font-semibold text-sm text-gray-800 truncate">
-                                    {JSON.parse(mensaje.ruta_archivo).nombre}
-                                  </span>
-                                  <div className="flex text-xs text-gray-500 space-x-1">
-                                    <span>
-                                      {JSON.parse(mensaje.ruta_archivo).size >
-                                      1024 * 1024
-                                        ? `${(
-                                            JSON.parse(mensaje.ruta_archivo)
-                                              .size /
-                                            1024 /
-                                            1024
-                                          ).toFixed(2)} MB`
-                                        : `${(
-                                            JSON.parse(mensaje.ruta_archivo)
-                                              .size / 1024
-                                          ).toFixed(2)} KB`}
+                            (() => {
+                              let meta = {
+                                ruta: "",
+                                nombre: "",
+                                size: 0,
+                                mimeType: "",
+                              };
+                              try {
+                                meta = JSON.parse(mensaje.ruta_archivo);
+                              } catch (e) {
+                                // si viniera plain string, lo adaptamos
+                                meta = {
+                                  ruta: mensaje.ruta_archivo,
+                                  nombre: "archivo",
+                                  size: 0,
+                                  mimeType: "",
+                                };
+                              }
+                              const link = /^https?:\/\//.test(meta.ruta)
+                                ? meta.ruta
+                                : `https://new.imporsuitpro.com/${meta.ruta}`;
+                              const ext = (
+                                meta.ruta?.split(".").pop() ||
+                                meta.mimeType?.split("/").pop() ||
+                                ""
+                              )?.toUpperCase();
+
+                              const iconInfo = getFileIcon(
+                                meta.ruta?.split(".").pop() || ""
+                              );
+
+                              return (
+                                <div className="p-2">
+                                  <a
+                                    href={link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg shadow-md hover:bg-gray-100 transition-colors"
+                                  >
+                                    <span className="text-2xl">
+                                      <i
+                                        className={`${iconInfo.icon} ${iconInfo.color}`}
+                                      ></i>
                                     </span>
-                                    <span>•</span>
-                                    <span>
-                                      {JSON.parse(mensaje.ruta_archivo)
-                                        .ruta.split(".")
-                                        .pop()
-                                        .toUpperCase()}
+                                    <div className="flex flex-col">
+                                      <span className="font-semibold text-sm text-gray-800 truncate">
+                                        {meta.nombre || "Documento"}
+                                      </span>
+                                      <div className="flex text-xs text-gray-500 space-x-1">
+                                        <span>
+                                          {meta.size > 1024 * 1024
+                                            ? `${(
+                                                meta.size /
+                                                1024 /
+                                                1024
+                                              ).toFixed(2)} MB`
+                                            : `${(meta.size / 1024).toFixed(
+                                                2
+                                              )} KB`}
+                                        </span>
+                                        <span>•</span>
+                                        <span>{ext}</span>
+                                      </div>
+                                    </div>
+                                    <span className="text-2xl text-blue-500 hover:text-blue-700 transition-colors">
+                                      <i className="bx bx-download"></i>
                                     </span>
-                                  </div>
+                                  </a>
+                                  {mensaje.texto_mensaje ? (
+                                    <p className="pt-2">
+                                      {mensaje.texto_mensaje}
+                                    </p>
+                                  ) : null}
                                 </div>
-                                <span className="text-2xl text-blue-500 hover:text-blue-700 transition-colors">
-                                  <i className="bx bx-download"></i>
-                                </span>
-                              </a>
-                              <p className="pt-2">{mensaje.texto_mensaje}</p>
-                            </div>
+                              );
+                            })()
                           ) : mensaje.tipo_mensaje === "video" ? (
                             /* Tipo: VIDEO */
                             <div className="p-2">
@@ -825,8 +942,10 @@ const ChatPrincipal = ({
                                   className="w-full h-full object-cover rounded-lg"
                                   controls
                                   src={
-                                    "https://new.imporsuitpro.com/" +
-                                    mensaje.ruta_archivo
+                                    /^https?:\/\//.test(mensaje.ruta_archivo)
+                                      ? mensaje.ruta_archivo
+                                      : "https://new.imporsuitpro.com/" +
+                                        mensaje.ruta_archivo
                                   }
                                 />
                               </div>
@@ -912,8 +1031,8 @@ const ChatPrincipal = ({
             {selectedChat &&
               !hide24hBanner &&
               (() => {
-                const isMessenger = selectedChat.source === "ms";
-                const refDateISO = isMessenger
+                const isMessengerLocal = selectedChat.source === "ms";
+                const refDateISO = isMessengerLocal
                   ? selectedChat.last_incoming_at ||
                     selectedChat.mensaje_created_at
                   : ultimoMensaje?.created_at;
@@ -927,7 +1046,7 @@ const ChatPrincipal = ({
                 if (diffHrs <= 24) return null;
 
                 // WhatsApp
-                if (!isMessenger) {
+                if (!isMessengerLocal) {
                   return (
                     <div className="absolute bottom-[0%] bg-yellow-100 border border-yellow-500 rounded shadow-lg p-4 w-full z-10">
                       <div className="flex items-start gap-3">
@@ -1018,25 +1137,77 @@ const ChatPrincipal = ({
                   <ul className="flex flex-col space-y-2 text-sm">
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
-                      onClick={() => handleModal_enviarArchivos("Video")}
-                    >
-                      Video
-                    </li>
-                    <li
-                      className="cursor-pointer hover:bg-gray-200 p-1 rounded"
-                      onClick={() => handleModal_enviarArchivos("Imagen")}
+                      onClick={() => {
+                        if (selectedChat?.source === "ms") {
+                          setIsMenuOpen(false);
+                          imageInputRef.current?.click();
+                        } else {
+                          handleModal_enviarArchivos("Imagen"); // WhatsApp
+                        }
+                      }}
                     >
                       Imagen
                     </li>
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
-                      onClick={() => handleModal_enviarArchivos("Documento")}
+                      onClick={() => {
+                        if (selectedChat?.source === "ms") {
+                          setIsMenuOpen(false);
+                          videoInputRef.current?.click();
+                        } else {
+                          handleModal_enviarArchivos("Video"); // WhatsApp
+                        }
+                      }}
+                    >
+                      Video
+                    </li>
+                    <li
+                      className="cursor-pointer hover:bg-gray-200 p-1 rounded"
+                      onClick={() => {
+                        if (selectedChat?.source === "ms") {
+                          setIsMenuOpen(false);
+                          fileInputRef.current?.click();
+                        } else {
+                          handleModal_enviarArchivos("Documento"); // WhatsApp
+                        }
+                      }}
                     >
                       Documento
                     </li>
                   </ul>
                 </div>
               )}
+
+              {/* Inputs ocultos para Messenger */}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) =>
+                  e.target.files?.[0] &&
+                  handleMessengerFilePicked("image", e.target.files[0])
+                }
+              />
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={(e) =>
+                  e.target.files?.[0] &&
+                  handleMessengerFilePicked("video", e.target.files[0])
+                }
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) =>
+                  e.target.files?.[0] &&
+                  handleMessengerFilePicked("document", e.target.files[0])
+                }
+              />
 
               <label
                 htmlFor="file-upload"

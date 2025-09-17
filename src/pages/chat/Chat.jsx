@@ -997,6 +997,53 @@ const Chat = () => {
     });
   };
 
+  // Enviar adjunto a Messenger vía socket
+  function onSendMsAttachment({
+    kind,
+    url,
+    name,
+    mimeType,
+    size,
+    clientTmpId,
+  }) {
+    if (!selectedChat || selectedChat.source !== "ms") return;
+    const conversationId = selectedChat.id;
+
+    // ¿Han pasado más de 24h desde el último entrante?
+    const refISO = selectedChat.mensaje_created_at;
+    const diffHrs = refISO
+      ? (Date.now() - new Date(refISO).getTime()) / 36e5
+      : 0;
+
+    // Mapear al tipo que acepta la API de Messenger
+    // Messenger acepta: image | video | audio | file
+    const msType =
+      kind === "image"
+        ? "image"
+        : kind === "video"
+        ? "video"
+        : kind === "audio"
+        ? "audio"
+        : "file"; // documentos
+
+    socketRef.current.emit("MS_SEND", {
+      conversation_id: conversationId,
+      attachment: {
+        type: msType,
+        url,
+        name,
+        mimeType,
+        size,
+      },
+      ...(diffHrs > 24
+        ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
+        : {}),
+      agent_id: id_sub_usuario_global,
+      agent_name: nombre_encargado_global,
+      client_tmp_id: clientTmpId,
+    });
+  }
+
   const uploadAudio = (audioBlob) => {
     // Primero, enviamos el archivo para su conversión
     const formData = new FormData();
@@ -2656,6 +2703,7 @@ const Chat = () => {
         handleCloseModal={handleCloseModal}
         dataAdmin={dataAdmin}
         setMensajesOrdenados={setMensajesOrdenados}
+        onSendMsAttachment={onSendMsAttachment}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
