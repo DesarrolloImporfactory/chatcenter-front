@@ -3,6 +3,17 @@ import Swal from "sweetalert2";
 import Select, { components } from "react-select";
 import chatApi from "../../api/chatcenter";
 
+const Toast = Swal.mixin({
+  toast: true,
+  position: "top-end", // Puedes cambiar a 'bottom-end', 'top-start', etc.
+  showConfirmButton: false,
+  timer: 3000, // Duración en ms
+  timerProgressBar: true,
+  didOpen: (toast) => {
+    toast.addEventListener("mouseenter", Swal.stopTimer);
+    toast.addEventListener("mouseleave", Swal.resumeTimer);
+  },
+});
 /** —— Chips y opciones personalizados —— */
 const Option = (props) => {
   const { isSelected, label } = props;
@@ -90,6 +101,7 @@ const Asistentes = () => {
   const [activoVenta, setActivoVenta] = useState(false);
   const [productosVenta, setProductosVenta] = useState([]);
   const [tomar_productos, setTomar_productos] = useState("chat_Center");
+  const [tipoVenta, setTipoVenta] = useState("productos");
   const [tiempo_remarketing, setTiempo_remarketing] = useState("0");
   const [showModalVentas, setShowModalVentas] = useState(false);
 
@@ -183,11 +195,14 @@ const Asistentes = () => {
     if (!id_configuracion) return;
 
     // Resetear selección al cambiar la fuente
-    setProductosVenta([]); // limpia selección (react-select leerá '' y quedará vacío)
     setProductosLista([]); // opcional: limpia opciones mientras llega la data
 
     fetchProductos(tomar_productos);
   }, [id_configuracion, tomar_productos]);
+
+  /* useEffect(() => {
+  console.log("✅ productosVenta actualizado:", productosVenta);
+}, [productosVenta]); */
 
   /** Sincroniza estados visuales con datos del backend */
   useEffect(() => {
@@ -307,6 +322,7 @@ const Asistentes = () => {
         activo: activoVenta,
         tiempo_remarketing: Number(tiempo_remarketing),
         tomar_productos,
+        tipo_venta: tipoVenta,
       });
       setShowModalVentas(false);
       await fetchAsistenteAutomatizado();
@@ -568,198 +584,184 @@ const Asistentes = () => {
       )}
 
       {showModalVentas && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Configurar IA Ventas</h3>
+        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 space-y-6">
+            <h3 className="text-xl font-semibold text-gray-800">
+              Configurar IA Ventas
+            </h3>
 
-            <input
-              type="text"
-              placeholder="Nombre del Bot"
-              value={nombreBotVenta}
-              onChange={(e) => setNombreBotVenta(e.target.value)}
-              className="w-full border px-3 py-2 rounded mb-3"
-            />
-            <input
-              type="text"
-              placeholder="Assistant ID"
-              value={assistantIdVenta}
-              onChange={(e) => setAssistantIdVenta(e.target.value)}
-              className="w-full border px-3 py-2 rounded mb-3"
-            />
+            {/* Layout dividido */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Columna izquierda */}
+              <div className="space-y-6">
+                {/* Configuración básica */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre del Bot
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Nombre del Bot"
+                      value={nombreBotVenta}
+                      onChange={(e) => setNombreBotVenta(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
 
-            {/* Tiempo de remarketing */}
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tiempo de remarketing
-            </label>
-            <select
-              value={tiempo_remarketing}
-              onChange={(e) => setTiempo_remarketing(e.target.value)}
-              className="w-full border px-3 py-2 rounded mb-3"
-            >
-              <option value="0">Seleccione una hora</option>
-              <option value="1">1 hora</option>
-              <option value="3">3 horas</option>
-              <option value="5">5 horas</option>
-              <option value="10">10 horas</option>
-              <option value="20">20 horas</option>
-            </select>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Assistant ID
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Assistant ID"
+                      value={assistantIdVenta}
+                      onChange={(e) => setAssistantIdVenta(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
 
-            {/* Fuente de productos */}
-            {idPlataformaConf && (
-              <div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tiempo de remarketing
+                    </label>
+                    <select
+                      value={tiempo_remarketing}
+                      onChange={(e) => setTiempo_remarketing(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="0">Seleccione una hora</option>
+                      <option value="1">1 hora</option>
+                      <option value="3">3 horas</option>
+                      <option value="5">5 horas</option>
+                      <option value="10">10 horas</option>
+                      <option value="20">20 horas</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Productos */}
+                {idPlataformaConf && (
+                  <div className="space-y-4 border-t pt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fuente de productos para la IA
+                      </label>
+                      <select
+                        value={tomar_productos}
+                        onChange={(e) => {
+                          const nuevaFuente = e.target.value;
+                          setTomar_productos(nuevaFuente);
+                          setProductosLista([]);
+                        }}
+                        className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                        <option value="chat_center">Imporchat</option>
+                        <option value="imporsuit">Imporsuit</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Selecciona productos
+                      </label>
+                      <Select
+                        isMulti
+                        options={productosOptions}
+                        value={selectedProductos}
+                        onChange={handleProductosChange}
+                        placeholder="Selecciona productos"
+                        className="w-full"
+                        classNamePrefix="react-select"
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Estado activo */}
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={activoVenta}
+                    onChange={(e) => setActivoVenta(e.target.checked)}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span>Activo</span>
+                </label>
+              </div>
+
+              {/* Columna derecha */}
+              <div className="space-y-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fuente de productos para la IA
+                  IA para venta de:
                 </label>
                 <select
-                  value={tomar_productos}
-                  onChange={(e) => {
-                    const nuevaFuente = e.target.value; // 'chat_center' | 'imporsuit'
-                    setTomar_productos(nuevaFuente);
-                    // Limpieza inmediata por UX (además del useEffect):
-                    setProductosLista([]); // Limpiar los productos antes de cargar nuevos
-                  }}
-                  className="w-full border px-3 py-2 rounded mb-3"
+                  value={tipoVenta}
+                  onChange={(e) => setTipoVenta(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <option value="chat_center">Call Center</option>
-                  <option value="imporsuit">Imporsuit</option>
+                  <option value="productos">Productos</option>
+                  <option value="servicios">Servicios</option>
                 </select>
+
+                {/* Textarea con botón copiar */}
+                <div className="relative">
+                  {/* Botón copiar */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const texto =
+                        tipoVenta === "productos"
+                          ? `Este es un texto de ejemplo para la venta de productos.\n\nPuedes copiarlo pero no modificarlo.`
+                          : `Este es un texto de ejemplo para la venta de servicios.\n\nPuedes copiarlo pero no modificarlo.`;
+
+                      navigator.clipboard.writeText(texto).then(() => {
+                        Toast.fire({
+                          icon: "success",
+                          title: "Copiado correctamente",
+                        });
+                      });
+                    }}
+                    className="absolute top-2 right-2 text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  >
+                    Copiar
+                  </button>
+
+                  {tipoVenta === "productos" && (
+                    <textarea
+                      readOnly
+                      value={`Este es un texto de ejemplo para la venta de productos.\n\nPuedes copiarlo pero no modificarlo.`}
+                      className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-700 cursor-text overflow-y-auto pr-16"
+                    />
+                  )}
+
+                  {tipoVenta === "servicios" && (
+                    <textarea
+                      readOnly
+                      value={`Este es un texto de ejemplo para la venta de servicios.\n\nPuedes copiarlo pero no modificarlo.`}
+                      className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-700 cursor-text overflow-y-auto pr-16"
+                    />
+                  )}
+                </div>
               </div>
-            )}
+            </div>
 
-            <Select
-              isMulti
-              options={productosOptions}
-              value={selectedProductos}
-              onChange={handleProductosChange}
-              placeholder="Selecciona productos"
-              className="w-full mb-3"
-              classNamePrefix="react-select"
-              menuPortalTarget={document.body}
-              components={{
-                Option,
-                MultiValueContainer: ChipContainer,
-                MultiValueLabel: () => null,
-                MultiValueRemove: ChipRemove,
-                IndicatorSeparator: null,
-              }}
-              theme={(t) => ({
-                ...t,
-                borderRadius: 14,
-                colors: {
-                  ...t.colors,
-                  primary: "#4f46e5",
-                  primary25: "#eef2ff",
-                  neutral20: "#e5e7eb",
-                  neutral30: "#4f46e5",
-                },
-              })}
-              styles={{
-                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                control: (base, state) => ({
-                  ...base,
-                  minHeight: 54,
-                  paddingLeft: 10,
-                  paddingRight: 10,
-                  borderRadius: 14,
-                  borderColor: state.isFocused ? "#4f46e5" : "#e5e7eb",
-                  boxShadow: state.isFocused
-                    ? "0 0 0 6px rgba(79,70,229,.12)"
-                    : "0 1px 2px rgba(0,0,0,.05)",
-                  background: "linear-gradient(180deg,#ffffff,#fafafa)",
-                  ":hover": { borderColor: "#4f46e5" },
-                }),
-                valueContainer: (base) => ({
-                  ...base,
-                  paddingTop: 8,
-                  paddingBottom: 8,
-                  gap: 6,
-                  flexWrap: "wrap",
-                }),
-                placeholder: (base) => ({
-                  ...base,
-                  color: "#9ca3af",
-                  fontSize: "0.95rem",
-                }),
-                menu: (base) => ({
-                  ...base,
-                  borderRadius: 16,
-                  overflow: "hidden",
-                  border: "1px solid #e5e7eb",
-                  boxShadow:
-                    "0 24px 48px -12px rgba(0,0,0,.25), 0 12px 24px -12px rgba(0,0,0,.15)",
-                  marginTop: 10,
-                  background: "linear-gradient(180deg,#ffffff,#fbfbfc)",
-                }),
-                menuList: (base) => ({
-                  ...base,
-                  padding: 8,
-                  "::-webkit-scrollbar": { width: 8 },
-                  "::-webkit-scrollbar-thumb": {
-                    backgroundColor: "#e5e7eb",
-                    borderRadius: 999,
-                  },
-                }),
-                option: (base, state) => ({
-                  ...base,
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  margin: "2px 6px",
-                  backgroundColor: state.isSelected
-                    ? "#e0e7ff"
-                    : state.isFocused
-                    ? "#f3f4f6"
-                    : "transparent",
-                  color: "#111827",
-                  cursor: "pointer",
-                  transition: "background-color .15s ease, transform .05s ease",
-                  transform: state.isFocused ? "translateY(-1px)" : "none",
-                }),
-                multiValue: (base) => ({
-                  ...base,
-                  background: "transparent",
-                  display: "flex",
-                  alignItems: "center",
-                }),
-                multiValueRemove: (base) => ({
-                  ...base,
-                  padding: 0,
-                  ":hover": { backgroundColor: "transparent" },
-                }),
-                dropdownIndicator: (base, state) => ({
-                  ...base,
-                  padding: 8,
-                  transform: state.selectProps.menuIsOpen
-                    ? "rotate(180deg)"
-                    : undefined,
-                  transition: "transform .2s ease",
-                }),
-                clearIndicator: (base) => ({
-                  ...base,
-                  padding: 8,
-                  ":hover": { color: "#ef4444" },
-                }),
-              }}
-            />
-
-            <label className="flex items-center gap-2 mb-4">
-              <input
-                type="checkbox"
-                checked={activoVenta}
-                onChange={(e) => setActivoVenta(e.target.checked)}
-              />
-              <span>Activo</span>
-            </label>
-
-            <div className="flex justify-end gap-2">
+            {/* Botones */}
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowModalVentas(false)}
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
               >
                 Cancelar
               </button>
               <button
                 onClick={guardarVentas}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow"
               >
                 Guardar
               </button>

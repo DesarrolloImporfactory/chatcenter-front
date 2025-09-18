@@ -27,6 +27,7 @@ const ProductosView = () => {
     descripcion: "",
     tipo: "",
     precio: "",
+    duracion: "",
     id_categoria: "",
     imagen: null,
     video: null,
@@ -211,6 +212,7 @@ const ProductosView = () => {
         descripcion: "",
         tipo: "",
         precio: "",
+        duracion: "",
         id_categoria: "",
         imagen: null,
         video: null,
@@ -240,6 +242,7 @@ const ProductosView = () => {
         descripcion: p.descripcion || "",
         tipo: normalizaTipo(p.tipo),
         precio: p.precio ?? "",
+        duracion: p.duracion ?? "",
         id_categoria: p.id_categoria ?? "",
         imagen: null, // se sube solo si cambia
         video: null,
@@ -254,6 +257,7 @@ const ProductosView = () => {
         descripcion: "",
         tipo: "",
         precio: "",
+        duracion: "",
         id_categoria: "",
         imagen: null,
         video: null,
@@ -880,6 +884,30 @@ const ProductosView = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Render condicional */}
+                {form.tipo === "servicio" && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Duración
+                    </label>
+                    <select
+                      required
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                      value={form.duracion}
+                      onChange={(e) =>
+                        setForm({ ...form, duracion: e.target.value })
+                      }
+                    >
+                      <option value="0">Seleccione duración en horas</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
