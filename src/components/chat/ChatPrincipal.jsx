@@ -841,21 +841,8 @@ const ChatPrincipal = ({
                               }
                             />
                           ) : mensaje.tipo_mensaje === "image" ? (
-                            /* Tipo: IMAGEN */
-                            isMessenger ? (
-                              <img
-                                className="max-w-xs rounded-lg shadow"
-                                src={
-                                  /^https?:\/\//.test(mensaje.ruta_archivo)
-                                    ? mensaje.ruta_archivo
-                                    : "https://new.imporsuitpro.com/" +
-                                      mensaje.ruta_archivo
-                                }
-                                alt="Imagen"
-                              />
-                            ) : (
-                              <ImageWithModal mensaje={mensaje} />
-                            )
+                            /* Tipo: IMAGEN (WA y MS con el mismo componente) */
+                            <ImageWithModal mensaje={mensaje} />
                           ) : mensaje.tipo_mensaje === "document" ? (
                             /* Tipo: DOCUMENT */
                             (() => {

@@ -194,6 +194,8 @@ const Chat = () => {
   // Canal activo y conversación Messenger activa
   const [activeChannel, setActiveChannel] = useState("whatsapp"); // 'whatsapp' | 'messenger' | 'all'
   const [msActiveConversationId, setMsActiveConversationId] = useState(null);
+  const [msNextBeforeId, setMsNextBeforeId] = useState(null);
+  const [msIsLoadingOlder, setMsIsLoadingOlder] = useState(false);
 
   const Toast = Swal.mixin({
     toast: true,
@@ -431,17 +433,15 @@ const Chat = () => {
     // Carga historial por REST
     const { data } = await chatApi.get(
       `/messenger/conversations/${conv.id}/messages`,
-      {
-        params: { limit: 50 },
-      }
+      { params: { limit: 50 } } // sin before_id => últimos
     );
-    const mapped = (data.items || []).map(mapMsMessageToUI);
-
-    setChatMessages([{ id: conv.id, mensajes: mapped }]);
-    const ordered = mapped.sort(
-      (a, b) => new Date(a.created_at) - new Date(b.created_at)
-    );
-    setMensajesOrdenados(ordered.slice(-20));
+    const ordered = (data.items || []).map(mapMsMessageToUI); // ya viene ASC
+    setChatMessages([{ id: conv.id, mensajes: ordered }]);
+    setMensajesOrdenados(ordered);
+    const initial = Math.min(20, ordered.length);
+    setMensajesMostrados(initial);
+    setMsNextBeforeId(data.next_before_id ?? null);
+    scrollToBottomNow();
   }
 
   /* 2️⃣  cuando ya hay chats */
@@ -1230,16 +1230,68 @@ const Chat = () => {
   const mensajesActuales = mensajesOrdenados.slice(-mensajesMostrados);
 
   // Listener para detectar scroll hacia arriba
-  const handleScroll = () => {
+  const handleScroll = async () => {
     const chatContainer = chatContainerRef.current;
     if (chatContainer.scrollTop === 0) {
-      if (mensajesMostrados > 0) {
-        setScrollOffset(chatContainer.scrollHeight); // Guarda la posición actual del scroll
+      if (
+        mensajesMostrados > 0 &&
+        mensajesMostrados < mensajesOrdenados.length
+      ) {
+        setScrollOffset(chatContainer.scrollHeight);
         setMensajesMostrados((prev) =>
           Math.min(prev + 20, mensajesOrdenados.length)
-        ); // Incrementa los mensajes mostrados en bloques de 20
+        );
+      } else if (
+        selectedChat?.source === "ms" &&
+        !msIsLoadingOlder &&
+        msNextBeforeId
+      ) {
+        // No hay más para “destapar” en memoria -> pide otro page al backend
+        try {
+          setMsIsLoadingOlder(true);
+          // guarda altura para mantener posición al prepender
+          setScrollOffset(chatContainer.scrollHeight);
+          const { data } = await chatApi.get(
+            `/messenger/conversations/${msActiveConversationId}/messages`,
+            { params: { limit: 50, before_id: msNextBeforeId } }
+          );
+          const older = (data.items || []).map(mapMsMessageToUI); // ASC
+          if (older.length) {
+            // Prepend al buffer completo
+            setChatMessages((prev) => {
+              const list = prev[0]?.mensajes || [];
+              const merged = [...older, ...list];
+              return [{ id: msActiveConversationId, mensajes: merged }];
+            });
+            setMensajesOrdenados((prev) => [...older, ...prev]);
+            // aumentamos mostrados en la cantidad recién agregada
+            setMensajesMostrados((prev) => prev + older.length);
+            setMsNextBeforeId(data.next_before_id ?? null);
+            // restaurar posición
+            requestAnimationFrame(() => {
+              const el = chatContainerRef.current;
+              if (el && scrollOffset) {
+                el.scrollTop = el.scrollHeight - scrollOffset;
+              }
+            });
+          } else {
+            setMsNextBeforeId(null); // no hay más
+          }
+        } finally {
+          setMsIsLoadingOlder(false);
+          setScrollOffset(0);
+        }
       }
     }
+  };
+
+  const scrollToBottomNow = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = chatContainerRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    });
   };
 
   // Ajustar la posición del scroll después de cargar más mensajes
