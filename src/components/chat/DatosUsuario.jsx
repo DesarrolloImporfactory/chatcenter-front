@@ -1960,6 +1960,8 @@ const DatosUsuario = ({
     setIsOpenNovedades(false);
   };
 
+  const DEFAULT_AVATAR = "https://tiendas.imporsuitpro.com/imgs/react/user.png";
+
   return (
     <>
       {opciones && (
@@ -2182,10 +2184,17 @@ const DatosUsuario = ({
                   <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
                     <div className="w-full bg-[#162c4a] rounded-xl shadow-lg px-6 py-5 flex flex-col gap-4 animate-fadeInOnce">
                       {/* Avatar + contenido original... */}
+
                       <img
-                        src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                        key={selectedChat?.psid || selectedChat?.id} // fuerza refresco al cambiar de chat
+                        src={selectedChat?.profile_pic_url || DEFAULT_AVATAR}
                         alt="Avatar"
-                        className="block mx-auto w-16 h-16 rounded-full object-cover border-2 border-violet-400"
+                        className="h-12 w-12 rounded-full object-cover bg-white block mx-auto"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = DEFAULT_AVATAR;
+                        }}
                       />
 
                       {/* Datos */}
@@ -3950,9 +3959,15 @@ const DatosUsuario = ({
                     {/* Avatar + contenido original... */}
 
                     <img
-                      src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                      key={selectedChat?.psid || selectedChat?.id} // fuerza refresco al cambiar de chat
+                      src={selectedChat?.profile_pic_url || DEFAULT_AVATAR}
                       alt="Avatar"
-                      className="block mx-auto w-16 h-16 rounded-full object-cover border-2 border-violet-400"
+                      className="h-12 w-12 rounded-full object-cover bg-white block mx-auto"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = DEFAULT_AVATAR;
+                      }}
                     />
 
                     {/* Datos */}

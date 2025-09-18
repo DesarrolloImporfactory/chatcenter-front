@@ -616,9 +616,19 @@ const Cabecera = ({
                 <i className="bx bx-arrow-back"></i>
               </button>
               <img
-                className="rounded-full w-12 h-12 object-cover"
-                src="https://tiendas.imporsuitpro.com/imgs/react/user.png"
-                alt="Profile"
+                src={
+                  selectedChat?.profile_pic_url
+                    ? selectedChat.profile_pic_url
+                    : "https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                }
+                alt="Avatar"
+                className="h-12 w-12 rounded-full object-cover bg-white"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src =
+                    "https://tiendas.imporsuitpro.com/imgs/react/user.png";
+                }}
               />
               <div>
                 <span className="block text-black font-semibold text-lg">
