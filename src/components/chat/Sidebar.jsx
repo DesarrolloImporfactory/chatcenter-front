@@ -623,10 +623,14 @@ export const Sidebar = ({
               return (
                 <li
                   key={mensaje.id}
-                  onClick={() => handleSelectChat(mensaje)}
+                  onClick={() => {
+                    if (!seleccionado) {
+                      handleSelectChat(mensaje);
+                    }
+                  }}
                   className={`group relative cursor-pointer px-3 py-2 transition hover:bg-slate-50 sm:px-4 ${
                     seleccionado
-                      ? "bg-slate-50"
+                      ? "bg-slate-50 cursor-default" // cambiamos cursor para indicar que ya no se puede
                       : mensaje.pedido_confirmado === 1
                       ? "bg-green-300"
                       : "bg-white"
