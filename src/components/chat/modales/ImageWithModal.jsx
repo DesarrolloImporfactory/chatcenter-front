@@ -28,7 +28,7 @@ const ImageWithModal = ({ mensaje }) => {
         onRequestClose={closeModal}
         contentLabel="Imagen Ampliada"
         className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-75"
-        overlayClassName="fixed inset-0 bg-black bg-opacity-50"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50 z-40"
         ariaHideApp={false}
       >
         <div
