@@ -8,6 +8,7 @@ import botImage from "../../assets/bot.png";
 import "./conexiones.css";
 import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
 import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConfiguracionModalWhatsappBusiness";
+import { config } from "@fullcalendar/core/internal";
 
 /* Helpers UI */
 const HeaderStat = ({ label, value }) => (
@@ -23,7 +24,7 @@ const pill = (classes, text) => (
   </span>
 );
 
-const Conexiones = () => {
+const Conexionespruebas = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
     []
   );
@@ -50,6 +51,9 @@ const Conexiones = () => {
   const [filtroEstado, setFiltroEstado] = useState(""); // "", "conectado", "pendiente"
   const [filtroPago, setFiltroPago] = useState(""); // "", "activo", "inactivo"
 
+  // Nuevo: estado para bloquear el botón mientras se ejecuta la acción
+  const [suspendiendoId, setSuspendiendoId] = useState(null);
+
   const handleAbrirConfiguracionAutomatizada = () =>
     setModalConfiguracionAutomatizada(true);
 
@@ -58,6 +62,50 @@ const Conexiones = () => {
     setNombreConfiguracion(config.nombre_configuracion);
     setTelefono(config.telefono);
     setModalConfiguracionWhatsappBusiness(true);
+  };
+
+  // Nuevo: toggle de suspensión (optimista con refresh del backend)
+  // arriba ya tienes: import Swal from "sweetalert2"; ✅
+
+  const confirmarEliminar = async (config) => {
+    if (!userData) return;
+
+    const res = await Swal.fire({
+      title: "Eliminar conexión",
+      text: "Se eliminará esta conexión y no se podrá recuperar. ¿Deseas continuar?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#ef4444",
+      reverseButtons: true,
+    });
+
+    if (!res.isConfirmed) return;
+
+    try {
+      setSuspendiendoId(config.id);
+      await chatApi.post("configuraciones/toggle_suspension", {
+        id_configuracion: config.id,
+        id_usuario: userData.id_usuario,
+        suspendido: true, // ← aquí está la “eliminación”: SUSPENDER
+      });
+
+      // Optimista: esconder de la UI
+      setConfiguracionAutomatizada((prev) =>
+        prev.filter((c) => c.id !== config.id)
+      );
+
+      setStatusMessage({ type: "success", text: "Conexión eliminada." });
+    } catch (err) {
+      setStatusMessage({
+        type: "error",
+        text:
+          err?.response?.data?.message || "No se pudo suspender la conexión.",
+      });
+    } finally {
+      setSuspendiendoId(null);
+    }
   };
 
   /* SDK Facebook (sin cambios de lógica) */
@@ -145,6 +193,7 @@ const Conexiones = () => {
     );
   };
 
+  //Obtenido de Meta Developers
   const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
 
   // NUEVO: abre el flujo OAuth del backend (construye la login URL y redirige)
@@ -198,75 +247,150 @@ const Conexiones = () => {
       const error = params.get("error");
       if (!code || error) return;
 
+      // ¿de qué proveedor venimos?
+      const provider = localStorage.getItem("oauth_provider");
+
       try {
-        const id_configuracion =
-          localStorage.getItem("id_configuracion_fb") ||
-          localStorage.getItem("id_configuracion") || // por si ya lo usas en otros flujos
-          "";
+        if (provider === "instagram") {
+          const id_configuracion =
+            localStorage.getItem("id_configuracion_ig") ||
+            localStorage.getItem("id_configuracion") ||
+            "";
 
-        if (!id_configuracion) {
-          throw new Error("Falta id_configuracion para completar la conexión.");
-        }
+          if (!id_configuracion)
+            throw new Error("Falta id_configuracion (IG).");
 
-        // 1) Intercambia el code por token de usuario (largo) y crea la sesión OAuth
-        const { data: ex } = await chatApi.post(
-          "/messenger/facebook/oauth/exchange",
-          {
-            code,
-            id_configuracion, // 👈 server ya lo usa en tu versión
-            redirect_uri: window.location.origin + "/conexionespruebas",
-          }
-        );
-
-        // 2) Lista páginas del usuario (usando oauth_session_id)
-        const { data: pagesRes } = await chatApi.get(
-          "/messenger/facebook/pages",
-          { params: { oauth_session_id: ex.oauth_session_id } }
-        );
-
-        if (!pagesRes?.pages?.length) {
-          throw new Error(
-            "No se encontraron páginas en la cuenta de Facebook."
+          // 1) exchange code -> session IG
+          const { data: ex } = await chatApi.post(
+            "/instagram/facebook/oauth/exchange",
+            {
+              code,
+              id_configuracion,
+              redirect_uri: window.location.origin + "/conexionespruebas",
+            }
           );
+
+          // 2) listar páginas con IG conectado
+          const { data: pagesRes } = await chatApi.get(
+            "/instagram/facebook/pages",
+            {
+              params: { oauth_session_id: ex.oauth_session_id },
+            }
+          );
+          if (!pagesRes?.pages?.length)
+            throw new Error("No hay páginas con IG conectado.");
+
+          // 3) elegir página
+          const pageId = await pickPageWithSwal(
+            pagesRes.pages.map((p) => ({
+              id: p.page_id,
+              name: `${p.page_name} — @${p.ig_username}`,
+            }))
+          );
+          if (!pageId) {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, "", cleanUrl);
+            return;
+          }
+
+          // 4) conectar (suscribe + guarda token/IG en DB)
+          await chatApi.post("/instagram/facebook/connect", {
+            oauth_session_id: ex.oauth_session_id,
+            id_configuracion,
+            page_id: pageId,
+          });
+
+          Swal.fire("¡Listo!", "Cuenta de Instagram conectada ✅", "success");
+          await fetchConfiguracionAutomatizada();
+        } else {
+          // Flujo Messenger (tal como ya lo tenías)
+          const id_configuracion =
+            localStorage.getItem("id_configuracion_fb") ||
+            localStorage.getItem("id_configuracion") ||
+            "";
+
+          if (!id_configuracion)
+            throw new Error("Falta id_configuracion (FB).");
+
+          const { data: ex } = await chatApi.post(
+            "/messenger/facebook/oauth/exchange",
+            {
+              code,
+              id_configuracion,
+              redirect_uri: window.location.origin + "/conexionespruebas",
+            }
+          );
+
+          const { data: pagesRes } = await chatApi.get(
+            "/messenger/facebook/pages",
+            {
+              params: { oauth_session_id: ex.oauth_session_id },
+            }
+          );
+          if (!pagesRes?.pages?.length)
+            throw new Error("No se encontraron páginas.");
+
+          const pageId = await pickPageWithSwal(pagesRes.pages);
+          if (!pageId) {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, "", cleanUrl);
+            return;
+          }
+
+          await chatApi.post("/messenger/facebook/connect", {
+            oauth_session_id: ex.oauth_session_id,
+            id_configuracion,
+            page_id: pageId,
+          });
+
+          Swal.fire("¡Listo!", "Página conectada y suscrita ✅", "success");
+          await fetchConfiguracionAutomatizada();
         }
-
-        // 3) El usuario elige la página
-        const pageId = await pickPageWithSwal(pagesRes.pages);
-        if (!pageId) {
-          // Limpia la URL y aborta
-          const cleanUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, "", cleanUrl);
-          return;
-        }
-
-        // 4) Conecta (suscribe y guarda token en DB)
-        await chatApi.post("/messenger/facebook/connect", {
-          oauth_session_id: ex.oauth_session_id,
-          id_configuracion,
-          page_id: pageId,
-        });
-
-        Swal.fire("¡Listo!", "Página conectada y suscrita ✅", "success");
-
-        // refresca tarjetas
-        await fetchConfiguracionAutomatizada();
       } catch (e) {
         console.error(e);
         Swal.fire(
           "Error",
-          e?.message || "No fue posible conectar la página",
+          e?.message || "No fue posible completar la conexión",
           "error"
         );
       } finally {
-        // Limpia querystring y storage temporal
+        // limpiar
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, "", cleanUrl);
+        localStorage.removeItem("oauth_provider");
+        localStorage.removeItem("id_configuracion_ig");
         localStorage.removeItem("id_configuracion_fb");
       }
     };
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  //Obtenido de Meta Developers
+  const IG_FBL_CONFIG_ID = "754174810774119";
+
+  const handleConectarInstagramInbox = async (config) => {
+    try {
+      //guardamos para terminar el flujo al voler
+      localStorage.setItem("oauth_provider", "instagram");
+      localStorage.setItem("id_configuracion_ig", String(config.id));
+
+      const { data } = await chatApi.get("/instagram/facebook/login-url", {
+        params: {
+          id_configuracion: config.id,
+          redirect_uri: window.location.origin + "/conexionespruebas",
+          config_id: IG_FBL_CONFIG_ID,
+        },
+      });
+      window.location.href = data.url;
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Error",
+        "No se puede iniciar la conexión con Instagram",
+        "error"
+      );
+    }
+  };
 
   /* Data */
   const fetchConfiguracionAutomatizada = useCallback(async () => {
@@ -521,9 +645,24 @@ const Conexiones = () => {
                         </div>
 
                         {/* Mantengo tu estilo de íconos */}
-                        <div className="shrink-0 w-10 h-10 rounded-xl bg-slate-100 ring-1 ring-slate-200 grid place-items-center">
-                          <i className="bx bx-layer text-xl text-blue-600"></i>
-                        </div>
+
+                        {/* icono para suspender conexion */}
+                        <button
+                          type="button"
+                          onClick={() => confirmarEliminar(config)}
+                          disabled={suspendiendoId === config.id}
+                          className={[
+                            "shrink-0 w-10 h-10 rounded-xl grid place-items-center ring-1 transition",
+                            "bg-rose-50 ring-rose-200 text-rose-600",
+                            suspendiendoId === config.id
+                              ? "opacity-60 cursor-not-allowed"
+                              : "hover:scale-105 hover:bg-rose-100",
+                          ].join(" ")}
+                          title="Eliminar conexión"
+                          aria-label="Eliminar conexión"
+                        >
+                          <i className="bx bx-trash text-xl"></i>
+                        </button>
                       </div>
 
                       {/* Teléfono */}
@@ -561,12 +700,25 @@ const Conexiones = () => {
                         <div
                           className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
                           onClick={() => handleConectarFacebookInbox(config)}
-                          title="Conectar Facebook Inbox (Messenger)"
+                          title="Conectar Inbox de Messenger"
                         >
                           {/* usa el icono que prefieras. Si tienes boxicons: bxl-messenger / bxl-facebook */}
                           <i className="bx bxl-messenger text-2xl"></i>
                           <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Conectar Facebook Inbox
+                            Conectar Inbox de Messenger
+                          </span>
+                        </div>
+
+                        {/* Instagram Inbox*/}
+                        <div
+                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
+                          onClick={() => handleConectarInstagramInbox(config)}
+                          title="Conectar Inbox de Instagram"
+                        >
+                          {/* usa el icono que prefieras. Si tienes boxicons: bxl-messenger / bxl-facebook */}
+                          <i className="bx bxl-instagram text-2xl"></i>
+                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                            Conectar Inbox de Instagram
                           </span>
                         </div>
 
@@ -675,4 +827,4 @@ const Conexiones = () => {
   );
 };
 
-export default Conexiones;
+export default Conexionespruebas;
