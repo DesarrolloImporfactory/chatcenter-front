@@ -792,7 +792,7 @@ const Chat = () => {
       target: { value: phoneNumber }, // Simula un evento de input
     });
 
-    setSeleccionado(true); // Indica que hay un número seleccionado
+    setSeleccionado(!!phoneNumber); // Indica que hay un número seleccionado
 
     // Llama a la API para obtener el id_recibe
     const idRecibe = await buscar_id_recibe(phoneNumber, id_configuracion);
@@ -870,9 +870,13 @@ const Chat = () => {
     }
   };
 
-  const handleNumeroModal = () => {
-    setNumeroModal(!numeroModal);
+  const closeNumeroModal = () => {
+    setNumeroModal(false);
     setSeleccionado(false);
+  };
+
+  const openNumeroModal = () => {
+    abrirModalLimpio(); // por si algún hijo aún llama a "abrir"
   };
 
   const handleFiltro_chats = () => {
@@ -2637,6 +2641,39 @@ const Chat = () => {
     return () => socketRef.current.off("MS_SEND_ERROR", onMsSendError);
   }, [isSocketConnected, selectedChat]);
 
+  const [numeroModalPreset, setNumeroModalPreset] = useState(null);
+
+  // abrir limpio (por el botón “más”)
+  const abrirModalLimpio = () => {
+    // abrir siempre sin preset
+    setNumeroModalPreset(null);
+
+    // si ya está abierto, forzamos un remount para limpiar estados internos
+    if (numeroModal) {
+      setNumeroModal(false);
+      setTimeout(() => setNumeroModal(true), 0);
+    } else {
+      setNumeroModal(true);
+    }
+  };
+
+  // abrir con preset (desde banner +24h)
+  const abrirModalConPreset = () => {
+    setNumeroModalPreset({
+      step: "buscar",
+      phone: selectedChat.celular_cliente,
+      lockPhone: true,
+      contextLabel: "Responderás con plantilla al chat actual",
+      clienteNombre: selectedChat.nombre_cliente || selectedChat.nombres || "",
+    });
+    if (numeroModal) {
+      setNumeroModal(false);
+      setTimeout(() => setNumeroModal(true), 0);
+    } else {
+      setNumeroModal(true);
+    }
+  };
+
   return (
     <div className="sm:grid grid-cols-4">
       <div className="text-sm text-gray-700 fixed bottom-0 z-50 left-2">
@@ -2675,6 +2712,7 @@ const Chat = () => {
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         setNumeroModal={setNumeroModal}
+        openNumeroModal={openNumeroModal}
         handleSelectChat={handleSelectChat}
         acortarTexto={acortarTexto}
         selectedChat={selectedChat}
@@ -2744,6 +2782,7 @@ const Chat = () => {
         selectedChat={selectedChat}
         setNumeroModal={setNumeroModal}
         handleSelectPhoneNumber={handleSelectPhoneNumber}
+        setNumeroModalPreset={setNumeroModalPreset}
         chatContainerRef={chatContainerRef}
         mensajesMostrados={mensajesMostrados}
         setMensajesMostrados={setMensajesMostrados}
@@ -2811,7 +2850,7 @@ const Chat = () => {
         handleSubmit={handleSubmit}
         handleSubmit_template={handleSubmit_template}
         register={register}
-        handleNumeroModal={handleNumeroModal}
+        handleNumeroModal={closeNumeroModal}
         seleccionado={seleccionado}
         menuSearchTermNumeroCliente={menuSearchTermNumeroCliente}
         searchResultsNumeroCliente={searchResultsNumeroCliente}
@@ -2846,6 +2885,8 @@ const Chat = () => {
         toggleTransferirChatModal={toggleTransferirChatModal}
         lista_usuarios={lista_usuarios}
         lista_departamentos={lista_departamentos}
+        numeroModalPreset={numeroModalPreset}
+        inputRefNumeroTelefono={inputRefNumeroTelefono}
       />
     </div>
   );

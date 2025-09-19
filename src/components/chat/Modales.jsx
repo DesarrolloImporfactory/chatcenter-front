@@ -42,6 +42,7 @@ const Modales = ({
   toggleTransferirChatModal,
   lista_usuarios,
   lista_departamentos,
+  numeroModalPreset,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -57,6 +58,10 @@ const Modales = ({
   // 🔎 query controlada para la pestaña "Buscar contacto"
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [lockPhone, setLockPhone] = useState(false);
+  const [contextLabel, setContextLabel] = useState("");
+  const [clienteNombreCtx, setClienteNombreCtx] = useState("");
+
   // 🧹 reset integral del modal de número
   const resetNumeroModalState = () => {
     setModalTab("nuevo");
@@ -69,12 +74,41 @@ const Modales = ({
     setPlaceholderValues({});
 
     setSearchQuery("");
+    setLockPhone(false);
+    setContextLabel("");
+    setClienteNombreCtx("");
+
     if (inputRefNumeroTelefono?.current)
       inputRefNumeroTelefono.current.value = "";
 
     // deselecciona destinatario si quedó alguno
-    if (selectedPhoneNumber) handleSelectPhoneNumber("");
+    handleSelectPhoneNumber("");
+    handleInputChange_numeroCliente?.({ target: { value: "" } });
   };
+
+  useEffect(() => {
+    if (!numeroModal) return;
+
+    // 🔄 SIEMPRE limpiar todo al abrir
+    resetNumeroModalState();
+
+    // 🔒 Si viene con preset (desde el banner +24h), volvemos a llenar
+    if (numeroModalPreset?.step === "buscar" && numeroModalPreset?.phone) {
+      setModalTab("buscar");
+      setLockPhone(!!numeroModalPreset.lockPhone);
+      setContextLabel(numeroModalPreset.contextLabel || "");
+      setClienteNombreCtx(numeroModalPreset.clienteNombre || "");
+
+      handleSelectPhoneNumber(numeroModalPreset.phone);
+
+      setSearchQuery(numeroModalPreset.phone);
+      if (inputRefNumeroTelefono?.current) {
+        inputRefNumeroTelefono.current.value = numeroModalPreset.phone;
+        const ev = new Event("input", { bubbles: true });
+        inputRefNumeroTelefono.current.dispatchEvent(ev);
+      }
+    }
+  }, [numeroModal, numeroModalPreset]);
 
   // cerrar modal con limpieza
   const onCloseNumeroModal = () => {
@@ -1186,36 +1220,38 @@ const Modales = ({
                 id="modal-nuevo-chat-title"
                 className="text-lg font-semibold text-slate-900"
               >
-                Nuevo chat
+                {lockPhone ? "Responder con plantilla" : "Nuevo chat"}
               </h2>
 
-              {/* Tabs */}
-              <div className="inline-flex rounded-lg bg-slate-100 border border-slate-200 p-1">
-                <button
-                  type="button"
-                  onClick={() => setModalTab("nuevo")}
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition
-              ${
-                modalTab === "nuevo"
-                  ? "bg-white shadow-sm text-slate-900"
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
-                >
-                  Añadir número
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModalTab("buscar")}
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition
-              ${
-                modalTab === "buscar"
-                  ? "bg-white shadow-sm text-slate-900"
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
-                >
-                  Buscar contacto
-                </button>
-              </div>
+              {/* Tabs (ocultas cuando lockPhone) */}
+              {!lockPhone && (
+                <div className="inline-flex rounded-lg bg-slate-100 border border-slate-200 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setModalTab("nuevo")}
+                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition
+        ${
+          modalTab === "nuevo"
+            ? "bg-white shadow-sm text-slate-900"
+            : "text-slate-600 hover:text-slate-800"
+        }`}
+                  >
+                    Añadir número
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalTab("buscar")}
+                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition
+        ${
+          modalTab === "buscar"
+            ? "bg-white shadow-sm text-slate-900"
+            : "text-slate-600 hover:text-slate-800"
+        }`}
+                  >
+                    Buscar contacto
+                  </button>
+                </div>
+              )}
 
               <button
                 onClick={onCloseNumeroModal}
@@ -1274,89 +1310,107 @@ const Modales = ({
                   className="space-y-3"
                   onSubmit={handleSubmit(handleNumeroModalForm)}
                 >
-                  <label
-                    htmlFor="numeroBuscar"
-                    className="text-sm font-medium text-slate-700"
-                  >
-                    Buscar por nombre o teléfono
-                  </label>
-                  <div className="relative">
-                    <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input
-                      type="text"
-                      id="numeroBuscar"
-                      placeholder="Escribe para buscar…"
-                      value={searchQuery}
-                      name={registeredNumero.name}
-                      onBlur={registeredNumero.onBlur}
-                      ref={(el) => {
-                        // combinar refs: la de RHF y la tuya
-                        registeredNumero.ref(el);
-                        if (inputRefNumeroTelefono)
-                          inputRefNumeroTelefono.current = el;
-                      }}
-                      onChange={(e) => {
-                        // tu lógica
-                        setSearchQuery(e.target.value);
-                        handleInputChange_numeroCliente(e);
-                        // notificar a RHF para que mantenga su estado interno
-                        registeredNumero.onChange(e);
-                      }}
-                      className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
-                    focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
-                    />
+                  {/* Tarjeta de destino (SE MANTIENE SIEMPRE) */}
+                  <div className="rounded-xl border p-3 bg-gray-50 mb-2">
+                    <div className="text-xs text-slate-500">
+                      Enviaremos la plantilla a:
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-semibold">{clienteNombreCtx}</span>{" "}
+                      <span className="text-blue-700">
+                        {selectedPhoneNumber || searchQuery}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <ul className="max-h-64 overflow-y-auto divide-y divide-slate-100">
-                      {filteredResults.length > 0 ? (
-                        filteredResults.map((result, index) => {
-                          const active =
-                            selectedPhoneNumber === result.celular_cliente;
-                          return (
-                            <li
-                              key={index}
-                              onClick={() =>
-                                handleSelectPhoneNumber(result.celular_cliente)
-                              }
-                              className={`cursor-pointer px-3 py-2 transition ${
-                                active
-                                  ? "bg-blue-50 ring-1 ring-inset ring-blue-200"
-                                  : "hover:bg-slate-50"
-                              }`}
-                            >
-                              <div className="text-sm">
-                                <span className="font-semibold text-slate-900">
-                                  Nombre:&nbsp;
-                                </span>
-                                <span className="text-slate-700">
-                                  {highlightMatch(
-                                    result.nombre_cliente,
-                                    searchQuery
-                                  )}
-                                </span>
-                              </div>
-                              <div className="text-sm">
-                                <span className="font-semibold text-slate-900">
-                                  Teléfono:&nbsp;
-                                </span>
-                                <span className="text-slate-700">
-                                  {highlightMatch(
-                                    result.celular_cliente,
-                                    searchQuery
-                                  )}
-                                </span>
-                              </div>
+                  {/* SOLO si NO está bloqueado se muestra buscador + resultados */}
+                  {!lockPhone && (
+                    <>
+                      <label
+                        htmlFor="numeroBuscar"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        Buscar por nombre o teléfono
+                      </label>
+
+                      <div className="relative">
+                        <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input
+                          type="text"
+                          id="numeroBuscar"
+                          placeholder="Escribe para buscar…"
+                          value={searchQuery}
+                          name={registeredNumero.name}
+                          onBlur={registeredNumero.onBlur}
+                          ref={(el) => {
+                            registeredNumero.ref(el);
+                            if (inputRefNumeroTelefono)
+                              inputRefNumeroTelefono.current = el;
+                          }}
+                          onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            handleInputChange_numeroCliente(e);
+                            registeredNumero.onChange(e);
+                          }}
+                          className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
+                       focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        />
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 overflow-hidden">
+                        <ul className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+                          {filteredResults.length > 0 ? (
+                            filteredResults.map((result, index) => {
+                              const active =
+                                selectedPhoneNumber === result.celular_cliente;
+                              return (
+                                <li
+                                  key={index}
+                                  onClick={() =>
+                                    handleSelectPhoneNumber(
+                                      result.celular_cliente
+                                    )
+                                  }
+                                  className={`cursor-pointer px-3 py-2 transition ${
+                                    active
+                                      ? "bg-blue-50 ring-1 ring-inset ring-blue-200"
+                                      : "hover:bg-slate-50"
+                                  }`}
+                                >
+                                  <div className="text-sm">
+                                    <span className="font-semibold text-slate-900">
+                                      Nombre:&nbsp;
+                                    </span>
+                                    <span className="text-slate-700">
+                                      {highlightMatch(
+                                        result.nombre_cliente,
+                                        searchQuery
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm">
+                                    <span className="font-semibold text-slate-900">
+                                      Teléfono:&nbsp;
+                                    </span>
+                                    <span className="text-slate-700">
+                                      {highlightMatch(
+                                        result.celular_cliente,
+                                        searchQuery
+                                      )}
+                                    </span>
+                                  </div>
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <li className="px-3 py-3 text-sm text-slate-500">
+                              No hay resultados
                             </li>
-                          );
-                        })
-                      ) : (
-                        <li className="px-3 py-3 text-sm text-slate-500">
-                          No hay resultados
-                        </li>
-                      )}
-                    </ul>
-                  </div>
+                          )}
+                        </ul>
+                      </div>
+                    </>
+                  )}
                 </form>
               )}
 

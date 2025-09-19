@@ -47,6 +47,7 @@ const ChatPrincipal = ({
   dataAdmin,
   setMensajesOrdenados,
   onSendMsAttachment,
+  setNumeroModalPreset,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -1055,9 +1056,19 @@ const ChatPrincipal = ({
                         <button
                           className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-all duration-200"
                           onClick={() => {
-                            handleSelectPhoneNumber(
-                              selectedChat.celular_cliente
-                            );
+                            const phone = selectedChat?.celular_cliente || "";
+
+                            handleSelectPhoneNumber(phone);
+
+                            setNumeroModalPreset({
+                              step: "buscar",
+                              phone,
+                              lockPhone: true,
+                              contextLabel:
+                                "Responderá con plantilla al chat actual",
+                              clienteNombre: selectedChat?.nombre_cliente || "",
+                            });
+
                             setNumeroModal(true);
                           }}
                         >

@@ -42,6 +42,7 @@ const formatNombreCliente = (nombre = "") => {
 export const Sidebar = ({
   setSearchTerm,
   setNumeroModal,
+  openNumeroModal,
   handleSelectChat,
   acortarTexto,
   filteredChats,
@@ -392,7 +393,11 @@ export const Sidebar = ({
                 </span>
               </button>
               <button
-                onClick={() => setNumeroModal(true)}
+                onClick={() =>
+                  typeof openNumeroModal === "function"
+                    ? openNumeroModal()
+                    : setNumeroModal(true)
+                }
                 className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
                 title="Nuevo chat"
                 aria-label="Nuevo chat"
@@ -632,7 +637,7 @@ export const Sidebar = ({
                     seleccionado
                       ? "bg-slate-50 cursor-default" // cambiamos cursor para indicar que ya no se puede
                       : mensaje.pedido_confirmado === 1
-                      ? "bg-green-300"
+                      ? "bg-green-200"
                       : "bg-white"
                   }`}
                 >
