@@ -15,6 +15,7 @@ import Productos from "./pages/productos/ProductosView";
 import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
+import Landing from "./pages/planes/LandingTrial";
 
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
@@ -30,6 +31,7 @@ import CondicionesView from "./pages/condiciones/CondicionesView";
 
 // Layout planes
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
+import LandingTrial from "./pages/planes/LandingTrial";
 
 function App() {
   return (
@@ -156,6 +158,15 @@ function App() {
             element={
               <MainLayout_conexiones>
                 <MiPlanPrueba />
+              </MainLayout_conexiones>
+            }
+          />
+
+          <Route
+            path="/Landing"
+            element={
+              <MainLayout_conexiones>
+                <Landing />
               </MainLayout_conexiones>
             }
           />
