@@ -343,6 +343,42 @@ const Asistentes = () => {
   const showLogistica = idPlataformaConf !== null; // si hay valor -> se muestra
   const gridCols = showLogistica ? "md:grid-cols-2" : "md:grid-cols-1";
 
+  /* seccion apra texarea */
+  const [texto, setTexto] = useState("");
+  const [cargandoTexto, setCargandoTexto] = useState(false);
+  const [errorTexto, setErrorTexto] = useState("");
+
+  useEffect(() => {
+    let abort = false;
+    setCargandoTexto(true);
+    setErrorTexto("");
+
+    const url = `/src/assets/template_promts/${tipoVenta}.txt`; // productos.txt | servicios.txt
+
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then((t) => {
+        if (!abort) setTexto(t);
+      })
+      .catch((e) => {
+        if (!abort) {
+          setErrorTexto("No se pudo cargar el texto.");
+          setTexto("");
+          console.error(e);
+        }
+      })
+      .finally(() => {
+        if (!abort) setCargandoTexto(false);
+      });
+
+    return () => {
+      abort = true;
+    };
+  }, [tipoVenta]);
+  /* seccion apra texarea */
   return (
     <div className="p-5 mt-16">
       {/* —— HERO profesional —— */}
@@ -715,11 +751,6 @@ const Asistentes = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      const texto =
-                        tipoVenta === "productos"
-                          ? `Este es un texto de ejemplo para la venta de productos.\n\nPuedes copiarlo pero no modificarlo.`
-                          : `Este es un texto de ejemplo para la venta de servicios.\n\nPuedes copiarlo pero no modificarlo.`;
-
                       navigator.clipboard.writeText(texto).then(() => {
                         Toast.fire({
                           icon: "success",
@@ -728,22 +759,25 @@ const Asistentes = () => {
                       });
                     }}
                     className="absolute top-2 right-2 text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                    disabled={!texto}
+                    title={!texto ? "No hay texto para copiar" : "Copiar"}
                   >
                     Copiar
                   </button>
 
-                  {tipoVenta === "productos" && (
+                  {/* Estado de carga / error / textarea */}
+                  {cargandoTexto ? (
+                    <div className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-500 grid place-items-center">
+                      Cargando plantilla…
+                    </div>
+                  ) : errorTexto ? (
+                    <div className="w-full h-64 border rounded-lg px-3 py-2 bg-red-50 text-red-600">
+                      {errorTexto}
+                    </div>
+                  ) : (
                     <textarea
                       readOnly
-                      value={`Este es un texto de ejemplo para la venta de productos.\n\nPuedes copiarlo pero no modificarlo.`}
-                      className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-700 cursor-text overflow-y-auto pr-16"
-                    />
-                  )}
-
-                  {tipoVenta === "servicios" && (
-                    <textarea
-                      readOnly
-                      value={`Este es un texto de ejemplo para la venta de servicios.\n\nPuedes copiarlo pero no modificarlo.`}
+                      value={texto}
                       className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-700 cursor-text overflow-y-auto pr-16"
                     />
                   )}

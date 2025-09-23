@@ -49,6 +49,110 @@ const ProductosView = () => {
 
   const navigate = useNavigate();
 
+  /* seccion subida masiva de productos */
+
+  const [isOpenMasivo, setIsOpenMasivo] = useState(false);
+
+  // Función para abrir el modal
+  const openModalMasivo = () => setIsOpenMasivo(true);
+
+  // Función para cerrar el modal
+  const closeModalMasivo = () => setIsOpenMasivo(false);
+
+  const [archivoMasivo, setArchivoMasivo] = useState(null); // Estado para el archivo
+  const [archivoMasivoNombre, setArchivoMasivoNombre] = useState(null); // Nombre del archivo
+
+  // Función cuando el archivo es seleccionado (por drag-and-drop o input de archivo)
+  const onArchivoMasivoPicked = (file) => {
+    if (file) {
+      setArchivoMasivo(file);
+      setArchivoMasivoNombre(file.name); // Guarda el nombre del archivo
+    }
+  };
+
+  // Función de manejo para el evento de drag and drop (cuando el archivo se arrastra)
+  const onArchivoMasivoDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0]; // Obtiene el archivo arrastrado
+    onArchivoMasivoPicked(file); // Llama a la función que maneja el archivo
+  };
+
+  // Función para prevenir el comportamiento por defecto cuando el archivo es arrastrado
+  const onArchivoMasivoDragOver = (e) => e.preventDefault(); // Prevenir la acción por defecto
+
+  // Función para manejar cuando el archivo deja de ser arrastrado
+  const onArchivoMasivoDragLeave = (e) => e.preventDefault(); // Prevenir la acción por defecto
+
+  const handleDownloadExcel = () => {
+    const url =
+      "https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx";
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "plantilla_subida_masiva.xlsx";
+    link.click();
+  };
+
+  // Función para manejar el envío del archivo al backend
+  const handleSubirMasivo = async (e) => {
+    e.preventDefault();
+
+    // Verificar si se ha seleccionado un archivo Excel
+    if (!archivoMasivo) {
+      alert("Por favor, selecciona un archivo Excel para subir.");
+      return;
+    }
+
+    // Crear un objeto FormData para enviar el archivo
+    const formData = new FormData();
+    formData.append("archivoExcel", archivoMasivo); // Agregar el archivo Excel
+    formData.append(
+      "id_configuracion",
+      localStorage.getItem("id_configuracion")
+    ); // Agregar id_configuracion
+
+    try {
+      // Enviar la solicitud POST a la API
+      const { data } = await chatApi.post(
+        "/productos/cargaMasivaProductos",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data", // Aseguramos que se suba como archivo
+          },
+        }
+      );
+
+      // Si la respuesta es exitosa, mostramos un mensaje
+      Swal.fire({
+        icon: "success",
+        title: "Archivo subido exitosamente",
+        text: "Los productos fueron cargados correctamente.",
+      });
+
+      // Cerrar el modal
+      closeModalMasivo();
+
+      // Limpiar los valores de los estados relacionados
+      setArchivoMasivo(null);
+      setArchivoMasivoNombre(null);
+      setPreviewUrl(null);
+      setPreviewVideo(null);
+
+      // Si necesitas volver a obtener los datos, ejecuta una función fetchData
+      fetchData();
+    } catch (error) {
+      // En caso de error, mostramos un mensaje de error
+      console.error("Error al subir el archivo:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Hubo un error al subir el archivo.",
+      });
+    }
+  };
+
+  /* seccion subida masiva de productos */
+
   const fetchData = async () => {
     const idc = localStorage.getItem("id_configuracion");
     if (!idc) {
@@ -443,19 +547,34 @@ const ProductosView = () => {
                   elegante.
                 </p>
               </div>
-              <button
-                onClick={() => openModal()}
-                className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
-              >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
+
+              <div className="flex gap-2">
+                {/* Botón de "Agregar" */}
+                <button
+                  onClick={() => openModal()}
+                  className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
                 >
-                  <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-                </svg>
-                Agregar
-              </button>
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
+                  </svg>
+                  Agregar
+                </button>
+
+                {/* Botón de "Subida masiva de productos" */}
+                <button
+                  onClick={() => openModalMasivo()}
+                  className="inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 active:bg-green-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                  {/* Icono de Boxicons */}
+                  <i className="bx bx-upload text-lg"></i>{" "}
+                  {/* Icono de carga/ subida */}
+                  Subida masiva de productos
+                </button>
+              </div>
             </div>
 
             {/* Stats */}
@@ -1076,6 +1195,136 @@ const ProductosView = () => {
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-sm"
                 >
                   {editingId ? "Actualizar" : "Agregar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Masivos*/}
+      {isOpenMasivo && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+          onKeyDown={(e) => e.key === "Escape" && closeModalMasivo()}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-3 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+              <h2 className="text-xl font-semibold">
+                Subida masiva de productos
+              </h2>
+              <button
+                onClick={closeModalMasivo}
+                className="p-2 rounded-lg hover:bg-slate-100"
+                aria-label="Cerrar"
+              >
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z" />
+                </svg>
+              </button>
+            </div>
+
+            <form className="flex-1 overflow-y-auto p-6 grid grid-cols-1 gap-6">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Selecciona el archivo Excel con los productos que deseas
+                  subir.
+                </label>
+
+                {/* Contenedor drag-and-drop para el archivo */}
+                <div
+                  ref={dropRef}
+                  onDrop={onArchivoMasivoDrop}
+                  onDragOver={onArchivoMasivoDragOver}
+                  onDragLeave={onArchivoMasivoDragLeave}
+                  className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center transition ring-0"
+                >
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    {/* Icono de archivo */}
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                      <svg
+                        className="w-6 h-6 text-slate-500"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M18 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 1.99-.9 1.99-2L20 4c0-1.1-.89-2-1.99-2zm-2 2v16H8V4h8zm-1 4h-6v2h6V8z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Arrastra un archivo Excel aquí o{" "}
+                      <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
+                        selecciona un archivo
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          className="hidden"
+                          onChange={(e) =>
+                            onArchivoMasivoPicked(e.target.files?.[0])
+                          }
+                        />
+                      </label>
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Archivos aceptados: .xlsx, .xls (máx. ~10MB)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Vista previa del archivo seleccionado */}
+                {archivoMasivoNombre && (
+                  <div className="relative">
+                    <div className="flex items-center justify-between text-sm text-slate-700">
+                      <span>Archivo seleccionado: {archivoMasivoNombre}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setArchivoMasivo(null); // Limpiar el archivo seleccionado
+                          setArchivoMasivoNombre(null); // Limpiar el nombre
+                        }}
+                        className="bg-white/90 hover:bg-white text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!archivoMasivoNombre && editingId && (
+                  <div className="text-xs text-slate-500">
+                    * Si no seleccionas un archivo, se conserva el archivo
+                    actual.
+                  </div>
+                )}
+              </div>
+
+              {/* Botón para descargar el archivo Excel */}
+              <div className="flex justify-start gap-4 mb-4">
+                <button
+                  onClick={handleDownloadExcel}
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <i className="bx bx-cloud-download text-lg"></i> Descargar
+                  formato de plantilla
+                </button>
+              </div>
+
+              {/* Botones para cancelar o subir */}
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={closeModalMasivo}
+                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSubirMasivo}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                >
+                  Subir
                 </button>
               </div>
             </form>
