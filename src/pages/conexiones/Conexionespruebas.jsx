@@ -289,9 +289,9 @@ const Conexionespruebas = () => {
               html: `
                 <div style="text-align:left">
                   <p>Encontramos <b>${pagesRes.pages_without_ig.length}</b> página(s), pero ninguna tiene una cuenta de Instagram conectada.</p>
-                  <ol style="margin-left:1rem">
+                  <ol>
                     <li>Convierte tu cuenta de IG a Profesional (Business/Creator).</li>
-                    <li>Vincúlala a la Página desde la app de Instagram o <i>Meta Business Suite → Configuración → Cuentas vinculadas</i>.</li>
+                    <li>Vincúlala a la Página desde la app de Instagram o en <i>Meta Business Suite → Configuración → Cuentas vinculadas</i>.</li>
                     <li>Vuelve a ejecutar este flujo.</li>
                   </ol>
                 </div>
