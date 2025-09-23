@@ -277,23 +277,50 @@ const Conexionespruebas = () => {
               params: { oauth_session_id: ex.oauth_session_id },
             }
           );
-          if (!pagesRes?.pages?.length)
-            throw new Error("No hay páginas con IG conectado.");
 
-          // 3) elegir página
-          const pageId = await pickPageWithSwal(
-            pagesRes.pages.map((p) => ({
-              id: p.page_id,
-              name: `${p.page_name} — @${p.ig_username}`,
-            }))
-          );
+          // Si no hay con IG, pero sí hay sin IG, muestra guía en vez de error genérico
+          if (
+            (!pagesRes?.pages_with_ig || pagesRes.pages_with_ig.length === 0) &&
+            (pagesRes?.pages_without_ig || []).length > 0
+          ) {
+            await Swal.fire({
+              icon: "info",
+              title: "No hay páginas con Instagram vinculado",
+              html: `
+                <div style="text-align:left">
+                  <p>Encontramos <b>${pagesRes.pages_without_ig.length}</b> página(s), pero ninguna tiene una cuenta de Instagram conectada.</p>
+                  <ol style="margin-left:1rem">
+                    <li>Convierte tu cuenta de IG a Profesional (Business/Creator).</li>
+                    <li>Vincúlala a la Página desde la app de Instagram o <i>Meta Business Suite → Configuración → Cuentas vinculadas</i>.</li>
+                    <li>Vuelve a ejecutar este flujo.</li>
+                  </ol>
+                </div>
+              `,
+              confirmButtonText: "Entendido",
+            });
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, "", cleanUrl);
+            return;
+          }
+
+          // Si hay con IG, deja elegir solo esas
+          const selectable = (pagesRes.pages_with_ig || []).map((p) => ({
+            id: p.page_id,
+            name: `${p.page_name} — @${p.ig_username}`,
+          }));
+
+          if (!selectable.length) {
+            throw new Error("No hay páginas con IG conectado.");
+          }
+
+          const pageId = await pickPageWithSwal(selectable);
           if (!pageId) {
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, "", cleanUrl);
             return;
           }
 
-          // 4) conectar (suscribe + guarda token/IG en DB)
+          // Conectar
           await chatApi.post("/instagram/facebook/connect", {
             oauth_session_id: ex.oauth_session_id,
             id_configuracion,
