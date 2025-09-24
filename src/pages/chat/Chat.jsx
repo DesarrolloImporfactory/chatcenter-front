@@ -62,6 +62,44 @@ function mapMsConvToSidebar(row) {
   };
 }
 
+// Mapeo de conversaciones Instagram -> formato Sidebar
+function mapIgConvToSidebar(row) {
+  const rawFecha =
+    row.last_message_at ??
+    row.mensaje_created_at ??
+    row.updated_at ??
+    row.first_contact_at ??
+    null;
+  const d =
+    rawFecha instanceof Date
+      ? rawFecha
+      : rawFecha
+      ? new Date(rawFecha)
+      : new Date();
+  const mensaje_created_at = isNaN(+d) ? new Date() : d;
+
+  return {
+    id: row.id,
+    source: "ig",
+    page_id: row.page_id,
+    mensaje_created_at: mensaje_created_at.toISOString(),
+    texto_mensaje: row.preview ?? row.texto_mensaje ?? "",
+    celular_cliente: row.igsid ?? row.celular_cliente,
+    mensajes_pendientes: (row.unread_count ?? row.mensajes_pendientes) || 0,
+    visto: 0,
+    nombre_cliente:
+      row.customer_name ??
+      row.nombre_cliente ??
+      (row.igsid ? `Instagram • ${String(row.igsid).slice(-6)}` : "Instagram"),
+    profile_pic_url: row.profile_pic_url || null,
+    id_encargado: row.id_encargado ?? null,
+    etiquetas: [],
+    transporte: null,
+    estado_factura: null,
+    novedad_info: null,
+  };
+}
+
 const Chat = () => {
   const formatFecha = (fechaISO) => {
     const fecha = new Date(fechaISO);
@@ -393,9 +431,29 @@ const Chat = () => {
     }
   }
 
+  async function fetchIgConversations() {
+    if (!id_configuracion) return;
+    const { data } = await chatApi.get("/instagram/conversations", {
+      params: { id_configuracion, limit: 50 },
+    });
+    const items = (data.items || []).map(mapIgConvToSidebar);
+
+    setMensajesAcumulados((prev) => {
+      const byKey = new Map(
+        prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
+      );
+      for (const it of items) byKey.set(`ig:${it.id}`, it);
+      return Array.from(byKey.values()).sort(
+        (a, b) =>
+          new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+      );
+    });
+  }
+
   useEffect(() => {
     if (isSocketConnected && id_configuracion) {
       fetchMsConversations();
+      fetchIgConversations();
     }
   }, [isSocketConnected, id_configuracion]);
 
@@ -411,6 +469,21 @@ const Chat = () => {
       visto: m.visto || 0,
       created_at: m.created_at,
       // ⬇️ si viene desde /messages (REST) usa el join "responsable"; fallback a tu global
+      responsable:
+        m.rol_mensaje === 1 ? m.responsable || nombre_encargado_global : "",
+    };
+  }
+
+  function mapIgMessageToUI(m) {
+    return {
+      id: m.id,
+      rol_mensaje: m.rol_mensaje, // 1 = out, 0 = in
+      texto_mensaje: m.texto_mensaje || "",
+      tipo_mensaje: m.tipo_mensaje || "text",
+      ruta_archivo: m.ruta_archivo || null,
+      mid_mensaje: m.mid_mensaje || null,
+      visto: m.visto || 0,
+      created_at: m.created_at,
       responsable:
         m.rol_mensaje === 1 ? m.responsable || nombre_encargado_global : "",
     };
@@ -441,6 +514,37 @@ const Chat = () => {
     const initial = Math.min(20, ordered.length);
     setMensajesMostrados(initial);
     setMsNextBeforeId(data.next_before_id ?? null);
+    scrollToBottomNow();
+  }
+
+  async function openInstagramConversation(conv) {
+    setActiveChannel("instagram");
+    setSelectedChat(conv);
+    setMsActiveConversationId(null);
+    setMensaje("");
+    setMensajesMostrados(20);
+    setScrollOffset(0);
+
+    // Únete al room de IG
+    socketRef.current.emit("IG_JOIN_CONV", {
+      conversation_id: conv.id,
+      id_configuracion,
+    });
+
+    // Carga historial por REST
+    const { data } = await chatApi.get(
+      `/instagram/conversations/${conv.id}/messages`,
+      {
+        params: { limit: 50 },
+      }
+    );
+
+    // backend ya entrega mapeado; si no, mapea:
+    const ordered = (data.items || []).map(mapIgMessageToUI); // ASC
+    setChatMessages([{ id: conv.id, mensajes: ordered }]);
+    setMensajesOrdenados(ordered);
+    setMensajesMostrados(Math.min(20, ordered.length));
+    setMsNextBeforeId(data.next_before_id ?? null); // puedes usar mismo cursor var
     scrollToBottomNow();
   }
 
@@ -986,6 +1090,41 @@ const Chat = () => {
       return;
     }
 
+    if (selectedChat.source === "ig") {
+      const tempId =
+        "tmp-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+
+      const optimistic = {
+        id: tempId,
+        rol_mensaje: 1,
+        texto_mensaje: (mensaje || "").trim(),
+        tipo_mensaje: "text",
+        created_at: new Date().toISOString(),
+        visto: 0,
+        responsable: nombre_encargado_global,
+      };
+      setMensajesOrdenados((prev) => [...prev, optimistic]);
+
+      const diffHrs =
+        (Date.now() - new Date(selectedChat.mensaje_created_at).getTime()) /
+        36e5;
+
+      socketRef.current.emit("IG_SEND", {
+        conversation_id: selectedChat.id,
+        text: (mensaje || "").trim(),
+        ...(diffHrs > 24
+          ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
+          : {}),
+        agent_id: id_sub_usuario_global,
+        agent_name: nombre_encargado_global,
+        client_tmp_id: tempId,
+      });
+
+      setMensaje("");
+      setFile(null);
+      return;
+    }
+
     // (lo tuyo actual para WhatsApp)
     console.log("Mensaje enviado:", mensaje, file);
     setMensaje("");
@@ -1039,6 +1178,44 @@ const Chat = () => {
         mimeType,
         size,
       },
+      ...(diffHrs > 24
+        ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
+        : {}),
+      agent_id: id_sub_usuario_global,
+      agent_name: nombre_encargado_global,
+      client_tmp_id: clientTmpId,
+    });
+  }
+
+  function onSendIgAttachment({
+    kind,
+    url,
+    name,
+    mimeType,
+    size,
+    clientTmpId,
+  }) {
+    if (!selectedChat || selectedChat.source !== "ig") return;
+    const conversationId = selectedChat.id;
+
+    const refISO = selectedChat.mensaje_created_at;
+    const diffHrs = refISO
+      ? (Date.now() - new Date(refISO).getTime()) / 36e5
+      : 0;
+
+    // Graph IG usa los mismos types: image | video | file (audio también soporta 'audio')
+    const type =
+      kind === "image"
+        ? "image"
+        : kind === "video"
+        ? "video"
+        : kind === "audio"
+        ? "audio"
+        : "file";
+
+    socketRef.current.emit("IG_SEND", {
+      conversation_id: conversationId,
+      attachment: { kind, url, name, mimeType, size }, // el gateway mapea kind->type
       ...(diffHrs > 24
         ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
         : {}),
@@ -1236,7 +1413,10 @@ const Chat = () => {
   // Listener para detectar scroll hacia arriba
   const handleScroll = async () => {
     const chatContainer = chatContainerRef.current;
+    if (!chatContainer) return;
+
     if (chatContainer.scrollTop === 0) {
+      // 1) aún hay mensajes en memoria por mostrar
       if (
         mensajesMostrados > 0 &&
         mensajesMostrados < mensajesOrdenados.length
@@ -1245,46 +1425,67 @@ const Chat = () => {
         setMensajesMostrados((prev) =>
           Math.min(prev + 20, mensajesOrdenados.length)
         );
-      } else if (
-        selectedChat?.source === "ms" &&
-        !msIsLoadingOlder &&
-        msNextBeforeId
-      ) {
-        // No hay más para “destapar” en memoria -> pide otro page al backend
-        try {
-          setMsIsLoadingOlder(true);
-          // guarda altura para mantener posición al prepender
-          setScrollOffset(chatContainer.scrollHeight);
-          const { data } = await chatApi.get(
-            `/messenger/conversations/${msActiveConversationId}/messages`,
-            { params: { limit: 50, before_id: msNextBeforeId } }
-          );
-          const older = (data.items || []).map(mapMsMessageToUI); // ASC
-          if (older.length) {
-            // Prepend al buffer completo
-            setChatMessages((prev) => {
-              const list = prev[0]?.mensajes || [];
-              const merged = [...older, ...list];
-              return [{ id: msActiveConversationId, mensajes: merged }];
-            });
-            setMensajesOrdenados((prev) => [...older, ...prev]);
-            // aumentamos mostrados en la cantidad recién agregada
-            setMensajesMostrados((prev) => prev + older.length);
-            setMsNextBeforeId(data.next_before_id ?? null);
-            // restaurar posición
-            requestAnimationFrame(() => {
-              const el = chatContainerRef.current;
-              if (el && scrollOffset) {
-                el.scrollTop = el.scrollHeight - scrollOffset;
-              }
-            });
-          } else {
-            setMsNextBeforeId(null); // no hay más
-          }
-        } finally {
-          setMsIsLoadingOlder(false);
-          setScrollOffset(0);
+        return;
+      }
+
+      // 2) pedir más al backend (paginación hacia atrás)
+      if (!msIsLoadingOlder || !msNextBeforeId) {
+        if (!msNextBeforeId) return; // no hay más
+      } else {
+        return; // ya está cargando
+      }
+
+      try {
+        setMsIsLoadingOlder(true);
+        setScrollOffset(chatContainer.scrollHeight);
+
+        const convId = msActiveConversationId || selectedChat?.id;
+        if (!convId) return;
+
+        // endpoint y mapeo según canal
+        const isMs = selectedChat?.source === "ms";
+        const isIg = selectedChat?.source === "ig";
+
+        let url, mapFn;
+        if (isMs) {
+          url = `/messenger/conversations/${convId}/messages`;
+          mapFn = mapMsMessageToUI;
+        } else if (isIg) {
+          url = `/instagram/conversations/${convId}/messages`;
+          mapFn = mapIgMessageToUI;
+        } else {
+          return; // solo paginamos MS/IG aquí
         }
+
+        const { data } = await chatApi.get(url, {
+          params: { limit: 50, before_id: msNextBeforeId },
+        });
+
+        const older = (data.items || []).map(mapFn); // vienen ASC
+        if (older.length) {
+          // prepend al buffer completo
+          setChatMessages((prev) => {
+            const list = prev[0]?.mensajes || [];
+            const merged = [...older, ...list];
+            return [{ id: convId, mensajes: merged }];
+          });
+
+          setMensajesOrdenados((prev) => [...older, ...prev]);
+          setMensajesMostrados((prev) => prev + older.length);
+          setMsNextBeforeId(data.next_before_id ?? null);
+
+          // restaurar posición de scroll
+          requestAnimationFrame(() => {
+            const el = chatContainerRef.current;
+            if (el && scrollOffset)
+              el.scrollTop = el.scrollHeight - scrollOffset;
+          });
+        } else {
+          setMsNextBeforeId(null);
+        }
+      } finally {
+        setMsIsLoadingOlder(false);
+        setScrollOffset(0);
       }
     }
   };
@@ -1333,6 +1534,11 @@ const Chat = () => {
 
     if (chat.source === "ms") {
       openMessengerConversation(chat);
+      return;
+    }
+
+    if (chat.source === "ig") {
+      openInstagramConversation(chat);
       return;
     }
 
@@ -2475,10 +2681,11 @@ const Chat = () => {
     }
   };
 
-  // Escuchar eventos de Messenger cuando el socket esté listo
+  // Escuchar eventos de Messenger/Instagram cuando el socket esté listo
   useEffect(() => {
     if (!isSocketConnected || !socketRef.current) return;
 
+    // --- MS: MESSAGE ---
     const onMsMessage = ({ conversation_id, message }) => {
       const mapped = {
         id: message.id,
@@ -2492,24 +2699,24 @@ const Chat = () => {
         visto: message.status === "read" ? 1 : 0,
         created_at: message.created_at || new Date().toISOString(),
         responsable: message.direction === "out" ? message.agent_name : "",
-        client_tmp_id: message.client_tmp_id || null, // 👈
+        client_tmp_id: message.client_tmp_id || null,
       };
 
+      // si estoy en esa conversación, pinto en la derecha
       if (
         selectedChat?.source === "ms" &&
         Number(selectedChat.id) === Number(conversation_id)
       ) {
         setMensajesOrdenados((prev) => {
-          // 1) reemplazo por client_tmp_id si viene
           if (mapped.rol_mensaje === 1 && mapped.client_tmp_id) {
             const idx = prev.findIndex((m) => m.id === mapped.client_tmp_id);
             if (idx !== -1) {
               const next = [...prev];
-              next[idx] = { ...mapped, id: mapped.id }; // sustituye el tmp por el real
+              next[idx] = { ...mapped, id: mapped.id }; // sustituye tmp por real
               return next;
             }
           }
-          // 2) fallback por mismo texto (tu heurística actual)
+
           if (mapped.rol_mensaje === 1) {
             const rprev = [...prev].reverse();
             const idxRev = rprev.findIndex(
@@ -2537,7 +2744,7 @@ const Chat = () => {
         return;
       }
 
-      // 2) Si es otra conversación, actualizo el sidebar (preview, fecha, +pendiente y la subo)
+      // si es otra conversación, actualizo fila del sidebar
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
@@ -2560,8 +2767,8 @@ const Chat = () => {
       });
     };
 
+    // --- MS: CONV_UPSERT ---
     const onMsConvUpsert = (upd) => {
-      // Refresca/inyecta la fila de la izquierda (preview, fecha, unread) y reordena
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
@@ -2576,7 +2783,6 @@ const Chat = () => {
               upd.unread_count ?? out[idx].mensajes_pendientes,
           };
         } else {
-          // Si aún no existe en el listado, lo agregamos ya mapeado
           out.unshift(mapMsConvToSidebar(upd));
         }
         out.sort(
@@ -2587,32 +2793,116 @@ const Chat = () => {
       });
     };
 
+    // --- IG: MESSAGE ---
+    const onIgMessage = ({ conversation_id, message }) => {
+      const mapped = {
+        id: message.id,
+        rol_mensaje: message.direction === "out" ? 1 : 0,
+        texto_mensaje: message.text || "",
+        tipo_mensaje: message.attachments ? "attachment" : "text",
+        ruta_archivo: message.attachments
+          ? JSON.stringify(message.attachments)
+          : null,
+        mid_mensaje: message.mid || null,
+        visto: message.status === "read" ? 1 : 0,
+        created_at: message.created_at || new Date().toISOString(),
+        responsable: message.direction === "out" ? message.agent_name : "",
+        client_tmp_id: message.client_tmp_id || null,
+      };
+
+      if (
+        selectedChat?.source === "ig" &&
+        Number(selectedChat.id) === Number(conversation_id)
+      ) {
+        setMensajesOrdenados((prev) => {
+          if (mapped.rol_mensaje === 1 && mapped.client_tmp_id) {
+            const idx = prev.findIndex((m) => m.id === mapped.client_tmp_id);
+            if (idx !== -1) {
+              const next = [...prev];
+              next[idx] = { ...mapped, id: mapped.id };
+              return next;
+            }
+          }
+          return [...prev, mapped];
+        });
+
+        requestAnimationFrame(() => {
+          if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop =
+              chatContainerRef.current.scrollHeight;
+          }
+        });
+        return;
+      }
+
+      // sidebar
+      setMensajesAcumulados((prev) => {
+        const out = [...prev];
+        const idx = out.findIndex(
+          (x) => x.source === "ig" && Number(x.id) === Number(conversation_id)
+        );
+        if (idx !== -1) {
+          const row = out[idx];
+          const next = {
+            ...row,
+            texto_mensaje: message.text || row.texto_mensaje,
+            mensaje_created_at: mapped.created_at,
+            mensajes_pendientes:
+              (row.mensajes_pendientes || 0) +
+              (message.direction === "in" ? 1 : 0),
+          };
+          out.splice(idx, 1);
+          out.unshift(next);
+        }
+        return out;
+      });
+    };
+
+    // --- IG: CONV_UPSERT ---
+    const onIgConvUpsert = (upd) => {
+      setMensajesAcumulados((prev) => {
+        const out = [...prev];
+        const idx = out.findIndex(
+          (x) => x.source === "ig" && Number(x.id) === Number(upd.id)
+        );
+        if (idx !== -1) {
+          out[idx] = {
+            ...out[idx],
+            mensaje_created_at: upd.last_message_at,
+            texto_mensaje: upd.preview ?? out[idx].texto_mensaje,
+            mensajes_pendientes:
+              upd.unread_count ?? out[idx].mensajes_pendientes,
+          };
+        } else {
+          out.unshift(mapIgConvToSidebar(upd));
+        }
+        out.sort(
+          (a, b) =>
+            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+        );
+        return out;
+      });
+    };
+
+    // registrar
     socketRef.current.on("MS_MESSAGE", onMsMessage);
     socketRef.current.on("MS_CONV_UPSERT", onMsConvUpsert);
+    socketRef.current.on("IG_MESSAGE", onIgMessage);
+    socketRef.current.on("IG_CONV_UPSERT", onIgConvUpsert);
 
+    // cleanup ÚNICO
     return () => {
       socketRef.current?.off("MS_MESSAGE", onMsMessage);
       socketRef.current?.off("MS_CONV_UPSERT", onMsConvUpsert);
+      socketRef.current?.off("IG_MESSAGE", onIgMessage);
+      socketRef.current?.off("IG_CONV_UPSERT", onIgConvUpsert);
     };
-  }, [isSocketConnected, selectedChat]);
+  }, [isSocketConnected, selectedChat?.id, selectedChat?.source]);
 
   useEffect(() => {
     if (!isSocketConnected || !socketRef.current) return;
 
-    const onMsSendError = ({ conversation_id, error, client_tmp_id }) => {
-      if (
-        !(
-          selectedChat?.source === "ms" &&
-          Number(selectedChat.id) === Number(conversation_id)
-        )
-      ) {
-        return;
-      }
-      const msgText =
-        error?.error?.message ||
-        (typeof error === "string" ? error : "No se pudo enviar el mensaje");
-
-      // Si tenemos client_tmp_id, marcamos ese; si no, marcamos el último tmp
+    const markTmpAsError = (msgText, client_tmp_id) => {
       setMensajesOrdenados((prev) => {
         const next = [...prev];
         let idx = -1;
@@ -2627,19 +2917,48 @@ const Chat = () => {
             );
           if (idx !== -1) idx = next.length - 1 - idx;
         }
-        if (idx !== -1) {
-          next[idx] = {
-            ...next[idx],
-            error_meta: { mensaje_error: msgText },
-          };
-        }
+        if (idx !== -1)
+          next[idx] = { ...next[idx], error_meta: { mensaje_error: msgText } };
         return next;
       });
     };
 
+    const onMsSendError = ({ conversation_id, error, client_tmp_id }) => {
+      if (
+        !(
+          selectedChat?.source === "ms" &&
+          Number(selectedChat.id) === Number(conversation_id)
+        )
+      )
+        return;
+      const msgText =
+        error?.error?.message ||
+        (typeof error === "string" ? error : "No se pudo enviar el mensaje");
+      markTmpAsError(msgText, client_tmp_id);
+    };
+
+    const onIgSendError = ({ conversation_id, error, client_tmp_id }) => {
+      if (
+        !(
+          selectedChat?.source === "ig" &&
+          Number(selectedChat.id) === Number(conversation_id)
+        )
+      )
+        return;
+      const msgText =
+        error?.error?.message ||
+        (typeof error === "string" ? error : "No se pudo enviar el mensaje");
+      markTmpAsError(msgText, client_tmp_id);
+    };
+
     socketRef.current.on("MS_SEND_ERROR", onMsSendError);
-    return () => socketRef.current.off("MS_SEND_ERROR", onMsSendError);
-  }, [isSocketConnected, selectedChat]);
+    socketRef.current.on("IG_SEND_ERROR", onIgSendError);
+
+    return () => {
+      socketRef.current?.off("MS_SEND_ERROR", onMsSendError);
+      socketRef.current?.off("IG_SEND_ERROR", onIgSendError);
+    };
+  }, [isSocketConnected, selectedChat?.id, selectedChat?.source]);
 
   const [numeroModalPreset, setNumeroModalPreset] = useState(null);
 
@@ -2795,6 +3114,7 @@ const Chat = () => {
         dataAdmin={dataAdmin}
         setMensajesOrdenados={setMensajesOrdenados}
         onSendMsAttachment={onSendMsAttachment}
+        onSendIgAttachment={onSendIgAttachment}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario

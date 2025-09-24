@@ -47,6 +47,7 @@ const ChatPrincipal = ({
   dataAdmin,
   setMensajesOrdenados,
   onSendMsAttachment,
+  onSendIgAttachment,
   setNumeroModalPreset,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -568,23 +569,20 @@ const ChatPrincipal = ({
     return json.data; // { url, fileName, size, mimeType, ... }
   }
 
-  async function handleMessengerFilePicked(kind, file) {
-    if (!file || !selectedChat || selectedChat.source !== "ms") return;
+  // Refs existentes: imageInputRef, videoInputRef, fileInputRef
+
+  async function handleFilePicked(kind, file) {
+    if (!file || !selectedChat) return;
 
     try {
-      // 1) Subir a S3
-      const up = await uploadToS3(file); // up.url, up.fileName, up.mimeType, up.size
-
-      // 2) Pintar mensaje optimista
+      const up = await uploadToS3(file);
       const clientTmpId =
         "tmp-file-" + Date.now() + "-" + Math.random().toString(16).slice(2);
       const created = new Date().toISOString();
 
-      // Mapear a tus tipos de burbuja existentes
       const tipo =
-        kind === "image" ? "image" : kind === "video" ? "video" : "document"; // otros archivos como documento
+        kind === "image" ? "image" : kind === "video" ? "video" : "document";
 
-      // Para documentos, tu UI original espera un JSON; incluimos datos completos.
       const ruta_archivo =
         tipo === "document"
           ? JSON.stringify({
@@ -593,9 +591,9 @@ const ChatPrincipal = ({
               size: up.size,
               mimeType: up.mimeType,
             })
-          : up.url; // imágenes/videos: usaremos la URL directa
+          : up.url;
 
-      // Optimista
+      // mensaje optimista
       setMensajesOrdenados((prev) => [
         ...prev,
         {
@@ -607,28 +605,37 @@ const ChatPrincipal = ({
           mid_mensaje: null,
           visto: 0,
           created_at: created,
-          responsable: dataAdmin?.nombre_encargado || "", // o nombre_encargado_global si lo tienes aquí
-          agent_id: null, // opcional, lo marcará el backend en la confirmación
+          responsable: dataAdmin?.nombre_encargado || "",
           client_tmp_id: clientTmpId,
         },
       ]);
 
-      // 3) Enviar por socket (sube al padre)
-      onSendMsAttachment({
-        kind,
-        url: up.url,
-        name: up.fileName,
-        mimeType: up.mimeType,
-        size: up.size,
-        clientTmpId,
-      });
+      // enviar según canal
+      if (selectedChat.source === "ms") {
+        onSendMsAttachment({
+          kind,
+          url: up.url,
+          name: up.fileName,
+          mimeType: up.mimeType,
+          size: up.size,
+          clientTmpId,
+        });
+      } else if (selectedChat.source === "ig") {
+        onSendIgAttachment({
+          kind,
+          url: up.url,
+          name: up.fileName,
+          mimeType: up.mimeType,
+          size: up.size,
+          clientTmpId,
+        });
+      }
 
       setIsMenuOpen(false);
     } catch (err) {
-      console.error("MS attach error:", err);
+      console.error("Attach error:", err);
       alert("No se pudo subir/enviar el archivo.");
     } finally {
-      // limpiar value para permitir volver a elegir el mismo archivo
       if (imageInputRef.current) imageInputRef.current.value = "";
       if (videoInputRef.current) videoInputRef.current.value = "";
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -1184,7 +1191,7 @@ const ChatPrincipal = ({
                 className="hidden"
                 onChange={(e) =>
                   e.target.files?.[0] &&
-                  handleMessengerFilePicked("image", e.target.files[0])
+                  handleFilePicked("image", e.target.files[0])
                 }
               />
               <input
@@ -1194,7 +1201,7 @@ const ChatPrincipal = ({
                 className="hidden"
                 onChange={(e) =>
                   e.target.files?.[0] &&
-                  handleMessengerFilePicked("video", e.target.files[0])
+                  handleFilePicked("video", e.target.files[0])
                 }
               />
               <input
@@ -1203,7 +1210,7 @@ const ChatPrincipal = ({
                 className="hidden"
                 onChange={(e) =>
                   e.target.files?.[0] &&
-                  handleMessengerFilePicked("document", e.target.files[0])
+                  handleFilePicked("document", e.target.files[0])
                 }
               />
 
