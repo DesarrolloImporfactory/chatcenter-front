@@ -314,20 +314,34 @@ const Chat = () => {
             console.error("Error al validar conexión:", res.data);
           }
         } catch (error) {
-          console.error("Error en la validación:", error);
-          await Swal.fire({
-            icon: "error",
-            title: "Sin permisos a la configuración",
-            text: "Esta configuración no pertenece a tu usuario",
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            allowEnterKey: true,
-            confirmButtonText: "OK",
-          });
-
           localStorage.removeItem("id_configuracion");
           localStorage.removeItem("id_plataforma_conf");
-          navigate("/conexiones");
+          
+          if (error.response?.status === 403) {
+            Swal.fire({
+              icon: "error",
+              title: error.response?.data?.message,
+              confirmButtonText: "OK",
+            }).then(() => navigate("/planes_view"));
+          } else if (error.response?.status === 402) {
+            Swal.fire({
+              icon: "error",
+              title: error.response?.data?.message,
+              confirmButtonText: "OK",
+            }).then(() => navigate("/miplan"));
+          } else {
+            console.error("Error en la validación:", error);
+            await Swal.fire({
+              icon: "error",
+              title: "Sin permisos a la configuración",
+              text: "Esta configuración no pertenece a tu usuario",
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+              allowEnterKey: true,
+              confirmButtonText: "OK",
+            });
+            navigate("/conexiones");
+          }
         }
       };
 

@@ -45,10 +45,14 @@ export default function Login() {
         .unwrap()
         .then(() => {
           console.log("Login automático exitoso");
-          if (phone) {
-            navigate(`/chat?phone=${encodeURIComponent(phone)}`);
-          } else {
-            navigate("/chat");
+          if (tipo == "call_center") {
+            if (phone) {
+              navigate(`/chat?phone=${encodeURIComponent(phone)}`);
+            } else {
+              navigate("/chat");
+            }
+          } else if (tipo == "cursos_imporsuit"){
+            navigate(`/conexiones`);
           }
         })
         .catch((err) => {
