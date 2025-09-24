@@ -84,13 +84,14 @@ const ProductosView = () => {
   const onArchivoMasivoDragLeave = (e) => e.preventDefault(); // Prevenir la acción por defecto
 
   const handleDownloadExcel = () => {
-    const url =
-      "https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx";
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "plantilla_subida_masiva.xlsx";
-    link.click();
-  };
+  const url = "https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx";
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "plantilla_subida_masiva.xlsx";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
   // Función para manejar el envío del archivo al backend
   const handleSubirMasivo = async (e) => {

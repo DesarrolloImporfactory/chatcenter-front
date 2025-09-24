@@ -1304,6 +1304,25 @@ const DatosUsuario = ({
     setCosto_general(costo_general);
   }, [facturaSeleccionada.productos]);
 
+  useEffect(() => {
+  if (
+    facturaSeleccionada.productos &&
+    facturaSeleccionada.productos.length === 1 &&
+    facturaSeleccionada.productos[0].envio_prioritario === 1
+  ) {
+    
+    setValidar_generar(false);
+
+    Swal.fire({
+      icon: "warning",
+      title: "¡El producto tiene activado el envío prioritario!",
+      text: "Lo sentimos, este producto es logístico y no puede generarse guía si no está con otro producto no logístico.",
+      timer: 2500,
+      showConfirmButton: false,
+    })
+  }
+}, [facturaSeleccionada.productos]);
+
   // Buscar tarifas de envío
   useEffect(() => {
     if (ciudades != null && facturaSeleccionada.productos) {
