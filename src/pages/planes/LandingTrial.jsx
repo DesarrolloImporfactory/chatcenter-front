@@ -478,7 +478,7 @@ const LandingTrial = () => {
         trial_days: 365,
       };
       const { data } = await chatApi.post(
-        "/stripe_plan/crearFreeTrial",
+        "/stripe_plan/crearSesionLiteFree",
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
