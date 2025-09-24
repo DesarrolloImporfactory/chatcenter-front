@@ -83,16 +83,6 @@ const ProductosView = () => {
   // Función para manejar cuando el archivo deja de ser arrastrado
   const onArchivoMasivoDragLeave = (e) => e.preventDefault(); // Prevenir la acción por defecto
 
-  const handleDownloadExcel = () => {
-  const url = "https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx";
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "plantilla_subida_masiva.xlsx";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
   // Función para manejar el envío del archivo al backend
   const handleSubirMasivo = async (e) => {
     e.preventDefault();
@@ -1305,11 +1295,18 @@ const ProductosView = () => {
               {/* Botón para descargar el archivo Excel */}
               <div className="flex justify-start gap-4 mb-4">
                 <button
-                  onClick={handleDownloadExcel}
+                  
                   className="inline-flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <a
+                  href="https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx"
+                  target="_blank"
+                  download="plantilla_subida_masiva.xlsx"
+                  className="flex items-center gap-2"
                 >
                   <i className="bx bx-cloud-download text-lg"></i> Descargar
                   formato de plantilla
+                </a>
                 </button>
               </div>
 
