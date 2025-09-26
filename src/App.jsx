@@ -163,11 +163,11 @@ function App() {
           />
 
           <Route
-            path="/Landing"
+            path="/landing"
             element={
-              <MainLayout_conexiones>
+              <MainLayoutPlanes>
                 <Landing />
-              </MainLayout_conexiones>
+              </MainLayoutPlanes>
             }
           />
 

@@ -52,8 +52,8 @@ export default function Login() {
               navigate("/chat");
             }
           } else if (tipo == "cursos_imporsuit"){
-            navigate(`/conexiones`);
-          }
+            navigate(`/landing`);
+          } 
         })
         .catch((err) => {
           console.error("Error en login automático:", err);
