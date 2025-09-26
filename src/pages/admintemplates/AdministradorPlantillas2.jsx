@@ -5,6 +5,7 @@ import VerPlantillaModal from "./VerPlantillaModal";
 import CrearPlantillaRapidaModal from "./CrearPlantillaRapidaModal";
 import EditarPlantillaRapidaModal from "./EditarPlantillaRapidaModal";
 import VerPlantillaGuiasGeneradas from "./VerPlantillaGuiasGeneradas";
+import VerPlantillaCalendarios from "./VerPlantillaCalendarios";
 import CrearConfiguracionModal from "./CrearConfiguracionModal";
 import { useNavigate, useLocation } from "react-router-dom";
 import log_imporsuitImage from "../../assets/logo_imporsuit.png";
@@ -33,6 +34,8 @@ const AdministradorPlantillas2 = () => {
     []
   );
   const [modalConfigOpen, setModalConfigOpen] = useState(false);
+  const [modalConfigOpenCalendario, setModalConfigOpenCalendario] =
+    useState(false);
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
   const [respuestaSeleccionada, setRespuestaSeleccionada] = useState(null);
   const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
@@ -332,6 +335,10 @@ const AdministradorPlantillas2 = () => {
 
   const handleAbrirConfiguraciones = () => {
     setModalConfigOpen(true);
+  };
+
+  const handleAbrirConfiguracionesCalendario = () => {
+    setModalConfigOpenCalendario(true);
   };
 
   const handleAbrirEditarRespuesta = (respuesta) => {
@@ -1051,6 +1058,12 @@ const AdministradorPlantillas2 = () => {
               className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
             >
               <i className="bx bxs-file-doc text-"></i> Guía Generada
+            </button>
+            <button
+              onClick={handleAbrirConfiguracionesCalendario}
+              className="bg-teal-500 text-white px-4 py-2 rounded hover:bg-teal-400"
+            >
+              <i className="bx bxs-file-doc text-"></i> Notificacion Calendario
             </button>
           </div>
         </div>
@@ -2149,6 +2162,14 @@ const AdministradorPlantillas2 = () => {
         <VerPlantillaGuiasGeneradas
           respuestas={respuestasRapidas}
           onClose={() => setModalConfigOpen(false)}
+          setStatusMessage={setStatusMessage}
+        />
+      )}
+
+      {modalConfigOpenCalendario && (
+        <VerPlantillaCalendarios
+          respuestas={respuestasRapidas}
+          onClose={() => setModalConfigOpenCalendario(false)}
           setStatusMessage={setStatusMessage}
         />
       )}
