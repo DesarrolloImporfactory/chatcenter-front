@@ -149,18 +149,28 @@ const Conexionespruebas = () => {
             });
             return;
           }
+
+          // EXACTAMENTE la página desde donde invocas FB.login (sin query ni hash)
+          const redirectUri = window.location.origin + window.location.pathname;
+          console.log(
+            "[EMB][FRONT] href=",
+            window.location.href,
+            " redirectUri(enviado)=",
+            redirectUri
+          );
+
           try {
             const { data } = await chatApi.post(
               "/whatsapp_managment/embeddedSignupComplete",
               {
                 code,
                 id_usuario: userData.id_usuario,
+                redirect_uri: redirectUri, // <<< clave para evitar el 36008
               }
             );
             if (data.success) {
-              // Puede mostrar los IDs para auditoría
               console.debug(
-                "WABA conectada:",
+                "WABA:",
                 data.waba_id,
                 "Phone:",
                 data.phone_number_id,
