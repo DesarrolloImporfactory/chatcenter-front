@@ -158,6 +158,15 @@ const Conexionespruebas = () => {
               }
             );
             if (data.success) {
+              // Puede mostrar los IDs para auditoría
+              console.debug(
+                "WABA conectada:",
+                data.waba_id,
+                "Phone:",
+                data.phone_number_id,
+                "Config:",
+                data.id_configuracion
+              );
               setStatusMessage({
                 type: "success",
                 text: "✅ Número conectado correctamente.",
