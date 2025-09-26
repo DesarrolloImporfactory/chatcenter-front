@@ -129,7 +129,7 @@ const Conexionespruebas = () => {
     };
   }, []);
 
-  const handleConectarMetaDeveloper = () => {
+  const handleConectarMetaDeveloper = (config) => {
     if (!window.FB) {
       setStatusMessage({
         type: "error",
@@ -150,7 +150,6 @@ const Conexionespruebas = () => {
             return;
           }
 
-          // EXACTAMENTE la página desde donde invocas FB.login (sin query ni hash)
           const redirectUri = window.location.origin + window.location.pathname;
           console.log(
             "[EMB][FRONT] href=",
@@ -165,9 +164,11 @@ const Conexionespruebas = () => {
               {
                 code,
                 id_usuario: userData.id_usuario,
-                redirect_uri: redirectUri, // <<< clave para evitar el 36008
+                redirect_uri: redirectUri,
+                id_configuracion: config?.id, // <<< clave para actualizar esa fila
               }
             );
+
             if (data.success) {
               console.debug(
                 "WABA:",
@@ -181,6 +182,7 @@ const Conexionespruebas = () => {
                 type: "success",
                 text: "✅ Número conectado correctamente.",
               });
+              await fetchConfiguracionAutomatizada(); // <<< refresca para pintar “conectado”
             } else {
               throw new Error(data.message || "Error inesperado.");
             }
@@ -493,9 +495,7 @@ const Conexionespruebas = () => {
   /* Derivados */
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
-    const conectados = configuracionAutomatizada.filter(
-      (c) => !!c.conectado
-    ).length;
+    const conectados = configuracionAutomatizada.filter(isConectado).length;
     const pagosActivos = configuracionAutomatizada.filter(
       (c) => Number(c.metodo_pago) === 1
     ).length;
@@ -516,7 +516,7 @@ const Conexionespruebas = () => {
 
     if (filtroEstado) {
       const objetivo = filtroEstado === "conectado";
-      data = data.filter((c) => !!c.conectado === objetivo);
+      data = data.filter((c) => isConectado(c) === objetivo);
     }
 
     if (filtroPago) {
@@ -526,6 +526,16 @@ const Conexionespruebas = () => {
 
     return data;
   }, [configuracionAutomatizada, search, filtroEstado, filtroPago]);
+
+  const isConectado = (c) => {
+    if (typeof c?.status_whatsapp === "string") {
+      return c.status_whatsapp.toUpperCase() === "CONNECTED";
+    }
+    // Fallback: basta con que existan id_telefono (WABAID) e id_whatsapp (WABABUSSINESS_ID)
+    return Boolean(
+      String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim()
+    );
+  };
 
   /* UI */
   return (
@@ -660,7 +670,7 @@ const Conexionespruebas = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {listaFiltrada.map((config, idx) => {
-                  const conectado = !!config.conectado;
+                  const conectado = isConectado(config);
                   const pagoActivo = Number(config.metodo_pago) === 1;
 
                   return (
