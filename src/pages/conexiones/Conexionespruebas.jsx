@@ -492,6 +492,16 @@ const Conexionespruebas = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
+  const isConectado = (c) => {
+    if (typeof c?.status_whatsapp === "string") {
+      return c.status_whatsapp.toUpperCase() === "CONNECTED";
+    }
+    // Fallback: basta con que existan id_telefono (WABAID) e id_whatsapp (WABABUSSINESS_ID)
+    return Boolean(
+      String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim()
+    );
+  };
+
   /* Derivados */
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
@@ -526,16 +536,6 @@ const Conexionespruebas = () => {
 
     return data;
   }, [configuracionAutomatizada, search, filtroEstado, filtroPago]);
-
-  const isConectado = (c) => {
-    if (typeof c?.status_whatsapp === "string") {
-      return c.status_whatsapp.toUpperCase() === "CONNECTED";
-    }
-    // Fallback: basta con que existan id_telefono (WABAID) e id_whatsapp (WABABUSSINESS_ID)
-    return Boolean(
-      String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim()
-    );
-  };
 
   /* UI */
   return (
