@@ -158,6 +158,75 @@ const MiPlan = () => {
   };
 
   const cancelarSuscripcion = async () => {
+  // Buscar plan LITE por nombre (sin romper nada si no existe)
+  const planLite = Array.isArray(planes)
+    ? planes.find((p) => (p?.nombre_plan || "").toLowerCase().includes("lite"))
+    : null;
+
+  if (planLite) {
+    // Card simple para el upsell
+    const cardHtml = `
+      <div style="margin-top:10px; text-align:left">
+        <div style="
+          border:1px solid #e2e8f0; border-radius:12px; padding:14px;
+          background:#fff; box-shadow:0 6px 18px rgba(23,25,49,.08);">
+          <div style="font-weight:800; font-size:16px; color:#171931; margin-bottom:6px;">
+            ${planLite?.nombre_plan || "Plan LITE"}
+          </div>
+          <div style="display:flex; align-items:flex-end; gap:6px;">
+            <div style="font-weight:900; font-size:28px; color:#171931;">$19.00</div>
+            <div style="color:#64748b; font-size:12px; margin-bottom:3px;">/mes</div>
+          </div>
+          ${
+            planLite?.descripcion_plan
+              ? `<p style="margin:8px 0 6px; color:#5a547a; font-size:13px;">
+                   ${planLite.descripcion_plan}
+                 </p>`
+              : ""
+          }
+          <ul style="margin:10px 0 0; padding-left:18px; color:#334155; font-size:13px;">
+            ${[
+              planLite?.n_conexiones ? `${planLite.n_conexiones} conexiones` : null,
+              planLite?.max_subusuarios ? `${planLite.max_subusuarios} subusuarios` : null,
+              "Funciones esenciales para tu día a día",
+            ]
+              .filter(Boolean)
+              .map((f) => `<li>• ${f}</li>`)
+              .join("")}
+          </ul>
+        </div>
+      </div>
+    `;
+
+    const resp = await Swal.fire({
+      title: "¿Desea cancelar suscripción?",
+      html: `
+        <p style="margin-bottom:8px;color:#334155;">
+          Te ofrecemos un plan más ajustado para tus gestiones:
+        </p>
+        ${cardHtml}
+      `,
+      icon: "question",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: `Cambiar a ${planLite?.nombre_plan || "Plan LITE"}`,
+      denyButtonText: "No, cancelar",
+      cancelButtonText: "Volver",
+      reverseButtons: true,
+      focusDeny: true,
+    });
+
+    // Si acepta el LITE, usamos tu mismo flujo de selección/compra
+    if (resp.isConfirmed) {
+      await handleSeleccionarPlan(planLite.id_plan);
+      return;
+    }
+
+    // Si no confirma ni niega (cerró o "Volver"), no hacemos nada
+    if (!resp.isDenied) return;
+    // Si negó, continuamos con la cancelación normal (tal cual estaba)
+  } else {
+    // Fallback al confirm clásico si no existe el LITE
     const confirm = await Swal.fire({
       title: "¿Cancelar suscripción?",
       text: "Tu plan seguirá activo hasta el final del periodo.",
@@ -166,28 +235,30 @@ const MiPlan = () => {
       confirmButtonText: "Sí, cancelar",
     });
     if (!confirm.isConfirmed) return;
+  }
 
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
+  // === Cancelación original (NO se toca la lógica) ===
+  try {
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    const decoded = JSON.parse(atob(token.split(".")[1]));
+    const id_usuario = decoded.id_usuario || decoded.id_users;
 
-      const res = await chatApi.post(
-        "/stripe_plan/cancelarSuscripcion",
-        { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    const res = await chatApi.post(
+      "/stripe_plan/cancelarSuscripcion",
+      { id_usuario },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
 
-      Swal.fire("Cancelado", res.data.message, "success");
-      obtenerPlanActivo();
-    } catch (error) {
-      console.error("Error al cancelar:", error);
-      Swal.fire("Error", "No se pudo cancelar la suscripción", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+    Swal.fire("Cancelado", res.data.message, "success");
+    obtenerPlanActivo();
+  } catch (error) {
+    console.error("Error al cancelar:", error);
+    Swal.fire("Error", "No se pudo cancelar la suscripción", "error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ====== Efectos originales ======
   useEffect(() => {

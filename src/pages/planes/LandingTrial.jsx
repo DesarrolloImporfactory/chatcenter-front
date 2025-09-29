@@ -434,7 +434,7 @@ const LandingTrial = () => {
     }
   }, []);
 
-  // elegibilidad
+  /* // elegibilidad
   useEffect(() => {
     (async () => {
       const { token, id_usuario } = getAuth();
@@ -456,7 +456,7 @@ const LandingTrial = () => {
         setChecking(false);
       }
     })();
-  }, []);
+  }, []); */
 
   const startFreeTrial = async () => {
     const { token, id_usuario } = getAuth();
