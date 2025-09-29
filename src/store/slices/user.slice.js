@@ -55,7 +55,11 @@ export const newLoginThunk = createAsyncThunk(
       localStorage.setItem("token", data.token);
       localStorage.setItem("id_plataforma_conf", data.id_plataforma);
       localStorage.setItem("id_configuracion", data.id_configuracion);
-      return data.user;
+      let data_filtrada = {
+        user: data.user,
+        estado_creacion: data.estado_creacion
+      };
+      return data_filtrada;
     } catch (err) {
       const msg = err.response?.data?.message || "Credenciales inválidas";
       Toast.fire({ icon: "error", title: msg });

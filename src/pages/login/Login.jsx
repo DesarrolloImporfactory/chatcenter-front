@@ -43,7 +43,7 @@ export default function Login() {
 
       dispatch(newLoginThunk({ token, tienda, tipo }))
         .unwrap()
-        .then(() => {
+        .then((data) => {
           console.log("Login automático exitoso");
           if (tipo == "call_center") {
             if (phone) {
@@ -51,9 +51,15 @@ export default function Login() {
             } else {
               navigate("/chat");
             }
-          } else if (tipo == "cursos_imporsuit"){
-            navigate(`/landing`);
-          } 
+          } else if (tipo == "cursos_imporsuit") {
+            const estado_creacion = data.estado_creacion;
+
+            if (estado_creacion == "completo") {
+              navigate(`/conexiones`);
+            } else if (estado_creacion == "incompleto") {
+              navigate(`/landing`);
+            }
+          }
         })
         .catch((err) => {
           console.error("Error en login automático:", err);
