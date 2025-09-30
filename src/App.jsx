@@ -16,6 +16,7 @@ import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import Landing from "./pages/planes/LandingTrial";
+import Access from "./pages/landing/AcccessGuided";
 
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
@@ -171,6 +172,8 @@ function App() {
             }
           />
 
+          
+
           <Route
             path="/productos"
             element={
@@ -189,6 +192,8 @@ function App() {
             }
           />
         </Route>
+
+        <Route path="/access" element={<Access />}/>
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
