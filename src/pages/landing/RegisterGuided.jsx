@@ -1,13 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import { useDispatch } from "react-redux";
+import { registerThunk } from "../../store/slices/user.slice";
+import { useNavigate } from "react-router-dom";
 import {
   FaUserPlus,
-  FaSignInAlt,
   FaTimes,
   FaArrowLeft,
   FaArrowRight,
-  FaPlayCircle,
   FaLock,
+  FaEye,
+  FaEyeSlash,
   FaCheckCircle,
+  FaPlayCircle,
 } from "react-icons/fa";
 
 /* =========================================================
@@ -135,11 +140,7 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
   if (isMobile) {
     // Bottom sheet en mobile
     return (
-      <div
-        className="fixed inset-x-0 bottom-2 z-[73] px-3"
-        role="dialog"
-        aria-live="polite"
-      >
+      <div className="fixed inset-x-0 bottom-2 z-[73] px-3" role="dialog" aria-live="polite">
         <div className="mx-auto max-w-md rounded-2xl bg-white/95 p-4 text-sm text-slate-700 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.35)] backdrop-blur animate-[sheetIn_.24s_ease-out]">
           {children}
         </div>
@@ -148,11 +149,9 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
   }
 
   // Desktop/tablet: globo con flecha y transición
-  const spaceBelow =
-    rect.top + rect.height + offset + 240 < window.scrollY + rect.vh;
+  const spaceBelow = rect.top + rect.height + offset + 240 < window.scrollY + rect.vh;
   const spaceAbove = rect.top - offset - 240 > window.scrollY;
-  const spaceRight =
-    rect.left + rect.width + offset + 400 < window.scrollX + rect.vw;
+  const spaceRight = rect.left + rect.width + offset + 400 < window.scrollX + rect.vw;
   let place = placement;
   if (placement === "auto") {
     if (spaceRight) place = "right";
@@ -161,10 +160,7 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
     else place = "left";
   }
 
-  const style = {
-    transition:
-      "top .28s cubic-bezier(.22,1,.36,1), left .28s cubic-bezier(.22,1,.36,1)",
-  };
+  const style = { transition: "top .28s cubic-bezier(.22,1,.36,1), left .28s cubic-bezier(.22,1,.36,1)" };
   let anchorX = rect.left + rect.width / 2;
   let anchorY = rect.top + rect.height / 2;
 
@@ -195,40 +191,18 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
 
   let tipX = balloonX + 22;
   let tipY = balloonY - 6;
-  if (place === "bottom") {
-    tipX = balloonX + 22;
-    tipY = balloonY;
-  } else if (place === "top") {
-    tipX = balloonX + 22;
-    tipY = balloonY + 220;
-  } else if (place === "right") {
-    tipX = balloonX;
-    tipY = balloonY + 22;
-  } else if (place === "left") {
-    tipX = balloonX + 400;
-    tipY = balloonY + 22;
-  }
+  if (place === "bottom") { tipX = balloonX + 22; tipY = balloonY; }
+  else if (place === "top") { tipX = balloonX + 22; tipY = balloonY + 220; }
+  else if (place === "right") { tipX = balloonX; tipY = balloonY + 22; }
+  else if (place === "left") { tipX = balloonX + 400; tipY = balloonY + 22; }
 
   return (
     <>
       {/* Conector con animación de trazo */}
-      <svg
-        className="fixed z-[72] pointer-events-none"
-        width="0"
-        height="0"
-        style={{ inset: 0 }}
-        viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`}
-        preserveAspectRatio="none"
-      >
+      <svg className="fixed z-[72] pointer-events-none" width="0" height="0" style={{ inset: 0 }}
+           viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`} preserveAspectRatio="none">
         <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="14"
-            markerHeight="14"
-            refX="10"
-            refY="5"
-            orient="auto"
-          >
+          <marker id="arrowhead" markerWidth="14" markerHeight="14" refX="10" refY="5" orient="auto">
             <path d="M0,0 L10,5 L0,10 Z" fill="url(#grad)" />
           </marker>
           <linearGradient id="grad" x1="0" x2="1" y1="0" y2="0">
@@ -236,38 +210,20 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
             <stop offset="100%" stopColor="#6366f1" />
           </linearGradient>
           <filter id="glow">
-            <feDropShadow
-              dx="0"
-              dy="0"
-              stdDeviation="3"
-              floodColor="rgba(99,102,241,.6)"
-            />
+            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="rgba(99,102,241,.6)" />
           </filter>
         </defs>
         <path
-          d={`M ${tipX} ${tipY} Q ${(tipX + anchorX) / 2} ${
-            (tipY + anchorY) / 2 - 20
-          }, ${anchorX} ${anchorY}`}
-          stroke="url(#grad)"
-          strokeWidth="3"
-          fill="none"
-          markerEnd="url(#arrowhead)"
-          filter="url(#glow)"
-          pathLength="100"
-          style={{
-            strokeDasharray: 100,
-            strokeDashoffset: 0,
-            animation: "dashDraw .35s ease-out both",
-          }}
+          d={`M ${tipX} ${tipY} Q ${(tipX + anchorX) / 2} ${(tipY + anchorY) / 2 - 20}, ${anchorX} ${anchorY}`}
+          stroke="url(#grad)" strokeWidth="3" fill="none" markerEnd="url(#arrowhead)" filter="url(#glow)"
+          pathLength="100" style={{ strokeDasharray: 100, strokeDashoffset: 0, animation: "dashDraw .35s ease-out both" }}
         />
       </svg>
 
       {/* Globo */}
       <div
         className="fixed z-[71] max-w-[440px] rounded-2xl bg-white/95 p-4 text-sm text-slate-700 ring-1 ring-slate-200 shadow-[0_30px_80px_rgba(2,6,23,.25)] backdrop-blur animate-[floatUp_.22s_ease-out]"
-        style={style}
-        role="dialog"
-        aria-live="polite"
+        style={style} role="dialog" aria-live="polite"
       >
         {children}
       </div>
@@ -289,7 +245,7 @@ const ProcessFlow = ({ steps = [], currentIndex = 0, innerRef }) => {
   const viewW = 800;
   const viewH = 220;
 
-  // Curva (de izquierda a derecha con sutiles ondulaciones)
+  // Curva (de izquierda a derecha con ondulaciones suaves)
   const d = `M 40 ${viewH - 60}
              C ${viewW * 0.25} ${viewH - 20},
                ${viewW * 0.35} 60,
@@ -297,10 +253,8 @@ const ProcessFlow = ({ steps = [], currentIndex = 0, innerRef }) => {
              S ${viewW * 0.75} ${viewH - 20},
                ${viewW - 40} 60`;
 
-  const pct =
-    steps.length > 1 ? currentIndex / (steps.length - 1) : 0;
+  const pct = steps.length > 1 ? currentIndex / (steps.length - 1) : 0;
 
-  // Calcular longitud y posiciones de milestones + partícula
   useEffect(() => {
     const path = pathRef.current;
     if (!path) return;
@@ -318,7 +272,6 @@ const ProcessFlow = ({ steps = [], currentIndex = 0, innerRef }) => {
     setDot({ x: active.x, y: active.y });
   }, [steps, pct]);
 
-  // Recalcular en resize (por si cambia el tamaño del SVG)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onResize = () => {
@@ -363,30 +316,8 @@ const ProcessFlow = ({ steps = [], currentIndex = 0, innerRef }) => {
           </filter>
         </defs>
 
-        {/* Fondo sutil */}
-        <rect
-          x="0"
-          y="0"
-          width={viewW}
-          height={viewH}
-          fill="url(#bgGrid)"
-          opacity="0.08"
-        />
-        <defs>
-          <pattern id="bgGrid" width="24" height="24" patternUnits="userSpaceOnUse">
-            <path d="M 24 0 L 0 0 0 24" fill="none" stroke="rgba(2,6,23,.55)" strokeWidth="1" />
-          </pattern>
-        </defs>
-
         {/* Path base */}
-        <path
-          d={d}
-          fill="none"
-          stroke="url(#pfTrack)"
-          strokeWidth="7"
-          strokeLinecap="round"
-          filter="url(#pfGlow)"
-        />
+        <path d={d} fill="none" stroke="url(#pfTrack)" strokeWidth="7" strokeLinecap="round" filter="url(#pfGlow)" />
 
         {/* Path de progreso (animado) */}
         <path
@@ -417,12 +348,7 @@ const ProcessFlow = ({ steps = [], currentIndex = 0, innerRef }) => {
                 strokeWidth={done ? 2 : 1}
                 filter="url(#pfGlow)"
               />
-              <text
-                y={-16}
-                textAnchor="middle"
-                className="fill-slate-700"
-                style={{ fontSize: 11, fontWeight: 700 }}
-              >
+              <text y={-16} textAnchor="middle" className="fill-slate-700" style={{ fontSize: 11, fontWeight: 700 }}>
                 {i + 1}
               </text>
             </g>
@@ -433,12 +359,7 @@ const ProcessFlow = ({ steps = [], currentIndex = 0, innerRef }) => {
         <g transform={`translate(${dot.x}, ${dot.y})`}>
           <circle r="5.5" fill="white" />
           <circle r="5.5" fill="url(#pfGrad)" opacity=".9">
-            <animate
-              attributeName="r"
-              values="4;6;4"
-              dur="1.6s"
-              repeatCount="indefinite"
-            />
+            <animate attributeName="r" values="4;6;4" dur="1.6s" repeatCount="indefinite" />
           </circle>
         </g>
       </svg>
@@ -454,149 +375,40 @@ const ProcessFlow = ({ steps = [], currentIndex = 0, innerRef }) => {
 };
 
 /* =========================================================
-   BigChoiceCard (XL, empresarial)
+   Input + Helpers
 ========================================================= */
 
-const BigChoiceCard = ({
-  innerRef,
-  tone = "primary",
-  icon: Icon,
-  title,
-  subtitle,
-  bullets = [],
-  ctaLabel,
-  onClick,
-}) => {
-  const isPrimary = tone === "primary";
-
-  return (
-    <div ref={innerRef} className="relative h-full">
-      {/* Glow / borde */}
-      <div
-        aria-hidden
-        className={[
-          "absolute -inset-[1px] -z-10 rounded-3xl blur-[14px] opacity-90",
-          isPrimary
-            ? "bg-gradient-to-br from-sky-600 via-indigo-500 to-sky-600"
-            : "bg-gradient-to-br from-slate-200 via-slate-300 to-slate-200",
-        ].join(" ")}
-      />
-      <div
-        className={[
-          "relative flex h-full min-h-[440px] md:min-h-[480px] 2xl:min-h-[520px] flex-col justify-between",
-          "rounded-[28px] bg-white/95 p-7 sm:p-8 ring-1 ring-slate-200",
-          "shadow-[0_30px_100px_rgba(2,6,23,.12)] backdrop-blur",
-        ].join(" ")}
-      >
-        {/* Decor superior */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute right-0 top-0 h-44 w-56 opacity-90"
-          style={{
-            clipPath: "polygon(55% 0, 100% 0, 100% 100%, 10% 100%)",
-            background:
-              "radial-gradient(60% 80% at 70% 10%, rgba(59,130,246,.18) 0%, rgba(99,102,241,.07) 60%, transparent 85%)",
-          }}
-        />
-        {/* Grid sutil */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-[28px] opacity-[.12]"
-          style={{
-            background:
-              "linear-gradient(transparent 0, transparent 22px, rgba(2,6,23,.6) 23px), linear-gradient(90deg, transparent 0, transparent 22px, rgba(2,6,23,.6) 23px)",
-            backgroundSize: "24px 24px",
-            maskImage:
-              "radial-gradient(120% 100% at 80% 0%, black 30%, transparent 70%)",
-          }}
-        />
-
-        {/* Header */}
-        <div className="flex items-start gap-4">
-          <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900/5 ring-1 ring-slate-200">
-            <Icon className="text-slate-700 text-3xl" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-[24px] sm:text-[26px] font-semibold tracking-tight text-slate-900">
-                {title}
-              </h3>
-              {isPrimary && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                  Recomendado
-                </span>
-              )}
-            </div>
-            {subtitle && (
-              <p className="mt-1 text-[14px] leading-6 text-slate-600">
-                {subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Contenido */}
-        {bullets.length > 0 && (
-          <ul className="mt-5 space-y-3">
-            {bullets.map((b, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2 text-[15px] text-slate-700"
-              >
-                <span className="mt-[6px] inline-block h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                <span>{b}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* CTA */}
-        <div className="mt-8">
-          <button
-            onClick={onClick}
-            className={[
-              "group inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-[15px] font-semibold tracking-wide ring-1 transition",
-              isPrimary
-                ? "bg-gradient-to-b from-indigo-600 to-indigo-500 text-white ring-indigo-500/30 hover:brightness-110"
-                : "bg-white text-slate-900 ring-slate-200 hover:bg-slate-50",
-            ].join(" ")}
-            aria-label={ctaLabel || title}
-          >
-            {ctaLabel || "Continuar"}
-            <span className="transition-transform group-hover:translate-x-0.5">
-              →
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+const Field = ({ label, error, children }) => (
+  <label className="block">
+    <span className="text-sm font-medium text-slate-800">{label}</span>
+    <div className="mt-1">{children}</div>
+    {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+  </label>
+);
 
 /* =========================================================
-   Vista principal
+   Vista principal (Registro guiado)
 ========================================================= */
 
-const AccessGuided = ({
-  onCreate,
-  onLogin,
-  createHref = "/registro_guiado",
-  loginHref = "/login",
+const RegisterGuided = ({
   brand = "Imporchat",
   tourOnFirstLoad = true,
   forceTour = false,
 }) => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
   // refs para spotlight / tour
   const heroRef = useRef(null);
-  const createRef = useRef(null);
-  const loginRef = useRef(null);
+  const formRef = useRef(null);
+  const pwdRef = useRef(null);
+  const submitRef = useRef(null);
   const processRef = useRef(null);
 
-  const go = useCallback((href) => {
-    if (href && typeof window !== "undefined") window.location.assign(href);
-  }, []);
+  const [showPwd, setShowPwd] = useState(false);
+  const [showPwd2, setShowPwd2] = useState(false);
 
-  // Pasos del proceso (para el gráfico)
+  // Timeline (sincronizada con el flujo)
   const processSteps = useMemo(
     () => [
       { key: "inicio", label: "Inicio" },
@@ -607,21 +419,42 @@ const AccessGuided = ({
     ],
     []
   );
-  const [processIndex, setProcessIndex] = useState(0);
+  // Esta vista inicia en "Registro"
+  const [processIndex, setProcessIndex] = useState(1);
 
-  const handleCreate = useCallback(() => {
-    // Animá a "Registro" y navegá
-    setProcessIndex(1);
-    if (onCreate) return onCreate();
-    setTimeout(() => go(createHref), 380);
-  }, [onCreate, createHref, go]);
+  // Form
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+    setError,
+    reset,
+  } = useForm({ mode: "onTouched" });
 
-  const handleLogin = useCallback(() => {
-    // Para login mostramos proceso completo
-    setProcessIndex(processSteps.length - 1);
-    if (onLogin) return onLogin();
-    setTimeout(() => go(loginHref), 280);
-  }, [onLogin, loginHref, go, processSteps.length]);
+  const pwd = watch("password");
+
+  const onSubmit = async (values) => {
+    try {
+      setProcessIndex(2); // → Verificación (antes de enviar)
+      const result = await dispatch(registerThunk(values));
+      // Si tu thunk devuelve error, maneja aquí:
+      if (result?.error) {
+        setProcessIndex(1);
+        setError("root", { message: result.error?.message || "No se pudo registrar" });
+        return;
+      }
+      // Simula config y listo
+      setProcessIndex(3); // Configuración
+      setTimeout(() => {
+        setProcessIndex(4); // Listo
+        setTimeout(() => navigate("/login"), 380);
+      }, 380);
+    } catch (e) {
+      setProcessIndex(1);
+      setError("root", { message: "Ocurrió un error inesperado" });
+    }
+  };
 
   /* ---------- TOUR ---------- */
   const [tourOpen, setTourOpen] = useState(false);
@@ -631,7 +464,7 @@ const AccessGuided = ({
   useEffect(() => {
     const dismissed =
       typeof window !== "undefined" &&
-      localStorage.getItem("access.tour.dismissed") === "1";
+      localStorage.getItem("register.tour.dismissed") === "1";
     if (forceTour) setTourOpen(true);
     else if (tourOnFirstLoad && !dismissed) setTourOpen(true);
   }, [tourOnFirstLoad, forceTour]);
@@ -641,29 +474,36 @@ const AccessGuided = ({
       {
         key: "hero",
         ref: heroRef,
-        title: `Bienvenido a ${brand}`,
-        body: "Elegí tu camino. La guía resalta los puntos clave y es 100% responsive.",
+        title: `Crea tu cuenta en ${brand}`,
+        body: "Completa el formulario. La línea de tiempo te muestra el avance del proceso.",
         placement: "auto",
       },
       {
-        key: "create",
-        ref: createRef,
-        title: "Crear una nueva cuenta",
-        body: "Empezá acá si es tu primera vez. Onboarding guiado, alta rápida y segura.",
+        key: "form",
+        ref: formRef,
+        title: "Datos principales",
+        body: "Ingresa nombre, usuario, email y responsable. Validamos cada campo al instante.",
         placement: "auto",
       },
       {
-        key: "login",
-        ref: loginRef,
-        title: "Ya tengo una cuenta",
-        body: "Si ya tenés credenciales o SSO, ingresá y continuá donde lo dejaste.",
+        key: "pwd",
+        ref: pwdRef,
+        title: "Seguridad de la cuenta",
+        body: "Crea una contraseña segura. Debe coincidir con la confirmación.",
+        placement: "auto",
+      },
+      {
+        key: "submit",
+        ref: submitRef,
+        title: "Crear cuenta",
+        body: "Al enviar, el proceso avanza a Verificación y luego a Listo.",
         placement: "auto",
       },
       {
         key: "process",
         ref: processRef,
-        title: "Progreso del proceso",
-        body: "Esta curva muestra el avance del registro/verificación. Avanza cuando iniciás el alta.",
+        title: "Seguimiento visual",
+        body: "La curva muestra tu progreso: Registro → Verificación → Configuración → Listo.",
         placement: "auto",
       },
     ],
@@ -690,19 +530,9 @@ const AccessGuided = ({
     return () => window.removeEventListener("keydown", onKey);
   }, [tourOpen, step]);
 
-  // Sync proceso según ruta
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const p = window.location.pathname || "";
-    if (p.includes("/registro")) setProcessIndex(1);
-    else if (p.includes("/login") || p.includes("/ingresar"))
-      setProcessIndex(processSteps.length - 1);
-    else setProcessIndex(0);
-  }, [processSteps.length]);
-
   const handleSkip = useCallback(() => {
     if (dontShowAgain && typeof window !== "undefined")
-      localStorage.setItem("access.tour.dismissed", "1");
+      localStorage.setItem("register.tour.dismissed", "1");
     setTourOpen(false);
   }, [dontShowAgain]);
 
@@ -710,17 +540,14 @@ const AccessGuided = ({
     setStep((s) => {
       if (s + 1 < tourSteps.length) return s + 1;
       if (dontShowAgain && typeof window !== "undefined")
-        localStorage.setItem("access.tour.dismissed", "1");
+        localStorage.setItem("register.tour.dismissed", "1");
       setTourOpen(false);
       return s;
     });
   }, [tourSteps.length, dontShowAgain]);
 
   const handlePrev = useCallback(() => setStep((s) => Math.max(0, s - 1)), []);
-
-  const tourProgressPct = Math.round(
-    ((step + (tourOpen ? 1 : 0)) / tourSteps.length) * 100
-  );
+  const tourProgressPct = Math.round(((step + (tourOpen ? 1 : 0)) / tourSteps.length) * 100);
 
   /* ---------- Layout ---------- */
   return (
@@ -736,26 +563,25 @@ const AccessGuided = ({
         }}
       />
 
-      {/* ===== Hero (grande + ProcessFlow) ===== */}
+      {/* ===== Hero + Process ===== */}
       <header className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-10 pt-8 sm:pt-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-5 min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200">
               <FaPlayCircle className="text-indigo-600" />
-              Inicio rápido
+              Registro
             </div>
             <h1
               ref={heroRef}
               className="mt-3 text-4xl sm:text-5xl md:text-6xl font-black leading-[1.02] tracking-tight text-slate-900"
             >
-              Continuá en{" "}
+              Crea tu cuenta en{" "}
               <span className="bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
                 {brand}
               </span>
             </h1>
             <p className="mt-3 max-w-2xl text-lg text-slate-600">
-              Elegí tu camino. Sin fricción. Con métricas y seguridad
-              empresarial.
+              Completa tus datos y avanzá. La línea de tiempo te guía en cada paso.
             </p>
 
             {/* chips confianza */}
@@ -769,96 +595,178 @@ const AccessGuided = ({
             </div>
           </div>
 
-          {/* Gráfico de proceso (ocupa espacio) */}
+          {/* Gráfico de proceso */}
           <div className="lg:col-span-7 flex items-start justify-end">
             <div className="w-full" ref={processRef}>
-              <ProcessFlow
-                steps={processSteps}
-                currentIndex={processIndex}
-              />
+              <ProcessFlow steps={processSteps} currentIndex={processIndex} />
               <div className="mt-2 text-right text-[12px] text-slate-500">
-                Cambiará a <strong>Registro</strong> al iniciar tu alta.
+                Te encontramos en <strong>Registro</strong>.
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* ===== Principal ===== */}
+      {/* ===== Contenido principal (Formulario) ===== */}
       <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 sm:px-6 lg:px-10 pb-10 pt-6">
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-stretch">
-          {/* Columna izquierda informativa */}
+          {/* Columna izquierda (texto) */}
           <section className="xl:col-span-4">
             <div className="rounded-2xl bg-white/80 ring-1 ring-slate-200 p-6 backdrop-blur h-full">
               <h2 className="text-xl font-semibold text-slate-900">
-                Elegí cómo querés continuar
+                Completa tu información
               </h2>
               <p className="mt-3 text-[15px] leading-7 text-slate-600">
-                Dos caminos, mismo objetivo: empezar a trabajar. Podés cambiar
-                de opción cuando quieras. La <strong>visita guiada</strong> te
-                acompaña paso a paso y es totalmente responsive.
+                Usamos validaciones en tiempo real para evitar errores y acelerar tu alta.
+                Tus datos se guardan de forma segura.
               </p>
-
-              {/* En mobile, repetimos proceso en versión compacta */}
-              <div className="mt-6 grid grid-cols-1 gap-4 lg:hidden">
-                <ProcessFlow steps={processSteps} currentIndex={processIndex} />
-              </div>
             </div>
           </section>
 
-          {/* Columna derecha con 2 cards XL */}
-          <section className="xl:col-span-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-              <BigChoiceCard
-                innerRef={createRef}
-                icon={FaUserPlus}
-                title="Crear una nueva cuenta"
-                subtitle="Onboarding guiado, activación en minutos y soporte prioritario."
-                bullets={[
-                  "Alta asistida y verificación segura",
-                  "Configuración inicial en 2 minutos",
-                  "Soporte prioritario en el alta",
-                ]}
-                tone="primary"
-                ctaLabel="Crear cuenta"
-                onClick={handleCreate}
+          {/* Columna derecha (formulario) */}
+          <section className="xl:col-span-8" ref={formRef}>
+            <div className="relative">
+              {/* Glow borde */}
+              <div
+                aria-hidden
+                className="absolute -inset-[1px] -z-10 rounded-3xl blur-[14px] opacity-90 bg-gradient-to-br from-sky-600 via-indigo-500 to-sky-600"
               />
-              <BigChoiceCard
-                innerRef={loginRef}
-                icon={FaSignInAlt}
-                title="Ya tengo una cuenta"
-                subtitle="Ingresá con tus credenciales o SSO para continuar donde lo dejaste."
-                bullets={[
-                  "Inicio rápido y seguro",
-                  "Dispositivos confiables y recordatorio",
-                  "Recuperación de acceso asistida",
-                ]}
-                tone="neutral"
-                ctaLabel="Iniciar sesión"
-                onClick={handleLogin}
-              />
+              <div className="rounded-[28px] bg-white/95 p-7 sm:p-8 ring-1 ring-slate-200 shadow-[0_30px_100px_rgba(2,6,23,.12)] backdrop-blur">
+                <header className="mb-6 flex items-center gap-3">
+                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900/5 ring-1 ring-slate-200">
+                    <FaUserPlus className="text-slate-700 text-2xl" />
+                  </span>
+                  <div>
+                    <h3 className="text-[24px] sm:text-[26px] font-semibold tracking-tight text-slate-900">
+                      Datos de registro
+                    </h3>
+                    <p className="text-sm text-slate-600">
+                      Sólo tomará unos minutos.
+                    </p>
+                  </div>
+                </header>
+
+                <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Field label="Nombre" error={errors?.nombre?.message}>
+                    <input
+                      type="text"
+                      className="w-full rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-[15px] outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="Maria Jose Guango"
+                      {...register("nombre", { required: "Este campo es obligatorio" })}
+                    />
+                  </Field>
+
+                  <Field label="Usuario" error={errors?.usuario?.message}>
+                    <input
+                      type="text"
+                      className="w-full rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-[15px] outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="Mjg1816"
+                      {...register("usuario", { required: "Este campo es obligatorio" })}
+                    />
+                  </Field>
+
+                  <Field label="Email" error={errors?.email?.message}>
+                    <input
+                      type="email"
+                      className="w-full rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-[15px] outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="123@correo.com"
+                      {...register("email", {
+                        required: "Este campo es obligatorio",
+                        pattern: { value: /\S+@\S+\.\S+/, message: "Email inválido" },
+                      })}
+                    />
+                  </Field>
+
+                  <Field label="Nombre de la empresa" error={errors?.nombre_encargado?.message}>
+                    <input
+                      type="text"
+                      className="w-full rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-[15px] outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="Starbucks Shop"
+                      {...register("nombre_encargado", { required: "Este campo es obligatorio" })}
+                    />
+                  </Field>
+
+                  {/* Password */}
+                  <div className="md:col-span-2" ref={pwdRef}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Field label="Contraseña" error={errors?.password?.message}>
+                        <div className="relative">
+                          <input
+                            type={showPwd ? "text" : "password"}
+                            className="w-full rounded-xl border border-slate-200 bg-white/90 px-4 py-3 pr-12 text-[15px] outline-none focus:ring-2 focus:ring-indigo-400"
+                            placeholder="Mín. 8 caracteres"
+                            {...register("password", {
+                              required: "Este campo es obligatorio",
+                              minLength: { value: 8, message: "Mínimo 8 caracteres" },
+                            })}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPwd((v) => !v)}
+                            className="absolute inset-y-0 right-0 mr-3 inline-flex items-center text-slate-500 hover:text-slate-700"
+                            tabIndex={-1}
+                            aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+                          >
+                            {showPwd ? <FaEyeSlash /> : <FaEye />}
+                          </button>
+                        </div>
+                      </Field>
+
+                      <Field label="Confirmar contraseña" error={errors?.password2?.message}>
+                        <div className="relative">
+                          <input
+                            type={showPwd2 ? "text" : "password"}
+                            className="w-full rounded-xl border border-slate-200 bg-white/90 px-4 py-3 pr-12 text-[15px] outline-none focus:ring-2 focus:ring-indigo-400"
+                            placeholder="Repite tu contraseña"
+                            {...register("password2", {
+                              required: "Este campo es obligatorio",
+                              validate: (v) => v === pwd || "Las contraseñas no coinciden",
+                            })}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPwd2((v) => !v)}
+                            className="absolute inset-y-0 right-0 mr-3 inline-flex items-center text-slate-500 hover:text-slate-700"
+                            tabIndex={-1}
+                            aria-label={showPwd2 ? "Ocultar confirmación" : "Mostrar confirmación"}
+                          >
+                            {showPwd2 ? <FaEyeSlash /> : <FaEye />}
+                          </button>
+                        </div>
+                      </Field>
+                    </div>
+                  </div>
+
+                  {/* Error raíz */}
+                  {errors?.root?.message && (
+                    <div className="md:col-span-2 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">
+                      {errors.root.message}
+                    </div>
+                  )}
+
+                  {/* Submit */}
+                  <div className="md:col-span-2" ref={submitRef}>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className={[
+                        "group inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-[15px] font-semibold tracking-wide ring-1 transition",
+                        "bg-gradient-to-b from-indigo-600 to-indigo-500 text-white ring-indigo-500/30 hover:brightness-110 disabled:opacity-60",
+                      ].join(" ")}
+                    >
+                      {isSubmitting ? "Enviando..." : "Crear cuenta"}
+                      <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                    </button>
+                    <p className="mt-2 text-center text-xs text-slate-500">
+                      Al continuar aceptas los Términos y la Política de Privacidad.
+                    </p>
+                  </div>
+                </form>
+              </div>
             </div>
           </section>
         </div>
       </main>
-
-      {/* ===== Barra sticky mobile ===== */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden">
-        <div className="mx-auto max-w-[1600px] px-4 py-3 grid grid-cols-2 gap-3">
-          <button
-            onClick={handleLogin}
-            className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ring-1 ring-slate-200 hover:bg-slate-50"
-          >
-            Ingresar
-          </button>
-          <button
-            onClick={handleCreate}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-b from-indigo-600 to-indigo-500 px-4 py-3 text-sm font-semibold text-white ring-1 ring-indigo-500/30 hover:brightness-110"
-          >
-            Crear cuenta
-          </button>
-        </div>
-      </div>
 
       {/* ===== Visita guiada (responsive + animada) ===== */}
       {tourOpen && (
@@ -945,4 +853,4 @@ const AccessGuided = ({
   );
 };
 
-export default AccessGuided;
+export default RegisterGuided;

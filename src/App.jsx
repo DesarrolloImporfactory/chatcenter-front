@@ -17,6 +17,7 @@ import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import Landing from "./pages/planes/LandingTrial";
 import Access from "./pages/landing/AcccessGuided";
+import RegisterGuided from "./pages/landing/RegisterGuided";
 
 // Importamos nuestro Layout
 import MainLayout from "./components/layout/MainLayout";
@@ -194,6 +195,7 @@ function App() {
         </Route>
 
         <Route path="/access" element={<Access />}/>
+        <Route path="/registro_guiado" element={<RegisterGuided />}/>
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
