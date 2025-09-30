@@ -8,6 +8,7 @@ import botImage from "../../assets/bot.png";
 import "./conexiones.css";
 import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
 import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConfiguracionModalWhatsappBusiness";
+import { config } from "@fullcalendar/core/internal";
 
 /* Helpers UI */
 const HeaderStat = ({ label, value }) => (
@@ -128,7 +129,7 @@ const Conexiones = () => {
     };
   }, []);
 
-  const handleConectarMetaDeveloper = () => {
+  const handleConectarMetaDeveloper = (config) => {
     if (!window.FB) {
       setStatusMessage({
         type: "error",
@@ -148,19 +149,40 @@ const Conexiones = () => {
             });
             return;
           }
+
+          const redirectUri = window.location.origin + window.location.pathname;
+          console.log(
+            "[EMB][FRONT] href=",
+            window.location.href,
+            " redirectUri(enviado)=",
+            redirectUri
+          );
+
           try {
             const { data } = await chatApi.post(
               "/whatsapp_managment/embeddedSignupComplete",
               {
                 code,
                 id_usuario: userData.id_usuario,
+                redirect_uri: redirectUri,
+                id_configuracion: config?.id, // <<< clave para actualizar esa fila
               }
             );
+
             if (data.success) {
+              console.debug(
+                "WABA:",
+                data.waba_id,
+                "Phone:",
+                data.phone_number_id,
+                "Config:",
+                data.id_configuracion
+              );
               setStatusMessage({
                 type: "success",
                 text: "✅ Número conectado correctamente.",
               });
+              await fetchConfiguracionAutomatizada(); // <<< refresca para pintar “conectado”
             } else {
               throw new Error(data.message || "Error inesperado.");
             }
@@ -192,6 +214,7 @@ const Conexiones = () => {
     );
   };
 
+  //Obtenido de Meta Developers
   const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
 
   // NUEVO: abre el flujo OAuth del backend (construye la login URL y redirige)
@@ -203,7 +226,7 @@ const Conexiones = () => {
       const { data } = await chatApi.get("/messenger/facebook/login-url", {
         params: {
           id_configuracion: config.id, // 👈 usamos id_configuracion
-          redirect_uri: window.location.origin + "/conexionespruebas", //Oauth validado en meta
+          redirect_uri: window.location.origin + "/conexiones", //Oauth validado en meta
           config_id: FB_FBL_CONFIG_ID_MESSENGER,
         },
       });
@@ -245,74 +268,177 @@ const Conexiones = () => {
       const error = params.get("error");
       if (!code || error) return;
 
+      // ¿de qué proveedor venimos?
+      const provider = localStorage.getItem("oauth_provider");
+
       try {
-        const id_configuracion =
-          localStorage.getItem("id_configuracion_fb") ||
-          localStorage.getItem("id_configuracion") || // por si ya lo usas en otros flujos
-          "";
+        if (provider === "instagram") {
+          const id_configuracion =
+            localStorage.getItem("id_configuracion_ig") ||
+            localStorage.getItem("id_configuracion") ||
+            "";
 
-        if (!id_configuracion) {
-          throw new Error("Falta id_configuracion para completar la conexión.");
-        }
+          if (!id_configuracion)
+            throw new Error("Falta id_configuracion (IG).");
 
-        // 1) Intercambia el code por token de usuario (largo) y crea la sesión OAuth
-        const { data: ex } = await chatApi.post(
-          "/messenger/facebook/oauth/exchange",
-          {
-            code,
-            id_configuracion, // 👈 server ya lo usa en tu versión
-            redirect_uri: window.location.origin + "/conexionespruebas",
-          }
-        );
-
-        // 2) Lista páginas del usuario (usando oauth_session_id)
-        const { data: pagesRes } = await chatApi.get(
-          "/messenger/facebook/pages",
-          { params: { oauth_session_id: ex.oauth_session_id } }
-        );
-
-        if (!pagesRes?.pages?.length) {
-          throw new Error(
-            "No se encontraron páginas en la cuenta de Facebook."
+          // 1) exchange code -> session IG
+          const { data: ex } = await chatApi.post(
+            "/instagram/facebook/oauth/exchange",
+            {
+              code,
+              id_configuracion,
+              redirect_uri: window.location.origin + "/conexiones",
+            }
           );
+
+          // 2) listar páginas con IG conectado
+          const { data: pagesRes } = await chatApi.get(
+            "/instagram/facebook/pages",
+            {
+              params: { oauth_session_id: ex.oauth_session_id },
+            }
+          );
+
+          // Si no hay con IG, pero sí hay sin IG, muestra guía en vez de error genérico
+          if (
+            (!pagesRes?.pages_with_ig || pagesRes.pages_with_ig.length === 0) &&
+            (pagesRes?.pages_without_ig || []).length > 0
+          ) {
+            await Swal.fire({
+              icon: "info",
+              title: "No hay páginas con Instagram vinculado",
+              html: `
+                <div style="text-align:left">
+                  <p>Encontramos <b>${pagesRes.pages_without_ig.length}</b> página(s), pero ninguna tiene una cuenta de Instagram conectada.</p>
+                  <ol>
+                    <li>Convierte tu cuenta de IG a Profesional (Business/Creator).</li>
+                    <li>Vincúlala a la Página desde la app de Instagram o en <i>Meta Business Suite → Configuración → Cuentas vinculadas</i>.</li>
+                    <li>Vuelve a ejecutar este flujo.</li>
+                  </ol>
+                </div>
+              `,
+              confirmButtonText: "Entendido",
+            });
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, "", cleanUrl);
+            return;
+          }
+
+          // Si hay con IG, deja elegir solo esas
+          const selectable = (pagesRes.pages_with_ig || []).map((p) => ({
+            id: p.page_id,
+            name: `${p.page_name} — @${p.ig_username}`,
+          }));
+
+          if (!selectable.length) {
+            throw new Error("No hay páginas con IG conectado.");
+          }
+
+          const pageId = await pickPageWithSwal(selectable);
+          if (!pageId) {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, "", cleanUrl);
+            return;
+          }
+
+          // Conectar
+          await chatApi.post("/instagram/facebook/connect", {
+            oauth_session_id: ex.oauth_session_id,
+            id_configuracion,
+            page_id: pageId,
+          });
+
+          Swal.fire("¡Listo!", "Cuenta de Instagram conectada ✅", "success");
+          await fetchConfiguracionAutomatizada();
+        } else {
+          // Flujo Messenger (tal como ya lo tenías)
+          const id_configuracion =
+            localStorage.getItem("id_configuracion_fb") ||
+            localStorage.getItem("id_configuracion") ||
+            "";
+
+          if (!id_configuracion)
+            throw new Error("Falta id_configuracion (FB).");
+
+          const { data: ex } = await chatApi.post(
+            "/messenger/facebook/oauth/exchange",
+            {
+              code,
+              id_configuracion,
+              redirect_uri: window.location.origin + "/conexiones",
+            }
+          );
+
+          const { data: pagesRes } = await chatApi.get(
+            "/messenger/facebook/pages",
+            {
+              params: { oauth_session_id: ex.oauth_session_id },
+            }
+          );
+          if (!pagesRes?.pages?.length)
+            throw new Error("No se encontraron páginas.");
+
+          const pageId = await pickPageWithSwal(pagesRes.pages);
+          if (!pageId) {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, "", cleanUrl);
+            return;
+          }
+
+          await chatApi.post("/messenger/facebook/connect", {
+            oauth_session_id: ex.oauth_session_id,
+            id_configuracion,
+            page_id: pageId,
+          });
+
+          Swal.fire("¡Listo!", "Página conectada y suscrita ✅", "success");
+          await fetchConfiguracionAutomatizada();
         }
-
-        // 3) El usuario elige la página
-        const pageId = await pickPageWithSwal(pagesRes.pages);
-        if (!pageId) {
-          // Limpia la URL y aborta
-          const cleanUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, "", cleanUrl);
-          return;
-        }
-
-        // 4) Conecta (suscribe y guarda token en DB)
-        await chatApi.post("/messenger/facebook/connect", {
-          oauth_session_id: ex.oauth_session_id,
-          id_configuracion,
-          page_id: pageId,
-        });
-
-        Swal.fire("¡Listo!", "Página conectada y suscrita ✅", "success");
-
-        // refresca tarjetas
-        await fetchConfiguracionAutomatizada();
       } catch (e) {
         console.error(e);
         Swal.fire(
           "Error",
-          e?.message || "No fue posible conectar la página",
+          e?.message || "No fue posible completar la conexión",
           "error"
         );
       } finally {
-        // Limpia querystring y storage temporal
+        // limpiar
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, "", cleanUrl);
+        localStorage.removeItem("oauth_provider");
+        localStorage.removeItem("id_configuracion_ig");
         localStorage.removeItem("id_configuracion_fb");
       }
     };
     run();
   }, []);
+
+  //Obtenido de Meta Developers
+  const IG_FBL_CONFIG_ID = "754174810774119";
+
+  const handleConectarInstagramInbox = async (config) => {
+    try {
+      //guardamos para terminar el flujo al voler
+      localStorage.setItem("oauth_provider", "instagram");
+      localStorage.setItem("id_configuracion_ig", String(config.id));
+
+      const { data } = await chatApi.get("/instagram/facebook/login-url", {
+        params: {
+          id_configuracion: config.id,
+          redirect_uri: window.location.origin + "/conexiones",
+          config_id: IG_FBL_CONFIG_ID,
+        },
+      });
+      window.location.href = data.url;
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Error",
+        "No se puede iniciar la conexión con Instagram",
+        "error"
+      );
+    }
+  };
 
   /* Data */
   const fetchConfiguracionAutomatizada = useCallback(async () => {
@@ -366,12 +492,20 @@ const Conexiones = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
+  const isConectado = (c) => {
+    if (typeof c?.status_whatsapp === "string") {
+      return c.status_whatsapp.toUpperCase() === "CONNECTED";
+    }
+    // Fallback: basta con que existan id_telefono (WABAID) e id_whatsapp (WABABUSSINESS_ID)
+    return Boolean(
+      String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim()
+    );
+  };
+
   /* Derivados */
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
-    const conectados = configuracionAutomatizada.filter(
-      (c) => !!c.conectado
-    ).length;
+    const conectados = configuracionAutomatizada.filter(isConectado).length;
     const pagosActivos = configuracionAutomatizada.filter(
       (c) => Number(c.metodo_pago) === 1
     ).length;
@@ -392,7 +526,7 @@ const Conexiones = () => {
 
     if (filtroEstado) {
       const objetivo = filtroEstado === "conectado";
-      data = data.filter((c) => !!c.conectado === objetivo);
+      data = data.filter((c) => isConectado(c) === objetivo);
     }
 
     if (filtroPago) {
@@ -536,7 +670,7 @@ const Conexiones = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {listaFiltrada.map((config, idx) => {
-                  const conectado = !!config.conectado;
+                  const conectado = isConectado(config);
                   const pagoActivo = Number(config.metodo_pago) === 1;
 
                   return (
@@ -565,8 +699,6 @@ const Conexiones = () => {
                             )}
                           </div>
                         </div>
-
-                        {/* Mantengo tu estilo de íconos */}
 
                         {/* icono para suspender conexion */}
                         <button
@@ -628,6 +760,23 @@ const Conexiones = () => {
                           <i className="bx bxl-messenger text-2xl"></i>
                           <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                             Conectar Inbox de Messenger
+                          </span>
+                        </div>
+
+                        {/* Instagram Inbox — DESHABILITADO: PRÓXIMAMENTE */}
+                        <div
+                          className="relative group text-gray-600"
+                          title="Próximamente"
+                          role="button"
+                          aria-disabled="true"
+                          tabIndex={-1}
+                        >
+                          <i className="bx bxl-instagram text-2xl"></i>
+                          <span className="absolute -top-2 -right-3 bg-slate-200 text-slate-700 text-[10px] font-semibold rounded-full px-2 py-0.5 ring-1 ring-slate-300">
+                            Próx.
+                          </span>
+                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                            Próximamente
                           </span>
                         </div>
 
