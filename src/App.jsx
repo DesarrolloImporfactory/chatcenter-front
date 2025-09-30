@@ -16,7 +16,7 @@ import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import Landing from "./pages/planes/LandingTrial";
-import Access from "./pages/landing/AcccessGuided";
+import Access from "./pages/landing/AccessGuided";
 import RegisterGuided from "./pages/landing/RegisterGuided";
 
 // Importamos nuestro Layout

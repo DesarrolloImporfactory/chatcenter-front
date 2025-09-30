@@ -73,8 +73,6 @@ const Spotlight = ({ rect }) => {
           left: rect.left - haloPad,
           width: rect.width + haloPad * 2,
           height: rect.height + haloPad * 2,
-          background:
-            "radial-gradient(60% 60% at 50% 50%, rgba(147,197,253,.55) 0%, rgba(129,140,248,.35) 35%, rgba(255,255,255,0) 70%)",
           filter: "blur(6px)",
         }}
       />
