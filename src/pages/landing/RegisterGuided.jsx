@@ -758,7 +758,14 @@ const RegisterGuided = ({
                       <span className="transition-transform group-hover:translate-x-0.5">→</span>
                     </button>
                     <p className="mt-2 text-center text-xs text-slate-500">
-                      Al continuar aceptas los Términos y la Política de Privacidad.
+                      Al continuar aceptas los <a href="/condiciones-servicio"
+                        className="underline"
+                        target="_blank"
+                        rel="noopener noreferrer">Condiciones de servicio</a> y la 
+                        <a href="/politica-privacidad"
+                        className="underline"
+                        target="_blank"
+                        rel="noopener noreferrer"> Política de Privacidad</a>.
                     </p>
                   </div>
                 </form>
