@@ -678,8 +678,9 @@ const Asistentes = () => {
                 </div>
 
                 {/* Productos */}
-                {idPlataformaConf && (
-                  <div className="space-y-4 border-t pt-4">
+
+                <div className="space-y-4 border-t pt-4">
+                  {idPlataformaConf && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Fuente de productos para la IA
@@ -697,27 +698,27 @@ const Asistentes = () => {
                         <option value="imporsuit">Imporsuit</option>
                       </select>
                     </div>
+                  )}
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Selecciona productos
-                      </label>
-                      <Select
-                        isMulti
-                        options={productosOptions}
-                        value={selectedProductos}
-                        onChange={handleProductosChange}
-                        placeholder="Selecciona productos"
-                        className="w-full"
-                        classNamePrefix="react-select"
-                        menuPortalTarget={document.body}
-                        styles={{
-                          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                        }}
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Selecciona productos
+                    </label>
+                    <Select
+                      isMulti
+                      options={productosOptions}
+                      value={selectedProductos}
+                      onChange={handleProductosChange}
+                      placeholder="Selecciona productos"
+                      className="w-full"
+                      classNamePrefix="react-select"
+                      menuPortalTarget={document.body}
+                      styles={{
+                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                      }}
+                    />
                   </div>
-                )}
+                </div>
 
                 {/* Estado activo */}
                 <label className="flex items-center gap-2 text-sm">

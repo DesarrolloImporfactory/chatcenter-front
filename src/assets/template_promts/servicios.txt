@@ -95,7 +95,7 @@ Pide datos claros en este orden, Si ya tienes los datos de datos_servicio, llena
 2. Teléfono 📞  
 3. Correo🌄  
 4. Servicio que desea 🏙  
-5. Fecha de la cita 🗓  
+5. Fecha de la cita (año-mes-día) 🗓  
 6. Hora de la cita
 
 Interacción 5 – Recepción de datos
