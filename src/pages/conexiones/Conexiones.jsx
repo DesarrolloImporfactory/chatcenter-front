@@ -492,6 +492,69 @@ const Conexiones = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
+  // Aviso solo para un usuario específico (id_usuario = 46)
+  // No rompe estilos: usa SweetAlert2 que ya importas arriba
+  useEffect(() => {
+    if (!userData) return;
+    const TARGET_ID = 46;
+    if (Number(userData.id_usuario) !== TARGET_ID) return;
+
+    // clave versionada para poder “resetear” en el futuro si cambian textos
+    const KEY = `conn_price_notice_v1_user_${TARGET_ID}`;
+    if (localStorage.getItem(KEY) === '1') return; // ya no mostrar
+
+    (async () => {
+      const { value: dontShow } = await Swal.fire({
+        title: 'Actualización de precio – Plan Conexión',
+        icon: 'info',
+        html: `
+          <div style="text-align:left; line-height:1.55">
+            <p style="margin:0 0 8px">
+              Te informamos que el <b>Plan Conexión</b> tendrá un ajuste de precio.
+            </p>
+            <div style="
+              display:flex; align-items:center; gap:10px; 
+              padding:10px 12px; border-radius:10px; 
+              background:#F1F5F9; border:1px solid #E2E8F0; margin:8px 0 12px;">
+              <span style="font-weight:600; color:#0F172A;">Antes:</span>
+              <span style="text-decoration:line-through; color:#64748B">$29</span>
+              <span style="font-weight:600; color:#0F172A;">Ahora:</span>
+              <span style="font-weight:800; color:#16A34A">$35</span>
+              <span style="color:#64748B; font-size:12px">(por mes)</span>
+            </div>
+            <ul style="margin:0 0 10px 18px; padding:0; color:#334155">
+              <li>El cambio aplica a tus próximas renovaciones del plan.</li>
+              <li>No afecta tus conversaciones ni tus configuraciones actuales.</li>
+              <li>Mantenemos la misma calidad de servicio y soporte.</li>
+            </ul>
+            <p style="margin:8px 0 0; color:#475569">
+              Gracias por seguir con nosotros 💙
+            </p>
+          </div>
+        `,
+        confirmButtonText: 'Entendido',
+        showCancelButton: true,
+        cancelButtonText: 'Recordármelo luego',
+        focusConfirm: false,
+        // “No volver a mostrar” con checkbox nativo de SweetAlert2
+        input: 'checkbox',
+        inputPlaceholder: 'No volver a mostrar este aviso',
+        inputValue: 0, // empieza desmarcado
+        // clases opcionales (no afectan tu tema)
+        customClass: {
+          popup: 'swal2-premium-modal'
+        }
+      });
+
+      if (dontShow) {
+        // si marcó "No volver a mostrar"
+        localStorage.setItem(KEY, '1');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData]);
+
+
   const isConectado = (c) => {
     if (typeof c?.status_whatsapp === "string") {
       return c.status_whatsapp.toUpperCase() === "CONNECTED";
