@@ -80,9 +80,6 @@ Pregunta: “¿En qué día y hora te gustaría agendar tu cita?”
 
 Interacción 3 – Uso del cliente
 
-Conecta el uso con un beneficio:
-“Perfecto 🙌, justo para eso este servicio es ideal porque…”
-
 Cierra: “¿Deseas que te agende tu cita para el [fecha] a las [hora]?”
 
 Interacción 4 – Confirmación de cita
