@@ -156,6 +156,39 @@ const MiPlan = () => {
       setCurrentPlanId(null);
     }
   };
+  const cambiarAPlanLiteCompleto = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const id_usuario = decoded.id_usuario || decoded.id_users;
+      const baseUrl = window.location.origin;
+
+      const { data } = await chatApi.post(
+        "/stripe_plan/crearSesionCambioLiteCompleto",
+        {
+          id_usuario,
+          success_url: `${baseUrl}/miplan?lite_change=ok`,
+          cancel_url: `${baseUrl}/miplan`,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      // fallback
+      Swal.fire("Listo", "Se procesó el cambio a LITE.", "success");
+      obtenerPlanActivo();
+    } catch (error) {
+      const msg = error?.response?.data?.message || "No se pudo iniciar el cambio.";
+      Swal.fire({ icon: "error", title: "Error", text: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const cancelarSuscripcion = async () => {
   // Buscar plan LITE por nombre (sin romper nada si no existe)
@@ -218,7 +251,7 @@ const MiPlan = () => {
 
     // Si acepta el LITE, usamos tu mismo flujo de selección/compra
     if (resp.isConfirmed) {
-      await handleSeleccionarPlan(planLite.id_plan);
+      await cambiarAPlanLiteCompleto(); // nuevo flujo especial
       return;
     }
 
@@ -291,6 +324,7 @@ const MiPlan = () => {
     const setupOk = params.get("setup");
     const addpm = params.get("addpm");
     const trialOk = params.get("trial"); // NUEVO
+    const liteOk = params.get("lite_change");
 
     const limpiar = (keys) => {
       const url = new URL(window.location.href);
@@ -314,6 +348,12 @@ const MiPlan = () => {
       // El webhook ya debió activar FREE y setear fecha_renovacion=trial_end
       Swal.fire("¡Listo!", "Tu prueba gratuita de 15 días está activa.", "success");
       limpiar(["trial"]);
+      obtenerFacturas();
+      obtenerPlanActivo();
+    }
+    if (liteOk === "ok") {
+      Swal.fire("!Listo!", "Tu cambio al Plan LITE fue procesado.", "success");
+      limpiar(["lite_change"]);
       obtenerFacturas();
       obtenerPlanActivo();
     }
