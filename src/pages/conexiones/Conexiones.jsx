@@ -501,12 +501,12 @@ const Conexiones = () => {
 
     // clave versionada para poder “resetear” en el futuro si cambian textos
     const KEY = `conn_price_notice_v1_user_${TARGET_ID}`;
-    if (localStorage.getItem(KEY) === '1') return; // ya no mostrar
+    if (localStorage.getItem(KEY) === "1") return; // ya no mostrar
 
     (async () => {
       const { value: dontShow } = await Swal.fire({
-        title: 'Actualización de precio – Plan Conexión',
-        icon: 'info',
+        title: "Actualización de precio – Plan Conexión",
+        icon: "info",
         html: `
           <div style="text-align:left; line-height:1.55">
             <p style="margin:0 0 8px">
@@ -532,28 +532,27 @@ const Conexiones = () => {
             </p>
           </div>
         `,
-        confirmButtonText: 'Entendido',
+        confirmButtonText: "Entendido",
         showCancelButton: true,
-        cancelButtonText: 'Recordármelo luego',
+        cancelButtonText: "Recordármelo luego",
         focusConfirm: false,
         // “No volver a mostrar” con checkbox nativo de SweetAlert2
-        input: 'checkbox',
-        inputPlaceholder: 'No volver a mostrar este aviso',
+        input: "checkbox",
+        inputPlaceholder: "No volver a mostrar este aviso",
         inputValue: 0, // empieza desmarcado
         // clases opcionales (no afectan tu tema)
         customClass: {
-          popup: 'swal2-premium-modal'
-        }
+          popup: "swal2-premium-modal",
+        },
       });
 
       if (dontShow) {
         // si marcó "No volver a mostrar"
-        localStorage.setItem(KEY, '1');
+        localStorage.setItem(KEY, "1");
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
-
 
   const isConectado = (c) => {
     if (typeof c?.status_whatsapp === "string") {
@@ -565,14 +564,26 @@ const Conexiones = () => {
     );
   };
 
+  const isMessengerConectado = (c) => Number(c?.messenger_conectado) === 1;
+
   /* Derivados */
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
-    const conectados = configuracionAutomatizada.filter(isConectado).length;
+    const conectados = configuracionAutomatizada.filter(isConectado).length; // WhatsApp
     const pagosActivos = configuracionAutomatizada.filter(
       (c) => Number(c.metodo_pago) === 1
     ).length;
-    return { total, conectados, pendientes: total - conectados, pagosActivos };
+    const messengerCon = configuracionAutomatizada.filter(
+      (c) => Number(c.messenger_conectado) === 1
+    ).length;
+
+    return {
+      total,
+      conectados,
+      pendientes: total - conectados,
+      pagosActivos,
+      messengerCon,
+    };
   }, [configuracionAutomatizada]);
 
   const listaFiltrada = useMemo(() => {
@@ -613,7 +624,8 @@ const Conexiones = () => {
                   Conexiones configuradas
                 </h1>
                 <p className="text-white/80 text-sm">
-                  Administra tus números y canales de WhatsApp Business.
+                  Administra tus números y canales de WhatsApp Business y
+                  Messenger.
                 </p>
               </div>
 
@@ -814,17 +826,30 @@ const Conexiones = () => {
                         </div>
 
                         {/* Facebook Inbox (Messenger) */}
-                        <div
-                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                          onClick={() => handleConectarFacebookInbox(config)}
-                          title="Conectar Inbox de Messenger"
-                        >
-                          {/* usa el icono que prefieras. Si tienes boxicons: bxl-messenger / bxl-facebook */}
-                          <i className="bx bxl-messenger text-2xl"></i>
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Conectar Inbox de Messenger
-                          </span>
-                        </div>
+                        {!isMessengerConectado(config) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleConectarFacebookInbox(config)}
+                            className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
+                            title="Conectar Inbox de Messenger"
+                            aria-label="Conectar Inbox de Messenger"
+                          >
+                            <i className="bx bxl-messenger text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Conectar Inbox de Messenger
+                            </span>
+                          </button>
+                        ) : (
+                          <div
+                            className="relative group text-blue-600"
+                            title="Inbox de Messenger conectado"
+                          >
+                            <i className="bx bxl-messenger text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Inbox de Messenger conectado
+                            </span>
+                          </div>
+                        )}
 
                         {/* Instagram Inbox — DESHABILITADO: PRÓXIMAMENTE */}
                         <div
@@ -848,11 +873,11 @@ const Conexiones = () => {
                           <div
                             className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
                             onClick={() => handleConectarMetaDeveloper(config)}
-                            title="Conectar Bussines Manager"
+                            title="Conectar Business Manager"
                           >
                             <i className="bx bxl-meta text-2xl"></i>
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar Bussines Manager
+                              Conectar Business Manager
                             </span>
                           </div>
                         ) : (

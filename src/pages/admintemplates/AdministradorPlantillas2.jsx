@@ -1238,7 +1238,7 @@ const AdministradorPlantillas2 = () => {
                   <p className="text-gray-200 text-justify">
                     Si en algún momento tienes un inconveniente con el pago de
                     la api, recuerda revisarlo dentro de tu portafolio en{" "}
-                    <strong>Bussines Manager</strong> y posteriormente
+                    <strong>Business Manager</strong> y posteriormente
                     habilitalo aquí.
                   </p>
                   <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
