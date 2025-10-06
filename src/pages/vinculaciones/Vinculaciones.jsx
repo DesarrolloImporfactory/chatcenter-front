@@ -21,6 +21,7 @@ const Vinculaciones = () => {
   const [id_configuracion, setId_configuracion] = useState(null);
 
   const isLinked = id_plataforma_conf !== null;
+  const [showPwd, setShowPwd] = useState(false);
 
   useEffect(() => {
     const idp = localStorage.getItem("id_plataforma_conf");
@@ -373,13 +374,65 @@ const Vinculaciones = () => {
                   value={usuarioImporsuit}
                   onChange={(e) => setUsuarioImporsuit(e.target.value)}
                 />
-                <input
-                  type="password"
-                  placeholder="Contraseña"
-                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#171931]"
-                  value={passwordImporsuit}
-                  onChange={(e) => setPasswordImporsuit(e.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    type={showPwd ? "text" : "password"}
+                    placeholder="Contraseña"
+                    className="w-full px-4 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#171931]"
+                    value={passwordImporsuit}
+                    onChange={(e) => setPasswordImporsuit(e.target.value)}
+                    autoComplete="current-password"
+                    spellCheck={false}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd((v) => !v)}
+                    aria-label={
+                      showPwd ? "Ocultar contraseña" : "Mostrar contraseña"
+                    }
+                    aria-pressed={showPwd ? "true" : "false"}
+                    title={
+                      showPwd ? "Ocultar contraseña" : "Mostrar contraseña"
+                    }
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    {showPwd ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="1.5"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c2.02 0 3.91.6 5.5 1.63M21.542 12C20.268 16.057 16.477 19 12 19c-2.02 0-3.91-.6-5.5-1.63"
+                        />
+                        <circle cx="12" cy="12" r="3" strokeWidth="1.5" />
+                        <line x1="3" y1="3" x2="21" y2="21" strokeWidth="1.5" />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="1.5"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7s-8.268-2.943-9.542-7z"
+                        />
+                        <circle cx="12" cy="12" r="3" strokeWidth="1.5" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
 
                 {errorImporsuit && (
                   <p className="text-red-600 text-sm text-center">
