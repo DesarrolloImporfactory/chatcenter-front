@@ -36,7 +36,11 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
       <nav className="relative flex items-center h-16 px-5 bg-[#171931] text-white">
         {/* Botón “hamburger” */}
         <button
-          ref={menuButtonRef}
+          data-tour="hamburger" 
+          ref={(el) => {
+            menuButtonRef.current = el; // tu ref existente
+            menuRef.current = el;       // ref de la visita guiada
+          }}
           onClick={onToggleSlider}
           className="text-2xl mr-2 hover:scale-110 transition-transform"
         >
