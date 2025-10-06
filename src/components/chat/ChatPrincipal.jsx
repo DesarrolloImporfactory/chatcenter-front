@@ -842,12 +842,7 @@ const ChatPrincipal = ({
                             </p>
                           ) : mensaje.tipo_mensaje === "audio" ? (
                             /* Tipo: AUDIO */
-                            <CustomAudioPlayer
-                              src={
-                                "https://new.imporsuitpro.com/" +
-                                mensaje.ruta_archivo
-                              }
-                            />
+                            <CustomAudioPlayer src={mensaje.ruta_archivo} />
                           ) : mensaje.tipo_mensaje === "image" ? (
                             /* Tipo: IMAGEN (WA y MS con el mismo componente) */
                             <ImageWithModal mensaje={mensaje} />
