@@ -1264,7 +1264,7 @@ const Chat = () => {
 
         // Enviar el audio convertido a WhatsApp usando chatApi.post
         return chatApi
-          .post("whatsapp/guardar-audio", formData2)
+          .post("Pedidos/guardar_audio_Whatsapp", formData2)
           .then(async (data) => {
             if (data.status === 200) {
               console.log("Audio subido a WhatsApp:", data.data);
