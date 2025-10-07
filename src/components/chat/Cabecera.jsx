@@ -289,8 +289,6 @@ const Cabecera = ({
         {/* Botón “hamburger” para abrir slider */}
         <div>
           <button
-            data-tour="hamburger"
-            ref={menuRef}
             onClick={toggleSlider}
             className="text-white text-2xl focus:outline-none hover:scale-110 transition-transform"
           >
