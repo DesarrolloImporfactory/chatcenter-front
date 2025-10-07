@@ -1,8 +1,11 @@
 {
-  "name": "blog-client",
+  "name": "chatcenter-business-messenger",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Professional messaging platform that facilitates secure business communication between companies and TikTok users.",
+  "author": "Imporfactory",
+  "homepage": "https://imporsuit.ec",
   "scripts": {
     "dev": "vite",
     "build": "vite build && node generate.js",
@@ -30,6 +33,7 @@
     "react-data-table-component": "^7.7.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.43.9",
+    "react-hot-toast": "^2.6.0",
     "react-icons": "^5.5.0",
     "react-modal": "^3.16.1",
     "react-redux": "^8.0.5",

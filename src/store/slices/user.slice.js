@@ -36,11 +36,48 @@ export const loginThunk = createAsyncThunk(
   "user/login",
   async (credentials, { rejectWithValue }) => {
     try {
-      const { data } = await chatApi.post("/auth/login", credentials);
-      localStorage.setItem("token", data.token);
-      return data.user;
+      const response = await chatApi.post("/auth/login", credentials);
+      const responseData = response.data;
+
+      // Manejar diferentes estructuras de respuesta del backend
+      let token, user;
+
+      if (responseData.status === "success") {
+        // Nueva estructura del backend
+        token = responseData.token;
+        user = responseData.data;
+      } else if (responseData.token && responseData.user) {
+        // Estructura anterior del backend
+        token = responseData.token;
+        user = responseData.user;
+      } else {
+        throw new Error("Respuesta del servidor inválida");
+      }
+
+      // Guardar token usando el AuthService para consistencia
+      localStorage.setItem("token", token);
+      localStorage.setItem("chat_token", token);
+
+      // Opcional: guardar datos adicionales si existen
+      if (user.id_sub_usuario) {
+        localStorage.setItem("id_sub_usuario", user.id_sub_usuario);
+      }
+      if (user.id_usuario) {
+        localStorage.setItem("id_usuario", user.id_usuario);
+      }
+      if (user.rol) {
+        localStorage.setItem("user_role", user.rol);
+      }
+
+      Toast.fire({
+        icon: "success",
+        title: `¡Bienvenido ${user.nombre_encargado || user.usuario}!`,
+      });
+
+      return user;
     } catch (err) {
-      const msg = err.response?.data?.message || "Credenciales inválidas";
+      const msg =
+        err.response?.data?.message || err.message || "Credenciales inválidas";
       Toast.fire({ icon: "error", title: msg });
       return rejectWithValue(err.response?.data || err.message);
     }
@@ -57,7 +94,7 @@ export const newLoginThunk = createAsyncThunk(
       localStorage.setItem("id_configuracion", data.id_configuracion);
       let data_filtrada = {
         user: data.user,
-        estado_creacion: data.estado_creacion
+        estado_creacion: data.estado_creacion,
       };
       return data_filtrada;
     } catch (err) {

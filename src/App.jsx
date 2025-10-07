@@ -1,46 +1,100 @@
 import { Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { Toaster } from "react-hot-toast";
 import "./App.css";
+
+// Configuración y utilidades
+import { APP_CONFIG, validateConfig } from "./config";
+import { logger } from "./utils/notifications";
+
+// Páginas principales
 import Home from "./pages/home/Home";
 import Login from "./pages/login/Login";
 import Register from "./pages/register/Register";
-import { useEffect } from "react";
-import { useDispatch } from "react-redux";
-import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
 import Chat from "./pages/chat/Chat";
+
+// Páginas de planes y facturación
 import PlanesView from "./pages/planes/PlanesView";
 import PlanesViewPrueba from "./pages/planes/PlanesViewPrueba";
 import MiPlan from "./pages/facturacion/Miplan";
 import MiPlanPrueba from "./pages/facturacion/MiplanPrueba";
+import LandingTrial from "./pages/planes/LandingTrial";
+
+// Páginas de gestión
 import Productos from "./pages/productos/ProductosView";
 import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
-import Landing from "./pages/planes/LandingTrial";
-import Access from "./pages/landing/AccessGuided";
-import RegisterGuided from "./pages/landing/RegisterGuided";
-
-// Importamos nuestro Layout
-import MainLayout from "./components/layout/MainLayout";
-import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import Asistentes from "./pages/asistentes/Asistentes";
 import Vinculaciones from "./pages/vinculaciones/Vinculaciones";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import Calendario from "./pages/calendario/Calendario";
+
+// Páginas de acceso y registro
+import Access from "./pages/landing/AccessGuided";
+import RegisterGuided from "./pages/landing/RegisterGuided";
+
+// Páginas legales
 import PoliticasView from "./pages/politicas/PoliticasView";
 import CondicionesView from "./pages/condiciones/CondicionesView";
 import PoliticaPrivacidadTikTok from "./pages/politicas/PoliticaPrivacidadTikTok";
 import TerminosServicioTikTok from "./pages/politicas/TerminosServicioTikTok";
 import PoliticasTikTokIndex from "./pages/politicas/PoliticasTikTokIndex";
 
-// Layout planes
+// Páginas de autenticación
+import TikTokCallback from "./pages/auth/TikTokCallback";
+
+// Componentes de protección y layout
+import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
+import MainLayout from "./components/layout/MainLayout";
+import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
-import LandingTrial from "./pages/planes/LandingTrial";
 
 function App() {
+  useEffect(() => {
+    // Validar configuración al iniciar la app
+    if (!validateConfig()) {
+      logger.error("Configuración inválida detectada");
+    } else {
+      logger.info("ChatCenter iniciado correctamente", {
+        version: APP_CONFIG.app.version,
+        environment: import.meta.env.NODE_ENV,
+      });
+    }
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
+      {/* Toaster para notificaciones globales */}
+      <Toaster
+        position="top-right"
+        reverseOrder={false}
+        gutter={8}
+        containerClassName=""
+        containerStyle={{}}
+        toastOptions={{
+          // Configuración por defecto para todos los toasts
+          duration: 4000,
+          style: {
+            background: "#363636",
+            color: "#fff",
+          },
+          // Configuración por tipo
+          success: {
+            duration: 3000,
+            theme: {
+              primary: "green",
+              secondary: "black",
+            },
+          },
+          error: {
+            duration: 5000,
+          },
+        }}
+      />
+
       <Routes>
         <Route path="/politica-privacidad" element={<PoliticasView />} />
         <Route path="/condiciones-servicio" element={<CondicionesView />} />
@@ -53,6 +107,9 @@ function App() {
           path="/terminos-servicio-tiktok"
           element={<TerminosServicioTikTok />}
         />
+
+        {/* Rutas de autenticación */}
+        <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
 
         {/* Rutas protegidas */}
         <Route element={<ProtectedRoutes />}>
@@ -180,7 +237,7 @@ function App() {
             path="/landing"
             element={
               <MainLayoutPlanes>
-                <Landing />
+                <LandingTrial />
               </MainLayoutPlanes>
             }
           />
