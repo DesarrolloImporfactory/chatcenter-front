@@ -1258,6 +1258,8 @@ const Chat = () => {
         const byteArray = new Uint8Array(byteNumbers);
         const blobNew = new Blob([byteArray], { type: "audio/ogg" });
 
+        console.log("blobNew: " + blobNew);
+
         // Crear un nuevo FormData para la segunda solicitud
         const formData2 = new FormData();
         formData2.append("audio", blobNew, "audio.ogg");
@@ -1267,8 +1269,7 @@ const Chat = () => {
           .post("whatsapp/guardar_audio", formData2)
           .then(async (data) => {
             if (data.status === 200) {
-              console.log('Audio guardado en el servidor:', data.data.fileUrl);
-              console.log("Audio subido a WhatsApp:", data.data);
+              console.log("Audio guardado en el servidor:", data.data.fileUrl);
 
               await enviarAudioWhatsApp(data.data.fileUrl); // Enviar el audio a WhatsApp
 
