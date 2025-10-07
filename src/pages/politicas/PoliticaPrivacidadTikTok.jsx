@@ -122,10 +122,10 @@ export default function PoliticaPrivacidadTikTok() {
           <p>
             <strong>Imporfactory</strong>
           </p>
-          <p>RUC: [Número de RUC]</p>
+          <p>RUC: 1722377726001</p>
           <p>Dirección: Ecuador</p>
           <p>Email: info@imporsuit.ec</p>
-          <p>Teléfono: [Número de contacto]</p>
+          <p>Teléfono: +593 99 926 3107</p>
           <p>
             Somos el responsable del tratamiento de sus datos personales bajo
             esta política y cumplimos con todas las regulaciones aplicables de
