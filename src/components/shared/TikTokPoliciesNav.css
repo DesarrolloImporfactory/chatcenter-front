@@ -1,0 +1,92 @@
+/* Estilos para el componente de navegación de políticas TikTok */
+.tiktok-policies-nav {
+    margin: 16px 0;
+    padding: 12px;
+    background: linear-gradient(135deg, #000000 0%, #ff0050 100%);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tiktok-policies-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+}
+
+.tiktok-policy-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #1c1c1c;
+    text-decoration: none;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.tiktok-policy-link:hover {
+    background: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: #ff0050;
+}
+
+.tiktok-policy-link:active {
+    transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tiktok-policies-links {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tiktok-policy-link {
+        justify-content: center;
+        width: 100%;
+        margin: 0;
+    }
+}
+
+/* Variante compacta para footer */
+.tiktok-policies-nav.compact {
+    padding: 8px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.tiktok-policies-nav.compact .tiktok-policies-links {
+    gap: 8px;
+}
+
+.tiktok-policies-nav.compact .tiktok-policy-link {
+    padding: 6px 12px;
+    font-size: 12px;
+    background: rgba(28, 28, 28, 0.8);
+    color: #ffffff;
+}
+
+.tiktok-policies-nav.compact .tiktok-policy-link:hover {
+    background: #ff0050;
+    color: #ffffff;
+}
+
+/* Integración con el tema existente */
+.legal .tiktok-policies-nav {
+    background: var(--brand, #0075ff);
+}
+
+.legal .tiktok-policy-link {
+    background: var(--white, #ffffff);
+    color: var(--ink, #1c1c1c);
+}
+
+.legal .tiktok-policy-link:hover {
+    border-color: var(--brand, #0075ff);
+}

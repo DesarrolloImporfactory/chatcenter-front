@@ -30,6 +30,9 @@ import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import Calendario from "./pages/calendario/Calendario";
 import PoliticasView from "./pages/politicas/PoliticasView";
 import CondicionesView from "./pages/condiciones/CondicionesView";
+import PoliticaPrivacidadTikTok from "./pages/politicas/PoliticaPrivacidadTikTok";
+import TerminosServicioTikTok from "./pages/politicas/TerminosServicioTikTok";
+import PoliticasTikTokIndex from "./pages/politicas/PoliticasTikTokIndex";
 
 // Layout planes
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
@@ -41,6 +44,15 @@ function App() {
       <Routes>
         <Route path="/politica-privacidad" element={<PoliticasView />} />
         <Route path="/condiciones-servicio" element={<CondicionesView />} />
+        <Route path="/politicas-tiktok" element={<PoliticasTikTokIndex />} />
+        <Route
+          path="/politica-privacidad-tiktok"
+          element={<PoliticaPrivacidadTikTok />}
+        />
+        <Route
+          path="/terminos-servicio-tiktok"
+          element={<TerminosServicioTikTok />}
+        />
 
         {/* Rutas protegidas */}
         <Route element={<ProtectedRoutes />}>
@@ -173,8 +185,6 @@ function App() {
             }
           />
 
-          
-
           <Route
             path="/productos"
             element={
@@ -194,8 +204,8 @@ function App() {
           />
         </Route>
 
-        <Route path="/access" element={<Access />}/>
-        <Route path="/registro_guiado" element={<RegisterGuided />}/>
+        <Route path="/access" element={<Access />} />
+        <Route path="/registro_guiado" element={<RegisterGuided />} />
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
