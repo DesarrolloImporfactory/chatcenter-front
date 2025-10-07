@@ -1267,10 +1267,10 @@ const Chat = () => {
           .post("whatsapp/guardar_audio", formData2)
           .then(async (data) => {
             if (data.status === 200) {
-              console.log('Audio guardado en el servidor:', response.data.fileUrl);
+              console.log('Audio guardado en el servidor:', data.data.fileUrl);
               console.log("Audio subido a WhatsApp:", data.data);
 
-              await enviarAudioWhatsApp(data.data); // Enviar el audio a WhatsApp
+              await enviarAudioWhatsApp(data.data.fileUrl); // Enviar el audio a WhatsApp
 
               return data.data; // Retorna la URL del audio subido
             } else {
