@@ -947,7 +947,8 @@ const ChatPrincipal = ({
                                 const locationData = JSON.parse(
                                   mensaje.texto_mensaje
                                 );
-                                const { latitude, longitud } = locationData;
+                                const { latitude, longitude } = locationData;
+
                                 return (
                                   <div className="w-full h-64">
                                     <iframe
@@ -956,11 +957,11 @@ const ChatPrincipal = ({
                                       height="100%"
                                       frameBorder="0"
                                       style={{ border: 0 }}
-                                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDGulcdBtz_Mydtmu432GtzJz82J_yb-rs&q=${latitude},${longitud}&zoom=15`}
+                                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDGulcdBtz_Mydtmu432GtzJz82J_yb-rs&q=${latitude},${longitude}&zoom=15`}
                                       allowFullScreen
                                     ></iframe>
                                     <a
-                                      href={`https://www.google.com/maps/search/?api=1&query=${latitude},${longitud}`}
+                                      href={`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="text-blue-500 underline"
