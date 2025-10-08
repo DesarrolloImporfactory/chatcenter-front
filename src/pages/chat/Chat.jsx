@@ -397,14 +397,27 @@ const Chat = () => {
     );
   };
 
+  // ——— Flags de carga para el gate del Sidebar ———
+  const [isLoadingWA, setIsLoadingWA] = useState(true);
+  const [isLoadingMS, setIsLoadingMS] = useState(true);
+  const [isLoadingIG, setIsLoadingIG] = useState(true);
+
+  // Usamos refs para no volver a poner "loading=true" después del primer batch
+  const waBootstrappedRef = useRef(false);
+  const msBootstrappedRef = useRef(false);
+  const igBootstrappedRef = useRef(false);
+
   async function fetchMsConversations() {
     if (!id_configuracion) return;
+
+    // 👉 Marca "cargando" solo hasta el primer batch
+    if (!msBootstrappedRef.current) setIsLoadingMS(true);
+
     const { data } = await chatApi.get("/messenger/conversations", {
       params: { id_configuracion, limit: 50 },
     });
     const items = (data.items || []).map(mapMsConvToSidebar);
 
-    // Mezcla con tus chats existentes sin duplicar
     setMensajesAcumulados((prev) => {
       const byKey = new Map(
         prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
@@ -412,14 +425,12 @@ const Chat = () => {
       for (const it of items) {
         byKey.set(`ms:${it.id}`, it);
       }
-      // Devuelve array ordenado por fecha desc
       return Array.from(byKey.values()).sort(
         (a, b) =>
           new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
       );
     });
 
-    // 🔄 Refresca perfiles que falten (nombre/foto) y vuelve a pedir la lista
     try {
       await chatApi.post("/messenger/profiles/refresh-missing", {
         id_configuracion,
@@ -442,11 +453,21 @@ const Chat = () => {
       });
     } catch (err) {
       console.warn("Profiles refresh error:", err);
+    } finally {
+      // 👉 Fin del primer batch de MS
+      if (!msBootstrappedRef.current) {
+        msBootstrappedRef.current = true;
+        setIsLoadingMS(false);
+      }
     }
   }
 
   async function fetchIgConversations() {
     if (!id_configuracion) return;
+
+    // 👉 Marca "cargando" solo hasta el primer batch
+    if (!igBootstrappedRef.current) setIsLoadingIG(true);
+
     const { data } = await chatApi.get("/instagram/conversations", {
       params: { id_configuracion, limit: 50 },
     });
@@ -462,6 +483,12 @@ const Chat = () => {
           new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
       );
     });
+
+    // 👉 Fin del primer batch de IG
+    if (!igBootstrappedRef.current) {
+      igBootstrappedRef.current = true;
+      setIsLoadingIG(false);
+    }
   }
 
   useEffect(() => {
@@ -1619,22 +1646,25 @@ const Chat = () => {
               id_encargado: id_sub_usuario_global,
               id_conversation: selectedChat.id,
             }
+          : selectedChat.source === "ig"
+          ? {
+              source: "ig",
+              id_encargado: id_sub_usuario_global,
+              id_conversation: selectedChat.id,
+            }
           : {
               source: "wa",
               id_encargado: id_sub_usuario_global,
               id_cliente_chat_center: selectedChat.id,
             };
+
       const res = await chatApi.post(
         "departamentos_chat_center/asignar_encargado",
         payload
       );
 
       if (res.data.status === "success") {
-        Toast.fire({
-          icon: "success",
-          title: res.data.message,
-        });
-
+        Toast.fire({ icon: "success", title: res.data.message });
         setSelectedChat((prev) => ({
           ...prev,
           id_encargado: id_sub_usuario_global,
@@ -1649,12 +1679,7 @@ const Chat = () => {
       const message =
         error.response?.data?.message ||
         "Error inesperado al transferir el chat.";
-
-      Toast.fire({
-        icon: "error",
-        title: message,
-      });
-
+      Toast.fire({ icon: "error", title: message });
       console.error("Error al transferir chat:", error);
     }
   };
@@ -1718,22 +1743,19 @@ const Chat = () => {
     console.log("Chat asignado a otro usuario");
   };
 
-  // helper robusto
-  const isValidOwner = (v) => !(v === null || v === undefined || v === "null");
-
   useEffect(() => {
     if (!selectedChat) return;
 
+    const needsAssign = (v) => v === null || v === undefined || v === "null";
+
     // 🔵 MESSENGER
     if (selectedChat.source === "ms") {
-      // Si localmente ya consta encargado, no preguntar
-      if (isValidOwner(selectedChat.id_encargado)) return;
+      if (!needsAssign(selectedChat.id_encargado)) return;
 
-      // Fallback: consulta al backend el estado real del encargado
       (async () => {
         try {
           const { data } = await chatApi.get("/messenger/conversations", {
-            params: { id_configuracion, limit: 50 },
+            params: { id_configuracion, limit: 1, id: selectedChat.id },
           });
           const owner =
             data?.item?.id_encargado ??
@@ -1741,26 +1763,28 @@ const Chat = () => {
             data?.encargado_id ??
             null;
 
-          // actualiza el seleccionado con el valor real
           setSelectedChat((prev) => ({ ...prev, id_encargado: owner }));
-
-          if (!isValidOwner(owner)) {
-            showAsignarChatDialog();
-          }
-        } catch (e) {
-          // si falla la verificación, como último recurso pregunta
+          if (needsAssign(owner)) showAsignarChatDialog();
+        } catch {
           showAsignarChatDialog();
         }
       })();
 
-      return; // no continuar con rama WhatsApp
+      return;
     }
 
-    // 🟢 WHATSAPP (igual que antes)
-    if (!isValidOwner(selectedChat.id_encargado)) {
+    // 🟣 INSTAGRAM
+    if (selectedChat.source === "ig") {
+      if (!needsAssign(selectedChat.id_encargado)) return;
+
+      showAsignarChatDialog();
+      return;
+    }
+
+    // 🟢 WHATSAPP
+    if (needsAssign(selectedChat.id_encargado)) {
       showAsignarChatDialog();
     }
-    // ⚠️ Dependencias limitadas para no re-disparar innecesariamente
   }, [selectedChat?.id, selectedChat?.source]);
 
   /* validador encargado selectedChat */
@@ -1912,6 +1936,9 @@ const Chat = () => {
     if (isSocketConnected && userData) {
       console.time("⏱ Tiempo hasta llegada de CHATS");
 
+      // 👉 WhatsApp: si aún no hicimos el bootstrap, estamos cargando
+      if (!waBootstrappedRef.current) setIsLoadingWA(true);
+
       // Limpiar listeners existentes antes de registrar nuevos
       socketRef.current.off("RECEIVED_MESSAGE");
       socketRef.current.off("DATA_FACTURA_RESPONSE");
@@ -1946,6 +1973,12 @@ const Chat = () => {
           const ultimo = data[data.length - 1];
           setCursorFecha(ultimo.mensaje_created_at);
           setCursorId(ultimo.id);
+        }
+
+        // 👉 Fin del primer batch de WA
+        if (!waBootstrappedRef.current) {
+          waBootstrappedRef.current = true;
+          setIsLoadingWA(false);
         }
       });
 
@@ -2327,6 +2360,17 @@ const Chat = () => {
         });
       }
       return; // <- clave: no registres CHATS_BOX_RESPONSE aquí
+    }
+
+    // ⚠️ Si es Instagram, NO usar GET_CHATS_BOX ni su listener
+    if (selectedChat.source === "ig") {
+      if (id_plataforma_conf !== null) {
+        socketRef.current.emit("GET_FACTURAS", {
+          id_plataforma: id_plataforma_conf,
+          telefono: selectedChat.celular_cliente,
+        });
+      }
+      return;
     }
 
     // WhatsApp / otros canales
@@ -2994,23 +3038,6 @@ const Chat = () => {
     }
   };
 
-  // abrir con preset (desde banner +24h)
-  const abrirModalConPreset = () => {
-    setNumeroModalPreset({
-      step: "buscar",
-      phone: selectedChat.celular_cliente,
-      lockPhone: true,
-      contextLabel: "Responderás con plantilla al chat actual",
-      clienteNombre: selectedChat.nombre_cliente || selectedChat.nombres || "",
-    });
-    if (numeroModal) {
-      setNumeroModal(false);
-      setTimeout(() => setNumeroModal(true), 0);
-    } else {
-      setNumeroModal(true);
-    }
-  };
-
   return (
     <div className="sm:grid grid-cols-4">
       <div className="text-sm text-gray-700 fixed bottom-0 z-50 left-2">
@@ -3086,6 +3113,9 @@ const Chat = () => {
         id_plataforma_conf={id_plataforma_conf}
         selectedPedidos_confirmados={selectedPedidos_confirmados}
         setSelectedPedidos_confirmados={setSelectedPedidos_confirmados}
+        isLoadingWA={isLoadingWA}
+        isLoadingMS={isLoadingMS}
+        isLoadingIG={isLoadingIG}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

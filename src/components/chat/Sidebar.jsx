@@ -1,5 +1,5 @@
 import Select from "react-select";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 
 // ——— Utils de texto ———
 const normalizeSpaces = (s = "") => String(s).replace(/\s+/g, " ").trim();
@@ -37,6 +37,13 @@ const formatNombreCliente = (nombre = "") => {
   const hasLetters = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(s);
   if (hasLetters && s === s.toUpperCase()) return toTitleCaseEs(s);
   return s;
+};
+
+// Helper: texto identificador (columna inferior izquierda)
+const getIdLabel = (m) => {
+  if (m?.source === "wa") return m?.celular_cliente || "";
+  // Para MS/IG priorizamos username, si no hay, usamos nombre formateado
+  return m?.username || formatNombreCliente(m?.nombre_cliente) || "";
 };
 
 export const Sidebar = ({
@@ -81,6 +88,9 @@ export const Sidebar = ({
   id_plataforma_conf,
   setSelectedPedidos_confirmados,
   selectedPedidos_confirmados,
+  isLoadingWA = false,
+  isLoadingMS = false,
+  isLoadingIG = false,
 }) => {
   // —— Estilos consistentes para react-select ———————————————————————
   const selectStyles = useMemo(
@@ -183,6 +193,37 @@ export const Sidebar = ({
   };
 
   const [channelFilter, setChannelFilter] = useState("all");
+
+  const [allowPaint, setAllowPaint] = useState(false); // habilita el primer render de la lista
+  const hasPaintedRef = useRef(false); // recuerda si ya pintamos una vez
+
+  // cuando los TRES terminaron, permitimos pintar (y no volvemos al placeholder)
+  useEffect(() => {
+    if (
+      !hasPaintedRef.current &&
+      !isLoadingWA &&
+      !isLoadingMS &&
+      !isLoadingIG
+    ) {
+      hasPaintedRef.current = true;
+      setAllowPaint(true);
+    }
+  }, [isLoadingWA, isLoadingMS, isLoadingIG]);
+
+  // Fallback: si WA tarda demasiado, pinta igual a los X ms (evita bloquear UI)
+  useEffect(() => {
+    if (hasPaintedRef.current) return;
+    const t = setTimeout(() => setAllowPaint(true), 3000); // 4s;
+    return () => clearTimeout(t);
+  }, []);
+
+  // Comparador: fecha DESC y en empate id DESC
+  const compareChats = (a, b) => {
+    const ta = new Date(a.mensaje_created_at).getTime() || 0;
+    const tb = new Date(b.mensaje_created_at).getTime() || 0;
+    if (tb !== ta) return tb - ta;
+    return (b.id ?? 0) - (a.id ?? 0);
+  };
 
   return (
     <aside
@@ -578,25 +619,27 @@ export const Sidebar = ({
         {/* Lista de chats */}
         <ul className="divide-y divide-slate-100 flex-1">
           {(() => {
-            // Filtra por canal: 'wa' | 'ms' | 'ig' | 'all'
-            const list =
-              channelFilter === "ms"
-                ? filteredChats.filter((c) => c.source === "ms")
-                : channelFilter === "wa"
-                ? filteredChats.filter((c) => c.source !== "ms")
-                : channelFilter === "ig"
-                ? [] // sin IG aún
-                : filteredChats;
-
-            if (channelFilter === "ig") {
+            // Gate: si aún no termina de cargar y no hay nada que mostrar, enseñamos placeholder
+            if (!allowPaint) {
               return (
-                <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
-                  <i className="bx bxl-instagram text-4xl text-pink-500/70" />
-                  <p className="text-sm font-semibold">Instagram</p>
-                  <p className="text-xs">¡Próximamente en este panel!</p>
+                <div className="flex h-64 items-center justify-center gap-2 text-slate-500">
+                  <i className="bx bx-loader-alt animate-spin text-xl" />
+                  <span className="text-sm">Sincronizando chats…</span>
                 </div>
               );
             }
+            // Filtra por canal: 'wa' | 'ms' | 'ig' | 'all'
+            const base =
+              channelFilter === "ms"
+                ? filteredChats.filter((c) => c.source === "ms")
+                : channelFilter === "wa"
+                ? filteredChats.filter((c) => c.source === "wa")
+                : channelFilter === "ig"
+                ? filteredChats.filter((c) => c.source === "ig")
+                : filteredChats;
+
+            // Clonar + ordenar SIEMPRE para que el orden no dependa del orden de llegada
+            const list = [...base].sort(compareChats);
 
             if (list.length === 0) {
               return mensajesAcumulados.length === 0 ? (
@@ -623,7 +666,7 @@ export const Sidebar = ({
                 mensaje.estado_factura,
                 mensaje.novedad_info
               );
-              const seleccionado = selectedChat === mensaje;
+              const seleccionado = selectedChat?.id === mensaje.id;
 
               return (
                 <li
@@ -637,7 +680,7 @@ export const Sidebar = ({
                     seleccionado
                       ? "bg-slate-50 cursor-default" // cambiamos cursor para indicar que ya no se puede
                       : mensaje.pedido_confirmado === 1
-                      ? "bg-green-200"
+                      ? "bg-green-100"
                       : "bg-white"
                   }`}
                 >
@@ -695,26 +738,40 @@ export const Sidebar = ({
                       )}
                     </div>
 
-                    {/* Teléfono + preview */}
+                    {/* Teléfono + preview (fila inferior alineada) */}
                     <div className="col-[2/4] min-w-0 flex items-center gap-2 text-xs text-slate-500">
+                      {/* Identificador con ancho fijo, truncable */}
                       <span
-                        className="whitespace-nowrap"
-                        title={mensaje.celular_cliente}
+                        className="w-28 md:w-32 shrink-0 truncate tabular-nums"
+                        title={getIdLabel(mensaje)}
                       >
-                        {mensaje.source === "ms"
-                          ? "Facebook"
-                          : mensaje.celular_cliente}
+                        {getIdLabel(mensaje)}
                       </span>
 
+                      {/* Pill del canal (una sola vez) */}
                       {mensaje.source === "ms" && (
-                        <span className="ml-2 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 shrink-0">
                           <i className="bx bxl-messenger mr-1 text-base" />
                           Messenger
                         </span>
                       )}
+                      {mensaje.source === "ig" && (
+                        <span className="inline-flex items-center rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-semibold text-pink-600 shrink-0">
+                          <i className="bx bxl-instagram mr-1 text-base" />
+                          Instagram
+                        </span>
+                      )}
+                      {mensaje.source === "wa" && (
+                        <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600 shrink-0">
+                          <i className="bx bxl-whatsapp mr-1 text-base" />
+                          WhatsApp
+                        </span>
+                      )}
 
+                      {/* Separador */}
                       <span className="select-none text-slate-300">•</span>
 
+                      {/* Preview con truncado, ocupa el resto */}
                       <span className="truncate" title={mensaje.texto_mensaje}>
                         {mensaje.texto_mensaje?.length > chatTemporales
                           ? mensaje.texto_mensaje.includes("{{") &&
@@ -729,7 +786,7 @@ export const Sidebar = ({
                                     (m, key) => valores[key.trim()] || m
                                   );
                                   return `${txt.substring(0, chatTemporales)}…`;
-                                } catch (e) {
+                                } catch {
                                   return `${mensaje.texto_mensaje.substring(
                                     0,
                                     chatTemporales
@@ -754,9 +811,9 @@ export const Sidebar = ({
             (channelFilter === "ms"
               ? filteredChats.filter((c) => c.source === "ms").length
               : channelFilter === "wa"
-              ? filteredChats.filter((c) => c.source !== "ms").length
+              ? filteredChats.filter((c) => c.source === "wa").length
               : channelFilter === "ig"
-              ? 0
+              ? filteredChats.filter((c) => c.source === "ig").length
               : filteredChats.length) && (
             <div className="flex justify-center py-4">
               <span className="animate-pulse text-sm text-slate-500">
