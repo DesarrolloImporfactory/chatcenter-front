@@ -947,7 +947,18 @@ const ChatPrincipal = ({
                                 const locationData = JSON.parse(
                                   mensaje.texto_mensaje
                                 );
-                                const { latitude, longitude } = locationData;
+
+                                // Usamos 'longitude' si existe, si no, usamos 'longitud'
+                                let { latitude, longitude, longitud } =
+                                  locationData;
+
+                                // Si no hay 'longitude', tomamos 'longitud' como longitud
+                                if (
+                                  longitude === undefined &&
+                                  longitud !== undefined
+                                ) {
+                                  longitude = longitud;
+                                }
 
                                 return (
                                   <div className="w-full h-64">
