@@ -14,7 +14,7 @@ const CHANNEL_STYLES = {
   },
   ig: {
     icon: "bx bxl-instagram",
-    cls: "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200"
+    cls: "bg-red-50 text-red-700 border border-red-200"
   }
 };
 
