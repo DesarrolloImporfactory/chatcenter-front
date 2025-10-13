@@ -1,27 +1,39 @@
-
 import Select from "react-select";
 import ReactDOM from "react-dom";
 import { useMemo, useState, useRef, useEffect } from "react";
 
-
-// === Helpers de canal y UI premium (inyectados) ===============================
+/* ===================== Estilos de canal ===================== */
 const CHANNEL_STYLES = {
   wa: {
+    label: "WhatsApp",
     icon: "bx bxl-whatsapp",
     cls: "bg-green-50 text-green-700 border border-green-200"
   },
   ms: {
+    label: "Messenger",
     icon: "bx bxl-messenger",
     cls: "bg-blue-50 text-blue-700 border border-blue-200"
   },
   ig: {
+    label: "Instagram",
     icon: "bx bxl-instagram",
-    cls: "bg-red-50 text-red-700 border border-red-200"
+    cls: "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200"
   }
 };
 
+/* Normalizador de canal: acepta variantes y devuelve wa|ms|ig o null */
+function getChannelKey(value) {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim().toLowerCase();
+  if (["wa", "whatsapp", "wsp", "wp"].includes(s)) return "wa";
+  if (["ms", "messenger", "fb", "facebook", "facebook messenger"].includes(s)) return "ms";
+  if (["ig", "instagram", "insta"].includes(s)) return "ig";
+  return null;
+}
+
 function PillCanal({ source }) {
-  const cfg = CHANNEL_STYLES[source];
+  const key = getChannelKey(source);
+  const cfg = key ? CHANNEL_STYLES[key] : null;
   if (!cfg) return null;
   return (
     <span
@@ -47,6 +59,7 @@ function PillEstado({ texto, colorClass }) {
   );
 }
 
+/* ===================== Helpers de texto ===================== */
 function expandirTemplate(texto = "", ruta_archivo, limite = 90) {
   if (!texto) return "";
   let out = texto;
@@ -54,19 +67,30 @@ function expandirTemplate(texto = "", ruta_archivo, limite = 90) {
     try {
       const valores = JSON.parse(ruta_archivo);
       out = texto.replace(/\{\{(.*?)\}\}/g, (m, key) => valores[key.trim()] ?? m);
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
   return out.length > limite ? `${out.substring(0, limite)}…` : out;
 }
 
-// ===== Heurísticas para propiedad y respuestas =====
-function esMensajePropio(m) {
-  return Boolean(
-    m?.from_me ?? m?.es_propio ?? m?.yo ?? m?.is_from_me ?? (m?.remitente === "yo")
-  );
-}
+const normalizeSpaces = (s = "") => String(s).replace(/\s+/g, " ").trim();
+const toTitleCaseEs = (str = "") => {
+  const ex = new Set(["de","del","la","las","el","los","y","e","o","u","en","al","a","con","por","para"]);
+  const words = str.toLowerCase().split(" ");
+  return words.map((w, i) => (i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
+};
+const formatNombreCliente = (nombre = "") => {
+  const s = normalizeSpaces(nombre);
+  const hasLetters = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(s);
+  if (hasLetters && s === s.toUpperCase()) return toTitleCaseEs(s);
+  return s;
+};
+const getIdLabel = (m) =>
+  (getChannelKey(m?.source) === "wa" ? (m?.celular_cliente || "") : (m?.username || formatNombreCliente(m?.nombre_cliente) || ""));
+
+/* ===================== Heurísticas de propiedad/respuesta ===================== */
+const esMensajePropio = (m) =>
+  Boolean(m?.from_me ?? m?.es_propio ?? m?.yo ?? m?.is_from_me ?? (m?.remitente === "yo"));
+
 function extraerRespuesta(m) {
   const ref =
     m?.reply_to_text ??
@@ -86,13 +110,19 @@ function extraerRespuesta(m) {
   return { ref, autor };
 }
 
-/* ======= Preview LATERAL en PORTAL (Premium sólido/ligero) ======= */
+/* ===================== Preview en Portal (ancho proporcional al contenido) ===================== */
+/* Estrategia:
+   - Medimos el ancho estimado del contenido con canvas (fuente del body).
+   - Calculamos width = clamp(min, contenido + padding, max viewport).
+   - El shell usa width fijo (no solo maxWidth) para “abrazar” mensajes cortos tipo "hola".
+*/
 function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, replyRef, replyAuthor }) {
-  const [pos, setPos] = useState({ top: 0, left: 0, side: "right", width: 560 });
+  const [pos, setPos] = useState({ top: 0, left: 0, side: "right" });
   const [shown, setShown] = useState(false);
+  const [width, setWidth] = useState(360); // default
   const containerRef = useRef(null);
 
-  // Paleta premium sobria y ligera
+  // Paleta sobria/ligera
   const theme = {
     shellGrad: "from-slate-900/5 via-slate-300/10 to-white",
     innerBg: "bg-gradient-to-b from-slate-50 to-white",
@@ -101,41 +131,65 @@ function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, reply
     shadow: "shadow-[0_12px_28px_-16px_rgba(2,6,23,0.38)]",
     text: "text-slate-800",
     subtext: "text-slate-500",
-    quoteBar: "bg-slate-300/70",
     headerBg: "bg-slate-100/80",
     headerText: "text-slate-700",
-    tailGrad: "from-slate-100 to-white",
   };
 
-  // Recalcular posición
+  const PADDING_X = 40; // px (sumatoria de paddings laterales de la tarjeta)
+  const MIN_W = 220;
+  const MAX_W_RATIO = 0.58; // 58% del viewport
+
+  // Medición del ancho del texto usando Canvas (considera la línea más larga)
+  const medirAnchoContenido = (texto) => {
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      // Fuente aproximada a la usada en el body del popup
+      ctx.font = "15px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial";
+      const lineas = String(texto || "").split(/\r?\n/);
+      let max = 0;
+      for (const l of lineas) {
+        const m = ctx.measureText(l);
+        max = Math.max(max, m.width);
+      }
+      // Si hay bloque de respuesta, dejamos un mínimo más holgado
+      const extra = replyRef ? 80 : 0;
+      return Math.ceil(max + PADDING_X + extra);
+    } catch {
+      return 360;
+    }
+  };
+
+  // Posicionamiento y cálculo de width
   useEffect(() => {
     if (!open || !anchorRef?.current) return;
+
     const update = () => {
       const rect = anchorRef.current.getBoundingClientRect();
-      const margin = 16;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      const margin = 16;
 
-      const prefer = Math.min(760, Math.floor(vw * 0.58));
-      let width = Math.max(340, prefer);
+      const maxW = Math.min(760, Math.floor(vw * MAX_W_RATIO));
+      const minW = MIN_W;
+
+      // width en función del contenido
+      const contenidoW = medirAnchoContenido(textoCompleto);
+      const w = Math.min(maxW, Math.max(minW, contenidoW));
+      setWidth(w);
+
+      // lado preferente
       let side = "right";
       let left = rect.right + margin;
-
-      if (vw - rect.right - margin < width) {
+      if (vw - rect.right - margin < w) {
         side = "left";
-        left = Math.max(margin, rect.left - width - margin);
-      }
-
-      if (vw < 640) {
-        width = Math.max(300, vw - margin * 2);
-        side = "right";
-        left = Math.max(margin, Math.min(vw - margin - width, rect.right + margin));
-        if (left + width > vw - margin) left = vw - margin - width;
+        left = Math.max(margin, rect.left - w - margin);
       }
 
       const top = Math.max(margin, Math.min(vh - margin, rect.top));
-      setPos({ top, left, side, width });
+      setPos({ top, left, side });
     };
+
     update();
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
@@ -143,29 +197,23 @@ function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, reply
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [open, anchorRef]);
+  }, [open, anchorRef, textoCompleto, replyRef]);
 
-  // Animación de entrada
+  // Animación
   useEffect(() => {
     if (open) {
       const t = requestAnimationFrame(() => setShown(true));
       return () => cancelAnimationFrame(t);
-    } else {
-      setShown(false);
-    }
+    } else setShown(false);
   }, [open]);
 
-  // Cerrar con ESC y clic fuera
+  // Cerrar con ESC/clic fuera
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") onLock?.(false);
-    };
+    const onKey = (e) => e.key === "Escape" && onLock?.(false);
     const onClick = (e) => {
       if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target)) {
-        onLock?.(false);
-      }
+      if (!containerRef.current.contains(e.target)) onLock?.(false);
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onClick, true);
@@ -179,14 +227,14 @@ function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, reply
 
   const bubble = (
     <div
-      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width: pos.width }}
+      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width }}
       onMouseEnter={() => onLock?.(true)}
       onMouseLeave={() => onLock?.(false)}
       ref={containerRef}
     >
       {/* Shell gradiente */}
       <div className={`p-[1px] rounded-[20px] bg-gradient-to-br ${theme.shellGrad} ${theme.shadow}`}>
-        {/* CardShell: RELATIVE + overflow-visible (cola cuelga aquí) */}
+        {/* CardShell (relative, overflow-visible para la cola) */}
         <div className={`relative rounded-[18px] ${theme.innerBg} ${theme.ring} ${theme.border} overflow-visible`}>
           {/* ScrollArea */}
           <div
@@ -203,7 +251,7 @@ function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, reply
 
             {/* Body */}
             <div className="px-5 py-4 text-[15px] leading-[1.7] tracking-[0.005em] antialiased">
-              {/* Cita si es respuesta */}
+              {/* Cita */}
               {replyRef && (
                 <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
                   <div className="flex">
@@ -225,14 +273,14 @@ function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, reply
                 {textoCompleto}
               </div>
 
-              {/* Nota sutil */}
+              {/* Nota */}
               <div className={`mt-3 text-[11px] ${theme.subtext}`}>
                 Vista previa generada desde el último mensaje.
               </div>
             </div>
           </div>
 
-          {/* Cola (triángulo real con clip-path, sombra sutil) */}
+          {/* Cola (triángulo real con clip-path) */}
           {pos.side === "right" ? (
             <div
               className="absolute top-8 -left-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]"
@@ -253,6 +301,7 @@ function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, reply
   return container ? ReactDOM.createPortal(bubble, container) : null;
 }
 
+/* ===================== Item de mensaje ===================== */
 function MessageItem({
   mensaje,
   chatTemporales = 90,
@@ -267,28 +316,17 @@ function MessageItem({
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [hoverLock, setHoverLock] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const liRef = useRef(null);
 
-  const nombre = acortarTexto(
-    formatNombreCliente(mensaje?.nombre_cliente ?? ""),
-    10,
-    25
-  );
+  const nombre = acortarTexto(formatNombreCliente(mensaje?.nombre_cliente ?? ""), 10, 25);
   const numero = getIdLabel(mensaje);
-  const preview = expandirTemplate(
-    mensaje?.texto_mensaje,
-    mensaje?.ruta_archivo,
-    chatTemporales
-  );
-  const previewCompleto = expandirTemplate(
-    mensaje?.texto_mensaje,
-    mensaje?.ruta_archivo,
-    20000
-  );
+  const preview = expandirTemplate(mensaje?.texto_mensaje, mensaje?.ruta_archivo, chatTemporales);
+  const previewCompleto = expandirTemplate(mensaje?.texto_mensaje, mensaje?.ruta_archivo, 20000);
   const tienePendientes = (mensaje?.mensajes_pendientes ?? 0) > 0;
-  const avatarUrl = mensaje?.profile_pic_url
-    ? mensaje.profile_pic_url
-    : "https://tiendas.imporsuitpro.com/imgs/react/user.png";
+
+  const fallbackAvatar = "https://tiendas.imporsuitpro.com/imgs/react/user.png";
+  const avatarUrl = !imgError && mensaje?.profile_pic_url ? mensaje.profile_pic_url : fallbackAvatar;
 
   const own = esMensajePropio(mensaje);
   const { ref: replyRef, autor: replyAuthor } = extraerRespuesta(mensaje);
@@ -299,20 +337,16 @@ function MessageItem({
       className={[
         "group relative cursor-pointer px-3 py-3 sm:px-4 sm:py-3.5",
         "transition-all duration-150 ease-out",
-        seleccionado
-          ? "bg-slate-50 cursor-default"
-          : "hover:bg-slate-50 hover:shadow-xs"
+        seleccionado ? "bg-slate-50 cursor-default" : "hover:bg-slate-50 hover:shadow-xs"
       ].join(" ")}
       onMouseEnter={() => setPreviewOpen(true)}
       onMouseLeave={() => { if (!hoverLock) setPreviewOpen(false); }}
-      onClick={() => {
-        if (!seleccionado && typeof onClick === "function") onClick();
-      }}
+      onClick={() => { if (!seleccionado && typeof onClick === "function") onClick(); }}
     >
       {/* borde animado sutil al hover */}
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-0 ring-slate-900/0 transition-all duration-150 group-hover:ring-4 group-hover:ring-slate-900/5" />
 
-      {/* Preview lateral en portal */}
+      {/* Preview lateral */}
       <HoverPreviewPortal
         anchorRef={liRef}
         textoCompleto={previewCompleto}
@@ -324,33 +358,32 @@ function MessageItem({
       />
 
       <div className="grid grid-cols-[3rem_1fr_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2.5">
-        {/* Avatar */}
-        <div
-          className={[
-            "relative col-[1] row-span-2 h-12 w-12 shrink-0 overflow-hidden rounded-full",
-            "ring-2 transition-all duration-150",
-            tienePendientes ? "ring-blue-500" : "ring-slate-200",
-            "group-hover:ring-slate-300"
-          ].join(" ")}
-        >
-          <img
-            src={avatarUrl}
-            alt="Avatar"
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+        {/* Avatar premium (sin badge de canal) */}
+        <div className="relative col-[1] row-span-2 h-12 w-12 shrink-0">
+          <div
+            className={[
+              "h-12 w-12 overflow-hidden rounded-full ring-2 transition-all duration-150",
+              tienePendientes ? "ring-blue-500" : "ring-slate-200",
+              "group-hover:ring-slate-300 shadow-sm"
+            ].join(" ")}
+          >
+            <img
+              src={avatarUrl}
+              alt="Avatar"
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onError={() => setImgError(true)}
+            />
+            {/* brillo sutil */}
+            <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-transparent to-white/20" />
+          </div>
         </div>
 
         {/* Nombre + Número */}
         <div className="col-[2] row-[1] min-w-0 flex items-end gap-2 leading-[1.2]">
-          <span className="truncate text-[13.5px] font-semibold text-slate-900">
-            {nombre}
-          </span>
+          <span className="truncate text-[13.5px] font-semibold text-slate-900">{nombre}</span>
           <span className="select-none text-slate-300">•</span>
-          <span
-            className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums"
-            title={numero}
-          >
+          <span className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums" title={numero}>
             {numero}
           </span>
         </div>
@@ -372,7 +405,7 @@ function MessageItem({
           )}
         </div>
 
-        {/* Canal + Preview corto */}
+        {/* Canal + Preview breve (canal aparte del avatar) */}
         <div className="col-[2/4] row-[2] min-w-0 flex items-center gap-2 pt-0.5 text-[12.5px] text-slate-700 leading-[1.45]">
           <PillCanal source={mensaje?.source} />
           <span className="truncate" title={mensaje?.texto_mensaje}>
@@ -384,32 +417,7 @@ function MessageItem({
   );
 }
 
-// ——— Utils de texto ———
-const normalizeSpaces = (s = "") => String(s).replace(/\s+/g, " ").trim();
-
-const toTitleCaseEs = (str = "") => {
-  const ex = new Set([
-    "de","del","la","las","el","los","y","e","o","u","en","al","a","con","por","para",
-  ]);
-  const words = str.toLowerCase().split(" ");
-  return words
-    .map((w, i) => (i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(" ");
-};
-
-const formatNombreCliente = (nombre = "") => {
-  const s = normalizeSpaces(nombre);
-  const hasLetters = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(s);
-  if (hasLetters && s === s.toUpperCase()) return toTitleCaseEs(s);
-  return s;
-};
-
-// Helper: texto identificador
-const getIdLabel = (m) => {
-  if (m?.source === "wa") return m?.celular_cliente || "";
-  return m?.username || formatNombreCliente(m?.nombre_cliente) || "";
-};
-
+/* ===================== Sidebar ===================== */
 export const Sidebar = ({
   setSearchTerm,
   setNumeroModal,
@@ -456,6 +464,7 @@ export const Sidebar = ({
   isLoadingMS = false,
   isLoadingIG = false,
 }) => {
+  // react-select styles
   const selectStyles = useMemo(
     () => ({
       control: (base, state) => ({
@@ -473,20 +482,9 @@ export const Sidebar = ({
         backgroundColor: isSelected ? "#2563eb" : isFocused ? "#eff6ff" : undefined,
         color: isSelected ? "#fff" : "#0f172a",
       }),
-      multiValue: (base) => ({
-        ...base,
-        borderRadius: 9999,
-        backgroundColor: "#eef2ff",
-      }),
-      multiValueLabel: (base) => ({
-        ...base,
-        color: "#1e293b",
-        fontWeight: 600,
-      }),
-      multiValueRemove: (base) => ({
-        ...base,
-        ":hover": { backgroundColor: "#dbeafe", color: "#0f172a" },
-      }),
+      multiValue: (base) => ({ ...base, borderRadius: 9999, backgroundColor: "#eef2ff" }),
+      multiValueLabel: (base) => ({ ...base, color: "#1e293b", fontWeight: 600 }),
+      multiValueRemove: (base) => ({ ...base, ":hover": { backgroundColor: "#dbeafe", color: "#0f172a" } }),
       placeholder: (base) => ({ ...base, color: "#64748b" }),
       menuPortal: (base) => ({ ...base, zIndex: 9999 }),
     }),
@@ -506,42 +504,28 @@ export const Sidebar = ({
     </button>
   );
 
+  // Estado guía unificado
   const obtenerEstadoGuia = (transporte, estadoFactura, novedadInfo) => {
     let estado_guia = { color: "", estado_guia: "" };
     switch (transporte) {
-      case "LAAR":
-        estado_guia = validar_estadoLaar(estadoFactura);
-        break;
-      case "SERVIENTREGA":
-        estado_guia = validar_estadoServi(estadoFactura);
-        break;
-      case "GINTRACOM":
-        estado_guia = validar_estadoGintracom(estadoFactura);
-        break;
-      case "SPEED":
-        estado_guia = validar_estadoSpeed(estadoFactura);
-        break;
-      default:
-        estado_guia = { color: "", estado_guia: "" };
-        break;
+      case "LAAR": estado_guia = validar_estadoLaar(estadoFactura); break;
+      case "SERVIENTREGA": estado_guia = validar_estadoServi(estadoFactura); break;
+      case "GINTRACOM": estado_guia = validar_estadoGintracom(estadoFactura); break;
+      case "SPEED": estado_guia = validar_estadoSpeed(estadoFactura); break;
+      default: estado_guia = { color: "", estado_guia: "" }; break;
     }
     if (estado_guia.estado_guia === "Novedad") {
       try {
-        const parsed =
-          typeof novedadInfo === "string"
-            ? JSON.parse(novedadInfo)
-            : novedadInfo;
+        const parsed = typeof novedadInfo === "string" ? JSON.parse(novedadInfo) : novedadInfo;
         if (parsed?.terminado === 1 || parsed?.solucionada === 1) {
-          estado_guia = {
-            estado_guia: "Novedad resuelta",
-            color: "bg-yellow-500",
-          };
+          estado_guia = { estado_guia: "Novedad resuelta", color: "bg-yellow-500" };
         }
       } catch { /* noop */ }
     }
     return estado_guia;
   };
 
+  // Pintado diferido
   const [channelFilter, setChannelFilter] = useState("all");
   const [allowPaint, setAllowPaint] = useState(false);
   const hasPaintedRef = useRef(false);
@@ -559,12 +543,16 @@ export const Sidebar = ({
     return () => clearTimeout(t);
   }, []);
 
+  // Ordenar chats
   const compareChats = (a, b) => {
     const ta = new Date(a.mensaje_created_at).getTime() || 0;
     const tb = new Date(b.mensaje_created_at).getTime() || 0;
     if (tb !== ta) return tb - ta;
     return (b.id ?? 0) - (a.id ?? 0);
   };
+
+  // Helpers de filtro por canal normalizado
+  const matchesFilter = (c, key) => getChannelKey(c?.source) === key;
 
   return (
     <aside
@@ -573,21 +561,19 @@ export const Sidebar = ({
       className={`h-[calc(100vh_-_130px)] overflow-y-auto overflow-x-hidden ${selectedChat ? "hidden sm:block" : "block"}`}
     >
       <div className="ml-3 mr-0 my-3 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
+        {/* Header fijo */}
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          {/* Tabs */}
           <div className="flex items-center justify-between px-4 pt-4">
             <div className="inline-flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1">
               <button
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                  selectedTab === "abierto" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${selectedTab === "abierto" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"}`}
                 onClick={() => setSelectedTab("abierto")}
               >
                 <i className="bx bx-download mr-2 align-[-2px]" /> ABIERTO
               </button>
               <button
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                  selectedTab === "resueltos" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${selectedTab === "resueltos" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"}`}
                 onClick={() => setSelectedTab("resueltos")}
               >
                 <i className="bx bx-check mr-2 align-[-2px]" /> RESUELTOS
@@ -595,6 +581,7 @@ export const Sidebar = ({
             </div>
           </div>
 
+          {/* Buscador + acciones */}
           <div className="px-4 py-3 space-y-3">
             <div className="relative w-full">
               <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -619,6 +606,7 @@ export const Sidebar = ({
             </div>
 
             <div className="flex items-center gap-3 w-full">
+              {/* Filtro canal */}
               <details className="relative ml-auto shrink-0">
                 <summary
                   className="list-none inline-flex w-[199px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none"
@@ -633,7 +621,13 @@ export const Sidebar = ({
                   })()}
                   <span className="flex-1 min-w-0 whitespace-nowrap truncate">
                     <span className="font-bold">
-                      {channelFilter === "wa" ? "WhatsApp" : channelFilter === "ms" ? "Messenger" : channelFilter === "ig" ? "Instagram" : "Todos los canales"}
+                      {channelFilter === "wa"
+                        ? "WhatsApp"
+                        : channelFilter === "ms"
+                        ? "Messenger"
+                        : channelFilter === "ig"
+                        ? "Instagram"
+                        : "Todos los canales"}
                     </span>
                   </span>
                   <i className="bx bx-chevron-down text-lg ml-1 shrink-0" />
@@ -645,21 +639,24 @@ export const Sidebar = ({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={(e) => { e.stopPropagation(); setChannelFilter("all"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
                   >
-                    <i className="bx bx-layout text-base text-slate-500" /> Todos los canales
+                    <i className="bx bx-layout text-base text-slate-500" />
+                    Todos los canales
                   </button>
                   <button
                     className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "wa" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={(e) => { e.stopPropagation(); setChannelFilter("wa"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
                   >
-                    <i className="bx bxl-whatsapp text-base text-green-600" /> WhatsApp
+                    <i className="bx bxl-whatsapp text-base text-green-600" />
+                    WhatsApp
                   </button>
                   <button
                     className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "ms" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={(e) => { e.stopPropagation(); setChannelFilter("ms"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
                   >
-                    <i className="bx bxl-messenger text-base text-blue-600" /> Messenger
+                    <i className="bx bxl-messenger text-base text-blue-600" />
+                    Messenger
                   </button>
                   <button
                     className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${channelFilter === "ig" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
@@ -667,12 +664,14 @@ export const Sidebar = ({
                     onClick={(e) => { e.stopPropagation(); setChannelFilter("ig"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
                   >
                     <span className="inline-flex items-center gap-2">
-                      <i className="bx bxl-instagram text-base text-pink-500" /> Instagram
+                      <i className="bx bxl-instagram text-base text-pink-500" />
+                      Instagram
                     </span>
                   </button>
                 </div>
               </details>
 
+              {/* Filtros extra */}
               <button
                 onClick={(e) => { e.stopPropagation(); handleFiltro_chats(); }}
                 aria-pressed={!!filtro_chats}
@@ -683,6 +682,8 @@ export const Sidebar = ({
                 <i className="bx bx-filter-alt text-xl" />
                 <span className="ml-2 hidden text-sm md:inline font-bold">Filtros</span>
               </button>
+
+              {/* Nuevo chat */}
               <button
                 onClick={() => (typeof openNumeroModal === "function" ? openNumeroModal() : setNumeroModal(true))}
                 className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
@@ -694,6 +695,7 @@ export const Sidebar = ({
             </div>
           </div>
 
+          {/* Panel de filtros */}
           <div
             id="sidebar-filtros"
             className={`grid gap-3 px-4 pb-4 transition-all duration-300 ${filtro_chats ? "max-h-[600px] opacity-100" : "max-h-0 overflow-hidden opacity-0"}`}
@@ -711,6 +713,7 @@ export const Sidebar = ({
                 styles={selectStyles}
               />
             )}
+
             <Select
               isMulti
               options={etiquetasOptions}
@@ -722,6 +725,7 @@ export const Sidebar = ({
               menuPortalTarget={typeof document !== "undefined" ? document.body : null}
               styles={selectStyles}
             />
+
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
@@ -735,6 +739,7 @@ export const Sidebar = ({
                 styles={selectStyles}
               />
             )}
+
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
@@ -753,6 +758,7 @@ export const Sidebar = ({
                 styles={selectStyles}
               />
             )}
+
             {selectedTransportadora && (
               <Select
                 isClearable
@@ -773,28 +779,42 @@ export const Sidebar = ({
               />
             )}
 
+            {/* Chips activos */}
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {Array.isArray(selectedEtiquetas) && selectedEtiquetas.length > 0 &&
                 selectedEtiquetas.map((e) => (
-                  <FilterChip key={e.value} label={`Etiqueta: ${e.label}`} onClear={() => {
-                    const next = selectedEtiquetas.filter((x) => x.value !== e.value);
-                    setSelectedEtiquetas(next);
-                  }} />
+                  <FilterChip
+                    key={e.value}
+                    label={`Etiqueta: ${e.label}`}
+                    onClear={() => {
+                      const next = selectedEtiquetas.filter((x) => x.value !== e.value);
+                      setSelectedEtiquetas(next);
+                    }}
+                  />
                 ))}
               {selectedNovedad && (
                 <FilterChip label={`Novedad: ${selectedNovedad.label}`} onClear={() => setSelectedNovedad(null)} />
               )}
               {selectedTransportadora && (
-                <FilterChip label={`Transp.: ${selectedTransportadora.label}`} onClear={() => { setSelectedTransportadora(null); setSelectedEstado([]); }} />
+                <FilterChip
+                  label={`Transp.: ${selectedTransportadora.label}`}
+                  onClear={() => { setSelectedTransportadora(null); setSelectedEstado([]); }}
+                />
               )}
               {selectedEstado && selectedEstado.label && (
                 <FilterChip label={`Estado: ${selectedEstado.label}`} onClear={() => setSelectedEstado(null)} />
               )}
+
               {Array.isArray(selectedEtiquetas) &&
                 selectedEtiquetas.length + (selectedNovedad ? 1 : 0) + (selectedTransportadora ? 1 : 0) + (selectedEstado ? 1 : 0) > 0 && (
                 <button
                   type="button"
-                  onClick={() => { setSelectedEtiquetas([]); setSelectedNovedad(null); setSelectedTransportadora(null); setSelectedEstado([]); }}
+                  onClick={() => {
+                    setSelectedEtiquetas([]);
+                    setSelectedNovedad(null);
+                    setSelectedTransportadora(null);
+                    setSelectedEstado([]);
+                  }}
                   className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
                 >
                   Limpiar filtros <i className="bx bx-eraser" />
@@ -804,6 +824,7 @@ export const Sidebar = ({
           </div>
         </div>
 
+        {/* Lista de chats */}
         <ul className="divide-y divide-slate-100 flex-1">
           {(() => {
             if (!allowPaint) {
@@ -815,10 +836,13 @@ export const Sidebar = ({
               );
             }
             const base =
-              channelFilter === "ms" ? filteredChats.filter((c) => c.source === "ms")
-              : channelFilter === "wa" ? filteredChats.filter((c) => c.source === "wa")
-              : channelFilter === "ig" ? filteredChats.filter((c) => c.source === "ig")
-              : filteredChats;
+              channelFilter === "ms"
+                ? filteredChats.filter((c) => matchesFilter(c, "ms"))
+                : channelFilter === "wa"
+                ? filteredChats.filter((c) => matchesFilter(c, "wa"))
+                : channelFilter === "ig"
+                ? filteredChats.filter((c) => matchesFilter(c, "ig"))
+                : filteredChats;
 
             const list = [...base].sort(compareChats);
 
@@ -861,13 +885,14 @@ export const Sidebar = ({
             });
           })()}
 
+          {/* Loader de paginación */}
           {mensajesVisibles <
             (channelFilter === "ms"
-              ? filteredChats.filter((c) => c.source === "ms").length
+              ? filteredChats.filter((c) => matchesFilter(c, "ms")).length
               : channelFilter === "wa"
-              ? filteredChats.filter((c) => c.source === "wa").length
+              ? filteredChats.filter((c) => matchesFilter(c, "wa")).length
               : channelFilter === "ig"
-              ? filteredChats.filter((c) => c.source === "ig").length
+              ? filteredChats.filter((c) => matchesFilter(c, "ig")).length
               : filteredChats.length) && (
             <div className="flex justify-center py-4">
               <span className="animate-pulse text-sm text-slate-500">Cargando más chats…</span>
