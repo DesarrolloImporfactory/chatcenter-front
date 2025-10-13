@@ -614,7 +614,10 @@ const Chat = () => {
     setScrollOffset(0);
 
     // únete al room IG
-    actions.ig.joinConv(conv.id);
+    socketRef.current.emit("IG_JOIN_CONV", {
+      conversation_id: conv.id,
+      id_configuracion,
+    });
 
     // marca como leído (se envía IG_MARK_SEEN a tu backend)
     actions.ig.markSeen(conv.id);
