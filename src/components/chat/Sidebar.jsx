@@ -1,48 +1,412 @@
+
 import Select from "react-select";
+import ReactDOM from "react-dom";
 import { useMemo, useState, useRef, useEffect } from "react";
+
+
+// === Helpers de canal y UI premium (inyectados) ===============================
+const CHANNEL_STYLES = {
+  wa: {
+    icon: "bx bxl-whatsapp",
+    cls: "bg-green-50 text-green-700 border border-green-200"
+  },
+  ms: {
+    icon: "bx bxl-messenger",
+    cls: "bg-blue-50 text-blue-700 border border-blue-200"
+  },
+  ig: {
+    icon: "bx bxl-instagram",
+    cls: "bg-red-50 text-red-700 border border-red-200"
+  }
+};
+
+function PillCanal({ source }) {
+  const cfg = CHANNEL_STYLES[source];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cfg.cls}`}
+      title={cfg.label}
+    >
+      <i className={`${cfg.icon} text-sm`} aria-hidden="true" />
+      {cfg.label}
+    </span>
+  );
+}
+
+function PillEstado({ texto, colorClass }) {
+  if (!texto) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-[3px] text-[10px] font-semibold uppercase tracking-wide text-slate-700 transition-colors duration-200"
+      title={`Estado: ${texto}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${colorClass || "bg-slate-400"}`} />
+      {texto}
+    </span>
+  );
+}
+
+function expandirTemplate(texto = "", ruta_archivo, limite = 90) {
+  if (!texto) return "";
+  let out = texto;
+  if (texto.includes("{{") && ruta_archivo) {
+    try {
+      const valores = JSON.parse(ruta_archivo);
+      out = texto.replace(/\{\{(.*?)\}\}/g, (m, key) => valores[key.trim()] ?? m);
+    } catch {
+      // ignore
+    }
+  }
+  return out.length > limite ? `${out.substring(0, limite)}…` : out;
+}
+
+// ===== Heurísticas para propiedad y respuestas =====
+function esMensajePropio(m) {
+  return Boolean(
+    m?.from_me ?? m?.es_propio ?? m?.yo ?? m?.is_from_me ?? (m?.remitente === "yo")
+  );
+}
+function extraerRespuesta(m) {
+  const ref =
+    m?.reply_to_text ??
+    m?.reply_text ??
+    m?.respuesta_texto ??
+    m?.respuesta_a ??
+    m?.mensaje_referencia?.texto ??
+    m?.mensaje_referencia?.text ??
+    m?.referencia?.texto ??
+    null;
+  const autor =
+    m?.reply_to_author ??
+    m?.respuesta_autor ??
+    m?.mensaje_referencia?.autor ??
+    m?.referencia?.autor ??
+    null;
+  return { ref, autor };
+}
+
+/* ======= Preview LATERAL en PORTAL (Premium sólido/ligero) ======= */
+function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, replyRef, replyAuthor }) {
+  const [pos, setPos] = useState({ top: 0, left: 0, side: "right", width: 560 });
+  const [shown, setShown] = useState(false);
+  const containerRef = useRef(null);
+
+  // Paleta premium sobria y ligera
+  const theme = {
+    shellGrad: "from-slate-900/5 via-slate-300/10 to-white",
+    innerBg: "bg-gradient-to-b from-slate-50 to-white",
+    ring: "ring-1 ring-slate-900/5",
+    border: "border border-slate-200/80",
+    shadow: "shadow-[0_12px_28px_-16px_rgba(2,6,23,0.38)]",
+    text: "text-slate-800",
+    subtext: "text-slate-500",
+    quoteBar: "bg-slate-300/70",
+    headerBg: "bg-slate-100/80",
+    headerText: "text-slate-700",
+    tailGrad: "from-slate-100 to-white",
+  };
+
+  // Recalcular posición
+  useEffect(() => {
+    if (!open || !anchorRef?.current) return;
+    const update = () => {
+      const rect = anchorRef.current.getBoundingClientRect();
+      const margin = 16;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      const prefer = Math.min(760, Math.floor(vw * 0.58));
+      let width = Math.max(340, prefer);
+      let side = "right";
+      let left = rect.right + margin;
+
+      if (vw - rect.right - margin < width) {
+        side = "left";
+        left = Math.max(margin, rect.left - width - margin);
+      }
+
+      if (vw < 640) {
+        width = Math.max(300, vw - margin * 2);
+        side = "right";
+        left = Math.max(margin, Math.min(vw - margin - width, rect.right + margin));
+        if (left + width > vw - margin) left = vw - margin - width;
+      }
+
+      const top = Math.max(margin, Math.min(vh - margin, rect.top));
+      setPos({ top, left, side, width });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open, anchorRef]);
+
+  // Animación de entrada
+  useEffect(() => {
+    if (open) {
+      const t = requestAnimationFrame(() => setShown(true));
+      return () => cancelAnimationFrame(t);
+    } else {
+      setShown(false);
+    }
+  }, [open]);
+
+  // Cerrar con ESC y clic fuera
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") onLock?.(false);
+    };
+    const onClick = (e) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target)) {
+        onLock?.(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick, true);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick, true);
+    };
+  }, [open, onLock]);
+
+  if (!open || !textoCompleto) return null;
+
+  const bubble = (
+    <div
+      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width: pos.width }}
+      onMouseEnter={() => onLock?.(true)}
+      onMouseLeave={() => onLock?.(false)}
+      ref={containerRef}
+    >
+      {/* Shell gradiente */}
+      <div className={`p-[1px] rounded-[20px] bg-gradient-to-br ${theme.shellGrad} ${theme.shadow}`}>
+        {/* CardShell: RELATIVE + overflow-visible (cola cuelga aquí) */}
+        <div className={`relative rounded-[18px] ${theme.innerBg} ${theme.ring} ${theme.border} overflow-visible`}>
+          {/* ScrollArea */}
+          <div
+            className={[
+              "max-h-[76vh] overflow-auto rounded-[18px]",
+              "transition-all duration-200 ease-[cubic-bezier(.2,.8,.2,1)] will-change-[opacity,transform]",
+              shown ? "opacity-100 translate-y-0 scale-[1]" : "opacity-0 translate-y-1 scale-[0.99]"
+            ].join(" ")}
+          >
+            {/* Header */}
+            <div className={`sticky top-0 z-[1] ${theme.headerBg} ${theme.headerText} border-b border-slate-200 rounded-t-[18px] px-5 py-2.5 text-[12px] font-semibold tracking-[0.06em]`}>
+              VISTA PREVIA:
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4 text-[15px] leading-[1.7] tracking-[0.005em] antialiased">
+              {/* Cita si es respuesta */}
+              {replyRef && (
+                <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <div className="flex">
+                    <div className="w-1.5 bg-slate-300/70" />
+                    <div className="flex-1 p-3">
+                      <div className="mb-1 text-[11px] font-semibold text-slate-600">
+                        <i className="bx bx-reply text-[14px] align-[-1px]" /> Respondiendo a {replyAuthor || "mensaje"}
+                      </div>
+                      <div className="whitespace-pre-wrap break-words text-[13px] text-slate-700 line-clamp-5">
+                        {replyRef}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Contenido del mensaje */}
+              <div className={`whitespace-pre-wrap break-words ${theme.text} selection:bg-slate-900/5 selection:text-slate-900`}>
+                {textoCompleto}
+              </div>
+
+              {/* Nota sutil */}
+              <div className={`mt-3 text-[11px] ${theme.subtext}`}>
+                Vista previa generada desde el último mensaje.
+              </div>
+            </div>
+          </div>
+
+          {/* Cola (triángulo real con clip-path, sombra sutil) */}
+          {pos.side === "right" ? (
+            <div
+              className="absolute top-8 -left-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]"
+              style={{ clipPath: "polygon(0% 50%, 100% 0%, 100% 100%)" }}
+            />
+          ) : (
+            <div
+              className="absolute top-8 -right-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]"
+              style={{ clipPath: "polygon(0% 0%, 0% 100%, 100% 50%)" }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const container = typeof document !== "undefined" ? document.body : null;
+  return container ? ReactDOM.createPortal(bubble, container) : null;
+}
+
+function MessageItem({
+  mensaje,
+  chatTemporales = 90,
+  estado_guia,
+  color,
+  acortarTexto,
+  formatNombreCliente,
+  getIdLabel,
+  formatFecha,
+  onClick,
+  seleccionado = false
+}) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [hoverLock, setHoverLock] = useState(false);
+  const liRef = useRef(null);
+
+  const nombre = acortarTexto(
+    formatNombreCliente(mensaje?.nombre_cliente ?? ""),
+    10,
+    25
+  );
+  const numero = getIdLabel(mensaje);
+  const preview = expandirTemplate(
+    mensaje?.texto_mensaje,
+    mensaje?.ruta_archivo,
+    chatTemporales
+  );
+  const previewCompleto = expandirTemplate(
+    mensaje?.texto_mensaje,
+    mensaje?.ruta_archivo,
+    20000
+  );
+  const tienePendientes = (mensaje?.mensajes_pendientes ?? 0) > 0;
+  const avatarUrl = mensaje?.profile_pic_url
+    ? mensaje.profile_pic_url
+    : "https://tiendas.imporsuitpro.com/imgs/react/user.png";
+
+  const own = esMensajePropio(mensaje);
+  const { ref: replyRef, autor: replyAuthor } = extraerRespuesta(mensaje);
+
+  return (
+    <li
+      ref={liRef}
+      className={[
+        "group relative cursor-pointer px-3 py-3 sm:px-4 sm:py-3.5",
+        "transition-all duration-150 ease-out",
+        seleccionado
+          ? "bg-slate-50 cursor-default"
+          : "hover:bg-slate-50 hover:shadow-xs"
+      ].join(" ")}
+      onMouseEnter={() => setPreviewOpen(true)}
+      onMouseLeave={() => { if (!hoverLock) setPreviewOpen(false); }}
+      onClick={() => {
+        if (!seleccionado && typeof onClick === "function") onClick();
+      }}
+    >
+      {/* borde animado sutil al hover */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl ring-0 ring-slate-900/0 transition-all duration-150 group-hover:ring-4 group-hover:ring-slate-900/5" />
+
+      {/* Preview lateral en portal */}
+      <HoverPreviewPortal
+        anchorRef={liRef}
+        textoCompleto={previewCompleto}
+        open={previewOpen}
+        onLock={(v) => setHoverLock(v)}
+        own={own}
+        replyRef={replyRef}
+        replyAuthor={replyAuthor || (!own ? nombre : "Tú")}
+      />
+
+      <div className="grid grid-cols-[3rem_1fr_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2.5">
+        {/* Avatar */}
+        <div
+          className={[
+            "relative col-[1] row-span-2 h-12 w-12 shrink-0 overflow-hidden rounded-full",
+            "ring-2 transition-all duration-150",
+            tienePendientes ? "ring-blue-500" : "ring-slate-200",
+            "group-hover:ring-slate-300"
+          ].join(" ")}
+        >
+          <img
+            src={avatarUrl}
+            alt="Avatar"
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+
+        {/* Nombre + Número */}
+        <div className="col-[2] row-[1] min-w-0 flex items-end gap-2 leading-[1.2]">
+          <span className="truncate text-[13.5px] font-semibold text-slate-900">
+            {nombre}
+          </span>
+          <span className="select-none text-slate-300">•</span>
+          <span
+            className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums"
+            title={numero}
+          >
+            {numero}
+          </span>
+        </div>
+
+        {/* Pill estado */}
+        <div className="col-[3] row-[1] flex justify-end">
+          <PillEstado texto={estado_guia} colorClass={color} />
+        </div>
+
+        {/* Fecha + contador */}
+        <div className="col-[3] row-[2] mt-0.5 flex items-center justify-end gap-2">
+          <span className="text-[11px] text-slate-500 leading-[1.2]">
+            {formatFecha(mensaje?.mensaje_created_at)}
+          </span>
+          {tienePendientes && (
+            <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-[11px] font-semibold text-white">
+              {mensaje.mensajes_pendientes}
+            </span>
+          )}
+        </div>
+
+        {/* Canal + Preview corto */}
+        <div className="col-[2/4] row-[2] min-w-0 flex items-center gap-2 pt-0.5 text-[12.5px] text-slate-700 leading-[1.45]">
+          <PillCanal source={mensaje?.source} />
+          <span className="truncate" title={mensaje?.texto_mensaje}>
+            {preview}
+          </span>
+        </div>
+      </div>
+    </li>
+  );
+}
 
 // ——— Utils de texto ———
 const normalizeSpaces = (s = "") => String(s).replace(/\s+/g, " ").trim();
 
 const toTitleCaseEs = (str = "") => {
   const ex = new Set([
-    "de",
-    "del",
-    "la",
-    "las",
-    "el",
-    "los",
-    "y",
-    "e",
-    "o",
-    "u",
-    "en",
-    "al",
-    "a",
-    "con",
-    "por",
-    "para",
+    "de","del","la","las","el","los","y","e","o","u","en","al","a","con","por","para",
   ]);
   const words = str.toLowerCase().split(" ");
   return words
-    .map((w, i) =>
-      i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)
-    )
+    .map((w, i) => (i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(" ");
 };
 
 const formatNombreCliente = (nombre = "") => {
   const s = normalizeSpaces(nombre);
-  // Si viene todo en mayúsculas y contiene letras, lo pasamos a Title Case
   const hasLetters = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(s);
   if (hasLetters && s === s.toUpperCase()) return toTitleCaseEs(s);
   return s;
 };
 
-// Helper: texto identificador (columna inferior izquierda)
+// Helper: texto identificador
 const getIdLabel = (m) => {
   if (m?.source === "wa") return m?.celular_cliente || "";
-  // Para MS/IG priorizamos username, si no hay, usamos nombre formateado
   return m?.username || formatNombreCliente(m?.nombre_cliente) || "";
 };
 
@@ -92,27 +456,21 @@ export const Sidebar = ({
   isLoadingMS = false,
   isLoadingIG = false,
 }) => {
-  // —— Estilos consistentes para react-select ———————————————————————
   const selectStyles = useMemo(
     () => ({
       control: (base, state) => ({
         ...base,
         borderRadius: 12,
         borderColor: state.isFocused ? "#2563eb" : "#e5e7eb",
-        boxShadow: state.isFocused
-          ? "0 0 0 4px rgba(37, 99, 235, .15)"
-          : "none",
+        boxShadow: state.isFocused ? "0 0 0 4px rgba(37,99,235,.15)" : "none",
         minHeight: 44,
         ":hover": { borderColor: state.isFocused ? "#2563eb" : "#cbd5e1" },
+        transition: "all .15s ease-out",
       }),
       menu: (base) => ({ ...base, borderRadius: 12, overflow: "hidden" }),
       option: (base, { isFocused, isSelected }) => ({
         ...base,
-        backgroundColor: isSelected
-          ? "#2563eb"
-          : isFocused
-          ? "#eff6ff"
-          : undefined,
+        backgroundColor: isSelected ? "#2563eb" : isFocused ? "#eff6ff" : undefined,
         color: isSelected ? "#fff" : "#0f172a",
       }),
       multiValue: (base) => ({
@@ -135,12 +493,11 @@ export const Sidebar = ({
     []
   );
 
-  // —— Chips de filtros activos ————————————————————————————————
   const FilterChip = ({ label, onClear }) => (
     <button
       type="button"
       onClick={onClear}
-      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
       title="Quitar filtro"
     >
       <i className="bx bx-filter-alt text-sm" />
@@ -149,10 +506,8 @@ export const Sidebar = ({
     </button>
   );
 
-  // —— Estado/Badge de guía unificado ————————————————————————————
   const obtenerEstadoGuia = (transporte, estadoFactura, novedadInfo) => {
     let estado_guia = { color: "", estado_guia: "" };
-
     switch (transporte) {
       case "LAAR":
         estado_guia = validar_estadoLaar(estadoFactura);
@@ -170,8 +525,6 @@ export const Sidebar = ({
         estado_guia = { color: "", estado_guia: "" };
         break;
     }
-
-    // Ajuste cuando hay novedad resuelta
     if (estado_guia.estado_guia === "Novedad") {
       try {
         const parsed =
@@ -184,40 +537,28 @@ export const Sidebar = ({
             color: "bg-yellow-500",
           };
         }
-      } catch (err) {
-        console.error("Error al parsear novedad_info:", err);
-      }
+      } catch { /* noop */ }
     }
-
     return estado_guia;
   };
 
   const [channelFilter, setChannelFilter] = useState("all");
+  const [allowPaint, setAllowPaint] = useState(false);
+  const hasPaintedRef = useRef(false);
 
-  const [allowPaint, setAllowPaint] = useState(false); // habilita el primer render de la lista
-  const hasPaintedRef = useRef(false); // recuerda si ya pintamos una vez
-
-  // cuando los TRES terminaron, permitimos pintar (y no volvemos al placeholder)
   useEffect(() => {
-    if (
-      !hasPaintedRef.current &&
-      !isLoadingWA &&
-      !isLoadingMS &&
-      !isLoadingIG
-    ) {
+    if (!hasPaintedRef.current && !isLoadingWA && !isLoadingMS && !isLoadingIG) {
       hasPaintedRef.current = true;
       setAllowPaint(true);
     }
   }, [isLoadingWA, isLoadingMS, isLoadingIG]);
 
-  // Fallback: si WA tarda demasiado, pinta igual a los X ms (evita bloquear UI)
   useEffect(() => {
     if (hasPaintedRef.current) return;
-    const t = setTimeout(() => setAllowPaint(true), 3000); // 4s;
+    const t = setTimeout(() => setAllowPaint(true), 3000);
     return () => clearTimeout(t);
   }, []);
 
-  // Comparador: fecha DESC y en empate id DESC
   const compareChats = (a, b) => {
     const ta = new Date(a.mensaje_created_at).getTime() || 0;
     const tb = new Date(b.mensaje_created_at).getTime() || 0;
@@ -229,22 +570,15 @@ export const Sidebar = ({
     <aside
       ref={scrollRef}
       onScroll={handleScrollMensajes}
-      className={`h-[calc(100vh_-_130px)] overflow-y-auto overflow-x-hidden ${
-        selectedChat ? "hidden sm:block" : "block"
-      }`}
+      className={`h-[calc(100vh_-_130px)] overflow-y-auto overflow-x-hidden ${selectedChat ? "hidden sm:block" : "block"}`}
     >
-      {/* Contenedor principal */}
       <div className="ml-3 mr-0 my-3 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
-        {/* Header pegajoso con tabs + búsqueda/acciones */}
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-          {/* Tabs */}
           <div className="flex items-center justify-between px-4 pt-4">
             <div className="inline-flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1">
               <button
                 className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                  selectedTab === "abierto"
-                    ? "bg-white text-slate-900 shadow"
-                    : "text-slate-500 hover:text-slate-700"
+                  selectedTab === "abierto" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"
                 }`}
                 onClick={() => setSelectedTab("abierto")}
               >
@@ -252,9 +586,7 @@ export const Sidebar = ({
               </button>
               <button
                 className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                  selectedTab === "resueltos"
-                    ? "bg-white text-slate-900 shadow"
-                    : "text-slate-500 hover:text-slate-700"
+                  selectedTab === "resueltos" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"
                 }`}
                 onClick={() => setSelectedTab("resueltos")}
               >
@@ -263,9 +595,7 @@ export const Sidebar = ({
             </div>
           </div>
 
-          {/* Toolbar en dos filas (más respiro visual) */}
           <div className="px-4 py-3 space-y-3">
-            {/* Fila 1: Búsqueda */}
             <div className="relative w-full">
               <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -288,157 +618,73 @@ export const Sidebar = ({
               )}
             </div>
 
-            {/* Fila 2: Acciones (izq) + Canal (der) */}
             <div className="flex items-center gap-3 w-full">
-              {/* Selector de canal (responsive, no desborda) */}
               <details className="relative ml-auto shrink-0">
                 <summary
                   className="list-none inline-flex w-[199px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none"
                   title="Filtrar por canal"
-                  onClick={(e) => e.stopPropagation()} // evita interferencia con clicks cercanos
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Ícono dinámico según canal seleccionado */}
                   {(() => {
-                    if (channelFilter === "wa") {
-                      return (
-                        <i className="bx bxl-whatsapp text-lg text-green-600 shrink-0" />
-                      );
-                    }
-                    if (channelFilter === "ms") {
-                      return (
-                        <i className="bx bxl-messenger text-lg text-blue-600 shrink-0" />
-                      );
-                    }
-                    if (channelFilter === "ig") {
-                      return (
-                        <i className="bx bxl-instagram text-lg text-pink-500 shrink-0" />
-                      );
-                    }
-                    return (
-                      <i className="bx bx-layout text-lg text-slate-600 shrink-0" />
-                    );
+                    if (channelFilter === "wa") return <i className="bx bxl-whatsapp text-lg text-green-600 shrink-0" />;
+                    if (channelFilter === "ms") return <i className="bx bxl-messenger text-lg text-blue-600 shrink-0" />;
+                    if (channelFilter === "ig") return <i className="bx bxl-instagram text-lg text-pink-500 shrink-0" />;
+                    return <i className="bx bx-layout text-lg text-slate-600 shrink-0" />;
                   })()}
-
-                  {/* Texto visible también en móvil, truncable */}
                   <span className="flex-1 min-w-0 whitespace-nowrap truncate">
                     <span className="font-bold">
-                      {channelFilter === "wa"
-                        ? "WhatsApp"
-                        : channelFilter === "ms"
-                        ? "Messenger"
-                        : channelFilter === "ig"
-                        ? "Instagram"
-                        : "Todos los canales"}
+                      {channelFilter === "wa" ? "WhatsApp" : channelFilter === "ms" ? "Messenger" : channelFilter === "ig" ? "Instagram" : "Todos los canales"}
                     </span>
                   </span>
-
-                  {/* Chevron */}
                   <i className="bx bx-chevron-down text-lg ml-1 shrink-0" />
                 </summary>
 
-                {/* Menú con ancho fijo y sin desbordar en viewport */}
                 <div className="absolute right-0 mt-2 w-[199px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 z-30">
                   <button
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
-                      channelFilter === "all"
-                        ? "bg-slate-100 text-slate-900"
-                        : "hover:bg-slate-50"
-                    }`}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "all" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setChannelFilter("all");
-                      const d = e.currentTarget.closest("details");
-                      if (d) d.open = false;
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setChannelFilter("all"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
                   >
-                    <i className="bx bx-layout text-base text-slate-500" />
-                    Todos los canales
+                    <i className="bx bx-layout text-base text-slate-500" /> Todos los canales
                   </button>
-
                   <button
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
-                      channelFilter === "wa"
-                        ? "bg-slate-100 text-slate-900"
-                        : "hover:bg-slate-50"
-                    }`}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "wa" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setChannelFilter("wa");
-                      const d = e.currentTarget.closest("details");
-                      if (d) d.open = false;
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setChannelFilter("wa"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
                   >
-                    <i className="bx bxl-whatsapp text-base text-green-600" />
-                    WhatsApp
+                    <i className="bx bxl-whatsapp text-base text-green-600" /> WhatsApp
                   </button>
-
                   <button
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
-                      channelFilter === "ms"
-                        ? "bg-slate-100 text-slate-900"
-                        : "hover:bg-slate-50"
-                    }`}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "ms" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setChannelFilter("ms");
-                      const d = e.currentTarget.closest("details");
-                      if (d) d.open = false;
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setChannelFilter("ms"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
                   >
-                    <i className="bx bxl-messenger text-base text-blue-600" />
-                    Messenger
+                    <i className="bx bxl-messenger text-base text-blue-600" /> Messenger
                   </button>
-
                   <button
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${
-                      channelFilter === "ig"
-                        ? "bg-slate-100 text-slate-900"
-                        : "hover:bg-slate-50"
-                    }`}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${channelFilter === "ig" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setChannelFilter("ig");
-                      const d = e.currentTarget.closest("details");
-                      if (d) d.open = false;
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setChannelFilter("ig"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
                   >
                     <span className="inline-flex items-center gap-2">
-                      <i className="bx bxl-instagram text-base text-pink-500" />
-                      Instagram
+                      <i className="bx bxl-instagram text-base text-pink-500" /> Instagram
                     </span>
                   </button>
                 </div>
               </details>
 
               <button
-                onClick={(e) => {
-                  e.stopPropagation(); // evita que interfiera con el <details> de al lado
-                  handleFiltro_chats();
-                }}
+                onClick={(e) => { e.stopPropagation(); handleFiltro_chats(); }}
                 aria-pressed={!!filtro_chats}
-                className={`relative inline-flex h-11 items-center rounded-xl border px-3 text-slate-700 shadow-sm transition ${
-                  filtro_chats
-                    ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
-                    : "border-slate-200 bg-white hover:bg-slate-50"
-                }`}
+                className={`relative inline-flex h-11 items-center rounded-xl border px-3 text-slate-700 shadow-sm transition ${filtro_chats ? "border-blue-200 bg-blue-50 hover:bg-blue-100" : "border-slate-200 bg-white hover:bg-slate-50"}`}
                 title="Mostrar filtros"
                 aria-controls="sidebar-filtros"
               >
                 <i className="bx bx-filter-alt text-xl" />
-                <span className="ml-2 hidden text-sm md:inline font-bold">
-                  Filtros
-                </span>
+                <span className="ml-2 hidden text-sm md:inline font-bold">Filtros</span>
               </button>
               <button
-                onClick={() =>
-                  typeof openNumeroModal === "function"
-                    ? openNumeroModal()
-                    : setNumeroModal(true)
-                }
+                onClick={() => (typeof openNumeroModal === "function" ? openNumeroModal() : setNumeroModal(true))}
                 className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
                 title="Nuevo chat"
                 aria-label="Nuevo chat"
@@ -448,33 +694,23 @@ export const Sidebar = ({
             </div>
           </div>
 
-          {/* Panel de filtros (colapsable) */}
           <div
             id="sidebar-filtros"
-            className={`grid gap-3 px-4 pb-4 transition-all duration-300 ${
-              filtro_chats
-                ? "max-h-[600px] opacity-100"
-                : "max-h-0 overflow-hidden opacity-0"
-            }`}
+            className={`grid gap-3 px-4 pb-4 transition-all duration-300 ${filtro_chats ? "max-h-[600px] opacity-100" : "max-h-0 overflow-hidden opacity-0"}`}
           >
-            {/* Pedidos Confirmados */}
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
-                options={[
-                  { value: "1", label: "Pedidos confirmados" },
-                  { value: "0", label: "Pedidos no confirmados" },
-                ]}
+                options={[{ value: "1", label: "Pedidos confirmados" }, { value: "0", label: "Pedidos no confirmados" }]}
                 value={selectedPedidos_confirmados}
                 onChange={(opt) => setSelectedPedidos_confirmados(opt)}
                 placeholder="Seleccione pedidos confirmados"
                 className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={document.body}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
                 styles={selectStyles}
               />
             )}
-            {/* Etiquetas */}
             <Select
               isMulti
               options={etiquetasOptions}
@@ -483,29 +719,22 @@ export const Sidebar = ({
               placeholder="Selecciona etiquetas"
               className="w-full"
               classNamePrefix="react-select"
-              menuPortalTarget={document.body}
+              menuPortalTarget={typeof document !== "undefined" ? document.body : null}
               styles={selectStyles}
             />
-
-            {/* Novedad (si hay plataforma) */}
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
-                options={[
-                  { value: "gestionadas", label: "Gestionadas" },
-                  { value: "no_gestionadas", label: "No gestionadas" },
-                ]}
+                options={[{ value: "gestionadas", label: "Gestionadas" }, { value: "no_gestionadas", label: "No gestionadas" }]}
                 value={selectedNovedad}
                 onChange={(opt) => setSelectedNovedad(opt)}
                 placeholder="Selecciona novedad"
                 className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={document.body}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
                 styles={selectStyles}
               />
             )}
-
-            {/* Transportadora */}
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
@@ -516,28 +745,20 @@ export const Sidebar = ({
                   { value: "GINTRACOM", label: "Gintracom" },
                 ]}
                 value={selectedTransportadora}
-                onChange={(opt) => {
-                  setSelectedTransportadora(opt);
-                  if (!opt) setSelectedEstado([]);
-                }}
+                onChange={(opt) => { setSelectedTransportadora(opt); if (!opt) setSelectedEstado([]); }}
                 placeholder="Selecciona transportadora"
                 className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={document.body}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
                 styles={selectStyles}
               />
             )}
-
-            {/* Estado (solo visible con transportadora) */}
             {selectedTransportadora && (
               <Select
                 isClearable
                 options={[
                   { value: "Generada", label: "Generada / Por recolectar" },
-                  {
-                    value: "En transito",
-                    label: "En tránsito / Procesamiento / En ruta",
-                  },
+                  { value: "En transito", label: "En tránsito / Procesamiento / En ruta" },
                   { value: "Entregada", label: "Entregada" },
                   { value: "Novedad", label: "Novedad" },
                   { value: "Devolucion", label: "Devolución" },
@@ -547,79 +768,44 @@ export const Sidebar = ({
                 placeholder="Selecciona estado"
                 className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={document.body}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
                 styles={selectStyles}
               />
             )}
 
-            {/* Chips de filtros activos */}
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              {Array.isArray(selectedEtiquetas) &&
-                selectedEtiquetas.length > 0 &&
+              {Array.isArray(selectedEtiquetas) && selectedEtiquetas.length > 0 &&
                 selectedEtiquetas.map((e) => (
-                  <FilterChip
-                    key={e.value}
-                    label={`Etiqueta: ${e.label}`}
-                    onClear={() => {
-                      const next = selectedEtiquetas.filter(
-                        (x) => x.value !== e.value
-                      );
-                      setSelectedEtiquetas(next);
-                    }}
-                  />
+                  <FilterChip key={e.value} label={`Etiqueta: ${e.label}`} onClear={() => {
+                    const next = selectedEtiquetas.filter((x) => x.value !== e.value);
+                    setSelectedEtiquetas(next);
+                  }} />
                 ))}
-
               {selectedNovedad && (
-                <FilterChip
-                  label={`Novedad: ${selectedNovedad.label}`}
-                  onClear={() => setSelectedNovedad(null)}
-                />
+                <FilterChip label={`Novedad: ${selectedNovedad.label}`} onClear={() => setSelectedNovedad(null)} />
               )}
-
               {selectedTransportadora && (
-                <FilterChip
-                  label={`Transp.: ${selectedTransportadora.label}`}
-                  onClear={() => {
-                    setSelectedTransportadora(null);
-                    setSelectedEstado([]);
-                  }}
-                />
+                <FilterChip label={`Transp.: ${selectedTransportadora.label}`} onClear={() => { setSelectedTransportadora(null); setSelectedEstado([]); }} />
               )}
-
               {selectedEstado && selectedEstado.label && (
-                <FilterChip
-                  label={`Estado: ${selectedEstado.label}`}
-                  onClear={() => setSelectedEstado(null)}
-                />
+                <FilterChip label={`Estado: ${selectedEstado.label}`} onClear={() => setSelectedEstado(null)} />
               )}
-
               {Array.isArray(selectedEtiquetas) &&
-                selectedEtiquetas.length +
-                  (selectedNovedad ? 1 : 0) +
-                  (selectedTransportadora ? 1 : 0) +
-                  (selectedEstado ? 1 : 0) >
-                  0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedEtiquetas([]);
-                      setSelectedNovedad(null);
-                      setSelectedTransportadora(null);
-                      setSelectedEstado([]);
-                    }}
-                    className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-                  >
-                    Limpiar filtros <i className="bx bx-eraser" />
-                  </button>
-                )}
+                selectedEtiquetas.length + (selectedNovedad ? 1 : 0) + (selectedTransportadora ? 1 : 0) + (selectedEstado ? 1 : 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setSelectedEtiquetas([]); setSelectedNovedad(null); setSelectedTransportadora(null); setSelectedEstado([]); }}
+                  className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+                >
+                  Limpiar filtros <i className="bx bx-eraser" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Lista de chats */}
         <ul className="divide-y divide-slate-100 flex-1">
           {(() => {
-            // Gate: si aún no termina de cargar y no hay nada que mostrar, enseñamos placeholder
             if (!allowPaint) {
               return (
                 <div className="flex h-64 items-center justify-center gap-2 text-slate-500">
@@ -628,34 +814,23 @@ export const Sidebar = ({
                 </div>
               );
             }
-            // Filtra por canal: 'wa' | 'ms' | 'ig' | 'all'
             const base =
-              channelFilter === "ms"
-                ? filteredChats.filter((c) => c.source === "ms")
-                : channelFilter === "wa"
-                ? filteredChats.filter((c) => c.source === "wa")
-                : channelFilter === "ig"
-                ? filteredChats.filter((c) => c.source === "ig")
-                : filteredChats;
+              channelFilter === "ms" ? filteredChats.filter((c) => c.source === "ms")
+              : channelFilter === "wa" ? filteredChats.filter((c) => c.source === "wa")
+              : channelFilter === "ig" ? filteredChats.filter((c) => c.source === "ig")
+              : filteredChats;
 
-            // Clonar + ordenar SIEMPRE para que el orden no dependa del orden de llegada
             const list = [...base].sort(compareChats);
 
             if (list.length === 0) {
               return mensajesAcumulados.length === 0 ? (
                 <div className="flex h-64 items-center justify-center">
-                  {Loading ? (
-                    <Loading />
-                  ) : (
-                    <div className="text-slate-500">Cargando…</div>
-                  )}
+                  {Loading ? <Loading /> : <div className="text-slate-500">Cargando…</div>}
                 </div>
               ) : (
                 <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
                   <i className="bx bx-chat text-4xl" />
-                  <p className="text-sm">
-                    No se encontraron chats con esos filtros.
-                  </p>
+                  <p className="text-sm">No se encontraron chats con esos filtros.</p>
                 </div>
               );
             }
@@ -669,144 +844,23 @@ export const Sidebar = ({
               const seleccionado = selectedChat?.id === mensaje.id;
 
               return (
-                <li
+                <MessageItem
                   key={mensaje.id}
-                  onClick={() => {
-                    if (!seleccionado) {
-                      handleSelectChat(mensaje);
-                    }
-                  }}
-                  className={`group relative cursor-pointer px-3 py-2 transition hover:bg-slate-50 sm:px-4 ${
-                    seleccionado
-                      ? "bg-slate-50 cursor-default" // cambiamos cursor para indicar que ya no se puede
-                      : mensaje.pedido_confirmado === 1
-                      ? "bg-green-100"
-                      : "bg-white"
-                  }`}
-                >
-                  <div className="grid grid-cols-[3rem_1fr_auto] grid-rows-[auto_auto] items-center gap-x-3">
-                    {/* Avatar */}
-                    <div
-                      className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 row-span-2 col-[1] ${
-                        mensaje.mensajes_pendientes > 0
-                          ? "ring-blue-500"
-                          : "ring-slate-200"
-                      }`}
-                    >
-                      <img
-                        src={
-                          mensaje.profile_pic_url
-                            ? mensaje.profile_pic_url
-                            : "https://tiendas.imporsuitpro.com/imgs/react/user.png"
-                        }
-                        alt="Avatar"
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-
-                    {/* Nombre */}
-                    <div className="min-w-0 col-[2] flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-slate-900">
-                        {acortarTexto(
-                          formatNombreCliente(mensaje.nombre_cliente),
-                          10,
-                          25
-                        )}
-                      </span>
-                    </div>
-
-                    {/* Lateral derecho */}
-                    <div className="col-[3] row-[1] flex shrink-0 flex-col items-end gap-1">
-                      {estado_guia && (
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${
-                            color || "bg-slate-400"
-                          }`}
-                          title={`Estado: ${estado_guia}`}
-                        >
-                          {estado_guia}
-                        </span>
-                      )}
-                      <span className="text-[11px] text-slate-500">
-                        {formatFecha(mensaje.mensaje_created_at)}
-                      </span>
-                      {mensaje.mensajes_pendientes > 0 && (
-                        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-[11px] font-semibold text-white">
-                          {mensaje.mensajes_pendientes}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Teléfono + preview (fila inferior alineada) */}
-                    <div className="col-[2/4] min-w-0 flex items-center gap-2 text-xs text-slate-500">
-                      {/* Identificador con ancho fijo, truncable */}
-                      <span
-                        className="w-28 md:w-32 shrink-0 truncate tabular-nums"
-                        title={getIdLabel(mensaje)}
-                      >
-                        {getIdLabel(mensaje)}
-                      </span>
-
-                      {/* Pill del canal (una sola vez) */}
-                      {mensaje.source === "ms" && (
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 shrink-0">
-                          <i className="bx bxl-messenger mr-1 text-base" />
-                          Messenger
-                        </span>
-                      )}
-                      {mensaje.source === "ig" && (
-                        <span className="inline-flex items-center rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-semibold text-pink-600 shrink-0">
-                          <i className="bx bxl-instagram mr-1 text-base" />
-                          Instagram
-                        </span>
-                      )}
-                      {mensaje.source === "wa" && (
-                        <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600 shrink-0">
-                          <i className="bx bxl-whatsapp mr-1 text-base" />
-                          WhatsApp
-                        </span>
-                      )}
-
-                      {/* Separador */}
-                      <span className="select-none text-slate-300">•</span>
-
-                      {/* Preview con truncado, ocupa el resto */}
-                      <span className="truncate" title={mensaje.texto_mensaje}>
-                        {mensaje.texto_mensaje?.length > chatTemporales
-                          ? mensaje.texto_mensaje.includes("{{") &&
-                            mensaje.ruta_archivo
-                            ? (() => {
-                                try {
-                                  const valores = JSON.parse(
-                                    mensaje.ruta_archivo
-                                  );
-                                  const txt = mensaje.texto_mensaje.replace(
-                                    /\{\{(.*?)\}\}/g,
-                                    (m, key) => valores[key.trim()] || m
-                                  );
-                                  return `${txt.substring(0, chatTemporales)}…`;
-                                } catch {
-                                  return `${mensaje.texto_mensaje.substring(
-                                    0,
-                                    chatTemporales
-                                  )}…`;
-                                }
-                              })()
-                            : `${mensaje.texto_mensaje.substring(
-                                0,
-                                chatTemporales
-                              )}…`
-                          : mensaje.texto_mensaje}
-                      </span>
-                    </div>
-                  </div>
-                </li>
+                  mensaje={mensaje}
+                  chatTemporales={chatTemporales}
+                  estado_guia={estado_guia}
+                  color={color}
+                  acortarTexto={acortarTexto}
+                  formatNombreCliente={formatNombreCliente}
+                  getIdLabel={getIdLabel}
+                  formatFecha={formatFecha}
+                  onClick={() => handleSelectChat(mensaje)}
+                  seleccionado={seleccionado}
+                />
               );
             });
           })()}
 
-          {/* Loader "cargando más" respetando el filtro de canal */}
           {mensajesVisibles <
             (channelFilter === "ms"
               ? filteredChats.filter((c) => c.source === "ms").length
@@ -816,9 +870,7 @@ export const Sidebar = ({
               ? filteredChats.filter((c) => c.source === "ig").length
               : filteredChats.length) && (
             <div className="flex justify-center py-4">
-              <span className="animate-pulse text-sm text-slate-500">
-                Cargando más chats…
-              </span>
+              <span className="animate-pulse text-sm text-slate-500">Cargando más chats…</span>
             </div>
           )}
         </ul>
