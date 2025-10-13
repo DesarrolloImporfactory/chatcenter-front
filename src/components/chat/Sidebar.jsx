@@ -373,6 +373,50 @@ function HoverPreviewPortal({
     else setShown(false);
   }, [open]);
 
+  // === AUTOPLAY AUDIO EN PREVIEW ===
+  useEffect(() => {
+    if (!open || tipo !== "audio") return;
+
+    // pequeño delay para asegurar que CustomAudioPlayer montó el <audio>
+    const t = setTimeout(() => {
+      const root = containerRef.current;
+      if (!root) return;
+      const audio = root.querySelector("audio");
+      if (audio) {
+        try {
+          audio.muted = false;           // por si viene muteado
+          audio.autoplay = true;
+          const p = audio.play();
+          if (p && typeof p.catch === "function") {
+            p.catch(() => {
+              // Si el navegador bloquea autoplay, al menos iniciamos al primer hover/click dentro del preview
+              const tryPlay = () => {
+                audio.play().finally(() => {
+                  root.removeEventListener("pointerdown", tryPlay, true);
+                });
+              };
+              root.addEventListener("pointerdown", tryPlay, true);
+            });
+          }
+        } catch { /* noop */ }
+      }
+    }, 80);
+
+    // al cerrar, pausar y resetear
+    return () => {
+      clearTimeout(t);
+      const root = containerRef.current;
+      if (!root) return;
+      const audio = root.querySelector("audio");
+      if (audio) {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch { /* noop */ }
+      }
+    };
+  }, [open, tipo]);
+
   // Cierres robustos
   useEffect(() => {
     if (!open) return;
