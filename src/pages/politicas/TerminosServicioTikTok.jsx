@@ -31,7 +31,7 @@ export default function TerminosServicioTikTok() {
             <a href="/politica-privacidad-tiktok" className="link">
               Política de Privacidad TikTok
             </a>
-            <a href="mailto:info@imporsuit.ec" className="link">
+            <a href="mailto:info@imporfactoryusa.com" className="link">
               Contacto
             </a>
           </div>
@@ -781,7 +781,7 @@ export default function TerminosServicioTikTok() {
             <strong>Imporfactory</strong>
           </p>
           <p>
-            <strong>Email:</strong> info@imporsuit.ec
+            <strong>Email:</strong> info@imporfactoryusa.com
           </p>
           <p>
             <strong>Asunto para consultas legales:</strong> "Términos de

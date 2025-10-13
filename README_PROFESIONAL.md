@@ -544,7 +544,7 @@ npm run type-check
 ## 📞 Soporte y Contacto
 
 - **🌐 Website**: [https://imporsuit.ec](https://imporsuit.ec)
-- **📧 Email**: info@imporsuit.ec
+- **📧 Email**: info@imporfactoryusa.com
 - **🛡️ DPO**: dpo@imporsuit.ec
 - **💬 Soporte**: soporte@imporsuit.ec
 

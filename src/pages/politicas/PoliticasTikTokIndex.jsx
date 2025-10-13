@@ -33,7 +33,7 @@ export default function PoliticasTikTokIndex() {
             <a href="/condiciones-servicio" className="link">
               Términos Generales
             </a>
-            <a href="mailto:info@imporsuit.ec" className="link">
+            <a href="mailto:info@imporfactoryusa.com" className="link">
               Contacto
             </a>
           </div>
@@ -271,7 +271,7 @@ export default function PoliticasTikTokIndex() {
             <div>
               <h4>📧 Email Principal</h4>
               <p>
-                <strong>info@imporsuit.ec</strong>
+                <strong>info@imporfactoryusa.com</strong>
               </p>
             </div>
 

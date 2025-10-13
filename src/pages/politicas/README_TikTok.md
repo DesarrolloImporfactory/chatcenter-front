@@ -156,7 +156,7 @@ import PoliticasTikTokIndex from "./pages/politicas/PoliticasTikTokIndex";
 
 Para consultas sobre estas políticas específicas de TikTok:
 
-- **📧 Email Principal:** info@imporsuit.ec
+- **📧 Email Principal:** info@imporfactoryusa.com
 - **🛡️ Delegado de Protección de Datos:** dpo@imporsuit.ec
 - **⚖️ Consultas Legales:** Usar asunto "TikTok Legal"
 - **🕒 Tiempo de Respuesta:** Máximo 30 días calendario

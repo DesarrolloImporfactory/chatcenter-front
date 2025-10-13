@@ -31,7 +31,7 @@ export default function PoliticaPrivacidadTikTok() {
             <a href="/terminos-servicio-tiktok" className="link">
               Términos de Servicio TikTok
             </a>
-            <a href="mailto:info@imporsuit.ec" className="link">
+            <a href="mailto:info@imporfactoryusa.com" className="link">
               Contacto
             </a>
           </div>
@@ -124,7 +124,7 @@ export default function PoliticaPrivacidadTikTok() {
           </p>
           <p>RUC: 1722377726001</p>
           <p>Dirección: Ecuador</p>
-          <p>Email: info@imporsuit.ec</p>
+          <p>Email: info@imporfactoryusa.com</p>
           <p>Teléfono: +593 99 926 3107</p>
           <p>
             Somos el responsable del tratamiento de sus datos personales bajo
@@ -417,7 +417,7 @@ export default function PoliticaPrivacidadTikTok() {
 
           <p>
             <strong>Para ejercer sus derechos, contacte:</strong>{" "}
-            info@imporsuit.ec
+            info@imporfactoryusa.com
           </p>
           <p>Responderemos dentro de 30 días calendario.</p>
         </section>
@@ -439,8 +439,8 @@ export default function PoliticaPrivacidadTikTok() {
           </p>
 
           <p>
-            Los padres o tutores pueden contactarnos en info@imporsuit.ec para
-            cualquier consulta relacionada con menores.
+            Los padres o tutores pueden contactarnos en info@imporfactoryusa.com
+            para cualquier consulta relacionada con menores.
           </p>
         </section>
 
@@ -500,7 +500,7 @@ export default function PoliticaPrivacidadTikTok() {
 
           <h3>Para consultas sobre privacidad:</h3>
           <p>
-            <strong>Email:</strong> info@imporsuit.ec
+            <strong>Email:</strong> info@imporfactoryusa.com
           </p>
           <p>
             <strong>Asunto:</strong> "Consulta Privacidad TikTok"
@@ -508,7 +508,7 @@ export default function PoliticaPrivacidadTikTok() {
 
           <h3>Para ejercer derechos:</h3>
           <p>
-            <strong>Email:</strong> info@imporsuit.ec
+            <strong>Email:</strong> info@imporfactoryusa.com
           </p>
           <p>
             <strong>Asunto:</strong> "Ejercicio de Derechos - TikTok"

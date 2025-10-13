@@ -31,7 +31,7 @@ export default function CondicionesView() {
             <a href="/politica-privacidad" className="link">
               Política de Privacidad
             </a>
-            <a href="mailto:info@imporsuit.ec" className="link">
+            <a href="mailto:info@imporfactoryusa.com" className="link">
               Contacto
             </a>
           </div>
@@ -154,7 +154,10 @@ export default function CondicionesView() {
           <h2>13. Contacto</h2>
           <p>
             Escríbanos a{" "}
-            <a href="mailto:info@imporsuit.ec">info@imporsuit.ec</a>.
+            <a href="mailto:info@imporfactoryusa.com">
+              info@imporfactoryusa.com
+            </a>
+            .
           </p>
         </section>
 

@@ -491,7 +491,7 @@ const ChatPrincipal = ({
           break;
 
         default:
-          alert(`Tipo de mensaje no soportado: ${tipo}`);
+          alert(`Tipo de mensaje no soportado: ${tipo_mensaje}`);
           return;
       }
 
@@ -534,18 +534,22 @@ const ChatPrincipal = ({
   }, [selectedChat?.id, selectedChat?.source]);
 
   const isMessenger = selectedChat?.source === "ms";
-  const chatBgStyle = isMessenger
-    ? { backgroundColor: "#FFFFFF" } // fondo blanco para Messenger
-    : {
-        backgroundColor: "#DAD3CC",
-        backgroundImage:
-          'url("https://new.imporsuitpro.com/public/img/fondo_chat_center.png")',
-        backgroundSize: "contain",
-        backgroundRepeat: "repeat",
-        backgroundPosition: "center",
-        backgroundBlendMode: "overlay",
-        opacity: 0.9,
-      };
+  const isInstagram = selectedChat?.source === "ig";
+  const isWhatsApp = !isMessenger && !isInstagram;
+
+  const chatBgStyle =
+    isMessenger || isInstagram
+      ? { backgroundColor: "#FFFFFF" } // fondo blanco para Messenger
+      : {
+          backgroundColor: "#DAD3CC",
+          backgroundImage:
+            'url("https://new.imporsuitpro.com/public/img/fondo_chat_center.png")',
+          backgroundSize: "contain",
+          backgroundRepeat: "repeat",
+          backgroundPosition: "center",
+          backgroundBlendMode: "overlay",
+          opacity: 0.9,
+        };
 
   // refs para file inputs
   const imageInputRef = useRef(null);
@@ -642,6 +646,20 @@ const ChatPrincipal = ({
     }
   }
 
+  // Normaliza nombres tipo "EvelynCherrez", "Evelyn_Cherrez", "Evelyn-Cherrez"
+  function prettyAgentName(raw) {
+    if (!raw) return "";
+    if (raw === "IA_logistica") return "IA Logística";
+    if (raw === "IA_ventas") return "IA Ventas";
+    if (["webook", "automatizador", "automatizador_wait"].includes(raw))
+      return "Automatizador";
+    return String(raw)
+      .replace(/[_\-]+/g, " ") // underscores y guiones → espacio
+      .replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g, "$1 $2") // inserta espacio en camel/pascal
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   return (
     <>
       <div
@@ -705,23 +723,35 @@ const ChatPrincipal = ({
                     : "";
 
                   // paleta de burbuja segun canal y rol
-                  const bubblePaletteClass =
-                    mensaje.rol_mensaje === 1
-                      ? isMessenger
-                        ? "bg-[#0084FF] text-white" // Enviado en Messenger
-                        : "bg-[#DCF8C6]" // Enviado en WhatsApp
-                      : isMessenger
-                      ? "bg-gray-100 text-gray-900" // Recibido en Messenger
-                      : "bg-white"; // Recibido en WhatsApp
+                  let bubblePaletteClass = "bg-white";
+                  if (mensaje.rol_mensaje === 1) {
+                    if (isMessenger) {
+                      bubblePaletteClass = "bg-[#0084FF] text-white"; // MS saliente
+                    } else if (isInstagram) {
+                      // violeta/morado — puedes ajustar a tu gusto: #7C3AED (violet-600) o #6D28D9 (violet-700)
+                      bubblePaletteClass = "bg-[#7C3AED] text-white";
+                    } else {
+                      bubblePaletteClass = "bg-[#DCF8C6]"; // WA saliente
+                    }
+                  } else {
+                    if (isMessenger) {
+                      bubblePaletteClass = "bg-gray-100 text-gray-900"; // MS entrante
+                    } else if (isInstagram) {
+                      bubblePaletteClass = "bg-white text-gray-900"; // IG entrante (blanco)
+                    } else {
+                      bubblePaletteClass = "bg-white"; // WA entrante
+                    }
+                  }
 
                   // color timestamp segun canal y rol
-                  const timestampClass = isMessenger
-                    ? mensaje.rol_mensaje === 1
-                      ? "text-white/90"
-                      : "text-gray-500"
-                    : mensaje.rol_mensaje === 1
-                    ? "text-gray-700"
-                    : "text-gray-500";
+                  const timestampClass =
+                    isMessenger || isInstagram
+                      ? mensaje.rol_mensaje === 1
+                        ? "text-white/90"
+                        : "text-gray-500"
+                      : mensaje.rol_mensaje === 1
+                      ? "text-gray-700"
+                      : "text-gray-500";
 
                   return (
                     <div
@@ -792,19 +822,7 @@ const ChatPrincipal = ({
 
                         {mensaje.responsable && (
                           <div className="text-[13px] font-bold text-gray-800 mb-1 leading-none">
-                            Enviado por{" "}
-                            {mensaje.responsable === "IA_logistica"
-                              ? "IA Logística"
-                              : mensaje.responsable === "IA_ventas"
-                              ? "IA Ventas"
-                              : [
-                                  "webook",
-                                  "automatizador",
-                                  "automatizador_wait",
-                                ].includes(mensaje.responsable)
-                              ? "Automatizador"
-                              : mensaje.responsable}
-                            :
+                            Enviado por {prettyAgentName(mensaje.responsable)}:
                           </div>
                         )}
 
@@ -1033,8 +1051,9 @@ const ChatPrincipal = ({
             {selectedChat &&
               !hide24hBanner &&
               (() => {
-                const isMessengerLocal = selectedChat.source === "ms";
-                const refDateISO = isMessengerLocal
+                const isMetaDMLocal =
+                  selectedChat.source === "ms" || selectedChat.source === "ig";
+                const refDateISO = isMetaDMLocal
                   ? selectedChat.last_incoming_at ||
                     selectedChat.mensaje_created_at
                   : ultimoMensaje?.created_at;
@@ -1048,7 +1067,7 @@ const ChatPrincipal = ({
                 if (diffHrs <= 24) return null;
 
                 // WhatsApp
-                if (!isMessengerLocal) {
+                if (!isMetaDMLocal) {
                   return (
                     <div className="absolute bottom-[0%] bg-yellow-100 border border-yellow-500 rounded shadow-lg p-4 w-full z-10">
                       <div className="flex items-start gap-3">
@@ -1099,14 +1118,18 @@ const ChatPrincipal = ({
                   );
                 }
 
-                // Messenger
+                // Meta DM (Messenger/Instagram)
                 return (
                   <div className="absolute bottom-[0%] bg-blue-50 border border-blue-300 rounded shadow-lg p-4 w-full z-10">
                     <div className="flex items-start gap-3">
                       <p className="text-sm text-blue-800 flex-1">
                         Han pasado más de 24 horas. Al enviar, usaré la etiqueta{" "}
                         <b>HUMAN_AGENT</b> o el mensaje fallará por políticas de
-                        Meta.
+                        Meta
+                        {selectedChat?.source === "ig"
+                          ? " (Instagram)"
+                          : " (Messenger)"}
+                        .
                       </p>
                       <button
                         className="text-blue-700/70 hover:text-blue-900"
@@ -1150,7 +1173,10 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (selectedChat?.source === "ms") {
+                        if (
+                          selectedChat?.source === "ms" ||
+                          selectedChat?.source === "ig"
+                        ) {
                           setIsMenuOpen(false);
                           imageInputRef.current?.click();
                         } else {
@@ -1163,7 +1189,10 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (selectedChat?.source === "ms") {
+                        if (
+                          selectedChat?.source === "ms" ||
+                          selectedChat?.source === "ig"
+                        ) {
                           setIsMenuOpen(false);
                           videoInputRef.current?.click();
                         } else {
@@ -1176,7 +1205,10 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (selectedChat?.source === "ms") {
+                        if (
+                          selectedChat?.source === "ms" ||
+                          selectedChat?.source === "ig"
+                        ) {
                           setIsMenuOpen(false);
                           fileInputRef.current?.click();
                         } else {
