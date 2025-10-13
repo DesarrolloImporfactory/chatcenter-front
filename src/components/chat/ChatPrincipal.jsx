@@ -49,6 +49,8 @@ const ChatPrincipal = ({
   onSendMsAttachment,
   onSendIgAttachment,
   setNumeroModalPreset,
+  actions,
+  isSocketConnected,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -537,6 +539,27 @@ const ChatPrincipal = ({
   const isInstagram = selectedChat?.source === "ig";
   const isWhatsApp = !isMessenger && !isInstagram;
 
+  const typingTimerRef = useRef(null);
+  const wasTypingRef = useRef(false);
+  const TYPING_IDLE_MS = 1500;
+
+  function handleTypingIG() {
+    if (!isSocketConnected || !isInstagram || !selectedChat?.id) return;
+
+    // encender typing_on si no estaba
+    if (!wasTypingRef.current) {
+      wasTypingRef.current = true;
+      actions?.ig?.typing?.(selectedChat.id, true);
+    }
+
+    // programar typing_off si no se sigue tecleando
+    clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      wasTypingRef.current = false;
+      actions?.ig?.typing?.(selectedChat.id, false);
+    }, TYPING_IDLE_MS);
+  }
+
   const chatBgStyle =
     isMessenger || isInstagram
       ? { backgroundColor: "#FFFFFF" } // fondo blanco para Messenger
@@ -659,6 +682,26 @@ const ChatPrincipal = ({
       .replace(/\s+/g, " ")
       .trim();
   }
+
+  const onChangeWithTyping = (e) => {
+    handleInputChange(e);
+    if (selectedChat?.source === "ig") handleTypingIG();
+  };
+
+  // 2) cleanup typing_off al salir del chat
+  useEffect(() => {
+    return () => {
+      clearTimeout(typingTimerRef.current);
+      if (
+        wasTypingRef.current &&
+        selectedChat?.source === "ig" &&
+        selectedChat?.id
+      ) {
+        actions?.ig?.typing?.(selectedChat.id, false);
+      }
+      wasTypingRef.current = false;
+    };
+  }, []);
 
   return (
     <>
@@ -1264,7 +1307,7 @@ const ChatPrincipal = ({
               <input
                 type="text"
                 value={mensaje}
-                onChange={handleInputChange}
+                onChange={onChangeWithTyping}
                 onKeyDown={handleKeyDown}
                 placeholder="Escribe un mensaje..."
                 className="flex-1 p-2 border rounded"

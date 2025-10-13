@@ -566,11 +566,11 @@ const Chat = () => {
     setMensajesMostrados(20);
     setScrollOffset(0);
 
-    // Únete al room de IG
-    socketRef.current.emit("IG_JOIN_CONV", {
-      conversation_id: conv.id,
-      id_configuracion,
-    });
+    // únete al room IG
+    actions.ig.joinConv(conv.id);
+
+    // marca como leído (se envía IG_MARK_SEEN a tu backend)
+    actions.ig.markSeen(conv.id);
 
     // Carga historial por REST
     const { data } = await chatApi.get(
@@ -3038,6 +3038,31 @@ const Chat = () => {
     }
   };
 
+  const actions = useMemo(
+    () => ({
+      on: (ev, cb) => socketRef.current?.on(ev, cb),
+      off: (ev, cb) => socketRef.current?.off(ev, cb),
+
+      ig: {
+        joinConv: (conversation_id) => {
+          socketRef.current?.emit("IG_JOIN_CONV", {
+            conversation_id,
+            id_configuracion,
+          });
+        },
+        markSeen: (conversation_id) => {
+          socketRef.current?.emit("IG_MARK_SEEN", { conversation_id });
+        },
+        typing: (conversation_id, on) => {
+          socketRef.current?.emit("IG_TYPING", { conversation_id, on });
+        },
+      },
+
+      // si quieres también ms.*, wa.*, etc. los pones aquí
+    }),
+    [id_configuracion]
+  );
+
   return (
     <div className="sm:grid grid-cols-4">
       <div className="text-sm text-gray-700 fixed bottom-0 z-50 left-2">
@@ -3163,6 +3188,8 @@ const Chat = () => {
         setMensajesOrdenados={setMensajesOrdenados}
         onSendMsAttachment={onSendMsAttachment}
         onSendIgAttachment={onSendIgAttachment}
+        actions={actions}
+        isSocketConnected={isSocketConnected}
       />
       {/* Opciones adicionales con animación */}
       <DatosUsuario
