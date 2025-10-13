@@ -102,28 +102,34 @@ function mapIgConvToSidebar(row) {
 
 // Reconciliador para no duplicar mensajes
 function upsertMsg(list, raw) {
+  const norm = (v) => (v == null ? null : String(v));
+
   const msg = {
     ...raw,
-    // normaliza alias que usas en varias capas
-    id: raw.id ?? raw.message_id ?? null,
-    mid: raw.mid ?? raw.mid_mensaje ?? null,
+    id: norm(raw.id ?? raw.message_id ?? raw.mid_mensaje),
+    mid: norm(raw.mid ?? raw.mid_mensaje),
+    client_tmp_id: norm(raw.client_tmp_id),
   };
 
-  // A) por client_tmp_id (optimista) → reemplazar y limpiar el tmp
+  // A) Reemplazar optimista por client_tmp_id
   if (msg.client_tmp_id) {
     const i = list.findIndex(
-      (x) => x.client_tmp_id && x.client_tmp_id === msg.client_tmp_id
+      (x) =>
+        norm(x.client_tmp_id) === msg.client_tmp_id ||
+        norm(x.id) === msg.client_tmp_id
     );
     if (i !== -1) {
       const copy = [...list];
-      copy[i] = { ...copy[i], ...msg, client_tmp_id: undefined };
+      copy[i] = { ...copy[i], ...msg, client_tmp_id: null };
       return copy;
     }
   }
 
-  // B) por id de BD
-  if (msg.id) {
-    const j = list.findIndex((x) => x.id && x.id === msg.id);
+  // B) Reconciliar por mid
+  if (msg.mid) {
+    const j = list.findIndex(
+      (x) => norm(x.mid) === msg.mid || norm(x.mid_mensaje) === msg.mid
+    );
     if (j !== -1) {
       const copy = [...list];
       copy[j] = { ...copy[j], ...msg };
@@ -131,11 +137,9 @@ function upsertMsg(list, raw) {
     }
   }
 
-  // C) por mid (id de IG)
-  if (msg.mid) {
-    const k = list.findIndex(
-      (x) => x.mid === msg.mid || x.mid_mensaje === msg.mid
-    );
+  // C) Reconciliar por id
+  if (msg.id) {
+    const k = list.findIndex((x) => norm(x.id) === msg.id);
     if (k !== -1) {
       const copy = [...list];
       copy[k] = { ...copy[k], ...msg };
@@ -143,7 +147,7 @@ function upsertMsg(list, raw) {
     }
   }
 
-  // D) no hay coincidencia → agregar
+  // D) Insertar nuevo
   return [...list, msg];
 }
 
@@ -614,10 +618,7 @@ const Chat = () => {
     setScrollOffset(0);
 
     // únete al room IG
-    socketRef.current.emit("IG_JOIN_CONV", {
-      conversation_id: conv.id,
-      id_configuracion,
-    });
+    actions.ig.joinConv(conv.id);
 
     // marca como leído (se envía IG_MARK_SEEN a tu backend)
     actions.ig.markSeen(conv.id);
@@ -1187,6 +1188,7 @@ const Chat = () => {
 
       const optimistic = {
         id: tempId,
+        client_tmp_id: tempId,
         rol_mensaje: 1,
         texto_mensaje: (mensaje || "").trim(),
         tipo_mensaje: "text",
