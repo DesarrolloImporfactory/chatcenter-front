@@ -357,17 +357,50 @@ const ConexionesGuiada = () => {
   const [tourOpen, setTourOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [loadingTourPref, setLoadingTourPref] = useState(true); // evita parpadeo
 
+  // === Nueva lógica: leer preferencia desde backend (sin localStorage) ===
   useEffect(() => {
-    const dismissed = typeof window !== "undefined" && localStorage.getItem("conexiones.tour.dismissed") === "1";
-    if (!dismissed) setTourOpen(true);
-  }, []);
+    const loadPref = async () => {
+      if (!userData?.id_usuario) return;
+      try {
+        const { data } = await chatApi.post('usuarios_chat_center/tour-conexiones/get', {
+          id_usuario: userData.id_usuario,
+        });
+        const dismissed = Number(data?.tour_conexiones_dismissed) === 1;
+        setDontShowAgain(dismissed);
+        setTourOpen(!dismissed);
+      } catch (e) {
+        // Si falla, mostramos la guía por defecto sin romper sesión
+        console.error("No se pudo leer preferencia de tour:", e);
+        setDontShowAgain(false);
+        setTourOpen(true);
+      } finally {
+        setLoadingTourPref(false);
+      }
+    };
+    loadPref();
+  }, [userData?.id_usuario]);
+
+  // Guardar preferencia en backend
+
+  const persistTourPref = useCallback(async (value) => {
+    if (!userData?.id_usuario) return; // evita request inválida
+    try {
+      await chatApi.post('usuarios_chat_center/tour-conexiones/set', {
+        id_usuario: userData.id_usuario,
+        tour_conexiones_dismissed: value ? 1 : 0,
+      });
+    } catch (e) {
+      console.error("No se pudo guardar preferencia de tour:", e);
+    }
+  }, [userData?.id_usuario]);
+
 
   // Derivados/estadísticas
   const isConectado = (c) => {
     if (typeof c?.status_whatsapp === "string") return c.status_whatsapp.toUpperCase() === "CONNECTED";
     return Boolean(String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim());
-    // Nota: sin cambios funcionales
   };
 
   const isMessengerConectado = (c) => Number(c?.messenger_conectado) === 1;
@@ -379,7 +412,7 @@ const ConexionesGuiada = () => {
     const messengerCon = configuracionAutomatizada.filter(
       (c) => Number(c.messenger_conectado) === 1
     ).length;
-    return { total, conectados, pendientes: total - conectados, pagosActivos, messengerCon, };
+    return { total, conectados, pendientes: total - conectados, pagosActivos, messengerCon };
   }, [configuracionAutomatizada]);
 
   const listaFiltrada = useMemo(() => {
@@ -421,7 +454,6 @@ const ConexionesGuiada = () => {
         body: "Pasá el mouse por “Detalles” para ver un globo con todas las acciones explicadas, sin abrir la tarjeta.",
         placement: "auto",
       });
-      // dentro de useMemo(() => { const base = [ ... ]; if (hasCards) { base.push(...); } return base; }, [hasCards]);
       base.push({
         key: "menu",
         ref: menuRef,
@@ -430,7 +462,6 @@ const ConexionesGuiada = () => {
           "Desde aquí puedes acceder a todo lo importante: tu Plan y facturación, gestión de Usuarios y Departamentos, y Cerrar sesión. Si te pierdes, abre este menú: es tu centro de control.",
         placement: "auto",
       });
-
     }
     return base;
   }, [hasCards]);
@@ -457,19 +488,22 @@ const ConexionesGuiada = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [tourOpen, step]);
 
-  const handleSkip = useCallback(() => {
-    if (dontShowAgain && typeof window !== "undefined") localStorage.setItem("conexiones.tour.dismissed", "1");
+  // == NUEVO: sin localStorage; al cerrar/terminar persistimos en BD ==
+  const handleSkip = useCallback(async () => {
+    await persistTourPref(dontShowAgain);
     setTourOpen(false);
-  }, [dontShowAgain]);
+  }, [dontShowAgain, persistTourPref]);
 
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
     setStep((s) => {
       if (s + 1 < tourSteps.length) return s + 1;
-      if (dontShowAgain && typeof window !== "undefined") localStorage.setItem("conexiones.tour.dismissed", "1");
-      setTourOpen(false);
+      (async () => {
+        await persistTourPref(dontShowAgain);
+        setTourOpen(false);
+      })();
       return s;
     });
-  }, [tourSteps.length, dontShowAgain]);
+  }, [tourSteps.length, dontShowAgain, persistTourPref]);
 
   const handlePrev = useCallback(() => setStep((s) => Math.max(0, s - 1)), []);
 
@@ -1254,7 +1288,7 @@ const ConexionesGuiada = () => {
       )}
 
       {/* ==== VISITA GUIADA ==== */}
-      {tourOpen && (
+      {tourOpen && !loadingTourPref && (
         <>
           <Spotlight rect={rect} />
           {rect && (
@@ -1283,17 +1317,16 @@ const ConexionesGuiada = () => {
                 </button>
 
                 <div className="flex items-center gap-2">
-                  {step === tourSteps.length - 1 && (
-                    <label className="mr-2 inline-flex items-center gap-2 text-[12px] text-slate-600">
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 accent-indigo-600"
-                        checked={dontShowAgain}
-                        onChange={(e) => setDontShowAgain(e.target.checked)}
-                      />
-                      No volver a mostrar
-                    </label>
-                  )}
+                  {/* Checkbox SIEMPRE visible; la preferencia se guarda al cerrar o terminar */}
+                  <label className="mr-2 inline-flex items-center gap-2 text-[12px] text-slate-600">
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 accent-indigo-600"
+                      checked={dontShowAgain}
+                      onChange={(e) => setDontShowAgain(e.target.checked)}
+                    />
+                    No volver a mostrar
+                  </label>
 
                   <button
                     onClick={handlePrev}
@@ -1325,6 +1358,9 @@ const ConexionesGuiada = () => {
           )}
         </>
       )}
+
+      {/* Evita parpadeo mientras se consulta la preferencia */}
+      {loadingTourPref && null}
     </div>
   );
 };
