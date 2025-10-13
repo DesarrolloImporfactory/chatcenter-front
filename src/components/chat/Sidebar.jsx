@@ -5,17 +5,14 @@ import { useMemo, useState, useRef, useEffect } from "react";
 /* ===================== Estilos de canal ===================== */
 const CHANNEL_STYLES = {
   wa: {
-    label: "WhatsApp",
     icon: "bx bxl-whatsapp",
     cls: "bg-green-50 text-green-700 border border-green-200"
   },
   ms: {
-    label: "Messenger",
     icon: "bx bxl-messenger",
     cls: "bg-blue-50 text-blue-700 border border-blue-200"
   },
   ig: {
-    label: "Instagram",
     icon: "bx bxl-instagram",
     cls: "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200"
   }
