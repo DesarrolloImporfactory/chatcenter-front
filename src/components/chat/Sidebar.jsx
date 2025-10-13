@@ -1,24 +1,18 @@
 import Select from "react-select";
 import ReactDOM from "react-dom";
 import { useMemo, useState, useRef, useEffect } from "react";
+/* === IMPORTS CLAVE PARA PREVIEW AL ESTILO ChatPrincipal.jsx === */
+import CustomAudioPlayer from "./CustomAudioPlayer";
+import ImageWithModal from "./modales/ImageWithModal";
 
 /* ===================== Estilos de canal ===================== */
 const CHANNEL_STYLES = {
-  wa: {
-    icon: "bx bxl-whatsapp",
-    cls: "bg-green-50 text-green-700 border border-green-200"
-  },
-  ms: {
-    icon: "bx bxl-messenger",
-    cls: "bg-blue-50 text-blue-700 border border-blue-200"
-  },
-  ig: {
-    icon: "bx bxl-instagram",
-    cls: "bg-red-50 text-red-700 border border-red-200"
-  }
+  wa: { icon: "bx bxl-whatsapp", cls: "bg-green-50 text-green-700 border border-green-200" },
+  ms: { icon: "bx bxl-messenger", cls: "bg-blue-50 text-blue-700 border border-blue-200" },
+  ig: { icon: "bx bxl-instagram", cls: "bg-red-50 text-red-700 border border-red-200" }
 };
 
-/* Normalizador de canal: acepta variantes y devuelve wa|ms|ig o null */
+/* Normalizador de canal: wa|ms|ig o null (acepta alias comunes) */
 function getChannelKey(value) {
   if (value === null || value === undefined) return null;
   const s = String(value).trim().toLowerCase();
@@ -84,109 +78,285 @@ const formatNombreCliente = (nombre = "") => {
 const getIdLabel = (m) =>
   (getChannelKey(m?.source) === "wa" ? (m?.celular_cliente || "") : (m?.username || formatNombreCliente(m?.nombre_cliente) || ""));
 
-/* ===================== Heurísticas de propiedad/respuesta ===================== */
-const esMensajePropio = (m) =>
-  Boolean(m?.from_me ?? m?.es_propio ?? m?.yo ?? m?.is_from_me ?? (m?.remitente === "yo"));
-
+/* ===================== Heurísticas ===================== */
+const esMensajePropio = (m) => Boolean(m?.from_me ?? m?.es_propio ?? m?.yo ?? m?.is_from_me ?? (m?.rol_mensaje === 1));
 function extraerRespuesta(m) {
-  const ref =
-    m?.reply_to_text ??
-    m?.reply_text ??
-    m?.respuesta_texto ??
-    m?.respuesta_a ??
-    m?.mensaje_referencia?.texto ??
-    m?.mensaje_referencia?.text ??
-    m?.referencia?.texto ??
-    null;
-  const autor =
-    m?.reply_to_author ??
-    m?.respuesta_autor ??
-    m?.mensaje_referencia?.autor ??
-    m?.referencia?.autor ??
-    null;
+  const ref = m?.reply_to_text ?? m?.reply_text ?? m?.respuesta_texto ?? m?.respuesta_a ?? m?.mensaje_referencia?.texto ?? m?.mensaje_referencia?.text ?? m?.referencia?.texto ?? null;
+  const autor = m?.reply_to_author ?? m?.respuesta_autor ?? m?.mensaje_referencia?.autor ?? m?.referencia?.autor ?? null;
   return { ref, autor };
 }
 
-/* ===================== Preview en Portal (ancho proporcional al contenido) ===================== */
-/* Estrategia:
-   - Medimos el ancho estimado del contenido con canvas (fuente del body).
-   - Calculamos width = clamp(min, contenido + padding, max viewport).
-   - El shell usa width fijo (no solo maxWidth) para “abrazar” mensajes cortos tipo "hola".
-*/
-function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, replyRef, replyAuthor }) {
+/* === Normalizador de tipo (para asegurar audio/foto/ubicación) === */
+function normalizarTipoMensaje(rawTipo) {
+  const t = String(rawTipo || "").toLowerCase();
+  if (["voice", "ptt", "audio"].includes(t)) return "audio";
+  if (["photo", "image", "imagen", "picture", "pic"].includes(t)) return "image";
+  if (["video", "mp4"].includes(t)) return "video";
+  if (["sticker"].includes(t)) return "sticker";
+  if (["document", "file", "archivo", "doc"].includes(t)) return "document";
+  if (["location", "ubicacion", "ubicación", "mapa", "gps"].includes(t)) return "location";
+  if (["template"].includes(t)) return "template";
+  return "text";
+}
+
+/* === Detección extra (para cuando tipo_mensaje viene como 'text') === */
+const AUDIO_EXT = /\.(ogg|mp3|m4a|wav|aac|oga)(\?.*)?$/i;
+const IMAGE_EXT = /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i;
+
+function esUbicacionJson(s) {
+  if (!s) return false;
+  try {
+    const j = JSON.parse(s);
+    const lat = j.latitude ?? j.lat;
+    const lng = j.longitude ?? j.longitud ?? j.lng;
+    return Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
+  } catch { return false; }
+}
+
+function inferirTipoContenido(m) {
+  const base = normalizarTipoMensaje(m?.tipo_mensaje);
+  const texto = m?.texto_mensaje || "";
+  const ruta = m?.ruta_archivo || "";
+  const mime = (m?.mime || m?.mimetype || "").toLowerCase();
+
+  if (base !== "text" && base !== "template") return base;
+
+  // Si es ubicación en texto (JSON coords)
+  if (esUbicacionJson(texto)) return "location";
+
+  // Audio por ruta, mime o texto típico (“Audio recibido…”)
+  if (AUDIO_EXT.test(ruta) || mime.startsWith("audio") || /audio recibido/i.test(texto)) return "audio";
+
+  // Imagen por ruta o mime
+  if (IMAGE_EXT.test(ruta) || mime.startsWith("image")) return "image";
+
+  return base; // text o template
+}
+
+/* ===================== Renderizadores de contenido (Preview) ===================== */
+function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor }) {
+  // Document meta (si aplica)
+  const parseDocMeta = (raw) => {
+    try { return JSON.parse(raw); }
+    catch { return { ruta: raw, nombre: "Documento", size: 0, mimeType: "" }; }
+  };
+
+  /* === Ubicación con Google Maps Embed V1, como en ChatPrincipal.jsx === */
+  const renderLocation = () => {
+    try {
+      const json = JSON.parse(texto || "{}");
+      let { latitude, longitude, longitud } = json;
+      if (longitude === undefined && longitud !== undefined) {
+        longitude = longitud;
+      }
+      if (latitude === undefined || longitude === undefined) {
+        return <div className="text-[13px] text-slate-600">No se pudo leer la ubicación.</div>;
+      }
+
+      const src = `https://www.google.com/maps/embed/v1/place?key=AIzaSyDGulcdBtz_Mydtmu432GtzJz82J_yb-rs&q=${latitude},${longitude}&zoom=15`;
+      const link = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+
+      return (
+        <div className="w-full">
+          <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
+            <iframe
+              title="Mapa de ubicación"
+              width="100%"
+              height="220"
+              frameBorder="0"
+              style={{ border: 0 }}
+              src={src}
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+          <a
+            href={link}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-blue-700 hover:underline"
+          >
+            <i className="bx bx-map-pin" /> Ver ubicación en Google Maps
+          </a>
+        </div>
+      );
+    } catch (error) {
+      console.error("Error al parsear la ubicación:", error);
+      return <div className="text-[13px] text-slate-600">Error al mostrar la ubicación.</div>;
+    }
+  };
+
+  // Cita (si existe)
+  const Quote = () => (replyRef ? (
+    <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white/90">
+      <div className="flex">
+        <div className="w-1.5 bg-slate-300/70" />
+        <div className="flex-1 p-3">
+          <div className="mb-1 text-[11px] font-semibold text-slate-600">
+            <i className="bx bx-reply text-[14px] align-[-1px]" /> Respondiendo a {replyAuthor || "mensaje"}
+          </div>
+          <div className="whitespace-pre-wrap break-words text-[13px] text-slate-700 line-clamp-6">
+            {replyRef}
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null);
+
+  /* === AUDIO: usa CustomAudioPlayer como en ChatPrincipal.jsx === */
+  if (tipo === "audio") {
+    const src = rutaRaw || ruta;
+    return (
+      <div>
+        <Quote />
+        <CustomAudioPlayer src={src} />
+      </div>
+    );
+  }
+
+  /* === IMAGEN (foto/sticker): mostrar la imagen directamente === */
+  if (tipo === "image" || tipo === "sticker") {
+    const src = ruta;
+    return (
+      <div>
+        <Quote />
+        <img src={src} alt="Imagen" className="max-w-[480px] w-full h-auto rounded-xl border border-slate-200 shadow-sm" />
+      </div>
+    );
+  }
+
+  /* === VIDEO === */
+  if (tipo === "video") {
+    const src = ruta;
+    return (
+      <div>
+        <Quote />
+        <video controls className="w-full max-w-[480px] rounded-xl border border-slate-200 shadow-sm" src={src} />
+      </div>
+    );
+  }
+
+  /* === DOCUMENTO === */
+  if (tipo === "document") {
+    const meta = parseDocMeta(ruta);
+    const href = /^https?:\/\//.test(meta.ruta) ? meta.ruta : `https://new.imporsuitpro.com/${meta.ruta || ""}`;
+    const sizeLabel = meta.size ? (meta.size > 1024 * 1024 ? `${(meta.size/1024/1024).toFixed(2)} MB` : `${(meta.size/1024).toFixed(0)} KB`) : "";
+    const ext = (meta.ruta?.split(".").pop() || meta.mimeType?.split("/").pop() || "").toUpperCase();
+    return (
+      <div>
+        <Quote />
+        <a className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white/80 shadow-sm hover:bg-slate-50 transition" href={href} target="_blank" rel="noreferrer">
+          <i className="bx bxs-file-blank text-2xl text-slate-600" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-semibold text-slate-800">{meta.nombre || "Documento"}</div>
+            <div className="text-[12px] text-slate-500">{[sizeLabel, ext].filter(Boolean).join(" • ")}</div>
+          </div>
+          <i className="bx bx-download text-xl text-blue-600" />
+        </a>
+      </div>
+    );
+  }
+
+  /* === UBICACIÓN === */
+  if (tipo === "location") {
+    return (
+      <div>
+        <Quote />
+        {renderLocation()}
+      </div>
+    );
+  }
+
+  /* === TEXTO / TEMPLATE === */
+  return (
+    <div>
+      <Quote />
+      <div className="whitespace-pre-wrap break-words text-[15px] leading-[1.7] tracking-[0.005em] text-slate-800">
+        {texto}
+      </div>
+    </div>
+  );
+}
+
+/* ===================== Preview en Portal con cierre robusto ===================== */
+function HoverPreviewPortal({
+  anchorRef,
+  open,
+  onForceClose,
+  tipo,
+  texto,
+  ruta,
+  rutaRaw,
+  isTemplate,
+  replyRef,
+  replyAuthor
+}) {
   const [pos, setPos] = useState({ top: 0, left: 0, side: "right" });
   const [shown, setShown] = useState(false);
-  const [width, setWidth] = useState(360); // default
+  const [width, setWidth] = useState(360);
   const containerRef = useRef(null);
+  const insideRef = useRef(false);
+  const leaveTimer = useRef(null);
 
-  // Paleta sobria/ligera
+  // Tema
   const theme = {
     shellGrad: "from-slate-900/5 via-slate-300/10 to-white",
     innerBg: "bg-gradient-to-b from-slate-50 to-white",
     ring: "ring-1 ring-slate-900/5",
     border: "border border-slate-200/80",
     shadow: "shadow-[0_12px_28px_-16px_rgba(2,6,23,0.38)]",
-    text: "text-slate-800",
-    subtext: "text-slate-500",
     headerBg: "bg-slate-100/80",
     headerText: "text-slate-700",
   };
 
-  const PADDING_X = 40; // px (sumatoria de paddings laterales de la tarjeta)
-  const MIN_W = 220;
-  const MAX_W_RATIO = 0.58; // 58% del viewport
-
-  // Medición del ancho del texto usando Canvas (considera la línea más larga)
-  const medirAnchoContenido = (texto) => {
+  // Medición de ancho (texto) con Canvas
+  const measureTextWidth = (txt) => {
     try {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
-      // Fuente aproximada a la usada en el body del popup
-      ctx.font = "15px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial";
-      const lineas = String(texto || "").split(/\r?\n/);
-      let max = 0;
-      for (const l of lineas) {
-        const m = ctx.measureText(l);
-        max = Math.max(max, m.width);
-      }
-      // Si hay bloque de respuesta, dejamos un mínimo más holgado
-      const extra = replyRef ? 80 : 0;
-      return Math.ceil(max + PADDING_X + extra);
-    } catch {
-      return 360;
-    }
+      ctx.font = "15px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial";
+      return Math.ceil(ctx.measureText(String(txt || "")).width);
+    } catch { return 360; }
   };
 
-  // Posicionamiento y cálculo de width
+  const computeWidth = () => {
+    const vw = window.innerWidth;
+    const max = Math.min(760, Math.floor(vw * 0.58));
+    const min = 220;
+
+    // Ancho base por tipo
+    if (["audio"].includes(tipo)) return Math.max(min, Math.min(max, 420));
+    if (["video", "image", "sticker"].includes(tipo)) return Math.max(min, Math.min(max, 480));
+    if (["document", "location"].includes(tipo)) return Math.max(min, Math.min(max, 440));
+
+    // Texto/Template
+    const lines = String(texto || "").split(/\r?\n/);
+    const longest = lines.reduce((m, l) => Math.max(m, measureTextWidth(l)), 0);
+    return Math.max(min, Math.min(max, longest + 40)); // + padding
+  };
+
+  // Posición + ancho
   useEffect(() => {
     if (!open || !anchorRef?.current) return;
-
     const update = () => {
       const rect = anchorRef.current.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
       const margin = 16;
-
-      const maxW = Math.min(760, Math.floor(vw * MAX_W_RATIO));
-      const minW = MIN_W;
-
-      // width en función del contenido
-      const contenidoW = medirAnchoContenido(textoCompleto);
-      const w = Math.min(maxW, Math.max(minW, contenidoW));
+      const w = computeWidth();
       setWidth(w);
 
-      // lado preferente
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
       let side = "right";
       let left = rect.right + margin;
       if (vw - rect.right - margin < w) {
         side = "left";
         left = Math.max(margin, rect.left - w - margin);
       }
-
       const top = Math.max(margin, Math.min(vh - margin, rect.top));
       setPos({ top, left, side });
     };
-
     update();
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
@@ -194,46 +364,56 @@ function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, reply
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [open, anchorRef, textoCompleto, replyRef]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, anchorRef, texto, ruta, tipo, isTemplate, replyRef]);
 
   // Animación
   useEffect(() => {
-    if (open) {
-      const t = requestAnimationFrame(() => setShown(true));
-      return () => cancelAnimationFrame(t);
-    } else setShown(false);
+    if (open) requestAnimationFrame(() => setShown(true));
+    else setShown(false);
   }, [open]);
 
-  // Cerrar con ESC/clic fuera
+  // Cierres robustos
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onLock?.(false);
-    const onClick = (e) => {
+
+    const onKey = (e) => e.key === "Escape" && onForceClose?.();
+    const onDown = (e) => {
       if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target)) onLock?.(false);
+      if (!containerRef.current.contains(e.target) && !anchorRef?.current?.contains(e.target)) onForceClose?.();
     };
+    const onWheel = () => onForceClose?.();
+
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onClick, true);
+    document.addEventListener("mousedown", onDown, true);
+    document.addEventListener("wheel", onWheel, { passive: true });
+
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onClick, true);
+      document.removeEventListener("mousedown", onDown, true);
+      document.removeEventListener("wheel", onWheel);
     };
-  }, [open, onLock]);
+  }, [open, onForceClose, anchorRef]);
 
-  if (!open || !textoCompleto) return null;
+  // Grace period
+  const scheduleMaybeClose = () => {
+    clearTimeout(leaveTimer.current);
+    leaveTimer.current = setTimeout(() => {
+      if (!insideRef.current) onForceClose?.();
+    }, 120);
+  };
+
+  if (!open) return null;
 
   const bubble = (
     <div
       style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width }}
-      onMouseEnter={() => onLock?.(true)}
-      onMouseLeave={() => onLock?.(false)}
       ref={containerRef}
+      onPointerEnter={() => { insideRef.current = true; clearTimeout(leaveTimer.current); }}
+      onPointerLeave={() => { insideRef.current = false; scheduleMaybeClose(); }}
     >
-      {/* Shell gradiente */}
       <div className={`p-[1px] rounded-[20px] bg-gradient-to-br ${theme.shellGrad} ${theme.shadow}`}>
-        {/* CardShell (relative, overflow-visible para la cola) */}
         <div className={`relative rounded-[18px] ${theme.innerBg} ${theme.ring} ${theme.border} overflow-visible`}>
-          {/* ScrollArea */}
           <div
             className={[
               "max-h-[76vh] overflow-auto rounded-[18px]",
@@ -241,53 +421,27 @@ function HoverPreviewPortal({ anchorRef, textoCompleto, open, onLock, own, reply
               shown ? "opacity-100 translate-y-0 scale-[1]" : "opacity-0 translate-y-1 scale-[0.99]"
             ].join(" ")}
           >
-            {/* Header */}
             <div className={`sticky top-0 z-[1] ${theme.headerBg} ${theme.headerText} border-b border-slate-200 rounded-t-[18px] px-5 py-2.5 text-[12px] font-semibold tracking-[0.06em]`}>
               VISTA PREVIA:
             </div>
-
-            {/* Body */}
-            <div className="px-5 py-4 text-[15px] leading-[1.7] tracking-[0.005em] antialiased">
-              {/* Cita */}
-              {replyRef && (
-                <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                  <div className="flex">
-                    <div className="w-1.5 bg-slate-300/70" />
-                    <div className="flex-1 p-3">
-                      <div className="mb-1 text-[11px] font-semibold text-slate-600">
-                        <i className="bx bx-reply text-[14px] align-[-1px]" /> Respondiendo a {replyAuthor || "mensaje"}
-                      </div>
-                      <div className="whitespace-pre-wrap break-words text-[13px] text-slate-700 line-clamp-5">
-                        {replyRef}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Contenido del mensaje */}
-              <div className={`whitespace-pre-wrap break-words ${theme.text} selection:bg-slate-900/5 selection:text-slate-900`}>
-                {textoCompleto}
-              </div>
-
-              {/* Nota */}
-              <div className={`mt-3 text-[11px] ${theme.subtext}`}>
-                Vista previa generada desde el último mensaje.
-              </div>
+            <div className="px-5 py-4">
+              <PreviewContent
+                tipo={tipo}
+                texto={texto}
+                ruta={ruta}
+                rutaRaw={rutaRaw}
+                replyRef={replyRef}
+                replyAuthor={replyAuthor}
+              />
+              <div className="mt-3 text-[11px] text-slate-500">Vista previa generada desde el último mensaje.</div>
             </div>
           </div>
 
-          {/* Cola (triángulo real con clip-path) */}
+          {/* Cola */}
           {pos.side === "right" ? (
-            <div
-              className="absolute top-8 -left-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]"
-              style={{ clipPath: "polygon(0% 50%, 100% 0%, 100% 100%)" }}
-            />
+            <div className="absolute top-8 -left-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]" style={{ clipPath: "polygon(0% 50%, 100% 0%, 100% 100%)" }} />
           ) : (
-            <div
-              className="absolute top-8 -right-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]"
-              style={{ clipPath: "polygon(0% 0%, 0% 100%, 100% 50%)" }}
-            />
+            <div className="absolute top-8 -right-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]" style={{ clipPath: "polygon(0% 0%, 0% 100%, 100% 50%)" }} />
           )}
         </div>
       </div>
@@ -312,15 +466,43 @@ function MessageItem({
   seleccionado = false
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [hoverLock, setHoverLock] = useState(false);
-  const [imgError, setImgError] = useState(false);
   const liRef = useRef(null);
+  const [imgError, setImgError] = useState(false);
+
+  // Eventos hover determinísticos
+  const handleEnter = () => setPreviewOpen(true);
+  const handleLeave = () => setPreviewOpen(false);
 
   const nombre = acortarTexto(formatNombreCliente(mensaje?.nombre_cliente ?? ""), 10, 25);
   const numero = getIdLabel(mensaje);
-  const preview = expandirTemplate(mensaje?.texto_mensaje, mensaje?.ruta_archivo, chatTemporales);
-  const previewCompleto = expandirTemplate(mensaje?.texto_mensaje, mensaje?.ruta_archivo, 20000);
   const tienePendientes = (mensaje?.mensajes_pendientes ?? 0) > 0;
+
+  // === Tipo real (con heurística adicional) ===
+  const tipoDetectado = inferirTipoContenido(mensaje);
+  const isTemplate = tipoDetectado === "template";
+
+  // Texto para preview (si es location necesitamos el JSON crudo)
+  const textoPlano = mensaje?.texto_mensaje || "";
+  const textoPreview =
+    tipoDetectado === "location"
+      ? textoPlano // el iframe necesita el JSON
+      : isTemplate
+      ? expandirTemplate(textoPlano, mensaje?.ruta_archivo, 20000)
+      : textoPlano;
+
+  const previewCorto = expandirTemplate(
+    tipoDetectado === "location" ? "[Ubicación]" : textoPreview,
+    mensaje?.ruta_archivo,
+    chatTemporales
+  );
+
+  // Ruta normalizada para media
+  const rawRuta = mensaje?.ruta_archivo || "";
+  const rutaMedia = (() => {
+    if (!rawRuta) return "";
+    if (tipoDetectado === "document") return rawRuta; // puede ser JSON
+    return /^https?:\/\//.test(rawRuta) ? rawRuta : `https://new.imporsuitpro.com/${rawRuta}`;
+  })();
 
   const fallbackAvatar = "https://tiendas.imporsuitpro.com/imgs/react/user.png";
   const avatarUrl = !imgError && mensaje?.profile_pic_url ? mensaje.profile_pic_url : fallbackAvatar;
@@ -336,20 +518,22 @@ function MessageItem({
         "transition-all duration-150 ease-out",
         seleccionado ? "bg-slate-50 cursor-default" : "hover:bg-slate-50 hover:shadow-xs"
       ].join(" ")}
-      onMouseEnter={() => setPreviewOpen(true)}
-      onMouseLeave={() => { if (!hoverLock) setPreviewOpen(false); }}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
       onClick={() => { if (!seleccionado && typeof onClick === "function") onClick(); }}
     >
-      {/* borde animado sutil al hover */}
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-0 ring-slate-900/0 transition-all duration-150 group-hover:ring-4 group-hover:ring-slate-900/5" />
 
       {/* Preview lateral */}
       <HoverPreviewPortal
         anchorRef={liRef}
-        textoCompleto={previewCompleto}
         open={previewOpen}
-        onLock={(v) => setHoverLock(v)}
-        own={own}
+        onForceClose={() => setPreviewOpen(false)}
+        tipo={tipoDetectado}
+        texto={textoPreview}
+        ruta={rutaMedia}
+        rutaRaw={rawRuta}  /* pasa ruta cruda para CustomAudioPlayer */
+        isTemplate={isTemplate}
         replyRef={replyRef}
         replyAuthor={replyAuthor || (!own ? nombre : "Tú")}
       />
@@ -357,21 +541,8 @@ function MessageItem({
       <div className="grid grid-cols-[3rem_1fr_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2.5">
         {/* Avatar premium (sin badge de canal) */}
         <div className="relative col-[1] row-span-2 h-12 w-12 shrink-0">
-          <div
-            className={[
-              "h-12 w-12 overflow-hidden rounded-full ring-2 transition-all duration-150",
-              tienePendientes ? "ring-blue-500" : "ring-slate-200",
-              "group-hover:ring-slate-300 shadow-sm"
-            ].join(" ")}
-          >
-            <img
-              src={avatarUrl}
-              alt="Avatar"
-              className="h-full w-full object-cover"
-              loading="lazy"
-              onError={() => setImgError(true)}
-            />
-            {/* brillo sutil */}
+          <div className={["h-12 w-12 overflow-hidden rounded-full ring-2 transition-all duration-150", tienePendientes ? "ring-blue-500" : "ring-slate-200", "group-hover:ring-slate-300 shadow-sm"].join(" ")}>
+            <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" loading="lazy" onError={() => setImgError(true)} />
             <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-transparent to-white/20" />
           </div>
         </div>
@@ -380,9 +551,7 @@ function MessageItem({
         <div className="col-[2] row-[1] min-w-0 flex items-end gap-2 leading-[1.2]">
           <span className="truncate text-[13.5px] font-semibold text-slate-900">{nombre}</span>
           <span className="select-none text-slate-300">•</span>
-          <span className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums" title={numero}>
-            {numero}
-          </span>
+          <span className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums" title={numero}>{numero}</span>
         </div>
 
         {/* Pill estado */}
@@ -392,9 +561,7 @@ function MessageItem({
 
         {/* Fecha + contador */}
         <div className="col-[3] row-[2] mt-0.5 flex items-center justify-end gap-2">
-          <span className="text-[11px] text-slate-500 leading-[1.2]">
-            {formatFecha(mensaje?.mensaje_created_at)}
-          </span>
+          <span className="text-[11px] text-slate-500 leading-[1.2]">{formatFecha(mensaje?.mensaje_created_at)}</span>
           {tienePendientes && (
             <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-[11px] font-semibold text-white">
               {mensaje.mensajes_pendientes}
@@ -402,11 +569,17 @@ function MessageItem({
           )}
         </div>
 
-        {/* Canal + Preview breve (canal aparte del avatar) */}
+        {/* Canal + Preview breve */}
         <div className="col-[2/4] row-[2] min-w-0 flex items-center gap-2 pt-0.5 text-[12.5px] text-slate-700 leading-[1.45]">
           <PillCanal source={mensaje?.source} />
-          <span className="truncate" title={mensaje?.texto_mensaje}>
-            {preview}
+          <span className="truncate" title={tipoDetectado === "location" ? "Ubicación" : textoPreview}>
+            {tipoDetectado === "audio"
+              ? "🎧 Audio"
+              : tipoDetectado === "image"
+              ? "🖼️ Imagen"
+              : tipoDetectado === "location"
+              ? "📍 Ubicación"
+              : previewCorto}
           </span>
         </div>
       </div>
@@ -548,7 +721,6 @@ export const Sidebar = ({
     return (b.id ?? 0) - (a.id ?? 0);
   };
 
-  // Helpers de filtro por canal normalizado
   const matchesFilter = (c, key) => getChannelKey(c?.source) === key;
 
   return (
@@ -558,27 +730,20 @@ export const Sidebar = ({
       className={`h-[calc(100vh_-_130px)] overflow-y-auto overflow-x-hidden ${selectedChat ? "hidden sm:block" : "block"}`}
     >
       <div className="ml-3 mr-0 my-3 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
-        {/* Header fijo */}
+        {/* Header */}
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-          {/* Tabs */}
           <div className="flex items-center justify-between px-4 pt-4">
             <div className="inline-flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1">
-              <button
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${selectedTab === "abierto" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"}`}
-                onClick={() => setSelectedTab("abierto")}
-              >
+              <button className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${selectedTab === "abierto" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setSelectedTab("abierto")}>
                 <i className="bx bx-download mr-2 align-[-2px]" /> ABIERTO
               </button>
-              <button
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${selectedTab === "resueltos" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"}`}
-                onClick={() => setSelectedTab("resueltos")}
-              >
+              <button className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${selectedTab === "resueltos" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setSelectedTab("resueltos")}>
                 <i className="bx bx-check mr-2 align-[-2px]" /> RESUELTOS
               </button>
             </div>
           </div>
 
-          {/* Buscador + acciones */}
+          {/* Búsqueda + acciones */}
           <div className="px-4 py-3 space-y-3">
             <div className="relative w-full">
               <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -591,25 +756,15 @@ export const Sidebar = ({
                 aria-label="Buscar chats"
               />
               {searchTerm?.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                  title="Limpiar búsqueda"
-                >
+                <button type="button" onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Limpiar búsqueda">
                   <i className="bx bx-x text-lg" />
                 </button>
               )}
             </div>
 
             <div className="flex items-center gap-3 w-full">
-              {/* Filtro canal */}
               <details className="relative ml-auto shrink-0">
-                <summary
-                  className="list-none inline-flex w-[199px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none"
-                  title="Filtrar por canal"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <summary className="list-none inline-flex w-[199px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none" title="Filtrar por canal" onClick={(e) => e.stopPropagation()}>
                   {(() => {
                     if (channelFilter === "wa") return <i className="bx bxl-whatsapp text-lg text-green-600 shrink-0" />;
                     if (channelFilter === "ms") return <i className="bx bxl-messenger text-lg text-blue-600 shrink-0" />;
@@ -618,85 +773,41 @@ export const Sidebar = ({
                   })()}
                   <span className="flex-1 min-w-0 whitespace-nowrap truncate">
                     <span className="font-bold">
-                      {channelFilter === "wa"
-                        ? "WhatsApp"
-                        : channelFilter === "ms"
-                        ? "Messenger"
-                        : channelFilter === "ig"
-                        ? "Instagram"
-                        : "Todos los canales"}
+                      {channelFilter === "wa" ? "WhatsApp" : channelFilter === "ms" ? "Messenger" : channelFilter === "ig" ? "Instagram" : "Todos los canales"}
                     </span>
                   </span>
                   <i className="bx bx-chevron-down text-lg ml-1 shrink-0" />
                 </summary>
 
                 <div className="absolute right-0 mt-2 w-[199px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 z-30">
-                  <button
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "all" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => { e.stopPropagation(); setChannelFilter("all"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
-                  >
-                    <i className="bx bx-layout text-base text-slate-500" />
-                    Todos los canales
+                  <button className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "all" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`} onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); setChannelFilter("all"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}>
+                    <i className="bx bx-layout text-base text-slate-500" /> Todos los canales
                   </button>
-                  <button
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "wa" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => { e.stopPropagation(); setChannelFilter("wa"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
-                  >
-                    <i className="bx bxl-whatsapp text-base text-green-600" />
-                    WhatsApp
+                  <button className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "wa" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`} onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); setChannelFilter("wa"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}>
+                    <i className="bx bxl-whatsapp text-base text-green-600" /> WhatsApp
                   </button>
-                  <button
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "ms" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => { e.stopPropagation(); setChannelFilter("ms"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
-                  >
-                    <i className="bx bxl-messenger text-base text-blue-600" />
-                    Messenger
+                  <button className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "ms" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`} onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); setChannelFilter("ms"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}>
+                    <i className="bx bxl-messenger text-base text-blue-600" /> Messenger
                   </button>
-                  <button
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${channelFilter === "ig" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => { e.stopPropagation(); setChannelFilter("ig"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <i className="bx bxl-instagram text-base text-pink-500" />
-                      Instagram
-                    </span>
+                  <button className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${channelFilter === "ig" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`} onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); setChannelFilter("ig"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}>
+                    <span className="inline-flex items-center gap-2"><i className="bx bxl-instagram text-base text-pink-500" /> Instagram</span>
                   </button>
                 </div>
               </details>
 
-              {/* Filtros extra */}
-              <button
-                onClick={(e) => { e.stopPropagation(); handleFiltro_chats(); }}
-                aria-pressed={!!filtro_chats}
-                className={`relative inline-flex h-11 items-center rounded-xl border px-3 text-slate-700 shadow-sm transition ${filtro_chats ? "border-blue-200 bg-blue-50 hover:bg-blue-100" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-                title="Mostrar filtros"
-                aria-controls="sidebar-filtros"
-              >
+              <button onClick={(e) => { e.stopPropagation(); handleFiltro_chats(); }} aria-pressed={!!filtro_chats} className={`relative inline-flex h-11 items-center rounded-xl border px-3 text-slate-700 shadow-sm transition ${filtro_chats ? "border-blue-200 bg-blue-50 hover:bg-blue-100" : "border-slate-200 bg-white hover:bg-slate-50"}`} title="Mostrar filtros" aria-controls="sidebar-filtros">
                 <i className="bx bx-filter-alt text-xl" />
                 <span className="ml-2 hidden text-sm md:inline font-bold">Filtros</span>
               </button>
 
-              {/* Nuevo chat */}
-              <button
-                onClick={() => (typeof openNumeroModal === "function" ? openNumeroModal() : setNumeroModal(true))}
-                className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
-                title="Nuevo chat"
-                aria-label="Nuevo chat"
-              >
+              <button onClick={() => (typeof openNumeroModal === "function" ? openNumeroModal() : setNumeroModal(true))} className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900" title="Nuevo chat" aria-label="Nuevo chat">
                 <i className="bx bx-plus text-xl" />
               </button>
             </div>
           </div>
 
           {/* Panel de filtros */}
-          <div
-            id="sidebar-filtros"
-            className={`grid gap-3 px-4 pb-4 transition-all duration-300 ${filtro_chats ? "max-h-[600px] opacity-100" : "max-h-0 overflow-hidden opacity-0"}`}
-          >
+          <div id="sidebar-filtros" className={`grid gap-3 px-4 pb-4 transition-all duration-300 ${filtro_chats ? "max-h-[600px] opacity-100" : "max-h-0 overflow-hidden opacity-0"}`}>
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
@@ -740,12 +851,7 @@ export const Sidebar = ({
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
-                options={[
-                  { value: "LAAR", label: "Laar" },
-                  { value: "SPEED", label: "Speed" },
-                  { value: "SERVIENTREGA", label: "Servientrega" },
-                  { value: "GINTRACOM", label: "Gintracom" },
-                ]}
+                options={[{ value: "LAAR", label: "Laar" }, { value: "SPEED", label: "Speed" }, { value: "SERVIENTREGA", label: "Servientrega" }, { value: "GINTRACOM", label: "Gintracom" }]}
                 value={selectedTransportadora}
                 onChange={(opt) => { setSelectedTransportadora(opt); if (!opt) setSelectedEstado([]); }}
                 placeholder="Selecciona transportadora"
@@ -778,42 +884,16 @@ export const Sidebar = ({
 
             {/* Chips activos */}
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              {Array.isArray(selectedEtiquetas) && selectedEtiquetas.length > 0 &&
-                selectedEtiquetas.map((e) => (
-                  <FilterChip
-                    key={e.value}
-                    label={`Etiqueta: ${e.label}`}
-                    onClear={() => {
-                      const next = selectedEtiquetas.filter((x) => x.value !== e.value);
-                      setSelectedEtiquetas(next);
-                    }}
-                  />
-                ))}
-              {selectedNovedad && (
-                <FilterChip label={`Novedad: ${selectedNovedad.label}`} onClear={() => setSelectedNovedad(null)} />
-              )}
-              {selectedTransportadora && (
-                <FilterChip
-                  label={`Transp.: ${selectedTransportadora.label}`}
-                  onClear={() => { setSelectedTransportadora(null); setSelectedEstado([]); }}
-                />
-              )}
-              {selectedEstado && selectedEstado.label && (
-                <FilterChip label={`Estado: ${selectedEstado.label}`} onClear={() => setSelectedEstado(null)} />
-              )}
+              {Array.isArray(selectedEtiquetas) && selectedEtiquetas.length > 0 && selectedEtiquetas.map((e) => (
+                <FilterChip key={e.value} label={`Etiqueta: ${e.label}`} onClear={() => { const next = selectedEtiquetas.filter((x) => x.value !== e.value); setSelectedEtiquetas(next); }} />
+              ))}
+              {selectedNovedad && (<FilterChip label={`Novedad: ${selectedNovedad.label}`} onClear={() => setSelectedNovedad(null)} />)}
+              {selectedTransportadora && (<FilterChip label={`Transp.: ${selectedTransportadora.label}`} onClear={() => { setSelectedTransportadora(null); setSelectedEstado([]); }} />)}
+              {selectedEstado && selectedEstado.label && (<FilterChip label={`Estado: ${selectedEstado.label}`} onClear={() => setSelectedEstado(null)} />)}
 
               {Array.isArray(selectedEtiquetas) &&
                 selectedEtiquetas.length + (selectedNovedad ? 1 : 0) + (selectedTransportadora ? 1 : 0) + (selectedEstado ? 1 : 0) > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedEtiquetas([]);
-                    setSelectedNovedad(null);
-                    setSelectedTransportadora(null);
-                    setSelectedEstado([]);
-                  }}
-                  className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
-                >
+                <button type="button" onClick={() => { setSelectedEtiquetas([]); setSelectedNovedad(null); setSelectedTransportadora(null); setSelectedEstado([]); }} className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
                   Limpiar filtros <i className="bx bx-eraser" />
                 </button>
               )}
@@ -833,13 +913,10 @@ export const Sidebar = ({
               );
             }
             const base =
-              channelFilter === "ms"
-                ? filteredChats.filter((c) => matchesFilter(c, "ms"))
-                : channelFilter === "wa"
-                ? filteredChats.filter((c) => matchesFilter(c, "wa"))
-                : channelFilter === "ig"
-                ? filteredChats.filter((c) => matchesFilter(c, "ig"))
-                : filteredChats;
+              channelFilter === "ms" ? filteredChats.filter((c) => matchesFilter(c, "ms"))
+              : channelFilter === "wa" ? filteredChats.filter((c) => matchesFilter(c, "wa"))
+              : channelFilter === "ig" ? filteredChats.filter((c) => matchesFilter(c, "ig"))
+              : filteredChats;
 
             const list = [...base].sort(compareChats);
 
@@ -857,11 +934,7 @@ export const Sidebar = ({
             }
 
             return list.slice(0, mensajesVisibles).map((mensaje) => {
-              const { color, estado_guia } = obtenerEstadoGuia(
-                mensaje.transporte,
-                mensaje.estado_factura,
-                mensaje.novedad_info
-              );
+              const { color, estado_guia } = obtenerEstadoGuia(mensaje.transporte, mensaje.estado_factura, mensaje.novedad_info);
               const seleccionado = selectedChat?.id === mensaje.id;
 
               return (
