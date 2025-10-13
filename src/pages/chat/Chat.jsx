@@ -100,6 +100,53 @@ function mapIgConvToSidebar(row) {
   };
 }
 
+// Reconciliador para no duplicar mensajes
+function upsertMsg(list, raw) {
+  const msg = {
+    ...raw,
+    // normaliza alias que usas en varias capas
+    id: raw.id ?? raw.message_id ?? null,
+    mid: raw.mid ?? raw.mid_mensaje ?? null,
+  };
+
+  // A) por client_tmp_id (optimista) → reemplazar y limpiar el tmp
+  if (msg.client_tmp_id) {
+    const i = list.findIndex(
+      (x) => x.client_tmp_id && x.client_tmp_id === msg.client_tmp_id
+    );
+    if (i !== -1) {
+      const copy = [...list];
+      copy[i] = { ...copy[i], ...msg, client_tmp_id: undefined };
+      return copy;
+    }
+  }
+
+  // B) por id de BD
+  if (msg.id) {
+    const j = list.findIndex((x) => x.id && x.id === msg.id);
+    if (j !== -1) {
+      const copy = [...list];
+      copy[j] = { ...copy[j], ...msg };
+      return copy;
+    }
+  }
+
+  // C) por mid (id de IG)
+  if (msg.mid) {
+    const k = list.findIndex(
+      (x) => x.mid === msg.mid || x.mid_mensaje === msg.mid
+    );
+    if (k !== -1) {
+      const copy = [...list];
+      copy[k] = { ...copy[k], ...msg };
+      return copy;
+    }
+  }
+
+  // D) no hay coincidencia → agregar
+  return [...list, msg];
+}
+
 const Chat = () => {
   const formatFecha = (fechaISO) => {
     const fecha = new Date(fechaISO);
@@ -2757,56 +2804,26 @@ const Chat = () => {
         ruta_archivo: message.attachments
           ? JSON.stringify(message.attachments)
           : null,
-        mid_mensaje: message.mid || null,
+        mid: message.mid || null,
         visto: message.status === "read" ? 1 : 0,
         created_at: message.created_at || new Date().toISOString(),
         responsable: message.direction === "out" ? message.agent_name : "",
         client_tmp_id: message.client_tmp_id || null,
       };
 
-      // si estoy en esa conversación, pinto en la derecha
+      // si estoy viendo esa conversación → upsert en la derecha
       if (
         selectedChat?.source === "ms" &&
         Number(selectedChat.id) === Number(conversation_id)
       ) {
-        setMensajesOrdenados((prev) => {
-          if (mapped.rol_mensaje === 1 && mapped.client_tmp_id) {
-            const idx = prev.findIndex((m) => m.id === mapped.client_tmp_id);
-            if (idx !== -1) {
-              const next = [...prev];
-              next[idx] = { ...mapped, id: mapped.id }; // sustituye tmp por real
-              return next;
-            }
-          }
-
-          if (mapped.rol_mensaje === 1) {
-            const rprev = [...prev].reverse();
-            const idxRev = rprev.findIndex(
-              (m) =>
-                m.id?.startsWith?.("tmp-") &&
-                m.rol_mensaje === 1 &&
-                m.texto_mensaje === mapped.texto_mensaje
-            );
-            if (idxRev !== -1) {
-              const realIdx = prev.length - 1 - idxRev;
-              const next = [...prev];
-              next[realIdx] = mapped;
-              return next;
-            }
-          }
-          return [...prev, mapped];
-        });
-
+        setMensajesOrdenados((prev) => upsertMsg(prev, mapped));
         requestAnimationFrame(() => {
-          if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop =
-              chatContainerRef.current.scrollHeight;
-          }
+          const el = chatContainerRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
         });
-        return;
       }
 
-      // si es otra conversación, actualizo fila del sidebar
+      // actualizar fila del sidebar
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
@@ -2845,7 +2862,23 @@ const Chat = () => {
               upd.unread_count ?? out[idx].mensajes_pendientes,
           };
         } else {
-          out.unshift(mapMsConvToSidebar(upd));
+          out.unshift({
+            id: upd.id,
+            source: "ms",
+            page_id: upd.page_id,
+            mensaje_created_at: upd.last_message_at,
+            texto_mensaje: upd.preview ?? "",
+            celular_cliente: upd.psid,
+            mensajes_pendientes: upd.unread_count ?? 0,
+            visto: 0,
+            nombre_cliente: upd.customer_name ?? "Facebook",
+            profile_pic_url: upd.profile_pic_url ?? null,
+            id_encargado: upd.id_encargado ?? null,
+            etiquetas: [],
+            transporte: null,
+            estado_factura: null,
+            novedad_info: null,
+          });
         }
         out.sort(
           (a, b) =>
@@ -2865,7 +2898,7 @@ const Chat = () => {
         ruta_archivo: message.attachments
           ? JSON.stringify(message.attachments)
           : null,
-        mid_mensaje: message.mid || null,
+        mid: message.mid || null,
         visto: message.status === "read" ? 1 : 0,
         created_at: message.created_at || new Date().toISOString(),
         responsable: message.direction === "out" ? message.agent_name : "",
@@ -2876,28 +2909,14 @@ const Chat = () => {
         selectedChat?.source === "ig" &&
         Number(selectedChat.id) === Number(conversation_id)
       ) {
-        setMensajesOrdenados((prev) => {
-          if (mapped.rol_mensaje === 1 && mapped.client_tmp_id) {
-            const idx = prev.findIndex((m) => m.id === mapped.client_tmp_id);
-            if (idx !== -1) {
-              const next = [...prev];
-              next[idx] = { ...mapped, id: mapped.id };
-              return next;
-            }
-          }
-          return [...prev, mapped];
-        });
-
+        setMensajesOrdenados((prev) => upsertMsg(prev, mapped));
         requestAnimationFrame(() => {
-          if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop =
-              chatContainerRef.current.scrollHeight;
-          }
+          const el = chatContainerRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
         });
-        return;
       }
 
-      // sidebar
+      // actualizar fila del sidebar
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
@@ -2920,7 +2939,7 @@ const Chat = () => {
       });
     };
 
-    // --- IG: CONV_UPSERT ---
+    // --- IG: CONV_UPSERT (igual que ya tienes) ---
     const onIgConvUpsert = (upd) => {
       setMensajesAcumulados((prev) => {
         const out = [...prev];
@@ -2936,7 +2955,23 @@ const Chat = () => {
               upd.unread_count ?? out[idx].mensajes_pendientes,
           };
         } else {
-          out.unshift(mapIgConvToSidebar(upd));
+          out.unshift({
+            id: upd.id,
+            source: "ig",
+            page_id: upd.page_id,
+            mensaje_created_at: upd.last_message_at,
+            texto_mensaje: upd.preview ?? "",
+            celular_cliente: upd.igsid,
+            mensajes_pendientes: upd.unread_count ?? 0,
+            visto: 0,
+            nombre_cliente: upd.customer_name ?? "Instagram",
+            profile_pic_url: upd.profile_pic_url ?? null,
+            id_encargado: upd.id_encargado ?? null,
+            etiquetas: [],
+            transporte: null,
+            estado_factura: null,
+            novedad_info: null,
+          });
         }
         out.sort(
           (a, b) =>
@@ -2946,13 +2981,13 @@ const Chat = () => {
       });
     };
 
-    // registrar
+    // Registrar
     socketRef.current.on("MS_MESSAGE", onMsMessage);
     socketRef.current.on("MS_CONV_UPSERT", onMsConvUpsert);
     socketRef.current.on("IG_MESSAGE", onIgMessage);
     socketRef.current.on("IG_CONV_UPSERT", onIgConvUpsert);
 
-    // cleanup ÚNICO
+    // Cleanup único
     return () => {
       socketRef.current?.off("MS_MESSAGE", onMsMessage);
       socketRef.current?.off("MS_CONV_UPSERT", onMsConvUpsert);
