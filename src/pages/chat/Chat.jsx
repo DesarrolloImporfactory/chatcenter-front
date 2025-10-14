@@ -100,6 +100,84 @@ function mapIgConvToSidebar(row) {
   };
 }
 
+// Normaliza un attachment de Messenger/Instagram a tu formato de UI (image|video|audio|document|sticker|location)
+function normalizeMetaAttachmentToUI(att, fallbackText = "") {
+  const t = (att?.type || att?.kind || "").toLowerCase();
+  // IG/MS traen la URL dentro de payload.url muchas veces
+  const payload = att?.payload || {};
+  const url =
+    att?.url || payload?.url || payload?.preview_url || payload?.src || null;
+
+  if (t === "image") {
+    return {
+      tipo_mensaje: "image",
+      ruta_archivo: url || "",
+      texto_mensaje: fallbackText || "",
+    };
+  }
+
+  if (t === "video") {
+    return {
+      tipo_mensaje: "video",
+      ruta_archivo: url || "",
+      texto_mensaje: fallbackText || "",
+    };
+  }
+
+  if (t === "audio") {
+    return {
+      tipo_mensaje: "audio",
+      ruta_archivo: url || "",
+      texto_mensaje: fallbackText || "",
+    };
+  }
+
+  // documentos genéricos (Messenger suele usar "file")
+  if (t === "file" || t === "document") {
+    return {
+      tipo_mensaje: "document",
+      ruta_archivo: JSON.stringify({
+        ruta: url || "",
+        nombre: att?.name || payload?.file_name || "archivo",
+        size: att?.size || payload?.size || 0,
+        mimeType: att?.mimeType || payload?.mime_type || "",
+      }),
+      texto_mensaje: fallbackText || "",
+    };
+  }
+
+  if (t === "sticker") {
+    return {
+      tipo_mensaje: "sticker",
+      ruta_archivo: url || "",
+      texto_mensaje: "",
+    };
+  }
+
+  if (t === "location" && (payload.latitude || payload.lat)) {
+    const latitude = payload.latitude ?? payload.lat;
+    const longitude =
+      payload.longitude ?? payload.lng ?? payload.longitud ?? null;
+    return {
+      tipo_mensaje: "location",
+      texto_mensaje: JSON.stringify({ latitude, longitude }),
+      ruta_archivo: null,
+    };
+  }
+
+  // Fallback seguro → tratar como documento
+  return {
+    tipo_mensaje: "document",
+    ruta_archivo: JSON.stringify({
+      ruta: url || "",
+      nombre: att?.name || payload?.file_name || "archivo",
+      size: att?.size || payload?.size || 0,
+      mimeType: att?.mimeType || payload?.mime_type || "",
+    }),
+    texto_mensaje: fallbackText || "",
+  };
+}
+
 // Reconciliador para no duplicar mensajes
 function upsertMsg(list, raw) {
   const norm = (v) => (v == null ? null : String(v));
@@ -588,34 +666,86 @@ const Chat = () => {
 
   // Mapeo de mensajes Messenger -> formato ChatPrincipal
   function mapMsMessageToUI(m) {
-    return {
+    let out = {
       id: m.id,
       rol_mensaje: m.rol_mensaje, // 1 = out, 0 = in
-      texto_mensaje: m.texto_mensaje || "",
+      texto_mensaje: m.texto_mensaje || m.text || "",
       tipo_mensaje: m.tipo_mensaje || "text",
       ruta_archivo: m.ruta_archivo || null,
-      mid_mensaje: m.mid_mensaje || null,
+      mid_mensaje: m.mid_mensaje || m.mid || null,
       visto: m.visto || 0,
       created_at: m.created_at,
-      // ⬇️ si viene desde /messages (REST) usa el join "responsable"; fallback a tu global
       responsable:
         m.rol_mensaje === 1 ? m.responsable || nombre_encargado_global : "",
     };
+
+    // Si hay attachments crudos en el objeto del REST, normaliza el PRIMERO
+    const rawAtts = Array.isArray(m.attachments) ? m.attachments : null;
+    const isAttachmentFlag = m.tipo_mensaje === "attachment";
+
+    if (isAttachmentFlag || (rawAtts && rawAtts.length > 0)) {
+      const norm = normalizeMetaAttachmentToUI(
+        rawAtts ? rawAtts[0] : {},
+        out.texto_mensaje
+      );
+      out = { ...out, ...norm };
+    }
+
+    // HOTFIX: si quedó como image/video/audio y ruta_archivo vacío, intenta rescatar payload.url
+    if (
+      (out.tipo_mensaje === "image" ||
+        out.tipo_mensaje === "video" ||
+        out.tipo_mensaje === "audio") &&
+      !out.ruta_archivo
+    ) {
+      const a0 = rawAtts?.[0];
+      const rescue =
+        a0?.payload?.url || a0?.payload?.preview_url || a0?.url || null;
+      if (rescue) out.ruta_archivo = rescue;
+    }
+
+    return out;
   }
 
+  // Mapeo de mensajes Instagram -> formato ChatPrincipal (incluye attachments si vienen por REST)
   function mapIgMessageToUI(m) {
-    return {
+    let out = {
       id: m.id,
       rol_mensaje: m.rol_mensaje, // 1 = out, 0 = in
-      texto_mensaje: m.texto_mensaje || "",
+      texto_mensaje: m.texto_mensaje || m.text || "",
       tipo_mensaje: m.tipo_mensaje || "text",
       ruta_archivo: m.ruta_archivo || null,
-      mid_mensaje: m.mid_mensaje || null,
+      mid_mensaje: m.mid_mensaje || m.mid || null,
       visto: m.visto || 0,
       created_at: m.created_at,
       responsable:
         m.rol_mensaje === 1 ? m.responsable || nombre_encargado_global : "",
     };
+
+    const rawAtts = Array.isArray(m.attachments) ? m.attachments : null;
+    const isAttachmentFlag = m.tipo_mensaje === "attachment";
+
+    if (isAttachmentFlag || (rawAtts && rawAtts.length > 0)) {
+      const norm = normalizeMetaAttachmentToUI(
+        rawAtts ? rawAtts[0] : {},
+        out.texto_mensaje
+      );
+      out = { ...out, ...norm };
+    }
+
+    if (
+      (out.tipo_mensaje === "image" ||
+        out.tipo_mensaje === "video" ||
+        out.tipo_mensaje === "audio") &&
+      !out.ruta_archivo
+    ) {
+      const a0 = rawAtts?.[0];
+      const rescue =
+        a0?.payload?.url || a0?.payload?.preview_url || a0?.url || null;
+      if (rescue) out.ruta_archivo = rescue;
+    }
+
+    return out;
   }
 
   async function openMessengerConversation(conv) {
@@ -2838,14 +2968,12 @@ const Chat = () => {
 
     // --- MS: MESSAGE ---
     const onMsMessage = ({ conversation_id, message }) => {
-      const mapped = {
+      let mapped = {
         id: message.id,
         rol_mensaje: message.direction === "out" ? 1 : 0,
         texto_mensaje: message.text || "",
-        tipo_mensaje: message.attachments ? "attachment" : "text",
-        ruta_archivo: message.attachments
-          ? JSON.stringify(message.attachments)
-          : null,
+        tipo_mensaje: "text",
+        ruta_archivo: null,
         mid: message.mid || null,
         visto: message.status === "read" ? 1 : 0,
         created_at: message.created_at || new Date().toISOString(),
@@ -2853,7 +2981,29 @@ const Chat = () => {
         client_tmp_id: message.client_tmp_id || null,
       };
 
-      // si estoy viendo esa conversación → upsert en la derecha
+      if (
+        Array.isArray(message.attachments) &&
+        message.attachments.length > 0
+      ) {
+        const norm = normalizeMetaAttachmentToUI(
+          message.attachments[0],
+          message.text || ""
+        );
+        mapped = { ...mapped, ...norm };
+
+        // rescate por si el helper no encontró url
+        if (
+          (mapped.tipo_mensaje === "image" ||
+            mapped.tipo_mensaje === "video" ||
+            mapped.tipo_mensaje === "audio") &&
+          !mapped.ruta_archivo
+        ) {
+          const a0 = message.attachments[0];
+          mapped.ruta_archivo =
+            a0?.payload?.url || a0?.payload?.preview_url || a0?.url || null;
+        }
+      }
+
       if (
         selectedChat?.source === "ms" &&
         Number(selectedChat.id) === Number(conversation_id)
@@ -2865,7 +3015,6 @@ const Chat = () => {
         });
       }
 
-      // actualizar fila del sidebar
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
@@ -2932,14 +3081,12 @@ const Chat = () => {
 
     // --- IG: MESSAGE ---
     const onIgMessage = ({ conversation_id, message }) => {
-      const mapped = {
+      let mapped = {
         id: message.id,
         rol_mensaje: message.direction === "out" ? 1 : 0,
         texto_mensaje: message.text || "",
-        tipo_mensaje: message.attachments ? "attachment" : "text",
-        ruta_archivo: message.attachments
-          ? JSON.stringify(message.attachments)
-          : null,
+        tipo_mensaje: "text",
+        ruta_archivo: null,
         mid: message.mid || null,
         visto: message.status === "read" ? 1 : 0,
         created_at: message.created_at || new Date().toISOString(),
@@ -2948,12 +3095,33 @@ const Chat = () => {
       };
 
       if (
+        Array.isArray(message.attachments) &&
+        message.attachments.length > 0
+      ) {
+        const norm = normalizeMetaAttachmentToUI(
+          message.attachments[0],
+          message.text || ""
+        );
+        mapped = { ...mapped, ...norm };
+
+        if (
+          (mapped.tipo_mensaje === "image" ||
+            mapped.tipo_mensaje === "video" ||
+            mapped.tipo_mensaje === "audio") &&
+          !mapped.ruta_archivo
+        ) {
+          const a0 = message.attachments[0];
+          mapped.ruta_archivo =
+            a0?.payload?.url || a0?.payload?.preview_url || a0?.url || null;
+        }
+      }
+
+      if (
         selectedChat?.source === "ig" &&
         Number(selectedChat.id) === Number(conversation_id)
       ) {
         setMensajesOrdenados((prev) => {
           const merged = upsertMsg(prev, mapped);
-          // Limpieza defensiva: si existe un mensaje real con mid, borra el tmp con ese client_tmp_id
           if (mapped.mid) {
             const midStr = String(mapped.mid);
             const hasRealWithMid = merged.some(
@@ -2979,7 +3147,6 @@ const Chat = () => {
         });
       }
 
-      // actualizar fila del sidebar
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
