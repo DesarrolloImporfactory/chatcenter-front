@@ -111,7 +111,44 @@ function upsertMsg(list, raw) {
     client_tmp_id: norm(raw.client_tmp_id),
   };
 
-  // A) Reemplazar optimista por client_tmp_id
+  const keep = (v) =>
+    v !== null &&
+    v !== undefined &&
+    !(typeof v === "string" && v.trim() === "");
+
+  const mergePref = (oldMsg, newMsg) => {
+    const merged = { ...oldMsg, ...newMsg };
+
+    // ► No pisar con vacío
+    merged.responsable = keep(newMsg.responsable)
+      ? newMsg.responsable
+      : oldMsg.responsable;
+
+    merged.texto_mensaje = keep(newMsg.texto_mensaje)
+      ? newMsg.texto_mensaje
+      : oldMsg.texto_mensaje;
+
+    merged.tipo_mensaje = keep(newMsg.tipo_mensaje)
+      ? newMsg.tipo_mensaje
+      : oldMsg.tipo_mensaje;
+
+    // archivos: si viene null/undefined no borres lo que ya tenías
+    if (newMsg.ruta_archivo === undefined || newMsg.ruta_archivo === null) {
+      merged.ruta_archivo = oldMsg.ruta_archivo;
+    }
+
+    // conservar created_at si el nuevo viene vacío
+    merged.created_at = keep(newMsg.created_at)
+      ? newMsg.created_at
+      : oldMsg.created_at;
+
+    // limpia el tmp al consolidar
+    merged.client_tmp_id = null;
+
+    return merged;
+  };
+
+  // A) por client_tmp_id
   if (msg.client_tmp_id) {
     const i = list.findIndex(
       (x) =>
@@ -120,34 +157,34 @@ function upsertMsg(list, raw) {
     );
     if (i !== -1) {
       const copy = [...list];
-      copy[i] = { ...copy[i], ...msg, client_tmp_id: null };
+      copy[i] = mergePref(copy[i], msg);
       return copy;
     }
   }
 
-  // B) Reconciliar por mid
+  // B) por mid
   if (msg.mid) {
     const j = list.findIndex(
       (x) => norm(x.mid) === msg.mid || norm(x.mid_mensaje) === msg.mid
     );
     if (j !== -1) {
       const copy = [...list];
-      copy[j] = { ...copy[j], ...msg };
+      copy[j] = mergePref(copy[j], msg);
       return copy;
     }
   }
 
-  // C) Reconciliar por id
+  // C) por id
   if (msg.id) {
     const k = list.findIndex((x) => norm(x.id) === msg.id);
     if (k !== -1) {
       const copy = [...list];
-      copy[k] = { ...copy[k], ...msg };
+      copy[k] = mergePref(copy[k], msg);
       return copy;
     }
   }
 
-  // D) Insertar nuevo
+  // D) insertar
   return [...list, msg];
 }
 
