@@ -4,6 +4,116 @@ import ImageWithModal from "./modales/ImageWithModal";
 import EmojiPicker from "emoji-picker-react";
 import chatApi from "../../api/chatcenter";
 
+/* === Player estilo WhatsApp (sin autoplay) === */
+function WaAudioPlayer({ src }) {
+  const audioRef = useRef(null);
+  const [duration, setDuration] = useState(0);
+  const [current, setCurrent] = useState(0);
+  const [playing, setPlaying] = useState(false);
+
+  // normaliza ruta
+  const realSrc = /^https?:\/\//.test(src) ? src : `https://new.imporsuitpro.com/${src}`;
+
+  const fmt = (t) => {
+    if (!isFinite(t)) return "0:00";
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const onLoaded = () => setDuration(a.duration || 0);
+    const onTime = () => setCurrent(a.currentTime || 0);
+    const onEnd = () => setPlaying(false);
+
+    a.addEventListener("loadedmetadata", onLoaded);
+    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("ended", onEnd);
+    return () => {
+      a.removeEventListener("loadedmetadata", onLoaded);
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("ended", onEnd);
+    };
+  }, []);
+
+  const progress = duration ? Math.min(100, (current / duration) * 100) : 0;
+
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) {
+      a.pause();
+      setPlaying(false);
+    } else {
+      a.play().then(() => setPlaying(true)).catch(() => {});
+    }
+  };
+
+  const seek = (e) => {
+    const bar = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - bar.left) / bar.width));
+    const a = audioRef.current;
+    if (!a || !duration) return;
+    a.currentTime = ratio * duration;
+    setCurrent(a.currentTime);
+  };
+
+  return (
+    <div className="inline-block">
+      <div className="w-[250px] sm:w-[300px] rounded-xl bg-white/90 p-2">
+        <div className="flex items-center gap-3">
+          {/* Botón circular */}
+          <button
+            type="button"
+            onClick={toggle}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#25D366] text-white shadow hover:brightness-95 transition active:scale-95"
+            aria-label={playing ? "Pausar" : "Reproducir"}
+          >
+            {playing ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+                <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z"></path>
+              </svg>
+            )}
+          </button>
+
+          {/* Barra de progreso */}
+          <div className="flex-1">
+            <div
+              className="relative h-2 rounded-full bg-slate-200 cursor-pointer"
+              onClick={seek}
+              title="Buscar"
+            >
+              <div
+                className="absolute left-0 top-0 h-2 rounded-full bg-[#cfead8]"
+                style={{ width: `${progress}%` }}
+              />
+              <div
+                className="absolute -top-[6px] h-4 w-4 rounded-full bg-[#25D366] shadow"
+                style={{ left: `calc(${progress}% - 8px)` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Tiempos */}
+        <div className="mt-2 flex items-center justify-between text-[12px] text-slate-600">
+          <span>{fmt(current)}</span>
+          <span>{fmt(duration)}</span>
+        </div>
+      </div>
+
+      <audio ref={audioRef} src={realSrc} preload="metadata" />
+    </div>
+  );
+}
+
 const ChatPrincipal = ({
   mensajesOrdenados,
   opciones,
@@ -902,8 +1012,8 @@ const ChatPrincipal = ({
                               )}
                             </p>
                           ) : mensaje.tipo_mensaje === "audio" ? (
-                            /* Tipo: AUDIO */
-                            <CustomAudioPlayer src={mensaje.ruta_archivo} />
+                            /* Tipo: AUDIO — Player estilo WhatsApp */
+                            <WaAudioPlayer src={mensaje.ruta_archivo} />
                           ) : mensaje.tipo_mensaje === "image" ? (
                             /* Tipo: IMAGEN (WA y MS con el mismo componente) */
                             <ImageWithModal mensaje={mensaje} />
@@ -1171,8 +1281,7 @@ const ChatPrincipal = ({
                         Meta
                         {selectedChat?.source === "ig"
                           ? " (Instagram)"
-                          : " (Messenger)"}
-                        .
+                          : " (Messenger)"}.
                       </p>
                       <button
                         className="text-blue-700/70 hover:text-blue-900"

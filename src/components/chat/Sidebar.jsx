@@ -132,7 +132,7 @@ function inferirTipoContenido(m) {
 
   return base; // text o template
 }
-function PreviewAudioPlayer({ src, autoTrigger, isOpen }) {
+function PreviewAudioPlayer({ src /* , autoTrigger, isOpen */ }) {
   const audioRef = useRef(null);
   const wrapperRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -169,60 +169,16 @@ function PreviewAudioPlayer({ src, autoTrigger, isOpen }) {
     return () => document.removeEventListener(BUS, handler);
   }, []);
 
-  // reproduce de forma robusta + avisa al resto que se paren
-  const safePlay = (audio) => {
-    if (!audio) return;
-    // anuncio: “paren todos menos yo”
-    document.dispatchEvent(new CustomEvent(BUS, { detail: { from: myId.current } }));
-
-    try { audio.muted = false; } catch {}
-    audio.autoplay = true;
-
-    const play = () => {
-      const p = audio.play?.();
-      p?.catch?.(() => {
-        // desbloqueo por interacción dentro del player
-        const unlock = () => {
-          audio.play().finally(() => {
-            wrapperRef.current?.removeEventListener("pointerdown", unlock, true);
-            wrapperRef.current?.removeEventListener("pointerenter", unlock, true);
-          });
-        };
-        wrapperRef.current?.addEventListener("pointerdown", unlock, true);
-        wrapperRef.current?.addEventListener("pointerenter", unlock, true);
-      });
-    };
-
-    if (audio.readyState >= 2) play();
-    else {
-      const onCanPlay = () => { audio.removeEventListener("canplay", onCanPlay); play(); };
-      audio.addEventListener("canplay", onCanPlay, { once: true });
-      try { audio.load(); } catch {}
-      setTimeout(play, 250);
-    }
-  };
-
-  // autoplay cuando cambia el src (hover nuevo) Y cuando la preview está abierta
+  // ⛔️ QUITAR AUTOPLAY: NO reproducir en efectos ni al cambiar src
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
+    // al cambiar de src, dejar listo pero sin reproducir
     try { a.pause(); a.currentTime = 0; } catch {}
-    if (isOpen) {
-      safePlay(a);
-      setPlaying(true);
-    }
-    return () => { if (a) pauseAndReset(a); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoTrigger, src, isOpen]);
+    setPlaying(false);
+  }, [src]);
 
-  // si la preview se cierra, detengo y reseteo
-  useEffect(() => {
-    if (!isOpen) {
-      const a = audioRef.current;
-      if (a) pauseAndReset(a);
-    }
-  }, [isOpen]);
-
+  // eventos nativos
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -243,11 +199,23 @@ function PreviewAudioPlayer({ src, autoTrigger, isOpen }) {
     };
   }, []);
 
+  // Reproducir solo al click
   const toggle = () => {
     const a = audioRef.current;
     if (!a) return;
-    if (a.paused) safePlay(a);
-    else a.pause();
+
+    if (a.paused) {
+      // anuncio: “paren todos menos yo”
+      document.dispatchEvent(new CustomEvent(BUS, { detail: { from: myId.current } }));
+      try { a.muted = false; } catch {}
+      // no tocar a.autoplay; reproducir por interacción del usuario
+      const p = a.play?.();
+      p?.catch?.(() => {
+        // Si algo falla, no forzamos nada: el usuario ya interactuó.
+      });
+    } else {
+      a.pause();
+    }
   };
 
   const onSeek = (e) => {
@@ -300,6 +268,7 @@ function PreviewAudioPlayer({ src, autoTrigger, isOpen }) {
     </div>
   );
 }
+
 
 
 
@@ -383,7 +352,7 @@ function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor, isO
       <div>
         <Quote />
         {/* Reproductor de preview con autoplay visible */}
-        <PreviewAudioPlayer src={src} autoTrigger={Date.now()} isOpen={isOpen} />
+        <PreviewAudioPlayer src={src} />
       </div>
     );
   }
@@ -636,7 +605,19 @@ function HoverPreviewPortal({
       if (!containerRef.current) return;
       if (!containerRef.current.contains(e.target) && !anchorRef?.current?.contains(e.target)) onForceClose?.();
     };
-    const onWheel = () => onForceClose?.();
+    // Solo cerrar si la rueda ocurre fuera del preview (o del anchor)
+    const onWheel = (e) => {
+      const root = containerRef.current;
+      const anchor = anchorRef?.current;
+      const target = e.target;
+      if (!root) return;
+
+      const insidePreview = root.contains(target);
+      const insideAnchor  = anchor ? anchor.contains(target) : false;
+
+      if (!insidePreview && !insideAnchor) onForceClose?.();
+    };
+
 
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown, true);
@@ -663,6 +644,7 @@ function HoverPreviewPortal({
     <div
       style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width }}
       ref={containerRef}
+      data-hover-preview-root // ⬅️ clave para el closest() del paso 1
       onPointerEnter={() => { insideRef.current = true; clearTimeout(leaveTimer.current); }}
       onPointerLeave={() => { insideRef.current = false; scheduleMaybeClose(); }}
     >
@@ -723,10 +705,29 @@ function MessageItem({
   const [previewOpen, setPreviewOpen] = useState(false);
   const liRef = useRef(null);
   const [imgError, setImgError] = useState(false);
+  const leaveTimerRef = useRef(null);
 
   // Eventos hover determinísticos
-  const handleEnter = () => setPreviewOpen(true);
-  const handleLeave = () => setPreviewOpen(false);
+  const handleEnter = () => {
+    cancelLeaveTimer();
+    setPreviewOpen(true);
+  };
+  const handleLeave = (e) => {
+    cancelLeaveTimer();
+
+    // 1) si el mouse entra al portal (preview), NO cierres
+    const next = e?.relatedTarget;
+    if (next && next.closest && next.closest('[data-hover-preview-root]')) {
+      return; // el puntero va hacia el preview
+    }
+
+    // 2) fallback por si relatedTarget viene nulo (algunos iframes)
+    leaveTimerRef.current = setTimeout(() => {
+      const el = document.elementFromPoint?.(e.clientX, e.clientY);
+      if (el && el.closest && el.closest('[data-hover-preview-root]')) return;
+      setPreviewOpen(false);
+    }, 120); // pequeño margen para “túnel” mouse
+  };
 
   const nombre = acortarTexto(formatNombreCliente(mensaje?.nombre_cliente ?? ""), 10, 25);
   const numero = getIdLabel(mensaje);
@@ -751,6 +752,13 @@ function MessageItem({
     chatTemporales
   );
 
+  const cancelLeaveTimer = () => {
+  if (leaveTimerRef.current) {
+    clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = null;
+  }
+};
+
   // Ruta normalizada para media
   const rawRuta = mensaje?.ruta_archivo || "";
   const rutaMedia = (() => {
@@ -774,9 +782,9 @@ function MessageItem({
         seleccionado ? "bg-slate-50 cursor-default" : "hover:bg-slate-50 hover:shadow-xs"
       ].join(" ")}
       onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
-      onClick={() => { if (!seleccionado && typeof onClick === "function") onClick(); }}
+      onMouseLeave={handleLeave}  // ⬅️ actualizado
     >
+
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-0 ring-slate-900/0 transition-all duration-150 group-hover:ring-4 group-hover:ring-slate-900/5" />
 
       {/* Preview lateral */}
