@@ -26,6 +26,7 @@ import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
+import AdministradorCanales from "./pages/administradorcanales/AdministradorCanales";
 import Asistentes from "./pages/asistentes/Asistentes";
 import Vinculaciones from "./pages/vinculaciones/Vinculaciones";
 import Conexiones from "./pages/conexiones/Conexiones";
@@ -131,6 +132,16 @@ function App() {
             element={
               <MainLayout>
                 <AdministradorPlantillas2 />
+              </MainLayout>
+            }
+          />
+
+          {/*administrador-pruebas se renombra y pasa a produccion*/}
+          <Route
+            path="/administrador-canales"
+            element={
+              <MainLayout>
+                <AdministradorCanales />
               </MainLayout>
             }
           />
