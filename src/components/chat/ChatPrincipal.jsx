@@ -4,12 +4,16 @@ import ImageWithModal from "./modales/ImageWithModal";
 import EmojiPicker from "emoji-picker-react";
 import chatApi from "../../api/chatcenter";
 
-/* === Player estilo WhatsApp (sin autoplay) === */
+/* === Player estilo WhatsApp (sin autoplay) + velocidades 1x / 1.5x / 2x === */
 function WaAudioPlayer({ src }) {
   const audioRef = useRef(null);
   const [duration, setDuration] = useState(0);
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
+
+  // velocidades disponibles
+  const SPEEDS = [1, 1.5, 2];
+  const [speedIdx, setSpeedIdx] = useState(0);
 
   // normaliza ruta
   const realSrc = /^https?:\/\//.test(src) ? src : `https://new.imporsuitpro.com/${src}`;
@@ -24,6 +28,10 @@ function WaAudioPlayer({ src }) {
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
+
+    // aplicar velocidad inicial y al cambiar de src
+    a.playbackRate = SPEEDS[speedIdx];
+
     const onLoaded = () => setDuration(a.duration || 0);
     const onTime = () => setCurrent(a.currentTime || 0);
     const onEnd = () => setPlaying(false);
@@ -36,7 +44,15 @@ function WaAudioPlayer({ src }) {
       a.removeEventListener("timeupdate", onTime);
       a.removeEventListener("ended", onEnd);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]); // cuando cambia el audio, reconfigura listeners y velocidad
+
+  // aplica la velocidad cuando el usuario la cambia
+  useEffect(() => {
+    const a = audioRef.current;
+    if (a) a.playbackRate = SPEEDS[speedIdx];
+    // no iniciar reproducción (sin autoplay)
+  }, [speedIdx]);
 
   const progress = duration ? Math.min(100, (current / duration) * 100) : 0;
 
@@ -60,11 +76,15 @@ function WaAudioPlayer({ src }) {
     setCurrent(a.currentTime);
   };
 
+  const cycleSpeed = () => {
+    setSpeedIdx((idx) => (idx + 1) % SPEEDS.length);
+  };
+
   return (
     <div className="inline-block">
       <div className="w-[250px] sm:w-[300px] rounded-xl bg-white/90 p-2">
         <div className="flex items-center gap-3">
-          {/* Botón circular */}
+          {/* Botón circular play/pause */}
           <button
             type="button"
             onClick={toggle}
@@ -100,6 +120,16 @@ function WaAudioPlayer({ src }) {
               />
             </div>
           </div>
+
+          {/* Botón de velocidad (1x / 1.5x / 2x) */}
+          <button
+            type="button"
+            onClick={cycleSpeed}
+            className="ml-2 min-w-[44px] px-2 py-1 rounded-md bg-slate-100 text-slate-800 text-[12px] font-bold hover:bg-slate-200 active:scale-95 transition"
+            title="Cambiar velocidad"
+          >
+            {SPEEDS[speedIdx]}x
+          </button>
         </div>
 
         {/* Tiempos */}

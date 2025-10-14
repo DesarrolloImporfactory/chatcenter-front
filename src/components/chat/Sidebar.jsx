@@ -783,6 +783,7 @@ function MessageItem({
       ].join(" ")}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}  // ⬅️ actualizado
+      onClick={() => { if (!seleccionado && typeof onClick === "function") onClick(); }}
     >
 
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-0 ring-slate-900/0 transition-all duration-150 group-hover:ring-4 group-hover:ring-slate-900/5" />
