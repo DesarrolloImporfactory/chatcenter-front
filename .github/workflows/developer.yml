@@ -1,4 +1,4 @@
-name: Deploy React In Nginx
+name: Deploy React developer
 
 on:
   push:
