@@ -450,30 +450,6 @@ function PreviewContent({
 
   // ---- RAMAS ----
 
-  // UNSUPPORTED (IG)
-  if (tipo === "unsupported") {
-    return (
-      <div>
-        <Quote />
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[13px] text-slate-700">
-          <div className="flex items-start gap-2">
-            <i className="bx bx-paperclip text-xl text-slate-500 mt-0.5" />
-            <div className="space-y-1.5">
-              <div className="font-semibold text-slate-800">
-                Adjunto no soportado por Instagram
-              </div>
-              <div>
-                Este tipo de archivo no puede verse directamente aquí. Pídale al
-                cliente que lo reenvíe como <b>archivo</b> o ábralo desde la
-                bandeja de la página de Instagram/Messenger.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // AUDIO
   if (tipo === "audio") {
     const src = rutaRaw || ruta;

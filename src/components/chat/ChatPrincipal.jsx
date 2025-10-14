@@ -15,7 +15,9 @@ function WaAudioPlayer({ src }) {
   const [speedIdx, setSpeedIdx] = useState(0);
 
   // normaliza ruta
-  const realSrc = /^https?:\/\//.test(src) ? src : `https://new.imporsuitpro.com/${src}`;
+  const realSrc = /^https?:\/\//.test(src)
+    ? src
+    : `https://new.imporsuitpro.com/${src}`;
 
   const fmt = (t) => {
     if (!isFinite(t)) return "0:00";
@@ -61,7 +63,9 @@ function WaAudioPlayer({ src }) {
       a.pause();
       setPlaying(false);
     } else {
-      a.play().then(() => setPlaying(true)).catch(() => {});
+      a.play()
+        .then(() => setPlaying(true))
+        .catch(() => {});
     }
   };
 
@@ -91,12 +95,22 @@ function WaAudioPlayer({ src }) {
             aria-label={playing ? "Pausar" : "Reproducir"}
           >
             {playing ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
                 <rect x="6" y="5" width="4" height="14" rx="1"></rect>
                 <rect x="14" y="5" width="4" height="14" rx="1"></rect>
               </svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
                 <path d="M8 5v14l11-7z"></path>
               </svg>
             )}
@@ -143,9 +157,18 @@ function WaAudioPlayer({ src }) {
   );
 }
 
+// Texto legible del canal para mensajes no soportados
+function platformLabel(source) {
+  if (source === "ms") return "Messenger";
+  if (source === "ig") return "Instagram";
+  return "WhatsApp";
+}
+
 /* ——— Video Player premium (contenedor 16:9, responsivo) ——— */
 function PremiumVideoPlayer({ src }) {
-  const realSrc = /^https?:\/\//.test(src) ? src : `https://new.imporsuitpro.com/${src}`;
+  const realSrc = /^https?:\/\//.test(src)
+    ? src
+    : `https://new.imporsuitpro.com/${src}`;
   return (
     <div className="w-full max-w-[460px]">
       <div className="relative w-full rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/10 bg-black">
@@ -286,7 +309,12 @@ const ChatPrincipal = ({
     }
   };
 
-  const reenviarImage = async (texto_mensaje, ruta_archivo, id_wamid_mensaje, id) => {
+  const reenviarImage = async (
+    texto_mensaje,
+    ruta_archivo,
+    id_wamid_mensaje,
+    id
+  ) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
@@ -302,7 +330,10 @@ const ChatPrincipal = ({
       },
     };
 
-    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
 
     try {
       const response = await fetch(apiUrl, {
@@ -340,7 +371,10 @@ const ChatPrincipal = ({
       audio: { link: "https://new.imporsuitpro.com/" + ruta_archivo },
     };
 
-    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
 
     try {
       const response = await fetch(apiUrl, {
@@ -365,7 +399,12 @@ const ChatPrincipal = ({
     }
   };
 
-  const reenviarVideo = async (texto_mensaje, ruta_archivo, id_wamid_mensaje, id) => {
+  const reenviarVideo = async (
+    texto_mensaje,
+    ruta_archivo,
+    id_wamid_mensaje,
+    id
+  ) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
@@ -381,7 +420,10 @@ const ChatPrincipal = ({
       },
     };
 
-    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
 
     try {
       const response = await fetch(apiUrl, {
@@ -406,7 +448,12 @@ const ChatPrincipal = ({
     }
   };
 
-  const reenviarDocumento = async (ruta_archivo, texto_mensaje, id_wamid_mensaje, id) => {
+  const reenviarDocumento = async (
+    ruta_archivo,
+    texto_mensaje,
+    id_wamid_mensaje,
+    id
+  ) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
@@ -434,7 +481,10 @@ const ChatPrincipal = ({
       },
     };
 
-    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
 
     try {
       const response = await fetch(apiUrl, {
@@ -472,7 +522,10 @@ const ChatPrincipal = ({
       text: { body: texto_mensaje },
     };
 
-    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
 
     try {
       const response = await fetch(apiUrl, {
@@ -511,7 +564,9 @@ const ChatPrincipal = ({
     const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
 
     const datos = JSON.parse(ruta_archivo);
-    const placeholders = [...texto_mensaje.matchAll(/{{(.*?)}}/g)].map((m) => m[1]);
+    const placeholders = [...texto_mensaje.matchAll(/{{(.*?)}}/g)].map(
+      (m) => m[1]
+    );
     const parametros = placeholders.map((clave) => ({
       type: "text",
       text: datos[clave] ?? "",
@@ -528,7 +583,10 @@ const ChatPrincipal = ({
       },
     };
 
-    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
 
     try {
       const response = await fetch(apiUrl, {
@@ -570,16 +628,31 @@ const ChatPrincipal = ({
           await reenviarTexto(texto_mensaje, id_wamid_mensaje, id);
           break;
         case "document":
-          await reenviarDocumento(ruta_archivo, texto_mensaje, id_wamid_mensaje, id);
+          await reenviarDocumento(
+            ruta_archivo,
+            texto_mensaje,
+            id_wamid_mensaje,
+            id
+          );
           break;
         case "video":
-          await reenviarVideo(texto_mensaje, ruta_archivo, id_wamid_mensaje, id);
+          await reenviarVideo(
+            texto_mensaje,
+            ruta_archivo,
+            id_wamid_mensaje,
+            id
+          );
           break;
         case "audio":
           await reenviarAudio(ruta_archivo, id_wamid_mensaje, id);
           break;
         case "image":
-          await reenviarImage(texto_mensaje, ruta_archivo, id_wamid_mensaje, id);
+          await reenviarImage(
+            texto_mensaje,
+            ruta_archivo,
+            id_wamid_mensaje,
+            id
+          );
           break;
         case "template":
           await reenviarTemplate(
@@ -605,7 +678,9 @@ const ChatPrincipal = ({
   useEffect(() => {
     if (mensajesOrdenados && mensajesOrdenados.length > 0) {
       // Filtrar los mensajes que tengan rol_mensaje === 0 (cliente)
-      const mensajesCliente = mensajesOrdenados.filter((mensaje) => mensaje.rol_mensaje === 0);
+      const mensajesCliente = mensajesOrdenados.filter(
+        (mensaje) => mensaje.rol_mensaje === 0
+      );
 
       if (mensajesCliente.length > 0) {
         setUltimoMensaje(mensajesCliente[mensajesCliente.length - 1]);
@@ -680,10 +755,13 @@ const ChatPrincipal = ({
     const form = new FormData();
     form.append("file", file); // nombre del campo esperado por tu uploader
 
-    const resp = await fetch("https://uploader.imporfactory.app/api/files/upload", {
-      method: "POST",
-      body: form,
-    });
+    const resp = await fetch(
+      "https://uploader.imporfactory.app/api/files/upload",
+      {
+        method: "POST",
+        body: form,
+      }
+    );
     const json = await resp.json();
     if (!json?.success) throw new Error("Error subiendo archivo");
     return json.data; // { url, fileName, size, mimeType, ... }
@@ -698,7 +776,8 @@ const ChatPrincipal = ({
         "tmp-file-" + Date.now() + "-" + Math.random().toString(16).slice(2);
       const created = new Date().toISOString();
 
-      const tipo = kind === "image" ? "image" : kind === "video" ? "video" : "document";
+      const tipo =
+        kind === "image" ? "image" : kind === "video" ? "video" : "document";
 
       const ruta_archivo =
         tipo === "document"
@@ -782,7 +861,11 @@ const ChatPrincipal = ({
   useEffect(() => {
     return () => {
       clearTimeout(typingTimerRef.current);
-      if (wasTypingRef.current && selectedChat?.source === "ig" && selectedChat?.id) {
+      if (
+        wasTypingRef.current &&
+        selectedChat?.source === "ig" &&
+        selectedChat?.id
+      ) {
         actions?.ig?.typing?.(selectedChat.id, false);
       }
       wasTypingRef.current = false;
@@ -791,7 +874,11 @@ const ChatPrincipal = ({
 
   /* === Hora HH:mm para mostrar en burbuja y fecha como tooltip === */
   const formatHora = (iso) =>
-    new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    new Date(iso).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
 
   /* === Formato de etiqueta de día para el divisor === */
   const formatDayLabel = (iso) =>
@@ -873,7 +960,9 @@ const ChatPrincipal = ({
                   const key =
                     mensaje.id ??
                     mensaje.mid_mensaje ??
-                    `${mensaje.created_at}-${(mensaje.texto_mensaje || "").slice(0, 16)}`;
+                    `${mensaje.created_at}-${(
+                      mensaje.texto_mensaje || ""
+                    ).slice(0, 16)}`;
 
                   const hasError = !!mensaje?.error_meta;
                   const errorText = hasError
@@ -916,7 +1005,11 @@ const ChatPrincipal = ({
                   items.push(
                     <div
                       key={key}
-                      className={`flex ${mensaje.rol_mensaje === 1 ? "justify-end" : "justify-start"}`}
+                      className={`flex ${
+                        mensaje.rol_mensaje === 1
+                          ? "justify-end"
+                          : "justify-start"
+                      }`}
                     >
                       {/* Botón a la IZQUIERDA cuando hay error */}
                       {hasError && (
@@ -952,12 +1045,17 @@ const ChatPrincipal = ({
                         {hasError && (
                           <div className="mb-2 -mt-1 -mx-1 px-1.5 py-0.5 text-[11px] leading-none flex items-center gap-1 text-red-600/90">
                             <span className="inline-block h-3 w-[3px] rounded bg-red-600/90" />
-                            <i className="bx bx-error-circle text-xs" aria-hidden="true" />
+                            <i
+                              className="bx bx-error-circle text-xs"
+                              aria-hidden="true"
+                            />
                             <span>Error al enviar: </span>
                             {mensaje.error_meta?.codigo_error && (
                               <span className="opacity-90">
                                 {(() => {
-                                  const code = String(mensaje.error_meta.codigo_error);
+                                  const code = String(
+                                    mensaje.error_meta.codigo_error
+                                  );
                                   const label = ERROR_MAP[code];
                                   return (
                                     <span className="opacity-90">
@@ -980,22 +1078,65 @@ const ChatPrincipal = ({
                         <span className="text-[15px] md:text-sm pb-2 inline-block">
                           {/* Tipo: TEXT / TEMPLATE */}
                           {mensaje.tipo_mensaje === "text" ? (
-                            mensaje.texto_mensaje.includes("{{") && mensaje.ruta_archivo ? (
+                            mensaje.texto_mensaje.includes("{{") &&
+                            mensaje.ruta_archivo ? (
                               <p>
-                                {mensaje.texto_mensaje.replace(/\{\{(.*?)\}\}/g, (match, key) => {
-                                  const valores = JSON.parse(mensaje.ruta_archivo);
-                                  return valores[key.trim()] || match;
-                                })}
+                                {mensaje.texto_mensaje.replace(
+                                  /\{\{(.*?)\}\}/g,
+                                  (match, key) => {
+                                    const valores = JSON.parse(
+                                      mensaje.ruta_archivo
+                                    );
+                                    return valores[key.trim()] || match;
+                                  }
+                                )}
                               </p>
                             ) : (
                               <p>{mensaje.texto_mensaje}</p>
                             )
+                          ) : mensaje.tipo_mensaje === "unsupported" ? (
+                            <div className="flex items-start gap-2">
+                              <span
+                                className={`inline-flex items-center justify-center
+                              h-6 w-6 rounded-full text-white
+                               ${
+                                 mensaje.rol_mensaje === 1
+                                   ? "bg-white/30"
+                                   : "bg-gray-400"
+                               }`}
+                                title="No soportado"
+                              >
+                                <i className="bx bx-block text-sm" />
+                              </span>
+                              <div>
+                                <p className="text-sm font-semibold">
+                                  Contenido no compatible en{" "}
+                                  {platformLabel(selectedChat?.source)}
+                                </p>
+                                <p className="text-xs opacity-80">
+                                  El adjunto que enviaron no puede mostrarse
+                                  aquí. Revisa la conversación desde la app
+                                  nativa.
+                                </p>
+                                {/* Si tu API mandó algún texto descriptivo, muéstralo como pista */}
+                                {mensaje.texto_mensaje ? (
+                                  <p className="text-xs mt-1 italic opacity-80">
+                                    {mensaje.texto_mensaje}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
                           ) : mensaje.tipo_mensaje === "template" ? (
                             <p>
-                              {mensaje.texto_mensaje.replace(/\{\{(.*?)\}\}/g, (match, key) => {
-                                const valores = JSON.parse(mensaje.ruta_archivo);
-                                return valores[key.trim()] || match;
-                              })}
+                              {mensaje.texto_mensaje.replace(
+                                /\{\{(.*?)\}\}/g,
+                                (match, key) => {
+                                  const valores = JSON.parse(
+                                    mensaje.ruta_archivo
+                                  );
+                                  return valores[key.trim()] || match;
+                                }
+                              )}
                             </p>
                           ) : mensaje.tipo_mensaje === "audio" ? (
                             <WaAudioPlayer src={mensaje.ruta_archivo} />
@@ -1028,7 +1169,9 @@ const ChatPrincipal = ({
                                 ""
                               )?.toUpperCase();
 
-                              const iconInfo = getFileIcon(meta.ruta?.split(".").pop() || "");
+                              const iconInfo = getFileIcon(
+                                meta.ruta?.split(".").pop() || ""
+                              );
 
                               return (
                                 <div className="p-2">
@@ -1039,7 +1182,9 @@ const ChatPrincipal = ({
                                     className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl shadow hover:bg-gray-100 transition-colors"
                                   >
                                     <span className="text-2xl">
-                                      <i className={`${iconInfo.icon} ${iconInfo.color}`}></i>
+                                      <i
+                                        className={`${iconInfo.icon} ${iconInfo.color}`}
+                                      ></i>
                                     </span>
                                     <div className="flex flex-col">
                                       <span className="font-semibold text-sm text-gray-800 truncate">
@@ -1048,8 +1193,14 @@ const ChatPrincipal = ({
                                       <div className="flex text-xs text-gray-500 space-x-1">
                                         <span>
                                           {meta.size > 1024 * 1024
-                                            ? `${(meta.size / 1024 / 1024).toFixed(2)} MB`
-                                            : `${(meta.size / 1024).toFixed(2)} KB`}
+                                            ? `${(
+                                                meta.size /
+                                                1024 /
+                                                1024
+                                              ).toFixed(2)} MB`
+                                            : `${(meta.size / 1024).toFixed(
+                                                2
+                                              )} KB`}
                                         </span>
                                         <span>•</span>
                                         <span>{ext}</span>
@@ -1060,7 +1211,9 @@ const ChatPrincipal = ({
                                     </span>
                                   </a>
                                   {mensaje.texto_mensaje ? (
-                                    <p className="pt-2">{mensaje.texto_mensaje}</p>
+                                    <p className="pt-2">
+                                      {mensaje.texto_mensaje}
+                                    </p>
                                   ) : null}
                                 </div>
                               );
@@ -1072,12 +1225,18 @@ const ChatPrincipal = ({
                           ) : mensaje.tipo_mensaje === "location" ? (
                             (() => {
                               try {
-                                const locationData = JSON.parse(mensaje.texto_mensaje);
+                                const locationData = JSON.parse(
+                                  mensaje.texto_mensaje
+                                );
 
                                 // Usamos 'longitude' si existe, si no, usamos 'longitud'
-                                let { latitude, longitude, longitud } = locationData;
+                                let { latitude, longitude, longitud } =
+                                  locationData;
 
-                                if (longitude === undefined && longitud !== undefined) {
+                                if (
+                                  longitude === undefined &&
+                                  longitud !== undefined
+                                ) {
                                   longitude = longitud;
                                 }
 
@@ -1103,7 +1262,10 @@ const ChatPrincipal = ({
                                   </div>
                                 );
                               } catch (error) {
-                                console.error("Error al parsear la ubicación:", error);
+                                console.error(
+                                  "Error al parsear la ubicación:",
+                                  error
+                                );
                                 return <p>Error al mostrar la ubicación.</p>;
                               }
                             })()
@@ -1117,7 +1279,8 @@ const ChatPrincipal = ({
                               src={
                                 /^https?:\/\//.test(mensaje.ruta_archivo)
                                   ? mensaje.ruta_archivo
-                                  : "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
+                                  : "https://new.imporsuitpro.com/" +
+                                    mensaje.ruta_archivo
                               }
                               alt="Sticker"
                             />
@@ -1158,7 +1321,8 @@ const ChatPrincipal = ({
                 if (!refDateISO) return null;
 
                 const diffHrs =
-                  (Date.now() - new Date(refDateISO).getTime()) / (1000 * 60 * 60);
+                  (Date.now() - new Date(refDateISO).getTime()) /
+                  (1000 * 60 * 60);
 
                 if (diffHrs <= 24) return null;
 
@@ -1169,7 +1333,8 @@ const ChatPrincipal = ({
                       <div className="flex items-start gap-3">
                         <p className="text-sm text-yellow-700 flex-1">
                           <strong>Atención: </strong>Han pasado más de 24 horas.
-                          En WhatsApp API necesitas responder con una <b>plantilla</b>.
+                          En WhatsApp API necesitas responder con una{" "}
+                          <b>plantilla</b>.
                         </p>
                         <button
                           className="text-yellow-700/70 hover:text-yellow-900"
@@ -1219,10 +1384,12 @@ const ChatPrincipal = ({
                     <div className="flex items-start gap-3">
                       <p className="text-sm text-blue-800 flex-1">
                         Han pasado más de 24 horas. Al enviar, usaré la etiqueta{" "}
-                        <b>HUMAN_AGENT</b> o el mensaje fallará por políticas de Meta
+                        <b>HUMAN_AGENT</b> o el mensaje fallará por políticas de
+                        Meta
                         {selectedChat?.source === "ig"
                           ? " (Instagram)"
-                          : " (Messenger)"}.
+                          : " (Messenger)"}
+                        .
                       </p>
                       <button
                         className="text-blue-700/70 hover:text-blue-900"
@@ -1266,7 +1433,10 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (selectedChat?.source === "ms" || selectedChat?.source === "ig") {
+                        if (
+                          selectedChat?.source === "ms" ||
+                          selectedChat?.source === "ig"
+                        ) {
                           setIsMenuOpen(false);
                           imageInputRef.current?.click();
                         } else {
@@ -1279,7 +1449,10 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (selectedChat?.source === "ms" || selectedChat?.source === "ig") {
+                        if (
+                          selectedChat?.source === "ms" ||
+                          selectedChat?.source === "ig"
+                        ) {
                           setIsMenuOpen(false);
                           videoInputRef.current?.click();
                         } else {
@@ -1292,7 +1465,10 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (selectedChat?.source === "ms" || selectedChat?.source === "ig") {
+                        if (
+                          selectedChat?.source === "ms" ||
+                          selectedChat?.source === "ig"
+                        ) {
                           setIsMenuOpen(false);
                           fileInputRef.current?.click();
                         } else {
@@ -1313,7 +1489,8 @@ const ChatPrincipal = ({
                 accept="image/*"
                 className="hidden"
                 onChange={(e) =>
-                  e.target.files?.[0] && handleFilePicked("image", e.target.files[0])
+                  e.target.files?.[0] &&
+                  handleFilePicked("image", e.target.files[0])
                 }
               />
               <input
@@ -1322,7 +1499,8 @@ const ChatPrincipal = ({
                 accept="video/*"
                 className="hidden"
                 onChange={(e) =>
-                  e.target.files?.[0] && handleFilePicked("video", e.target.files[0])
+                  e.target.files?.[0] &&
+                  handleFilePicked("video", e.target.files[0])
                 }
               />
               <input
@@ -1330,7 +1508,8 @@ const ChatPrincipal = ({
                 type="file"
                 className="hidden"
                 onChange={(e) =>
-                  e.target.files?.[0] && handleFilePicked("document", e.target.files[0])
+                  e.target.files?.[0] &&
+                  handleFilePicked("document", e.target.files[0])
                 }
               />
 
