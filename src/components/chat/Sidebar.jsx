@@ -7,9 +7,18 @@ import ImageWithModal from "./modales/ImageWithModal";
 
 /* ===================== Estilos de canal ===================== */
 const CHANNEL_STYLES = {
-  wa: { icon: "bx bxl-whatsapp", cls: "bg-green-50 text-green-700 border border-green-200" },
-  ms: { icon: "bx bxl-messenger", cls: "bg-blue-50 text-blue-700 border border-blue-200" },
-  ig: { icon: "bx bxl-instagram", cls: "bg-red-50 text-red-700 border border-red-200" }
+  wa: {
+    icon: "bx bxl-whatsapp",
+    cls: "bg-green-50 text-green-700 border border-green-200",
+  },
+  ms: {
+    icon: "bx bxl-messenger",
+    cls: "bg-blue-50 text-blue-700 border border-blue-200",
+  },
+  ig: {
+    icon: "bx bxl-instagram",
+    cls: "bg-red-50 text-red-700 border border-red-200",
+  },
 };
 
 /* Normalizador de canal: wa|ms|ig o null (acepta alias comunes) */
@@ -17,7 +26,8 @@ function getChannelKey(value) {
   if (value === null || value === undefined) return null;
   const s = String(value).trim().toLowerCase();
   if (["wa", "whatsapp", "wsp", "wp"].includes(s)) return "wa";
-  if (["ms", "messenger", "fb", "facebook", "facebook messenger"].includes(s)) return "ms";
+  if (["ms", "messenger", "fb", "facebook", "facebook messenger"].includes(s))
+    return "ms";
   if (["ig", "instagram", "insta"].includes(s)) return "ig";
   return null;
 }
@@ -44,7 +54,9 @@ function PillEstado({ texto, colorClass }) {
       className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-[3px] text-[10px] font-semibold uppercase tracking-wide text-slate-700 transition-colors duration-200"
       title={`Estado: ${texto}`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${colorClass || "bg-slate-400"}`} />
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${colorClass || "bg-slate-400"}`}
+      />
       {texto}
     </span>
   );
@@ -57,17 +69,43 @@ function expandirTemplate(texto = "", ruta_archivo, limite = 90) {
   if (texto.includes("{{") && ruta_archivo) {
     try {
       const valores = JSON.parse(ruta_archivo);
-      out = texto.replace(/\{\{(.*?)\}\}/g, (m, key) => valores[key.trim()] ?? m);
-    } catch { /* ignore */ }
+      out = texto.replace(
+        /\{\{(.*?)\}\}/g,
+        (m, key) => valores[key.trim()] ?? m
+      );
+    } catch {
+      /* ignore */
+    }
   }
   return out.length > limite ? `${out.substring(0, limite)}…` : out;
 }
 
 const normalizeSpaces = (s = "") => String(s).replace(/\s+/g, " ").trim();
 const toTitleCaseEs = (str = "") => {
-  const ex = new Set(["de","del","la","las","el","los","y","e","o","u","en","al","a","con","por","para"]);
+  const ex = new Set([
+    "de",
+    "del",
+    "la",
+    "las",
+    "el",
+    "los",
+    "y",
+    "e",
+    "o",
+    "u",
+    "en",
+    "al",
+    "a",
+    "con",
+    "por",
+    "para",
+  ]);
   const words = str.toLowerCase().split(" ");
-  return words.map((w, i) => (i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
+  return words
+    .map((w, i) =>
+      i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)
+    )
+    .join(" ");
 };
 const formatNombreCliente = (nombre = "") => {
   const s = normalizeSpaces(nombre);
@@ -76,13 +114,31 @@ const formatNombreCliente = (nombre = "") => {
   return s;
 };
 const getIdLabel = (m) =>
-  (getChannelKey(m?.source) === "wa" ? (m?.celular_cliente || "") : (m?.username || formatNombreCliente(m?.nombre_cliente) || ""));
+  getChannelKey(m?.source) === "wa"
+    ? m?.celular_cliente || ""
+    : m?.username || formatNombreCliente(m?.nombre_cliente) || "";
 
 /* ===================== Heurísticas ===================== */
-const esMensajePropio = (m) => Boolean(m?.from_me ?? m?.es_propio ?? m?.yo ?? m?.is_from_me ?? (m?.rol_mensaje === 1));
+const esMensajePropio = (m) =>
+  Boolean(
+    m?.from_me ?? m?.es_propio ?? m?.yo ?? m?.is_from_me ?? m?.rol_mensaje === 1
+  );
 function extraerRespuesta(m) {
-  const ref = m?.reply_to_text ?? m?.reply_text ?? m?.respuesta_texto ?? m?.respuesta_a ?? m?.mensaje_referencia?.texto ?? m?.mensaje_referencia?.text ?? m?.referencia?.texto ?? null;
-  const autor = m?.reply_to_author ?? m?.respuesta_autor ?? m?.mensaje_referencia?.autor ?? m?.referencia?.autor ?? null;
+  const ref =
+    m?.reply_to_text ??
+    m?.reply_text ??
+    m?.respuesta_texto ??
+    m?.respuesta_a ??
+    m?.mensaje_referencia?.texto ??
+    m?.mensaje_referencia?.text ??
+    m?.referencia?.texto ??
+    null;
+  const autor =
+    m?.reply_to_author ??
+    m?.respuesta_autor ??
+    m?.mensaje_referencia?.autor ??
+    m?.referencia?.autor ??
+    null;
   return { ref, autor };
 }
 
@@ -90,11 +146,13 @@ function extraerRespuesta(m) {
 function normalizarTipoMensaje(rawTipo) {
   const t = String(rawTipo || "").toLowerCase();
   if (["voice", "ptt", "audio"].includes(t)) return "audio";
-  if (["photo", "image", "imagen", "picture", "pic"].includes(t)) return "image";
+  if (["photo", "image", "imagen", "picture", "pic"].includes(t))
+    return "image";
   if (["video", "mp4"].includes(t)) return "video";
   if (["sticker"].includes(t)) return "sticker";
   if (["document", "file", "archivo", "doc"].includes(t)) return "document";
-  if (["location", "ubicacion", "ubicación", "mapa", "gps"].includes(t)) return "location";
+  if (["location", "ubicacion", "ubicación", "mapa", "gps"].includes(t))
+    return "location";
   if (["template"].includes(t)) return "template";
   return "text";
 }
@@ -110,7 +168,9 @@ function esUbicacionJson(s) {
     const lat = j.latitude ?? j.lat;
     const lng = j.longitude ?? j.longitud ?? j.lng;
     return Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 function inferirTipoContenido(m) {
@@ -125,7 +185,12 @@ function inferirTipoContenido(m) {
   if (esUbicacionJson(texto)) return "location";
 
   // Audio por ruta, mime o texto típico (“Audio recibido…”)
-  if (AUDIO_EXT.test(ruta) || mime.startsWith("audio") || /audio recibido/i.test(texto)) return "audio";
+  if (
+    AUDIO_EXT.test(ruta) ||
+    mime.startsWith("audio") ||
+    /audio recibido/i.test(texto)
+  )
+    return "audio";
 
   // Imagen por ruta o mime
   if (IMAGE_EXT.test(ruta) || mime.startsWith("image")) return "image";
@@ -151,8 +216,12 @@ function PreviewAudioPlayer({ src /* , autoTrigger, isOpen */ }) {
   };
 
   const pauseAndReset = (a) => {
-    try { a.pause(); } catch {}
-    try { a.currentTime = 0; } catch {}
+    try {
+      a.pause();
+    } catch {}
+    try {
+      a.currentTime = 0;
+    } catch {}
     setPlaying(false);
   };
 
@@ -174,7 +243,10 @@ function PreviewAudioPlayer({ src /* , autoTrigger, isOpen */ }) {
     const a = audioRef.current;
     if (!a) return;
     // al cambiar de src, dejar listo pero sin reproducir
-    try { a.pause(); a.currentTime = 0; } catch {}
+    try {
+      a.pause();
+      a.currentTime = 0;
+    } catch {}
     setPlaying(false);
   }, [src]);
 
@@ -206,8 +278,12 @@ function PreviewAudioPlayer({ src /* , autoTrigger, isOpen */ }) {
 
     if (a.paused) {
       // anuncio: “paren todos menos yo”
-      document.dispatchEvent(new CustomEvent(BUS, { detail: { from: myId.current } }));
-      try { a.muted = false; } catch {}
+      document.dispatchEvent(
+        new CustomEvent(BUS, { detail: { from: myId.current } })
+      );
+      try {
+        a.muted = false;
+      } catch {}
       // no tocar a.autoplay; reproducir por interacción del usuario
       const p = a.play?.();
       p?.catch?.(() => {
@@ -235,8 +311,17 @@ function PreviewAudioPlayer({ src /* , autoTrigger, isOpen */ }) {
   };
 
   return (
-    <div ref={wrapperRef} className="rounded-xl border border-slate-200 bg-white/90 shadow-sm p-3">
-      <audio ref={audioRef} src={src} preload="auto" playsInline style={{ display: "none" }} />
+    <div
+      ref={wrapperRef}
+      className="rounded-xl border border-slate-200 bg-white/90 shadow-sm p-3"
+    >
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="auto"
+        playsInline
+        style={{ display: "none" }}
+      />
       <div className="flex items-center gap-3">
         <button
           onClick={toggle}
@@ -269,19 +354,44 @@ function PreviewAudioPlayer({ src /* , autoTrigger, isOpen */ }) {
   );
 }
 
-
-
-
-
 /* ===================== Renderizadores de contenido (Preview) ===================== */
-function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor, isOpen }) {
-  // Document meta (si aplica)
+function PreviewContent({
+  tipo,
+  texto,
+  ruta,
+  rutaRaw,
+  replyRef,
+  replyAuthor,
+  isOpen,
+}) {
+  // ---- helpers ----
   const parseDocMeta = (raw) => {
-    try { return JSON.parse(raw); }
-    catch { return { ruta: raw, nombre: "Documento", size: 0, mimeType: "" }; }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return { ruta: raw, nombre: "Documento", size: 0, mimeType: "" };
+    }
   };
 
-  /* === Ubicación con Google Maps Embed V1, como en ChatPrincipal.jsx === */
+  const Quote = () =>
+    replyRef ? (
+      <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white/90">
+        <div className="flex">
+          <div className="w-1.5 bg-slate-300/70" />
+          <div className="flex-1 p-3">
+            <div className="mb-1 text-[11px] font-semibold text-slate-600">
+              <i className="bx bx-reply text-[14px] align-[-1px]" />{" "}
+              Respondiendo a {replyAuthor || "mensaje"}
+            </div>
+            <div className="whitespace-pre-wrap break-words text-[13px] text-slate-700 line-clamp-6">
+              {replyRef}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  // ---- UBICACIÓN ----
   const renderLocation = () => {
     try {
       const json = JSON.parse(texto || "{}");
@@ -289,8 +399,15 @@ function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor, isO
       if (longitude === undefined && longitud !== undefined) {
         longitude = longitud;
       }
-      if (latitude === undefined || longitude === undefined) {
-        return <div className="text-[13px] text-slate-600">No se pudo leer la ubicación.</div>;
+      if (
+        !Number.isFinite(Number(latitude)) ||
+        !Number.isFinite(Number(longitude))
+      ) {
+        return (
+          <div className="text-[13px] text-slate-600">
+            No se pudo leer la ubicación.
+          </div>
+        );
       }
 
       const src = `https://www.google.com/maps/embed/v1/place?key=AIzaSyDGulcdBtz_Mydtmu432GtzJz82J_yb-rs&q=${latitude},${longitude}&zoom=15`;
@@ -323,78 +440,113 @@ function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor, isO
       );
     } catch (error) {
       console.error("Error al parsear la ubicación:", error);
-      return <div className="text-[13px] text-slate-600">Error al mostrar la ubicación.</div>;
+      return (
+        <div className="text-[13px] text-slate-600">
+          Error al mostrar la ubicación.
+        </div>
+      );
     }
   };
 
-  // Cita (si existe)
-  const Quote = () => (replyRef ? (
-    <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white/90">
-      <div className="flex">
-        <div className="w-1.5 bg-slate-300/70" />
-        <div className="flex-1 p-3">
-          <div className="mb-1 text-[11px] font-semibold text-slate-600">
-            <i className="bx bx-reply text-[14px] align-[-1px]" /> Respondiendo a {replyAuthor || "mensaje"}
-          </div>
-          <div className="whitespace-pre-wrap break-words text-[13px] text-slate-700 line-clamp-6">
-            {replyRef}
+  // ---- RAMAS ----
+
+  // UNSUPPORTED (IG)
+  if (tipo === "unsupported") {
+    return (
+      <div>
+        <Quote />
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[13px] text-slate-700">
+          <div className="flex items-start gap-2">
+            <i className="bx bx-paperclip text-xl text-slate-500 mt-0.5" />
+            <div className="space-y-1.5">
+              <div className="font-semibold text-slate-800">
+                Adjunto no soportado por Instagram
+              </div>
+              <div>
+                Este tipo de archivo no puede verse directamente aquí. Pídale al
+                cliente que lo reenvíe como <b>archivo</b> o ábralo desde la
+                bandeja de la página de Instagram/Messenger.
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  ) : null);
+    );
+  }
 
-  /* === AUDIO: usa CustomAudioPlayer como en ChatPrincipal.jsx === */
-  // dentro de PreviewContent(...)
+  // AUDIO
   if (tipo === "audio") {
     const src = rutaRaw || ruta;
     return (
       <div>
         <Quote />
-        {/* Reproductor de preview con autoplay visible */}
         <PreviewAudioPlayer src={src} />
       </div>
     );
   }
 
-
-
-  /* === IMAGEN (foto/sticker): mostrar la imagen directamente === */
+  // IMAGEN / STICKER
   if (tipo === "image" || tipo === "sticker") {
-    const src = ruta;
     return (
       <div>
         <Quote />
-        <img src={src} alt="Imagen" className="max-w-[480px] w-full h-auto rounded-xl border border-slate-200 shadow-sm" />
+        <img
+          src={ruta}
+          alt="Imagen"
+          className="max-w-[480px] w-full h-auto rounded-xl border border-slate-200 shadow-sm"
+        />
       </div>
     );
   }
 
-  /* === VIDEO === */
+  // VIDEO
   if (tipo === "video") {
-    const src = ruta;
     return (
       <div>
         <Quote />
-        <video controls className="w-full max-w-[480px] rounded-xl border border-slate-200 shadow-sm" src={src} />
+        <video
+          controls
+          className="w-full max-w-[480px] rounded-xl border border-slate-200 shadow-sm"
+          src={ruta}
+        />
       </div>
     );
   }
 
-  /* === DOCUMENTO === */
+  // DOCUMENTO
   if (tipo === "document") {
     const meta = parseDocMeta(ruta);
-    const href = /^https?:\/\//.test(meta.ruta) ? meta.ruta : `https://new.imporsuitpro.com/${meta.ruta || ""}`;
-    const sizeLabel = meta.size ? (meta.size > 1024 * 1024 ? `${(meta.size/1024/1024).toFixed(2)} MB` : `${(meta.size/1024).toFixed(0)} KB`) : "";
-    const ext = (meta.ruta?.split(".").pop() || meta.mimeType?.split("/").pop() || "").toUpperCase();
+    const href = /^https?:\/\//.test(meta.ruta)
+      ? meta.ruta
+      : `https://new.imporsuitpro.com/${meta.ruta || ""}`;
+    const sizeLabel = meta.size
+      ? meta.size > 1024 * 1024
+        ? `${(meta.size / 1024 / 1024).toFixed(2)} MB`
+        : `${(meta.size / 1024).toFixed(0)} KB`
+      : "";
+    const ext = (
+      meta.ruta?.split(".").pop() ||
+      meta.mimeType?.split("/").pop() ||
+      ""
+    ).toUpperCase();
+
     return (
       <div>
         <Quote />
-        <a className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white/80 shadow-sm hover:bg-slate-50 transition" href={href} target="_blank" rel="noreferrer">
+        <a
+          className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white/80 shadow-sm hover:bg-slate-50 transition"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+        >
           <i className="bx bxs-file-blank text-2xl text-slate-600" />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-semibold text-slate-800">{meta.nombre || "Documento"}</div>
-            <div className="text-[12px] text-slate-500">{[sizeLabel, ext].filter(Boolean).join(" • ")}</div>
+            <div className="truncate text-[13px] font-semibold text-slate-800">
+              {meta.nombre || "Documento"}
+            </div>
+            <div className="text-[12px] text-slate-500">
+              {[sizeLabel, ext].filter(Boolean).join(" • ")}
+            </div>
           </div>
           <i className="bx bx-download text-xl text-blue-600" />
         </a>
@@ -402,7 +554,7 @@ function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor, isO
     );
   }
 
-  /* === UBICACIÓN === */
+  // UBICACIÓN
   if (tipo === "location") {
     return (
       <div>
@@ -412,7 +564,7 @@ function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor, isO
     );
   }
 
-  /* === TEXTO / TEMPLATE === */
+  // TEXTO / TEMPLATE (render simple; si quieres expansión de {{}} hazlo fuera)
   return (
     <div>
       <Quote />
@@ -434,7 +586,7 @@ function HoverPreviewPortal({
   rutaRaw,
   isTemplate,
   replyRef,
-  replyAuthor
+  replyAuthor,
 }) {
   const [pos, setPos] = useState({ top: 0, left: 0, side: "right" });
   const [shown, setShown] = useState(false);
@@ -459,9 +611,12 @@ function HoverPreviewPortal({
     try {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
-      ctx.font = "15px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial";
+      ctx.font =
+        "15px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial";
       return Math.ceil(ctx.measureText(String(txt || "")).width);
-    } catch { return 360; }
+    } catch {
+      return 360;
+    }
   };
 
   const computeWidth = () => {
@@ -471,8 +626,10 @@ function HoverPreviewPortal({
 
     // Ancho base por tipo
     if (["audio"].includes(tipo)) return Math.max(min, Math.min(max, 420));
-    if (["video", "image", "sticker"].includes(tipo)) return Math.max(min, Math.min(max, 480));
-    if (["document", "location"].includes(tipo)) return Math.max(min, Math.min(max, 440));
+    if (["video", "image", "sticker"].includes(tipo))
+      return Math.max(min, Math.min(max, 480));
+    if (["document", "location"].includes(tipo))
+      return Math.max(min, Math.min(max, 440));
 
     // Texto/Template
     const lines = String(texto || "").split(/\r?\n/);
@@ -531,9 +688,15 @@ function HoverPreviewPortal({
     const tryPlayNow = (audio) => {
       if (!audio) return;
       // estado inicial “clean” en cada apertura
-      try { audio.pause(); } catch {}
-      try { audio.currentTime = 0; } catch {}
-      try { audio.muted = false; } catch {}
+      try {
+        audio.pause();
+      } catch {}
+      try {
+        audio.currentTime = 0;
+      } catch {}
+      try {
+        audio.muted = false;
+      } catch {}
       audio.autoplay = true;
 
       const doPlay = () => {
@@ -563,7 +726,9 @@ function HoverPreviewPortal({
           doPlay();
         };
         audio.addEventListener("canplay", onCanPlay, { once: true });
-        try { audio.load(); } catch {}
+        try {
+          audio.load();
+        } catch {}
         // segundo intento por si el evento no llega a tiempo
         retry = setTimeout(doPlay, 300);
       }
@@ -573,7 +738,7 @@ function HoverPreviewPortal({
     let tries = 0;
     poll = setInterval(() => {
       tries += 1;
-      const audio = root.querySelector('audio[data-preview-autoplay]');
+      const audio = root.querySelector("audio[data-preview-autoplay]");
       if (audio || tries > 20) {
         clearInterval(poll);
         poll = null;
@@ -585,16 +750,19 @@ function HoverPreviewPortal({
     return () => {
       if (poll) clearInterval(poll);
       if (retry) clearTimeout(retry);
-      const audio = root.querySelector('audio[data-preview-autoplay]');
+      const audio = root.querySelector("audio[data-preview-autoplay]");
       if (audio) {
-        try { audio.pause(); } catch {}
-        try { audio.currentTime = 0; } catch {}
+        try {
+          audio.pause();
+        } catch {}
+        try {
+          audio.currentTime = 0;
+        } catch {}
       }
       root.removeEventListener("pointerdown", () => {}, true);
       root.removeEventListener("pointerenter", () => {}, true);
     };
   }, [open, tipo]);
-
 
   // Cierres robustos
   useEffect(() => {
@@ -603,7 +771,11 @@ function HoverPreviewPortal({
     const onKey = (e) => e.key === "Escape" && onForceClose?.();
     const onDown = (e) => {
       if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target) && !anchorRef?.current?.contains(e.target)) onForceClose?.();
+      if (
+        !containerRef.current.contains(e.target) &&
+        !anchorRef?.current?.contains(e.target)
+      )
+        onForceClose?.();
     };
     // Solo cerrar si la rueda ocurre fuera del preview (o del anchor)
     const onWheel = (e) => {
@@ -613,11 +785,10 @@ function HoverPreviewPortal({
       if (!root) return;
 
       const insidePreview = root.contains(target);
-      const insideAnchor  = anchor ? anchor.contains(target) : false;
+      const insideAnchor = anchor ? anchor.contains(target) : false;
 
       if (!insidePreview && !insideAnchor) onForceClose?.();
     };
-
 
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown, true);
@@ -642,22 +813,42 @@ function HoverPreviewPortal({
 
   const bubble = (
     <div
-      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width }}
+      style={{
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        zIndex: 9999,
+        width,
+      }}
       ref={containerRef}
       data-hover-preview-root // ⬅️ clave para el closest() del paso 1
-      onPointerEnter={() => { insideRef.current = true; clearTimeout(leaveTimer.current); }}
-      onPointerLeave={() => { insideRef.current = false; scheduleMaybeClose(); }}
+      onPointerEnter={() => {
+        insideRef.current = true;
+        clearTimeout(leaveTimer.current);
+      }}
+      onPointerLeave={() => {
+        insideRef.current = false;
+        scheduleMaybeClose();
+      }}
     >
-      <div className={`p-[1px] rounded-[20px] bg-gradient-to-br ${theme.shellGrad} ${theme.shadow}`}>
-        <div className={`relative rounded-[18px] ${theme.innerBg} ${theme.ring} ${theme.border} overflow-visible`}>
+      <div
+        className={`p-[1px] rounded-[20px] bg-gradient-to-br ${theme.shellGrad} ${theme.shadow}`}
+      >
+        <div
+          className={`relative rounded-[18px] ${theme.innerBg} ${theme.ring} ${theme.border} overflow-visible`}
+        >
           <div
             className={[
               "max-h-[76vh] overflow-auto rounded-[18px]",
               "transition-all duration-200 ease-[cubic-bezier(.2,.8,.2,1)] will-change-[opacity,transform]",
-              shown ? "opacity-100 translate-y-0 scale-[1]" : "opacity-0 translate-y-1 scale-[0.99]"
+              shown
+                ? "opacity-100 translate-y-0 scale-[1]"
+                : "opacity-0 translate-y-1 scale-[0.99]",
             ].join(" ")}
           >
-            <div className={`sticky top-0 z-[1] ${theme.headerBg} ${theme.headerText} border-b border-slate-200 rounded-t-[18px] px-5 py-2.5 text-[12px] font-semibold tracking-[0.06em]`}>
+            <div
+              className={`sticky top-0 z-[1] ${theme.headerBg} ${theme.headerText} border-b border-slate-200 rounded-t-[18px] px-5 py-2.5 text-[12px] font-semibold tracking-[0.06em]`}
+            >
               VISTA PREVIA:
             </div>
             <div className="px-5 py-4">
@@ -670,15 +861,23 @@ function HoverPreviewPortal({
                 replyAuthor={replyAuthor}
                 isOpen={open}
               />
-              <div className="mt-3 text-[11px] text-slate-500">Vista previa generada desde el último mensaje.</div>
+              <div className="mt-3 text-[11px] text-slate-500">
+                Vista previa generada desde el último mensaje.
+              </div>
             </div>
           </div>
 
           {/* Cola */}
           {pos.side === "right" ? (
-            <div className="absolute top-8 -left-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]" style={{ clipPath: "polygon(0% 50%, 100% 0%, 100% 100%)" }} />
+            <div
+              className="absolute top-8 -left-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]"
+              style={{ clipPath: "polygon(0% 50%, 100% 0%, 100% 100%)" }}
+            />
           ) : (
-            <div className="absolute top-8 -right-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]" style={{ clipPath: "polygon(0% 0%, 0% 100%, 100% 50%)" }} />
+            <div
+              className="absolute top-8 -right-3 h-3.5 w-3.5 bg-gradient-to-b from-slate-100 to-white shadow-[0_2px_6px_rgba(2,6,23,0.12)]"
+              style={{ clipPath: "polygon(0% 0%, 0% 100%, 100% 50%)" }}
+            />
           )}
         </div>
       </div>
@@ -700,7 +899,7 @@ function MessageItem({
   getIdLabel,
   formatFecha,
   onClick,
-  seleccionado = false
+  seleccionado = false,
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const liRef = useRef(null);
@@ -717,19 +916,23 @@ function MessageItem({
 
     // 1) si el mouse entra al portal (preview), NO cierres
     const next = e?.relatedTarget;
-    if (next && next.closest && next.closest('[data-hover-preview-root]')) {
+    if (next && next.closest && next.closest("[data-hover-preview-root]")) {
       return; // el puntero va hacia el preview
     }
 
     // 2) fallback por si relatedTarget viene nulo (algunos iframes)
     leaveTimerRef.current = setTimeout(() => {
       const el = document.elementFromPoint?.(e.clientX, e.clientY);
-      if (el && el.closest && el.closest('[data-hover-preview-root]')) return;
+      if (el && el.closest && el.closest("[data-hover-preview-root]")) return;
       setPreviewOpen(false);
     }, 120); // pequeño margen para “túnel” mouse
   };
 
-  const nombre = acortarTexto(formatNombreCliente(mensaje?.nombre_cliente ?? ""), 10, 25);
+  const nombre = acortarTexto(
+    formatNombreCliente(mensaje?.nombre_cliente ?? ""),
+    10,
+    25
+  );
   const numero = getIdLabel(mensaje);
   const tienePendientes = (mensaje?.mensajes_pendientes ?? 0) > 0;
 
@@ -753,22 +956,27 @@ function MessageItem({
   );
 
   const cancelLeaveTimer = () => {
-  if (leaveTimerRef.current) {
-    clearTimeout(leaveTimerRef.current);
-    leaveTimerRef.current = null;
-  }
-};
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+  };
 
   // Ruta normalizada para media
   const rawRuta = mensaje?.ruta_archivo || "";
   const rutaMedia = (() => {
     if (!rawRuta) return "";
     if (tipoDetectado === "document") return rawRuta; // puede ser JSON
-    return /^https?:\/\//.test(rawRuta) ? rawRuta : `https://new.imporsuitpro.com/${rawRuta}`;
+    return /^https?:\/\//.test(rawRuta)
+      ? rawRuta
+      : `https://new.imporsuitpro.com/${rawRuta}`;
   })();
 
   const fallbackAvatar = "https://tiendas.imporsuitpro.com/imgs/react/user.png";
-  const avatarUrl = !imgError && mensaje?.profile_pic_url ? mensaje.profile_pic_url : fallbackAvatar;
+  const avatarUrl =
+    !imgError && mensaje?.profile_pic_url
+      ? mensaje.profile_pic_url
+      : fallbackAvatar;
 
   const own = esMensajePropio(mensaje);
   const { ref: replyRef, autor: replyAuthor } = extraerRespuesta(mensaje);
@@ -779,13 +987,16 @@ function MessageItem({
       className={[
         "group relative cursor-pointer px-3 py-3 sm:px-4 sm:py-3.5",
         "transition-all duration-150 ease-out",
-        seleccionado ? "bg-slate-50 cursor-default" : "hover:bg-slate-50 hover:shadow-xs"
+        seleccionado
+          ? "bg-slate-50 cursor-default"
+          : "hover:bg-slate-50 hover:shadow-xs",
       ].join(" ")}
       onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}  // ⬅️ actualizado
-      onClick={() => { if (!seleccionado && typeof onClick === "function") onClick(); }}
+      onMouseLeave={handleLeave} // ⬅️ actualizado
+      onClick={() => {
+        if (!seleccionado && typeof onClick === "function") onClick();
+      }}
     >
-
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-0 ring-slate-900/0 transition-all duration-150 group-hover:ring-4 group-hover:ring-slate-900/5" />
 
       {/* Preview lateral */}
@@ -796,7 +1007,7 @@ function MessageItem({
         tipo={tipoDetectado}
         texto={textoPreview}
         ruta={rutaMedia}
-        rutaRaw={rawRuta}  /* pasa ruta cruda para CustomAudioPlayer */
+        rutaRaw={rawRuta} /* pasa ruta cruda para CustomAudioPlayer */
         isTemplate={isTemplate}
         replyRef={replyRef}
         replyAuthor={replyAuthor || (!own ? nombre : "Tú")}
@@ -805,17 +1016,36 @@ function MessageItem({
       <div className="grid grid-cols-[3rem_1fr_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2.5">
         {/* Avatar premium (sin badge de canal) */}
         <div className="relative col-[1] row-span-2 h-12 w-12 shrink-0">
-          <div className={["h-12 w-12 overflow-hidden rounded-full ring-2 transition-all duration-150", tienePendientes ? "ring-blue-500" : "ring-slate-200", "group-hover:ring-slate-300 shadow-sm"].join(" ")}>
-            <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" loading="lazy" onError={() => setImgError(true)} />
+          <div
+            className={[
+              "h-12 w-12 overflow-hidden rounded-full ring-2 transition-all duration-150",
+              tienePendientes ? "ring-blue-500" : "ring-slate-200",
+              "group-hover:ring-slate-300 shadow-sm",
+            ].join(" ")}
+          >
+            <img
+              src={avatarUrl}
+              alt="Avatar"
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onError={() => setImgError(true)}
+            />
             <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-transparent to-white/20" />
           </div>
         </div>
 
         {/* Nombre + Número */}
         <div className="col-[2] row-[1] min-w-0 flex items-end gap-2 leading-[1.2]">
-          <span className="truncate text-[13.5px] font-semibold text-slate-900">{nombre}</span>
+          <span className="truncate text-[13.5px] font-semibold text-slate-900">
+            {nombre}
+          </span>
           <span className="select-none text-slate-300">•</span>
-          <span className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums" title={numero}>{numero}</span>
+          <span
+            className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums"
+            title={numero}
+          >
+            {numero}
+          </span>
         </div>
 
         {/* Pill estado */}
@@ -825,7 +1055,9 @@ function MessageItem({
 
         {/* Fecha + contador */}
         <div className="col-[3] row-[2] mt-0.5 flex items-center justify-end gap-2">
-          <span className="text-[11px] text-slate-500 leading-[1.2]">{formatFecha(mensaje?.mensaje_created_at)}</span>
+          <span className="text-[11px] text-slate-500 leading-[1.2]">
+            {formatFecha(mensaje?.mensaje_created_at)}
+          </span>
           {tienePendientes && (
             <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-[11px] font-semibold text-white">
               {mensaje.mensajes_pendientes}
@@ -836,7 +1068,10 @@ function MessageItem({
         {/* Canal + Preview breve */}
         <div className="col-[2/4] row-[2] min-w-0 flex items-center gap-2 pt-0.5 text-[12.5px] text-slate-700 leading-[1.45]">
           <PillCanal source={mensaje?.source} />
-          <span className="truncate" title={tipoDetectado === "location" ? "Ubicación" : textoPreview}>
+          <span
+            className="truncate"
+            title={tipoDetectado === "location" ? "Ubicación" : textoPreview}
+          >
             {tipoDetectado === "audio"
               ? "🎧 Audio"
               : tipoDetectado === "image"
@@ -913,12 +1148,27 @@ export const Sidebar = ({
       menu: (base) => ({ ...base, borderRadius: 12, overflow: "hidden" }),
       option: (base, { isFocused, isSelected }) => ({
         ...base,
-        backgroundColor: isSelected ? "#2563eb" : isFocused ? "#eff6ff" : undefined,
+        backgroundColor: isSelected
+          ? "#2563eb"
+          : isFocused
+          ? "#eff6ff"
+          : undefined,
         color: isSelected ? "#fff" : "#0f172a",
       }),
-      multiValue: (base) => ({ ...base, borderRadius: 9999, backgroundColor: "#eef2ff" }),
-      multiValueLabel: (base) => ({ ...base, color: "#1e293b", fontWeight: 600 }),
-      multiValueRemove: (base) => ({ ...base, ":hover": { backgroundColor: "#dbeafe", color: "#0f172a" } }),
+      multiValue: (base) => ({
+        ...base,
+        borderRadius: 9999,
+        backgroundColor: "#eef2ff",
+      }),
+      multiValueLabel: (base) => ({
+        ...base,
+        color: "#1e293b",
+        fontWeight: 600,
+      }),
+      multiValueRemove: (base) => ({
+        ...base,
+        ":hover": { backgroundColor: "#dbeafe", color: "#0f172a" },
+      }),
       placeholder: (base) => ({ ...base, color: "#64748b" }),
       menuPortal: (base) => ({ ...base, zIndex: 9999 }),
     }),
@@ -942,19 +1192,37 @@ export const Sidebar = ({
   const obtenerEstadoGuia = (transporte, estadoFactura, novedadInfo) => {
     let estado_guia = { color: "", estado_guia: "" };
     switch (transporte) {
-      case "LAAR": estado_guia = validar_estadoLaar(estadoFactura); break;
-      case "SERVIENTREGA": estado_guia = validar_estadoServi(estadoFactura); break;
-      case "GINTRACOM": estado_guia = validar_estadoGintracom(estadoFactura); break;
-      case "SPEED": estado_guia = validar_estadoSpeed(estadoFactura); break;
-      default: estado_guia = { color: "", estado_guia: "" }; break;
+      case "LAAR":
+        estado_guia = validar_estadoLaar(estadoFactura);
+        break;
+      case "SERVIENTREGA":
+        estado_guia = validar_estadoServi(estadoFactura);
+        break;
+      case "GINTRACOM":
+        estado_guia = validar_estadoGintracom(estadoFactura);
+        break;
+      case "SPEED":
+        estado_guia = validar_estadoSpeed(estadoFactura);
+        break;
+      default:
+        estado_guia = { color: "", estado_guia: "" };
+        break;
     }
     if (estado_guia.estado_guia === "Novedad") {
       try {
-        const parsed = typeof novedadInfo === "string" ? JSON.parse(novedadInfo) : novedadInfo;
+        const parsed =
+          typeof novedadInfo === "string"
+            ? JSON.parse(novedadInfo)
+            : novedadInfo;
         if (parsed?.terminado === 1 || parsed?.solucionada === 1) {
-          estado_guia = { estado_guia: "Novedad resuelta", color: "bg-yellow-500" };
+          estado_guia = {
+            estado_guia: "Novedad resuelta",
+            color: "bg-yellow-500",
+          };
         }
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
     }
     return estado_guia;
   };
@@ -965,7 +1233,12 @@ export const Sidebar = ({
   const hasPaintedRef = useRef(false);
 
   useEffect(() => {
-    if (!hasPaintedRef.current && !isLoadingWA && !isLoadingMS && !isLoadingIG) {
+    if (
+      !hasPaintedRef.current &&
+      !isLoadingWA &&
+      !isLoadingMS &&
+      !isLoadingIG
+    ) {
       hasPaintedRef.current = true;
       setAllowPaint(true);
     }
@@ -991,17 +1264,33 @@ export const Sidebar = ({
     <aside
       ref={scrollRef}
       onScroll={handleScrollMensajes}
-      className={`h-[calc(100vh_-_130px)] overflow-y-auto overflow-x-hidden ${selectedChat ? "hidden sm:block" : "block"}`}
+      className={`h-[calc(100vh_-_130px)] overflow-y-auto overflow-x-hidden ${
+        selectedChat ? "hidden sm:block" : "block"
+      }`}
     >
       <div className="ml-3 mr-0 my-3 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
           <div className="flex items-center justify-between px-4 pt-4">
             <div className="inline-flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1">
-              <button className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${selectedTab === "abierto" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setSelectedTab("abierto")}>
+              <button
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  selectedTab === "abierto"
+                    ? "bg-white text-slate-900 shadow"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+                onClick={() => setSelectedTab("abierto")}
+              >
                 <i className="bx bx-download mr-2 align-[-2px]" /> ABIERTO
               </button>
-              <button className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${selectedTab === "resueltos" ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setSelectedTab("resueltos")}>
+              <button
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  selectedTab === "resueltos"
+                    ? "bg-white text-slate-900 shadow"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+                onClick={() => setSelectedTab("resueltos")}
+              >
                 <i className="bx bx-check mr-2 align-[-2px]" /> RESUELTOS
               </button>
             </div>
@@ -1020,7 +1309,12 @@ export const Sidebar = ({
                 aria-label="Buscar chats"
               />
               {searchTerm?.length > 0 && (
-                <button type="button" onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Limpiar búsqueda">
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  title="Limpiar búsqueda"
+                >
                   <i className="bx bx-x text-lg" />
                 </button>
               )}
@@ -1028,60 +1322,175 @@ export const Sidebar = ({
 
             <div className="flex items-center gap-3 w-full">
               <details className="relative ml-auto shrink-0">
-                <summary className="list-none inline-flex w-[199px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none" title="Filtrar por canal" onClick={(e) => e.stopPropagation()}>
+                <summary
+                  className="list-none inline-flex w-[199px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none"
+                  title="Filtrar por canal"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {(() => {
-                    if (channelFilter === "wa") return <i className="bx bxl-whatsapp text-lg text-green-600 shrink-0" />;
-                    if (channelFilter === "ms") return <i className="bx bxl-messenger text-lg text-blue-600 shrink-0" />;
-                    if (channelFilter === "ig") return <i className="bx bxl-instagram text-lg text-pink-500 shrink-0" />;
-                    return <i className="bx bx-layout text-lg text-slate-600 shrink-0" />;
+                    if (channelFilter === "wa")
+                      return (
+                        <i className="bx bxl-whatsapp text-lg text-green-600 shrink-0" />
+                      );
+                    if (channelFilter === "ms")
+                      return (
+                        <i className="bx bxl-messenger text-lg text-blue-600 shrink-0" />
+                      );
+                    if (channelFilter === "ig")
+                      return (
+                        <i className="bx bxl-instagram text-lg text-pink-500 shrink-0" />
+                      );
+                    return (
+                      <i className="bx bx-layout text-lg text-slate-600 shrink-0" />
+                    );
                   })()}
                   <span className="flex-1 min-w-0 whitespace-nowrap truncate">
                     <span className="font-bold">
-                      {channelFilter === "wa" ? "WhatsApp" : channelFilter === "ms" ? "Messenger" : channelFilter === "ig" ? "Instagram" : "Todos los canales"}
+                      {channelFilter === "wa"
+                        ? "WhatsApp"
+                        : channelFilter === "ms"
+                        ? "Messenger"
+                        : channelFilter === "ig"
+                        ? "Instagram"
+                        : "Todos los canales"}
                     </span>
                   </span>
                   <i className="bx bx-chevron-down text-lg ml-1 shrink-0" />
                 </summary>
 
                 <div className="absolute right-0 mt-2 w-[199px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 z-30">
-                  <button className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "all" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`} onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); setChannelFilter("all"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}>
-                    <i className="bx bx-layout text-base text-slate-500" /> Todos los canales
+                  <button
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
+                      channelFilter === "all"
+                        ? "bg-slate-100 text-slate-900"
+                        : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChannelFilter("all");
+                      const d = e.currentTarget.closest("details");
+                      if (d) d.open = false;
+                    }}
+                  >
+                    <i className="bx bx-layout text-base text-slate-500" />{" "}
+                    Todos los canales
                   </button>
-                  <button className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "wa" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`} onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); setChannelFilter("wa"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}>
-                    <i className="bx bxl-whatsapp text-base text-green-600" /> WhatsApp
+                  <button
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
+                      channelFilter === "wa"
+                        ? "bg-slate-100 text-slate-900"
+                        : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChannelFilter("wa");
+                      const d = e.currentTarget.closest("details");
+                      if (d) d.open = false;
+                    }}
+                  >
+                    <i className="bx bxl-whatsapp text-base text-green-600" />{" "}
+                    WhatsApp
                   </button>
-                  <button className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${channelFilter === "ms" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`} onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); setChannelFilter("ms"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}>
-                    <i className="bx bxl-messenger text-base text-blue-600" /> Messenger
+                  <button
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
+                      channelFilter === "ms"
+                        ? "bg-slate-100 text-slate-900"
+                        : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChannelFilter("ms");
+                      const d = e.currentTarget.closest("details");
+                      if (d) d.open = false;
+                    }}
+                  >
+                    <i className="bx bxl-messenger text-base text-blue-600" />{" "}
+                    Messenger
                   </button>
-                  <button className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${channelFilter === "ig" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-50"}`} onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); setChannelFilter("ig"); const d = e.currentTarget.closest("details"); if (d) d.open = false; }}>
-                    <span className="inline-flex items-center gap-2"><i className="bx bxl-instagram text-base text-pink-500" /> Instagram</span>
+                  <button
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${
+                      channelFilter === "ig"
+                        ? "bg-slate-100 text-slate-900"
+                        : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChannelFilter("ig");
+                      const d = e.currentTarget.closest("details");
+                      if (d) d.open = false;
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <i className="bx bxl-instagram text-base text-pink-500" />{" "}
+                      Instagram
+                    </span>
                   </button>
                 </div>
               </details>
 
-              <button onClick={(e) => { e.stopPropagation(); handleFiltro_chats(); }} aria-pressed={!!filtro_chats} className={`relative inline-flex h-11 items-center rounded-xl border px-3 text-slate-700 shadow-sm transition ${filtro_chats ? "border-blue-200 bg-blue-50 hover:bg-blue-100" : "border-slate-200 bg-white hover:bg-slate-50"}`} title="Mostrar filtros" aria-controls="sidebar-filtros">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFiltro_chats();
+                }}
+                aria-pressed={!!filtro_chats}
+                className={`relative inline-flex h-11 items-center rounded-xl border px-3 text-slate-700 shadow-sm transition ${
+                  filtro_chats
+                    ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+                title="Mostrar filtros"
+                aria-controls="sidebar-filtros"
+              >
                 <i className="bx bx-filter-alt text-xl" />
-                <span className="ml-2 hidden text-sm md:inline font-bold">Filtros</span>
+                <span className="ml-2 hidden text-sm md:inline font-bold">
+                  Filtros
+                </span>
               </button>
 
-              <button onClick={() => (typeof openNumeroModal === "function" ? openNumeroModal() : setNumeroModal(true))} className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900" title="Nuevo chat" aria-label="Nuevo chat">
+              <button
+                onClick={() =>
+                  typeof openNumeroModal === "function"
+                    ? openNumeroModal()
+                    : setNumeroModal(true)
+                }
+                className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+                title="Nuevo chat"
+                aria-label="Nuevo chat"
+              >
                 <i className="bx bx-plus text-xl" />
               </button>
             </div>
           </div>
 
           {/* Panel de filtros */}
-          <div id="sidebar-filtros" className={`grid gap-3 px-4 pb-4 transition-all duration-300 ${filtro_chats ? "max-h-[600px] opacity-100" : "max-h-0 overflow-hidden opacity-0"}`}>
+          <div
+            id="sidebar-filtros"
+            className={`grid gap-3 px-4 pb-4 transition-all duration-300 ${
+              filtro_chats
+                ? "max-h-[600px] opacity-100"
+                : "max-h-0 overflow-hidden opacity-0"
+            }`}
+          >
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
-                options={[{ value: "1", label: "Pedidos confirmados" }, { value: "0", label: "Pedidos no confirmados" }]}
+                options={[
+                  { value: "1", label: "Pedidos confirmados" },
+                  { value: "0", label: "Pedidos no confirmados" },
+                ]}
                 value={selectedPedidos_confirmados}
                 onChange={(opt) => setSelectedPedidos_confirmados(opt)}
                 placeholder="Seleccione pedidos confirmados"
                 className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                menuPortalTarget={
+                  typeof document !== "undefined" ? document.body : null
+                }
                 styles={selectStyles}
               />
             )}
@@ -1094,20 +1503,27 @@ export const Sidebar = ({
               placeholder="Selecciona etiquetas"
               className="w-full"
               classNamePrefix="react-select"
-              menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : null
+              }
               styles={selectStyles}
             />
 
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
-                options={[{ value: "gestionadas", label: "Gestionadas" }, { value: "no_gestionadas", label: "No gestionadas" }]}
+                options={[
+                  { value: "gestionadas", label: "Gestionadas" },
+                  { value: "no_gestionadas", label: "No gestionadas" },
+                ]}
                 value={selectedNovedad}
                 onChange={(opt) => setSelectedNovedad(opt)}
                 placeholder="Selecciona novedad"
                 className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                menuPortalTarget={
+                  typeof document !== "undefined" ? document.body : null
+                }
                 styles={selectStyles}
               />
             )}
@@ -1115,13 +1531,23 @@ export const Sidebar = ({
             {id_plataforma_conf !== null && (
               <Select
                 isClearable
-                options={[{ value: "LAAR", label: "Laar" }, { value: "SPEED", label: "Speed" }, { value: "SERVIENTREGA", label: "Servientrega" }, { value: "GINTRACOM", label: "Gintracom" }]}
+                options={[
+                  { value: "LAAR", label: "Laar" },
+                  { value: "SPEED", label: "Speed" },
+                  { value: "SERVIENTREGA", label: "Servientrega" },
+                  { value: "GINTRACOM", label: "Gintracom" },
+                ]}
                 value={selectedTransportadora}
-                onChange={(opt) => { setSelectedTransportadora(opt); if (!opt) setSelectedEstado([]); }}
+                onChange={(opt) => {
+                  setSelectedTransportadora(opt);
+                  if (!opt) setSelectedEstado([]);
+                }}
                 placeholder="Selecciona transportadora"
                 className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                menuPortalTarget={
+                  typeof document !== "undefined" ? document.body : null
+                }
                 styles={selectStyles}
               />
             )}
@@ -1131,7 +1557,10 @@ export const Sidebar = ({
                 isClearable
                 options={[
                   { value: "Generada", label: "Generada / Por recolectar" },
-                  { value: "En transito", label: "En tránsito / Procesamiento / En ruta" },
+                  {
+                    value: "En transito",
+                    label: "En tránsito / Procesamiento / En ruta",
+                  },
                   { value: "Entregada", label: "Entregada" },
                   { value: "Novedad", label: "Novedad" },
                   { value: "Devolucion", label: "Devolución" },
@@ -1141,26 +1570,70 @@ export const Sidebar = ({
                 placeholder="Selecciona estado"
                 className="w-full"
                 classNamePrefix="react-select"
-                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                menuPortalTarget={
+                  typeof document !== "undefined" ? document.body : null
+                }
                 styles={selectStyles}
               />
             )}
 
             {/* Chips activos */}
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              {Array.isArray(selectedEtiquetas) && selectedEtiquetas.length > 0 && selectedEtiquetas.map((e) => (
-                <FilterChip key={e.value} label={`Etiqueta: ${e.label}`} onClear={() => { const next = selectedEtiquetas.filter((x) => x.value !== e.value); setSelectedEtiquetas(next); }} />
-              ))}
-              {selectedNovedad && (<FilterChip label={`Novedad: ${selectedNovedad.label}`} onClear={() => setSelectedNovedad(null)} />)}
-              {selectedTransportadora && (<FilterChip label={`Transp.: ${selectedTransportadora.label}`} onClear={() => { setSelectedTransportadora(null); setSelectedEstado([]); }} />)}
-              {selectedEstado && selectedEstado.label && (<FilterChip label={`Estado: ${selectedEstado.label}`} onClear={() => setSelectedEstado(null)} />)}
+              {Array.isArray(selectedEtiquetas) &&
+                selectedEtiquetas.length > 0 &&
+                selectedEtiquetas.map((e) => (
+                  <FilterChip
+                    key={e.value}
+                    label={`Etiqueta: ${e.label}`}
+                    onClear={() => {
+                      const next = selectedEtiquetas.filter(
+                        (x) => x.value !== e.value
+                      );
+                      setSelectedEtiquetas(next);
+                    }}
+                  />
+                ))}
+              {selectedNovedad && (
+                <FilterChip
+                  label={`Novedad: ${selectedNovedad.label}`}
+                  onClear={() => setSelectedNovedad(null)}
+                />
+              )}
+              {selectedTransportadora && (
+                <FilterChip
+                  label={`Transp.: ${selectedTransportadora.label}`}
+                  onClear={() => {
+                    setSelectedTransportadora(null);
+                    setSelectedEstado([]);
+                  }}
+                />
+              )}
+              {selectedEstado && selectedEstado.label && (
+                <FilterChip
+                  label={`Estado: ${selectedEstado.label}`}
+                  onClear={() => setSelectedEstado(null)}
+                />
+              )}
 
               {Array.isArray(selectedEtiquetas) &&
-                selectedEtiquetas.length + (selectedNovedad ? 1 : 0) + (selectedTransportadora ? 1 : 0) + (selectedEstado ? 1 : 0) > 0 && (
-                <button type="button" onClick={() => { setSelectedEtiquetas([]); setSelectedNovedad(null); setSelectedTransportadora(null); setSelectedEstado([]); }} className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
-                  Limpiar filtros <i className="bx bx-eraser" />
-                </button>
-              )}
+                selectedEtiquetas.length +
+                  (selectedNovedad ? 1 : 0) +
+                  (selectedTransportadora ? 1 : 0) +
+                  (selectedEstado ? 1 : 0) >
+                  0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEtiquetas([]);
+                      setSelectedNovedad(null);
+                      setSelectedTransportadora(null);
+                      setSelectedEstado([]);
+                    }}
+                    className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+                  >
+                    Limpiar filtros <i className="bx bx-eraser" />
+                  </button>
+                )}
             </div>
           </div>
         </div>
@@ -1177,28 +1650,41 @@ export const Sidebar = ({
               );
             }
             const base =
-              channelFilter === "ms" ? filteredChats.filter((c) => matchesFilter(c, "ms"))
-              : channelFilter === "wa" ? filteredChats.filter((c) => matchesFilter(c, "wa"))
-              : channelFilter === "ig" ? filteredChats.filter((c) => matchesFilter(c, "ig"))
-              : filteredChats;
+              channelFilter === "ms"
+                ? filteredChats.filter((c) => matchesFilter(c, "ms"))
+                : channelFilter === "wa"
+                ? filteredChats.filter((c) => matchesFilter(c, "wa"))
+                : channelFilter === "ig"
+                ? filteredChats.filter((c) => matchesFilter(c, "ig"))
+                : filteredChats;
 
             const list = [...base].sort(compareChats);
 
             if (list.length === 0) {
               return mensajesAcumulados.length === 0 ? (
                 <div className="flex h-64 items-center justify-center">
-                  {Loading ? <Loading /> : <div className="text-slate-500">Cargando…</div>}
+                  {Loading ? (
+                    <Loading />
+                  ) : (
+                    <div className="text-slate-500">Cargando…</div>
+                  )}
                 </div>
               ) : (
                 <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
                   <i className="bx bx-chat text-4xl" />
-                  <p className="text-sm">No se encontraron chats con esos filtros.</p>
+                  <p className="text-sm">
+                    No se encontraron chats con esos filtros.
+                  </p>
                 </div>
               );
             }
 
             return list.slice(0, mensajesVisibles).map((mensaje) => {
-              const { color, estado_guia } = obtenerEstadoGuia(mensaje.transporte, mensaje.estado_factura, mensaje.novedad_info);
+              const { color, estado_guia } = obtenerEstadoGuia(
+                mensaje.transporte,
+                mensaje.estado_factura,
+                mensaje.novedad_info
+              );
               const seleccionado = selectedChat?.id === mensaje.id;
 
               return (
@@ -1229,7 +1715,9 @@ export const Sidebar = ({
               ? filteredChats.filter((c) => matchesFilter(c, "ig")).length
               : filteredChats.length) && (
             <div className="flex justify-center py-4">
-              <span className="animate-pulse text-sm text-slate-500">Cargando más chats…</span>
+              <span className="animate-pulse text-sm text-slate-500">
+                Cargando más chats…
+              </span>
             </div>
           )}
         </ul>
