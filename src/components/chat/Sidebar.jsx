@@ -132,6 +132,142 @@ function inferirTipoContenido(m) {
 
   return base; // text o template
 }
+function PreviewAudioPlayer({ src, autoTrigger }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [time, setTime] = useState(0);
+
+  const fmt = (s) => {
+    const t = Math.max(0, Math.floor(s || 0));
+    const m = Math.floor(t / 60).toString();
+    const ss = (t % 60).toString().padStart(2, "0");
+    return `${m}:${ss}`;
+  };
+
+  // reproduce de forma robusta
+  const safePlay = (audio) => {
+    if (!audio) return;
+    try { audio.muted = false; } catch {}
+    audio.autoplay = true;
+    const play = () => {
+      const p = audio.play?.();
+      p?.catch?.(() => {
+        // desbloqueo por interacción dentro del player
+        const unlock = () => {
+          audio.play().finally(() => {
+            wrapperRef.current?.removeEventListener("pointerdown", unlock, true);
+            wrapperRef.current?.removeEventListener("pointerenter", unlock, true);
+          });
+        };
+        wrapperRef.current?.addEventListener("pointerdown", unlock, true);
+        wrapperRef.current?.addEventListener("pointerenter", unlock, true);
+      });
+    };
+    if (audio.readyState >= 2) play();
+    else {
+      const onCanPlay = () => { audio.removeEventListener("canplay", onCanPlay); play(); };
+      audio.addEventListener("canplay", onCanPlay, { once: true });
+      try { audio.load(); } catch {}
+      setTimeout(play, 250);
+    }
+  };
+
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    try { a.pause(); a.currentTime = 0; } catch {}
+    safePlay(a);
+    setPlaying(true);
+    return () => { try { a.pause(); a.currentTime = 0; } catch {} };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoTrigger, src]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    const onTime = () => setTime(a.currentTime || 0);
+    const onMeta = () => setDuration(a.duration || 0);
+
+    a.addEventListener("play", onPlay);
+    a.addEventListener("pause", onPause);
+    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("loadedmetadata", onMeta);
+    return () => {
+      a.removeEventListener("play", onPlay);
+      a.removeEventListener("pause", onPause);
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("loadedmetadata", onMeta);
+    };
+  }, []);
+
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) safePlay(a);
+    else a.pause();
+  };
+
+  const onSeek = (e) => {
+    const a = audioRef.current;
+    if (!a || !duration) return;
+    const pct = Number(e.target.value) / 100;
+    a.currentTime = duration * pct;
+  };
+
+  const pct = duration ? Math.min(100, (time / duration) * 100) : 0;
+
+  // 1 sola barra (azul): usamos un gradient que pinta el avance en azul y el resto en gris
+  const rangeStyle = {
+    background: `linear-gradient(to right, #2563eb ${pct}%, #e5e7eb ${pct}%)`,
+    height: 8,
+    borderRadius: 9999,
+    appearance: "none",
+  };
+
+  return (
+    <div ref={wrapperRef} className="rounded-xl border border-slate-200 bg-white/90 shadow-sm p-3">
+      {/* audio oculto: el UI es propio */}
+      <audio ref={audioRef} src={src} preload="auto" playsInline style={{ display: "none" }} />
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={toggle}
+          className={`h-10 w-10 shrink-0 rounded-full grid place-items-center text-white transition
+            ${playing ? "bg-blue-600" : "bg-blue-500 hover:bg-blue-600"}`}
+          aria-label={playing ? "Pausar" : "Reproducir"}
+        >
+          <i className={`bx ${playing ? "bx-pause" : "bx-play"} text-xl`} />
+        </button>
+
+        <div className="flex-1">
+          <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+            <span className="tabular-nums">{fmt(time)}</span>
+            <span className="tabular-nums">{fmt(duration)}</span>
+          </div>
+
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={pct}
+            onChange={onSeek}
+            onInput={onSeek}
+            className="w-full outline-none accent-blue-600"
+            style={rangeStyle}
+            aria-label="Progreso"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 /* ===================== Renderizadores de contenido (Preview) ===================== */
 function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor }) {
@@ -205,15 +341,19 @@ function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor }) {
   ) : null);
 
   /* === AUDIO: usa CustomAudioPlayer como en ChatPrincipal.jsx === */
+  // dentro de PreviewContent(...)
   if (tipo === "audio") {
     const src = rutaRaw || ruta;
     return (
       <div>
         <Quote />
-        <CustomAudioPlayer src={src} />
+        {/* Reproductor de preview con autoplay visible */}
+        <PreviewAudioPlayer src={src} autoTrigger={Date.now()} />
       </div>
     );
   }
+
+
 
   /* === IMAGEN (foto/sticker): mostrar la imagen directamente === */
   if (tipo === "image" || tipo === "sticker") {
@@ -374,48 +514,83 @@ function HoverPreviewPortal({
   }, [open]);
 
   // === AUTOPLAY AUDIO EN PREVIEW ===
+  // === AUTOPLAY AUDIO EN PREVIEW (robusto, en cada apertura) ===
   useEffect(() => {
     if (!open || tipo !== "audio") return;
 
-    // pequeño delay para asegurar que CustomAudioPlayer montó el <audio>
-    const t = setTimeout(() => {
-      const root = containerRef.current;
-      if (!root) return;
-      const audio = root.querySelector("audio");
-      if (audio) {
-        try {
-          audio.muted = false;           // por si viene muteado
-          audio.autoplay = true;
-          const p = audio.play();
-          if (p && typeof p.catch === "function") {
-            p.catch(() => {
-              // Si el navegador bloquea autoplay, al menos iniciamos al primer hover/click dentro del preview
-              const tryPlay = () => {
-                audio.play().finally(() => {
-                  root.removeEventListener("pointerdown", tryPlay, true);
-                });
-              };
-              root.addEventListener("pointerdown", tryPlay, true);
-            });
-          }
-        } catch { /* noop */ }
-      }
-    }, 80);
+    let poll = null;
+    let retry = null;
 
-    // al cerrar, pausar y resetear
-    return () => {
-      clearTimeout(t);
-      const root = containerRef.current;
-      if (!root) return;
-      const audio = root.querySelector("audio");
-      if (audio) {
-        try {
-          audio.pause();
-          audio.currentTime = 0;
-        } catch { /* noop */ }
+    const root = containerRef.current;
+    if (!root) return;
+
+    const tryPlayNow = (audio) => {
+      if (!audio) return;
+      // estado inicial “clean” en cada apertura
+      try { audio.pause(); } catch {}
+      try { audio.currentTime = 0; } catch {}
+      try { audio.muted = false; } catch {}
+      audio.autoplay = true;
+
+      const doPlay = () => {
+        const p = audio.play?.();
+        if (p && typeof p.catch === "function") {
+          p.catch(() => {
+            // Fallback: primer interacción dentro del preview
+            const unlock = () => {
+              audio.play().finally(() => {
+                root.removeEventListener("pointerdown", unlock, true);
+                root.removeEventListener("pointerenter", unlock, true);
+              });
+            };
+            root.addEventListener("pointerdown", unlock, true);
+            root.addEventListener("pointerenter", unlock, true);
+          });
+        }
+      };
+
+      if (audio.readyState >= 2) {
+        // ya tenemos metadata/buffer suficiente
+        doPlay();
+      } else {
+        // forzamos carga y esperamos canplay
+        const onCanPlay = () => {
+          audio.removeEventListener("canplay", onCanPlay);
+          doPlay();
+        };
+        audio.addEventListener("canplay", onCanPlay, { once: true });
+        try { audio.load(); } catch {}
+        // segundo intento por si el evento no llega a tiempo
+        retry = setTimeout(doPlay, 300);
       }
     };
+
+    // Espera activa breve hasta que React pinte el <audio data-preview-autoplay>
+    let tries = 0;
+    poll = setInterval(() => {
+      tries += 1;
+      const audio = root.querySelector('audio[data-preview-autoplay]');
+      if (audio || tries > 20) {
+        clearInterval(poll);
+        poll = null;
+        if (audio) tryPlayNow(audio);
+      }
+    }, 50);
+
+    // Cleanup: siempre detener y limpiar
+    return () => {
+      if (poll) clearInterval(poll);
+      if (retry) clearTimeout(retry);
+      const audio = root.querySelector('audio[data-preview-autoplay]');
+      if (audio) {
+        try { audio.pause(); } catch {}
+        try { audio.currentTime = 0; } catch {}
+      }
+      root.removeEventListener("pointerdown", () => {}, true);
+      root.removeEventListener("pointerenter", () => {}, true);
+    };
   }, [open, tipo]);
+
 
   // Cierres robustos
   useEffect(() => {
