@@ -1,5 +1,11 @@
 // ConexionesGuiada.jsx
-import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
@@ -15,7 +21,8 @@ import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConf
    Utilidades de la guía
 =========================== */
 
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useEffect : () => {};
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useEffect : () => {};
 
 // ❌ ANTES: sumaba window.scrollY / window.scrollX
 // ✅ AHORA: coordenadas en viewport (perfecto para overlays fixed)
@@ -54,7 +61,6 @@ const useSpotlight = (targetRef, deps = []) => {
   return { rect, update };
 };
 
-
 const Spotlight = ({ rect }) => {
   if (!rect) return null;
   const haloPad = 28;
@@ -81,7 +87,8 @@ const Spotlight = ({ rect }) => {
           height: rect.height,
           borderRadius: 14,
           border: "1px solid rgba(99,102,241,.35)",
-          boxShadow: "0 12px 40px rgba(59,130,246,.28), inset 0 0 0 1px rgba(255,255,255,.9)",
+          boxShadow:
+            "0 12px 40px rgba(59,130,246,.28), inset 0 0 0 1px rgba(255,255,255,.9)",
         }}
       />
       {/* Pulso sutil */}
@@ -127,7 +134,11 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
   if (isMobile) {
     // Bottom sheet para móviles
     return (
-      <div className="fixed inset-x-0 bottom-2 z-[73] px-3" role="dialog" aria-live="polite">
+      <div
+        className="fixed inset-x-0 bottom-2 z-[73] px-3"
+        role="dialog"
+        aria-live="polite"
+      >
         <div className="mx-auto max-w-md rounded-2xl bg-white/95 p-4 text-sm text-slate-700 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.35)] backdrop-blur animate-[sheetIn_.24s_ease-out]">
           {children}
         </div>
@@ -136,9 +147,11 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
   }
 
   // Desktop/tablet
-  const spaceBelow = rect.top + rect.height + offset + 240 < window.scrollY + rect.vh;
+  const spaceBelow =
+    rect.top + rect.height + offset + 240 < window.scrollY + rect.vh;
   const spaceAbove = rect.top - offset - 240 > window.scrollY;
-  const spaceRight = rect.left + rect.width + offset + 400 < window.scrollX + rect.vw;
+  const spaceRight =
+    rect.left + rect.width + offset + 400 < window.scrollX + rect.vw;
   let place = placement;
   if (placement === "auto") {
     if (spaceRight) place = "right";
@@ -147,45 +160,73 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
     else place = "left";
   }
 
-  const style = { transition: "top .28s cubic-bezier(.22,1,.36,1), left .28s cubic-bezier(.22,1,.36,1)" };
+  const style = {
+    transition:
+      "top .28s cubic-bezier(.22,1,.36,1), left .28s cubic-bezier(.22,1,.36,1)",
+  };
   let anchorX = rect.left + rect.width / 2;
   let anchorY = rect.top + rect.height / 2;
 
   if (place === "bottom") {
     style.top = rect.top + rect.height + offset;
     style.left = Math.min(rect.left, window.scrollX + rect.vw - 400);
-    anchorX = rect.left + 24; anchorY = rect.top + rect.height;
+    anchorX = rect.left + 24;
+    anchorY = rect.top + rect.height;
   } else if (place === "top") {
     style.top = Math.max(8, rect.top - offset - 220);
     style.left = Math.min(rect.left, window.scrollX + rect.vw - 400);
-    anchorX = rect.left + 24; anchorY = rect.top;
+    anchorX = rect.left + 24;
+    anchorY = rect.top;
   } else if (place === "right") {
     style.top = Math.max(8, rect.top);
     style.left = rect.left + rect.width + offset;
-    anchorX = rect.left + rect.width; anchorY = rect.top + 20;
+    anchorX = rect.left + rect.width;
+    anchorY = rect.top + 20;
   } else {
     style.top = Math.max(8, rect.top);
     style.left = Math.max(8, rect.left - offset - 380);
-    anchorX = rect.left; anchorY = rect.top + 20;
+    anchorX = rect.left;
+    anchorY = rect.top + 20;
   }
 
   const balloonX = style.left ?? 0;
   const balloonY = style.top ?? 0;
 
-  let tipX = balloonX + 22; let tipY = balloonY - 6;
-  if (place === "bottom") { tipX = balloonX + 22; tipY = balloonY; }
-  else if (place === "top") { tipX = balloonX + 22; tipY = balloonY + 220; }
-  else if (place === "right") { tipX = balloonX; tipY = balloonY + 22; }
-  else if (place === "left") { tipX = balloonX + 380; tipY = balloonY + 22; }
+  let tipX = balloonX + 22;
+  let tipY = balloonY - 6;
+  if (place === "bottom") {
+    tipX = balloonX + 22;
+    tipY = balloonY;
+  } else if (place === "top") {
+    tipX = balloonX + 22;
+    tipY = balloonY + 220;
+  } else if (place === "right") {
+    tipX = balloonX;
+    tipY = balloonY + 22;
+  } else if (place === "left") {
+    tipX = balloonX + 380;
+    tipY = balloonY + 22;
+  }
 
   return (
     <>
       <svg
-        className="fixed z-[72] pointer-events-none" width="0" height="0" style={{ inset: 0 }}
-        viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`} preserveAspectRatio="none"
+        className="fixed z-[72] pointer-events-none"
+        width="0"
+        height="0"
+        style={{ inset: 0 }}
+        viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`}
+        preserveAspectRatio="none"
       >
         <defs>
-          <marker id="arrowhead" markerWidth="14" markerHeight="14" refX="10" refY="5" orient="auto">
+          <marker
+            id="arrowhead"
+            markerWidth="14"
+            markerHeight="14"
+            refX="10"
+            refY="5"
+            orient="auto"
+          >
             <path d="M0,0 L10,5 L0,10 Z" fill="url(#grad)" />
           </marker>
           <linearGradient id="grad" x1="0" x2="1" y1="0" y2="0">
@@ -193,13 +234,29 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
             <stop offset="100%" stopColor="#6366f1" />
           </linearGradient>
           <filter id="glow">
-            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="rgba(99,102,241,.6)" />
+            <feDropShadow
+              dx="0"
+              dy="0"
+              stdDeviation="3"
+              floodColor="rgba(99,102,241,.6)"
+            />
           </filter>
         </defs>
         <path
-          d={`M ${tipX} ${tipY} Q ${(tipX + anchorX) / 2} ${(tipY + anchorY) / 2 - 20}, ${anchorX} ${anchorY}`}
-          stroke="url(#grad)" strokeWidth="3" fill="none" markerEnd="url(#arrowhead)" filter="url(#glow)"
-          pathLength="100" style={{ strokeDasharray: 100, strokeDashoffset: 0, animation: "dashDraw .35s ease-out both" }}
+          d={`M ${tipX} ${tipY} Q ${(tipX + anchorX) / 2} ${
+            (tipY + anchorY) / 2 - 20
+          }, ${anchorX} ${anchorY}`}
+          stroke="url(#grad)"
+          strokeWidth="3"
+          fill="none"
+          markerEnd="url(#arrowhead)"
+          filter="url(#glow)"
+          pathLength="100"
+          style={{
+            strokeDasharray: 100,
+            strokeDashoffset: 0,
+            animation: "dashDraw .35s ease-out both",
+          }}
         />
       </svg>
 
@@ -227,7 +284,9 @@ const HeaderStat = ({ label, value }) => (
 );
 
 const pill = (classes, text) => (
-  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>{text}</span>
+  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>
+    {text}
+  </span>
 );
 
 /* =========================================================
@@ -246,7 +305,11 @@ const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
 
   return (
     <div className="flex gap-3 items-start">
-      <div className={`shrink-0 w-8 h-8 grid place-items-center rounded-lg ring-1 ${toneCls}`}>{icon}</div>
+      <div
+        className={`shrink-0 w-8 h-8 grid place-items-center rounded-lg ring-1 ${toneCls}`}
+      >
+        {icon}
+      </div>
       <div className="min-w-0">
         <div className="text-sm font-semibold text-slate-900">{title}</div>
         <div className="text-[13px] leading-5 text-slate-600">{desc}</div>
@@ -289,7 +352,15 @@ const HoverPopover = ({
         {/* flecha */}
         <div
           aria-hidden
-          className={`absolute ${side === "right" ? "-left-1 top-3" : side === "left" ? "-right-1 top-3" : side === "top" ? "left-1/2 -translate-x-1/2 -bottom-1" : "left-1/2 -translate-x-1/2 -top-1"} w-3 h-3 rotate-45 bg-white ring-1 ring-slate-200`}
+          className={`absolute ${
+            side === "right"
+              ? "-left-1 top-3"
+              : side === "left"
+              ? "-right-1 top-3"
+              : side === "top"
+              ? "left-1/2 -translate-x-1/2 -bottom-1"
+              : "left-1/2 -translate-x-1/2 -top-1"
+          } w-3 h-3 rotate-45 bg-white ring-1 ring-slate-200`}
         />
         <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.20)] backdrop-blur w-[340px] max-h-[240px] overflow-auto">
           {children}
@@ -304,13 +375,19 @@ const HoverPopover = ({
 =========================== */
 
 const ConexionesGuiada = () => {
-  const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState([]);
+  const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
+    []
+  );
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
 
   const [mostrarErrorBot, setMostrarErrorBot] = useState(false);
-  const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] = useState(false);
-  const [ModalConfiguracionWhatsappBusiness, setModalConfiguracionWhatsappBusiness] = useState(false);
+  const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
+    useState(false);
+  const [
+    ModalConfiguracionWhatsappBusiness,
+    setModalConfiguracionWhatsappBusiness,
+  ] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState(null);
   const [idConfiguracion, setIdConfiguracion] = useState(null);
@@ -352,7 +429,6 @@ const ConexionesGuiada = () => {
     }
   }, []);
 
-
   // ==== TOUR STATE ====
   const [tourOpen, setTourOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -364,9 +440,12 @@ const ConexionesGuiada = () => {
     const loadPref = async () => {
       if (!userData?.id_usuario) return;
       try {
-        const { data } = await chatApi.post('usuarios_chat_center/tour-conexiones/get', {
-          id_usuario: userData.id_usuario,
-        });
+        const { data } = await chatApi.post(
+          "usuarios_chat_center/tour-conexiones/get",
+          {
+            id_usuario: userData.id_usuario,
+          }
+        );
         const dismissed = Number(data?.tour_conexiones_dismissed) === 1;
         setDontShowAgain(dismissed);
         setTourOpen(!dismissed);
@@ -384,23 +463,28 @@ const ConexionesGuiada = () => {
 
   // Guardar preferencia en backend
 
-  const persistTourPref = useCallback(async (value) => {
-    if (!userData?.id_usuario) return; // evita request inválida
-    try {
-      await chatApi.post('usuarios_chat_center/tour-conexiones/set', {
-        id_usuario: userData.id_usuario,
-        tour_conexiones_dismissed: value ? 1 : 0,
-      });
-    } catch (e) {
-      console.error("No se pudo guardar preferencia de tour:", e);
-    }
-  }, [userData?.id_usuario]);
-
+  const persistTourPref = useCallback(
+    async (value) => {
+      if (!userData?.id_usuario) return; // evita request inválida
+      try {
+        await chatApi.post("usuarios_chat_center/tour-conexiones/set", {
+          id_usuario: userData.id_usuario,
+          tour_conexiones_dismissed: value ? 1 : 0,
+        });
+      } catch (e) {
+        console.error("No se pudo guardar preferencia de tour:", e);
+      }
+    },
+    [userData?.id_usuario]
+  );
 
   // Derivados/estadísticas
   const isConectado = (c) => {
-    if (typeof c?.status_whatsapp === "string") return c.status_whatsapp.toUpperCase() === "CONNECTED";
-    return Boolean(String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim());
+    if (typeof c?.status_whatsapp === "string")
+      return c.status_whatsapp.toUpperCase() === "CONNECTED";
+    return Boolean(
+      String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim()
+    );
   };
 
   const isMessengerConectado = (c) => Number(c?.messenger_conectado) === 1;
@@ -408,11 +492,19 @@ const ConexionesGuiada = () => {
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
     const conectados = configuracionAutomatizada.filter(isConectado).length;
-    const pagosActivos = configuracionAutomatizada.filter((c) => Number(c.metodo_pago) === 1).length;
+    const pagosActivos = configuracionAutomatizada.filter(
+      (c) => Number(c.metodo_pago) === 1
+    ).length;
     const messengerCon = configuracionAutomatizada.filter(
       (c) => Number(c.messenger_conectado) === 1
     ).length;
-    return { total, conectados, pendientes: total - conectados, pagosActivos, messengerCon };
+    return {
+      total,
+      conectados,
+      pendientes: total - conectados,
+      pagosActivos,
+      messengerCon,
+    };
   }, [configuracionAutomatizada]);
 
   const listaFiltrada = useMemo(() => {
@@ -440,11 +532,41 @@ const ConexionesGuiada = () => {
   const hasCards = listaFiltrada.length > 0;
   const tourSteps = useMemo(() => {
     const base = [
-      { key: "header", ref: headerRef, title: "Panel de conexiones", body: "Aquí gestionás todos tus canales. Esta guía te resalta las zonas clave y es 100% responsive.", placement: "auto" },
-      { key: "new", ref: newBtnRef, title: "Crear nueva configuración", body: "Usá este botón para iniciar el asistente y conectar un nuevo número o canal.", placement: "auto" },
-      { key: "search", ref: searchRef, title: "Búsqueda instantánea", body: "Filtrá por nombre o teléfono para encontrar una conexión rápidamente.", placement: "auto" },
-      { key: "filters", ref: filtersRef, title: "Filtros por estado y pagos", body: "Acotás la vista por conexiones conectadas/pendientes y pagos activos/inactivos.", placement: "auto" },
-      { key: "stats", ref: statsRef, title: "KPI de cabecera", body: "Visión general: totales, conectados, pendientes y pagos activos.", placement: "auto" },
+      {
+        key: "header",
+        ref: headerRef,
+        title: "Panel de conexiones",
+        body: "Aquí gestionás todos tus canales. Esta guía te resalta las zonas clave y es 100% responsive.",
+        placement: "auto",
+      },
+      {
+        key: "new",
+        ref: newBtnRef,
+        title: "Crear nueva configuración",
+        body: "Usá este botón para iniciar el asistente y conectar un nuevo número o canal.",
+        placement: "auto",
+      },
+      {
+        key: "search",
+        ref: searchRef,
+        title: "Búsqueda instantánea",
+        body: "Filtrá por nombre o teléfono para encontrar una conexión rápidamente.",
+        placement: "auto",
+      },
+      {
+        key: "filters",
+        ref: filtersRef,
+        title: "Filtros por estado y pagos",
+        body: "Acotás la vista por conexiones conectadas/pendientes y pagos activos/inactivos.",
+        placement: "auto",
+      },
+      {
+        key: "stats",
+        ref: statsRef,
+        title: "KPI de cabecera",
+        body: "Visión general: totales, conectados, pendientes y pagos activos.",
+        placement: "auto",
+      },
     ];
     if (hasCards) {
       base.push({
@@ -458,8 +580,7 @@ const ConexionesGuiada = () => {
         key: "menu",
         ref: menuRef,
         title: "Menú principal (☰)",
-        body:
-          "Desde aquí puedes acceder a todo lo importante: tu Plan y facturación, gestión de Usuarios y Departamentos, y Cerrar sesión. Si te pierdes, abre este menú: es tu centro de control.",
+        body: "Desde aquí puedes acceder a todo lo importante: tu Plan y facturación, gestión de Usuarios y Departamentos, y Cerrar sesión. Si te pierdes, abre este menú: es tu centro de control.",
         placement: "auto",
       });
     }
@@ -467,7 +588,12 @@ const ConexionesGuiada = () => {
   }, [hasCards]);
 
   const currentRef = tourSteps[step]?.ref || null;
-  const { rect } = useSpotlight(currentRef, [tourOpen, step, currentRef, listaFiltrada.length]);
+  const { rect } = useSpotlight(currentRef, [
+    tourOpen,
+    step,
+    currentRef,
+    listaFiltrada.length,
+  ]);
 
   // Scroll al objetivo
   useEffect(() => {
@@ -511,7 +637,8 @@ const ConexionesGuiada = () => {
      Lógica original (sin romper)
   =========================== */
 
-  const handleAbrirConfiguracionAutomatizada = () => setModalConfiguracionAutomatizada(true);
+  const handleAbrirConfiguracionAutomatizada = () =>
+    setModalConfiguracionAutomatizada(true);
 
   const [idConfiguracionFB, setIdConfiguracionFB] = useState(null);
 
@@ -536,12 +663,15 @@ const ConexionesGuiada = () => {
         id_usuario: userData.id_usuario,
         suspendido: true,
       });
-      setConfiguracionAutomatizada((prev) => prev.filter((c) => c.id !== config.id));
+      setConfiguracionAutomatizada((prev) =>
+        prev.filter((c) => c.id !== config.id)
+      );
       setStatusMessage({ type: "success", text: "Conexión eliminada." });
     } catch (err) {
       setStatusMessage({
         type: "error",
-        text: err?.response?.data?.message || "No se pudo suspender la conexión.",
+        text:
+          err?.response?.data?.message || "No se pudo suspender la conexión.",
       });
     } finally {
       setSuspendiendoId(null);
@@ -570,7 +700,10 @@ const ConexionesGuiada = () => {
 
   const handleConectarMetaDeveloper = (config) => {
     if (!window.FB) {
-      setStatusMessage({ type: "error", text: "El SDK de Facebook aún no está listo." });
+      setStatusMessage({
+        type: "error",
+        text: "El SDK de Facebook aún no está listo.",
+      });
       return;
     }
     window.FB.login(
@@ -578,7 +711,10 @@ const ConexionesGuiada = () => {
         (async () => {
           const code = response?.authResponse?.code;
           if (!code) {
-            setStatusMessage({ type: "error", text: "No se recibió el código de autorización." });
+            setStatusMessage({
+              type: "error",
+              text: "No se recibió el código de autorización.",
+            });
             return;
           }
           const redirectUri = window.location.origin + window.location.pathname;
@@ -593,17 +729,23 @@ const ConexionesGuiada = () => {
               }
             );
             if (data.success) {
-              setStatusMessage({ type: "success", text: "✅ Número conectado correctamente." });
+              setStatusMessage({
+                type: "success",
+                text: "✅ Número conectado correctamente.",
+              });
               await fetchConfiguracionAutomatizada();
             } else {
               throw new Error(data.message || "Error inesperado.");
             }
           } catch (err) {
-            const mensaje = err?.response?.data?.message || "Error al activar el número.";
+            const mensaje =
+              err?.response?.data?.message || "Error al activar el número.";
             const linkWhatsApp = err?.response?.data?.contacto;
             setStatusMessage({
               type: "error",
-              text: linkWhatsApp ? `${mensaje} 👉 Haz clic para contactarnos por WhatsApp` : mensaje,
+              text: linkWhatsApp
+                ? `${mensaje} 👉 Haz clic para contactarnos por WhatsApp`
+                : mensaje,
               extra: linkWhatsApp || null,
             });
           }
@@ -638,7 +780,11 @@ const ConexionesGuiada = () => {
       window.location.href = data.url;
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", "No se pudo iniciar la conexión con Facebook.", "error");
+      Swal.fire(
+        "Error",
+        "No se pudo iniciar la conexión con Facebook.",
+        "error"
+      );
     }
   };
 
@@ -674,19 +820,26 @@ const ConexionesGuiada = () => {
             localStorage.getItem("id_configuracion_ig") ||
             localStorage.getItem("id_configuracion") ||
             "";
-          if (!id_configuracion) throw new Error("Falta id_configuracion (IG).");
+          if (!id_configuracion)
+            throw new Error("Falta id_configuracion (IG).");
 
           const { data: ex } = await chatApi.post(
             "/instagram/facebook/oauth/exchange",
-            { code, id_configuracion, redirect_uri: window.location.origin + "/conexiones" }
+            {
+              code,
+              id_configuracion,
+              redirect_uri: window.location.origin + "/conexiones",
+            }
           );
           const { data: pagesRes } = await chatApi.get(
             "/instagram/facebook/pages",
             { params: { oauth_session_id: ex.oauth_session_id } }
           );
 
-          if ((!pagesRes?.pages_with_ig || pagesRes.pages_with_ig.length === 0) &&
-              (pagesRes?.pages_without_ig || []).length > 0) {
+          if (
+            (!pagesRes?.pages_with_ig || pagesRes.pages_with_ig.length === 0) &&
+            (pagesRes?.pages_without_ig || []).length > 0
+          ) {
             await Swal.fire({
               icon: "info",
               title: "No hay páginas con Instagram vinculado",
@@ -710,7 +863,8 @@ const ConexionesGuiada = () => {
             id: p.page_id,
             name: `${p.page_name} — @${p.ig_username}`,
           }));
-          if (!selectable.length) throw new Error("No hay páginas con IG conectado.");
+          if (!selectable.length)
+            throw new Error("No hay páginas con IG conectado.");
 
           const pageId = await pickPageWithSwal(selectable);
           if (!pageId) {
@@ -733,17 +887,23 @@ const ConexionesGuiada = () => {
             localStorage.getItem("id_configuracion") ||
             idConfiguracionFB ||
             "";
-          if (!id_configuracion) throw new Error("Falta id_configuracion (FB).");
+          if (!id_configuracion)
+            throw new Error("Falta id_configuracion (FB).");
 
           const { data: ex } = await chatApi.post(
             "/messenger/facebook/oauth/exchange",
-            { code, id_configuracion, redirect_uri: window.location.origin + "/conexiones" }
+            {
+              code,
+              id_configuracion,
+              redirect_uri: window.location.origin + "/conexiones",
+            }
           );
           const { data: pagesRes } = await chatApi.get(
             "/messenger/facebook/pages",
             { params: { oauth_session_id: ex.oauth_session_id } }
           );
-          if (!pagesRes?.pages?.length) throw new Error("No se encontraron páginas.");
+          if (!pagesRes?.pages?.length)
+            throw new Error("No se encontraron páginas.");
 
           const pageId = await pickPageWithSwal(pagesRes.pages);
           if (!pageId) {
@@ -763,7 +923,11 @@ const ConexionesGuiada = () => {
         }
       } catch (e) {
         console.error(e);
-        Swal.fire("Error", e?.message || "No fue posible completar la conexión", "error");
+        Swal.fire(
+          "Error",
+          e?.message || "No fue posible completar la conexión",
+          "error"
+        );
       } finally {
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, "", cleanUrl);
@@ -790,7 +954,11 @@ const ConexionesGuiada = () => {
       window.location.href = data.url;
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", "No se puede iniciar la conexión con Instagram", "error");
+      Swal.fire(
+        "Error",
+        "No se puede iniciar la conexión con Instagram",
+        "error"
+      );
     }
   };
 
@@ -805,11 +973,17 @@ const ConexionesGuiada = () => {
       setMostrarErrorBot(false);
     } catch (error) {
       if (error.response?.status === 403) {
-        Swal.fire({ icon: "error", title: error.response?.data?.message, confirmButtonText: "OK" })
-          .then(() => navigate("/planes_view"));
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          confirmButtonText: "OK",
+        }).then(() => navigate("/planes_view"));
       } else if (error.response?.status === 402) {
-        Swal.fire({ icon: "error", title: error.response?.data?.message, confirmButtonText: "OK" })
-          .then(() => navigate("/miplan"));
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          confirmButtonText: "OK",
+        }).then(() => navigate("/miplan"));
       } else if (error.response?.status === 400) {
         setMostrarErrorBot(true);
       } else {
@@ -895,7 +1069,10 @@ const ConexionesGuiada = () => {
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
         {/* Header premium */}
         <header className="relative isolate overflow-hidden">
-          <div ref={headerRef} className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
+          <div
+            ref={headerRef}
+            className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl"
+          >
             <div className="flex items-start sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
@@ -919,16 +1096,23 @@ const ConexionesGuiada = () => {
 
                 {/* Reabrir guía */}
                 <button
-                  onClick={() => { setTourOpen(true); setStep(0); }}
+                  onClick={() => {
+                    setTourOpen(true);
+                    setStep(0);
+                  }}
                   className="px-3 py-2 rounded-lg bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500/30 ring-1 ring-indigo-300/30"
                   title="Mostrar visita guiada"
                 >
-                  <i className="bx bx-help-circle text-xl align-middle" /> <span className="hidden sm:inline">¿Cómo funciona?</span>
+                  <i className="bx bx-help-circle text-xl align-middle" />{" "}
+                  <span className="hidden sm:inline">¿Cómo funciona?</span>
                 </button>
               </div>
             </div>
 
-            <div ref={statsRef} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div
+              ref={statsRef}
+              className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+            >
               <HeaderStat label="Total conexiones" value={stats.total} />
               <HeaderStat label="Conectados" value={stats.conectados} />
               <HeaderStat label="Pendientes" value={stats.pendientes} />
@@ -985,7 +1169,12 @@ const ConexionesGuiada = () => {
             >
               {statusMessage.text}{" "}
               {statusMessage.extra && (
-                <a href={statusMessage.extra} target="_blank" rel="noreferrer" className="underline font-semibold">
+                <a
+                  href={statusMessage.extra}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline font-semibold"
+                >
                   Abrir WhatsApp
                 </a>
               )}
@@ -999,15 +1188,25 @@ const ConexionesGuiada = () => {
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {[...Array(8)].map((_, i) => (
-                  <div key={i} className="h-48 rounded-xl bg-slate-100 animate-pulse" />
+                  <div
+                    key={i}
+                    className="h-48 rounded-xl bg-slate-100 animate-pulse"
+                  />
                 ))}
               </div>
             ) : mostrarErrorBot || listaFiltrada.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center mt-12">
-                <img src={botImage} alt="Robot" className="w-40 h-40 animate-bounce-slow" />
-                <h3 className="mt-4 text-lg font-semibold text-slate-800">Aún no tienes conexiones</h3>
+                <img
+                  src={botImage}
+                  alt="Robot"
+                  className="w-40 h-40 animate-bounce-slow"
+                />
+                <h3 className="mt-4 text-lg font-semibold text-slate-800">
+                  Aún no tienes conexiones
+                </h3>
                 <p className="mt-1 text-slate-500 text-sm md:text-base max-w-md">
-                  Crea tu primera conexión y empieza a interactuar con tus clientes al instante.
+                  Crea tu primera conexión y empieza a interactuar con tus
+                  clientes al instante.
                 </p>
                 <button
                   onClick={handleAbrirConfiguracionAutomatizada}
@@ -1060,7 +1259,9 @@ const ConexionesGuiada = () => {
                           className={[
                             "shrink-0 w-10 h-10 rounded-xl grid place-items-center ring-1 transition",
                             "bg-rose-50 ring-rose-200 text-rose-600",
-                            suspendiendoId === config.id ? "opacity-60 cursor-not-allowed" : "hover:scale-105 hover:bg-rose-100",
+                            suspendiendoId === config.id
+                              ? "opacity-60 cursor-not-allowed"
+                              : "hover:scale-105 hover:bg-rose-100",
                           ].join(" ")}
                           title="Eliminar conexión"
                           aria-label="Eliminar conexión"
@@ -1081,8 +1282,14 @@ const ConexionesGuiada = () => {
                           className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
                           onClick={() => {
                             localStorage.setItem("id_configuracion", config.id);
-                            localStorage.setItem("id_plataforma_conf", config.id_plataforma);
-                            localStorage.setItem("nombre_configuracion", config.nombre_configuracion);
+                            localStorage.setItem(
+                              "id_plataforma_conf",
+                              config.id_plataforma
+                            );
+                            localStorage.setItem(
+                              "nombre_configuracion",
+                              config.nombre_configuracion
+                            );
                             navigate("/administrador-whatsapp");
                           }}
                           title="Ir a configuración"
@@ -1119,21 +1326,17 @@ const ConexionesGuiada = () => {
                           </div>
                         )}
 
-                        {/* Instagram Inbox — DESHABILITADO: PRÓXIMAMENTE */}
+                        {/* Instagram Inbox —*/}
+                        {/* Instagram Inbox*/}
                         <div
-                          className="relative group text-gray-600"
-                          title="Próximamente"
-                          role="button"
-                          aria-disabled="true"
-                          tabIndex={-1}
+                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
                           onClick={() => handleConectarInstagramInbox(config)}
+                          title="Conectar Inbox de Instagram"
                         >
+                          {/* usa el icono que prefieras. Si tienes boxicons: bxl-messenger / bxl-facebook */}
                           <i className="bx bxl-instagram text-2xl"></i>
-                          <span className="absolute -top-2 -right-3 bg-slate-200 text-slate-700 text-[10px] font-semibold rounded-full px-2 py-0.5 ring-1 ring-slate-300">
-                            Próx.
-                          </span>
                           <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Próximamente
+                            Conectar Inbox de Instagram
                           </span>
                         </div>
 
@@ -1150,7 +1353,10 @@ const ConexionesGuiada = () => {
                             </span>
                           </div>
                         ) : (
-                          <div className="relative group text-blue-600" title="Meta Business conectado">
+                          <div
+                            className="relative group text-blue-600"
+                            title="Meta Business conectado"
+                          >
                             <i className="bx bxl-meta text-2xl"></i>
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                               Meta Business conectado
@@ -1163,7 +1369,9 @@ const ConexionesGuiada = () => {
                             className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
                             onClick={() => {
                               setIdConfiguracion(config.id);
-                              setNombreConfiguracion(config.nombre_configuracion);
+                              setNombreConfiguracion(
+                                config.nombre_configuracion
+                              );
                               setTelefono(config.telefono);
                               setModalConfiguracionWhatsappBusiness(true);
                             }}
@@ -1175,7 +1383,10 @@ const ConexionesGuiada = () => {
                             </span>
                           </div>
                         ) : (
-                          <div className="relative group text-green-600" title="WhatsApp vinculado">
+                          <div
+                            className="relative group text-green-600"
+                            title="WhatsApp vinculado"
+                          >
                             <i className="bx bxl-whatsapp text-2xl"></i>
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                               WhatsApp vinculado
@@ -1187,8 +1398,14 @@ const ConexionesGuiada = () => {
                           className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
                           onClick={() => {
                             localStorage.setItem("id_configuracion", config.id);
-                            localStorage.setItem("id_plataforma_conf", config.id_plataforma);
-                            localStorage.setItem("nombre_configuracion", config.nombre_configuracion);
+                            localStorage.setItem(
+                              "id_plataforma_conf",
+                              config.id_plataforma
+                            );
+                            localStorage.setItem(
+                              "nombre_configuracion",
+                              config.nombre_configuracion
+                            );
                             navigate("/chat");
                           }}
                           title="Ir al chat"
@@ -1208,7 +1425,8 @@ const ConexionesGuiada = () => {
                           onBlur={() => setHoveredId(null)}
                         >
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-semibold ring-1 ring-indigo-200 bg-indigo-50 text-indigo-700 cursor-default select-none">
-                            <i className="bx bx-info-circle text-base" /> Detalles
+                            <i className="bx bx-info-circle text-base" />{" "}
+                            Detalles
                           </span>
 
                           <HoverPopover
@@ -1241,7 +1459,9 @@ const ConexionesGuiada = () => {
                               />
                               <ActionDetailRow
                                 icon={<i className="bx bxl-whatsapp" />}
-                                title={`WhatsApp Business ${conectado ? "(conectado)" : "(pendiente)"}`}
+                                title={`WhatsApp Business ${
+                                  conectado ? "(conectado)" : "(pendiente)"
+                                }`}
                                 tone={conectado ? "success" : "neutral"}
                                 desc={
                                   conectado
@@ -1292,9 +1512,16 @@ const ConexionesGuiada = () => {
         <>
           <Spotlight rect={rect} />
           {rect && (
-            <Balloon rect={rect} placement={tourSteps[step]?.placement || "auto"}>
-              <div className="text-slate-900 font-semibold text-[15px]">{tourSteps[step].title}</div>
-              <p className="mt-1 text-[13px] leading-5 text-slate-600">{tourSteps[step].body}</p>
+            <Balloon
+              rect={rect}
+              placement={tourSteps[step]?.placement || "auto"}
+            >
+              <div className="text-slate-900 font-semibold text-[15px]">
+                {tourSteps[step].title}
+              </div>
+              <p className="mt-1 text-[13px] leading-5 text-slate-600">
+                {tourSteps[step].body}
+              </p>
 
               {/* HUD de progreso */}
               <div className="mt-3 flex items-center justify-between">
@@ -1303,7 +1530,9 @@ const ConexionesGuiada = () => {
                     Paso {step + 1} / {tourSteps.length}
                   </div>
                 </div>
-                <div className="text-[11px] text-slate-500">Atajos: ← → • Esc</div>
+                <div className="text-[11px] text-slate-500">
+                  Atajos: ← → • Esc
+                </div>
               </div>
 
               {/* Controles */}
@@ -1346,7 +1575,9 @@ const ConexionesGuiada = () => {
                   <button
                     onClick={handleNext}
                     className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-indigo-600 to-indigo-500 px-3 py-1.5 text-[12px] font-semibold text-white ring-1 ring-indigo-500/30 hover:brightness-110"
-                    aria-label={step === tourSteps.length - 1 ? "Terminar" : "Siguiente"}
+                    aria-label={
+                      step === tourSteps.length - 1 ? "Terminar" : "Siguiente"
+                    }
                     title="Siguiente (→)"
                   >
                     {step === tourSteps.length - 1 ? "Terminar" : "Siguiente"}
