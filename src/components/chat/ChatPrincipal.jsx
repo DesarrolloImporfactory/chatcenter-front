@@ -11,7 +11,6 @@ function WaAudioPlayer({ src }) {
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  // velocidades disponibles
   const SPEEDS = [1, 1.5, 2];
   const [speedIdx, setSpeedIdx] = useState(0);
 
@@ -45,13 +44,12 @@ function WaAudioPlayer({ src }) {
       a.removeEventListener("ended", onEnd);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src]); // cuando cambia el audio, reconfigura listeners y velocidad
+  }, [src]); // cuando cambia el audio
 
   // aplica la velocidad cuando el usuario la cambia
   useEffect(() => {
     const a = audioRef.current;
     if (a) a.playbackRate = SPEEDS[speedIdx];
-    // no iniciar reproducción (sin autoplay)
   }, [speedIdx]);
 
   const progress = duration ? Math.min(100, (current / duration) * 100) : 0;
@@ -76,19 +74,20 @@ function WaAudioPlayer({ src }) {
     setCurrent(a.currentTime);
   };
 
-  const cycleSpeed = () => {
-    setSpeedIdx((idx) => (idx + 1) % SPEEDS.length);
-  };
+  const cycleSpeed = () => setSpeedIdx((idx) => (idx + 1) % SPEEDS.length);
+
+  // barra y knob centrados
+  const clampedProgress = Math.max(0, Math.min(100, progress));
 
   return (
     <div className="inline-block">
-      <div className="w-[250px] sm:w-[300px] rounded-xl bg-white/90 p-2">
+      <div className="w-[260px] sm:w-[320px] rounded-2xl bg-white/95 p-3">
         <div className="flex items-center gap-3">
           {/* Botón circular play/pause */}
           <button
             type="button"
             onClick={toggle}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#25D366] text-white shadow hover:brightness-95 transition active:scale-95"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#25D366] text-white shadow hover:brightness-95 transition active:scale-95"
             aria-label={playing ? "Pausar" : "Reproducir"}
           >
             {playing ? (
@@ -103,25 +102,25 @@ function WaAudioPlayer({ src }) {
             )}
           </button>
 
-          {/* Barra de progreso */}
-          <div className="flex-1">
+          {/* Barra de progreso centrada */}
+          <div className="flex-1 flex items-center">
             <div
-              className="relative h-2 rounded-full bg-slate-200 cursor-pointer"
+              className="relative w-full h-2 rounded-full bg-slate-200 cursor-pointer"
               onClick={seek}
               title="Buscar"
             >
               <div
-                className="absolute left-0 top-0 h-2 rounded-full bg-[#cfead8]"
-                style={{ width: `${progress}%` }}
+                className="absolute left-0 top-0 bottom-0 rounded-full bg-[#cfead8]"
+                style={{ width: `${clampedProgress}%` }}
               />
               <div
-                className="absolute -top-[6px] h-4 w-4 rounded-full bg-[#25D366] shadow"
-                style={{ left: `calc(${progress}% - 8px)` }}
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-4 w-4 rounded-full bg-[#25D366] shadow pointer-events-none"
+                style={{ left: `${clampedProgress}%` }}
               />
             </div>
           </div>
 
-          {/* Botón de velocidad (1x / 1.5x / 2x) */}
+          {/* Botón de velocidad */}
           <button
             type="button"
             onClick={cycleSpeed}
@@ -143,6 +142,43 @@ function WaAudioPlayer({ src }) {
     </div>
   );
 }
+
+/* ——— Video Player premium (contenedor 16:9, responsivo) ——— */
+function PremiumVideoPlayer({ src }) {
+  const realSrc = /^https?:\/\//.test(src) ? src : `https://new.imporsuitpro.com/${src}`;
+  return (
+    <div className="w-full max-w-[460px]">
+      <div className="relative w-full rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/10 bg-black">
+        {/* caja 16:9 */}
+        <div className="pt-[56.25%]" />
+        <video
+          className="absolute inset-0 w-full h-full object-cover"
+          controls
+          preload="metadata"
+          src={realSrc}
+          playsInline
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ——— divisor de fecha centrado, con más espacio ——— */
+const DayDivider = ({ label }) => (
+  <div className="relative my-6 md:my-8 select-none">
+    <div className="h-px w-full bg-black/10" />
+    <span
+      className="
+        absolute left-1/2 -translate-x-1/2 -top-3
+        px-4 py-1 text-[11px] md:text-xs font-medium
+        rounded-full bg-white/90 backdrop-blur
+        ring-1 ring-black/10 shadow-sm
+      "
+    >
+      {label}
+    </span>
+  </div>
+);
 
 const ChatPrincipal = ({
   mensajesOrdenados,
@@ -227,7 +263,7 @@ const ChatPrincipal = ({
         .slice(0, 19)
         .replace("T", " ");
 
-      if (respuesta.status != 200) {
+      if (respuesta.status !== 200) {
         console.log("Error en la respuesta del servidor: " + respuesta);
       } else {
         /* Mensajes seccion derecha */
@@ -250,12 +286,7 @@ const ChatPrincipal = ({
     }
   };
 
-  const reenviarImage = async (
-    texto_mensaje,
-    ruta_archivo,
-    id_wamid_mensaje,
-    id
-  ) => {
+  const reenviarImage = async (texto_mensaje, ruta_archivo, id_wamid_mensaje, id) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
@@ -271,10 +302,7 @@ const ChatPrincipal = ({
       },
     };
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
+    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
     try {
       const response = await fetch(apiUrl, {
@@ -291,11 +319,7 @@ const ChatPrincipal = ({
         return;
       }
 
-      console.log("Imagen enviada con éxito a WhatsApp:", result);
-
-      // Extraer wamid de la respuesta
       const new_wamid = result?.messages?.[0]?.id || null;
-
       actualizar_mensaje_reenviado(id, new_wamid, id_wamid_mensaje);
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
@@ -313,15 +337,10 @@ const ChatPrincipal = ({
       messaging_product: "whatsapp",
       to: numeroDestino,
       type: "audio",
-      audio: {
-        link: "https://new.imporsuitpro.com/" + ruta_archivo,
-      },
+      audio: { link: "https://new.imporsuitpro.com/" + ruta_archivo },
     };
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
+    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
     try {
       const response = await fetch(apiUrl, {
@@ -346,12 +365,7 @@ const ChatPrincipal = ({
     }
   };
 
-  const reenviarVideo = async (
-    texto_mensaje,
-    ruta_archivo,
-    id_wamid_mensaje,
-    id
-  ) => {
+  const reenviarVideo = async (texto_mensaje, ruta_archivo, id_wamid_mensaje, id) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
@@ -367,10 +381,7 @@ const ChatPrincipal = ({
       },
     };
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
+    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
     try {
       const response = await fetch(apiUrl, {
@@ -395,18 +406,12 @@ const ChatPrincipal = ({
     }
   };
 
-  const reenviarDocumento = async (
-    ruta_archivo,
-    texto_mensaje,
-    id_wamid_mensaje,
-    id
-  ) => {
+  const reenviarDocumento = async (ruta_archivo, texto_mensaje, id_wamid_mensaje, id) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
     const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
 
-    // Extraer ruta desde JSON
     let rutaReal;
     try {
       const jsonDoc = JSON.parse(ruta_archivo);
@@ -429,10 +434,7 @@ const ChatPrincipal = ({
       },
     };
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
+    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
     try {
       const response = await fetch(apiUrl, {
@@ -467,15 +469,10 @@ const ChatPrincipal = ({
       messaging_product: "whatsapp",
       to: numeroDestino,
       type: "text",
-      text: {
-        body: texto_mensaje,
-      },
+      text: { body: texto_mensaje },
     };
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
+    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
     try {
       const response = await fetch(apiUrl, {
@@ -513,15 +510,8 @@ const ChatPrincipal = ({
     const numeroDestino = selectedChat.celular_cliente;
     const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
 
-    // Convertir los datos completos del usuario en objeto
     const datos = JSON.parse(ruta_archivo);
-
-    // Extraer placeholders utilizados en el texto
-    const placeholders = [...texto_mensaje.matchAll(/{{(.*?)}}/g)].map(
-      (m) => m[1]
-    );
-
-    // Armar parámetros en orden de aparición
+    const placeholders = [...texto_mensaje.matchAll(/{{(.*?)}}/g)].map((m) => m[1]);
     const parametros = placeholders.map((clave) => ({
       type: "text",
       text: datos[clave] ?? "",
@@ -533,22 +523,12 @@ const ChatPrincipal = ({
       type: "template",
       template: {
         name: template_name,
-        language: {
-          code: language_code,
-        },
-        components: [
-          {
-            type: "body",
-            parameters: parametros,
-          },
-        ],
+        language: { code: language_code },
+        components: [{ type: "body", parameters: parametros }],
       },
     };
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
+    const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
     try {
       const response = await fetch(apiUrl, {
@@ -589,38 +569,18 @@ const ChatPrincipal = ({
         case "text":
           await reenviarTexto(texto_mensaje, id_wamid_mensaje, id);
           break;
-
         case "document":
-          await reenviarDocumento(
-            ruta_archivo,
-            texto_mensaje,
-            id_wamid_mensaje,
-            id
-          );
+          await reenviarDocumento(ruta_archivo, texto_mensaje, id_wamid_mensaje, id);
           break;
-
         case "video":
-          await reenviarVideo(
-            texto_mensaje,
-            ruta_archivo,
-            id_wamid_mensaje,
-            id
-          );
+          await reenviarVideo(texto_mensaje, ruta_archivo, id_wamid_mensaje, id);
           break;
-
         case "audio":
           await reenviarAudio(ruta_archivo, id_wamid_mensaje, id);
           break;
-
         case "image":
-          await reenviarImage(
-            texto_mensaje,
-            ruta_archivo,
-            id_wamid_mensaje,
-            id
-          );
+          await reenviarImage(texto_mensaje, ruta_archivo, id_wamid_mensaje, id);
           break;
-
         case "template":
           await reenviarTemplate(
             template_name,
@@ -631,12 +591,10 @@ const ChatPrincipal = ({
             id
           );
           break;
-
         default:
           alert(`Tipo de mensaje no soportado: ${tipo_mensaje}`);
           return;
       }
-
       console.log("Mensaje reenviado correctamente");
     } catch (error) {
       console.error("Error al reenviar el mensaje:", error);
@@ -647,9 +605,7 @@ const ChatPrincipal = ({
   useEffect(() => {
     if (mensajesOrdenados && mensajesOrdenados.length > 0) {
       // Filtrar los mensajes que tengan rol_mensaje === 0 (cliente)
-      const mensajesCliente = mensajesOrdenados.filter(
-        (mensaje) => mensaje.rol_mensaje === 0
-      );
+      const mensajesCliente = mensajesOrdenados.filter((mensaje) => mensaje.rol_mensaje === 0);
 
       if (mensajesCliente.length > 0) {
         setUltimoMensaje(mensajesCliente[mensajesCliente.length - 1]);
@@ -724,19 +680,14 @@ const ChatPrincipal = ({
     const form = new FormData();
     form.append("file", file); // nombre del campo esperado por tu uploader
 
-    const resp = await fetch(
-      "https://uploader.imporfactory.app/api/files/upload",
-      {
-        method: "POST",
-        body: form,
-      }
-    );
+    const resp = await fetch("https://uploader.imporfactory.app/api/files/upload", {
+      method: "POST",
+      body: form,
+    });
     const json = await resp.json();
     if (!json?.success) throw new Error("Error subiendo archivo");
     return json.data; // { url, fileName, size, mimeType, ... }
   }
-
-  // Refs existentes: imageInputRef, videoInputRef, fileInputRef
 
   async function handleFilePicked(kind, file) {
     if (!file || !selectedChat) return;
@@ -747,8 +698,7 @@ const ChatPrincipal = ({
         "tmp-file-" + Date.now() + "-" + Math.random().toString(16).slice(2);
       const created = new Date().toISOString();
 
-      const tipo =
-        kind === "image" ? "image" : kind === "video" ? "video" : "document";
+      const tipo = kind === "image" ? "image" : kind === "video" ? "video" : "document";
 
       const ruta_archivo =
         tipo === "document"
@@ -828,20 +778,40 @@ const ChatPrincipal = ({
     if (selectedChat?.source === "ig") handleTypingIG();
   };
 
-  // 2) cleanup typing_off al salir del chat
+  // cleanup typing_off al salir del chat
   useEffect(() => {
     return () => {
       clearTimeout(typingTimerRef.current);
-      if (
-        wasTypingRef.current &&
-        selectedChat?.source === "ig" &&
-        selectedChat?.id
-      ) {
+      if (wasTypingRef.current && selectedChat?.source === "ig" && selectedChat?.id) {
         actions?.ig?.typing?.(selectedChat.id, false);
       }
       wasTypingRef.current = false;
     };
   }, []);
+
+  /* === Hora HH:mm para mostrar en burbuja y fecha como tooltip === */
+  const formatHora = (iso) =>
+    new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+
+  /* === Formato de etiqueta de día para el divisor === */
+  const formatDayLabel = (iso) =>
+    new Date(iso).toLocaleDateString(undefined, {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+
+  /* === Comparador de cambio de día === */
+  const isNewDay = (prevISO, currISO) => {
+    const a = new Date(prevISO);
+    const b = new Date(currISO);
+    return (
+      a.getFullYear() !== b.getFullYear() ||
+      a.getMonth() !== b.getMonth() ||
+      a.getDate() !== b.getDate()
+    );
+  };
 
   return (
     <>
@@ -855,13 +825,11 @@ const ChatPrincipal = ({
             : "block"
         }
       `}
-        // Quita el bg-gray-100 y aplicaremos fondo custom adentro
       >
         {/* Si no hay chat seleccionado */}
         {selectedChat === null ? (
           <div className="flex h-[calc(80vh_-_110px)] items-center justify-center">
             <i className="bx bx-chat text-4xl text-slate-500 m-3" />
-
             <p className="text-5x1 text-slate-500 -mt-1 ">
               Seleccione una conversación para empezar a chatear
             </p>
@@ -869,33 +837,43 @@ const ChatPrincipal = ({
         ) : (
           <div className="flex flex-col h-[calc(100vh_-_110px)] relative">
             {/* 
-            1) Contenedor principal del chat, 
-               con fondo color + imagen (WhatsApp) o blanco (Messenger)
-          */}
+              1) Contenedor principal del chat 
+              (fondo intacto)
+            */}
             <div
               ref={chatContainerRef}
               onScroll={handleScroll}
               className="
-              flex
-              flex-col
-              flex-grow
-              space-y-5
-              max-h-[calc(100vh_-_180px)]
-              overflow-y-auto
-              p-4
-              pb-12
-            "
+                flex flex-col flex-grow
+                max-h-[calc(100vh_-_180px)]
+                overflow-y-auto
+                p-5
+                pb-20
+                space-y-5 md:space-y-6
+              "
               style={chatBgStyle}
             >
-              {/* Mapeo de mensajes */}
-              <>
-                {mensajesActuales.map((mensaje) => {
+              {/* === Render con divisores por fecha === */}
+              {(() => {
+                const items = [];
+                for (let i = 0; i < mensajesActuales.length; i++) {
+                  const mensaje = mensajesActuales[i];
+                  const prev = mensajesActuales[i - 1];
+
+                  // Si es el primero o cambió el día, insertamos divisor
+                  if (!prev || isNewDay(prev.created_at, mensaje.created_at)) {
+                    items.push(
+                      <DayDivider
+                        key={`day-${mensaje.created_at}-${i}`}
+                        label={formatDayLabel(mensaje.created_at)}
+                      />
+                    );
+                  }
+
                   const key =
                     mensaje.id ??
                     mensaje.mid_mensaje ??
-                    `${mensaje.created_at}-${(
-                      mensaje.texto_mensaje || ""
-                    ).slice(0, 16)}`;
+                    `${mensaje.created_at}-${(mensaje.texto_mensaje || "").slice(0, 16)}`;
 
                   const hasError = !!mensaje?.error_meta;
                   const errorText = hasError
@@ -909,20 +887,19 @@ const ChatPrincipal = ({
                   let bubblePaletteClass = "bg-white";
                   if (mensaje.rol_mensaje === 1) {
                     if (isMessenger) {
-                      bubblePaletteClass = "bg-[#0084FF] text-white"; // MS saliente
+                      bubblePaletteClass = "bg-[#0084FF] text-white";
                     } else if (isInstagram) {
-                      // violeta/morado — puedes ajustar a tu gusto: #7C3AED (violet-600) o #6D28D9 (violet-700)
                       bubblePaletteClass = "bg-[#7C3AED] text-white";
                     } else {
-                      bubblePaletteClass = "bg-[#DCF8C6]"; // WA saliente
+                      bubblePaletteClass = "bg-[#DCF8C6]";
                     }
                   } else {
                     if (isMessenger) {
-                      bubblePaletteClass = "bg-gray-100 text-gray-900"; // MS entrante
+                      bubblePaletteClass = "bg-gray-100 text-gray-900";
                     } else if (isInstagram) {
-                      bubblePaletteClass = "bg-white text-gray-900"; // IG entrante (blanco)
+                      bubblePaletteClass = "bg-white text-gray-900";
                     } else {
-                      bubblePaletteClass = "bg-white"; // WA entrante
+                      bubblePaletteClass = "bg-white";
                     }
                   }
 
@@ -936,25 +913,20 @@ const ChatPrincipal = ({
                       ? "text-gray-700"
                       : "text-gray-500";
 
-                  return (
+                  items.push(
                     <div
                       key={key}
-                      className={`flex ${
-                        mensaje.rol_mensaje === 1
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
+                      className={`flex ${mensaje.rol_mensaje === 1 ? "justify-end" : "justify-start"}`}
                     >
                       {/* Botón a la IZQUIERDA cuando hay error */}
                       {hasError && (
                         <button
                           onClick={() => onReenviar(mensaje)}
                           className="
-                          self-center mr-2 px-2 py-1 text-xs rounded-full
-                          border border-red-200 bg-red-50/80 hover:bg-red-100
-                          text-red-600 flex items-center gap-1
-                          transition-colors
-                        "
+                            self-center mr-3 px-2.5 py-1 text-xs rounded-full
+                            border border-red-200 bg-red-50/80 hover:bg-red-100
+                            text-red-600 flex items-center gap-1 transition-colors
+                          "
                           title="Reintentar envío"
                         >
                           <i className="bx bx-redo text-xl" />
@@ -962,35 +934,30 @@ const ChatPrincipal = ({
                         </button>
                       )}
 
-                      {/* Burbuja */}
+                      {/* Burbuja SIN cola, más robusta */}
                       <div
                         className={`
-                        relative p-3 rounded-lg min-w-[20%] max-w-[70%]
-                        whitespace-pre-wrap break-words shadow-md
-                        ${bubblePaletteClass}
-                        ${hasError ? "ring-1 ring-red-600/90" : ""}
-                      `}
+                          relative px-4 py-3 md:px-5 md:py-3.5 rounded-2xl
+                          min-w-[52%] sm:min-w-[38%] md:min-w-[32%]
+                          max-w-[80%] md:max-w-[70%]
+                          whitespace-pre-wrap break-words
+                          shadow-[0_1px_6px_rgb(0_0_0_/_0.08)]
+                          ring-1 ring-black/5
+                          ${bubblePaletteClass}
+                          ${hasError ? "ring-red-600/90" : ""}
+                        `}
                         title={hasError ? errorText : undefined}
                       >
                         {/* Alerta interna si hubo error */}
                         {hasError && (
-                          <div
-                            className="mb-2 -mt-1 -mx-1 px-1.5 py-0.5 text-[11px] leading-none
-                            flex items-center gap-1
-                            text-red-600/90"
-                          >
+                          <div className="mb-2 -mt-1 -mx-1 px-1.5 py-0.5 text-[11px] leading-none flex items-center gap-1 text-red-600/90">
                             <span className="inline-block h-3 w-[3px] rounded bg-red-600/90" />
-                            <i
-                              className="bx bx-error-circle text-xs"
-                              aria-hidden="true"
-                            />
+                            <i className="bx bx-error-circle text-xs" aria-hidden="true" />
                             <span>Error al enviar: </span>
                             {mensaje.error_meta?.codigo_error && (
                               <span className="opacity-90">
                                 {(() => {
-                                  const code = String(
-                                    mensaje.error_meta.codigo_error
-                                  );
+                                  const code = String(mensaje.error_meta.codigo_error);
                                   const label = ERROR_MAP[code];
                                   return (
                                     <span className="opacity-90">
@@ -1010,45 +977,31 @@ const ChatPrincipal = ({
                         )}
 
                         {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
-                        <span className="text-sm pb-2 inline-block">
-                          {/* Tipo: TEXT */}
+                        <span className="text-[15px] md:text-sm pb-2 inline-block">
+                          {/* Tipo: TEXT / TEMPLATE */}
                           {mensaje.tipo_mensaje === "text" ? (
-                            mensaje.texto_mensaje.includes("{{") &&
-                            mensaje.ruta_archivo ? (
+                            mensaje.texto_mensaje.includes("{{") && mensaje.ruta_archivo ? (
                               <p>
-                                {mensaje.texto_mensaje.replace(
-                                  /\{\{(.*?)\}\}/g,
-                                  (match, key) => {
-                                    const valores = JSON.parse(
-                                      mensaje.ruta_archivo
-                                    );
-                                    return valores[key.trim()] || match;
-                                  }
-                                )}
+                                {mensaje.texto_mensaje.replace(/\{\{(.*?)\}\}/g, (match, key) => {
+                                  const valores = JSON.parse(mensaje.ruta_archivo);
+                                  return valores[key.trim()] || match;
+                                })}
                               </p>
                             ) : (
                               <p>{mensaje.texto_mensaje}</p>
                             )
                           ) : mensaje.tipo_mensaje === "template" ? (
                             <p>
-                              {mensaje.texto_mensaje.replace(
-                                /\{\{(.*?)\}\}/g,
-                                (match, key) => {
-                                  const valores = JSON.parse(
-                                    mensaje.ruta_archivo
-                                  );
-                                  return valores[key.trim()] || match;
-                                }
-                              )}
+                              {mensaje.texto_mensaje.replace(/\{\{(.*?)\}\}/g, (match, key) => {
+                                const valores = JSON.parse(mensaje.ruta_archivo);
+                                return valores[key.trim()] || match;
+                              })}
                             </p>
                           ) : mensaje.tipo_mensaje === "audio" ? (
-                            /* Tipo: AUDIO — Player estilo WhatsApp */
                             <WaAudioPlayer src={mensaje.ruta_archivo} />
                           ) : mensaje.tipo_mensaje === "image" ? (
-                            /* Tipo: IMAGEN (WA y MS con el mismo componente) */
                             <ImageWithModal mensaje={mensaje} />
                           ) : mensaje.tipo_mensaje === "document" ? (
-                            /* Tipo: DOCUMENT */
                             (() => {
                               let meta = {
                                 ruta: "",
@@ -1059,7 +1012,6 @@ const ChatPrincipal = ({
                               try {
                                 meta = JSON.parse(mensaje.ruta_archivo);
                               } catch (e) {
-                                // si viniera plain string, lo adaptamos
                                 meta = {
                                   ruta: mensaje.ruta_archivo,
                                   nombre: "archivo",
@@ -1076,9 +1028,7 @@ const ChatPrincipal = ({
                                 ""
                               )?.toUpperCase();
 
-                              const iconInfo = getFileIcon(
-                                meta.ruta?.split(".").pop() || ""
-                              );
+                              const iconInfo = getFileIcon(meta.ruta?.split(".").pop() || "");
 
                               return (
                                 <div className="p-2">
@@ -1086,12 +1036,10 @@ const ChatPrincipal = ({
                                     href={link}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg shadow-md hover:bg-gray-100 transition-colors"
+                                    className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl shadow hover:bg-gray-100 transition-colors"
                                   >
                                     <span className="text-2xl">
-                                      <i
-                                        className={`${iconInfo.icon} ${iconInfo.color}`}
-                                      ></i>
+                                      <i className={`${iconInfo.icon} ${iconInfo.color}`}></i>
                                     </span>
                                     <div className="flex flex-col">
                                       <span className="font-semibold text-sm text-gray-800 truncate">
@@ -1100,14 +1048,8 @@ const ChatPrincipal = ({
                                       <div className="flex text-xs text-gray-500 space-x-1">
                                         <span>
                                           {meta.size > 1024 * 1024
-                                            ? `${(
-                                                meta.size /
-                                                1024 /
-                                                1024
-                                              ).toFixed(2)} MB`
-                                            : `${(meta.size / 1024).toFixed(
-                                                2
-                                              )} KB`}
+                                            ? `${(meta.size / 1024 / 1024).toFixed(2)} MB`
+                                            : `${(meta.size / 1024).toFixed(2)} KB`}
                                         </span>
                                         <span>•</span>
                                         <span>{ext}</span>
@@ -1118,46 +1060,24 @@ const ChatPrincipal = ({
                                     </span>
                                   </a>
                                   {mensaje.texto_mensaje ? (
-                                    <p className="pt-2">
-                                      {mensaje.texto_mensaje}
-                                    </p>
+                                    <p className="pt-2">{mensaje.texto_mensaje}</p>
                                   ) : null}
                                 </div>
                               );
                             })()
                           ) : mensaje.tipo_mensaje === "video" ? (
-                            /* Tipo: VIDEO */
-                            <div className="p-2">
-                              <div className="relative w-52 h-52 bg-black rounded-lg overflow-hidden shadow-lg">
-                                <video
-                                  className="w-full h-full object-cover rounded-lg"
-                                  controls
-                                  src={
-                                    /^https?:\/\//.test(mensaje.ruta_archivo)
-                                      ? mensaje.ruta_archivo
-                                      : "https://new.imporsuitpro.com/" +
-                                        mensaje.ruta_archivo
-                                  }
-                                />
-                              </div>
+                            <div className="p-1">
+                              <PremiumVideoPlayer src={mensaje.ruta_archivo} />
                             </div>
                           ) : mensaje.tipo_mensaje === "location" ? (
-                            /* Tipo: UBICACIÓN */
                             (() => {
                               try {
-                                const locationData = JSON.parse(
-                                  mensaje.texto_mensaje
-                                );
+                                const locationData = JSON.parse(mensaje.texto_mensaje);
 
                                 // Usamos 'longitude' si existe, si no, usamos 'longitud'
-                                let { latitude, longitude, longitud } =
-                                  locationData;
+                                let { latitude, longitude, longitud } = locationData;
 
-                                // Si no hay 'longitude', tomamos 'longitud' como longitud
-                                if (
-                                  longitude === undefined &&
-                                  longitud !== undefined
-                                ) {
+                                if (longitude === undefined && longitud !== undefined) {
                                   longitude = longitud;
                                 }
 
@@ -1183,26 +1103,21 @@ const ChatPrincipal = ({
                                   </div>
                                 );
                               } catch (error) {
-                                console.error(
-                                  "Error al parsear la ubicación:",
-                                  error
-                                );
+                                console.error("Error al parsear la ubicación:", error);
                                 return <p>Error al mostrar la ubicación.</p>;
                               }
                             })()
                           ) : mensaje.tipo_mensaje === "button" ? (
-                            /* Tipo: BOTÓN */
                             mensaje.texto_mensaje
                           ) : mensaje.tipo_mensaje === "reaction" ? (
-                            /* Tipo: REACTION */
                             mensaje.texto_mensaje
                           ) : mensaje.tipo_mensaje === "sticker" ? (
-                            /* Tipo: STICKER */
                             <img
                               className="w-40 h-40"
                               src={
-                                "https://new.imporsuitpro.com/" +
-                                mensaje.ruta_archivo
+                                /^https?:\/\//.test(mensaje.ruta_archivo)
+                                  ? mensaje.ruta_archivo
+                                  : "https://new.imporsuitpro.com/" + mensaje.ruta_archivo
                               }
                               alt="Sticker"
                             />
@@ -1211,20 +1126,19 @@ const ChatPrincipal = ({
                           )}
                         </span>
 
-                        {/* Fecha/hora en la esquina */}
+                        {/* Hora en la esquina; tooltip = fecha completa */}
                         <span
-                          className={`
-                          absolute bottom-1 right-2 text-xs
-                          ${timestampClass}
-                        `}
+                          className={`absolute bottom-1 right-2 text-xs ${timestampClass}`}
+                          title={formatFecha(mensaje.created_at)}
                         >
-                          {formatFecha(mensaje.created_at)}
+                          {formatHora(mensaje.created_at)}
                         </span>
                       </div>
                     </div>
                   );
-                })}
-              </>
+                }
+                return items;
+              })()}
 
               {/* Botón de scroll al final */}
               <ScrollToBottomButton containerRef={chatContainerRef} />
@@ -1244,8 +1158,7 @@ const ChatPrincipal = ({
                 if (!refDateISO) return null;
 
                 const diffHrs =
-                  (Date.now() - new Date(refDateISO).getTime()) /
-                  (1000 * 60 * 60);
+                  (Date.now() - new Date(refDateISO).getTime()) / (1000 * 60 * 60);
 
                 if (diffHrs <= 24) return null;
 
@@ -1256,8 +1169,7 @@ const ChatPrincipal = ({
                       <div className="flex items-start gap-3">
                         <p className="text-sm text-yellow-700 flex-1">
                           <strong>Atención: </strong>Han pasado más de 24 horas.
-                          En WhatsApp API necesitas responder con una{" "}
-                          <b>plantilla</b>.
+                          En WhatsApp API necesitas responder con una <b>plantilla</b>.
                         </p>
                         <button
                           className="text-yellow-700/70 hover:text-yellow-900"
@@ -1307,8 +1219,7 @@ const ChatPrincipal = ({
                     <div className="flex items-start gap-3">
                       <p className="text-sm text-blue-800 flex-1">
                         Han pasado más de 24 horas. Al enviar, usaré la etiqueta{" "}
-                        <b>HUMAN_AGENT</b> o el mensaje fallará por políticas de
-                        Meta
+                        <b>HUMAN_AGENT</b> o el mensaje fallará por políticas de Meta
                         {selectedChat?.source === "ig"
                           ? " (Instagram)"
                           : " (Messenger)"}.
@@ -1355,10 +1266,7 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (
-                          selectedChat?.source === "ms" ||
-                          selectedChat?.source === "ig"
-                        ) {
+                        if (selectedChat?.source === "ms" || selectedChat?.source === "ig") {
                           setIsMenuOpen(false);
                           imageInputRef.current?.click();
                         } else {
@@ -1371,10 +1279,7 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (
-                          selectedChat?.source === "ms" ||
-                          selectedChat?.source === "ig"
-                        ) {
+                        if (selectedChat?.source === "ms" || selectedChat?.source === "ig") {
                           setIsMenuOpen(false);
                           videoInputRef.current?.click();
                         } else {
@@ -1387,10 +1292,7 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (
-                          selectedChat?.source === "ms" ||
-                          selectedChat?.source === "ig"
-                        ) {
+                        if (selectedChat?.source === "ms" || selectedChat?.source === "ig") {
                           setIsMenuOpen(false);
                           fileInputRef.current?.click();
                         } else {
@@ -1404,15 +1306,14 @@ const ChatPrincipal = ({
                 </div>
               )}
 
-              {/* Inputs ocultos para Messenger */}
+              {/* Inputs ocultos para Messenger/IG */}
               <input
                 ref={imageInputRef}
                 type="file"
                 accept="image/*"
                 className="hidden"
                 onChange={(e) =>
-                  e.target.files?.[0] &&
-                  handleFilePicked("image", e.target.files[0])
+                  e.target.files?.[0] && handleFilePicked("image", e.target.files[0])
                 }
               />
               <input
@@ -1421,8 +1322,7 @@ const ChatPrincipal = ({
                 accept="video/*"
                 className="hidden"
                 onChange={(e) =>
-                  e.target.files?.[0] &&
-                  handleFilePicked("video", e.target.files[0])
+                  e.target.files?.[0] && handleFilePicked("video", e.target.files[0])
                 }
               />
               <input
@@ -1430,8 +1330,7 @@ const ChatPrincipal = ({
                 type="file"
                 className="hidden"
                 onChange={(e) =>
-                  e.target.files?.[0] &&
-                  handleFilePicked("document", e.target.files[0])
+                  e.target.files?.[0] && handleFilePicked("document", e.target.files[0])
                 }
               />
 
