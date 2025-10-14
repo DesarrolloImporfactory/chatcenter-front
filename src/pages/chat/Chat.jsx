@@ -2914,7 +2914,28 @@ const Chat = () => {
         selectedChat?.source === "ig" &&
         Number(selectedChat.id) === Number(conversation_id)
       ) {
-        setMensajesOrdenados((prev) => upsertMsg(prev, mapped));
+        setMensajesOrdenados((prev) => {
+          const merged = upsertMsg(prev, mapped);
+          // Limpieza defensiva: si existe un mensaje real con mid, borra el tmp con ese client_tmp_id
+          if (mapped.mid) {
+            const midStr = String(mapped.mid);
+            const hasRealWithMid = merged.some(
+              (m) =>
+                String(m.mid || m.mid_mensaje || "") === midStr &&
+                !String(m.id).startsWith("tmp-")
+            );
+            if (hasRealWithMid) {
+              return merged.filter(
+                (m) =>
+                  !(
+                    String(m.id || "").startsWith("tmp-") &&
+                    String(m.mid || m.mid_mensaje || "") === midStr
+                  )
+              );
+            }
+          }
+          return merged;
+        });
         requestAnimationFrame(() => {
           const el = chatContainerRef.current;
           if (el) el.scrollTop = el.scrollHeight;
