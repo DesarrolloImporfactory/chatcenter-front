@@ -132,11 +132,16 @@ function inferirTipoContenido(m) {
 
   return base; // text o template
 }
-function PreviewAudioPlayer({ src, autoTrigger }) {
+function PreviewAudioPlayer({ src, autoTrigger, isOpen }) {
   const audioRef = useRef(null);
+  const wrapperRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [time, setTime] = useState(0);
+
+  // --- bus global para “solo uno a la vez” ---
+  const BUS = "preview-audio:stopAll";
+  const myId = useRef(Symbol("preview-audio"));
 
   const fmt = (s) => {
     const t = Math.max(0, Math.floor(s || 0));
@@ -145,11 +150,34 @@ function PreviewAudioPlayer({ src, autoTrigger }) {
     return `${m}:${ss}`;
   };
 
-  // reproduce de forma robusta
+  const pauseAndReset = (a) => {
+    try { a.pause(); } catch {}
+    try { a.currentTime = 0; } catch {}
+    setPlaying(false);
+  };
+
+  // escucha el bus: si otro quiere reproducir, pauso
+  useEffect(() => {
+    const handler = (ev) => {
+      const from = ev?.detail?.from;
+      if (from !== myId.current) {
+        const a = audioRef.current;
+        if (a && !a.paused) pauseAndReset(a);
+      }
+    };
+    document.addEventListener(BUS, handler);
+    return () => document.removeEventListener(BUS, handler);
+  }, []);
+
+  // reproduce de forma robusta + avisa al resto que se paren
   const safePlay = (audio) => {
     if (!audio) return;
+    // anuncio: “paren todos menos yo”
+    document.dispatchEvent(new CustomEvent(BUS, { detail: { from: myId.current } }));
+
     try { audio.muted = false; } catch {}
     audio.autoplay = true;
+
     const play = () => {
       const p = audio.play?.();
       p?.catch?.(() => {
@@ -164,6 +192,7 @@ function PreviewAudioPlayer({ src, autoTrigger }) {
         wrapperRef.current?.addEventListener("pointerenter", unlock, true);
       });
     };
+
     if (audio.readyState >= 2) play();
     else {
       const onCanPlay = () => { audio.removeEventListener("canplay", onCanPlay); play(); };
@@ -173,17 +202,26 @@ function PreviewAudioPlayer({ src, autoTrigger }) {
     }
   };
 
-  const wrapperRef = useRef(null);
-
+  // autoplay cuando cambia el src (hover nuevo) Y cuando la preview está abierta
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
     try { a.pause(); a.currentTime = 0; } catch {}
-    safePlay(a);
-    setPlaying(true);
-    return () => { try { a.pause(); a.currentTime = 0; } catch {} };
+    if (isOpen) {
+      safePlay(a);
+      setPlaying(true);
+    }
+    return () => { if (a) pauseAndReset(a); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoTrigger, src]);
+  }, [autoTrigger, src, isOpen]);
+
+  // si la preview se cierra, detengo y reseteo
+  useEffect(() => {
+    if (!isOpen) {
+      const a = audioRef.current;
+      if (a) pauseAndReset(a);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -221,7 +259,6 @@ function PreviewAudioPlayer({ src, autoTrigger }) {
 
   const pct = duration ? Math.min(100, (time / duration) * 100) : 0;
 
-  // 1 sola barra (azul): usamos un gradient que pinta el avance en azul y el resto en gris
   const rangeStyle = {
     background: `linear-gradient(to right, #2563eb ${pct}%, #e5e7eb ${pct}%)`,
     height: 8,
@@ -231,9 +268,7 @@ function PreviewAudioPlayer({ src, autoTrigger }) {
 
   return (
     <div ref={wrapperRef} className="rounded-xl border border-slate-200 bg-white/90 shadow-sm p-3">
-      {/* audio oculto: el UI es propio */}
       <audio ref={audioRef} src={src} preload="auto" playsInline style={{ display: "none" }} />
-
       <div className="flex items-center gap-3">
         <button
           onClick={toggle}
@@ -249,7 +284,6 @@ function PreviewAudioPlayer({ src, autoTrigger }) {
             <span className="tabular-nums">{fmt(time)}</span>
             <span className="tabular-nums">{fmt(duration)}</span>
           </div>
-
           <input
             type="range"
             min="0"
@@ -269,8 +303,9 @@ function PreviewAudioPlayer({ src, autoTrigger }) {
 
 
 
+
 /* ===================== Renderizadores de contenido (Preview) ===================== */
-function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor }) {
+function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor, isOpen }) {
   // Document meta (si aplica)
   const parseDocMeta = (raw) => {
     try { return JSON.parse(raw); }
@@ -348,7 +383,7 @@ function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor }) {
       <div>
         <Quote />
         {/* Reproductor de preview con autoplay visible */}
-        <PreviewAudioPlayer src={src} autoTrigger={Date.now()} />
+        <PreviewAudioPlayer src={src} autoTrigger={Date.now()} isOpen={isOpen} />
       </div>
     );
   }
@@ -651,6 +686,7 @@ function HoverPreviewPortal({
                 rutaRaw={rutaRaw}
                 replyRef={replyRef}
                 replyAuthor={replyAuthor}
+                isOpen={open}
               />
               <div className="mt-3 text-[11px] text-slate-500">Vista previa generada desde el último mensaje.</div>
             </div>
