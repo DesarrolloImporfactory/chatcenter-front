@@ -325,13 +325,15 @@ function MainLayout({ children }) {
         <div
           ref={sliderRef}
           className={`
-            bg-white mt-16 shadow-md transition-all duration-300
-            overflow-y-auto
-            absolute md:relative top-0 left-0 z-40
-            h-full md:h-auto
-            ${sliderOpen ? "w-64" : "w-0"}
+            bg-white shadow-md
+            fixed top-16 left-0 z-40
+            h-[calc(100vh-4rem)]
+            transition-[width] duration-300
+            ${sliderOpen ? "w-64 overflow-y-auto" : "w-0 overflow-hidden"}
           `}
+          aria-hidden={!sliderOpen}
         >
+
           {/* Encabezado del slider */}
           {/* <div className="h-[80px] px-5 flex items-center justify-between bg-[#171931] text-white">
             <h2 className="font-bold text-lg">Menú</h2>
@@ -596,8 +598,13 @@ function MainLayout({ children }) {
         </div>
 
         {/* Sección principal a la derecha */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-auto bg-gray-100 p-2">{children}</div>
+        <div
+          className={`flex-1 min-h-screen transition-[margin] duration-300
+                      pt-16 ${sliderOpen ? "ml-64" : "ml-0"}`}
+        >
+          <div className="p-2 bg-gray-100 min-h-[calc(100vh-4rem)] overflow-auto">
+            {children}
+          </div>
         </div>
       </div>
 
