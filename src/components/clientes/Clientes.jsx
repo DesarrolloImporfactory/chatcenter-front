@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+// /src/pages/Clientes.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 
 /* =================== Utils =================== */
@@ -7,18 +8,57 @@ const fmtDate = (d) => {
   const x = new Date(d);
   return isNaN(+x) ? "-" : x.toLocaleDateString();
 };
+const fmtTime = (d) => {
+  if (!d) return "-";
+  const x = new Date(d);
+  return isNaN(+x)
+    ? "-"
+    : x.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
 const fmtDateTime = (d) => {
   if (!d) return "-";
   const x = new Date(d);
-  return isNaN(+x) ? "-" : `${x.toLocaleDateString()} ${x.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  return isNaN(+x)
+    ? "-"
+    : `${x.toLocaleDateString()} ${x.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+};
+const timeAgo = (d) => {
+  if (!d) return "-";
+  const s = (Date.now() - new Date(d).getTime()) / 1000;
+  if (!isFinite(s)) return "-";
+  const abs = Math.abs(s);
+  const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+  if (abs < 60) return rtf.format(-Math.round(s), "second");
+  const m = abs / 60;
+  if (m < 60) return rtf.format(-Math.round(m), "minute");
+  const h = m / 60;
+  if (h < 24) return rtf.format(-Math.round(h), "hour");
+  const d2 = h / 24;
+  if (d2 < 30) return rtf.format(-Math.round(d2), "day");
+  const mo = d2 / 30;
+  if (mo < 12) return rtf.format(-Math.round(mo), "month");
+  const y = mo / 12;
+  return rtf.format(-Math.round(y), "year");
 };
 const getId = (r) => r?.id ?? r?._id ?? r?.id_cliente ?? null;
 const initials = (n, a) => {
   const s = `${n || ""} ${a || ""}`.trim();
-  const i = s.split(/\s+/).map(p => p[0]).join("").slice(0,2).toUpperCase();
+  const i = s
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
   return i || "?";
 };
-function safeCSV(v){ if(v==null) return ""; const s=String(v).replace(/"/g,'""'); return (/,|\n/.test(s))?`"${s}"`:s; }
+function safeCSV(v) {
+  if (v == null) return "";
+  const s = String(v).replace(/"/g, '""');
+  return /,|\n/.test(s) ? `"${s}"` : s;
+}
 
 /* Normaliza fila -> llaves del front */
 function mapRow(row) {
@@ -45,229 +85,76 @@ function mapRow(row) {
   };
 }
 
-/* ====== UI base ====== */
-function Drawer({ open, onClose, title, footer, children }) {
-  if (!open) return null;
+/* ====== Pequeños componentes UI ====== */
+function Chip({ children }) {
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-3">
-          <h3 className="text-base font-semibold">{title}</h3>
-          <button className="rounded p-2 hover:bg-gray-100" onClick={onClose}><i className="bx bx-x text-xl" /></button>
-        </div>
-        <div className="h-[calc(100%-108px)] overflow-y-auto px-5 py-3">{children}</div>
-        <div className="border-t px-5 py-3">{footer}</div>
-      </div>
-    </div>
+    <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+      {children}
+    </span>
   );
 }
-function Modal({ open, title, onClose, onSubmit, children, submitText="Aplicar", submitting=false, disabled=false }) {
-  if (!open) return null;
+function SortButton({ label, active, dir = "asc", onClick, className = "" }) {
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-3">
-          <h3 className="text-base font-semibold">{title}</h3>
-          <button className="rounded p-2 hover:bg-gray-100" onClick={onClose}><i className="bx bx-x text-xl"/></button>
-        </div>
-        <div className="px-5 py-3">{children}</div>
-        <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={onClose}>Cancelar</button>
-          <button disabled={disabled || submitting} onClick={onSubmit}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60">
-            {submitting ? "Procesando…" : submitText}
-          </button>
-        </div>
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      className={`group inline-flex items-center gap-1 text-[11px] font-semibold tracking-wide ${className}`}
+      title="Ordenar"
+    >
+      {label}
+      <span
+        className={`bx ${
+          dir === "asc" ? "bx-chevron-up" : "bx-chevron-down"
+        } text-[16px] text-gray-400 group-hover:text-gray-600 ${
+          active ? "!text-gray-700" : ""
+        }`}
+      />
+    </button>
   );
 }
-
-/* ====== Toolbar sticky + compacta (premium) ====== */
-function Toolbar({
-  search, setSearch, onRefresh, onImport, onExport, onNew,
-  canBulk, onBulkAssignTags, onBulkRemoveTags, onBulkDelete,
-  onBulkSMS, onBulkEmail, onBulkReview, density, setDensity
-}) {
-  const fileRef = useRef(null);
+function ColumnsDropdown({ state, setState }) {
+  const ref = useRef(null);
   return (
-    <div className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="flex flex-col gap-2 p-2 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-1 items-center gap-2">
-          <div className="relative w-full md:w-[32rem]">
-            <i className="bx bx-search absolute left-3 top-2.5 text-gray-500" />
+    <details ref={ref} className="relative">
+      <summary className="list-none inline-flex cursor-pointer items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
+        Columns <i className="bx bx-chevron-down" />
+      </summary>
+      <div className="absolute right-0 z-30 mt-2 w-56 rounded-lg border bg-white p-2 shadow-xl">
+        {Object.keys(state).map((k) => (
+          <label key={k} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-50">
             <input
-              className="w-full rounded-lg border px-9 py-2 text-sm outline-none ring-1 ring-transparent transition focus:ring-blue-200"
-              placeholder="Buscar por nombre, email o teléfono…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              type="checkbox"
+              checked={state[k]}
+              onChange={() => setState((s) => ({ ...s, [k]: !s[k] }))}
             />
-          </div>
-          <button onClick={onRefresh} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
-            <i className="bx bx-refresh" /> Refrescar
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button disabled={!canBulk} onClick={onBulkAssignTags}
-            className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50">
-            <i className="bx bx-purchase-tag-alt" /> Asignar etiquetas
-          </button>
-          <button disabled={!canBulk} onClick={onBulkRemoveTags}
-            className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50">
-            <i className="bx bx-tag-x" /> Quitar etiquetas
-          </button>
-          <button disabled={!canBulk} onClick={onBulkSMS}
-            className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50">
-            <i className="bx bx-message-detail" /> SMS
-          </button>
-          <button disabled={!canBulk} onClick={onBulkEmail}
-            className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50">
-            <i className="bx bx-envelope" /> Email
-          </button>
-          <button disabled={!canBulk} onClick={onBulkReview}
-            className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50">
-            <i className="bx bx-star" /> Reseña
-          </button>
-
-          <div className="hidden h-6 w-px bg-gray-200 md:block" />
-
-          <button onClick={() => fileRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
-            <i className="bx bx-upload" /> Importar
-          </button>
-          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])} />
-          <button onClick={onExport}
-            className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
-            <i className="bx bx-download" /> Exportar
-          </button>
-          <button onClick={onNew}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white shadow-sm hover:bg-blue-700">
-            <i className="bx bx-plus" /> Nuevo
-          </button>
-
-          <div className="hidden h-6 w-px bg-gray-200 md:block" />
-
-          {/* Densidad visual para ver más sin scroll */}
-          <select
-            className="rounded-lg border bg-white px-2 py-2 text-sm"
-            value={density}
-            onChange={(e)=>setDensity(e.target.value)}
-            title="Densidad"
-          >
-            <option value="compacta">Compacta</option>
-            <option value="media">Media</option>
-            <option value="amplia">Amplia</option>
-          </select>
-        </div>
+            <span className="capitalize">{k.replace(/_/g, " ")}</span>
+          </label>
+        ))}
       </div>
-    </div>
+    </details>
   );
 }
 
-/* ===== Formulario ===== */
-function ClienteForm({ value, onChange }) {
-  const v = value || {};
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div>
-          <label className="text-xs font-medium text-gray-700">Nombre</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.nombre || ""} onChange={(e) => onChange({ ...v, nombre: e.target.value })}/>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700">Apellido</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.apellido || ""} onChange={(e) => onChange({ ...v, apellido: e.target.value })}/>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div>
-          <label className="text-xs font-medium text-gray-700">Email</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.email || ""} onChange={(e) => onChange({ ...v, email: e.target.value })}/>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700">Celular</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.telefono || ""} onChange={(e) => onChange({ ...v, telefono: e.target.value })}/>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div>
-          <label className="text-xs font-medium text-gray-700">Estado</label>
-          <select className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.estado ?? 1} onChange={(e)=>onChange({...v, estado: Number(e.target.value)})}>
-            <option value={1}>Activo</option>
-            <option value={0}>Inactivo</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700">Id Etiqueta</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.id_etiqueta || ""} onChange={(e) => onChange({ ...v, id_etiqueta: e.target.value })}/>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700">Id Configuración</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.id_configuracion || ""} onChange={(e) => onChange({ ...v, id_configuracion: e.target.value })}/>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div>
-          <label className="text-xs font-medium text-gray-700">Chat cerrado</label>
-          <select className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.chat_cerrado ?? 0} onChange={(e)=>onChange({...v, chat_cerrado: Number(e.target.value)})}>
-            <option value={0}>No</option>
-            <option value={1}>Sí</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700">Bot OpenIA</label>
-          <select className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.bot_openia ?? 1} onChange={(e)=>onChange({...v, bot_openia: Number(e.target.value)})}>
-            <option value={1}>Activo</option>
-            <option value={0}>Inactivo</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700">UID Cliente</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.uid_cliente || ""} onChange={(e)=>onChange({...v, uid_cliente: e.target.value})}/>
-        </div>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-gray-700">Imagen (URL)</label>
-        <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.imagePath || ""} onChange={(e)=>onChange({...v, imagePath: e.target.value})}/>
-      </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div>
-          <label className="text-xs font-medium text-gray-700">Mensajes/día</label>
-          <input type="number" className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.mensajes_por_dia_cliente ?? 0} onChange={(e)=>onChange({...v, mensajes_por_dia_cliente: Number(e.target.value)||0})}/>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700">Pedido confirmado</label>
-          <select className="mt-1 w-full rounded-md border px-3 py-2 text-sm" value={v.pedido_confirmado ?? 0} onChange={(e)=>onChange({...v, pedido_confirmado: Number(e.target.value)})}>
-            <option value={0}>No</option>
-            <option value={1}>Sí</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* =========================== Vista principal =========================== */
+/* ====== Vista principal ====== */
 export default function Clientes() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // densidad visual para ver más alto sin scroll
-  const [density, setDensity] = useState("compacta"); // compacta | media | amplia
+  // densidad
+  const [density, setDensity] = useState("compacta");
   const rowPad = density === "compacta" ? "py-2" : density === "media" ? "py-2.5" : "py-3";
   const headPad = density === "compacta" ? "py-2" : density === "media" ? "py-2.5" : "py-3";
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const LIMIT = 25;
+  const [total, setTotal] = useState(undefined);
+
+  const [pageSize, setPageSize] = useState(20); // para la UI (el backend sigue usando LIMIT abajo)
+  const LIMIT = pageSize;
 
   const [q, setQ] = useState("");
   const [estado, setEstado] = useState("todos");
   const [idEtiqueta, setIdEtiqueta] = useState("");
-  const [orden, setOrden] = useState("recientes");
+  const [orden, setOrden] = useState("recientes"); // recientes|antiguos|actividad_desc|actividad_asc
 
   const [selected, setSelected] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -278,24 +165,37 @@ export default function Clientes() {
   const [modalEmail, setModalEmail] = useState({ open: false, subject: "", body: "" });
   const [modalReview, setModalReview] = useState({ open: false, channel: "whatsapp", link: "" });
 
+  // columnas visibles (como el menú "Columns")
+  const [cols, setCols] = useState({
+    name: true,
+    phone: true,
+    email: true,
+    created: true,
+    last_activity: true,
+    tags: true,
+  });
+
   /* ========== API existentes ========== */
-  async function apiList(p=1, replace=false) {
+  async function apiList(p = 1, replace = false) {
     setLoading(true);
     try {
       const params = {
-        page: p, limit: LIMIT, sort: orden,
+        page: p,
+        limit: LIMIT,
+        sort: orden,
         q: q || undefined,
         estado: estado !== "todos" ? estado : undefined,
         id_etiqueta: idEtiqueta || undefined,
       };
       const { data } = await chatApi.get("/clientes_chat_center/listar", { params });
-      const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       const mapped = rows.map(mapRow);
-      const total = data?.total ?? undefined;
+      const tot = data?.total ?? undefined;
 
-      setItems(prev => replace ? mapped : [...prev, ...mapped]);
+      setItems((prev) => (replace ? mapped : [...prev, ...mapped]));
       setPage(p);
-      setHasMore(typeof total === "number" ? (p*LIMIT < total) : (mapped.length === LIMIT));
+      setHasMore(typeof tot === "number" ? p * LIMIT < tot : mapped.length === LIMIT);
+      setTotal(tot);
     } catch (e) {
       console.error("LIST:", e?.response?.data || e.message);
     } finally {
@@ -342,84 +242,132 @@ export default function Clientes() {
     const { data } = await chatApi.put(`/clientes_chat_center/actualizar/${id}`, payload);
     return mapRow(data?.data || data);
   }
-  async function apiDelete(id) { await chatApi.delete(`/clientes_chat_center/eliminar/${id}`); }
+  async function apiDelete(id) {
+    await chatApi.delete(`/clientes_chat_center/eliminar/${id}`);
+  }
   async function apiDeleteBulk(ids) {
-    try { await chatApi.post(`/clientes_chat_center/eliminar`, { ids }); }
-    catch { for (const id of ids) await apiDelete(id); }
+    try {
+      await chatApi.post(`/clientes_chat_center/eliminar`, { ids });
+    } catch {
+      for (const id of ids) await apiDelete(id);
+    }
     return true;
   }
 
-  /* ========== Futuros (stubs) ========== */
+  /* Futuros (stubs) */
   async function callFutureEndpoint(fn, label) {
-    try { await fn(); alert(`${label} enviada ✅`); }
-    catch (e) {
+    try {
+      await fn();
+      alert(`${label} enviada ✅`);
+    } catch (e) {
       const s = e?.response?.status;
       if (s === 404 || s === 501) alert(`${label}: pendiente backend`);
-      else { console.error(e?.response?.data || e.message); alert(`Error en ${label}`); }
+      else {
+        console.error(e?.response?.data || e.message);
+        alert(`Error en ${label}`);
+      }
     }
   }
-  const bulkAssignTags = (ids,tags)=>callFutureEndpoint(()=>chatApi.post("/clientes_chat_center/etiquetas/agregar",{ids,etiquetas:tags}),"Asignar etiquetas");
-  const bulkRemoveTags = (ids,tags)=>callFutureEndpoint(()=>chatApi.post("/clientes_chat_center/etiquetas/remover",{ids,etiquetas:tags}),"Quitar etiquetas");
-  const bulkSMS       = (ids,mensaje)=>callFutureEndpoint(()=>chatApi.post("/clientes_chat_center/sms/enviar",{ids,mensaje}),"Enviar SMS");
-  const bulkEmail     = (ids,subject,body)=>callFutureEndpoint(()=>chatApi.post("/clientes_chat_center/email/enviar",{ids,subject,body}),"Enviar Email");
-  const bulkReview    = (ids,channel,link)=>callFutureEndpoint(()=>chatApi.post("/clientes_chat_center/resenas/enviar",{ids,channel,link}),"Solicitud de reseña");
+  const bulkAssignTags = (ids, tags) =>
+    callFutureEndpoint(
+      () => chatApi.post("/clientes_chat_center/etiquetas/agregar", { ids, etiquetas: tags }),
+      "Asignar etiquetas"
+    );
+  const bulkRemoveTags = (ids, tags) =>
+    callFutureEndpoint(
+      () => chatApi.post("/clientes_chat_center/etiquetas/remover", { ids, etiquetas: tags }),
+      "Quitar etiquetas"
+    );
+  const bulkSMS = (ids, mensaje) =>
+    callFutureEndpoint(() => chatApi.post("/clientes_chat_center/sms/enviar", { ids, mensaje }), "Enviar SMS");
+  const bulkEmail = (ids, subject, body) =>
+    callFutureEndpoint(
+      () => chatApi.post("/clientes_chat_center/email/enviar", { ids, subject, body }),
+      "Enviar Email"
+    );
+  const bulkReview = (ids, channel, link) =>
+    callFutureEndpoint(
+      () => chatApi.post("/clientes_chat_center/resenas/enviar", { ids, channel, link }),
+      "Solicitud de reseña"
+    );
 
   /* ===== Efectos ===== */
-  useEffect(() => { setItems([]); setPage(1); setHasMore(true); apiList(1, true); }, [q, estado, idEtiqueta, orden]);
+  useEffect(() => {
+    setItems([]);
+    setPage(1);
+    setHasMore(true);
+    apiList(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, estado, idEtiqueta, orden, pageSize]);
 
+  /* Scroll infinito */
   function onScroll(e) {
     if (loading || !hasMore) return;
     const el = e.currentTarget;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 16) apiList(page + 1);
   }
 
-  /* ===== Selección ===== */
+  /* Selección */
   const allSelected = useMemo(() => {
     const ids = items.map(getId).filter(Boolean);
-    return ids.length > 0 && ids.every(id => selected.includes(id));
+    return ids.length > 0 && ids.every((id) => selected.includes(id));
   }, [items, selected]);
-  const toggleSelectAll = (v)=>setSelected(v ? items.map(getId).filter(Boolean) : []);
-  const toggleSelect = (id)=>setSelected(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+  const toggleSelectAll = (v) => setSelected(v ? items.map(getId).filter(Boolean) : []);
+  const toggleSelect = (id) => setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  /* ===== Guardar ===== */
+  /* Guardar */
   async function onSave() {
     try {
-      if (!editing?.nombre && !editing?.telefono && !editing?.email) return alert("Ingresa al menos nombre, teléfono o email");
+      if (!editing?.nombre && !editing?.telefono && !editing?.email)
+        return alert("Ingresa al menos nombre, teléfono o email");
       const id = getId(editing);
       if (id) {
         const updated = await apiUpdate(id, editing);
-        setItems(prev => prev.map(x => getId(x) === id ? updated : x));
+        setItems((prev) => prev.map((x) => (getId(x) === id ? updated : x)));
       } else {
         const created = await apiCreate(editing);
-        setItems(prev => [created, ...prev]);
+        setItems((prev) => [created, ...prev]);
       }
-      setDrawerOpen(false); setEditing(null);
-    } catch (e) { console.error("SAVE:", e?.response?.data || e.message); alert("No se pudo guardar"); }
+      setDrawerOpen(false);
+      setEditing(null);
+    } catch (e) {
+      console.error("SAVE:", e?.response?.data || e.message);
+      alert("No se pudo guardar");
+    }
   }
 
-  /* ===== Eliminar ===== */
+  /* Eliminar */
   async function onDeleteSelected() {
     if (!selected.length) return;
     if (!confirm(`¿Eliminar ${selected.length} cliente(s)?`)) return;
     await apiDeleteBulk(selected);
-    setItems(prev => prev.filter(x => !selected.includes(getId(x))));
+    setItems((prev) => prev.filter((x) => !selected.includes(getId(x))));
     setSelected([]);
   }
 
-  /* ===== Exportar/Importar ===== */
+  /* Exportar/Importar */
   function exportCSV() {
-    const headers = ["Nombre","Apellido","Email","Telefono","Estado","IdEtiqueta","Creado","UltActividad"];
+    const headers = ["Nombre", "Apellido", "Email", "Telefono", "Estado", "IdEtiqueta", "Creado", "UltActividad"];
     const csv = [headers.join(",")];
     for (const c of items) {
-      csv.push([
-        safeCSV(c.nombre), safeCSV(c.apellido), safeCSV(c.email), safeCSV(c.telefono),
-        safeCSV(c.estado ? "1" : "0"), safeCSV(c.id_etiqueta ?? ""), safeCSV(c.createdAt || ""), safeCSV(c.ultima_actividad || "")
-      ].join(","));
+      csv.push(
+        [
+          safeCSV(c.nombre),
+          safeCSV(c.apellido),
+          safeCSV(c.email),
+          safeCSV(c.telefono),
+          safeCSV(c.estado ? "1" : "0"),
+          safeCSV(c.id_etiqueta ?? ""),
+          safeCSV(c.createdAt || ""),
+          safeCSV(c.ultima_actividad || ""),
+        ].join(",")
+      );
     }
     const blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `clientes_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    a.download = `clientes_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
   }
   async function importCSV(file) {
     try {
@@ -427,7 +375,7 @@ export default function Clientes() {
       const lines = text.split(/\r?\n/).filter(Boolean);
       if (!lines.length) return alert("CSV vacío");
       const [headerLine, ...rows] = lines;
-      const headers = headerLine.split(",").map(h=>h.trim().toLowerCase());
+      const headers = headerLine.split(",").map((h) => h.trim().toLowerCase());
       const idx = {
         nombre: headers.indexOf("nombre"),
         apellido: headers.indexOf("apellido"),
@@ -439,271 +387,798 @@ export default function Clientes() {
       for (const line of rows) {
         const cols = line.split(",");
         const payload = {
-          nombre_cliente: idx.nombre>=0? cols[idx.nombre] : "",
-          apellido_cliente: idx.apellido>=0? cols[idx.apellido] : "",
-          email_cliente: idx.email>=0? cols[idx.email] : "",
-          celular_cliente: idx.telefono>=0? cols[idx.telefono] : "",
-          estado_cliente: idx.estado>=0? Number(cols[idx.estado]||1) : 1,
-          id_etiqueta: idx.id_etiqueta>=0? cols[idx.id_etiqueta] || null : null,
+          nombre_cliente: idx.nombre >= 0 ? cols[idx.nombre] : "",
+          apellido_cliente: idx.apellido >= 0 ? cols[idx.apellido] : "",
+          email_cliente: idx.email >= 0 ? cols[idx.email] : "",
+          celular_cliente: idx.telefono >= 0 ? cols[idx.telefono] : "",
+          estado_cliente: idx.estado >= 0 ? Number(cols[idx.estado] || 1) : 1,
+          id_etiqueta: idx.id_etiqueta >= 0 ? cols[idx.id_etiqueta] || null : null,
         };
         if (!payload.nombre_cliente && !payload.celular_cliente && !payload.email_cliente) continue;
         await chatApi.post("/clientes_chat_center/agregar", payload);
       }
-      apiList(1,true); alert("Importación completada");
-    } catch (e) { console.error("IMPORT:", e?.response?.data || e.message); alert("Error importando CSV"); }
+      apiList(1, true);
+      alert("Importación completada");
+    } catch (e) {
+      console.error("IMPORT:", e?.response?.data || e.message);
+      alert("Error importando CSV");
+    }
   }
+
+  /* Refs */
+  const fileRef = useRef(null);
 
   /* =================== Render =================== */
   return (
-    <div className="flex h-[calc(100vh-48px)] gap-3 p-3"> {/* más alto útil */}
-      {/* Sidebar compacta */}
-      <aside className="hidden w-64 shrink-0 rounded-xl border bg-white p-3 md:block">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-800">Filtros</h3>
-          <button onClick={()=>{setQ('');setEstado('todos');setIdEtiqueta('');setOrden('recientes')}}
-                  className="text-xs text-blue-600 hover:underline">Limpiar</button>
+    <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border bg-white">
+      {/* ====== Top Tabs + Acciones ====== */}
+      <div className="flex items-center gap-2 border-b px-4 py-2">
+        <nav className="flex items-center gap-4 text-sm">
+          {["All", "This or That Tag", "Test Tag List"].map((t, i) => (
+            <button
+              key={t}
+              className={`pb-2 ${
+                i === 0 ? "border-b-2 border-blue-600 font-medium text-blue-700" : "text-gray-600 hover:text-gray-800"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </nav>
+        <div className="ml-auto flex items-center gap-2">
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Add">
+            <i className="bx bx-plus" />
+          </button>
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Filter">
+            <i className="bx bx-filter-alt" />
+          </button>
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Automations">
+            <i className="bx bx-cog" />
+          </button>
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Broadcast">
+            <i className="bx bx-mail-send" />
+          </button>
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Import" onClick={() => fileRef.current?.click()}>
+            <i className="bx bx-upload" />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && importCSV(e.target.files[0])}
+          />
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Export" onClick={exportCSV}>
+            <i className="bx bx-download" />
+          </button>
+          <button
+            disabled={!selected.length}
+            onClick={onDeleteSelected}
+            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+            title="Bulk delete"
+          >
+            Bulk Actions ({selected.length || 0})
+          </button>
+          <button className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
+            Settings <i className="bx bx-cog" />
+          </button>
+        </div>
+      </div>
+
+      {/* ====== Subtoolbar (Columns + Search + More filters + resumen/paginación) ====== */}
+      <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
+        <ColumnsDropdown state={cols} setState={setCols} />
+
+        <div className="relative flex-1 min-w-[240px] max-w-[520px]">
+          <i className="bx bx-search absolute left-3 top-2.5 text-gray-500" />
+          <input
+            className="w-full rounded-lg border px-9 py-2 text-sm outline-none ring-1 ring-transparent transition focus:ring-blue-200"
+            placeholder="Quick search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-medium text-gray-600">Estado</label>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {['todos','1','0'].map(e=>(
-                <button key={e} onClick={()=>setEstado(e)}
-                  className={`rounded-lg border px-2 py-1 text-xs ${estado===e?'border-blue-600 ring-2 ring-blue-200':''}`}>
-                  {e==='todos'?'Todos':(e==='1'?'Activo':'Inactivo')}
-                </button>
+        <button className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
+          More Filters <i className="bx bx-slider-alt" />
+        </button>
+
+        <div className="ml-auto flex items-center gap-3 text-sm">
+          <span className="text-gray-600">
+            Total {typeof total === "number" ? total : "—"} records | {page} of{" "}
+            {typeof total === "number" ? Math.max(1, Math.ceil(total / LIMIT)) : "—"} Pages
+          </span>
+          <div className="flex items-center gap-1">
+            <label className="text-gray-500">Page Size:</label>
+            <select
+              className="rounded-md border bg-white px-2 py-1 text-sm"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+            >
+              {[10, 20, 25, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
               ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-gray-600">Etiqueta (id)</label>
-            <input className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm" value={idEtiqueta}
-                   onChange={(e)=>setIdEtiqueta(e.target.value)} placeholder="ID etiqueta…" />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-gray-600">Orden</label>
-            <select className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm" value={orden} onChange={(e)=>setOrden(e.target.value)}>
-              <option value="recientes">Más recientes</option>
-              <option value="antiguos">Más antiguos</option>
-              <option value="actividad_desc">Actividad (desc)</option>
-              <option value="actividad_asc">Actividad (asc)</option>
             </select>
           </div>
-        </div>
-      </aside>
-
-      {/* Columna principal */}
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-white">
-        <Toolbar
-          search={q}
-          setSearch={setQ}
-          onRefresh={()=>apiList(1,true)}
-          onImport={importCSV}
-          onExport={exportCSV}
-          onNew={()=>{ setEditing({ nombre:'', apellido:'', email:'', telefono:'', estado:1, id_etiqueta:null, id_configuracion:null, chat_cerrado:0, bot_openia:1 }); setDrawerOpen(true); }}
-          canBulk={selected.length>0}
-          onBulkAssignTags={()=>setModalTags({ open: true, mode: "add", value: "" })}
-          onBulkRemoveTags={()=>setModalTags({ open: true, mode: "remove", value: "" })}
-          onBulkDelete={onDeleteSelected}
-          onBulkSMS={()=>setModalSMS({ open: true, msg: "" })}
-          onBulkEmail={()=>setModalEmail({ open: true, subject:"", body:"" })}
-          onBulkReview={()=>setModalReview({ open: true, channel:"whatsapp", link:"" })}
-          density={density}
-          setDensity={setDensity}
-        />
-
-        {/* Tabla */}
-        <div onScroll={onScroll} className="flex-1 overflow-auto">
-          <table className="min-w-full table-fixed border-separate border-spacing-0">
-            <thead className={`sticky top-0 z-20 bg-white ${headPad}`}>
-              <tr className="[&>th]:border-b [&>th]:px-3">
-                <th className="w-10"><input type="checkbox" checked={allSelected} onChange={(e)=>toggleSelectAll(e.target.checked)} /></th>
-                <th className="w-10"></th>
-                <th className="text-left text-[11px] font-semibold tracking-wide text-gray-500">CLIENTE</th>
-                <th className="w-64 text-left text-[11px] font-semibold tracking-wide text-gray-500">CONTACTO</th>
-                <th className="w-28 text-left text-[11px] font-semibold tracking-wide text-gray-500">ESTADO</th>
-                <th className="w-36 text-left text-[11px] font-semibold tracking-wide text-gray-500">CREADO</th>
-                <th className="w-40 text-left text-[11px] font-semibold tracking-wide text-gray-500">ÚLT. ACTIVIDAD</th>
-                <th className="w-24" />
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((c, idx) => {
-                const id = getId(c) ?? idx;
-                const nombre = `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
-                return (
-                  <tr key={id} className={`hover:bg-gray-50 [&>td]:border-b [&>td]:px-3 ${rowPad}`}>
-                    <td><input type="checkbox" checked={selected.includes(id)} onChange={()=>toggleSelect(id)} /></td>
-                    <td>
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-200 text-[11px] font-semibold">{initials(c.nombre, c.apellido)}</div>
-                    </td>
-                    <td className="min-w-0">
-                      <button className="block truncate font-medium text-blue-700 hover:underline" onClick={()=>{setEditing(c); setDrawerOpen(true);}}>
-                        {nombre}
-                      </button>
-                    </td>
-                    <td className="min-w-0">
-                      <div className="truncate text-sm">{c.email || "-"}</div>
-                      <div className="truncate text-xs text-gray-600">{c.telefono || "-"}</div>
-                    </td>
-                    <td className="text-sm">{c.estado ? "Activo" : "Inactivo"}</td>
-                    <td className="text-sm">{fmtDate(c.createdAt)}</td>
-                    <td className="text-sm">{fmtDateTime(c.ultima_actividad)}</td>
-                    <td className="text-right">
-                      <div className="relative inline-block text-left">
-                        <details>
-                          <summary className="list-none cursor-pointer inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm">
-                            Acciones <i className="bx bx-chevron-down" />
-                          </summary>
-                          <div className="absolute right-0 z-10 mt-2 w-44 overflow-hidden rounded-lg border bg-white py-1 shadow-xl">
-                            <button className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50" onClick={()=>{setEditing(c); setDrawerOpen(true);}}>Editar</button>
-                            <button className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
-                              onClick={async()=>{ if(!confirm('¿Eliminar este cliente?')) return; await apiDelete(id); setItems(prev=>prev.filter(x=>getId(x)!==id)); }}>
-                              Eliminar
-                            </button>
-                          </div>
-                        </details>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!loading && items.length === 0 && (
-                <tr><td colSpan={8} className="py-12 text-center text-gray-500">No hay clientes para mostrar</td></tr>
-              )}
-            </tbody>
-          </table>
-          {loading && <div className="flex items-center justify-center py-4 text-sm text-gray-500">Cargando…</div>}
-          {!hasMore && items.length > 0 && <div className="flex items-center justify-center py-4 text-xs text-gray-400">No hay más resultados</div>}
-        </div>
-      </section>
-
-      {/* Drawer crear/editar */}
-      <Drawer
-        open={drawerOpen}
-        onClose={()=>setDrawerOpen(false)}
-        title={editing && getId(editing) ? "Editar cliente" : "Nuevo cliente"}
-        footer={
-          <div className="flex items-center justify-end gap-2">
-            <button onClick={()=>setDrawerOpen(false)} className="rounded-md border px-3 py-1.5 text-sm">Cancelar</button>
-            <button onClick={async()=>{
-              try{
-                if (!editing?.nombre && !editing?.telefono && !editing?.email) return alert("Ingresa al menos nombre, teléfono o email");
-                const id = getId(editing);
-                if (id) {
-                  const updated = await apiUpdate(id, editing);
-                  setItems(prev => prev.map(x => getId(x) === id ? updated : x));
-                } else {
-                  const created = await apiCreate(editing);
-                  setItems(prev => [created, ...prev]);
-                }
-                setDrawerOpen(false); setEditing(null);
-              }catch(e){ console.error(e); alert("No se pudo guardar"); }
-            }} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">
-              Guardar
+          <div className="flex items-center">
+            <button
+              className="rounded-l-md border px-2 py-1 hover:bg-gray-50"
+              disabled={page <= 1}
+              onClick={() => apiList(page - 1, true)}
+              title="Anterior"
+            >
+              <i className="bx bx-chevron-left" />
+            </button>
+            <button
+              className="rounded-r-md border px-2 py-1 hover:bg-gray-50"
+              disabled={!hasMore}
+              onClick={() => apiList(page + 1, true)}
+              title="Siguiente"
+            >
+              <i className="bx bx-chevron-right" />
             </button>
           </div>
-        }
-      >
-        <ClienteForm value={editing} onChange={setEditing} />
-      </Drawer>
+        </div>
+      </div>
 
-      {/* Modales de acciones futuras */}
-      <Modal
-        open={modalTags.open}
-        title={(modalTags.mode === "add" ? "Asignar" : "Quitar") + " etiquetas"}
-        onClose={()=>setModalTags({ open:false, mode:"add", value:"" })}
-        onSubmit={async ()=>{
+      {/* ====== Filtros laterales (opcional; lo mantengo simple con 3 pill buttons) ====== */}
+      <div className="flex items-center gap-2 border-b px-4 py-2 text-xs">
+        <div className="flex items-center gap-2">
+          {["todos", "1", "0"].map((e) => (
+            <button
+              key={e}
+              onClick={() => setEstado(e)}
+              className={`rounded-full border px-3 py-1 ${
+                estado === e ? "border-blue-600 bg-blue-50 text-blue-700" : "bg-white hover:bg-gray-50"
+              }`}
+            >
+              {e === "todos" ? "Todos" : e === "1" ? "Activo" : "Inactivo"}
+            </button>
+          ))}
+        </div>
+
+        <div className="ml-2 flex items-center gap-2">
+          <input
+            className="w-36 rounded-md border px-2 py-1"
+            placeholder="Etiqueta (id)"
+            value={idEtiqueta}
+            onChange={(e) => setIdEtiqueta(e.target.value)}
+          />
+          <select
+            className="rounded-md border px-2 py-1"
+            value={orden}
+            onChange={(e) => setOrden(e.target.value)}
+            title="Orden"
+          >
+            <option value="recientes">Más recientes</option>
+            <option value="antiguos">Más antiguos</option>
+            <option value="actividad_desc">Actividad (desc)</option>
+            <option value="actividad_asc">Actividad (asc)</option>
+          </select>
+
+          <select
+            className="rounded-md border px-2 py-1"
+            value={density}
+            onChange={(e) => setDensity(e.target.value)}
+            title="Densidad"
+          >
+            <option value="compacta">Compacta</option>
+            <option value="media">Media</option>
+            <option value="amplia">Amplia</option>
+          </select>
+          <button
+            onClick={() => {
+              setQ("");
+              setEstado("todos");
+              setIdEtiqueta("");
+              setOrden("recientes");
+            }}
+            className="rounded-md border px-2 py-1 text-gray-600 hover:bg-gray-50"
+          >
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      {/* ====== Tabla ====== */}
+      <div onScroll={onScroll} className="flex-1 overflow-auto">
+        <table className="min-w-full table-fixed border-separate border-spacing-0">
+          <thead className={`sticky top-0 z-20 bg-white ${headPad}`}>
+            <tr className="[&>th]:border-b [&>th]:px-3">
+              <th className="w-10">
+                <input type="checkbox" checked={allSelected} onChange={(e) => toggleSelectAll(e.target.checked)} />
+              </th>
+
+              {cols.name && (
+                <th className="text-left">
+                  <SortButton
+                    label="Name"
+                    active={/recientes|antiguos/.test(orden)}
+                    dir={orden === "antiguos" ? "asc" : "desc"}
+                    onClick={() => setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))}
+                  />
+                </th>
+              )}
+              {cols.phone && (
+                <th className="w-56 text-left">
+                  <SortButton
+                    label="Phone"
+                    active={false}
+                    onClick={() => {}}
+                    className="text-gray-500"
+                  />
+                </th>
+              )}
+              {cols.email && (
+                <th className="w-72 text-left">
+                  <SortButton label="Email" active={false} onClick={() => {}} className="text-gray-500" />
+                </th>
+              )}
+              {cols.created && (
+                <th className="w-40 text-left">
+                  <SortButton
+                    label="Created"
+                    active={/recientes|antiguos/.test(orden)}
+                    dir={orden === "antiguos" ? "asc" : "desc"}
+                    onClick={() => setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))}
+                  />
+                </th>
+              )}
+              {cols.last_activity && (
+                <th className="w-48 text-left">
+                  <SortButton
+                    label="Last Activity"
+                    active={/actividad_/.test(orden)}
+                    dir={orden === "actividad_asc" ? "asc" : "desc"}
+                    onClick={() =>
+                      setOrden((o) => (o === "actividad_desc" ? "actividad_asc" : "actividad_desc"))
+                    }
+                  />
+                </th>
+              )}
+              {cols.tags && <th className="w-40 text-left">Tags</th>}
+              <th className="w-10" />
+            </tr>
+          </thead>
+
+          <tbody>
+            {items.map((c, idx) => {
+              const id = getId(c) ?? idx;
+              const nombre = `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
+              return (
+                <tr key={id} className={`hover:bg-gray-50 [&>td]:border-b [&>td]:px-3 ${rowPad}`}>
+                  <td>
+                    <input type="checkbox" checked={selected.includes(id)} onChange={() => toggleSelect(id)} />
+                  </td>
+
+                  {cols.name && (
+                    <td className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-[11px] font-semibold">
+                          {initials(c.nombre, c.apellido)}
+                        </div>
+                        <div className="min-w-0">
+                          <button
+                            className="block truncate font-medium text-blue-700 hover:underline"
+                            onClick={() => {
+                              setEditing(c);
+                              setDrawerOpen(true);
+                            }}
+                          >
+                            {nombre}
+                          </button>
+                          <div className="truncate text-xs text-gray-500">ID {id}</div>
+                        </div>
+                      </div>
+                    </td>
+                  )}
+
+                  {cols.phone && (
+                    <td className="min-w-0">
+                      <div className="flex items-center gap-2 truncate text-sm">
+                        <i className="bx bx-phone" />
+                        <span className="truncate">{c.telefono || "-"}</span>
+                      </div>
+                    </td>
+                  )}
+
+                  {cols.email && (
+                    <td className="min-w-0">
+                      <div className="flex items-center gap-2 truncate text-sm">
+                        <i className="bx bx-envelope" />
+                        <span className="truncate">{c.email || "-"}</span>
+                      </div>
+                    </td>
+                  )}
+
+                  {cols.created && (
+                    <td className="text-sm">
+                      <div>{fmtDate(c.createdAt)}</div>
+                      <div className="text-xs text-gray-500">{fmtTime(c.createdAt)}</div>
+                    </td>
+                  )}
+
+                  {cols.last_activity && (
+                    <td className="text-sm">
+                      <div className="flex items-center gap-2">
+                        <i className="bx bx-phone-call text-blue-600" />
+                        <span>{timeAgo(c.ultima_actividad)}</span>
+                      </div>
+                      <div className="text-xs text-gray-500">{fmtDateTime(c.ultima_actividad)}</div>
+                    </td>
+                  )}
+
+                  {cols.tags && (
+                    <td className="text-sm">
+                      {c.id_etiqueta ? <Chip>{String(c.id_etiqueta)}</Chip> : <span className="text-gray-400">—</span>}
+                    </td>
+                  )}
+
+                  <td className="text-right">
+                    <div className="relative inline-block text-left">
+                      <details>
+                        <summary className="list-none inline-flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-sm">
+                          <span>⋯</span>
+                        </summary>
+                        <div className="absolute right-0 z-10 mt-2 w-44 overflow-hidden rounded-lg border bg-white py-1 shadow-xl">
+                          <button
+                            className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            onClick={() => {
+                              setEditing(c);
+                              setDrawerOpen(true);
+                            }}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            onClick={() => setModalTags({ open: true, mode: "add", value: "" })}
+                          >
+                            Asignar etiquetas
+                          </button>
+                          <button
+                            className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
+                            onClick={async () => {
+                              if (!confirm("¿Eliminar este cliente?")) return;
+                              await apiDelete(id);
+                              setItems((prev) => prev.filter((x) => getId(x) !== id));
+                            }}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={9} className="py-12 text-center text-gray-500">
+                  No hay clientes para mostrar
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {loading && <div className="flex items-center justify-center py-4 text-sm text-gray-500">Cargando…</div>}
+        {!hasMore && items.length > 0 && (
+          <div className="flex items-center justify-center py-4 text-xs text-gray-400">No hay más resultados</div>
+        )}
+      </div>
+
+      {/* ===== Drawer crear/editar ===== */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerOpen(false)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b px-5 py-3">
+              <h3 className="text-base font-semibold">
+                {editing && getId(editing) ? "Editar cliente" : "Nuevo cliente"}
+              </h3>
+              <button className="rounded p-2 hover:bg-gray-100" onClick={() => setDrawerOpen(false)}>
+                <i className="bx bx-x text-xl" />
+              </button>
+            </div>
+            <div className="h-[calc(100%-108px)] overflow-y-auto px-5 py-3">
+              <ClienteForm value={editing} onChange={setEditing} />
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
+              <button onClick={() => setDrawerOpen(false)} className="rounded-md border px-3 py-1.5 text-sm">
+                Cancelar
+              </button>
+              <button
+                onClick={onSave}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Modales: etiquetas / SMS / Email / Reseña ===== */}
+      <ModalTags
+        state={modalTags}
+        setState={setModalTags}
+        onApply={async (mode, value) => {
           const ids = selected;
-          const tags = modalTags.value.split(",").map(t=>t.trim()).filter(Boolean);
+          const tags = value.split(",").map((t) => t.trim()).filter(Boolean);
           if (!tags.length) return alert("Escribe al menos una etiqueta");
-          if (modalTags.mode === "add") await bulkAssignTags(ids, tags);
+          if (mode === "add") await bulkAssignTags(ids, tags);
           else await bulkRemoveTags(ids, tags);
-          setModalTags({ open:false, mode:"add", value:"" });
         }}
-        submitText="Aplicar"
         disabled={!selected.length}
-      >
-        <p className="mb-2 text-sm text-gray-600">Escribe etiquetas separadas por coma. Afectará a {selected.length} cliente(s).</p>
-        <input className="w-full rounded-md border px-3 py-2 text-sm" placeholder="vip, follow-up, lead"
-               value={modalTags.value} onChange={(e)=>setModalTags(s=>({ ...s, value: e.target.value }))}/>
-        <div className="mt-2 flex gap-2">
-          <button className="rounded border px-2 py-1 text-xs" onClick={()=>setModalTags(s=>({ ...s, mode:"add" }))}>Asignar</button>
-          <button className="rounded border px-2 py-1 text-xs" onClick={()=>setModalTags(s=>({ ...s, mode:"remove" }))}>Quitar</button>
-        </div>
-      </Modal>
-
-      <Modal
-        open={modalSMS.open}
-        title="Enviar SMS"
-        onClose={()=>setModalSMS({ open:false, msg:"" })}
-        onSubmit={async ()=>{
-          if (!modalSMS.msg.trim()) return alert("Escribe el mensaje");
-          await bulkSMS(selected, modalSMS.msg.trim());
-          setModalSMS({ open:false, msg:"" });
+      />
+      <ModalSMS
+        state={modalSMS}
+        setState={setModalSMS}
+        onSend={async (msg) => {
+          if (!msg.trim()) return alert("Escribe el mensaje");
+          await bulkSMS(selected, msg.trim());
         }}
-        submitText="Enviar"
         disabled={!selected.length}
-      >
-        <p className="mb-2 text-sm text-gray-600">Mensaje a {selected.length} cliente(s).</p>
-        <textarea className="w-full rounded-md border px-3 py-2 text-sm" rows={5} placeholder="Tu mensaje SMS…"
-                  value={modalSMS.msg} onChange={(e)=>setModalSMS({ open:true, msg:e.target.value })}/>
-      </Modal>
-
-      <Modal
-        open={modalEmail.open}
-        title="Enviar Email"
-        onClose={()=>setModalEmail({ open:false, subject:"", body:"" })}
-        onSubmit={async ()=>{
-          if (!modalEmail.subject.trim()) return alert("Asunto requerido");
-          if (!modalEmail.body.trim()) return alert("Cuerpo requerido");
-          await bulkEmail(selected, modalEmail.subject.trim(), modalEmail.body.trim());
-          setModalEmail({ open:false, subject:"", body:"" });
+      />
+      <ModalEmail
+        state={modalEmail}
+        setState={setModalEmail}
+        onSend={async (subject, body) => {
+          if (!subject.trim()) return alert("Asunto requerido");
+          if (!body.trim()) return alert("Cuerpo requerido");
+          await bulkEmail(selected, subject.trim(), body.trim());
         }}
-        submitText="Enviar"
         disabled={!selected.length}
-      >
-        <div className="space-y-3">
-          <input className="w-full rounded-md border px-3 py-2 text-sm" placeholder="Asunto"
-                 value={modalEmail.subject} onChange={(e)=>setModalEmail(s=>({ ...s, subject: e.target.value }))}/>
-          <textarea className="w-full rounded-md border px-3 py-2 text-sm" rows={8} placeholder="Contenido del email…"
-                    value={modalEmail.body} onChange={(e)=>setModalEmail(s=>({ ...s, body: e.target.value }))}/>
-        </div>
-      </Modal>
-
-      <Modal
-        open={modalReview.open}
-        title="Enviar solicitud de reseña"
-        onClose={()=>setModalReview({ open:false, channel:"whatsapp", link:"" })}
-        onSubmit={async ()=>{
-          if (!modalReview.link.trim()) return alert("Enlace requerido");
-          await bulkReview(selected, modalReview.channel, modalReview.link.trim());
-          setModalReview({ open:false, channel:"whatsapp", link:"" });
+      />
+      <ModalReview
+        state={modalReview}
+        setState={setModalReview}
+        onSend={async (channel, link) => {
+          if (!link.trim()) return alert("Enlace requerido");
+          await bulkReview(selected, channel, link.trim());
         }}
-        submitText="Enviar"
         disabled={!selected.length}
-      >
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-medium text-gray-700">Canal</label>
-            <select className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-                    value={modalReview.channel} onChange={(e)=>setModalReview(s=>({ ...s, channel: e.target.value }))}>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="sms">SMS</option>
-              <option value="email">Email</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-700">Enlace de reseña</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" placeholder="https://g.page/r/XXXXX"
-                   value={modalReview.link} onChange={(e)=>setModalReview(s=>({ ...s, link: e.target.value }))}/>
-          </div>
-          <p className="text-xs text-gray-500">Se enviará a {selected.length} cliente(s).</p>
-        </div>
-      </Modal>
+      />
     </div>
+  );
+}
+
+/* ===== Formulario ===== */
+function ClienteForm({ value, onChange }) {
+  const v = value || {};
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="text-xs font-medium text-gray-700">Nombre</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.nombre || ""}
+            onChange={(e) => onChange({ ...v, nombre: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">Apellido</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.apellido || ""}
+            onChange={(e) => onChange({ ...v, apellido: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="text-xs font-medium text-gray-700">Email</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.email || ""}
+            onChange={(e) => onChange({ ...v, email: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">Celular</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.telefono || ""}
+            onChange={(e) => onChange({ ...v, telefono: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div>
+          <label className="text-xs font-medium text-gray-700">Estado</label>
+          <select
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.estado ?? 1}
+            onChange={(e) => onChange({ ...v, estado: Number(e.target.value) })}
+          >
+            <option value={1}>Activo</option>
+            <option value={0}>Inactivo</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">Id Etiqueta</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.id_etiqueta || ""}
+            onChange={(e) => onChange({ ...v, id_etiqueta: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">Id Configuración</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.id_configuracion || ""}
+            onChange={(e) => onChange({ ...v, id_configuracion: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div>
+          <label className="text-xs font-medium text-gray-700">Chat cerrado</label>
+          <select
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.chat_cerrado ?? 0}
+            onChange={(e) => onChange({ ...v, chat_cerrado: Number(e.target.value) })}
+          >
+            <option value={0}>No</option>
+            <option value={1}>Sí</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">Bot OpenIA</label>
+          <select
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.bot_openia ?? 1}
+            onChange={(e) => onChange({ ...v, bot_openia: Number(e.target.value) })}
+          >
+            <option value={1}>Activo</option>
+            <option value={0}>Inactivo</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">UID Cliente</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.uid_cliente || ""}
+            onChange={(e) => onChange({ ...v, uid_cliente: e.target.value })}
+          />
+        </div>
+      </div>
+      <div>
+        <label className="text-xs font-medium text-gray-700">Imagen (URL)</label>
+        <input
+          className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          value={v.imagePath || ""}
+          onChange={(e) => onChange({ ...v, imagePath: e.target.value })}
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="text-xs font-medium text-gray-700">Mensajes/día</label>
+          <input
+            type="number"
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.mensajes_por_dia_cliente ?? 0}
+            onChange={(e) =>
+              onChange({ ...v, mensajes_por_dia_cliente: Number(e.target.value) || 0 })
+            }
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">Pedido confirmado</label>
+          <select
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={v.pedido_confirmado ?? 0}
+            onChange={(e) => onChange({ ...v, pedido_confirmado: Number(e.target.value) })}
+          >
+            <option value={0}>No</option>
+            <option value={1}>Sí</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== Modales reutilizables (ligeros) ===== */
+function BaseModal({ open, title, onClose, children, footer }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b px-5 py-3">
+          <h3 className="text-base font-semibold">{title}</h3>
+          <button className="rounded p-2 hover:bg-gray-100" onClick={onClose}>
+            <i className="bx bx-x text-xl" />
+          </button>
+        </div>
+        <div className="px-5 py-3">{children}</div>
+        <div className="flex items-center justify-end gap-2 border-t px-5 py-3">{footer}</div>
+      </div>
+    </div>
+  );
+}
+
+function ModalTags({ state, setState, onApply, disabled }) {
+  return (
+    <BaseModal
+      open={state.open}
+      title={(state.mode === "add" ? "Asignar" : "Quitar") + " etiquetas"}
+      onClose={() => setState({ open: false, mode: "add", value: "" })}
+      footer={
+        <>
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setState({ open: false, mode: "add", value: "" })}>
+            Cancelar
+          </button>
+          <button
+            disabled={disabled}
+            onClick={async () => {
+              await onApply(state.mode, state.value);
+              setState({ open: false, mode: "add", value: "" });
+            }}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+          >
+            Aplicar
+          </button>
+        </>
+      }
+    >
+      <p className="mb-2 text-sm text-gray-600">
+        Escribe etiquetas separadas por coma. Afectará a {disabled ? 0 : "n"} cliente(s) seleccionados.
+      </p>
+      <input
+        className="w-full rounded-md border px-3 py-2 text-sm"
+        placeholder="vip, follow-up, lead"
+        value={state.value}
+        onChange={(e) => setState((s) => ({ ...s, value: e.target.value }))}
+      />
+      <div className="mt-2 flex gap-2">
+        <button className="rounded border px-2 py-1 text-xs" onClick={() => setState((s) => ({ ...s, mode: "add" }))}>
+          Asignar
+        </button>
+        <button className="rounded border px-2 py-1 text-xs" onClick={() => setState((s) => ({ ...s, mode: "remove" }))}>
+          Quitar
+        </button>
+      </div>
+    </BaseModal>
+  );
+}
+function ModalSMS({ state, setState, onSend, disabled }) {
+  return (
+    <BaseModal
+      open={state.open}
+      title="Enviar SMS"
+      onClose={() => setState({ open: false, msg: "" })}
+      footer={
+        <>
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setState({ open: false, msg: "" })}>
+            Cancelar
+          </button>
+          <button
+            disabled={disabled}
+            onClick={async () => {
+              await onSend(state.msg);
+              setState({ open: false, msg: "" });
+            }}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+          >
+            Enviar
+          </button>
+        </>
+      }
+    >
+      <p className="mb-2 text-sm text-gray-600">Mensaje a {disabled ? 0 : "n"} cliente(s).</p>
+      <textarea
+        className="w-full rounded-md border px-3 py-2 text-sm"
+        rows={5}
+        placeholder="Tu mensaje SMS…"
+        value={state.msg}
+        onChange={(e) => setState({ open: true, msg: e.target.value })}
+      />
+    </BaseModal>
+  );
+}
+function ModalEmail({ state, setState, onSend, disabled }) {
+  return (
+    <BaseModal
+      open={state.open}
+      title="Enviar Email"
+      onClose={() => setState({ open: false, subject: "", body: "" })}
+      footer={
+        <>
+          <button
+            className="rounded-md border px-3 py-1.5 text-sm"
+            onClick={() => setState({ open: false, subject: "", body: "" })}
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={disabled}
+            onClick={async () => {
+              await onSend(state.subject, state.body);
+              setState({ open: false, subject: "", body: "" });
+            }}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+          >
+            Enviar
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <input
+          className="w-full rounded-md border px-3 py-2 text-sm"
+          placeholder="Asunto"
+          value={state.subject}
+          onChange={(e) => setState((s) => ({ ...s, subject: e.target.value }))}
+        />
+        <textarea
+          className="w-full rounded-md border px-3 py-2 text-sm"
+          rows={8}
+          placeholder="Contenido del email…"
+          value={state.body}
+          onChange={(e) => setState((s) => ({ ...s, body: e.target.value }))}
+        />
+      </div>
+    </BaseModal>
+  );
+}
+function ModalReview({ state, setState, onSend, disabled }) {
+  return (
+    <BaseModal
+      open={state.open}
+      title="Enviar solicitud de reseña"
+      onClose={() => setState({ open: false, channel: "whatsapp", link: "" })}
+      footer={
+        <>
+          <button
+            className="rounded-md border px-3 py-1.5 text-sm"
+            onClick={() => setState({ open: false, channel: "whatsapp", link: "" })}
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={disabled}
+            onClick={async () => {
+              await onSend(state.channel, state.link);
+              setState({ open: false, channel: "whatsapp", link: "" });
+            }}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+          >
+            Enviar
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-medium text-gray-700">Canal</label>
+          <select
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            value={state.channel}
+            onChange={(e) => setState((s) => ({ ...s, channel: e.target.value }))}
+          >
+            <option value="whatsapp">WhatsApp</option>
+            <option value="sms">SMS</option>
+            <option value="email">Email</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">Enlace de reseña</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="https://g.page/r/XXXXX"
+            value={state.link}
+            onChange={(e) => setState((s) => ({ ...s, link: e.target.value }))}
+          />
+        </div>
+        <p className="text-xs text-gray-500">Se enviará a {disabled ? 0 : "n"} cliente(s).</p>
+      </div>
+    </BaseModal>
   );
 }
