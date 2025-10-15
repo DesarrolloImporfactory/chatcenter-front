@@ -53,6 +53,8 @@ import MainLayout from "./components/layout/MainLayout";
 import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
 
+import Clientes from "./components/clientes/clientes";
+
 function App() {
   useEffect(() => {
     // Validar configuración al iniciar la app
@@ -274,6 +276,9 @@ function App() {
 
         <Route path="/access" element={<Access />} />
         <Route path="/registro_guiado" element={<RegisterGuided />} />
+
+        <Route path="/clientes" element={<Clientes />} />
+
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
