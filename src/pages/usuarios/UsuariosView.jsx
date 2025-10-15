@@ -315,7 +315,10 @@ const UsuariosView = () => {
     return data;
   }, [usuarios, search, rolFiltro, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(listaProcesada.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(listaProcesada.length / itemsPerPage)
+  );
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return listaProcesada.slice(start, start + itemsPerPage);
@@ -327,8 +330,8 @@ const UsuariosView = () => {
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
-    const addon = qs.get("addon");      // conexiones extra
-    const subu = qs.get("subu");        // subusuarios extra
+    const addon = qs.get("addon"); // conexiones extra
+    const subu = qs.get("subu"); // subusuarios extra
 
     if (addon === "ok") {
       Swal.fire({
@@ -384,11 +387,14 @@ const UsuariosView = () => {
       const id_usuario = decoded.id_usuario;
 
       const base = window.location.origin;
-      const res = await chatApi.post("/stripe_plan/crearSesionAddonSubusuario", {
-        id_usuario,
-        success_url: `${base}/usuarios?addon_subusuario=ok`,
-        cancel_url: `${base}/usuarios?addon_subusuario=cancel`,
-      });
+      const res = await chatApi.post(
+        "/stripe_plan/crearSesionAddonSubusuario",
+        {
+          id_usuario,
+          success_url: `${base}/usuarios?addon_subusuario=ok`,
+          cancel_url: `${base}/usuarios?addon_subusuario=cancel`,
+        }
+      );
 
       if (res?.data?.url) {
         window.location.href = res.data.url; // Stripe Checkout
@@ -405,7 +411,7 @@ const UsuariosView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pt-24 px-3 md:px-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 md:px-6">
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header */}
         <header className="relative isolate overflow-hidden">
@@ -739,7 +745,7 @@ const UsuariosView = () => {
                         {limitMessage}
                       </div>
                     )}
-                  
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
                       {/* Card: Actualizar plan */}
                       <div
@@ -777,7 +783,7 @@ const UsuariosView = () => {
                           </svg>
                         </div>
                       </div>
-                  
+
                       {/* Card: Comprar subusuario adicional */}
                       <div
                         onClick={onBuyAddonSubusuarioClick}
@@ -797,12 +803,17 @@ const UsuariosView = () => {
                             </h3>
                           </div>
                           <div className="text-right leading-none">
-                            <p className="text-3xl font-extrabold text-[#171931]">$5</p>
-                            <p className="text-[11px] text-slate-500">por usuario</p>
+                            <p className="text-3xl font-extrabold text-[#171931]">
+                              $5
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              por usuario
+                            </p>
                           </div>
                         </div>
                         <p className="mt-4 text-sm leading-6 text-slate-600">
-                          Agrega un subusuario extra a tu cuenta para gestionar mensajes.
+                          Agrega un subusuario extra a tu cuenta para gestionar
+                          mensajes.
                         </p>
                         <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
                           Continuar con la compra
@@ -816,7 +827,7 @@ const UsuariosView = () => {
                         </div>
                       </div>
                     </div>
-                  
+
                     {/* Aviso */}
                     <div className="mt-1 border-t border-slate-200 pt-4">
                       <div className="flex items-start gap-3 text-[12px] text-slate-600">
@@ -829,14 +840,21 @@ const UsuariosView = () => {
                           <path d="M12 2a10 10 0 100 20 10 10 0 000-20Zm1 15h-2v-6h2v6Zm-2-8V7h2v2h-2Z" />
                         </svg>
                         <p>
-                          <span className="font-semibold text-[#171931]">Aviso:</span> los
-                          subusuarios adicionales
-                          <span className="font-semibold"> solo permanecerán activas</span> mientras
-                          exista un <span className="font-semibold">plan activo</span> en la cuenta.
+                          <span className="font-semibold text-[#171931]">
+                            Aviso:
+                          </span>{" "}
+                          los subusuarios adicionales
+                          <span className="font-semibold">
+                            {" "}
+                            solo permanecerán activas
+                          </span>{" "}
+                          mientras exista un{" "}
+                          <span className="font-semibold">plan activo</span> en
+                          la cuenta.
                         </p>
                       </div>
                     </div>
-                  
+
                     {/* ⬇️ Botón Cerrar debajo del aviso */}
                     <div className="mt-6 flex justify-end">
                       <button
@@ -848,7 +866,6 @@ const UsuariosView = () => {
                       </button>
                     </div>
                   </motion.div>
-
                 ) : (
                   <motion.form
                     key="form-view"

@@ -49,44 +49,59 @@ const ACCENTS = {
 
 function Hero() {
   return (
-    <div className="mb-6 rounded-3xl bg-[#171931] text-white p-6 shadow-xl border border-white/10">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+    <div className="mb-6 rounded-3xl bg-[#0E1025] text-white p-6 md:p-8 shadow-xl border border-white/10 relative overflow-hidden">
+      {/* Glow sutil decorativo */}
+      <div
+        className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl opacity-20"
+        style={{
+          background:
+            "radial-gradient(50% 50% at 50% 50%, #3B82F6 0%, rgba(59,130,246,0) 70%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute -bottom-24 -left-24 w-72 h-72 rounded-full blur-3xl opacity-20"
+        style={{
+          background:
+            "radial-gradient(50% 50% at 50% 50%, #10B981 0%, rgba(16,185,129,0) 70%)",
+        }}
+      />
+
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative">
         <div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+          <h1 className="text-[28px] md:text-[36px] font-black leading-tight tracking-tight">
             Canal de Conexiones
           </h1>
-          <p className="opacity-90 mt-2 max-w-2xl">
-            Administra y monitorea tus canales de mensajería con una interfaz
-            limpia y poderosa. Conecta Instagram, Messenger y WhatsApp en
-            minutos.
+          <p className="mt-2  text-white/80">
+            Gestiona WhatsApp, Instagram y Messenger con métricas claras y
+            acciones rápidas. Todo en un mismo lugar.
           </p>
+
+          {/* Chips (mismo contenido) */}
           <div className="mt-4 flex gap-2 flex-wrap">
-            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur text-xs">
+            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur text-[11px]">
               Webhooks activos
             </span>
-            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur text-xs">
+            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur text-[11px]">
               Estado en tiempo real
             </span>
-            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur text-xs">
+            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur text-[11px]">
               OAuth seguro
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3 w-full md:w-auto">
-          {[
-            { label: "Conectados", val: "3", sub: "canales" },
-            { label: "Plantillas", val: "24", sub: "listas" },
-            { label: "Respuestas", val: "12", sub: "rápidas" },
-          ].map((k, i) => (
-            <div
-              key={i}
-              className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center"
-            >
-              <div className="text-2xl font-extrabold">{k.val}</div>
-              <div className="opacity-75 text-[12px]">{k.label}</div>
-              <div className="opacity-60 text-[10px]">{k.sub}</div>
-            </div>
-          ))}
+
+        {/* Línea decorativa compacta */}
+        <div className="hidden md:block self-stretch w-px bg-white/10" />
+
+        {/* “Marca” lateral sin datos nuevos */}
+        <div className="md:min-w-[220px] md:text-right">
+          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/5 border border-white/10">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="text-sm font-semibold tracking-wide text-white/90">
+              Consolida tus canales en segundos.
+            </span>
+          </div>
+          <div className="mt-2 text-xs text-white/60"></div>
         </div>
       </div>
     </div>
@@ -114,7 +129,7 @@ export default function AdministradorCanales() {
   };
 
   return (
-    <div className="mt-16 p-5">
+    <div className="p-5">
       <Hero />
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -123,7 +138,7 @@ export default function AdministradorCanales() {
           active={tab === "whatsapp"}
           onClick={go}
           icon="bx bxl-whatsapp text-lg"
-          label="WhatsApp"
+          label="WhatsApp Business"
           accent={ACCENTS.whatsapp}
         />
         <TabPill

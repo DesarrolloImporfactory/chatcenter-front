@@ -1269,7 +1269,7 @@ export default function Calendario() {
 
   // ====== UI ======
   return (
-    <div className="p-0 mt-16">
+    <div className="p-0">
       {/* Título al estilo Admin */}
       <h1 className="text-2xl font-bold mb-4 p-5">
         Planifica y Controla tus Citas en un Solo Lugar

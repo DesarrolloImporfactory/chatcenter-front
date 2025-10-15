@@ -522,7 +522,7 @@ const ProductosView = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pt-24 px-3 md:px-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100  px-3 md:px-6">
       {/* Card principal */}
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header */}
@@ -1294,19 +1294,16 @@ const ProductosView = () => {
 
               {/* Botón para descargar el archivo Excel */}
               <div className="flex justify-start gap-4 mb-4">
-                <button
-                  
-                  className="inline-flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
+                <button className="inline-flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                   <a
-                  href="https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx"
-                  target="_blank"
-                  download="plantilla_subida_masiva.xlsx"
-                  className="flex items-center gap-2"
-                >
-                  <i className="bx bx-cloud-download text-lg"></i> Descargar
-                  formato de plantilla
-                </a>
+                    href="https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx"
+                    target="_blank"
+                    download="plantilla_subida_masiva.xlsx"
+                    className="flex items-center gap-2"
+                  >
+                    <i className="bx bx-cloud-download text-lg"></i> Descargar
+                    formato de plantilla
+                  </a>
                 </button>
               </div>
 

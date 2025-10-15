@@ -140,7 +140,7 @@ function App() {
 
           {/*administrador-pruebas se renombra y pasa a produccion*/}
           <Route
-            path="/administrador-canales"
+            path="/canal-conexiones"
             element={
               <MainLayout>
                 <AdministradorCanales />
@@ -278,7 +278,6 @@ function App() {
         <Route path="/registro_guiado" element={<RegisterGuided />} />
 
         <Route path="/clientes" element={<Clientes />} />
-
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />

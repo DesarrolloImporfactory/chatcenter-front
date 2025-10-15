@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import chatApi from "../../api/chatcenter";
 import CrearPlantillaModal from "./CrearPlantillaModal";
 import VerPlantillaModal from "./VerPlantillaModal";
@@ -11,17 +18,27 @@ import { useNavigate } from "react-router-dom";
 import log_imporsuitImage from "../../assets/logo_imporsuit.png";
 import "./AdministradorPlantillas2.css";
 import Swal from "sweetalert2";
-import Select, { components } from "react-select";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 
 import SectionHeader from "../../components/canales/SectionHeader";
 import { ThWithTooltip } from "../../components/canales/Tooltip";
 
-const AdministradorPlantillas2 = () => {
+const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
+  { hideHeader = false },
+  ref
+) {
   const [currentTab, setCurrentTab] = useState("numbers");
+
+  // WhatsApp profile / numbers
   const [phoneNumbers, setPhoneNumbers] = useState([]);
+  const [numbersLoading, setNumbersLoading] = useState(true);
+
+  // Templates / quick replies
   const [plantillas, setPlantillas] = useState([]);
+  const [respuestasRapidas, setRespuestasRapidas] = useState([]);
+
+  // Session / UI
   const [userData, setUserData] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
@@ -29,7 +46,6 @@ const AdministradorPlantillas2 = () => {
   const [id_plataforma_conf, setId_plataforma_conf] = useState(null);
   const navigate = useNavigate();
 
-  const [respuestasRapidas, setRespuestasRapidas] = useState([]);
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
     []
   );
@@ -50,132 +66,24 @@ const AdministradorPlantillas2 = () => {
   const [resultadoPlantillas, setResultadoPlantillas] = useState([]);
   const [modalResultadosAbierto, setModalResultadosAbierto] = useState(false);
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
+
   const socketRef = useRef(null);
 
-  // asistente
-  const [asistenteLogistico, setAsistenteLogistico] = useState(null);
-  const [asistenteVentas, setAsistenteVentas] = useState(null);
-  const [existeAsistente, setExisteAsistente] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-
-  const [nombreBotLog, setNombreBotLog] = useState("");
-  const [assistantIdLog, setAssistantIdLog] = useState("");
-  const [activoLog, setActivoLog] = useState(false);
-  const [showModalLogistica, setShowModalLogistica] = useState(false);
-
-  const [nombreBotVenta, setNombreBotVenta] = useState("");
-  const [assistantIdVenta, setAssistantIdVenta] = useState("");
-  const [activoVenta, setActivoVenta] = useState(false);
-  const [productosVenta, setProductosVenta] = useState("");
-  const [showModalVentas, setShowModalVentas] = useState(false);
-  const [productosLista, setProductosLista] = useState([]);
-
-  // ===== Select de productos (chips premium) =====
-  const Option = (props) => {
-    const { isSelected, label } = props;
-    return (
-      <components.Option {...props}>
-        <div className="flex items-center gap-3">
-          <span
-            className={`flex items-center justify-center w-5 h-5 rounded-full border transition
-              ${
-                isSelected
-                  ? "bg-gradient-to-br from-indigo-500 to-blue-500 border-indigo-500"
-                  : "border-gray-300"
-              }`}
-          >
-            {isSelected && (
-              <svg width="12" height="12" viewBox="0 0 20 20" fill="#fff">
-                <path d="M7.629 13.233L3.9 9.505l1.414-1.414 2.315 2.315 6.06-6.06 1.414 1.414z" />
-              </svg>
-            )}
-          </span>
-          <span className="truncate">{label}</span>
-        </div>
-      </components.Option>
-    );
-  };
-
-  const ChipContainer = (props) => {
-    const { children, data } = props;
-    return (
-      <div
-        className="group flex items-center gap-2 mr-2 mb-2 rounded-2xl bg-white/70 backdrop-blur-sm border border-slate-200
-                   shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.10)] transition-all px-3 py-1.5"
-      >
-        <span className="text-[12px] font-semibold tracking-wide bg-gradient-to-br from-indigo-600 to-blue-600 bg-clip-text text-transparent">
-          {data.label}
-        </span>
-        {children}
-      </div>
-    );
-  };
-
-  const ChipRemove = (props) => (
-    <components.MultiValueRemove {...props}>
-      <div
-        className="w-5 h-5 rounded-full grid place-items-center text-slate-500 group-hover:text-white
-                   group-hover:bg-rose-500 transition"
-        aria-label="Quitar"
-        title="Quitar"
-      >
-        ✕
-      </div>
-    </components.MultiValueRemove>
-  );
-
-  const productosOptions = useMemo(
-    () =>
-      (productosLista || []).map((p) => ({
-        value: String(p.id ?? p.id_producto),
-        label: p.nombre,
-      })),
-    [productosLista]
-  );
-
-  const selectedProductos = useMemo(() => {
-    if (!productosVenta || typeof productosVenta !== "string") return [];
-    const ids = productosVenta
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-    return productosOptions.filter((opt) => ids.includes(opt.value));
-  }, [productosVenta, productosOptions]);
-
-  const handleProductosChange = (selected) => {
-    const ids = (selected || []).map((s) => s.value);
-    setProductosVenta(ids.join(","));
-  };
-
-  useEffect(() => {
-    const fetchProductos = async () => {
-      const idc = localStorage.getItem("id_configuracion");
-      if (!idc) {
-        return Swal.fire({
-          icon: "error",
-          title: "Falta configuración",
-          text: "No se encontró el ID de configuración",
+  // ancla para scroll
+  const numbersAnchorRef = useRef(null);
+  useImperativeHandle(ref, () => ({
+    scrollToNumbers: () => {
+      setCurrentTab("numbers");
+      requestAnimationFrame(() => {
+        numbersAnchorRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
         });
-      }
-      try {
-        const prodRes = await chatApi.post("/productos/listarProductos", {
-          id_configuracion: parseInt(idc),
-        });
-        setProductosLista(prodRes.data.data);
-      } catch (error) {
-        if (currentTab === "asistente") {
-          Swal.fire({
-            icon: "error",
-            title: "Error",
-            text: "No se pudo cargar la información de productos",
-          });
-        }
-      }
-    };
-    if (currentTab === "asistente") fetchProductos();
-  }, [currentTab]);
+      });
+    },
+  }));
 
-  // SDK FB
+  // SDK Facebook
   useEffect(() => {
     if (!document.getElementById("facebook-jssdk")) {
       const script = document.createElement("script");
@@ -203,74 +111,11 @@ const AdministradorPlantillas2 = () => {
     setId_plataforma_conf(idp === "null" ? null : idp ? parseInt(idp) : null);
   }, []);
 
-  const handleConnectWhatsApp = () => {
-    if (!window.FB) {
-      setStatusMessage({
-        type: "error",
-        text: "El SDK de Facebook aún no está listo.",
-      });
-      return;
-    }
-    window.FB.login(
-      (response) => {
-        (async () => {
-          const code = response?.authResponse?.code;
-          if (!code) {
-            setStatusMessage({
-              type: "error",
-              text: "No se recibió el código de autorización.",
-            });
-            return;
-          }
-          try {
-            const { data } = await chatApi.post(
-              "/whatsapp_managment/embeddedSignupComplete",
-              {
-                code,
-                id_plataforma: userData?.data?.id_plataforma,
-              }
-            );
-            if (data.success) {
-              setStatusMessage({
-                type: "success",
-                text: "✅ Número conectado correctamente.",
-              });
-              setCurrentTab("numbers");
-            } else {
-              throw new Error(data.message || "Error inesperado.");
-            }
-          } catch (err) {
-            const mensaje =
-              err?.response?.data?.message || "Error al activar el número.";
-            const linkWhatsApp = err?.response?.data?.contacto;
-            setStatusMessage({
-              type: "error",
-              text: linkWhatsApp
-                ? `${mensaje} 👉 Haz clic aquí para contactarnos por WhatsApp:`
-                : mensaje,
-              extra: linkWhatsApp || null,
-            });
-          }
-        })();
-      },
-      {
-        config_id: "2295613834169297",
-        response_type: "code",
-        override_default_response_type: true,
-        scope: "whatsapp_business_management,whatsapp_business_messaging",
-        extras: {
-          featureType: "whatsapp_business_app_onboarding",
-          setup: {},
-          sessionInfoVersion: "3",
-        },
-      }
-    );
-  };
-
   const getCountryCode = (phone) => {
-    if (phone.startsWith("+593") || phone.startsWith("09")) return "ec";
-    if (phone.startsWith("+52")) return "mx";
-    if (phone.startsWith("+57")) return "co";
+    const p = phone.replace(/\s+/g, "");
+    if (p.startsWith("+593") || p.startsWith("09")) return "ec";
+    if (p.startsWith("+52")) return "mx";
+    if (p.startsWith("+57")) return "co";
     return "us";
   };
 
@@ -325,17 +170,23 @@ const AdministradorPlantillas2 = () => {
     });
   }, []);
 
-  // Números
+  // === WhatsApp numbers with skeleton & min hold
   useEffect(() => {
     const fetchPhoneNumbers = async () => {
-      if (!userData) return;
+      if (!userData || id_configuracion == null) return;
       try {
-        const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
+        setNumbersLoading(true);
+        const minHold = new Promise((r) => setTimeout(r, 400)); // evita flash
+        const req = chatApi.post("/whatsapp_managment/ObtenerNumeros", {
           id_configuracion,
         });
-        setPhoneNumbers(resp.data.data || []);
+        const [resp] = await Promise.all([req, minHold]);
+        setPhoneNumbers(resp?.data?.data || []);
       } catch (error) {
         console.error("Error al obtener phone_numbers:", error);
+        setPhoneNumbers([]);
+      } finally {
+        setNumbersLoading(false);
       }
     };
     if (currentTab === "numbers") fetchPhoneNumbers();
@@ -345,8 +196,9 @@ const AdministradorPlantillas2 = () => {
   useEffect(() => {
     if (currentTab === "answers-fast") fetchRespuestasRapidas();
   }, [currentTab]);
+
   const fetchRespuestasRapidas = async () => {
-    if (!userData) return;
+    if (!userData || id_configuracion == null) return;
     try {
       const response = await chatApi.post(
         "/whatsapp_managment/obtenerPlantillasPlataforma",
@@ -360,7 +212,7 @@ const AdministradorPlantillas2 = () => {
 
   // Config automatizada / asistentes
   const fetchConfiguracionAutomatizada = async () => {
-    if (!userData) return;
+    if (!userData || id_configuracion == null) return;
     try {
       const response = await chatApi.post(
         "configuraciones/listar_configuraciones",
@@ -384,42 +236,11 @@ const AdministradorPlantillas2 = () => {
     }
   };
 
-  const fetchAsistenteAutomatizado = async () => {
-    if (!userData) return;
-    try {
-      const response = await chatApi.post("openai_assistants/info_asistentes", {
-        id_configuracion,
-      });
-      const data = response.data?.data || {};
-      setExisteAsistente(data.api_key_openai || null);
-      setAsistenteLogistico(data.logistico || null);
-      setAsistenteVentas(data.ventas || null);
-    } catch (error) {
-      console.error("Error al cargar los asistentes.", error);
-      setAsistenteLogistico(null);
-      setAsistenteVentas(null);
-    }
-  };
-
-  useEffect(() => {
-    if (asistenteLogistico) {
-      setNombreBotLog(asistenteLogistico.nombre_bot || "");
-      setAssistantIdLog(asistenteLogistico.assistant_id || "");
-      setActivoLog(asistenteLogistico.activo);
-    }
-    if (asistenteVentas) {
-      setNombreBotVenta(asistenteVentas.nombre_bot || "");
-      setAssistantIdVenta(asistenteVentas.assistant_id || "");
-      setActivoVenta(asistenteVentas.activo);
-      setProductosVenta(asistenteVentas.productos || "");
-    }
-  }, [asistenteLogistico, asistenteVentas]);
-
   useEffect(() => {
     if (currentTab === "settings") {
       fetchConfiguracionAutomatizada();
     } else if (currentTab === "asistente") {
-      fetchAsistenteAutomatizado();
+      // fetchAsistenteAutomatizado(); // si aplica
     } else if (currentTab === "templates" && id_configuracion !== null) {
       fetchPlantillas();
     }
@@ -476,138 +297,335 @@ const AdministradorPlantillas2 = () => {
     }
   };
 
-  // =============== TABLAS ===============
+  const translateVertical = (v) => {
+    if (!v) return "—";
+    const map = {
+      AUTO: "Automotriz",
+      BEAUTY: "Belleza y cuidado personal",
+      EDU: "Educación",
+      ENTERTAINMENT: "Entretenimiento",
+      EVENT_PLANNING: "Organización de eventos",
+      FINANCE: "Servicios financieros",
+      GOVERNMENT: "Gobierno",
+      GROCERY: "Supermercados y abarrotes",
+      HEALTH: "Salud y bienestar",
+      HOTEL: "Hoteles y alojamiento",
+      NON_PROFIT: "Organización sin fines de lucro",
+      PROFESSIONAL_SERVICES: "Servicios profesionales",
+      RESTAURANT: "Restaurantes y comida",
+      RETAIL: "Compras y ventas minoristas (Retail)",
+      TRAVEL: "Viajes y turismo",
+      PHARMACY: "Farmacia",
+      OTHER: "Otro",
+      UNDEFINED: "No especificado",
+      APPAREL: "Moda y apparel",
+    };
+    if (map[v]) return map[v];
+    return v
+      .toString()
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/^\w|\s\w/g, (m) => m.toUpperCase());
+  };
 
-  const renderNumbersTable = () => (
-    <div className="mt-4 bg-white p-5 rounded-3xl shadow-xl border border-gray-100">
-      <SectionHeader
-        title="Números de teléfono"
-        subtitle="Estado, límites y calidad de tus líneas conectadas"
-      />
-      <div className="relative w-full overflow-visible-x-auto">
-        <table className="min-w-full border bg-white shadow rounded-lg">
-          <thead className="bg-gray-200 text-gray-700 text-sm">
-            <tr>
-              <ThWithTooltip label="Números" />
-              <ThWithTooltip
-                label="Nombre"
-                tip={
-                  <>
-                    <strong className="block mb-1">Nombre para mostrar</strong>
-                    El nombre de tu empresa que ven los clientes en tu perfil de
-                    WhatsApp Business.
-                  </>
-                }
-              />
-              <ThWithTooltip
-                label="Límite de mensajes"
-                tip={
-                  <>
-                    <strong className="block mb-1">¿Qué es el límite?</strong>
-                    Máximo de conversaciones que puedes iniciar en 24 horas.
-                  </>
-                }
-              />
-              <ThWithTooltip
-                label="Estado"
-                tip={
-                  <>
-                    <strong className="block mb-1">Conectado</strong>
-                    El número está asociado a esta cuenta y operativo.
-                  </>
-                }
-              />
-              <ThWithTooltip
-                label="Calidad"
-                tip={
-                  <>
-                    <strong className="block mb-1">
-                      Parámetros de calidad
-                    </strong>
-                    Basado en feedback (bloqueos/reportes) últimos 7 días:
-                    verde, amarillo o rojo.
-                  </>
-                }
-              />
-            </tr>
-          </thead>
-          <tbody>
-            {phoneNumbers.map((num, index) => (
-              <tr key={index} className="border-t hover:bg-gray-50">
-                <td className="py-2 px-4">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={`https://flagcdn.com/w40/${getCountryCode(
-                        num.display_phone_number
-                      )}.png`}
-                      alt="bandera"
-                      className="w-6 h-4 object-cover rounded-sm"
-                    />
-                    <span>{num.display_phone_number}</span>
-                  </div>
-                </td>
-                <td className="py-2 px-4">{num.verified_name}</td>
-                <td className="py-2 px-4">
-                  {(() => {
-                    switch (num.messaging_limit_tier) {
-                      case "TIER_250":
-                        return "250 Clientes / 24 H";
-                      case "TIER_500":
-                        return "500 Clientes / 24 H";
-                      case "TIER_1K":
-                        return "1,000 Clientes / 24 H";
-                      case "TIER_10K":
-                        return "10,000 Clientes / 24 H";
-                      case "TIER_100K":
-                        return "100,000 Clientes / 24 H";
-                      default:
-                        return "Desconocido";
-                    }
-                  })()}
-                </td>
-                <td className="py-2 px-4">
-                  {num.status === "CONNECTED" ? (
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                      CONECTADO
-                    </span>
-                  ) : (
-                    <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
-                      {num.status}
-                    </span>
-                  )}
-                </td>
-                <td className="py-2 px-4">
-                  {num.quality_rating === "GREEN" ? (
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                      VERDE
-                    </span>
-                  ) : num.quality_rating === "YELLOW" ? (
-                    <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
-                      AMARILLO
-                    </span>
-                  ) : num.quality_rating === "RED" ? (
-                    <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
-                      ROJO
-                    </span>
-                  ) : (
-                    <span className="bg-gray-100 text-gray-800 text-[10px] px-2 py-1 rounded">
-                      DESCONOCIDO
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  // =============== VISTAS ===============
+
+  const WaSkeleton = () => (
+    <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden shadow-sm">
+      <div className="bg-[#075E54] px-4 py-3">
+        <div className="h-6 w-40 bg-white/30 rounded animate-pulse" />
+      </div>
+      <div className="p-5 space-y-3">
+        <div className="flex items-center gap-4">
+          <div className="h-20 w-20 rounded-full bg-gray-200 animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse" />
+            <div className="h-3 w-1/3 bg-gray-100 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="h-3 w-2/3 bg-gray-100 rounded animate-pulse" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="h-16 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+          <div className="h-16 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+        </div>
+        <div className="flex gap-2">
+          <div className="h-5 w-24 bg-gray-100 rounded-full animate-pulse" />
+          <div className="h-5 w-28 bg-gray-100 rounded-full animate-pulse" />
+        </div>
       </div>
     </div>
   );
 
+  const renderNumbersTable = () => {
+    const waConnected = !numbersLoading && phoneNumbers.length > 0;
+
+    return (
+      <div
+        ref={numbersAnchorRef}
+        className="mt-4 scroll-mt-24 bg-white p-0 rounded-3xl shadow-xl border border-gray-100 overflow-hidden"
+      >
+        <div className="px-5 pt-5">
+          <SectionHeader
+            title="WhatsApp Business"
+            subtitle={
+              waConnected
+                ? "Perfil y estado de tu número vinculado"
+                : "Conecta tu número de WhatsApp Business"
+            }
+          />
+        </div>
+
+        {/* 1) SKELETON único mientras carga */}
+        {numbersLoading && (
+          <div className="grid gap-6 p-5 md:max-w-xl">
+            <WaSkeleton />
+          </div>
+        )}
+
+        {/* 2) NO conectado → SOLO tarjeta de conectar */}
+        {!numbersLoading && !waConnected && (
+          <div className="p-5">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Conectar WhatsApp</h3>
+                  <p className="text-sm text-gray-600">
+                    Vincula tu número de WhatsApp Business para mostrar el
+                    perfil y usar todas las funciones.
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    (window.location.href = "/conexiones?tab=whatsapp")
+                  }
+                  className="px-4 py-2 rounded-xl bg-[#075E54] text-white hover:bg-[#0b6b60]"
+                >
+                  Conectar WhatsApp
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3) Conectado → perfil completo (tu UI actual) */}
+        {!numbersLoading && waConnected && (
+          <div className="grid gap-6 p-5 md:grid-cols-2 xl:grid-cols-3">
+            {phoneNumbers.slice(0, 1).map((num, index) => {
+              const p = Array.isArray(num.profile?.data)
+                ? num.profile.data[0]
+                : Array.isArray(num.profile)
+                ? num.profile[0]
+                : num.profile || null;
+
+              const photo =
+                p?.profile_picture_url ||
+                "https://placehold.co/200x200?text=WA";
+              const about = p?.about || "—";
+              const description = p?.description || "—";
+
+              const tierLabel = (() => {
+                switch (num.messaging_limit_tier) {
+                  case "TIER_250":
+                    return "250 / 24 h";
+                  case "TIER_500":
+                    return "500 / 24 h";
+                  case "TIER_1K":
+                    return "1.000 / 24 h";
+                  case "TIER_10K":
+                    return "10.000 / 24 h";
+                  case "TIER_100K":
+                    return "100.000 / 24 h";
+                  default:
+                    return "—";
+                }
+              })();
+
+              const rawNumber = num.display_phone_number || "";
+              const country = getCountryCode(rawNumber);
+              const isConnected =
+                (num.status || "").toUpperCase() === "CONNECTED";
+
+              return (
+                <div
+                  key={index}
+                  className="rounded-2xl border border-gray-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition"
+                >
+                  <div className="bg-[#075E54] text-white px-4 py-3 flex items-center gap-3">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M15 18l-6-6 6-6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={photo}
+                        alt="Foto de perfil"
+                        className="h-10 w-10 rounded-full object-cover border border-white/20"
+                        onError={(e) =>
+                          (e.currentTarget.src =
+                            "https://placehold.co/200x200?text=WA")
+                        }
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold truncate">
+                            {num.verified_name || "Negocio"}
+                          </span>
+                          <span
+                            className={`text-[11px] px-2 py-0.5 rounded-full ${
+                              isConnected ? "bg-white/15" : "bg-white/10"
+                            }`}
+                          >
+                            {isConnected ? "Conectado" : num.status || "—"}
+                          </span>
+                        </div>
+                        <div className="text-white/80 text-xs flex items-center gap-2">
+                          <img
+                            src={`https://flagcdn.com/w20/${country}.png`}
+                            alt="bandera"
+                            className="w-5 h-3 object-cover rounded-[2px]"
+                          />
+                          <span className="truncate">{rawNumber}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ml-auto opacity-90">
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M12 8h.01M11 12h1v4h1"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <div className="px-5 pt-5 pb-2">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <img
+                          src={photo}
+                          alt="Foto"
+                          className="h-20 w-20 rounded-full object-cover border-4 border-white shadow -mt-10 md:-mt-10"
+                          onError={(e) =>
+                            (e.currentTarget.src =
+                              "https://placehold.co/200x200?text=WA")
+                          }
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">
+                          {num.verified_name || "Negocio"}
+                        </h3>
+                        <div className="text-sm text-gray-600">{rawNumber}</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 text-sm text-gray-700">
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M12 8v4l3 3"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                        </svg>
+                        <span className="uppercase text-[11px] tracking-wide">
+                          Acerca de
+                        </span>
+                      </div>
+                      <div className="mt-1 text-gray-800">{about}</div>
+                    </div>
+                  </div>
+
+                  <div className="px-5 pb-5 pt-3 space-y-3">
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                      <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                        Descripción
+                      </div>
+                      <div className="mt-1 text-sm text-gray-800 whitespace-pre-line">
+                        {description}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-gray-100 bg-white p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                          Límite de mensajes
+                        </div>
+                        <div className="mt-1 text-sm text-gray-800">
+                          {tierLabel}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-gray-100 bg-white p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                          Categoría
+                        </div>
+                        <div className="mt-1 text-sm text-gray-800">
+                          {translateVertical(p?.vertical)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <span
+                        className={`px-2 py-0.5 text-[11px] rounded-full ${
+                          isConnected
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-rose-100 text-rose-700"
+                        }`}
+                      >
+                        {isConnected ? "Conectado" : num.status || "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderTemplatesTable = () => (
     <div className="overflow-visible bg-white p-5 rounded-3xl shadow-xl border border-gray-100 relative z-0">
       <SectionHeader
-        title="Plantillas"
-        subtitle="Crea, revisa el estado de aprobación y consulta el contenido"
+        title="Administrador de Plantillas"
+        subtitle="Crea, revisa el estado de aprobación y consulta el contenido de las plantillas asociadas a tu portafolio de Business Manager"
         right={
           <div className="flex gap-2">
             <button
@@ -618,7 +636,7 @@ const AdministradorPlantillas2 = () => {
             </button>
             <button
               onClick={crearPlantillasAutomaticas}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 disabled:opacity-50"
               disabled={cargandoPlantillas}
             >
               {cargandoPlantillas
@@ -838,7 +856,7 @@ const AdministradorPlantillas2 = () => {
   const renderSettingsTable = () => (
     <div className="overflow-visible bg-white p-5 rounded-3xl shadow-xl border border-gray-100 relative z-0">
       <SectionHeader
-        title="Conexiones"
+        title="Configuraciones"
         subtitle="Configuraciones y método de pago"
       />
       <table className="min-w-full border bg-white shadow rounded-lg">
@@ -1179,13 +1197,14 @@ const AdministradorPlantillas2 = () => {
 
   return (
     <div className="p-0 mt-16">
-      {/* header igual que otros canales */}
-      <div className="px-5">
-        <SectionHeader
-          title="WhatsApp Business"
-          subtitle="Gestiona números, plantillas y respuestas rápidas con el mismo estilo del Centro de Conexiones."
-        />
-      </div>
+      {!hideHeader && (
+        <div className="px-5">
+          <SectionHeader
+            title="WhatsApp Business"
+            subtitle="Gestiona números, plantillas y respuestas rápidas con el mismo estilo del Centro de Conexiones."
+          />
+        </div>
+      )}
 
       {statusMessage && (
         <div
@@ -1220,7 +1239,7 @@ const AdministradorPlantillas2 = () => {
             }`}
             onClick={() => setCurrentTab("numbers")}
           >
-            <i className="fas fa-address-book"></i> Número
+            <i className="fas fa-address-book"></i> Perfil de WhatsApp Business
           </button>
 
           <button
@@ -1231,7 +1250,7 @@ const AdministradorPlantillas2 = () => {
             }`}
             onClick={() => setCurrentTab("templates")}
           >
-            <i className="fas fa-copy"></i> Plantillas
+            <i className="fas fa-copy"></i> Administrador de Plantillas
           </button>
 
           <button
@@ -1253,7 +1272,7 @@ const AdministradorPlantillas2 = () => {
             }`}
             onClick={() => setCurrentTab("settings")}
           >
-            <i className="bx bxs-plug"></i> Conexiones
+            <i className="bx bxs-plug"></i> Configuraciones
           </button>
         </div>
       </div>
@@ -1263,10 +1282,7 @@ const AdministradorPlantillas2 = () => {
         {currentTab === "templates" && renderTemplatesTable()}
         {currentTab === "answers-fast" && renderAnswersFastTable()}
         {currentTab === "settings" && renderSettingsTable()}
-        {
-          currentTab === "asistente" &&
-            null /* (si lo reactivas, mantiene estilo) */
-        }
+        {currentTab === "asistente" && null}
         {currentTab === "vinculaciones" && renderVinculacionesTable()}
       </div>
 
@@ -1333,6 +1349,6 @@ const AdministradorPlantillas2 = () => {
       )}
     </div>
   );
-};
+});
 
 export default AdministradorPlantillas2;

@@ -97,7 +97,7 @@ const Vinculaciones = () => {
   };
 
   return (
-    <div className="p-5 mt-16">
+    <div className="p-5">
       {/* HERO profesional */}
       <div className="mb-6 rounded-2xl bg-[#171931] text-white p-6 shadow-lg">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

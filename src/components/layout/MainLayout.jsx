@@ -333,7 +333,6 @@ function MainLayout({ children }) {
           `}
           aria-hidden={!sliderOpen}
         >
-
           {/* Encabezado del slider */}
           {/* <div className="h-[80px] px-5 flex items-center justify-between bg-[#171931] text-white">
             <h2 className="font-bold text-lg">Menú</h2>
@@ -383,7 +382,7 @@ function MainLayout({ children }) {
             </a>
 
             {/* WhatsApp */}
-            <a
+            {/* <a
               href="/administrador-whatsapp"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
                 location.pathname === "/administrador-whatsapp"
@@ -402,6 +401,27 @@ function MainLayout({ children }) {
               <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
                 WhatsApp
+              </span> */}
+            {/* </a> */}
+
+            {/* Administrador de Canales */}
+            <a
+              href="/canal-conexiones"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/canal-conexiones"
+                  ? "bg-gray-200 font-semibold"
+                  : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                localStorage.setItem("id_configuracion", id_configuracion);
+                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+                navigate("/canal-conexiones");
+              }}
+            >
+              <i className="bx bx-network-chart text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Canal de Conexiones
               </span>
             </a>
 

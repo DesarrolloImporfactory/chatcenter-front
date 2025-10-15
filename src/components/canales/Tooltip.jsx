@@ -1,44 +1,74 @@
-import React from "react";
+// src/components/canales/Tooltip.jsx
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
-export function TooltipIcon({ className = "w-4 h-4" }) {
+export function ThWithTooltip({ label, tip }) {
+  const thRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (!open || !thRef.current) return;
+    const r = thRef.current.getBoundingClientRect();
+    // ▶️ Colocar el tooltip ENCIMA del th (10px de separación)
+    setPos({
+      top: r.top + window.scrollY - 10, // arriba del th
+      left: r.left + window.scrollX + r.width / 2, // centrado
+    });
+  }, [open]);
+
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
+    <th
+      ref={thRef}
+      scope="col"
+      className="px-3 py-2 text-left font-medium text-gray-700 whitespace-nowrap"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
     >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
-      />
-    </svg>
-  );
-}
-
-export function ThWithTooltip({ label, tip, className = "" }) {
-  return (
-    <th className={`py-2 px-4 text-left relative group ${className}`}>
-      <div className="inline-flex items-center">
-        {label}
+      <div className="inline-flex items-center gap-2">
+        <span>{label}</span>
         {tip && (
-          <span className="ml-1 text-gray-400 hover:text-blue-500 cursor-pointer">
-            <TooltipIcon />
+          <span
+            className="inline-flex items-center justify-center w-4 h-4 rounded-full border text-[10px]
+                       border-gray-300 text-gray-600 bg-white select-none"
+            aria-label={`Ayuda: ${label}`}
+            title="" // evita tooltip nativo del browser
+          >
+            i
           </span>
         )}
       </div>
-      {tip && (
-        <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 bg-gray-900 text-white text-xs rounded-md px-2 py-2 shadow-md z-50">
-          {typeof tip === "string" ? (
-            <p className="text-gray-100">{tip}</p>
-          ) : (
-            tip
-          )}
-          <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
-        </div>
-      )}
+
+      {open &&
+        tip &&
+        createPortal(
+          <div
+            // posición absoluta en el body para evitar clipping
+            style={{
+              position: "absolute",
+              top: pos.top, // top calculado arriba del th
+              left: pos.left,
+              transform: "translate(-50%, -100%)", // ancla por arriba
+              zIndex: 9999,
+            }}
+          >
+            <div className="relative pointer-events-none">
+              {/* CUERPO */}
+              <div
+                className="max-w-sm text-xs leading-relaxed text-white bg-gray-900
+                              border border-gray-800 rounded-md shadow-2xl px-3 py-2"
+              >
+                {typeof tip === "string" ? <div>{tip}</div> : tip}
+              </div>
+              {/* FLECHITA: abajo del globito, apuntando hacia el th */}
+              <div
+                className="h-2 w-2 bg-gray-900 border-l border-t border-gray-800 rotate-45 mx-auto"
+                style={{ marginTop: "-1px" }}
+              />
+            </div>
+          </div>,
+          document.body
+        )}
     </th>
   );
 }
