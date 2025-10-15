@@ -1108,7 +1108,37 @@ export const Sidebar = ({
   isLoadingWA = false,
   isLoadingMS = false,
   isLoadingIG = false,
+  cargandoChats
 }) => {
+  const [input_busqueda, setInput_busqueda] = useState(searchTerm ?? "");
+
+  function useDebouncedValue(value, delay = 1000) {
+    const [debounced, setDebounced] = useState(value);
+
+    useEffect(() => {
+      const id = setTimeout(() => setDebounced(value), delay);
+      return () => clearTimeout(id); // limpia si el usuario sigue escribiendo
+    }, [value, delay]);
+
+    return debounced;
+  }
+
+  // Valor debounced (1s sin teclear)
+  const debouncedInput = useDebouncedValue(input_busqueda, 1000);
+
+  // Cuando el debounced cambie, ahora sí actualizamos la variable "oficial"
+  useEffect(() => {
+    if (debouncedInput !== searchTerm) {
+      setSearchTerm(debouncedInput);
+    }
+  }, [debouncedInput, searchTerm, setSearchTerm]);
+
+  const handleClear = () => {
+    // Limpia el campo visible y el valor “oficial” inmediatamente
+    setInput_busqueda("");
+    /* setSearchTerm(""); */
+  };
+
   // react-select styles
   const selectStyles = useMemo(
     () => ({
@@ -1280,14 +1310,14 @@ export const Sidebar = ({
                 type="text"
                 placeholder="Buscar por nombre o número de teléfono.."
                 className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-10 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={input_busqueda}
+                onChange={(e) => setInput_busqueda(e.target.value)}
                 aria-label="Buscar chats"
               />
               {searchTerm?.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setSearchTerm("")}
+                  onClick={handleClear}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                   title="Limpiar búsqueda"
                 >
@@ -1682,20 +1712,13 @@ export const Sidebar = ({
           })()}
 
           {/* Loader de paginación */}
-          {mensajesVisibles <
-            (channelFilter === "ms"
-              ? filteredChats.filter((c) => matchesFilter(c, "ms")).length
-              : channelFilter === "wa"
-              ? filteredChats.filter((c) => matchesFilter(c, "wa")).length
-              : channelFilter === "ig"
-              ? filteredChats.filter((c) => matchesFilter(c, "ig")).length
-              : filteredChats.length) && (
-            <div className="flex justify-center py-4">
+          <div className="flex justify-center py-4">
+            {cargandoChats && (
               <span className="animate-pulse text-sm text-slate-500">
                 Cargando más chats…
               </span>
-            </div>
-          )}
+            )}
+          </div>
         </ul>
       </div>
     </aside>

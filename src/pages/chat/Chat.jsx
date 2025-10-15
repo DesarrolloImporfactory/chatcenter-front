@@ -1832,6 +1832,7 @@ const Chat = () => {
 
   /* filtro */
   const [mensajesVisibles, setMensajesVisibles] = useState(10);
+  const [ultimo_cursorId, setUltimo_cursorId] = useState("");
   const [etiquetas_api, setEtiquetas_api] = useState([]);
   const [selectedEtiquetas, setSelectedEtiquetas] = useState([]);
   const [selectedEstado, setSelectedEstado] = useState([]);
@@ -1888,6 +1889,20 @@ const Chat = () => {
           ...prev,
           id_encargado: id_sub_usuario_global,
         }));
+
+        // Actualizar id_encargado en mensajesAcumulados
+        const updatedMensajesAcumulados = mensajesAcumulados.map((mensaje) => {
+          if (mensaje.id === selectedChat.id) {
+            return {
+              ...mensaje,
+              id_encargado: id_sub_usuario_global, // Actualizar id_encargado
+            };
+          }
+          return mensaje;
+        });
+
+        // Actualizar mensajesAcumulados en el estado si es necesario
+        setMensajesAcumulados(updatedMensajesAcumulados);
       } else {
         Toast.fire({
           icon: "error",
@@ -2358,12 +2373,16 @@ const Chat = () => {
   }, [isSocketConnected, userData, selectedChat]);
 
   const scrollRef = useRef(null);
+  const [cargandoChats, setCargandoChats] = useState(false);
 
   const handleScrollMensajes = () => {
     const div = scrollRef.current;
     if (div.scrollTop + div.clientHeight >= div.scrollHeight - 50) {
-      console.log("Cargando más mensajes...");
-      setMensajesVisibles((prev) => prev + 10);
+      if (ultimo_cursorId != cursorId) {
+        console.log("Cargando más mensajes...");
+        setCargandoChats(true);
+        setMensajesVisibles((prev) => prev + 10);
+      }
     }
   };
 
@@ -2371,40 +2390,47 @@ const Chat = () => {
   useEffect(() => {
     const cargarChats = async () => {
       if (socketRef.current && isSocketConnected) {
-        socketRef.current.emit(
-          "GET_CHATS",
-          id_configuracion,
-          id_sub_usuario_global,
-          rol_usuario_global,
-          {
-            limit: 10,
-            cursorFecha,
-            cursorId,
-            filtros: {
-              searchTerm,
-              selectedEtiquetas,
-              selectedEstado,
-              selectedTransportadora,
-              selectedNovedad,
-              selectedTab,
-              selectedPedidos_confirmados,
-            },
-          }
-        );
+        if (ultimo_cursorId != cursorId) {
+          console.log("cursorFecha: " + cursorFecha);
+          console.log("cursorId: " + cursorId);
+          socketRef.current.emit(
+            "GET_CHATS",
+            id_configuracion,
+            id_sub_usuario_global,
+            rol_usuario_global,
+            {
+              limit: 10,
+              cursorFecha,
+              cursorId,
+              filtros: {
+                searchTerm,
+                selectedEtiquetas,
+                selectedEstado,
+                selectedTransportadora,
+                selectedNovedad,
+                selectedTab,
+                selectedPedidos_confirmados,
+              },
+            }
+          );
 
-        socketRef.current.once("CHATS", (data) => {
-          if (data.length > 0) {
-            setMensajesAcumulados((prev) => {
-              const idsPrev = new Set(prev.map((msg) => msg.id));
-              const nuevos = data.filter((msg) => !idsPrev.has(msg.id));
-              return [...prev, ...nuevos];
-            });
+          setUltimo_cursorId(cursorId);
 
-            const ultimo = data[data.length - 1];
-            setCursorFecha(ultimo.mensaje_created_at);
-            setCursorId(ultimo.id);
-          }
-        });
+          socketRef.current.once("CHATS", (data) => {
+            if (data.length > 0) {
+              setMensajesAcumulados((prev) => {
+                const idsPrev = new Set(prev.map((msg) => msg.id));
+                const nuevos = data.filter((msg) => !idsPrev.has(msg.id));
+                return [...prev, ...nuevos];
+              });
+
+              const ultimo = data[data.length - 1];
+              setCursorFecha(ultimo.mensaje_created_at);
+              setCursorId(ultimo.id);
+            }
+            setCargandoChats(false);
+          });
+        }
       }
     };
 
@@ -3406,6 +3432,7 @@ const Chat = () => {
         isLoadingWA={isLoadingWA}
         isLoadingMS={isLoadingMS}
         isLoadingIG={isLoadingIG}
+        cargandoChats={cargandoChats}
       />
       {/* todos los mensajes */}
       <ChatPrincipal
