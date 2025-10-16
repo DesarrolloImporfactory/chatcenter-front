@@ -43,9 +43,11 @@ const timeAgo = (d) => {
   const y = mo / 12;
   return rtf.format(-Math.round(y), "year");
 };
-// incluye id_cliente_chat_center como posible ID
+
+// admite id_cliente_chat_center como posible ID
 const getId = (r) =>
   r?.id ?? r?.id_cliente_chat_center ?? r?._id ?? r?.id_cliente ?? null;
+
 const initials = (n, a) => {
   const s = `${n || ""} ${a || ""}`.trim();
   const i = s
@@ -88,7 +90,7 @@ function mapRow(row) {
   };
 }
 
-/* ====== UI ====== */
+/* ====== UI pequeños ====== */
 function Chip({ children, color }) {
   const style = color
     ? { backgroundColor: `${color}1a`, color, borderColor: `${color}33` }
@@ -156,7 +158,8 @@ function ColumnsDropdown({ state, setState }) {
     </details>
   );
 }
-// selector simple para filtrar por etiqueta (usa catálogo)
+
+/* ====== Select simple para filtro de Tags ====== */
 function TagSelect({ options, value, onChange, disabled, unavailable }) {
   return (
     <select
@@ -165,18 +168,22 @@ function TagSelect({ options, value, onChange, disabled, unavailable }) {
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       title={
-        unavailable ? "Catálogo de etiquetas no disponible" : "Filtrar por etiqueta"
+        unavailable
+          ? "Catálogo de etiquetas no disponible"
+          : "Filtrar por etiqueta"
       }
     >
       <option value="">Etiquetas (todas)</option>
       {options.map((o) => (
-        <option key={o.id_etiqueta || o.id} value={o.id_etiqueta || o.id}>
-          {o.nombre_etiqueta || o.nombre}
+        <option key={o.id_etiqueta} value={o.id_etiqueta}>
+          {o.nombre_etiqueta}
         </option>
       ))}
     </select>
   );
 }
+
+/* ===== Modales base ===== */
 function BaseModal({ open, title, onClose, children, footer }) {
   if (!open) return null;
   return (
@@ -197,17 +204,17 @@ function BaseModal({ open, title, onClose, children, footer }) {
     </div>
   );
 }
-function ModalTags({ open, onClose, onApply, disabled, catalogo }) {
+
+/* Modal de selección de etiquetas desde catálogo */
+function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
   const [seleccion, setSeleccion] = useState([]);
   useEffect(() => {
     if (open) setSeleccion([]);
   }, [open]);
-  const hayCatalogo = Array.isArray(catalogo) && catalogo.length > 0;
-
   return (
     <BaseModal
       open={open}
-      title="Etiquetas"
+      title={title}
       onClose={onClose}
       footer={
         <>
@@ -215,18 +222,9 @@ function ModalTags({ open, onClose, onApply, disabled, catalogo }) {
             Cancelar
           </button>
           <button
-            disabled={disabled}
+            disabled={disabled || !seleccion.length}
             onClick={async () => {
-              if (hayCatalogo) {
-                if (!seleccion.length) {
-                  alert("Selecciona al menos una etiqueta");
-                  return;
-                }
-                await onApply(seleccion);
-              } else {
-                alert("Catálogo no disponible para aplicar etiquetas");
-                return;
-              }
+              await onApply(seleccion.map(Number));
               onClose();
             }}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
@@ -236,46 +234,95 @@ function ModalTags({ open, onClose, onApply, disabled, catalogo }) {
         </>
       }
     >
-      {hayCatalogo ? (
+      {!Array.isArray(catalogo) ? (
+        <div className="p-2 text-sm text-gray-500">Cargando catálogo…</div>
+      ) : catalogo.length === 0 ? (
+        <div className="p-2 text-sm text-gray-500">Sin etiquetas</div>
+      ) : (
         <div className="max-h-72 overflow-auto rounded border p-2">
-          {catalogo.map((tag) => {
-            const id = tag.id_etiqueta || tag.id;
-            const checked = seleccion.includes(id);
-            return (
-              <label
-                key={id}
-                className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={checked}
-                  onChange={(e) => {
-                    if (e.target.checked) setSeleccion((prev) => [...prev, id]);
-                    else setSeleccion((prev) => prev.filter((x) => x !== id));
-                  }}
-                />
-                <Chip color={tag.color_etiqueta}>
-                  {tag.nombre_etiqueta || tag.nombre}
-                </Chip>
-              </label>
-            );
-          })}
-          {catalogo.length === 0 && (
-            <div className="p-2 text-sm text-gray-500">Sin etiquetas</div>
-          )}
+          {catalogo.map((t) => (
+            <label
+              key={t.id_etiqueta}
+              className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50 text-sm"
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={seleccion.includes(t.id_etiqueta)}
+                onChange={(e) =>
+                  setSeleccion((prev) =>
+                    e.target.checked
+                      ? [...prev, t.id_etiqueta]
+                      : prev.filter((x) => x !== t.id_etiqueta)
+                  )
+                }
+              />
+              <Chip color={t.color_etiqueta}>{t.nombre_etiqueta}</Chip>
+            </label>
+          ))}
           <p className="mt-2 text-xs text-gray-500">
-            Se alternará (asignar/quitar) la selección para los clientes seleccionados.
+            Se aplicará a los clientes seleccionados.
           </p>
         </div>
-      ) : (
-        <p className="text-sm text-gray-600">Catálogo de etiquetas no disponible.</p>
       )}
     </BaseModal>
   );
 }
 
-/* ====== Vista principal ====== */
+/* Modal crear etiquetas */
+function ModalCrearEtiqueta({ open, onClose, onCreate }) {
+  const [nombres, setNombres] = useState("");
+  const [color, setColor] = useState("");
+  return (
+    <BaseModal
+      open={open}
+      title="Crear etiqueta(s)"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            onClick={async () => {
+              const lista = nombres.split(",").map((s) => s.trim()).filter(Boolean);
+              if (!lista.length) return alert("Escribe al menos un nombre");
+              await onCreate(lista, color || undefined);
+              onClose();
+            }}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white"
+          >
+            Crear
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-medium text-gray-700">Nombre(s)</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="vip, follow-up, clientes-2025"
+            value={nombres}
+            onChange={(e) => setNombres(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-gray-500">Separa por comas para crear varias.</p>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-700">Color (opcional)</label>
+          <input
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="#1677FF"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+          />
+        </div>
+      </div>
+    </BaseModal>
+  );
+}
+
+/* =========================== Vista principal =========================== */
 export default function Clientes() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -301,7 +348,13 @@ export default function Clientes() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const [modalTagsOpen, setModalTagsOpen] = useState(false);
+  // Modales de etiquetas
+  const [modalToggleOpen, setModalToggleOpen] = useState(false);
+  const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
+  const [modalQuitarOpen, setModalQuitarOpen] = useState(false);
+  const [modalCrearEtiquetaOpen, setModalCrearEtiquetaOpen] = useState(false);
+
+  // Otros modales existentes (los dejo intactos por brevedad)
   const [modalSMS, setModalSMS] = useState({ open: false, msg: "" });
   const [modalEmail, setModalEmail] = useState({ open: false, subject: "", body: "" });
   const [modalReview, setModalReview] = useState({ open: false, channel: "whatsapp", link: "" });
@@ -316,37 +369,24 @@ export default function Clientes() {
     tags: true,
   });
 
-  // Catálogos de etiquetas por configuración + features
-  const [catalogosPorCfg, setCatalogosPorCfg] = useState({}); // { [id_config]: Etiqueta[] }
-  const [idConfigForTags, setIdConfigForTags] = useState(null);
-  const [features, setFeatures] = useState({
-    catalogo: null,
-    asignadas: null,
-    toggle: null,
-    sms: null,
-    email: null,
-    review: null,
-  });
-
-  // Mapa rápido nombre/color por id y config
-  const mapasPorCfg = useMemo(() => {
-    const out = new Map(); // key: cfgId -> Map(etiquetaId -> {nombre,color})
-    for (const [cfg, arr] of Object.entries(catalogosPorCfg)) {
-      const m = new Map();
-      for (const t of arr || []) {
-        const id = t.id_etiqueta ?? t.id;
-        if (id != null)
-          m.set(Number(id), {
-            nombre: t.nombre_etiqueta ?? t.nombre,
-            color: t.color_etiqueta ?? t.color,
-          });
+  // Opciones del filtro por etiquetas: solo etiquetas realmente ASIGNADAS (derivadas de items)
+  const opcionesFiltroAsignadas = useMemo(() => {
+    const m = new Map();
+    for (const c of items) {
+      for (const t of c.etiquetas || []) {
+        const idE = Number(t.id);
+        if (!m.has(idE)) m.set(idE, { id_etiqueta: idE, nombre_etiqueta: t.nombre });
       }
-      out.set(Number(cfg), m);
     }
-    return out;
-  }, [catalogosPorCfg]);
+    return Array.from(m.values());
+  }, [items]);
 
-  /* ================== Clientes: listar + catálogos + etiquetas ================== */
+
+  // Catálogo por configuración
+  const [catalogosPorCfg, setCatalogosPorCfg] = useState({}); // { [cfgId]: [{id_etiqueta,nombre_etiqueta,color_etiqueta}] }
+  const [idConfigForTags, setIdConfigForTags] = useState(null);
+
+  /* ================== Clientes: listar + catálogo + etiquetas asignadas ================== */
   async function apiList(p = 1, replace = false) {
     setLoading(true);
     try {
@@ -356,24 +396,19 @@ export default function Clientes() {
         sort: orden,
         q: q || undefined,
         estado: estado !== "todos" ? estado : undefined,
-        id_etiqueta: idEtiquetaFiltro || undefined,
+        id_etiqueta: idEtiquetaFiltro || undefined, // el backend filtra por etiqueta si se la pasas
       };
       const { data } = await chatApi.get("/clientes_chat_center/listar", { params });
       const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       const mapped = rows.map(mapRow);
       const tot = data?.total ?? undefined;
 
-      // 1) detectar configuraciones presentes
-      const cfgs = Array.from(
-        new Set(mapped.map((r) => r.id_configuracion).filter(Boolean))
-      );
-      // tomar una por defecto para el selector de filtros si aplica
+      // detectar configuraciones vistas y cargar catálogos
+      const cfgs = Array.from(new Set(mapped.map((r) => r.id_configuracion).filter(Boolean)));
       if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
-
-      // 2) asegurar catálogos para todas las cfgs detectadas
       await cargarCatalogosSiFaltan(cfgs);
 
-      // 3) anexar etiquetas asignadas
+      // anexar etiquetas asignadas (por nombre)
       const withTags = await anexarEtiquetasAsignadas(mapped);
 
       setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
@@ -388,165 +423,201 @@ export default function Clientes() {
   }
 
   async function cargarCatalogosSiFaltan(cfgs) {
-    if (!cfgs?.length) return;
-    const faltantes = cfgs.filter((id) => catalogosPorCfg[id] == null);
+    const faltantes = (cfgs || []).filter((id) => catalogosPorCfg[id] == null);
     if (!faltantes.length) return;
-    try {
-      const respuestas = await Promise.all(
-        faltantes.map((cfgId) =>
-          chatApi
-            .post("/etiquetas_chat_center/obtenerEtiquetas", {
-              id_configuracion: Number(cfgId),
-            })
-            .then((res) => ({ cfgId, res }))
-            .catch((err) => ({ cfgId, err }))
-        )
-      );
-      const nuevo = { ...catalogosPorCfg };
-      let algunoOk = false;
-      for (const { cfgId, res, err } of respuestas) {
-        if (res?.data?.status === "200") {
-          nuevo[cfgId] = Array.isArray(res.data?.etiquetas) ? res.data.etiquetas : [];
-          algunoOk = true;
-        } else {
-          console.error("CATALOGO ETIQUETAS cfg", cfgId, err || res?.data);
-          nuevo[cfgId] = [];
-        }
+    const nuevo = { ...catalogosPorCfg };
+    for (const cfgId of faltantes) {
+      try {
+        const { data } = await chatApi.post("/etiquetas_chat_center/obtenerEtiquetas", {
+          id_configuracion: Number(cfgId),
+        });
+        const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
+        nuevo[cfgId] = arr;
+      } catch (e) {
+        console.error("CATALOGO:", e?.response?.data || e.message);
+        nuevo[cfgId] = [];
       }
-      setCatalogosPorCfg(nuevo);
-      setFeatures((f) => ({ ...f, catalogo: algunoOk }));
-    } catch (e) {
-      console.error("CATALOGOS:", e?.response?.data || e.message);
-      setFeatures((f) => ({ ...f, catalogo: false }));
     }
+    setCatalogosPorCfg(nuevo);
   }
 
-  // Obtener etiquetas asignadas por cliente y resolver nombre/color con el catálogo de SU config
+  // trae etiquetas asignadas para cada cliente y resuelve nombre/color con catálogo de su cfg
   async function anexarEtiquetasAsignadas(clientes) {
     if (!clientes?.length) return clientes;
-    if (features.asignadas === false) return clientes;
     const out = [...clientes];
-    try {
-      await Promise.all(
-        out.map(async (c, i) => {
-          const id = getId(c);
-          if (!id) return;
-          try {
-            const { data } = await chatApi.post(
-              "/etiquetas_asignadas/obtenerEtiquetasAsignadas",
-              { id_cliente_chat_center: id }
-            );
-            if (data?.status === "200") {
-              const arr = Array.isArray(data?.etiquetasAsignadas)
-                ? data.etiquetasAsignadas
-                : [];
-              const mapa = mapasPorCfg.get(Number(c.id_configuracion)) || new Map();
-              const mapped = arr
-                .map((e) => {
-                  const idE = e.id_etiqueta ?? e.id ?? e.etiqueta_id;
-                  if (idE == null) return null;
-                  const info = mapa.get(Number(idE));
-                  return {
-                    id: Number(idE),
-                    nombre: e.nombre_etiqueta ?? e.nombre ?? info?.nombre ?? `#${idE}`,
-                    color: e.color_etiqueta ?? e.color ?? info?.color,
-                  };
-                })
-                .filter(Boolean);
-              out[i] = { ...c, etiquetas: mapped };
-            }
-          } catch (err) {
-            const s = err?.response?.status;
-            if (s === 404 || s === 401 || s === 500)
-              setFeatures((f) => ({ ...f, asignadas: false }));
-          }
-        })
-      );
-      setFeatures((f) => ({ ...f, asignadas: true }));
-    } catch (e) {
-      console.warn(
-        "No se pudieron anexar etiquetas asignadas:",
-        e?.response?.data || e.message
-      );
-      setFeatures((f) => ({ ...f, asignadas: false }));
-    }
+
+    await Promise.all(
+      out.map(async (c, i) => {
+        const id = getId(c);
+        if (!id) return;
+
+        try {
+          const { data } = await chatApi.post(
+            "/etiquetas_asignadas/obtenerEtiquetasAsignadas",
+            { id_cliente_chat_center: id }
+          );
+
+          const arr = Array.isArray(data?.etiquetasAsignadas)
+            ? data.etiquetasAsignadas
+            : [];
+
+          // mapa del catálogo de la cfg de este cliente (por si el endpoint no trae nombres)
+          const mapa = crearMapaCatalogo(c.id_configuracion);
+
+          const mapped = arr
+            .map((e) => {
+              const idE = Number(e.id_etiqueta ?? e.id ?? e.etiqueta_id);
+              if (!idE) return null;
+              const info = mapa.get(idE);
+              return {
+                id: idE,
+                nombre: e.nombre_etiqueta || info?.nombre_etiqueta || `#${idE}`,
+                color: e.color_etiqueta || info?.color_etiqueta,
+              };
+            })
+            .filter(Boolean);
+
+          out[i] = { ...c, etiquetas: mapped };
+        } catch (err) {
+          console.warn("No se pudieron traer etiquetas asignadas:", id, err?.response?.data || err?.message);
+          out[i] = { ...c, etiquetas: [] };
+        }
+      })
+    );
+
     return out;
   }
 
-  /* ========== Toggle etiquetas (asignar/quitar) ========== */
-  async function toggleEtiquetasBulk(idsClientes, idsEtiquetas) {
-    if (!idsClientes?.length || !idsEtiquetas?.length) return;
-    // Se usa la config del primer cliente seleccionado si no hay una fija
+
+  function crearMapaCatalogo(cfgId) {
+    const arr = catalogosPorCfg[cfgId] || [];
+    const m = new Map();
+    for (const t of arr) m.set(Number(t.id_etiqueta), t);
+    return m;
+  }
+
+  /* ====== Toggle/Asignar/Quitar etiquetas mediante toggleAsignacionEtiqueta ====== */
+  function clienteTieneEtiqueta(cliente, idEtiqueta) {
+    const tid = Number(idEtiqueta);
+    if (Array.isArray(cliente.etiquetas) && cliente.etiquetas.length) {
+      return cliente.etiquetas.some((t) => Number(t.id ?? t) === tid);
+    }
+    if (cliente.id_etiqueta) return Number(cliente.id_etiqueta) === tid;
+    return false;
+  }
+  async function aplicarToggle(idC, idE, cfg) {
+    await chatApi.post("/etiquetas_chat_center/toggleAsignacionEtiqueta", {
+      id_cliente_chat_center: idC,
+      id_etiqueta: Number(idE),
+      id_configuracion: Number(cfg),
+    });
+  }
+  async function aplicarPares(pares) {
+    for (const { idC, idE, cfg } of pares) {
+      await aplicarToggle(idC, idE, cfg);
+    }
+  }
+  async function toggleEtiquetas(idsClientes, idsEtiquetas) {
+    const pares = [];
+    for (const idC of idsClientes) {
+      const c = items.find((x) => getId(x) === idC);
+      const cfg = c?.id_configuracion ?? idConfigForTags;
+      if (!cfg) continue;
+      for (const idE of idsEtiquetas) pares.push({ idC, idE, cfg });
+    }
+    if (!pares.length) return alert("Nada por aplicar");
+    await aplicarPares(pares);
+    await apiList(page, true);
+    alert("Acción aplicada");
+  }
+  async function asignarEtiquetas(idsClientes, idsEtiquetas) {
+    const pares = [];
+    for (const idC of idsClientes) {
+      const c = items.find((x) => getId(x) === idC);
+      const cfg = c?.id_configuracion ?? idConfigForTags;
+      if (!cfg) continue;
+      for (const idE of idsEtiquetas) {
+        if (!clienteTieneEtiqueta(c, idE)) pares.push({ idC, idE, cfg });
+      }
+    }
+    if (!pares.length) return alert("Nada por asignar");
+    await aplicarPares(pares);
+    await apiList(page, true);
+    alert("Etiquetas asignadas");
+  }
+  async function quitarEtiquetas(idsClientes, idsEtiquetas) {
+    const pares = [];
+    for (const idC of idsClientes) {
+      const c = items.find((x) => getId(x) === idC);
+      const cfg = c?.id_configuracion ?? idConfigForTags;
+      if (!cfg) continue;
+      for (const idE of idsEtiquetas) {
+        if (clienteTieneEtiqueta(c, idE)) pares.push({ idC, idE, cfg });
+      }
+    }
+    if (!pares.length) return alert("Nada por quitar");
+    await aplicarPares(pares);
+    await apiList(page, true);
+    alert("Etiquetas removidas");
+  }
+
+  /* ===== Crear / Eliminar del catálogo ===== */
+  async function crearEtiquetas(lista, color) {
+    // usa config más común entre los seleccionados o la primera visible
     let cfg = idConfigForTags;
     if (!cfg) {
-      const primero = items.find((x) => idsClientes.includes(getId(x)));
-      cfg = primero?.id_configuracion;
+      const first = items[0];
+      cfg = first?.id_configuracion;
     }
-    if (!cfg) {
-      alert("No se pudo determinar id_configuracion para etiquetas.");
-      return;
+    if (!cfg) return alert("No hay id_configuracion disponible.");
+
+    for (const nombre_etiqueta of lista) {
+      await chatApi.post("/etiquetas_chat_center/agregarEtiqueta", {
+        nombre_etiqueta,
+        color_etiqueta: color,
+        id_configuracion: Number(cfg),
+      });
     }
-    try {
-      for (const idC of idsClientes) {
-        for (const idE of idsEtiquetas) {
-          await chatApi.post("/etiquetas_chat_center/toggleAsignacionEtiqueta", {
-            id_cliente_chat_center: idC,
-            id_etiqueta: Number(idE),
-            id_configuracion: Number(cfg),
-          });
-        }
-      }
-      setFeatures((f) => ({ ...f, toggle: true }));
-      // refrescar etiquetas visibles del page actual
-      const refreshed = await anexarEtiquetasAsignadas(items);
-      setItems(refreshed);
-      alert("Etiquetas actualizadas");
-    } catch (e) {
-      const s = e?.response?.status;
-      if (s === 404 || s === 501) setFeatures((f) => ({ ...f, toggle: false }));
-      console.error("TOGGLE TAGS:", e?.response?.data || e.message);
-      alert("Error aplicando etiquetas");
-    }
+    await cargarCatalogosSiFaltan([cfg]);
+    await apiList(1, true);
+    alert("Etiqueta(s) creada(s)");
   }
 
-  /* ===== Stubs (mantengo) ===== */
-  async function callFutureEndpoint(fn, label, featureKey) {
-    try {
-      await fn();
-      alert(`${label} enviada ✅`);
-      if (featureKey) setFeatures((f) => ({ ...f, [featureKey]: true }));
-    } catch (e) {
-      const s = e?.response?.status;
-      if (s === 404 || s === 501) {
-        alert(`${label}: pendiente backend`);
-        if (featureKey) setFeatures((f) => ({ ...f, [featureKey]: false }));
-      } else {
-        console.error(e?.response?.data || e.message);
-        alert(`Error en ${label}`);
-      }
+  async function eliminarEtiquetasCatalogo(idsEtiquetas) {
+    for (const idE of idsEtiquetas) {
+      await chatApi.delete(`/etiquetas_chat_center/eliminarEtiqueta/${idE}`);
     }
+    // recarga catálogos de las cfg visibles
+    const cfgs = Array.from(new Set(items.map((r) => r.id_configuracion).filter(Boolean)));
+    await cargarCatalogosSiFaltan(cfgs);
+    await apiList(page, true);
+    alert("Etiqueta(s) eliminada(s) del catálogo");
   }
-  const bulkSMS = (ids, mensaje) =>
-    callFutureEndpoint(
-      () => chatApi.post("/clientes_chat_center/sms/enviar", { ids, mensaje }),
-      "Enviar SMS",
-      "sms"
-    );
-  const bulkEmail = (ids, subject, body) =>
-    callFutureEndpoint(
-      () => chatApi.post("/clientes_chat_center/email/enviar", { ids, subject, body }),
-      "Enviar Email",
-      "email"
-    );
-  const bulkReview = (ids, channel, link) =>
-    callFutureEndpoint(
-      () => chatApi.post("/clientes_chat_center/resenas/enviar", { ids, channel, link }),
-      "Solicitud de reseña",
-      "review"
-    );
+
+  /* ===== Botones: abrir modales garantizando catálogo ===== */
+  async function ensureCatalogAndOpen(which) {
+    let cfg = null;
+    if (selected.length) {
+      const counts = new Map();
+      for (const idC of selected) {
+        const c = items.find((x) => getId(x) === idC);
+        if (!c?.id_configuracion) continue;
+        counts.set(c.id_configuracion, (counts.get(c.id_configuracion) || 0) + 1);
+      }
+      if (counts.size) cfg = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0];
+    }
+    if (!cfg) cfg = items[0]?.id_configuracion || idConfigForTags;
+    if (!cfg) return alert("No hay clientes para determinar id_configuracion.");
+    setIdConfigForTags(cfg);
+    await cargarCatalogosSiFaltan([cfg]);
+
+    if (which === "toggle") setModalToggleOpen(true);
+    if (which === "asignar") setModalAsignarOpen(true);
+    if (which === "quitar") setModalQuitarOpen(true);
+    if (which === "crear") setModalCrearEtiquetaOpen(true);
+  }
 
   /* ===== Efectos ===== */
-  // Traer clientes al cambiar filtros
   useEffect(() => {
     setItems([]);
     setPage(1);
@@ -567,35 +638,11 @@ export default function Clientes() {
     const ids = items.map(getId).filter(Boolean);
     return ids.length > 0 && ids.every((id) => selected.includes(id));
   }, [items, selected]);
-  const toggleSelectAll = (v) =>
-    setSelected(v ? items.map(getId).filter(Boolean) : []);
+  const toggleSelectAll = (v) => setSelected(v ? items.map(getId).filter(Boolean) : []);
   const toggleSelect = (id) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  /* Guardar */
-  async function onSave() {
-    try {
-      if (!editing?.nombre && !editing?.telefono && !editing?.email)
-        return alert("Ingresa al menos nombre, teléfono o email");
-      const id = getId(editing);
-      if (id) {
-        const updated = await apiUpdate(id, editing);
-        setItems((prev) => prev.map((x) => (getId(x) === id ? updated : x)));
-      } else {
-        const created = await apiCreate(editing);
-        setItems((prev) => [created, ...prev]);
-      }
-      setDrawerOpen(false);
-      setEditing(null);
-    } catch (e) {
-      console.error("SAVE:", e?.response?.data || e.message);
-      alert("No se pudo guardar");
-    }
-  }
-
-  /* CRUD */
+  /* ======= CRUD cliente (dejé tu mismo estilo/flujo) ======= */
   async function apiCreate(c) {
     const payload = {
       id_plataforma: c.id_plataforma || null,
@@ -633,36 +680,49 @@ export default function Clientes() {
       bot_openia: c.bot_openia ?? 1,
       pedido_confirmado: c.pedido_confirmado ?? 0,
     };
-    const { data } = await chatApi.put(
-      `/clientes_chat_center/actualizar/${id}`,
-      payload
-    );
+    const { data } = await chatApi.put(`/clientes_chat_center/actualizar/${id}`, payload);
     return mapRow(data?.data || data);
   }
   async function apiDelete(id) {
     await chatApi.delete(`/clientes_chat_center/eliminar/${id}`);
   }
-  async function apiDeleteBulk(ids) {
+
+  async function onSave() {
     try {
-      await chatApi.post(`/clientes_chat_center/eliminar`, { ids });
-    } catch {
-      for (const id of ids) await apiDelete(id);
+      if (!editing?.nombre && !editing?.telefono && !editing?.email)
+        return alert("Ingresa al menos nombre, teléfono o email");
+      const id = getId(editing);
+      if (id) {
+        const updated = await apiUpdate(id, editing);
+        setItems((prev) => prev.map((x) => (getId(x) === id ? updated : x)));
+      } else {
+        const created = await apiCreate(editing);
+        setItems((prev) => [created, ...prev]);
+      }
+      setDrawerOpen(false);
+      setEditing(null);
+      await apiList(page, true);
+    } catch (e) {
+      console.error("SAVE:", e?.response?.data || e.message);
+      alert("No se pudo guardar");
     }
-    return true;
   }
 
-  /* Exportar/Importar */
+  async function onDeleteSelected() {
+    if (!selected.length) return;
+    if (!confirm(`¿Eliminar ${selected.length} cliente(s)?`)) return;
+    try {
+      await chatApi.post(`/clientes_chat_center/eliminar`, { ids: selected });
+    } catch {
+      for (const id of selected) await apiDelete(id);
+    }
+    setItems((prev) => prev.filter((x) => !selected.includes(getId(x))));
+    setSelected([]);
+  }
+
+  /* Exportar/Importar (sin cambios) */
   function exportCSV() {
-    const headers = [
-      "Nombre",
-      "Apellido",
-      "Email",
-      "Telefono",
-      "Estado",
-      "IdEtiqueta",
-      "Creado",
-      "UltActividad",
-    ];
+    const headers = ["Nombre", "Apellido", "Email", "Telefono", "Estado", "IdEtiqueta", "Creado", "UltActividad"];
     const csv = [headers.join(",")];
     for (const c of items) {
       csv.push(
@@ -709,12 +769,7 @@ export default function Clientes() {
           estado_cliente: idx.estado >= 0 ? Number(cols[idx.estado] || 1) : 1,
           id_etiqueta: idx.id_etiqueta >= 0 ? cols[idx.id_etiqueta] || null : null,
         };
-        if (
-          !payload.nombre_cliente &&
-          !payload.celular_cliente &&
-          !payload.email_cliente
-        )
-          continue;
+        if (!payload.nombre_cliente && !payload.celular_cliente && !payload.email_cliente) continue;
         await chatApi.post("/clientes_chat_center/agregar", payload);
       }
       apiList(1, true);
@@ -738,9 +793,7 @@ export default function Clientes() {
             <button
               key={t}
               className={`pb-2 ${
-                i === 0
-                  ? "border-b-2 border-blue-600 font-medium text-blue-700"
-                  : "text-gray-600 hover:text-gray-800"
+                i === 0 ? "border-b-2 border-blue-600 font-medium text-blue-700" : "text-gray-600 hover:text-gray-800"
               }`}
             >
               {t}
@@ -757,11 +810,44 @@ export default function Clientes() {
           <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Automations">
             <i className="bx bx-cog" />
           </button>
+
+          {/* === Botones de Tags === */}
           <button
-            className="rounded-lg border bg-white p-2 hover:bg-gray-50"
-            title="Broadcast"
-            disabled={features.sms === false && features.email === false}
+            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={() => ensureCatalogAndOpen("toggle")}
+            disabled={!selected.length}
+            title="Alternar etiquetas en los clientes seleccionados"
           >
+            Toggle Tags ({selected.length || 0})
+          </button>
+
+          <button
+            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={() => ensureCatalogAndOpen("asignar")}
+            disabled={!selected.length}
+            title="Asignar etiquetas (solo las que no tienen)"
+          >
+            Asignar Tags
+          </button>
+
+          <button
+            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={() => ensureCatalogAndOpen("quitar")}
+            disabled={!selected.length}
+            title="Quitar etiquetas (solo las que ya tienen)"
+          >
+            Quitar Tags
+          </button>
+
+          <button
+            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            onClick={() => ensureCatalogAndOpen("crear")}
+            title="Crear etiqueta en el catálogo"
+          >
+            Crear Tag
+          </button>
+
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Broadcast">
             <i className="bx bx-mail-send" />
           </button>
           <button
@@ -778,20 +864,17 @@ export default function Clientes() {
             className="hidden"
             onChange={(e) => e.target.files?.[0] && importCSV(e.target.files[0])}
           />
-          <button
-            className="rounded-lg border bg-white p-2 hover:bg-gray-50"
-            title="Export"
-            onClick={exportCSV}
-          >
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Export" onClick={exportCSV}>
             <i className="bx bx-download" />
           </button>
+
           <button
             disabled={!selected.length}
-            onClick={() => setModalTagsOpen(true)}
+            onClick={onDeleteSelected}
             className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            title="Etiquetas (toggle)"
+            title="Bulk delete"
           >
-            Etiquetas ({selected.length || 0})
+            Bulk Actions ({selected.length || 0})
           </button>
           <button className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
             Settings <i className="bx bx-cog" />
@@ -865,9 +948,7 @@ export default function Clientes() {
               key={e}
               onClick={() => setEstado(e)}
               className={`rounded-full border px-3 py-1 ${
-                estado === e
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                  : "bg-white hover:bg-gray-50"
+                estado === e ? "border-blue-600 bg-blue-50 text-blue-700" : "bg-white hover:bg-gray-50"
               }`}
             >
               {e === "todos" ? "Todos" : e === "1" ? "Activo" : "Inactivo"}
@@ -877,38 +958,22 @@ export default function Clientes() {
 
         <div className="ml-2 flex items-center gap-2">
           <TagSelect
-            // Si hay varias configs en la página, mostramos la unión de todas
-            options={Array.from(
-              new Map(
-                Object.values(catalogosPorCfg)
-                  .flat()
-                  .map((t) => [t.id_etiqueta || t.id, t])
-              ).values()
-            )}
+            options={opcionesFiltroAsignadas}   // <— ahora solo muestra etiquetas asignadas
             value={idEtiquetaFiltro}
             onChange={setIdEtiquetaFiltro}
-            disabled={features.catalogo === false}
-            unavailable={features.catalogo === false}
+            disabled={false}
+            unavailable={false}
           />
 
-          <select
-            className="rounded-md border px-2 py-1"
-            value={orden}
-            onChange={(e) => setOrden(e.target.value)}
-            title="Orden"
-          >
+
+          <select className="rounded-md border px-2 py-1" value={orden} onChange={(e) => setOrden(e.target.value)} title="Orden">
             <option value="recientes">Más recientes</option>
             <option value="antiguos">Más antiguos</option>
             <option value="actividad_desc">Actividad (desc)</option>
             <option value="actividad_asc">Actividad (asc)</option>
           </select>
 
-          <select
-            className="rounded-md border px-2 py-1"
-            value={density}
-            onChange={(e) => setDensity(e.target.value)}
-            title="Densidad"
-          >
+          <select className="rounded-md border px-2 py-1" value={density} onChange={(e) => setDensity(e.target.value)} title="Densidad">
             <option value="compacta">Compacta</option>
             <option value="media">Media</option>
             <option value="amplia">Amplia</option>
@@ -933,11 +998,7 @@ export default function Clientes() {
           <thead className={`sticky top-0 z-20 bg-white ${headPad}`}>
             <tr className="[&>th]:border-b [&>th]:px-3">
               <th className="w-10">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={(e) => toggleSelectAll(e.target.checked)}
-                />
+                <input type="checkbox" checked={allSelected} onChange={(e) => toggleSelectAll(e.target.checked)} />
               </th>
 
               {cols.name && (
@@ -946,30 +1007,18 @@ export default function Clientes() {
                     label="Name"
                     active={/recientes|antiguos/.test(orden)}
                     dir={orden === "antiguos" ? "asc" : "desc"}
-                    onClick={() =>
-                      setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))
-                    }
+                    onClick={() => setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))}
                   />
                 </th>
               )}
               {cols.phone && (
                 <th className="w-56 text-left">
-                  <SortButton
-                    label="Phone"
-                    active={false}
-                    onClick={() => {}}
-                    className="text-gray-500"
-                  />
+                  <SortButton label="Phone" active={false} onClick={() => {}} className="text-gray-500" />
                 </th>
               )}
               {cols.email && (
                 <th className="w-72 text-left">
-                  <SortButton
-                    label="Email"
-                    active={false}
-                    onClick={() => {}}
-                    className="text-gray-500"
-                  />
+                  <SortButton label="Email" active={false} onClick={() => {}} className="text-gray-500" />
                 </th>
               )}
               {cols.created && (
@@ -978,9 +1027,7 @@ export default function Clientes() {
                     label="Created"
                     active={/recientes|antiguos/.test(orden)}
                     dir={orden === "antiguos" ? "asc" : "desc"}
-                    onClick={() =>
-                      setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))
-                    }
+                    onClick={() => setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))}
                   />
                 </th>
               )}
@@ -990,9 +1037,7 @@ export default function Clientes() {
                     label="Last Activity"
                     active={/actividad_/.test(orden)}
                     dir={orden === "actividad_asc" ? "asc" : "desc"}
-                    onClick={() =>
-                      setOrden((o) => (o === "actividad_desc" ? "actividad_asc" : "actividad_desc"))
-                    }
+                    onClick={() => setOrden((o) => (o === "actividad_desc" ? "actividad_asc" : "actividad_desc"))}
                   />
                 </th>
               )}
@@ -1005,41 +1050,10 @@ export default function Clientes() {
             {items.map((c, idx) => {
               const id = getId(c) ?? idx;
               const nombre = `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
-
-              // Resolver etiquetas: usa el catálogo de la config del cliente
-              const mapa = mapasPorCfg.get(Number(c.id_configuracion)) || new Map();
-              const etiquetasUI =
-                Array.isArray(c.etiquetas) && c.etiquetas.length > 0
-                  ? c.etiquetas.map((t) => {
-                      const tid = Number(t.id ?? t);
-                      const info = mapa.get(tid);
-                      return {
-                        id: tid,
-                        nombre: t.nombre ?? info?.nombre ?? `#${tid}`,
-                        color: t.color ?? info?.color,
-                      };
-                    })
-                  : c.id_etiqueta
-                  ? [
-                      {
-                        id: Number(c.id_etiqueta),
-                        nombre: mapa.get(Number(c.id_etiqueta))?.nombre ?? `#${c.id_etiqueta}`,
-                        color: mapa.get(Number(c.id_etiqueta))?.color,
-                      },
-                    ]
-                  : [];
-
               return (
-                <tr
-                  key={id}
-                  className={`hover:bg-gray-50 [&>td]:border-b [&>td]:px-3 ${rowPad}`}
-                >
+                <tr key={id} className={`hover:bg-gray-50 [&>td]:border-b [&>td]:px-3 ${rowPad}`}>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(id)}
-                      onChange={() => toggleSelect(id)}
-                    />
+                    <input type="checkbox" checked={selected.includes(id)} onChange={() => toggleSelect(id)} />
                   </td>
 
                   {cols.name && (
@@ -1102,12 +1116,8 @@ export default function Clientes() {
                   {cols.tags && (
                     <td className="min-w-0">
                       <div className="flex flex-wrap gap-1">
-                        {etiquetasUI.length > 0 ? (
-                          etiquetasUI.map((t, i) => (
-                            <Chip key={i} color={t.color}>
-                              {t.nombre}
-                            </Chip>
-                          ))
+                        {Array.isArray(c.etiquetas) && c.etiquetas.length ? (
+                          c.etiquetas.map((t, i) => <Chip key={i} color={t.color}>{t.nombre}</Chip>)
                         ) : (
                           <span className="text-gray-400">No hay etiquetas asignadas</span>
                         )}
@@ -1132,20 +1142,13 @@ export default function Clientes() {
                             Editar
                           </button>
                           <button
-                            className={`block w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${
-                              features.toggle === false ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
-                            disabled={features.toggle === false}
-                            onClick={() => {
+                            className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            onClick={async () => {
                               if (!selected.includes(id)) setSelected((prev) => [...prev, id]);
                               setIdConfigForTags(c.id_configuracion || idConfigForTags);
-                              setModalTagsOpen(true);
+                              await ensureCatalogAndOpen("toggle");
                             }}
-                            title={
-                              features.toggle === false
-                                ? "Toggle de etiquetas no disponible"
-                                : "Etiquetas"
-                            }
+                            title="Etiquetas"
                           >
                             Etiquetas…
                           </button>
@@ -1175,15 +1178,9 @@ export default function Clientes() {
             )}
           </tbody>
         </table>
-        {loading && (
-          <div className="flex items-center justify-center py-4 text-sm text-gray-500">
-            Cargando…
-          </div>
-        )}
+        {loading && <div className="flex items-center justify-center py-4 text-sm text-gray-500">Cargando…</div>}
         {!hasMore && items.length > 0 && (
-          <div className="flex items-center justify-center py-4 text-xs text-gray-400">
-            No hay más resultados
-          </div>
+          <div className="flex items-center justify-center py-4 text-xs text-gray-400">No hay más resultados</div>
         )}
       </div>
 
@@ -1218,160 +1215,45 @@ export default function Clientes() {
         </div>
       )}
 
-      {/* ===== Modales ===== */}
+      {/* ===== Modales de etiquetas ===== */}
       <ModalTags
-        open={modalTagsOpen}
-        onClose={() => setModalTagsOpen(false)}
-        onApply={async (idsEtiquetas) => {
-          if (!selected.length) return alert("Selecciona al menos un cliente");
-          await toggleEtiquetasBulk(selected, idsEtiquetas.map(Number));
-        }}
+        open={modalToggleOpen}
+        title="Toggle etiquetas"
+        onClose={() => setModalToggleOpen(false)}
+        catalogo={catalogosPorCfg[idConfigForTags]}
         disabled={!selected.length}
-        // catálogo de la config por defecto si existe, sino unión de todos
-        catalogo={
-          idConfigForTags && catalogosPorCfg[idConfigForTags]
-            ? catalogosPorCfg[idConfigForTags]
-            : Array.from(
-                new Map(
-                  Object.values(catalogosPorCfg)
-                    .flat()
-                    .map((t) => [t.id_etiqueta || t.id, t])
-                ).values()
-              )
-        }
+        onApply={async (idsEtiquetas) => {
+          if (!selected.length) return alert("Selecciona clientes");
+          await toggleEtiquetas(selected, idsEtiquetas);
+        }}
       />
-
-      <BaseModal
-        open={modalSMS.open}
-        title="Enviar SMS"
-        onClose={() => setModalSMS({ open: false, msg: "" })}
-        footer={
-          <>
-            <button
-              className="rounded-md border px-3 py-1.5 text-sm"
-              onClick={() => setModalSMS({ open: false, msg: "" })}
-            >
-              Cancelar
-            </button>
-            <button
-              disabled={!selected.length}
-              onClick={async () => {
-                if (!modalSMS.msg.trim()) return alert("Escribe el mensaje");
-                await bulkSMS(selected, modalSMS.msg.trim());
-                setModalSMS({ open: false, msg: "" });
-              }}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-            >
-              Enviar
-            </button>
-          </>
-        }
-      >
-        <p className="mb-2 text-sm text-gray-600">Mensaje a {selected.length} cliente(s).</p>
-        <textarea
-          className="w-full rounded-md border px-3 py-2 text-sm"
-          rows={5}
-          placeholder="Tu mensaje SMS…"
-          value={modalSMS.msg}
-          onChange={(e) => setModalSMS({ open: true, msg: e.target.value })}
-        />
-      </BaseModal>
-
-      <BaseModal
-        open={modalEmail.open}
-        title="Enviar Email"
-        onClose={() => setModalEmail({ open: false, subject: "", body: "" })}
-        footer={
-          <>
-            <button
-              className="rounded-md border px-3 py-1.5 text-sm"
-              onClick={() => setModalEmail({ open: false, subject: "", body: "" })}
-            >
-              Cancelar
-            </button>
-            <button
-              disabled={!selected.length}
-              onClick={async () => {
-                if (!modalEmail.subject.trim()) return alert("Asunto requerido");
-                if (!modalEmail.body.trim()) return alert("Cuerpo requerido");
-                await bulkEmail(selected, modalEmail.subject.trim(), modalEmail.body.trim());
-                setModalEmail({ open: false, subject: "", body: "" });
-              }}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-            >
-              Enviar
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
-            placeholder="Asunto"
-            value={modalEmail.subject}
-            onChange={(e) => setModalEmail((s) => ({ ...s, subject: e.target.value }))}
-          />
-          <textarea
-            className="w-full rounded-md border px-3 py-2 text-sm"
-            rows={8}
-            placeholder="Contenido del email…"
-            value={modalEmail.body}
-            onChange={(e) => setModalEmail((s) => ({ ...s, body: e.target.value }))}
-          />
-        </div>
-      </BaseModal>
-
-      <BaseModal
-        open={modalReview.open}
-        title="Enviar solicitud de reseña"
-        onClose={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
-        footer={
-          <>
-            <button
-              className="rounded-md border px-3 py-1.5 text-sm"
-              onClick={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
-            >
-              Cancelar
-            </button>
-            <button
-              disabled={!selected.length}
-              onClick={async () => {
-                if (!modalReview.link.trim()) return alert("Enlace requerido");
-                await bulkReview(selected, modalReview.channel, modalReview.link.trim());
-                setModalReview({ open: false, channel: "whatsapp", link: "" });
-              }}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-            >
-              Enviar
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-medium text-gray-700">Canal</label>
-            <select
-              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-              value={modalReview.channel}
-              onChange={(e) => setModalReview((s) => ({ ...s, channel: e.target.value }))}
-            >
-              <option value="whatsapp">WhatsApp</option>
-              <option value="sms">SMS</option>
-              <option value="email">Email</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-700">Enlace de reseña</label>
-            <input
-              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-              placeholder="https://g.page/r/XXXXX"
-              value={modalReview.link}
-              onChange={(e) => setModalReview((s) => ({ ...s, link: e.target.value }))}
-            />
-          </div>
-          <p className="text-xs text-gray-500">Se enviará a {selected.length} cliente(s).</p>
-        </div>
-      </BaseModal>
+      <ModalTags
+        open={modalAsignarOpen}
+        title="Asignar etiquetas"
+        onClose={() => setModalAsignarOpen(false)}
+        catalogo={catalogosPorCfg[idConfigForTags]}
+        disabled={!selected.length}
+        onApply={async (idsEtiquetas) => {
+          if (!selected.length) return alert("Selecciona clientes");
+          await asignarEtiquetas(selected, idsEtiquetas);
+        }}
+      />
+      <ModalTags
+        open={modalQuitarOpen}
+        title="Quitar etiquetas"
+        onClose={() => setModalQuitarOpen(false)}
+        catalogo={catalogosPorCfg[idConfigForTags]}
+        disabled={!selected.length}
+        onApply={async (idsEtiquetas) => {
+          if (!selected.length) return alert("Selecciona clientes");
+          await quitarEtiquetas(selected, idsEtiquetas);
+        }}
+      />
+      <ModalCrearEtiqueta
+        open={modalCrearEtiquetaOpen}
+        onClose={() => setModalCrearEtiquetaOpen(false)}
+        onCreate={crearEtiquetas}
+      />
     </div>
   );
 }
@@ -1494,10 +1376,7 @@ function ClienteForm({ value, onChange }) {
             className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
             value={v.mensajes_por_dia_cliente ?? 0}
             onChange={(e) =>
-              onChange({
-                ...v,
-                mensajes_por_dia_cliente: Number(e.target.value) || 0,
-              })
+              onChange({ ...v, mensajes_por_dia_cliente: Number(e.target.value) || 0 })
             }
           />
         </div>
