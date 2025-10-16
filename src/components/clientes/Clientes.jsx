@@ -43,7 +43,8 @@ const timeAgo = (d) => {
   const y = mo / 12;
   return rtf.format(-Math.round(y), "year");
 };
-const getId = (r) => r?.id ?? r?._id ?? r?.id_cliente ?? null;
+// incluye id_cliente_chat_center como posible ID
+const getId = (r) => r?.id ?? r?.id_cliente_chat_center ?? r?._id ?? r?.id_cliente ?? null;
 const initials = (n, a) => {
   const s = `${n || ""} ${a || ""}`.trim();
   const i = s
@@ -63,7 +64,7 @@ function safeCSV(v) {
 /* Normaliza fila -> llaves del front */
 function mapRow(row) {
   return {
-    id: row.id,
+    id: row.id ?? row.id_cliente_chat_center,
     nombre: row.nombre_cliente || "",
     apellido: row.apellido_cliente || "",
     email: row.email_cliente || "",
@@ -81,14 +82,19 @@ function mapRow(row) {
     mensajes_por_dia_cliente: row.mensajes_por_dia_cliente ?? 0,
     pedido_confirmado: row.pedido_confirmado ?? 0,
     imagePath: row.imagePath || "",
+    etiquetas: Array.isArray(row.etiquetas) ? row.etiquetas : [], // si backend las embebe
     _raw: row,
   };
 }
 
 /* ====== Pequeños componentes UI ====== */
-function Chip({ children }) {
+function Chip({ children, color }) {
+  const style = color ? { backgroundColor: `${color}1a`, color, borderColor: `${color}33` } : {};
   return (
-    <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+    <span
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1"
+      style={style}
+    >
       {children}
     </span>
   );
@@ -112,17 +118,31 @@ function SortButton({ label, active, dir = "asc", onClick, className = "" }) {
   );
 }
 function ColumnsDropdown({ state, setState }) {
-  const ref = useRef(null);
   return (
-    <details ref={ref} className="relative">
-      <summary className="list-none inline-flex cursor-pointer items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
-        Columns <i className="bx bx-chevron-down" />
+    <details className="relative">
+      <summary
+        className="list-none inline-flex cursor-pointer items-center gap-2
+                   rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm
+                   text-gray-900 shadow-sm hover:bg-gray-50
+                   focus:outline-none focus:ring-2 focus:ring-[#171931]"
+      >
+        Columns <i className="bx bx-chevron-down text-gray-700" />
       </summary>
-      <div className="absolute right-0 z-30 mt-2 w-56 rounded-lg border bg-white p-2 shadow-xl">
+
+      <div
+        className="absolute right-200 z-30 mt-2 w-56 rounded-lg border border-gray-200
+                   bg-white p-2 shadow-xl ring-1 ring-black/5"
+      >
         {Object.keys(state).map((k) => (
-          <label key={k} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-50">
+          <label
+            key={k}
+            className="flex items-center gap-2 rounded px-2 py-1.5
+                       text-sm text-gray-900 hover:bg-gray-50"
+          >
             <input
               type="checkbox"
+              className="h-4 w-4 rounded border-gray-400 accent-[#171931]
+                         focus:ring-2 focus:ring-[#171931] focus:ring-offset-0"
               checked={state[k]}
               onChange={() => setState((s) => ({ ...s, [k]: !s[k] }))}
             />
@@ -131,6 +151,109 @@ function ColumnsDropdown({ state, setState }) {
         ))}
       </div>
     </details>
+  );
+}
+
+// selector simple para filtrar por etiqueta (usa catálogo)
+function TagSelect({ options, value, onChange, disabled, unavailable }){
+  return (
+    <select
+      className="rounded-md border px-2 py-1"
+      value={value}
+      onChange={(e)=>onChange(e.target.value)}
+      disabled={disabled}
+      title={unavailable ? "Catálogo de etiquetas no disponible" : "Filtrar por etiqueta"}
+    >
+      <option value="">Etiquetas (todas)</option>
+      {options.map(o => (
+        <option key={o.id_etiqueta || o.id} value={o.id_etiqueta || o.id}>
+          {o.nombre_etiqueta || o.nombre}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/* ===== Modal de etiquetas (toggle) ===== */
+function BaseModal({ open, title, onClose, children, footer }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b px-5 py-3">
+          <h3 className="text-base font-semibold">{title}</h3>
+          <button className="rounded p-2 hover:bg-gray-100" onClick={onClose}>
+            <i className="bx bx-x text-xl" />
+          </button>
+        </div>
+        <div className="px-5 py-3">{children}</div>
+        <div className="flex items-center justify-end gap-2 border-t px-5 py-3">{footer}</div>
+      </div>
+    </div>
+  );
+}
+function ModalTags({ open, onClose, onApply, disabled, catalogo }) {
+  const [seleccion, setSeleccion] = useState([]);
+  useEffect(()=>{ if(open) setSeleccion([]); }, [open]);
+  const hayCatalogo = Array.isArray(catalogo) && catalogo.length>0;
+
+  return (
+    <BaseModal
+      open={open}
+      title="Etiquetas"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            disabled={disabled}
+            onClick={async () => {
+              if (hayCatalogo) {
+                if(!seleccion.length){ alert("Selecciona al menos una etiqueta"); return; }
+                await onApply(seleccion);
+              } else {
+                alert("Catálogo no disponible para aplicar etiquetas");
+                return;
+              }
+              onClose();
+            }}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+          >
+            Aplicar
+          </button>
+        </>
+      }
+    >
+      {hayCatalogo ? (
+        <div className="max-h-72 overflow-auto rounded border p-2">
+          {catalogo.map(tag => {
+            const id = tag.id_etiqueta || tag.id;
+            const checked = seleccion.includes(id);
+            return (
+              <label key={id} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={checked}
+                  onChange={(e)=>{
+                    if(e.target.checked) setSeleccion(prev=>[...prev, id]);
+                    else setSeleccion(prev=>prev.filter(x=>x!==id));
+                  }}
+                />
+                <Chip color={tag.color_etiqueta}>{tag.nombre_etiqueta || tag.nombre}</Chip>
+              </label>
+            );
+          })}
+          {catalogo.length===0 && <div className="p-2 text-sm text-gray-500">Sin etiquetas</div>}
+          <p className="mt-2 text-xs text-gray-500">Se alternará (asignar/quitar) la selección para los clientes seleccionados.</p>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-600">Catálogo de etiquetas no disponible.</p>
+      )}
+    </BaseModal>
   );
 }
 
@@ -148,24 +271,24 @@ export default function Clientes() {
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(undefined);
 
-  const [pageSize, setPageSize] = useState(20); // para la UI (el backend sigue usando LIMIT abajo)
+  const [pageSize, setPageSize] = useState(20);
   const LIMIT = pageSize;
 
   const [q, setQ] = useState("");
   const [estado, setEstado] = useState("todos");
-  const [idEtiqueta, setIdEtiqueta] = useState("");
-  const [orden, setOrden] = useState("recientes"); // recientes|antiguos|actividad_desc|actividad_asc
+  const [idEtiquetaFiltro, setIdEtiquetaFiltro] = useState("");
+  const [orden, setOrden] = useState("recientes");
 
   const [selected, setSelected] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const [modalTags, setModalTags] = useState({ open: false, mode: "add", value: "" });
+  const [modalTagsOpen, setModalTagsOpen] = useState(false);
   const [modalSMS, setModalSMS] = useState({ open: false, msg: "" });
   const [modalEmail, setModalEmail] = useState({ open: false, subject: "", body: "" });
   const [modalReview, setModalReview] = useState({ open: false, channel: "whatsapp", link: "" });
 
-  // columnas visibles (como el menú "Columns")
+  // columnas visibles
   const [cols, setCols] = useState({
     name: true,
     phone: true,
@@ -175,7 +298,35 @@ export default function Clientes() {
     tags: true,
   });
 
-  /* ========== API existentes ========== */
+  // Catálogo de etiquetas y soporte de endpoints
+  const [catalogoTags, setCatalogoTags] = useState([]);
+  const [idConfigForTags, setIdConfigForTags] = useState(null);
+  const [features, setFeatures] = useState({
+    catalogo: null,
+    asignadas: null,
+    toggle: null,
+    sms: null,
+    email: null,
+    review: null,
+  });
+
+  // Mapa de etiquetas por id para resolver nombres/colores rápidamente
+  const mapaTags = useMemo(() => {
+    const m = new Map();
+    for (const t of catalogoTags) {
+      const id = t.id_etiqueta ?? t.id;
+      if (id != null) m.set(Number(id), { nombre: t.nombre_etiqueta ?? t.nombre, color: t.color_etiqueta ?? t.color });
+    }
+    return m;
+  }, [catalogoTags]);
+
+  // Forzar refresco de filas para que los nombres de etiquetas se reflejen al cargar el catálogo
+  useEffect(()=>{
+    setItems(prev => [...prev]);
+  }, [catalogoTags]);
+
+
+  /* ========== Clientes: listar + anexar etiquetas ========== */
   async function apiList(p = 1, replace = false) {
     setLoading(true);
     try {
@@ -185,16 +336,27 @@ export default function Clientes() {
         sort: orden,
         q: q || undefined,
         estado: estado !== "todos" ? estado : undefined,
-        id_etiqueta: idEtiqueta || undefined,
+        id_etiqueta: idEtiquetaFiltro || undefined,
       };
       const { data } = await chatApi.get("/clientes_chat_center/listar", { params });
       const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       const mapped = rows.map(mapRow);
       const tot = data?.total ?? undefined;
 
-      setItems((prev) => (replace ? mapped : [...prev, ...mapped]));
+      // set id_configuracion base
+      const localCfg = (typeof window !== "undefined" && window.localStorage?.getItem("id_configuracion")) || null;
+      if (!idConfigForTags) {
+        const cfgFromRows = mapped.find(r => r.id_configuracion)?.id_configuracion;
+        const cfg = cfgFromRows || (localCfg ? Number(localCfg) : null);
+        if (cfg) setIdConfigForTags(cfg);
+      }
+
+      // anexar etiquetas asignadas
+      const withTags = await anexarEtiquetasAsignadas(mapped);
+
+      setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
       setPage(p);
-      setHasMore(typeof tot === "number" ? p * LIMIT < tot : mapped.length === LIMIT);
+      setHasMore(typeof tot === "number" ? p * LIMIT < tot : withTags.length === LIMIT);
       setTotal(tot);
     } catch (e) {
       console.error("LIST:", e?.response?.data || e.message);
@@ -202,6 +364,178 @@ export default function Clientes() {
       setLoading(false);
     }
   }
+
+  // Obtener etiquetas asignadas para cada cliente
+  async function anexarEtiquetasAsignadas(clientes){
+    if (!clientes?.length) return clientes;
+    if (features.asignadas === false) return clientes;
+    const out = [...clientes];
+    try {
+      await Promise.all(out.map(async (c, i) => {
+        const id = getId(c);
+        if(!id) return;
+        try{
+          const { data } = await chatApi.post("/etiquetas_asignadas/obtenerEtiquetasAsignadas", {
+            id_cliente_chat_center: id
+          });
+          if (data?.status === "200") {
+            const arr = Array.isArray(data?.etiquetasAsignadas) ? data.etiquetasAsignadas : [];
+            const mapped = arr.map(e => {
+              const idE = e.id_etiqueta ?? e.id ?? e.etiqueta_id;
+              const nombre = e.nombre_etiqueta ?? e.nombre ?? (idE != null ? (mapaTags.get(Number(idE))?.nombre ?? `#${idE}`) : undefined);
+              const color = e.color_etiqueta ?? e.color ?? (idE != null ? mapaTags.get(Number(idE))?.color : undefined);
+              return { id: idE, nombre, color };
+            }).filter(x=>x.id);
+            out[i] = { ...c, etiquetas: mapped };
+          }
+        }catch(err){
+          const s = err?.response?.status;
+          if (s === 404 || s === 401 || s === 500) setFeatures(f=>({ ...f, asignadas: false }));
+        }
+      }));
+      setFeatures(f=>({ ...f, asignadas: true }));
+    } catch (e) {
+      console.warn("No se pudieron anexar etiquetas asignadas:", e?.response?.data || e.message);
+      setFeatures(f=>({ ...f, asignadas: false }));
+    }
+    return out;
+  }
+
+  /* ========== Catálogo de etiquetas ========== */
+  async function apiCargarCatalogoEtiquetas(configId){
+    if (!configId) return;
+    try{
+      const { data } = await chatApi.post("/etiquetas_chat_center/obtenerEtiquetas", {
+        id_configuracion: Number(configId)
+      });
+      if (data?.status === "200") {
+        const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
+        setCatalogoTags(arr);
+        setFeatures(f=>({ ...f, catalogo: true }));
+      } else {
+        setCatalogoTags([]);
+        setFeatures(f=>({ ...f, catalogo: false }));
+      }
+    }catch(e){
+      console.error("CATALOGO ETIQUETAS:", e?.response?.data || e.message);
+      setCatalogoTags([]);
+      setFeatures(f=>({ ...f, catalogo: false }));
+    }
+  }
+
+  /* ========== Toggle etiquetas (asignar/quitar) ========== */
+  async function toggleEtiquetasBulk(idsClientes, idsEtiquetas){
+    if(!idsClientes?.length || !idsEtiquetas?.length) return;
+    if(!idConfigForTags){
+      alert("No se pudo determinar id_configuracion para etiquetas.");
+      return;
+    }
+    try{
+      for (const idC of idsClientes) {
+        for (const idE of idsEtiquetas) {
+          await chatApi.post("/etiquetas_chat_center/toggleAsignacionEtiqueta", {
+            id_cliente_chat_center: idC,
+            id_etiqueta: Number(idE),
+            id_configuracion: Number(idConfigForTags),
+          });
+        }
+      }
+      setFeatures(f=>({ ...f, toggle: true }));
+      // refrescar etiquetas visibles
+      const refreshed = await anexarEtiquetasAsignadas(items);
+      setItems(refreshed);
+      alert("Etiquetas actualizadas");
+    }catch(e){
+      const s = e?.response?.status;
+      if (s === 404 || s === 501) setFeatures(f=>({ ...f, toggle: false }));
+      console.error("TOGGLE TAGS:", e?.response?.data || e.message);
+      alert("Error aplicando etiquetas");
+    }
+  }
+
+  /* Futuros (stubs) (se mantienen) */
+  async function callFutureEndpoint(fn, label, featureKey) {
+    try {
+      await fn();
+      alert(`${label} enviada ✅`);
+      if (featureKey) setFeatures(f=>({ ...f, [featureKey]: true }));
+    } catch (e) {
+      const s = e?.response?.status;
+      if (s === 404 || s === 501) {
+        alert(`${label}: pendiente backend`);
+        if (featureKey) setFeatures(f=>({ ...f, [featureKey]: false }));
+      } else {
+        console.error(e?.response?.data || e.message);
+        alert(`Error en ${label}`);
+      }
+    }
+  }
+  const bulkSMS = (ids, mensaje) =>
+    callFutureEndpoint(() => chatApi.post("/clientes_chat_center/sms/enviar", { ids, mensaje }), "Enviar SMS", "sms");
+  const bulkEmail = (ids, subject, body) =>
+    callFutureEndpoint(
+      () => chatApi.post("/clientes_chat_center/email/enviar", { ids, subject, body }),
+      "Enviar Email",
+      "email"
+    );
+  const bulkReview = (ids, channel, link) =>
+    callFutureEndpoint(
+      () => chatApi.post("/clientes_chat_center/resenas/enviar", { ids, channel, link }),
+      "Solicitud de reseña",
+      "review"
+    );
+
+  /* ===== Efectos ===== */
+  // 1) traer clientes al cambiar filtros
+  useEffect(() => {
+    setItems([]);
+    setPage(1);
+    setHasMore(true);
+    apiList(1, true);
+  }, [q, estado, orden, pageSize, idEtiquetaFiltro]);
+
+  // 2) cargar catálogo cuando tengamos id_configuracion
+  useEffect(()=>{
+    if (idConfigForTags) apiCargarCatalogoEtiquetas(idConfigForTags);
+  }, [idConfigForTags]);
+
+  /* Scroll infinito */
+  function onScroll(e) {
+    if (loading || !hasMore) return;
+    const el = e.currentTarget;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 16) apiList(page + 1);
+  }
+
+  /* Selección */
+  const allSelected = useMemo(() => {
+    const ids = items.map(getId).filter(Boolean);
+    return ids.length > 0 && ids.every((id) => selected.includes(id));
+  }, [items, selected]);
+  const toggleSelectAll = (v) => setSelected(v ? items.map(getId).filter(Boolean) : []);
+  const toggleSelect = (id) => setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  /* Guardar */
+  async function onSave() {
+    try {
+      if (!editing?.nombre && !editing?.telefono && !editing?.email)
+        return alert("Ingresa al menos nombre, teléfono o email");
+      const id = getId(editing);
+      if (id) {
+        const updated = await apiUpdate(id, editing);
+        setItems((prev) => prev.map((x) => (getId(x) === id ? updated : x)));
+      } else {
+        const created = await apiCreate(editing);
+        setItems((prev) => [created, ...prev]);
+      }
+      setDrawerOpen(false);
+      setEditing(null);
+    } catch (e) {
+      console.error("SAVE:", e?.response?.data || e.message);
+      alert("No se pudo guardar");
+    }
+  }
+
+  /* CRUD */
   async function apiCreate(c) {
     const payload = {
       id_plataforma: c.id_plataforma || null,
@@ -252,97 +586,6 @@ export default function Clientes() {
       for (const id of ids) await apiDelete(id);
     }
     return true;
-  }
-
-  /* Futuros (stubs) */
-  async function callFutureEndpoint(fn, label) {
-    try {
-      await fn();
-      alert(`${label} enviada ✅`);
-    } catch (e) {
-      const s = e?.response?.status;
-      if (s === 404 || s === 501) alert(`${label}: pendiente backend`);
-      else {
-        console.error(e?.response?.data || e.message);
-        alert(`Error en ${label}`);
-      }
-    }
-  }
-  const bulkAssignTags = (ids, tags) =>
-    callFutureEndpoint(
-      () => chatApi.post("/clientes_chat_center/etiquetas/agregar", { ids, etiquetas: tags }),
-      "Asignar etiquetas"
-    );
-  const bulkRemoveTags = (ids, tags) =>
-    callFutureEndpoint(
-      () => chatApi.post("/clientes_chat_center/etiquetas/remover", { ids, etiquetas: tags }),
-      "Quitar etiquetas"
-    );
-  const bulkSMS = (ids, mensaje) =>
-    callFutureEndpoint(() => chatApi.post("/clientes_chat_center/sms/enviar", { ids, mensaje }), "Enviar SMS");
-  const bulkEmail = (ids, subject, body) =>
-    callFutureEndpoint(
-      () => chatApi.post("/clientes_chat_center/email/enviar", { ids, subject, body }),
-      "Enviar Email"
-    );
-  const bulkReview = (ids, channel, link) =>
-    callFutureEndpoint(
-      () => chatApi.post("/clientes_chat_center/resenas/enviar", { ids, channel, link }),
-      "Solicitud de reseña"
-    );
-
-  /* ===== Efectos ===== */
-  useEffect(() => {
-    setItems([]);
-    setPage(1);
-    setHasMore(true);
-    apiList(1, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, estado, idEtiqueta, orden, pageSize]);
-
-  /* Scroll infinito */
-  function onScroll(e) {
-    if (loading || !hasMore) return;
-    const el = e.currentTarget;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 16) apiList(page + 1);
-  }
-
-  /* Selección */
-  const allSelected = useMemo(() => {
-    const ids = items.map(getId).filter(Boolean);
-    return ids.length > 0 && ids.every((id) => selected.includes(id));
-  }, [items, selected]);
-  const toggleSelectAll = (v) => setSelected(v ? items.map(getId).filter(Boolean) : []);
-  const toggleSelect = (id) => setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-
-  /* Guardar */
-  async function onSave() {
-    try {
-      if (!editing?.nombre && !editing?.telefono && !editing?.email)
-        return alert("Ingresa al menos nombre, teléfono o email");
-      const id = getId(editing);
-      if (id) {
-        const updated = await apiUpdate(id, editing);
-        setItems((prev) => prev.map((x) => (getId(x) === id ? updated : x)));
-      } else {
-        const created = await apiCreate(editing);
-        setItems((prev) => [created, ...prev]);
-      }
-      setDrawerOpen(false);
-      setEditing(null);
-    } catch (e) {
-      console.error("SAVE:", e?.response?.data || e.message);
-      alert("No se pudo guardar");
-    }
-  }
-
-  /* Eliminar */
-  async function onDeleteSelected() {
-    if (!selected.length) return;
-    if (!confirm(`¿Eliminar ${selected.length} cliente(s)?`)) return;
-    await apiDeleteBulk(selected);
-    setItems((prev) => prev.filter((x) => !selected.includes(getId(x))));
-    setSelected([]);
   }
 
   /* Exportar/Importar */
@@ -435,7 +678,7 @@ export default function Clientes() {
           <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Automations">
             <i className="bx bx-cog" />
           </button>
-          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Broadcast">
+          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Broadcast" disabled={features.sms===false && features.email===false}>
             <i className="bx bx-mail-send" />
           </button>
           <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Import" onClick={() => fileRef.current?.click()}>
@@ -453,11 +696,11 @@ export default function Clientes() {
           </button>
           <button
             disabled={!selected.length}
-            onClick={onDeleteSelected}
+            onClick={() => setModalTagsOpen(true)}
             className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            title="Bulk delete"
+            title="Etiquetas (toggle)"
           >
-            Bulk Actions ({selected.length || 0})
+            Etiquetas ({selected.length || 0})
           </button>
           <button className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
             Settings <i className="bx bx-cog" />
@@ -523,7 +766,7 @@ export default function Clientes() {
         </div>
       </div>
 
-      {/* ====== Filtros laterales (opcional; lo mantengo simple con 3 pill buttons) ====== */}
+      {/* ====== Filtros (incluye filtro por etiqueta) ====== */}
       <div className="flex items-center gap-2 border-b px-4 py-2 text-xs">
         <div className="flex items-center gap-2">
           {["todos", "1", "0"].map((e) => (
@@ -540,12 +783,14 @@ export default function Clientes() {
         </div>
 
         <div className="ml-2 flex items-center gap-2">
-          <input
-            className="w-36 rounded-md border px-2 py-1"
-            placeholder="Etiqueta (id)"
-            value={idEtiqueta}
-            onChange={(e) => setIdEtiqueta(e.target.value)}
+          <TagSelect
+            options={catalogoTags}
+            value={idEtiquetaFiltro}
+            onChange={setIdEtiquetaFiltro}
+            disabled={features.catalogo === false}
+            unavailable={features.catalogo === false}
           />
+
           <select
             className="rounded-md border px-2 py-1"
             value={orden}
@@ -572,7 +817,7 @@ export default function Clientes() {
             onClick={() => {
               setQ("");
               setEstado("todos");
-              setIdEtiqueta("");
+              setIdEtiquetaFiltro("");
               setOrden("recientes");
             }}
             className="rounded-md border px-2 py-1 text-gray-600 hover:bg-gray-50"
@@ -638,15 +883,31 @@ export default function Clientes() {
                   />
                 </th>
               )}
-              {cols.tags && <th className="w-40 text-left">Tags</th>}
+              {cols.tags && <th className="w-52 text-left">Tags</th>}
               <th className="w-10" />
             </tr>
           </thead>
 
-          <tbody>
+            <tbody>
             {items.map((c, idx) => {
               const id = getId(c) ?? idx;
               const nombre = `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
+
+              // Resolver etiquetas para UI: usar c.etiquetas (preferente), si no existe usar id_etiqueta legacy
+              const etiquetasUI = (Array.isArray(c.etiquetas) && c.etiquetas.length > 0)
+                ? c.etiquetas.map(t => {
+                    const tid = t.id ?? t;
+                    const info = mapaTags.get(Number(tid));
+                    return {
+                      id: Number(tid),
+                      nombre: t.nombre ?? info?.nombre ?? (tid != null ? `#${tid}` : "Etiqueta"),
+                      color: t.color ?? info?.color,
+                    };
+                  })
+                : (c.id_etiqueta
+                    ? [{ id: Number(c.id_etiqueta), nombre: (mapaTags.get(Number(c.id_etiqueta))?.nombre ?? `#${c.id_etiqueta}`), color: (mapaTags.get(Number(c.id_etiqueta))?.color) }]
+                    : []);
+
               return (
                 <tr key={id} className={`hover:bg-gray-50 [&>td]:border-b [&>td]:px-3 ${rowPad}`}>
                   <td>
@@ -711,8 +972,12 @@ export default function Clientes() {
                   )}
 
                   {cols.tags && (
-                    <td className="text-sm">
-                      {c.id_etiqueta ? <Chip>{String(c.id_etiqueta)}</Chip> : <span className="text-gray-400">—</span>}
+                    <td className="min-w-0">
+                      <div className="flex flex-wrap gap-1">
+                        {etiquetasUI.length > 0
+                          ? etiquetasUI.map((t, i) => <Chip key={i} color={t.color}>{t.nombre}</Chip>)
+                          : <span className="text-gray-400">No hay etiquetas asignadas</span>}
+                      </div>
                     </td>
                   )}
 
@@ -722,7 +987,7 @@ export default function Clientes() {
                         <summary className="list-none inline-flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-sm">
                           <span>⋯</span>
                         </summary>
-                        <div className="absolute right-0 z-10 mt-2 w-44 overflow-hidden rounded-lg border bg-white py-1 shadow-xl">
+                        <div className="absolute right-0 z-10 mt-2 w-48 overflow-hidden rounded-lg border bg-white py-1 shadow-xl">
                           <button
                             className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
                             onClick={() => {
@@ -733,10 +998,16 @@ export default function Clientes() {
                             Editar
                           </button>
                           <button
-                            className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
-                            onClick={() => setModalTags({ open: true, mode: "add", value: "" })}
+                            className={`block w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${features.toggle===false?'opacity-50 cursor-not-allowed':''}`}
+                            disabled={features.toggle===false}
+                            onClick={() => {
+                              if (!selected.includes(id)) setSelected(prev=>[...prev, id]);
+                              setIdConfigForTags(c.id_configuracion || idConfigForTags);
+                              setModalTagsOpen(true);
+                            }}
+                            title={features.toggle===false ? "Toggle de etiquetas no disponible" : "Etiquetas"}
                           >
-                            Asignar etiquetas
+                            Etiquetas…
                           </button>
                           <button
                             className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
@@ -803,45 +1074,144 @@ export default function Clientes() {
 
       {/* ===== Modales: etiquetas / SMS / Email / Reseña ===== */}
       <ModalTags
-        state={modalTags}
-        setState={setModalTags}
-        onApply={async (mode, value) => {
-          const ids = selected;
-          const tags = value.split(",").map((t) => t.trim()).filter(Boolean);
-          if (!tags.length) return alert("Escribe al menos una etiqueta");
-          if (mode === "add") await bulkAssignTags(ids, tags);
-          else await bulkRemoveTags(ids, tags);
+        open={modalTagsOpen}
+        onClose={() => setModalTagsOpen(false)}
+        onApply={async (idsEtiquetas) => {
+          if (!selected.length) return alert("Selecciona al menos un cliente");
+          await toggleEtiquetasBulk(selected, idsEtiquetas.map(Number));
         }}
         disabled={!selected.length}
+        catalogo={catalogoTags}
       />
-      <ModalSMS
-        state={modalSMS}
-        setState={setModalSMS}
-        onSend={async (msg) => {
-          if (!msg.trim()) return alert("Escribe el mensaje");
-          await bulkSMS(selected, msg.trim());
-        }}
-        disabled={!selected.length}
-      />
-      <ModalEmail
-        state={modalEmail}
-        setState={setModalEmail}
-        onSend={async (subject, body) => {
-          if (!subject.trim()) return alert("Asunto requerido");
-          if (!body.trim()) return alert("Cuerpo requerido");
-          await bulkEmail(selected, subject.trim(), body.trim());
-        }}
-        disabled={!selected.length}
-      />
-      <ModalReview
-        state={modalReview}
-        setState={setModalReview}
-        onSend={async (channel, link) => {
-          if (!link.trim()) return alert("Enlace requerido");
-          await bulkReview(selected, channel, link.trim());
-        }}
-        disabled={!selected.length}
-      />
+
+      <BaseModal
+        open={modalSMS.open}
+        title="Enviar SMS"
+        onClose={() => setModalSMS({ open: false, msg: "" })}
+        footer={
+          <>
+            <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setModalSMS({ open: false, msg: "" })}>
+              Cancelar
+            </button>
+            <button
+              disabled={!selected.length}
+              onClick={async () => {
+                if (!modalSMS.msg.trim()) return alert("Escribe el mensaje");
+                await bulkSMS(selected, modalSMS.msg.trim());
+                setModalSMS({ open: false, msg: "" });
+              }}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+            >
+              Enviar
+            </button>
+          </>
+        }
+      >
+        <p className="mb-2 text-sm text-gray-600">Mensaje a {selected.length} cliente(s).</p>
+        <textarea
+          className="w-full rounded-md border px-3 py-2 text-sm"
+          rows={5}
+          placeholder="Tu mensaje SMS…"
+          value={modalSMS.msg}
+          onChange={(e) => setModalSMS({ open: true, msg: e.target.value })}
+        />
+      </BaseModal>
+
+      <BaseModal
+        open={modalEmail.open}
+        title="Enviar Email"
+        onClose={() => setModalEmail({ open: false, subject: "", body: "" })}
+        footer={
+          <>
+            <button
+              className="rounded-md border px-3 py-1.5 text-sm"
+              onClick={() => setModalEmail({ open: false, subject: "", body: "" })}
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={!selected.length}
+              onClick={async () => {
+                if (!modalEmail.subject.trim()) return alert("Asunto requerido");
+                if (!modalEmail.body.trim()) return alert("Cuerpo requerido");
+                await bulkEmail(selected, modalEmail.subject.trim(), modalEmail.body.trim());
+                setModalEmail({ open: false, subject: "", body: "" });
+              }}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+            >
+              Enviar
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <input
+            className="w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="Asunto"
+            value={modalEmail.subject}
+            onChange={(e) => setModalEmail((s) => ({ ...s, subject: e.target.value }))}
+          />
+          <textarea
+            className="w-full rounded-md border px-3 py-2 text-sm"
+            rows={8}
+            placeholder="Contenido del email…"
+            value={modalEmail.body}
+            onChange={(e) => setModalEmail((s) => ({ ...s, body: e.target.value }))}
+          />
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={modalReview.open}
+        title="Enviar solicitud de reseña"
+        onClose={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
+        footer={
+          <>
+            <button
+              className="rounded-md border px-3 py-1.5 text-sm"
+              onClick={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={!selected.length}
+              onClick={async () => {
+                if (!modalReview.link.trim()) return alert("Enlace requerido");
+                await bulkReview(selected, modalReview.channel, modalReview.link.trim());
+                setModalReview({ open: false, channel: "whatsapp", link: "" });
+              }}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+            >
+              Enviar
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-700">Canal</label>
+            <select
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              value={modalReview.channel}
+              onChange={(e) => setModalReview((s) => ({ ...s, channel: e.target.value }))}
+            >
+              <option value="whatsapp">WhatsApp</option>
+              <option value="sms">SMS</option>
+              <option value="email">Email</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-700">Enlace de reseña</label>
+            <input
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              placeholder="https://g.page/r/XXXXX"
+              value={modalReview.link}
+              onChange={(e) => setModalReview((s) => ({ ...s, link: e.target.value }))}
+            />
+          </div>
+          <p className="text-xs text-gray-500">Se enviará a {selected.length} cliente(s).</p>
+        </div>
+      </BaseModal>
     </div>
   );
 }
@@ -933,7 +1303,7 @@ function ClienteForm({ value, onChange }) {
           <select
             className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
             value={v.bot_openia ?? 1}
-            onChange={(e) => onChange({ ...v, bot_openia: Number(e.target.value) })}
+            onChange={(e) => onChange({ ...v, bot_openia: Number(e.target.value )})}
           >
             <option value={1}>Activo</option>
             <option value={0}>Inactivo</option>
@@ -981,204 +1351,5 @@ function ClienteForm({ value, onChange }) {
         </div>
       </div>
     </div>
-  );
-}
-
-/* ===== Modales reutilizables (ligeros) ===== */
-function BaseModal({ open, title, onClose, children, footer }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-3">
-          <h3 className="text-base font-semibold">{title}</h3>
-          <button className="rounded p-2 hover:bg-gray-100" onClick={onClose}>
-            <i className="bx bx-x text-xl" />
-          </button>
-        </div>
-        <div className="px-5 py-3">{children}</div>
-        <div className="flex items-center justify-end gap-2 border-t px-5 py-3">{footer}</div>
-      </div>
-    </div>
-  );
-}
-
-function ModalTags({ state, setState, onApply, disabled }) {
-  return (
-    <BaseModal
-      open={state.open}
-      title={(state.mode === "add" ? "Asignar" : "Quitar") + " etiquetas"}
-      onClose={() => setState({ open: false, mode: "add", value: "" })}
-      footer={
-        <>
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setState({ open: false, mode: "add", value: "" })}>
-            Cancelar
-          </button>
-          <button
-            disabled={disabled}
-            onClick={async () => {
-              await onApply(state.mode, state.value);
-              setState({ open: false, mode: "add", value: "" });
-            }}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-          >
-            Aplicar
-          </button>
-        </>
-      }
-    >
-      <p className="mb-2 text-sm text-gray-600">
-        Escribe etiquetas separadas por coma. Afectará a {disabled ? 0 : "n"} cliente(s) seleccionados.
-      </p>
-      <input
-        className="w-full rounded-md border px-3 py-2 text-sm"
-        placeholder="vip, follow-up, lead"
-        value={state.value}
-        onChange={(e) => setState((s) => ({ ...s, value: e.target.value }))}
-      />
-      <div className="mt-2 flex gap-2">
-        <button className="rounded border px-2 py-1 text-xs" onClick={() => setState((s) => ({ ...s, mode: "add" }))}>
-          Asignar
-        </button>
-        <button className="rounded border px-2 py-1 text-xs" onClick={() => setState((s) => ({ ...s, mode: "remove" }))}>
-          Quitar
-        </button>
-      </div>
-    </BaseModal>
-  );
-}
-function ModalSMS({ state, setState, onSend, disabled }) {
-  return (
-    <BaseModal
-      open={state.open}
-      title="Enviar SMS"
-      onClose={() => setState({ open: false, msg: "" })}
-      footer={
-        <>
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setState({ open: false, msg: "" })}>
-            Cancelar
-          </button>
-          <button
-            disabled={disabled}
-            onClick={async () => {
-              await onSend(state.msg);
-              setState({ open: false, msg: "" });
-            }}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-          >
-            Enviar
-          </button>
-        </>
-      }
-    >
-      <p className="mb-2 text-sm text-gray-600">Mensaje a {disabled ? 0 : "n"} cliente(s).</p>
-      <textarea
-        className="w-full rounded-md border px-3 py-2 text-sm"
-        rows={5}
-        placeholder="Tu mensaje SMS…"
-        value={state.msg}
-        onChange={(e) => setState({ open: true, msg: e.target.value })}
-      />
-    </BaseModal>
-  );
-}
-function ModalEmail({ state, setState, onSend, disabled }) {
-  return (
-    <BaseModal
-      open={state.open}
-      title="Enviar Email"
-      onClose={() => setState({ open: false, subject: "", body: "" })}
-      footer={
-        <>
-          <button
-            className="rounded-md border px-3 py-1.5 text-sm"
-            onClick={() => setState({ open: false, subject: "", body: "" })}
-          >
-            Cancelar
-          </button>
-          <button
-            disabled={disabled}
-            onClick={async () => {
-              await onSend(state.subject, state.body);
-              setState({ open: false, subject: "", body: "" });
-            }}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-          >
-            Enviar
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <input
-          className="w-full rounded-md border px-3 py-2 text-sm"
-          placeholder="Asunto"
-          value={state.subject}
-          onChange={(e) => setState((s) => ({ ...s, subject: e.target.value }))}
-        />
-        <textarea
-          className="w-full rounded-md border px-3 py-2 text-sm"
-          rows={8}
-          placeholder="Contenido del email…"
-          value={state.body}
-          onChange={(e) => setState((s) => ({ ...s, body: e.target.value }))}
-        />
-      </div>
-    </BaseModal>
-  );
-}
-function ModalReview({ state, setState, onSend, disabled }) {
-  return (
-    <BaseModal
-      open={state.open}
-      title="Enviar solicitud de reseña"
-      onClose={() => setState({ open: false, channel: "whatsapp", link: "" })}
-      footer={
-        <>
-          <button
-            className="rounded-md border px-3 py-1.5 text-sm"
-            onClick={() => setState({ open: false, channel: "whatsapp", link: "" })}
-          >
-            Cancelar
-          </button>
-          <button
-            disabled={disabled}
-            onClick={async () => {
-              await onSend(state.channel, state.link);
-              setState({ open: false, channel: "whatsapp", link: "" });
-            }}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-          >
-            Enviar
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs font-medium text-gray-700">Canal</label>
-          <select
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-            value={state.channel}
-            onChange={(e) => setState((s) => ({ ...s, channel: e.target.value }))}
-          >
-            <option value="whatsapp">WhatsApp</option>
-            <option value="sms">SMS</option>
-            <option value="email">Email</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700">Enlace de reseña</label>
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-            placeholder="https://g.page/r/XXXXX"
-            value={state.link}
-            onChange={(e) => setState((s) => ({ ...s, link: e.target.value }))}
-          />
-        </div>
-        <p className="text-xs text-gray-500">Se enviará a {disabled ? 0 : "n"} cliente(s).</p>
-      </div>
-    </BaseModal>
   );
 }
