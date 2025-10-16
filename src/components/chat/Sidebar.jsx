@@ -919,11 +919,9 @@ function MessageItem({
   // Texto para preview (si es location necesitamos el JSON crudo)
   const textoPlano = mensaje?.texto_mensaje || "";
   const textoPreview =
-    tipoDetectado === "location"
-      ? textoPlano // el iframe necesita el JSON
-      : isTemplate
-      ? expandirTemplate(textoPlano, mensaje?.ruta_archivo, 20000)
-      : textoPlano;
+  tipoDetectado === "location"
+    ? textoPlano // el iframe/Maps necesita el JSON crudo
+    : expandirTemplate(textoPlano, mensaje?.ruta_archivo, 20000);
 
   const previewCorto = expandirTemplate(
     tipoDetectado === "location" ? "[Ubicación]" : textoPreview,
