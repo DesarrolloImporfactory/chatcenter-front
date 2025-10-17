@@ -413,7 +413,11 @@ export default function Clientes() {
 
   const [q, setQ] = useState("");
   const [estado, setEstado] = useState("todos");
+
+  // 🔹 Filtro por etiqueta (viene del backend, no de las filas)
   const [idEtiquetaFiltro, setIdEtiquetaFiltro] = useState("");
+  const [opcionesFiltroEtiquetas, setOpcionesFiltroEtiquetas] = useState([]);
+
   const [orden, setOrden] = useState("recientes");
 
   const [selected, setSelected] = useState([]);
@@ -441,19 +445,7 @@ export default function Clientes() {
     tags: true,
   });
 
-  // Opciones del filtro por etiquetas: solo etiquetas realmente ASIGNADAS (derivadas de items)
-  const opcionesFiltroAsignadas = useMemo(() => {
-    const m = new Map();
-    for (const c of items) {
-      for (const t of c.etiquetas || []) {
-        const idE = Number(t.id);
-        if (!m.has(idE)) m.set(idE, { id_etiqueta: idE, nombre_etiqueta: t.nombre });
-      }
-    }
-    return Array.from(m.values());
-  }, [items]);
-
-  // Catálogo por configuración
+  // Catálogo por configuración (para chips y modales)
   const [catalogosPorCfg, setCatalogosPorCfg] = useState({}); // { [cfgId]: [{id_etiqueta,nombre_etiqueta,color_etiqueta}] }
   const [idConfigForTags, setIdConfigForTags] = useState(null);
 
@@ -464,7 +456,6 @@ export default function Clientes() {
     for (const t of arr) m.set(Number(t.id_etiqueta), t);
     return m;
   }
-
   async function cargarCatalogosSiFaltan(cfgs) {
     const faltantes = (cfgs || []).filter((id) => catalogosPorCfg[id] == null);
     if (!faltantes.length) return { ...catalogosPorCfg };
@@ -483,6 +474,18 @@ export default function Clientes() {
     }
     setCatalogosPorCfg(nuevo);
     return nuevo;
+  }
+
+  // 🔹 Cargar opciones reales del select "Etiquetas (todas)"
+  async function cargarOpcionesFiltroEtiquetas() {
+    try {
+      const { data } = await chatApi.get("/etiquetas_chat_center/etiquetas_existentes");
+      const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
+      setOpcionesFiltroEtiquetas(arr);
+    } catch (e) {
+      console.warn("No se pudieron cargar etiquetas existentes:", e?.response?.data || e.message);
+      setOpcionesFiltroEtiquetas([]);
+    }
   }
 
   // Adjunta etiquetas asignadas a cada cliente
@@ -532,21 +535,33 @@ export default function Clientes() {
     return out;
   }
 
-  /* ====== LISTAR ====== */
+  /* ====== LISTAR (normal o por etiqueta) ====== */
   async function apiList(p = 1, replace = false) {
     setLoading(true);
     try {
-      const params = {
+      const paramsBase = {
         page: p,
         limit: LIMIT,
         sort: orden,
         q: q || undefined,
         estado: estado !== "todos" ? estado : undefined,
-        id_etiqueta: idEtiquetaFiltro || undefined,
-        id_configuracion:
-          idEtiquetaFiltro && idConfigForTags ? Number(idConfigForTags) : undefined,
       };
-      const { data } = await chatApi.get("/clientes_chat_center/listar", { params });
+
+      let data;
+      if (idEtiquetaFiltro) {
+        // 🔹 listar clientes que tienen la etiqueta seleccionada
+        const { data: resp } = await chatApi.get("/clientes_chat_center/listar_por_etiqueta", {
+          params: { ...paramsBase, ids: String(idEtiquetaFiltro) },
+        });
+        data = resp;
+      } else {
+        // listado estándar
+        const { data: resp } = await chatApi.get("/clientes_chat_center/listar", {
+          params: paramsBase,
+        });
+        data = resp;
+      }
+
       const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       const mapped = rows.map(mapRow);
       const tot = data?.total ?? undefined;
@@ -603,6 +618,7 @@ export default function Clientes() {
     if (!pares.length) throw new Error("Nada por aplicar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
+    await cargarOpcionesFiltroEtiquetas(); // 🔄 refresca opciones del select
   }
   async function asignarEtiquetas(idsClientes, idsEtiquetas) {
     const pares = [];
@@ -617,6 +633,7 @@ export default function Clientes() {
     if (!pares.length) throw new Error("Nada por asignar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
+    await cargarOpcionesFiltroEtiquetas(); // 🔄 refresca opciones del select
   }
   async function quitarEtiquetas(idsClientes, idsEtiquetas) {
     const pares = [];
@@ -631,6 +648,7 @@ export default function Clientes() {
     if (!pares.length) throw new Error("Nada por quitar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
+    await cargarOpcionesFiltroEtiquetas(); // 🔄 refresca opciones del select
   }
 
   /* ===== Crear / Eliminar del catálogo ===== */
@@ -654,6 +672,7 @@ export default function Clientes() {
     }
     await cargarCatalogosSiFaltan([cfg]);
     await apiList(1, true);
+    await cargarOpcionesFiltroEtiquetas(); // refresca opciones del select
   }
 
   async function eliminarEtiquetasCatalogo(idsEtiquetas) {
@@ -663,6 +682,7 @@ export default function Clientes() {
     const cfgs = Array.from(new Set(items.map((r) => r.id_configuracion).filter(Boolean)));
     await cargarCatalogosSiFaltan(cfgs);
     await apiList(page, true);
+    await cargarOpcionesFiltroEtiquetas(); // refresca opciones del select
   }
 
   /* ===== Refresh fino de etiquetas ===== */
@@ -732,6 +752,12 @@ export default function Clientes() {
   }
 
   /* ===== Efectos ===== */
+  // Cargar opciones del select al entrar
+  useEffect(() => {
+    cargarOpcionesFiltroEtiquetas();
+  }, []);
+
+  // Refrescar listado cuando cambien filtros
   useEffect(() => {
     setItems([]);
     setPage(1);
@@ -821,6 +847,7 @@ export default function Clientes() {
       await apiList(page, true);
       swalClose();
       swalToast("Guardado correctamente");
+      await cargarOpcionesFiltroEtiquetas(); // por si cambian conteos/etiquetas activas
     } catch (e) {
       console.error("SAVE:", e?.response?.data || e.message);
       swalClose();
@@ -847,6 +874,7 @@ export default function Clientes() {
       setSelected([]);
       swalClose();
       swalToast("Eliminados");
+      await cargarOpcionesFiltroEtiquetas(); // refrescar opciones
     } catch (e) {
       swalClose();
       swalError("No se pudo eliminar", e?.message);
@@ -855,7 +883,7 @@ export default function Clientes() {
 
   /* Exportar/Importar */
   function exportCSV() {
-    const headers = ["Nombre", "Apellido", "Email", "Telefono", "Estado", "IdEtiqueta", "Creado", "UltActividad"];
+    const headers = ["Nombre", "Apellido", "Email", "Telefono", "Estado", "IdEtiqueta", "Creado", "UltActividad", "Tags"];
     const csv = [headers.join(",")];
     for (const c of items) {
       csv.push(
@@ -913,6 +941,7 @@ export default function Clientes() {
       await apiList(1, true);
       swalClose();
       swalToast("Importación completada");
+      await cargarOpcionesFiltroEtiquetas();
     } catch (e) {
       console.error("IMPORT:", e?.response?.data || e.message);
       swalClose();
@@ -1071,7 +1100,7 @@ export default function Clientes() {
 
         <div className="ml-2 flex items-center gap-2">
           <TagSelect
-            options={opcionesFiltroAsignadas}
+            options={opcionesFiltroEtiquetas}
             value={idEtiquetaFiltro}
             onChange={setIdEtiquetaFiltro}
             disabled={false}
@@ -1154,7 +1183,7 @@ export default function Clientes() {
                   />
                 </th>
               )}
-              {cols.tags && <th className="w-52 text-left">Tags</th>}
+              {cols.tags && <th className="w-48 text-left">Tags</th>}
               <th className="w-10" />
             </tr>
           </thead>
@@ -1316,6 +1345,7 @@ export default function Clientes() {
                                 setItems((prev) => prev.filter((x) => getId(x) !== id));
                                 swalClose();
                                 swalToast("Cliente eliminado");
+                                await cargarOpcionesFiltroEtiquetas();
                               } catch (e) {
                                 swalClose();
                                 swalError("No se pudo eliminar", e?.message);
