@@ -1,8 +1,7 @@
-// /src/pages/Clientes.jsx
+// /src/pages/Clientes.jsx (Premium/Formal UI - GoHighLevel vibe)
 import { useEffect, useMemo, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
-
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -136,7 +135,7 @@ function Chip({ children, color }) {
     : {};
   return (
     <span
-      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1"
+      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-slate-200 text-slate-700"
       style={style}
     >
       {children}
@@ -147,16 +146,14 @@ function SortButton({ label, active, dir = "asc", onClick, className = "" }) {
   return (
     <button
       onClick={onClick}
-      className={`group inline-flex items-center gap-1 text-[11px] font-semibold tracking-wide ${className}`}
+      className={`group inline-flex items-center gap-1 text-[11px] font-semibold tracking-wide text-slate-600 hover:text-slate-800 transition-colors ${className}`}
       title="Ordenar"
     >
       {label}
       <span
         className={`bx ${
           dir === "asc" ? "bx-chevron-up" : "bx-chevron-down"
-        } text-[16px] text-gray-400 group-hover:text-gray-600 ${
-          active ? "!text-gray-700" : ""
-        }`}
+        } text-[16px] text-slate-400 group-hover:text-slate-600 ${active ? "!text-slate-700" : ""}`}
       />
     </button>
   );
@@ -165,27 +162,22 @@ function ColumnsDropdown({ state, setState }) {
   return (
     <details className="relative">
       <summary
-        className="list-none inline-flex cursor-pointer items-center gap-2
-                   rounded-lg border border-gray-200 bg-white/70 backdrop-blur px-3 py-2 text-sm
-                   text-gray-900 shadow-sm hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+        className="list-none inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
       >
-        Columnas <i className="bx bx-chevron-down text-gray-700" />
+        Columnas <i className="bx bx-chevron-down text-slate-600" />
       </summary>
 
       <div
-        className="absolute right-0 z-30 mt-2 w-56 rounded-lg border border-gray-200
-                   bg-white p-2 shadow-xl ring-1 ring-black/5"
+        className="absolute right-200 z-30 mt-2 w-56 rounded-md border border-slate-200 bg-white p-2 shadow-lg ring-1 ring-black/5"
       >
         {Object.keys(state).map((k) => (
           <label
             key={k}
-            className="flex items-center gap-2 rounded px-2 py-1.5
-                       text-sm text-gray-900 hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
           >
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-gray-400 accent-blue-600
-                         focus:ring-2 focus:ring-blue-600 focus:ring-offset-0"
+              className="h-4 w-4 rounded border-slate-400 text-blue-600 focus:ring-2 focus:ring-blue-500/40"
               checked={state[k]}
               onChange={() => setState((s) => ({ ...s, [k]: !s[k] }))}
             />
@@ -197,14 +189,16 @@ function ColumnsDropdown({ state, setState }) {
   );
 }
 
-/* Tooltip estilo globo */
+/* Tooltip minimal, formal */
 function Tooltip({ label, children }) {
   return (
     <div className="relative inline-flex items-center group">
       {children}
-      <div className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 pt-2 group-hover:block">
-        <div className="mx-auto h-2 w-2 -mb-1 rotate-45 bg-gray-900 shadow-lg" />
-        <div className="rounded-md bg-gray-900 px-2.5 py-1 text-xs font-medium text-white shadow-lg">
+      <div
+        className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 pt-2 group-hover:block transition-all duration-150 ease-out opacity-0 translate-y-0.5 group-hover:opacity-100 group-hover:translate-y-0"
+      >
+        <div className="mx-auto h-2 w-2 -mb-1 rotate-45 bg-slate-900/95 shadow" />
+        <div className="rounded-md bg-slate-900/95 px-2.5 py-1 text-xs font-medium text-white shadow">
           {label}
         </div>
       </div>
@@ -216,7 +210,7 @@ function Tooltip({ label, children }) {
 function TagSelect({ options, value, onChange, disabled, unavailable }) {
   return (
     <select
-      className="rounded-md border px-2 py-1"
+      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
@@ -236,24 +230,40 @@ function TagSelect({ options, value, onChange, disabled, unavailable }) {
   );
 }
 
-/* ===== Modales base ===== */
+/* ===== Modales base (suaves) ===== */
 function BaseModal({ open, title, onClose, children, footer }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-3">
-          <h3 className="textbase font-semibold">{title}</h3>
-          <button className="rounded p-2 hover:bg-gray-100" onClick={onClose} aria-label="Cerrar modal">
-            <i className="bx bx-x text-xl" />
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] transition-opacity animate-[backdropIn_180ms_ease-out_forwards]"
+        onClick={onClose}
+      />
+      {/* Card */}
+      <div
+        className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-slate-900/5 opacity-0 translate-y-1 animate-[modalPop_180ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]"
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          <button
+            className="rounded p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            onClick={onClose}
+            aria-label="Cerrar modal"
+          >
+            <i className="bx bx-x text-xl text-slate-600" />
           </button>
         </div>
-        <div className="px-5 py-3">{children}</div>
-        <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
+        <div className="px-5 py-4">{children}</div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
           {footer}
         </div>
       </div>
+
+      <style>{`
+        @keyframes modalPop { to { opacity:1; transform: translate(-50%, -50%) translateY(0); } }
+        @keyframes backdropIn { from { opacity:0 } to { opacity:1 } }
+      `}</style>
     </div>
   );
 }
@@ -271,7 +281,7 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
       onClose={onClose}
       footer={
         <>
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={onClose}>
+          <button className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition" onClick={onClose}>
             Cancelar
           </button>
           <button
@@ -288,7 +298,7 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
                 swalError("No se pudo aplicar", e?.message);
               }
             }}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
           >
             Aplicar
           </button>
@@ -296,19 +306,19 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
       }
     >
       {!Array.isArray(catalogo) ? (
-        <div className="p-2 text-sm text-gray-500">Cargando catálogo…</div>
+        <div className="p-2 text-sm text-slate-500">Cargando catálogo…</div>
       ) : catalogo.length === 0 ? (
-        <div className="p-2 text-sm text-gray-500">Sin etiquetas</div>
+        <div className="p-2 text-sm text-slate-500">Sin etiquetas</div>
       ) : (
-        <div className="max-h-72 overflow-auto rounded border p-2">
+        <div className="max-h-72 overflow-auto rounded-md border border-slate-200 p-2 bg-white">
           {catalogo.map((t) => (
             <label
               key={t.id_etiqueta}
-              className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50 text-sm"
+              className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-50 text-sm text-slate-800"
             >
               <input
                 type="checkbox"
-                className="h-4 w-4"
+                className="h-4 w-4 text-blue-600"
                 checked={seleccion.includes(t.id_etiqueta)}
                 onChange={(e) =>
                   setSeleccion((prev) =>
@@ -321,7 +331,7 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
               <Chip color={t.color_etiqueta}>{t.nombre_etiqueta}</Chip>
             </label>
           ))}
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-slate-500">
             Se aplicará a los clientes seleccionados.
           </p>
         </div>
@@ -341,7 +351,7 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
       onClose={onClose}
       footer={
         <>
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={onClose}>
+          <button className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition" onClick={onClose}>
             Cancelar
           </button>
           <button
@@ -362,7 +372,7 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
                 swalError("No se pudo crear", e?.message);
               }
             }}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white"
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
           >
             Crear
           </button>
@@ -371,19 +381,19 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
     >
       <div className="space-y-3">
         <div>
-          <label className="text-xs font-medium text-gray-700">Nombre(s)</label>
+          <label className="text-xs font-medium text-slate-700">Nombre(s)</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             placeholder="vip, follow-up, clientes-2025"
             value={nombres}
             onChange={(e) => setNombres(e.target.value)}
           />
-          <p className="mt-1 text-xs text-gray-500">Separa por comas para crear varias.</p>
+          <p className="mt-1 text-xs text-slate-500">Separa por comas para crear varias.</p>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Color (opcional)</label>
+          <label className="text-xs font-medium text-slate-700">Color (opcional)</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             placeholder="#1677FF"
             value={color}
             onChange={(e) => setColor(e.target.value)}
@@ -449,15 +459,10 @@ export default function Clientes() {
   const [catalogosPorCfg, setCatalogosPorCfg] = useState({}); // { [cfgId]: [{id_etiqueta,nombre_etiqueta,color_etiqueta}] }
   const [idConfigForTags, setIdConfigForTags] = useState(null);
 
-
   /* Helpers busqueda de telefono */
-  // --- Helpers de búsqueda ---
-  function normalizePhone(s = "") {
-    return String(s).replace(/\D/g, "");
-  }
+  function normalizePhone(s = "") { return String(s).replace(/\D/g, ""); }
   function isPhoneQuery(q = "") {
     const onlyDigits = normalizePhone(q);
-    // Consideramos "búsqueda por teléfono" si contiene mayormente símbolos numéricos y tiene >= 5 dígitos
     return /^[\d\s()+-]*$/.test(q) && onlyDigits.length >= 5;
   }
 
@@ -520,7 +525,6 @@ export default function Clientes() {
             ? data.etiquetasAsignadas
             : [];
 
-          // mapa del catálogo de la cfg de este cliente
           const mapa = crearMapaCatalogo(c.id_configuracion, catsRef);
 
           const mapped = arr
@@ -558,10 +562,8 @@ export default function Clientes() {
         page: p,
         limit: LIMIT,
         sort: orden,
-        // si es búsqueda por teléfono, mandamos q normalizado y banderas extra
         q: q ? (phoneLike ? qPhone : q) : undefined,
         estado: estado !== "todos" ? estado : undefined,
-        // pistas opcionales para el backend (no rompen si se ignoran)
         search_mode: phoneLike ? "phone" : "name",
         phone: phoneLike ? qPhone : undefined,
       };
@@ -582,7 +584,6 @@ export default function Clientes() {
       const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       const mapped = rows.map(mapRow);
 
-      // 🔎 Precisión extra en el front cuando el query es un teléfono
       const mappedFiltered = phoneLike
         ? mapped.filter((c) => {
             const t1 = normalizePhone(c.telefono || "");
@@ -593,19 +594,15 @@ export default function Clientes() {
 
       const tot = data?.total ?? undefined;
 
-      // detectar configuraciones vistas y cargar catálogos
       const cfgs = Array.from(new Set(mappedFiltered.map((r) => r.id_configuracion).filter(Boolean)));
       if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
       const cats = await cargarCatalogosSiFaltan(cfgs);
 
-      // anexar etiquetas asignadas (por nombre/color)
       const withTags = await anexarEtiquetasAsignadas(mappedFiltered, cats);
 
       setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
       setPage(p);
 
-      // Si filtramos por teléfono en el front, el total real puede no coincidir con el backend.
-      // Para evitar inconsistencias visuales, calculamos hasMore por el tamaño recibido.
       const effectiveTotalKnown = typeof tot === "number" && !phoneLike;
       setHasMore(
         effectiveTotalKnown ? p * LIMIT < tot : withTags.length === LIMIT
@@ -617,7 +614,6 @@ export default function Clientes() {
       setLoading(false);
     }
   }
-
 
   /* ===== Toggle/Asignar/Quitar etiquetas ===== */
   function clienteTieneEtiqueta(cliente, idEtiqueta) {
@@ -652,7 +648,7 @@ export default function Clientes() {
     if (!pares.length) throw new Error("Nada por aplicar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
-    await cargarOpcionesFiltroEtiquetas(); // 🔄 refresca opciones del select
+    await cargarOpcionesFiltroEtiquetas();
   }
   async function asignarEtiquetas(idsClientes, idsEtiquetas) {
     const pares = [];
@@ -667,7 +663,7 @@ export default function Clientes() {
     if (!pares.length) throw new Error("Nada por asignar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
-    await cargarOpcionesFiltroEtiquetas(); // 🔄 refresca opciones del select
+    await cargarOpcionesFiltroEtiquetas();
   }
   async function quitarEtiquetas(idsClientes, idsEtiquetas) {
     const pares = [];
@@ -682,11 +678,10 @@ export default function Clientes() {
     if (!pares.length) throw new Error("Nada por quitar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
-    await cargarOpcionesFiltroEtiquetas(); // 🔄 refresca opciones del select
+    await cargarOpcionesFiltroEtiquetas();
   }
 
   /* ===== Crear / Eliminar del catálogo ===== */
-  // ===== Crear / Eliminar del catálogo =====
   async function crearEtiquetas(lista, color) {
     let cfg = idConfigForTags;
     if (!cfg) {
@@ -697,8 +692,6 @@ export default function Clientes() {
       await swalInfo("No disponible", "No hay id_configuracion para crear etiquetas.");
       return;
     }
-
-    // 1) Crear todas las etiquetas
     for (const nombre_etiqueta of lista) {
       await chatApi.post("/etiquetas_chat_center/agregarEtiqueta", {
         nombre_etiqueta,
@@ -706,8 +699,6 @@ export default function Clientes() {
         id_configuracion: Number(cfg),
       });
     }
-
-    // 2) REFRESCAR SOLO el catálogo de esa cfg (sin cambiar nada más)
     try {
       const { data } = await chatApi.post("/etiquetas_chat_center/obtenerEtiquetas", {
         id_configuracion: Number(cfg),
@@ -717,12 +708,9 @@ export default function Clientes() {
     } catch (e) {
       console.error("REFRESH CATALOGO POST-CREAR:", e?.response?.data || e.message);
     }
-
-    // 3) Mantener tu comportamiento actual
     await apiList(1, true);
-    await cargarOpcionesFiltroEtiquetas(); // refresca opciones del select de filtro
+    await cargarOpcionesFiltroEtiquetas();
   }
-
 
   async function eliminarEtiquetasCatalogo(idsEtiquetas) {
     for (const idE of idsEtiquetas) {
@@ -731,7 +719,7 @@ export default function Clientes() {
     const cfgs = Array.from(new Set(items.map((r) => r.id_configuracion).filter(Boolean)));
     await cargarCatalogosSiFaltan(cfgs);
     await apiList(page, true);
-    await cargarOpcionesFiltroEtiquetas(); // refresca opciones del select
+    await cargarOpcionesFiltroEtiquetas();
   }
 
   /* ===== Refresh fino de etiquetas ===== */
@@ -801,12 +789,10 @@ export default function Clientes() {
   }
 
   /* ===== Efectos ===== */
-  // Cargar opciones del select al entrar
   useEffect(() => {
     cargarOpcionesFiltroEtiquetas();
   }, []);
 
-  // Refrescar listado cuando cambien filtros
   useEffect(() => {
     setItems([]);
     setPage(1);
@@ -814,12 +800,11 @@ export default function Clientes() {
 
     const id = setTimeout(() => {
       apiList(1, true);
-    }, 250); // debounce 250ms
+    }, 250);
 
     return () => clearTimeout(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, estado, orden, pageSize, idEtiquetaFiltro]);
-
 
   /* Scroll infinito */
   function onScroll(e) {
@@ -902,7 +887,7 @@ export default function Clientes() {
       await apiList(page, true);
       swalClose();
       swalToast("Guardado correctamente");
-      await cargarOpcionesFiltroEtiquetas(); // por si cambian conteos/etiquetas activas
+      await cargarOpcionesFiltroEtiquetas();
     } catch (e) {
       console.error("SAVE:", e?.response?.data || e.message);
       swalClose();
@@ -929,7 +914,7 @@ export default function Clientes() {
       setSelected([]);
       swalClose();
       swalToast("Eliminados");
-      await cargarOpcionesFiltroEtiquetas(); // refrescar opciones
+      await cargarOpcionesFiltroEtiquetas();
     } catch (e) {
       swalClose();
       swalError("No se pudo eliminar", e?.message);
@@ -1008,49 +993,49 @@ export default function Clientes() {
   const fileRef = useRef(null);
 
   return (
-    <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border bg-gradient-to-b from-gray-50 to-white">
-      {/* ====== Top “Glass” Actions ====== */}
-      <div className="sticky top-0 z-40 flex items-center gap-2 border-b bg-white/70 backdrop-blur px-4 py-2">
+    <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border border-slate-200 bg-white text-slate-800">
+      {/* ====== Topbar ====== */}
+      <div className="sticky top-0 z-40 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
         <div className="ml-auto flex items-center gap-2">
           {/* TAGS */}
           <Tooltip label="Asignar etiquetas">
             <button
-              className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition disabled:opacity-50"
               onClick={() => ensureCatalogAndOpen("asignar")}
               disabled={!selected.length}
               aria-label="Asignar etiquetas"
             >
-              <i className="bx bxs-purchase-tag-alt text-[18px]" />
+              <i className="bx bxs-purchase-tag-alt text-[18px] text-slate-700" />
             </button>
           </Tooltip>
           <Tooltip label="Remover etiquetas">
             <button
-              className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition disabled:opacity-50"
               onClick={() => ensureCatalogAndOpen("quitar")}
               disabled={!selected.length}
               aria-label="Remover etiquetas"
             >
-              <i className="bx bxs-minus-circle text-[18px]" />
+              <i className="bx bxs-minus-circle text-[18px] text-slate-700" />
             </button>
           </Tooltip>
           <Tooltip label="Crear etiqueta">
             <button
-              className="rounded-lg border bg-white p-2 hover:bg-gray-50"
+              className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
               onClick={() => ensureCatalogAndOpen("crear")}
               aria-label="Crear etiqueta"
             >
-              <i className="bx bxs-plus-circle text-[18px]" />
+              <i className="bx bxs-plus-circle text-[18px] text-slate-700" />
             </button>
           </Tooltip>
 
           {/* Import / Export */}
           <Tooltip label="Importar CSV">
             <button
-              className="rounded-lg border bg-white p-2 hover:bg-gray-50"
+              className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
               aria-label="Importar CSV"
               onClick={() => fileRef.current?.click()}
             >
-              <i className="bx bx-upload text-[18px]" />
+              <i className="bx bx-upload text-[18px] text-slate-700" />
             </button>
           </Tooltip>
           <input
@@ -1062,11 +1047,11 @@ export default function Clientes() {
           />
           <Tooltip label="Exportar CSV">
             <button
-              className="rounded-lg border bg-white p-2 hover:bg-gray-50"
+              className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
               aria-label="Exportar CSV"
               onClick={exportCSV}
             >
-              <i className="bx bx-download text-[18px]" />
+              <i className="bx bx-download text-[18px] text-slate-700" />
             </button>
           </Tooltip>
 
@@ -1075,37 +1060,38 @@ export default function Clientes() {
             <button
               disabled={!selected.length}
               onClick={onDeleteSelected}
-              className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition disabled:opacity-50"
               aria-label="Eliminar seleccionados"
             >
-              <i className="bx bxs-trash-alt text-[18px]" />
+              <i className="bx bxs-trash-alt text-[18px] text-slate-700" />
             </button>
           </Tooltip>
         </div>
       </div>
 
       {/* ====== Subtoolbar ====== */}
-      <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3">
         <ColumnsDropdown state={cols} setState={setCols} />
+
         <div className="relative flex-1 min-w-[240px] max-w-[520px]">
-          <i className="bx bx-search absolute left-3 top-2.5 text-gray-500" />
+          <i className="bx bx-search absolute left-3 top-2.5 text-slate-500" />
           <input
-            className="w-full rounded-lg border px-9 py-2 text-sm outline-none ring-1 ring-transparent transition focus:ring-blue-200"
-            placeholder="Buscar rápido…"
+            className="w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800 outline-none ring-1 ring-transparent transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60"
+            placeholder="Buscar..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
 
         <div className="ml-auto flex items-center gap-3 text-sm">
-          <span className="text-gray-600">
+          <span className="text-slate-600">
             Total {typeof total === "number" ? total : "—"} | Página {page} de{" "}
             {typeof total === "number" ? Math.max(1, Math.ceil(total / LIMIT)) : "—"}
           </span>
           <div className="flex items-center gap-1">
-            <label className="text-gray-500">Tamaño:</label>
+            <label className="text-slate-500">Tamaño:</label>
             <select
-              className="rounded-md border bg-white px-2 py-1 text-sm"
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
             >
@@ -1118,7 +1104,7 @@ export default function Clientes() {
           </div>
           <div className="flex items-center">
             <button
-              className="rounded-l-md border px-2 py-1 hover:bg-gray-50"
+              className="rounded-l-md border border-slate-200 px-2 py-1 hover:bg-slate-50"
               disabled={page <= 1}
               onClick={() => apiList(page - 1, true)}
               title="Anterior"
@@ -1126,7 +1112,7 @@ export default function Clientes() {
               <i className="bx bx-chevron-left" />
             </button>
             <button
-              className="rounded-r-md border px-2 py-1 hover:bg-gray-50"
+              className="rounded-r-md border border-slate-200 px-2 py-1 hover:bg-slate-50"
               disabled={!hasMore}
               onClick={() => apiList(page + 1, true)}
               title="Siguiente"
@@ -1138,15 +1124,14 @@ export default function Clientes() {
       </div>
 
       {/* ====== Filtros ====== */}
-      <div className="flex items-center gap-2 border-b px-4 py-2 text-xs">
+      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2 text-xs">
         <div className="flex items-center gap-2">
           {["todos", "1", "0"].map((e) => (
             <button
               key={e}
               onClick={() => setEstado(e)}
-              className={`rounded-full border px-3 py-1 ${
-                estado === e ? "border-blue-600 bg-blue-50 text-blue-700" : "bg-white hover:bg-gray-50"
-              }`}
+              className={`rounded-full border px-3 py-1 transition
+                ${estado === e ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"}`}
             >
               {e === "todos" ? "Todos" : e === "1" ? "Activo" : "Inactivo"}
             </button>
@@ -1162,14 +1147,14 @@ export default function Clientes() {
             unavailable={false}
           />
 
-          <select className="rounded-md border px-2 py-1" value={orden} onChange={(e) => setOrden(e.target.value)} title="Orden">
+          <select className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm" value={orden} onChange={(e) => setOrden(e.target.value)} title="Orden">
             <option value="recientes">Más recientes</option>
             <option value="antiguos">Más antiguos</option>
             <option value="actividad_desc">Actividad (desc)</option>
             <option value="actividad_asc">Actividad (asc)</option>
           </select>
 
-          <select className="rounded-md border px-2 py-1" value={density} onChange={(e) => setDensity(e.target.value)} title="Densidad">
+          <select className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm" value={density} onChange={(e) => setDensity(e.target.value)} title="Densidad">
             <option value="compacta">Compacta</option>
             <option value="media">Media</option>
             <option value="amplia">Amplia</option>
@@ -1182,7 +1167,7 @@ export default function Clientes() {
               setIdEtiquetaFiltro("");
               setOrden("recientes");
             }}
-            className="rounded-md border px-2 py-1 text-gray-600 hover:bg-gray-50"
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600 hover:bg-slate-50 transition"
           >
             Limpiar
           </button>
@@ -1192,8 +1177,8 @@ export default function Clientes() {
       {/* ====== Tabla ====== */}
       <div onScroll={onScroll} className="flex-1 overflow-auto">
         <table className="min-w-full table-fixed border-separate border-spacing-0">
-          <thead className={`sticky top-0 z-20 bg-white ${headPad}`}>
-            <tr className="[&>th]:border-b [&>th]:px-3">
+          <thead className={`sticky top-0 z-20 bg-white ${headPad} border-b border-slate-200`}>
+            <tr className="[&>th]:border-b [&>th]:px-3 [&>th]:text-slate-600">
               <th className="w-10">
                 <input type="checkbox" checked={allSelected} onChange={(e) => toggleSelectAll(e.target.checked)} />
               </th>
@@ -1210,12 +1195,12 @@ export default function Clientes() {
               )}
               {cols.phone && (
                 <th className="w-56 text-left">
-                  <SortButton label="Teléfono" active={false} onClick={() => {}} className="text-gray-500" />
+                  <SortButton label="Teléfono" active={false} onClick={() => {}} className="text-slate-500" />
                 </th>
               )}
               {cols.email && (
                 <th className="w-72 text-left">
-                  <SortButton label="Email" active={false} onClick={() => {}} className="text-gray-500" />
+                  <SortButton label="Email" active={false} onClick={() => {}} className="text-slate-500" />
                 </th>
               )}
               {cols.created && (
@@ -1243,20 +1228,20 @@ export default function Clientes() {
             </tr>
           </thead>
 
-          <tbody className="[&>tr:nth-child(even)]:bg-gray-50/30">
+          <tbody className="[&>tr:nth-child(even)]:bg-slate-50/20">
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={9} className="py-16">
                   <div className="mx-auto max-w-md text-center">
-                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border">
-                      <i className="bx bx-user-circle text-2xl text-gray-500" />
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-slate-200">
+                      <i className="bx bx-user-circle text-2xl text-slate-500" />
                     </div>
-                    <h4 className="text-sm font-semibold">Sin clientes</h4>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <h4 className="text-sm font-semibold text-slate-800">Sin clientes</h4>
+                    <p className="mt-1 text-sm text-slate-500">
                       Aún no hay registros que coincidan con tu búsqueda/filtros.
                     </p>
                     <button
-                      className="mt-4 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white"
+                      className="mt-4 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
                       onClick={() => {
                         setEditing({});
                         setDrawerOpen(true);
@@ -1272,14 +1257,14 @@ export default function Clientes() {
             {loading && items.length === 0 &&
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={`sk-${i}`} className={`[&>td]:border-b [&>td]:px-3 ${rowPad}`}>
-                  <td><div className="h-4 w-4 rounded bg-gray-200 animate-pulse" /></td>
+                  <td><div className="h-4 w-4 rounded bg-slate-200 animate-pulse" /></td>
                   <td colSpan={5}>
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
-                      <div className="h-3 w-1/3 rounded bg-gray-200 animate-pulse" />
+                      <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
+                      <div className="h-3 w-1/3 rounded bg-slate-200 animate-pulse" />
                     </div>
                   </td>
-                  <td><div className="h-3 w-24 rounded bg-gray-200 animate-pulse" /></td>
+                  <td><div className="h-3 w-24 rounded bg-slate-200 animate-pulse" /></td>
                 </tr>
               ))
             }
@@ -1288,7 +1273,7 @@ export default function Clientes() {
               const id = getId(c) ?? idx;
               const nombre = `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
               return (
-                <tr key={id} className={`hover:bg-gray-50 [&>td]:border-b [&>td]:px-3 ${rowPad}`}>
+                <tr key={id} className={`hover:bg-slate-50/60 [&>td]:border-b [&>td]:px-3 ${rowPad} transition-colors`}>
                   <td>
                     <input type="checkbox" checked={selected.includes(id)} onChange={() => toggleSelect(id)} />
                   </td>
@@ -1296,12 +1281,12 @@ export default function Clientes() {
                   {cols.name && (
                     <td className="min-w-0">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-[11px] font-semibold">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
                           {initials(c.nombre, c.apellido)}
                         </div>
                         <div className="min-w-0">
                           <button
-                            className="block truncate font-medium text-blue-700 hover:underline"
+                            className="block truncate font-medium text-slate-900 hover:underline"
                             onClick={() => {
                               setEditing(c);
                               setDrawerOpen(true);
@@ -1309,7 +1294,7 @@ export default function Clientes() {
                           >
                             {nombre}
                           </button>
-                          <div className="truncate text-xs text-gray-500">ID {id}</div>
+                          <div className="truncate text-xs text-slate-500">ID {id}</div>
                         </div>
                       </div>
                     </td>
@@ -1317,7 +1302,7 @@ export default function Clientes() {
 
                   {cols.phone && (
                     <td className="min-w-0">
-                      <div className="flex items-center gap-2 truncate text-sm">
+                      <div className="flex items-center gap-2 truncate text-sm text-slate-700">
                         <i className="bx bx-phone" />
                         <span className="truncate">{c.telefono || "-"}</span>
                       </div>
@@ -1326,7 +1311,7 @@ export default function Clientes() {
 
                   {cols.email && (
                     <td className="min-w-0">
-                      <div className="flex items-center gap-2 truncate text-sm">
+                      <div className="flex items-center gap-2 truncate text-sm text-slate-700">
                         <i className="bx bx-envelope" />
                         <span className="truncate">{c.email || "-"}</span>
                       </div>
@@ -1334,19 +1319,19 @@ export default function Clientes() {
                   )}
 
                   {cols.created && (
-                    <td className="text-sm">
+                    <td className="text-sm text-slate-700">
                       <div>{fmtDate(c.createdAt)}</div>
-                      <div className="text-xs text-gray-500">{fmtTime(c.createdAt)}</div>
+                      <div className="text-xs text-slate-500">{fmtTime(c.createdAt)}</div>
                     </td>
                   )}
 
                   {cols.last_activity && (
-                    <td className="text-sm">
+                    <td className="text-sm text-slate-700">
                       <div className="flex items-center gap-2">
-                        <i className="bx bx-phone-call text-blue-600" />
+                        <i className="bx bx-time-five text-slate-500" />
                         <span>{timeAgo(c.ultima_actividad)}</span>
                       </div>
-                      <div className="text-xs text-gray-500">{fmtDateTime(c.ultima_actividad)}</div>
+                      <div className="text-xs text-slate-500">{fmtDateTime(c.ultima_actividad)}</div>
                     </td>
                   )}
 
@@ -1356,7 +1341,7 @@ export default function Clientes() {
                         {Array.isArray(c.etiquetas) && c.etiquetas.length ? (
                           c.etiquetas.map((t, i) => <Chip key={i} color={t.color}>{t.nombre}</Chip>)
                         ) : (
-                          <span className="text-gray-400">Sin etiquetas</span>
+                          <span className="text-slate-400 italic">Sin etiquetas</span>
                         )}
                       </div>
                     </td>
@@ -1365,12 +1350,12 @@ export default function Clientes() {
                   <td className="text-right">
                     <div className="relative inline-block text-left">
                       <details>
-                        <summary className="list-none inline-flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-sm">
+                        <summary className="list-none inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50">
                           <span>⋯</span>
                         </summary>
-                        <div className="absolute right-0 z-10 mt-2 w-48 overflow-hidden rounded-lg border bg-white py-1 shadow-xl">
+                        <div className="absolute right-0 z-10 mt-2 w-48 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg">
                           <button
-                            className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                             onClick={() => {
                               setEditing(c);
                               setDrawerOpen(true);
@@ -1379,7 +1364,7 @@ export default function Clientes() {
                             Editar
                           </button>
                           <button
-                            className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                             onClick={async () => {
                               if (!selected.includes(id)) setSelected((prev) => [...prev, id]);
                               setIdConfigForTags(c.id_configuracion || idConfigForTags);
@@ -1390,7 +1375,7 @@ export default function Clientes() {
                             Etiquetas…
                           </button>
                           <button
-                            className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
+                            className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                             onClick={async () => {
                               const ok = await swalConfirm("Eliminar cliente", "¿Seguro que deseas eliminarlo?");
                               if (!ok) return;
@@ -1420,10 +1405,10 @@ export default function Clientes() {
         </table>
 
         {loading && items.length > 0 && (
-          <div className="flex items-center justify-center py-4 text-sm text-gray-500">Cargando…</div>
+          <div className="flex items-center justify-center py-4 text-sm text-slate-500">Cargando…</div>
         )}
         {!hasMore && items.length > 0 && (
-          <div className="flex items-center justify-center py-4 text-xs text-gray-400">
+          <div className="flex items-center justify-center py-4 text-xs text-slate-400">
             No hay más resultados
           </div>
         )}
@@ -1432,31 +1417,34 @@ export default function Clientes() {
       {/* ===== Drawer crear/editar ===== */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerOpen(false)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b px-5 py-3">
-              <h3 className="text-base font-semibold">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] animate-[backdropIn_180ms_ease-out_forwards]" onClick={() => setDrawerOpen(false)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-xl ring-1 ring-slate-900/5 translate-x-full animate-[drawerIn_200ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">
                 {editing && getId(editing) ? "Editar cliente" : "Nuevo cliente"}
               </h3>
-              <button className="rounded p-2 hover:bg-gray-100" onClick={() => setDrawerOpen(false)} aria-label="Cerrar panel">
-                <i className="bx bx-x text-xl" />
+              <button className="rounded p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30" onClick={() => setDrawerOpen(false)} aria-label="Cerrar panel">
+                <i className="bx bx-x text-xl text-slate-600" />
               </button>
             </div>
             <div className="h-[calc(100%-108px)] overflow-y-auto px-5 py-3">
               <ClienteForm value={editing} onChange={setEditing} />
             </div>
-            <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
-              <button onClick={() => setDrawerOpen(false)} className="rounded-md border px-3 py-1.5 text-sm">
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
+              <button onClick={() => setDrawerOpen(false)} className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition">
                 Cancelar
               </button>
               <button
                 onClick={onSave}
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
               >
                 Guardar
               </button>
             </div>
           </div>
+          <style>{`
+            @keyframes drawerIn { to { transform: translateX(0); } }
+          `}</style>
         </div>
       )}
 
@@ -1507,7 +1495,7 @@ export default function Clientes() {
         onClose={() => setModalSMS({ open: false, msg: "" })}
         footer={
           <>
-            <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setModalSMS({ open: false, msg: "" })}>
+            <button className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition" onClick={() => setModalSMS({ open: false, msg: "" })}>
               Cancelar
             </button>
             <button
@@ -1532,18 +1520,18 @@ export default function Clientes() {
                   swalInfo("Pendiente", "Función de backend pendiente");
                 }
               }}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
             >
               Enviar
             </button>
           </>
         }
       >
-        <p className="mb-2 text-sm text-gray-600">
+        <p className="mb-2 text-sm text-slate-600">
           Mensaje a {!selected.length ? 0 : selected.length} cliente(s).
         </p>
         <textarea
-          className="w-full rounded-md border px-3 py-2 text-sm"
+          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
           rows={5}
           placeholder="Tu mensaje SMS…"
           value={modalSMS.msg}
@@ -1558,7 +1546,7 @@ export default function Clientes() {
         footer={
           <>
             <button
-              className="rounded-md border px-3 py-1.5 text-sm"
+              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
               onClick={() => setModalEmail({ open: false, subject: "", body: "" })}
             >
               Cancelar
@@ -1590,7 +1578,7 @@ export default function Clientes() {
                   swalInfo("Pendiente", "Función de backend pendiente");
                 }
               }}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
             >
               Enviar
             </button>
@@ -1599,7 +1587,7 @@ export default function Clientes() {
       >
         <div className="space-y-3">
           <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             placeholder="Asunto"
             value={modalEmail.subject}
             onChange={(e) => setModalEmail((s) => ({ ...s, subject: e.target.value }))}
@@ -1607,7 +1595,7 @@ export default function Clientes() {
         </div>
         <div className="space-y-3 mt-3">
           <textarea
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             rows={8}
             placeholder="Contenido del email…"
             value={modalEmail.body}
@@ -1623,7 +1611,7 @@ export default function Clientes() {
         footer={
           <>
             <button
-              className="rounded-md border px-3 py-1.5 text-sm"
+              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
               onClick={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
             >
               Cancelar
@@ -1651,7 +1639,7 @@ export default function Clientes() {
                   swalInfo("Pendiente", "Función de backend pendiente");
                 }
               }}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
             >
               Enviar
             </button>
@@ -1660,9 +1648,9 @@ export default function Clientes() {
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-700">Canal</label>
+            <label className="text-xs font-medium text-slate-700">Canal</label>
             <select
-              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
               value={modalReview.channel}
               onChange={(e) => setModalReview((s) => ({ ...s, channel: e.target.value }))}
             >
@@ -1672,15 +1660,15 @@ export default function Clientes() {
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700">Enlace de reseña</label>
+            <label className="text-xs font-medium text-slate-700">Enlace de reseña</label>
             <input
-              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
               placeholder="https://g.page/r/XXXXX"
               value={modalReview.link}
               onChange={(e) => setModalReview((s) => ({ ...s, link: e.target.value }))}
             />
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500">
             Se enviará a {!selected.length ? 0 : selected.length} cliente(s).
           </p>
         </div>
@@ -1696,17 +1684,17 @@ function ClienteForm({ value, onChange }) {
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="text-xs font-medium text-gray-700">Nombre</label>
+          <label className="text-xs font-medium text-slate-700">Nombre</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.nombre || ""}
             onChange={(e) => onChange({ ...v, nombre: e.target.value })}
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Apellido</label>
+          <label className="text-xs font-medium text-slate-700">Apellido</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.apellido || ""}
             onChange={(e) => onChange({ ...v, apellido: e.target.value })}
           />
@@ -1714,17 +1702,17 @@ function ClienteForm({ value, onChange }) {
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="text-xs font-medium text-gray-700">Email</label>
+          <label className="text-xs font-medium text-slate-700">Email</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.email || ""}
             onChange={(e) => onChange({ ...v, email: e.target.value })}
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Celular</label>
+          <label className="text-xs font-medium text-slate-700">Celular</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.telefono || ""}
             onChange={(e) => onChange({ ...v, telefono: e.target.value })}
           />
@@ -1732,9 +1720,9 @@ function ClienteForm({ value, onChange }) {
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div>
-          <label className="text-xs font-medium text-gray-700">Estado</label>
+          <label className="text-xs font-medium text-slate-700">Estado</label>
           <select
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.estado ?? 1}
             onChange={(e) => onChange({ ...v, estado: Number(e.target.value) })}
           >
@@ -1743,17 +1731,17 @@ function ClienteForm({ value, onChange }) {
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Id Etiqueta</label>
+          <label className="text-xs font-medium text-slate-700">Id Etiqueta</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.id_etiqueta || ""}
             onChange={(e) => onChange({ ...v, id_etiqueta: e.target.value })}
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Id Configuración</label>
+          <label className="text-xs font-medium text-slate-700">Id Configuración</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.id_configuracion || ""}
             onChange={(e) => onChange({ ...v, id_configuracion: e.target.value })}
           />
@@ -1761,9 +1749,9 @@ function ClienteForm({ value, onChange }) {
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div>
-          <label className="text-xs font-medium text-gray-700">Chat cerrado</label>
+          <label className="text-xs font-medium text-slate-700">Chat cerrado</label>
           <select
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.chat_cerrado ?? 0}
             onChange={(e) => onChange({ ...v, chat_cerrado: Number(e.target.value) })}
           >
@@ -1772,9 +1760,9 @@ function ClienteForm({ value, onChange }) {
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Bot OpenIA</label>
+          <label className="text-xs font-medium text-slate-700">Bot OpenIA</label>
           <select
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.bot_openia ?? 1}
             onChange={(e) => onChange({ ...v, bot_openia: Number(e.target.value) })}
           >
@@ -1783,38 +1771,36 @@ function ClienteForm({ value, onChange }) {
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">UID Cliente</label>
+          <label className="text-xs font-medium text-slate-700">UID Cliente</label>
           <input
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.uid_cliente || ""}
             onChange={(e) => onChange({ ...v, uid_cliente: e.target.value })}
           />
         </div>
       </div>
       <div>
-        <label className="text-xs font-medium text-gray-700">Imagen (URL)</label>
+        <label className="text-xs font-medium text-slate-700">Imagen (URL)</label>
         <input
-          className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-slate-200 bg白 px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
           value={v.imagePath || ""}
           onChange={(e) => onChange({ ...v, imagePath: e.target.value })}
         />
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="text-xs font-medium text-gray-700">Mensajes/día</label>
+          <label className="text-xs font-medium text-slate-700">Mensajes por día</label>
           <input
             type="number"
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.mensajes_por_dia_cliente ?? 0}
-            onChange={(e) =>
-              onChange({ ...v, mensajes_por_dia_cliente: Number(e.target.value) || 0 })
-            }
+            onChange={(e) => onChange({ ...v, mensajes_por_dia_cliente: Number(e.target.value) })}
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Pedido confirmado</label>
+          <label className="text-xs font-medium text-slate-700">Pedido confirmado</label>
           <select
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.pedido_confirmado ?? 0}
             onChange={(e) => onChange({ ...v, pedido_confirmado: Number(e.target.value) })}
           >
