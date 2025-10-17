@@ -449,6 +449,18 @@ export default function Clientes() {
   const [catalogosPorCfg, setCatalogosPorCfg] = useState({}); // { [cfgId]: [{id_etiqueta,nombre_etiqueta,color_etiqueta}] }
   const [idConfigForTags, setIdConfigForTags] = useState(null);
 
+
+  /* Helpers busqueda de telefono */
+  // --- Helpers de búsqueda ---
+  function normalizePhone(s = "") {
+    return String(s).replace(/\D/g, "");
+  }
+  function isPhoneQuery(q = "") {
+    const onlyDigits = normalizePhone(q);
+    // Consideramos "búsqueda por teléfono" si contiene mayormente símbolos numéricos y tiene >= 5 dígitos
+    return /^[\d\s()+-]*$/.test(q) && onlyDigits.length >= 5;
+  }
+
   /* ===== Helpers de catálogo ===== */
   function crearMapaCatalogo(cfgId, catsRef) {
     const arr = (catsRef || catalogosPorCfg)[cfgId] || [];
@@ -539,23 +551,28 @@ export default function Clientes() {
   async function apiList(p = 1, replace = false) {
     setLoading(true);
     try {
+      const phoneLike = isPhoneQuery(q);
+      const qPhone = phoneLike ? normalizePhone(q) : undefined;
+
       const paramsBase = {
         page: p,
         limit: LIMIT,
         sort: orden,
-        q: q || undefined,
+        // si es búsqueda por teléfono, mandamos q normalizado y banderas extra
+        q: q ? (phoneLike ? qPhone : q) : undefined,
         estado: estado !== "todos" ? estado : undefined,
+        // pistas opcionales para el backend (no rompen si se ignoran)
+        search_mode: phoneLike ? "phone" : "name",
+        phone: phoneLike ? qPhone : undefined,
       };
 
       let data;
       if (idEtiquetaFiltro) {
-        // 🔹 listar clientes que tienen la etiqueta seleccionada
         const { data: resp } = await chatApi.get("/clientes_chat_center/listar_por_etiqueta", {
           params: { ...paramsBase, ids: String(idEtiquetaFiltro) },
         });
         data = resp;
       } else {
-        // listado estándar
         const { data: resp } = await chatApi.get("/clientes_chat_center/listar", {
           params: paramsBase,
         });
@@ -564,26 +581,43 @@ export default function Clientes() {
 
       const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       const mapped = rows.map(mapRow);
+
+      // 🔎 Precisión extra en el front cuando el query es un teléfono
+      const mappedFiltered = phoneLike
+        ? mapped.filter((c) => {
+            const t1 = normalizePhone(c.telefono || "");
+            const t2 = normalizePhone(c.telefono_limpio || "");
+            return t1.includes(qPhone) || t2.includes(qPhone);
+          })
+        : mapped;
+
       const tot = data?.total ?? undefined;
 
       // detectar configuraciones vistas y cargar catálogos
-      const cfgs = Array.from(new Set(mapped.map((r) => r.id_configuracion).filter(Boolean)));
+      const cfgs = Array.from(new Set(mappedFiltered.map((r) => r.id_configuracion).filter(Boolean)));
       if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
       const cats = await cargarCatalogosSiFaltan(cfgs);
 
       // anexar etiquetas asignadas (por nombre/color)
-      const withTags = await anexarEtiquetasAsignadas(mapped, cats);
+      const withTags = await anexarEtiquetasAsignadas(mappedFiltered, cats);
 
       setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
       setPage(p);
-      setHasMore(typeof tot === "number" ? p * LIMIT < tot : withTags.length === LIMIT);
-      setTotal(tot);
+
+      // Si filtramos por teléfono en el front, el total real puede no coincidir con el backend.
+      // Para evitar inconsistencias visuales, calculamos hasMore por el tamaño recibido.
+      const effectiveTotalKnown = typeof tot === "number" && !phoneLike;
+      setHasMore(
+        effectiveTotalKnown ? p * LIMIT < tot : withTags.length === LIMIT
+      );
+      setTotal(effectiveTotalKnown ? tot : undefined);
     } catch (e) {
       swalError("No se pudo listar clientes", e?.response?.data?.message || e.message);
     } finally {
       setLoading(false);
     }
   }
+
 
   /* ===== Toggle/Asignar/Quitar etiquetas ===== */
   function clienteTieneEtiqueta(cliente, idEtiqueta) {
@@ -777,9 +811,15 @@ export default function Clientes() {
     setItems([]);
     setPage(1);
     setHasMore(true);
-    apiList(1, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    const id = setTimeout(() => {
+      apiList(1, true);
+    }, 250); // debounce 250ms
+
+    return () => clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, estado, orden, pageSize, idEtiquetaFiltro]);
+
 
   /* Scroll infinito */
   function onScroll(e) {
