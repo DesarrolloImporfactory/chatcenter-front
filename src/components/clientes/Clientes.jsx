@@ -827,76 +827,45 @@ export default function Clientes() {
 
   return (
     <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border bg-white">
-      {/* ====== Top Tabs + Acciones ====== */}
+      {/* ====== Top Actions (sin nav) ====== */}
       <div className="flex items-center gap-2 border-b px-4 py-2">
-        <nav className="flex items-center gap-4 text-sm">
-          {["All", "This or That Tag", "Test Tag List"].map((t, i) => (
-            <button
-              key={t}
-              className={`pb-2 ${
-                i === 0 ? "border-b-2 border-blue-600 font-medium text-blue-700" : "text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </nav>
         <div className="ml-auto flex items-center gap-2">
-          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Add">
-            <i className="bx bx-plus" />
-          </button>
-          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Filter">
-            <i className="bx bx-filter-alt" />
-          </button>
-          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Automations">
-            <i className="bx bx-cog" />
-          </button>
-
-          {/* === Botones de Tags (1er archivo) === */}
+          {/* === Iconos de TAGS (Boxicons premium) === */}
           <button
-            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
-            onClick={() => ensureCatalogAndOpen("toggle")}
-            disabled={!selected.length}
-            title="Alternar etiquetas en los clientes seleccionados"
-          >
-            Toggle Tags ({selected.length || 0})
-          </button>
-
-          <button
-            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
             onClick={() => ensureCatalogAndOpen("asignar")}
             disabled={!selected.length}
-            title="Asignar etiquetas (solo las que no tienen)"
+            title="Asignar etiquetas"
+            aria-label="Asignar etiquetas"
           >
-            Asignar Tags
+            <i className="bx bxs-purchase-tag-alt text-[18px]" />
           </button>
-
           <button
-            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
             onClick={() => ensureCatalogAndOpen("quitar")}
             disabled={!selected.length}
-            title="Quitar etiquetas (solo las que ya tienen)"
+            title="Remover etiquetas"
+            aria-label="Remover etiquetas"
           >
-            Quitar Tags
-          </button>
-
-          <button
-            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
-            onClick={() => ensureCatalogAndOpen("crear")}
-            title="Crear etiqueta en el catálogo"
-          >
-            Crear Tag
-          </button>
-
-          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Broadcast">
-            <i className="bx bx-mail-send" />
+            <i className="bx bxs-minus-circle text-[18px]" />
           </button>
           <button
             className="rounded-lg border bg-white p-2 hover:bg-gray-50"
-            title="Import"
+            onClick={() => ensureCatalogAndOpen("crear")}
+            title="Crear etiqueta"
+            aria-label="Crear etiqueta"
+          >
+            <i className="bx bxs-plus-circle text-[18px]" />
+          </button>
+
+          {/* Import / Export */}
+          <button
+            className="rounded-lg border bg-white p-2 hover:bg-gray-50"
+            title="Importar CSV"
+            aria-label="Importar CSV"
             onClick={() => fileRef.current?.click()}
           >
-            <i className="bx bx-upload" />
+            <i className="bx bx-upload text-[18px]" />
           </button>
           <input
             ref={fileRef}
@@ -905,20 +874,24 @@ export default function Clientes() {
             className="hidden"
             onChange={(e) => e.target.files?.[0] && importCSV(e.target.files[0])}
           />
-          <button className="rounded-lg border bg-white p-2 hover:bg-gray-50" title="Export" onClick={exportCSV}>
-            <i className="bx bx-download" />
+          <button
+            className="rounded-lg border bg-white p-2 hover:bg-gray-50"
+            title="Exportar CSV"
+            aria-label="Exportar CSV"
+            onClick={exportCSV}
+          >
+            <i className="bx bx-download text-[18px]" />
           </button>
 
+          {/* Eliminar (icono premium) */}
           <button
             disabled={!selected.length}
             onClick={onDeleteSelected}
-            className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            title="Bulk delete"
+            className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
+            title="Eliminar seleccionados"
+            aria-label="Eliminar seleccionados"
           >
-            Bulk Actions ({selected.length || 0})
-          </button>
-          <button className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
-            Settings <i className="bx bx-cog" />
+            <i className="bx bxs-trash-alt text-[18px]" />
           </button>
         </div>
       </div>
@@ -937,10 +910,6 @@ export default function Clientes() {
           />
         </div>
 
-        <button className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50">
-          More Filters <i className="bx bx-slider-alt" />
-        </button>
-
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="text-gray-600">
             Total {typeof total === "number" ? total : "—"} records | {page} of{" "}
@@ -953,7 +922,7 @@ export default function Clientes() {
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
             >
-              {[10, 20, 25, 50].map((n) => (
+              {[10, 20, 25, 50, 100, 200, 500].map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -1013,11 +982,13 @@ export default function Clientes() {
             <option value="actividad_asc">Actividad (asc)</option>
           </select>
 
+          {/* densidad visible si quieres cambiarla rápidamente */}
           <select className="rounded-md border px-2 py-1" value={density} onChange={(e) => setDensity(e.target.value)} title="Densidad">
             <option value="compacta">Compacta</option>
             <option value="media">Media</option>
             <option value="amplia">Amplia</option>
           </select>
+
           <button
             onClick={() => {
               setQ("");
@@ -1384,6 +1355,8 @@ export default function Clientes() {
             value={modalEmail.subject}
             onChange={(e) => setModalEmail((s) => ({ ...s, subject: e.target.value }))}
           />
+        </div>
+        <div className="space-y-3 mt-3">
           <textarea
             className="w-full rounded-md border px-3 py-2 text-sm"
             rows={8}
