@@ -1,6 +1,45 @@
 // /src/pages/Clientes.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
+import Swal from "sweetalert2";
+
+
+/* =================== Helpers SweetAlert2 =================== */
+const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
+  const res = await Swal.fire({
+    title,
+    text,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: "Cancelar",
+    reverseButtons: true,
+    focusCancel: true,
+  });
+  return res.isConfirmed;
+};
+const swalToast = (title, icon = "success") =>
+  Swal.fire({
+    toast: true,
+    position: "top-end",
+    icon,
+    title,
+    showConfirmButton: false,
+    timer: 2200,
+    timerProgressBar: true,
+  });
+const swalError = (title = "Ocurrió un error", text) =>
+  Swal.fire({ icon: "error", title, text });
+const swalInfo = (title, text) =>
+  Swal.fire({ icon: "info", title, text, confirmButtonText: "Entendido" });
+const swalLoading = (title = "Procesando...") => {
+  Swal.fire({
+    title,
+    allowOutsideClick: false,
+    didOpen: () => Swal.showLoading(),
+  });
+};
+const swalClose = () => Swal.close();
 
 /* =================== Utils =================== */
 const fmtDate = (d) => {
@@ -85,7 +124,7 @@ function mapRow(row) {
     mensajes_por_dia_cliente: row.mensajes_por_dia_cliente ?? 0,
     pedido_confirmado: row.pedido_confirmado ?? 0,
     imagePath: row.imagePath || "",
-    etiquetas: Array.isArray(row.etiquetas) ? row.etiquetas : [], // si backend las embebe
+    etiquetas: Array.isArray(row.etiquetas) ? row.etiquetas : [],
     _raw: row,
   };
 }
@@ -93,11 +132,11 @@ function mapRow(row) {
 /* ====== UI pequeños ====== */
 function Chip({ children, color }) {
   const style = color
-    ? { backgroundColor: `${color}1a`, color, borderColor: `${color}33` }
+    ? { backgroundColor: `${color}14`, color, borderColor: `${color}2a` }
     : {};
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1"
+      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1"
       style={style}
     >
       {children}
@@ -127,15 +166,14 @@ function ColumnsDropdown({ state, setState }) {
     <details className="relative">
       <summary
         className="list-none inline-flex cursor-pointer items-center gap-2
-                   rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm
-                   text-gray-900 shadow-sm hover:bg-gray-50
-                   focus:outline-none focus:ring-2 focus:ring-[#171931]"
+                   rounded-lg border border-gray-200 bg-white/70 backdrop-blur px-3 py-2 text-sm
+                   text-gray-900 shadow-sm hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/30"
       >
-        Columns <i className="bx bx-chevron-down text-gray-700" />
+        Columnas <i className="bx bx-chevron-down text-gray-700" />
       </summary>
 
       <div
-        className="absolute right-200 z-30 mt-2 w-56 rounded-lg border border-gray-200
+        className="absolute right-0 z-30 mt-2 w-56 rounded-lg border border-gray-200
                    bg-white p-2 shadow-xl ring-1 ring-black/5"
       >
         {Object.keys(state).map((k) => (
@@ -146,8 +184,8 @@ function ColumnsDropdown({ state, setState }) {
           >
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-gray-400 accent-[#171931]
-                         focus:ring-2 focus:ring-[#171931] focus:ring-offset-0"
+              className="h-4 w-4 rounded border-gray-400 accent-blue-600
+                         focus:ring-2 focus:ring-blue-600 focus:ring-offset-0"
               checked={state[k]}
               onChange={() => setState((s) => ({ ...s, [k]: !s[k] }))}
             />
@@ -159,7 +197,7 @@ function ColumnsDropdown({ state, setState }) {
   );
 }
 
-/* ===== Tooltip estilo “globo” (GoHighLevel vibe) hacia ABAJO ===== */
+/* Tooltip estilo globo */
 function Tooltip({ label, children }) {
   return (
     <div className="relative inline-flex items-center group">
@@ -174,7 +212,7 @@ function Tooltip({ label, children }) {
   );
 }
 
-/* ====== Select simple para filtro de Tags ====== */
+/* Select simple para filtro de Tags */
 function TagSelect({ options, value, onChange, disabled, unavailable }) {
   return (
     <select
@@ -207,7 +245,7 @@ function BaseModal({ open, title, onClose, children, footer }) {
       <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b px-5 py-3">
           <h3 className="textbase font-semibold">{title}</h3>
-          <button className="rounded p-2 hover:bg-gray-100" onClick={onClose}>
+          <button className="rounded p-2 hover:bg-gray-100" onClick={onClose} aria-label="Cerrar modal">
             <i className="bx bx-x text-xl" />
           </button>
         </div>
@@ -220,7 +258,7 @@ function BaseModal({ open, title, onClose, children, footer }) {
   );
 }
 
-/* Modal de selección de etiquetas desde catálogo (del 1er archivo) */
+/* Modal de selección de etiquetas desde catálogo */
 function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
   const [seleccion, setSeleccion] = useState([]);
   useEffect(() => {
@@ -239,8 +277,16 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
           <button
             disabled={disabled || !seleccion.length}
             onClick={async () => {
-              await onApply(seleccion.map(Number));
-              onClose();
+              try {
+                swalLoading("Aplicando etiquetas...");
+                await onApply(seleccion.map(Number));
+                swalClose();
+                swalToast("Cambios aplicados");
+                onClose();
+              } catch (e) {
+                swalClose();
+                swalError("No se pudo aplicar", e?.message);
+              }
             }}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
           >
@@ -284,7 +330,7 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
   );
 }
 
-/* Modal crear etiquetas (del 1er archivo) */
+/* Modal crear etiquetas */
 function ModalCrearEtiqueta({ open, onClose, onCreate }) {
   const [nombres, setNombres] = useState("");
   const [color, setColor] = useState("");
@@ -301,9 +347,20 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
           <button
             onClick={async () => {
               const lista = nombres.split(",").map((s) => s.trim()).filter(Boolean);
-              if (!lista.length) return alert("Escribe al menos un nombre");
-              await onCreate(lista, color || undefined);
-              onClose();
+              if (!lista.length) {
+                swalInfo("Falta información", "Escribe al menos un nombre");
+                return;
+              }
+              try {
+                swalLoading("Creando etiqueta(s)...");
+                await onCreate(lista, color || undefined);
+                swalClose();
+                swalToast("Etiqueta(s) creadas");
+                onClose();
+              } catch (e) {
+                swalClose();
+                swalError("No se pudo crear", e?.message);
+              }
             }}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white"
           >
@@ -363,7 +420,7 @@ export default function Clientes() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  // Modales de etiquetas (del 1er archivo)
+  // Modales de etiquetas
   const [modalToggleOpen, setModalToggleOpen] = useState(false);
   const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
   const [modalQuitarOpen, setModalQuitarOpen] = useState(false);
@@ -428,7 +485,7 @@ export default function Clientes() {
     return nuevo;
   }
 
-  // Adjunta etiquetas asignadas a cada cliente (resuelve nombre/color con catálogo de su cfg)
+  // Adjunta etiquetas asignadas a cada cliente
   async function anexarEtiquetasAsignadas(clientes, catsRef) {
     if (!clientes?.length) return clientes;
     const out = [...clientes];
@@ -475,7 +532,7 @@ export default function Clientes() {
     return out;
   }
 
-  /* ====== LISTAR (mezcla de ambos: incluye id_configuracion cuando filtras por etiqueta) ====== */
+  /* ====== LISTAR ====== */
   async function apiList(p = 1, replace = false) {
     setLoading(true);
     try {
@@ -485,7 +542,7 @@ export default function Clientes() {
         sort: orden,
         q: q || undefined,
         estado: estado !== "todos" ? estado : undefined,
-        id_etiqueta: idEtiquetaFiltro || undefined, // el backend filtra por etiqueta si se la pasas
+        id_etiqueta: idEtiquetaFiltro || undefined,
         id_configuracion:
           idEtiquetaFiltro && idConfigForTags ? Number(idConfigForTags) : undefined,
       };
@@ -507,13 +564,13 @@ export default function Clientes() {
       setHasMore(typeof tot === "number" ? p * LIMIT < tot : withTags.length === LIMIT);
       setTotal(tot);
     } catch (e) {
-      console.error("LIST:", e?.response?.data || e.message);
+      swalError("No se pudo listar clientes", e?.response?.data?.message || e.message);
     } finally {
       setLoading(false);
     }
   }
 
-  /* ====== Toggle/Asignar/Quitar etiquetas (1er archivo) + refresh fino (2º archivo) ====== */
+  /* ===== Toggle/Asignar/Quitar etiquetas ===== */
   function clienteTieneEtiqueta(cliente, idEtiqueta) {
     const tid = Number(idEtiqueta);
     if (Array.isArray(cliente.etiquetas) && cliente.etiquetas.length) {
@@ -543,10 +600,9 @@ export default function Clientes() {
       if (!cfg) continue;
       for (const idE of idsEtiquetas) pares.push({ idC, idE, cfg });
     }
-    if (!pares.length) return alert("Nada por aplicar");
+    if (!pares.length) throw new Error("Nada por aplicar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
-    alert("Acción aplicada");
   }
   async function asignarEtiquetas(idsClientes, idsEtiquetas) {
     const pares = [];
@@ -558,10 +614,9 @@ export default function Clientes() {
         if (!clienteTieneEtiqueta(c, idE)) pares.push({ idC, idE, cfg });
       }
     }
-    if (!pares.length) return alert("Nada por asignar");
+    if (!pares.length) throw new Error("Nada por asignar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
-    alert("Etiquetas asignadas");
   }
   async function quitarEtiquetas(idsClientes, idsEtiquetas) {
     const pares = [];
@@ -573,21 +628,22 @@ export default function Clientes() {
         if (clienteTieneEtiqueta(c, idE)) pares.push({ idC, idE, cfg });
       }
     }
-    if (!pares.length) return alert("Nada por quitar");
+    if (!pares.length) throw new Error("Nada por quitar");
     await aplicarPares(pares);
     await refrescarEtiquetasDeClientes(idsClientes);
-    alert("Etiquetas removidas");
   }
 
-  /* ===== Crear / Eliminar del catálogo (1er archivo) ===== */
+  /* ===== Crear / Eliminar del catálogo ===== */
   async function crearEtiquetas(lista, color) {
-    // usa config más común entre los seleccionados o la primera visible
     let cfg = idConfigForTags;
     if (!cfg) {
       const first = items[0];
       cfg = first?.id_configuracion;
     }
-    if (!cfg) return alert("No hay id_configuracion disponible.");
+    if (!cfg) {
+      await swalInfo("No disponible", "No hay id_configuracion para crear etiquetas.");
+      return;
+    }
 
     for (const nombre_etiqueta of lista) {
       await chatApi.post("/etiquetas_chat_center/agregarEtiqueta", {
@@ -598,7 +654,6 @@ export default function Clientes() {
     }
     await cargarCatalogosSiFaltan([cfg]);
     await apiList(1, true);
-    alert("Etiqueta(s) creada(s)");
   }
 
   async function eliminarEtiquetasCatalogo(idsEtiquetas) {
@@ -608,10 +663,9 @@ export default function Clientes() {
     const cfgs = Array.from(new Set(items.map((r) => r.id_configuracion).filter(Boolean)));
     await cargarCatalogosSiFaltan(cfgs);
     await apiList(page, true);
-    alert("Etiqueta(s) eliminada(s) del catálogo");
   }
 
-  /* ====== REFRESH fino de etiquetas (del 2º archivo) ====== */
+  /* ===== Refresh fino de etiquetas ===== */
   async function refrescarEtiquetasDeClientes(idsClientes) {
     const cfgs = Array.from(new Set(items.map((c) => c.id_configuracion).filter(Boolean)));
     const cats = await cargarCatalogosSiFaltan(cfgs);
@@ -651,7 +705,7 @@ export default function Clientes() {
     setItems(clon);
   }
 
-  /* ===== Botones: abrir modales garantizando catálogo (1er archivo) ===== */
+  /* ===== Botones: abrir modales garantizando catálogo ===== */
   async function ensureCatalogAndOpen(which) {
     let cfg = null;
     if (selected.length) {
@@ -664,7 +718,10 @@ export default function Clientes() {
       if (counts.size) cfg = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0];
     }
     if (!cfg) cfg = items[0]?.id_configuracion || idConfigForTags;
-    if (!cfg) return alert("No hay clientes para determinar id_configuracion.");
+    if (!cfg) {
+      await swalInfo("Sin datos", "No hay clientes para determinar id_configuracion.");
+      return;
+    }
     setIdConfigForTags(cfg);
     await cargarCatalogosSiFaltan([cfg]);
 
@@ -746,9 +803,12 @@ export default function Clientes() {
 
   async function onSave() {
     try {
-      if (!editing?.nombre && !editing?.telefono && !editing?.email)
-        return alert("Ingresa al menos nombre, teléfono o email");
+      if (!editing?.nombre && !editing?.telefono && !editing?.email) {
+        await swalInfo("Datos incompletos", "Ingresa al menos nombre, teléfono o email");
+        return;
+      }
       const id = getId(editing);
+      swalLoading(id ? "Actualizando cliente..." : "Creando cliente...");
       if (id) {
         const updated = await apiUpdate(id, editing);
         setItems((prev) => prev.map((x) => (getId(x) === id ? updated : x)));
@@ -759,22 +819,38 @@ export default function Clientes() {
       setDrawerOpen(false);
       setEditing(null);
       await apiList(page, true);
+      swalClose();
+      swalToast("Guardado correctamente");
     } catch (e) {
       console.error("SAVE:", e?.response?.data || e.message);
-      alert("No se pudo guardar");
+      swalClose();
+      swalError("No se pudo guardar", e?.response?.data?.message || e.message);
     }
   }
 
   async function onDeleteSelected() {
     if (!selected.length) return;
-    if (!confirm(`¿Eliminar ${selected.length} cliente(s)?`)) return;
+    const ok = await swalConfirm(
+      "Eliminar clientes",
+      `¿Eliminar ${selected.length} cliente(s) seleccionados?`
+    );
+    if (!ok) return;
+
     try {
-      await chatApi.post(`/clientes_chat_center/eliminar`, { ids: selected });
-    } catch {
-      for (const id of selected) await apiDelete(id);
+      swalLoading("Eliminando...");
+      try {
+        await chatApi.post(`/clientes_chat_center/eliminar`, { ids: selected });
+      } catch {
+        for (const id of selected) await apiDelete(id);
+      }
+      setItems((prev) => prev.filter((x) => !selected.includes(getId(x))));
+      setSelected([]);
+      swalClose();
+      swalToast("Eliminados");
+    } catch (e) {
+      swalClose();
+      swalError("No se pudo eliminar", e?.message);
     }
-    setItems((prev) => prev.filter((x) => !selected.includes(getId(x))));
-    setSelected([]);
   }
 
   /* Exportar/Importar */
@@ -800,12 +876,16 @@ export default function Clientes() {
     a.href = URL.createObjectURL(blob);
     a.download = `clientes_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
+    swalToast("CSV exportado");
   }
   async function importCSV(file) {
     try {
       const text = await file.text();
       const lines = text.split(/\r?\n/).filter(Boolean);
-      if (!lines.length) return alert("CSV vacío");
+      if (!lines.length) {
+        await swalInfo("CSV vacío", "El archivo no contiene filas.");
+        return;
+      }
       const [headerLine, ...rows] = lines;
       const headers = headerLine.split(",").map((h) => h.trim().toLowerCase());
       const idx = {
@@ -816,6 +896,7 @@ export default function Clientes() {
         estado: headers.indexOf("estado"),
         id_etiqueta: headers.indexOf("idetiqueta"),
       };
+      swalLoading("Importando...");
       for (const line of rows) {
         const cols = line.split(",");
         const payload = {
@@ -829,11 +910,13 @@ export default function Clientes() {
         if (!payload.nombre_cliente && !payload.celular_cliente && !payload.email_cliente) continue;
         await chatApi.post("/clientes_chat_center/agregar", payload);
       }
-      apiList(1, true);
-      alert("Importación completada");
+      await apiList(1, true);
+      swalClose();
+      swalToast("Importación completada");
     } catch (e) {
       console.error("IMPORT:", e?.response?.data || e.message);
-      alert("Error importando CSV");
+      swalClose();
+      swalError("Error importando CSV", e?.message);
     }
   }
 
@@ -841,11 +924,11 @@ export default function Clientes() {
   const fileRef = useRef(null);
 
   return (
-    <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border bg-white">
-      {/* ====== Top Actions (sin nav) ====== */}
-      <div className="flex items-center gap-2 border-b px-4 py-2">
+    <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border bg-gradient-to-b from-gray-50 to-white">
+      {/* ====== Top “Glass” Actions ====== */}
+      <div className="sticky top-0 z-40 flex items-center gap-2 border-b bg-white/70 backdrop-blur px-4 py-2">
         <div className="ml-auto flex items-center gap-2">
-          {/* === Iconos de TAGS con tooltip (Boxicons premium) === */}
+          {/* TAGS */}
           <Tooltip label="Asignar etiquetas">
             <button
               className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
@@ -856,7 +939,6 @@ export default function Clientes() {
               <i className="bx bxs-purchase-tag-alt text-[18px]" />
             </button>
           </Tooltip>
-
           <Tooltip label="Remover etiquetas">
             <button
               className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
@@ -867,7 +949,6 @@ export default function Clientes() {
               <i className="bx bxs-minus-circle text-[18px]" />
             </button>
           </Tooltip>
-
           <Tooltip label="Crear etiqueta">
             <button
               className="rounded-lg border bg-white p-2 hover:bg-gray-50"
@@ -878,7 +959,7 @@ export default function Clientes() {
             </button>
           </Tooltip>
 
-          {/* Import / Export con tooltip */}
+          {/* Import / Export */}
           <Tooltip label="Importar CSV">
             <button
               className="rounded-lg border bg-white p-2 hover:bg-gray-50"
@@ -905,7 +986,7 @@ export default function Clientes() {
             </button>
           </Tooltip>
 
-          {/* Eliminar (icono premium) con tooltip */}
+          {/* Eliminar */}
           <Tooltip label="Eliminar">
             <button
               disabled={!selected.length}
@@ -922,12 +1003,11 @@ export default function Clientes() {
       {/* ====== Subtoolbar ====== */}
       <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         <ColumnsDropdown state={cols} setState={setCols} />
-
         <div className="relative flex-1 min-w-[240px] max-w-[520px]">
           <i className="bx bx-search absolute left-3 top-2.5 text-gray-500" />
           <input
             className="w-full rounded-lg border px-9 py-2 text-sm outline-none ring-1 ring-transparent transition focus:ring-blue-200"
-            placeholder="Quick search"
+            placeholder="Buscar rápido…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -935,11 +1015,11 @@ export default function Clientes() {
 
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="text-gray-600">
-            Total {typeof total === "number" ? total : "—"} records | {page} of{" "}
-            {typeof total === "number" ? Math.max(1, Math.ceil(total / LIMIT)) : "—"} Pages
+            Total {typeof total === "number" ? total : "—"} | Página {page} de{" "}
+            {typeof total === "number" ? Math.max(1, Math.ceil(total / LIMIT)) : "—"}
           </span>
           <div className="flex items-center gap-1">
-            <label className="text-gray-500">Page Size:</label>
+            <label className="text-gray-500">Tamaño:</label>
             <select
               className="rounded-md border bg-white px-2 py-1 text-sm"
               value={pageSize}
@@ -991,7 +1071,7 @@ export default function Clientes() {
 
         <div className="ml-2 flex items-center gap-2">
           <TagSelect
-            options={opcionesFiltroAsignadas}   // solo muestra etiquetas asignadas
+            options={opcionesFiltroAsignadas}
             value={idEtiquetaFiltro}
             onChange={setIdEtiquetaFiltro}
             disabled={false}
@@ -1005,7 +1085,6 @@ export default function Clientes() {
             <option value="actividad_asc">Actividad (asc)</option>
           </select>
 
-          {/* densidad visible si quieres cambiarla rápidamente */}
           <select className="rounded-md border px-2 py-1" value={density} onChange={(e) => setDensity(e.target.value)} title="Densidad">
             <option value="compacta">Compacta</option>
             <option value="media">Media</option>
@@ -1038,7 +1117,7 @@ export default function Clientes() {
               {cols.name && (
                 <th className="text-left">
                   <SortButton
-                    label="Name"
+                    label="Nombre"
                     active={/recientes|antiguos/.test(orden)}
                     dir={orden === "antiguos" ? "asc" : "desc"}
                     onClick={() => setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))}
@@ -1047,7 +1126,7 @@ export default function Clientes() {
               )}
               {cols.phone && (
                 <th className="w-56 text-left">
-                  <SortButton label="Phone" active={false} onClick={() => {}} className="text-gray-500" />
+                  <SortButton label="Teléfono" active={false} onClick={() => {}} className="text-gray-500" />
                 </th>
               )}
               {cols.email && (
@@ -1058,7 +1137,7 @@ export default function Clientes() {
               {cols.created && (
                 <th className="w-40 text-left">
                   <SortButton
-                    label="Created"
+                    label="Creado"
                     active={/recientes|antiguos/.test(orden)}
                     dir={orden === "antiguos" ? "asc" : "desc"}
                     onClick={() => setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))}
@@ -1068,7 +1147,7 @@ export default function Clientes() {
               {cols.last_activity && (
                 <th className="w-48 text-left">
                   <SortButton
-                    label="Last Activity"
+                    label="Última actividad"
                     active={/actividad_/.test(orden)}
                     dir={orden === "actividad_asc" ? "asc" : "desc"}
                     onClick={() => setOrden((o) => (o === "actividad_desc" ? "actividad_asc" : "actividad_desc"))}
@@ -1080,7 +1159,47 @@ export default function Clientes() {
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="[&>tr:nth-child(even)]:bg-gray-50/30">
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={9} className="py-16">
+                  <div className="mx-auto max-w-md text-center">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border">
+                      <i className="bx bx-user-circle text-2xl text-gray-500" />
+                    </div>
+                    <h4 className="text-sm font-semibold">Sin clientes</h4>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Aún no hay registros que coincidan con tu búsqueda/filtros.
+                    </p>
+                    <button
+                      className="mt-4 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white"
+                      onClick={() => {
+                        setEditing({});
+                        setDrawerOpen(true);
+                      }}
+                    >
+                      Crear cliente
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {loading && items.length === 0 &&
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={`sk-${i}`} className={`[&>td]:border-b [&>td]:px-3 ${rowPad}`}>
+                  <td><div className="h-4 w-4 rounded bg-gray-200 animate-pulse" /></td>
+                  <td colSpan={5}>
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
+                      <div className="h-3 w-1/3 rounded bg-gray-200 animate-pulse" />
+                    </div>
+                  </td>
+                  <td><div className="h-3 w-24 rounded bg-gray-200 animate-pulse" /></td>
+                </tr>
+              ))
+            }
+
             {items.map((c, idx) => {
               const id = getId(c) ?? idx;
               const nombre = `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
@@ -1153,7 +1272,7 @@ export default function Clientes() {
                         {Array.isArray(c.etiquetas) && c.etiquetas.length ? (
                           c.etiquetas.map((t, i) => <Chip key={i} color={t.color}>{t.nombre}</Chip>)
                         ) : (
-                          <span className="text-gray-400">No hay etiquetas asignadas</span>
+                          <span className="text-gray-400">Sin etiquetas</span>
                         )}
                       </div>
                     </td>
@@ -1189,9 +1308,18 @@ export default function Clientes() {
                           <button
                             className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
                             onClick={async () => {
-                              if (!confirm("¿Eliminar este cliente?")) return;
-                              await apiDelete(id);
-                              setItems((prev) => prev.filter((x) => getId(x) !== id));
+                              const ok = await swalConfirm("Eliminar cliente", "¿Seguro que deseas eliminarlo?");
+                              if (!ok) return;
+                              try {
+                                swalLoading("Eliminando...");
+                                await apiDelete(id);
+                                setItems((prev) => prev.filter((x) => getId(x) !== id));
+                                swalClose();
+                                swalToast("Cliente eliminado");
+                              } catch (e) {
+                                swalClose();
+                                swalError("No se pudo eliminar", e?.message);
+                              }
                             }}
                           >
                             Eliminar
@@ -1203,18 +1331,16 @@ export default function Clientes() {
                 </tr>
               );
             })}
-            {!loading && items.length === 0 && (
-              <tr>
-                <td colSpan={9} className="py-12 text-center text-gray-500">
-                  No hay clientes para mostrar
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
-        {loading && <div className="flex items-center justify-center py-4 text-sm text-gray-500">Cargando…</div>}
+
+        {loading && items.length > 0 && (
+          <div className="flex items-center justify-center py-4 text-sm text-gray-500">Cargando…</div>
+        )}
         {!hasMore && items.length > 0 && (
-          <div className="flex items-center justify-center py-4 text-xs text-gray-400">No hay más resultados</div>
+          <div className="flex items-center justify-center py-4 text-xs text-gray-400">
+            No hay más resultados
+          </div>
         )}
       </div>
 
@@ -1227,7 +1353,7 @@ export default function Clientes() {
               <h3 className="text-base font-semibold">
                 {editing && getId(editing) ? "Editar cliente" : "Nuevo cliente"}
               </h3>
-              <button className="rounded p-2 hover:bg-gray-100" onClick={() => setDrawerOpen(false)}>
+              <button className="rounded p-2 hover:bg-gray-100" onClick={() => setDrawerOpen(false)} aria-label="Cerrar panel">
                 <i className="bx bx-x text-xl" />
               </button>
             </div>
@@ -1257,7 +1383,7 @@ export default function Clientes() {
         catalogo={catalogosPorCfg[idConfigForTags]}
         disabled={!selected.length}
         onApply={async (idsEtiquetas) => {
-          if (!selected.length) return alert("Selecciona clientes");
+          if (!selected.length) throw new Error("Selecciona clientes");
           await toggleEtiquetas(selected, idsEtiquetas);
         }}
       />
@@ -1268,7 +1394,7 @@ export default function Clientes() {
         catalogo={catalogosPorCfg[idConfigForTags]}
         disabled={!selected.length}
         onApply={async (idsEtiquetas) => {
-          if (!selected.length) return alert("Selecciona clientes");
+          if (!selected.length) throw new Error("Selecciona clientes");
           await asignarEtiquetas(selected, idsEtiquetas);
         }}
       />
@@ -1279,7 +1405,7 @@ export default function Clientes() {
         catalogo={catalogosPorCfg[idConfigForTags]}
         disabled={!selected.length}
         onApply={async (idsEtiquetas) => {
-          if (!selected.length) return alert("Selecciona clientes");
+          if (!selected.length) throw new Error("Selecciona clientes");
           await quitarEtiquetas(selected, idsEtiquetas);
         }}
       />
@@ -1303,16 +1429,22 @@ export default function Clientes() {
               disabled={!selected.length}
               onClick={async () => {
                 const msg = modalSMS.msg;
-                if (!msg.trim()) return alert("Escribe el mensaje");
+                if (!msg.trim()) {
+                  await swalInfo("Falta mensaje", "Escribe el contenido del SMS");
+                  return;
+                }
                 try {
+                  swalLoading("Enviando SMS...");
                   await chatApi.post("/clientes_chat_center/sms/enviar", {
                     ids: selected,
                     mensaje: msg.trim(),
                   });
-                  alert("SMS enviado");
+                  swalClose();
+                  swalToast("SMS enviado");
                   setModalSMS({ open: false, msg: "" });
                 } catch {
-                  alert("Pendiente backend");
+                  swalClose();
+                  swalInfo("Pendiente", "Función de backend pendiente");
                 }
               }}
               className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
@@ -1350,18 +1482,27 @@ export default function Clientes() {
               disabled={!selected.length}
               onClick={async () => {
                 const { subject, body } = modalEmail;
-                if (!subject.trim()) return alert("Asunto requerido");
-                if (!body.trim()) return alert("Cuerpo requerido");
+                if (!subject.trim()) {
+                  await swalInfo("Asunto requerido", "Escribe un asunto para el email");
+                  return;
+                }
+                if (!body.trim()) {
+                  await swalInfo("Cuerpo requerido", "Escribe el contenido del email");
+                  return;
+                }
                 try {
+                  swalLoading("Enviando email...");
                   await chatApi.post("/clientes_chat_center/email/enviar", {
                     ids: selected,
                     subject: subject.trim(),
                     body: body.trim(),
                   });
-                  alert("Email enviado");
+                  swalClose();
+                  swalToast("Email enviado");
                   setModalEmail({ open: false, subject: "", body: "" });
                 } catch {
-                  alert("Pendiente backend");
+                  swalClose();
+                  swalInfo("Pendiente", "Función de backend pendiente");
                 }
               }}
               className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
@@ -1406,17 +1547,23 @@ export default function Clientes() {
               disabled={!selected.length}
               onClick={async () => {
                 const { channel, link } = modalReview;
-                if (!link.trim()) return alert("Enlace requerido");
+                if (!link.trim()) {
+                  await swalInfo("Enlace requerido", "Coloca el enlace de reseña");
+                  return;
+                }
                 try {
+                  swalLoading("Enviando solicitud...");
                   await chatApi.post("/clientes_chat_center/resenas/enviar", {
                     ids: selected,
                     channel,
                     link: link.trim(),
                   });
-                  alert("Solicitud enviada");
+                  swalClose();
+                  swalToast("Solicitud enviada");
                   setModalReview({ open: false, channel: "whatsapp", link: "" });
                 } catch {
-                  alert("Pendiente backend");
+                  swalClose();
+                  swalInfo("Pendiente", "Función de backend pendiente");
                 }
               }}
               className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
