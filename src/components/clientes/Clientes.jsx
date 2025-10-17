@@ -652,6 +652,7 @@ export default function Clientes() {
   }
 
   /* ===== Crear / Eliminar del catálogo ===== */
+  // ===== Crear / Eliminar del catálogo =====
   async function crearEtiquetas(lista, color) {
     let cfg = idConfigForTags;
     if (!cfg) {
@@ -663,6 +664,7 @@ export default function Clientes() {
       return;
     }
 
+    // 1) Crear todas las etiquetas
     for (const nombre_etiqueta of lista) {
       await chatApi.post("/etiquetas_chat_center/agregarEtiqueta", {
         nombre_etiqueta,
@@ -670,10 +672,23 @@ export default function Clientes() {
         id_configuracion: Number(cfg),
       });
     }
-    await cargarCatalogosSiFaltan([cfg]);
+
+    // 2) REFRESCAR SOLO el catálogo de esa cfg (sin cambiar nada más)
+    try {
+      const { data } = await chatApi.post("/etiquetas_chat_center/obtenerEtiquetas", {
+        id_configuracion: Number(cfg),
+      });
+      const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
+      setCatalogosPorCfg((prev) => ({ ...prev, [Number(cfg)]: arr }));
+    } catch (e) {
+      console.error("REFRESH CATALOGO POST-CREAR:", e?.response?.data || e.message);
+    }
+
+    // 3) Mantener tu comportamiento actual
     await apiList(1, true);
-    await cargarOpcionesFiltroEtiquetas(); // refresca opciones del select
+    await cargarOpcionesFiltroEtiquetas(); // refresca opciones del select de filtro
   }
+
 
   async function eliminarEtiquetasCatalogo(idsEtiquetas) {
     for (const idE of idsEtiquetas) {
