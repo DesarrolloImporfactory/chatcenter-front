@@ -159,6 +159,21 @@ function ColumnsDropdown({ state, setState }) {
   );
 }
 
+/* ===== Tooltip estilo “globo” (GoHighLevel vibe) hacia ABAJO ===== */
+function Tooltip({ label, children }) {
+  return (
+    <div className="relative inline-flex items-center group">
+      {children}
+      <div className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 pt-2 group-hover:block">
+        <div className="mx-auto h-2 w-2 -mb-1 rotate-45 bg-gray-900 shadow-lg" />
+        <div className="rounded-md bg-gray-900 px-2.5 py-1 text-xs font-medium text-white shadow-lg">
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ====== Select simple para filtro de Tags ====== */
 function TagSelect({ options, value, onChange, disabled, unavailable }) {
   return (
@@ -191,7 +206,7 @@ function BaseModal({ open, title, onClose, children, footer }) {
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b px-5 py-3">
-          <h3 className="text-base font-semibold">{title}</h3>
+          <h3 className="textbase font-semibold">{title}</h3>
           <button className="rounded p-2 hover:bg-gray-100" onClick={onClose}>
             <i className="bx bx-x text-xl" />
           </button>
@@ -830,43 +845,49 @@ export default function Clientes() {
       {/* ====== Top Actions (sin nav) ====== */}
       <div className="flex items-center gap-2 border-b px-4 py-2">
         <div className="ml-auto flex items-center gap-2">
-          {/* === Iconos de TAGS (Boxicons premium) === */}
-          <button
-            className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
-            onClick={() => ensureCatalogAndOpen("asignar")}
-            disabled={!selected.length}
-            title="Asignar etiquetas"
-            aria-label="Asignar etiquetas"
-          >
-            <i className="bx bxs-purchase-tag-alt text-[18px]" />
-          </button>
-          <button
-            className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
-            onClick={() => ensureCatalogAndOpen("quitar")}
-            disabled={!selected.length}
-            title="Remover etiquetas"
-            aria-label="Remover etiquetas"
-          >
-            <i className="bx bxs-minus-circle text-[18px]" />
-          </button>
-          <button
-            className="rounded-lg border bg-white p-2 hover:bg-gray-50"
-            onClick={() => ensureCatalogAndOpen("crear")}
-            title="Crear etiqueta"
-            aria-label="Crear etiqueta"
-          >
-            <i className="bx bxs-plus-circle text-[18px]" />
-          </button>
+          {/* === Iconos de TAGS con tooltip (Boxicons premium) === */}
+          <Tooltip label="Asignar etiquetas">
+            <button
+              className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => ensureCatalogAndOpen("asignar")}
+              disabled={!selected.length}
+              aria-label="Asignar etiquetas"
+            >
+              <i className="bx bxs-purchase-tag-alt text-[18px]" />
+            </button>
+          </Tooltip>
 
-          {/* Import / Export */}
-          <button
-            className="rounded-lg border bg-white p-2 hover:bg-gray-50"
-            title="Importar CSV"
-            aria-label="Importar CSV"
-            onClick={() => fileRef.current?.click()}
-          >
-            <i className="bx bx-upload text-[18px]" />
-          </button>
+          <Tooltip label="Remover etiquetas">
+            <button
+              className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => ensureCatalogAndOpen("quitar")}
+              disabled={!selected.length}
+              aria-label="Remover etiquetas"
+            >
+              <i className="bx bxs-minus-circle text-[18px]" />
+            </button>
+          </Tooltip>
+
+          <Tooltip label="Crear etiqueta">
+            <button
+              className="rounded-lg border bg-white p-2 hover:bg-gray-50"
+              onClick={() => ensureCatalogAndOpen("crear")}
+              aria-label="Crear etiqueta"
+            >
+              <i className="bx bxs-plus-circle text-[18px]" />
+            </button>
+          </Tooltip>
+
+          {/* Import / Export con tooltip */}
+          <Tooltip label="Importar CSV">
+            <button
+              className="rounded-lg border bg-white p-2 hover:bg-gray-50"
+              aria-label="Importar CSV"
+              onClick={() => fileRef.current?.click()}
+            >
+              <i className="bx bx-upload text-[18px]" />
+            </button>
+          </Tooltip>
           <input
             ref={fileRef}
             type="file"
@@ -874,25 +895,27 @@ export default function Clientes() {
             className="hidden"
             onChange={(e) => e.target.files?.[0] && importCSV(e.target.files[0])}
           />
-          <button
-            className="rounded-lg border bg-white p-2 hover:bg-gray-50"
-            title="Exportar CSV"
-            aria-label="Exportar CSV"
-            onClick={exportCSV}
-          >
-            <i className="bx bx-download text-[18px]" />
-          </button>
+          <Tooltip label="Exportar CSV">
+            <button
+              className="rounded-lg border bg-white p-2 hover:bg-gray-50"
+              aria-label="Exportar CSV"
+              onClick={exportCSV}
+            >
+              <i className="bx bx-download text-[18px]" />
+            </button>
+          </Tooltip>
 
-          {/* Eliminar (icono premium) */}
-          <button
-            disabled={!selected.length}
-            onClick={onDeleteSelected}
-            className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
-            title="Eliminar seleccionados"
-            aria-label="Eliminar seleccionados"
-          >
-            <i className="bx bxs-trash-alt text-[18px]" />
-          </button>
+          {/* Eliminar (icono premium) con tooltip */}
+          <Tooltip label="Eliminar">
+            <button
+              disabled={!selected.length}
+              onClick={onDeleteSelected}
+              className="rounded-lg border bg-white p-2 hover:bg-gray-50 disabled:opacity-50"
+              aria-label="Eliminar seleccionados"
+            >
+              <i className="bx bxs-trash-alt text-[18px]" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
