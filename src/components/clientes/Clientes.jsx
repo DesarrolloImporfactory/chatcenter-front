@@ -44,7 +44,7 @@ const timeAgo = (d) => {
   return rtf.format(-Math.round(y), "year");
 };
 
-// admite id_cliente_chat_center como posible ID
+// admite id_cliente_chat_center como posible ID (combina ambos)
 const getId = (r) =>
   r?.id ?? r?.id_cliente_chat_center ?? r?._id ?? r?.id_cliente ?? null;
 
@@ -64,7 +64,7 @@ function safeCSV(v) {
   return /,|\n/.test(s) ? `"${s}"` : s;
 }
 
-/* Normaliza fila -> llaves del front */
+/* Normaliza fila -> llaves del front (combina ids) */
 function mapRow(row) {
   return {
     id: row.id ?? row.id_cliente_chat_center,
@@ -205,7 +205,7 @@ function BaseModal({ open, title, onClose, children, footer }) {
   );
 }
 
-/* Modal de selección de etiquetas desde catálogo */
+/* Modal de selección de etiquetas desde catálogo (del 1er archivo) */
 function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
   const [seleccion, setSeleccion] = useState([]);
   useEffect(() => {
@@ -269,7 +269,7 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
   );
 }
 
-/* Modal crear etiquetas */
+/* Modal crear etiquetas (del 1er archivo) */
 function ModalCrearEtiqueta({ open, onClose, onCreate }) {
   const [nombres, setNombres] = useState("");
   const [color, setColor] = useState("");
@@ -348,13 +348,13 @@ export default function Clientes() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  // Modales de etiquetas
+  // Modales de etiquetas (del 1er archivo)
   const [modalToggleOpen, setModalToggleOpen] = useState(false);
   const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
   const [modalQuitarOpen, setModalQuitarOpen] = useState(false);
   const [modalCrearEtiquetaOpen, setModalCrearEtiquetaOpen] = useState(false);
 
-  // Otros modales existentes (los dejo intactos por brevedad)
+  // Otros modales
   const [modalSMS, setModalSMS] = useState({ open: false, msg: "" });
   const [modalEmail, setModalEmail] = useState({ open: false, subject: "", body: "" });
   const [modalReview, setModalReview] = useState({ open: false, channel: "whatsapp", link: "" });
@@ -381,50 +381,21 @@ export default function Clientes() {
     return Array.from(m.values());
   }, [items]);
 
-
   // Catálogo por configuración
   const [catalogosPorCfg, setCatalogosPorCfg] = useState({}); // { [cfgId]: [{id_etiqueta,nombre_etiqueta,color_etiqueta}] }
   const [idConfigForTags, setIdConfigForTags] = useState(null);
 
-  /* ================== Clientes: listar + catálogo + etiquetas asignadas ================== */
-  async function apiList(p = 1, replace = false) {
-    setLoading(true);
-    try {
-      const params = {
-        page: p,
-        limit: LIMIT,
-        sort: orden,
-        q: q || undefined,
-        estado: estado !== "todos" ? estado : undefined,
-        id_etiqueta: idEtiquetaFiltro || undefined, // el backend filtra por etiqueta si se la pasas
-      };
-      const { data } = await chatApi.get("/clientes_chat_center/listar", { params });
-      const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-      const mapped = rows.map(mapRow);
-      const tot = data?.total ?? undefined;
-
-      // detectar configuraciones vistas y cargar catálogos
-      const cfgs = Array.from(new Set(mapped.map((r) => r.id_configuracion).filter(Boolean)));
-      if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
-      await cargarCatalogosSiFaltan(cfgs);
-
-      // anexar etiquetas asignadas (por nombre)
-      const withTags = await anexarEtiquetasAsignadas(mapped);
-
-      setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
-      setPage(p);
-      setHasMore(typeof tot === "number" ? p * LIMIT < tot : withTags.length === LIMIT);
-      setTotal(tot);
-    } catch (e) {
-      console.error("LIST:", e?.response?.data || e.message);
-    } finally {
-      setLoading(false);
-    }
+  /* ===== Helpers de catálogo ===== */
+  function crearMapaCatalogo(cfgId, catsRef) {
+    const arr = (catsRef || catalogosPorCfg)[cfgId] || [];
+    const m = new Map();
+    for (const t of arr) m.set(Number(t.id_etiqueta), t);
+    return m;
   }
 
   async function cargarCatalogosSiFaltan(cfgs) {
     const faltantes = (cfgs || []).filter((id) => catalogosPorCfg[id] == null);
-    if (!faltantes.length) return;
+    if (!faltantes.length) return { ...catalogosPorCfg };
     const nuevo = { ...catalogosPorCfg };
     for (const cfgId of faltantes) {
       try {
@@ -439,10 +410,11 @@ export default function Clientes() {
       }
     }
     setCatalogosPorCfg(nuevo);
+    return nuevo;
   }
 
-  // trae etiquetas asignadas para cada cliente y resuelve nombre/color con catálogo de su cfg
-  async function anexarEtiquetasAsignadas(clientes) {
+  // Adjunta etiquetas asignadas a cada cliente (resuelve nombre/color con catálogo de su cfg)
+  async function anexarEtiquetasAsignadas(clientes, catsRef) {
     if (!clientes?.length) return clientes;
     const out = [...clientes];
 
@@ -461,8 +433,8 @@ export default function Clientes() {
             ? data.etiquetasAsignadas
             : [];
 
-          // mapa del catálogo de la cfg de este cliente (por si el endpoint no trae nombres)
-          const mapa = crearMapaCatalogo(c.id_configuracion);
+          // mapa del catálogo de la cfg de este cliente
+          const mapa = crearMapaCatalogo(c.id_configuracion, catsRef);
 
           const mapped = arr
             .map((e) => {
@@ -488,15 +460,45 @@ export default function Clientes() {
     return out;
   }
 
+  /* ====== LISTAR (mezcla de ambos: incluye id_configuracion cuando filtras por etiqueta) ====== */
+  async function apiList(p = 1, replace = false) {
+    setLoading(true);
+    try {
+      const params = {
+        page: p,
+        limit: LIMIT,
+        sort: orden,
+        q: q || undefined,
+        estado: estado !== "todos" ? estado : undefined,
+        id_etiqueta: idEtiquetaFiltro || undefined, // el backend filtra por etiqueta si se la pasas
+        id_configuracion:
+          idEtiquetaFiltro && idConfigForTags ? Number(idConfigForTags) : undefined,
+      };
+      const { data } = await chatApi.get("/clientes_chat_center/listar", { params });
+      const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      const mapped = rows.map(mapRow);
+      const tot = data?.total ?? undefined;
 
-  function crearMapaCatalogo(cfgId) {
-    const arr = catalogosPorCfg[cfgId] || [];
-    const m = new Map();
-    for (const t of arr) m.set(Number(t.id_etiqueta), t);
-    return m;
+      // detectar configuraciones vistas y cargar catálogos
+      const cfgs = Array.from(new Set(mapped.map((r) => r.id_configuracion).filter(Boolean)));
+      if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
+      const cats = await cargarCatalogosSiFaltan(cfgs);
+
+      // anexar etiquetas asignadas (por nombre/color)
+      const withTags = await anexarEtiquetasAsignadas(mapped, cats);
+
+      setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
+      setPage(p);
+      setHasMore(typeof tot === "number" ? p * LIMIT < tot : withTags.length === LIMIT);
+      setTotal(tot);
+    } catch (e) {
+      console.error("LIST:", e?.response?.data || e.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  /* ====== Toggle/Asignar/Quitar etiquetas mediante toggleAsignacionEtiqueta ====== */
+  /* ====== Toggle/Asignar/Quitar etiquetas (1er archivo) + refresh fino (2º archivo) ====== */
   function clienteTieneEtiqueta(cliente, idEtiqueta) {
     const tid = Number(idEtiqueta);
     if (Array.isArray(cliente.etiquetas) && cliente.etiquetas.length) {
@@ -517,6 +519,7 @@ export default function Clientes() {
       await aplicarToggle(idC, idE, cfg);
     }
   }
+
   async function toggleEtiquetas(idsClientes, idsEtiquetas) {
     const pares = [];
     for (const idC of idsClientes) {
@@ -527,7 +530,7 @@ export default function Clientes() {
     }
     if (!pares.length) return alert("Nada por aplicar");
     await aplicarPares(pares);
-    await apiList(page, true);
+    await refrescarEtiquetasDeClientes(idsClientes);
     alert("Acción aplicada");
   }
   async function asignarEtiquetas(idsClientes, idsEtiquetas) {
@@ -542,7 +545,7 @@ export default function Clientes() {
     }
     if (!pares.length) return alert("Nada por asignar");
     await aplicarPares(pares);
-    await apiList(page, true);
+    await refrescarEtiquetasDeClientes(idsClientes);
     alert("Etiquetas asignadas");
   }
   async function quitarEtiquetas(idsClientes, idsEtiquetas) {
@@ -557,11 +560,11 @@ export default function Clientes() {
     }
     if (!pares.length) return alert("Nada por quitar");
     await aplicarPares(pares);
-    await apiList(page, true);
+    await refrescarEtiquetasDeClientes(idsClientes);
     alert("Etiquetas removidas");
   }
 
-  /* ===== Crear / Eliminar del catálogo ===== */
+  /* ===== Crear / Eliminar del catálogo (1er archivo) ===== */
   async function crearEtiquetas(lista, color) {
     // usa config más común entre los seleccionados o la primera visible
     let cfg = idConfigForTags;
@@ -587,14 +590,53 @@ export default function Clientes() {
     for (const idE of idsEtiquetas) {
       await chatApi.delete(`/etiquetas_chat_center/eliminarEtiqueta/${idE}`);
     }
-    // recarga catálogos de las cfg visibles
     const cfgs = Array.from(new Set(items.map((r) => r.id_configuracion).filter(Boolean)));
     await cargarCatalogosSiFaltan(cfgs);
     await apiList(page, true);
     alert("Etiqueta(s) eliminada(s) del catálogo");
   }
 
-  /* ===== Botones: abrir modales garantizando catálogo ===== */
+  /* ====== REFRESH fino de etiquetas (del 2º archivo) ====== */
+  async function refrescarEtiquetasDeClientes(idsClientes) {
+    const cfgs = Array.from(new Set(items.map((c) => c.id_configuracion).filter(Boolean)));
+    const cats = await cargarCatalogosSiFaltan(cfgs);
+
+    const clon = [...items];
+    await Promise.all(
+      clon.map(async (c, i) => {
+        const id = getId(c);
+        if (!idsClientes.includes(id)) return;
+        try {
+          const { data } = await chatApi.post(
+            "/etiquetas_asignadas/obtenerEtiquetasAsignadas",
+            { id_cliente_chat_center: id }
+          );
+          const arr = Array.isArray(data?.etiquetasAsignadas)
+            ? data.etiquetasAsignadas
+            : [];
+          const mapa = crearMapaCatalogo(c.id_configuracion, cats);
+          const mapped = arr
+            .map((e) => {
+              const idE = Number(e.id_etiqueta ?? e.id ?? e.etiqueta_id);
+              if (!idE) return null;
+              const info = mapa.get(idE);
+              return {
+                id: idE,
+                nombre: e.nombre_etiqueta || info?.nombre_etiqueta || `#${idE}`,
+                color: e.color_etiqueta || info?.color_etiqueta,
+              };
+            })
+            .filter(Boolean);
+          clon[i] = { ...c, etiquetas: mapped };
+        } catch (e) {
+          console.warn("REFRESH TAGS:", id, e?.response?.data || e.message);
+        }
+      })
+    );
+    setItems(clon);
+  }
+
+  /* ===== Botones: abrir modales garantizando catálogo (1er archivo) ===== */
   async function ensureCatalogAndOpen(which) {
     let cfg = null;
     if (selected.length) {
@@ -642,7 +684,7 @@ export default function Clientes() {
   const toggleSelect = (id) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  /* ======= CRUD cliente (dejé tu mismo estilo/flujo) ======= */
+  /* ======= CRUD cliente ======= */
   async function apiCreate(c) {
     const payload = {
       id_plataforma: c.id_plataforma || null,
@@ -720,7 +762,7 @@ export default function Clientes() {
     setSelected([]);
   }
 
-  /* Exportar/Importar (sin cambios) */
+  /* Exportar/Importar */
   function exportCSV() {
     const headers = ["Nombre", "Apellido", "Email", "Telefono", "Estado", "IdEtiqueta", "Creado", "UltActividad"];
     const csv = [headers.join(",")];
@@ -780,10 +822,9 @@ export default function Clientes() {
     }
   }
 
-  /* Refs */
+  /* =================== Render =================== */
   const fileRef = useRef(null);
 
-  /* =================== Render =================== */
   return (
     <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border bg-white">
       {/* ====== Top Tabs + Acciones ====== */}
@@ -811,7 +852,7 @@ export default function Clientes() {
             <i className="bx bx-cog" />
           </button>
 
-          {/* === Botones de Tags === */}
+          {/* === Botones de Tags (1er archivo) === */}
           <button
             className="rounded-lg border bg-white px-3 py-2 text-sm hover:bg-gray-50"
             onClick={() => ensureCatalogAndOpen("toggle")}
@@ -958,13 +999,12 @@ export default function Clientes() {
 
         <div className="ml-2 flex items-center gap-2">
           <TagSelect
-            options={opcionesFiltroAsignadas}   // <— ahora solo muestra etiquetas asignadas
+            options={opcionesFiltroAsignadas}   // solo muestra etiquetas asignadas
             value={idEtiquetaFiltro}
             onChange={setIdEtiquetaFiltro}
             disabled={false}
             unavailable={false}
           />
-
 
           <select className="rounded-md border px-2 py-1" value={orden} onChange={(e) => setOrden(e.target.value)} title="Orden">
             <option value="recientes">Más recientes</option>
@@ -1254,6 +1294,169 @@ export default function Clientes() {
         onClose={() => setModalCrearEtiquetaOpen(false)}
         onCreate={crearEtiquetas}
       />
+
+      {/* ===== Modales: SMS / Email / Reseña ===== */}
+      <BaseModal
+        open={modalSMS.open}
+        title="Enviar SMS"
+        onClose={() => setModalSMS({ open: false, msg: "" })}
+        footer={
+          <>
+            <button className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setModalSMS({ open: false, msg: "" })}>
+              Cancelar
+            </button>
+            <button
+              disabled={!selected.length}
+              onClick={async () => {
+                const msg = modalSMS.msg;
+                if (!msg.trim()) return alert("Escribe el mensaje");
+                try {
+                  await chatApi.post("/clientes_chat_center/sms/enviar", {
+                    ids: selected,
+                    mensaje: msg.trim(),
+                  });
+                  alert("SMS enviado");
+                  setModalSMS({ open: false, msg: "" });
+                } catch {
+                  alert("Pendiente backend");
+                }
+              }}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+            >
+              Enviar
+            </button>
+          </>
+        }
+      >
+        <p className="mb-2 text-sm text-gray-600">
+          Mensaje a {!selected.length ? 0 : selected.length} cliente(s).
+        </p>
+        <textarea
+          className="w-full rounded-md border px-3 py-2 text-sm"
+          rows={5}
+          placeholder="Tu mensaje SMS…"
+          value={modalSMS.msg}
+          onChange={(e) => setModalSMS({ open: true, msg: e.target.value })}
+        />
+      </BaseModal>
+
+      <BaseModal
+        open={modalEmail.open}
+        title="Enviar Email"
+        onClose={() => setModalEmail({ open: false, subject: "", body: "" })}
+        footer={
+          <>
+            <button
+              className="rounded-md border px-3 py-1.5 text-sm"
+              onClick={() => setModalEmail({ open: false, subject: "", body: "" })}
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={!selected.length}
+              onClick={async () => {
+                const { subject, body } = modalEmail;
+                if (!subject.trim()) return alert("Asunto requerido");
+                if (!body.trim()) return alert("Cuerpo requerido");
+                try {
+                  await chatApi.post("/clientes_chat_center/email/enviar", {
+                    ids: selected,
+                    subject: subject.trim(),
+                    body: body.trim(),
+                  });
+                  alert("Email enviado");
+                  setModalEmail({ open: false, subject: "", body: "" });
+                } catch {
+                  alert("Pendiente backend");
+                }
+              }}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+            >
+              Enviar
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <input
+            className="w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="Asunto"
+            value={modalEmail.subject}
+            onChange={(e) => setModalEmail((s) => ({ ...s, subject: e.target.value }))}
+          />
+          <textarea
+            className="w-full rounded-md border px-3 py-2 text-sm"
+            rows={8}
+            placeholder="Contenido del email…"
+            value={modalEmail.body}
+            onChange={(e) => setModalEmail((s) => ({ ...s, body: e.target.value }))}
+          />
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={modalReview.open}
+        title="Enviar solicitud de reseña"
+        onClose={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
+        footer={
+          <>
+            <button
+              className="rounded-md border px-3 py-1.5 text-sm"
+              onClick={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={!selected.length}
+              onClick={async () => {
+                const { channel, link } = modalReview;
+                if (!link.trim()) return alert("Enlace requerido");
+                try {
+                  await chatApi.post("/clientes_chat_center/resenas/enviar", {
+                    ids: selected,
+                    channel,
+                    link: link.trim(),
+                  });
+                  alert("Solicitud enviada");
+                  setModalReview({ open: false, channel: "whatsapp", link: "" });
+                } catch {
+                  alert("Pendiente backend");
+                }
+              }}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+            >
+              Enviar
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-700">Canal</label>
+            <select
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              value={modalReview.channel}
+              onChange={(e) => setModalReview((s) => ({ ...s, channel: e.target.value }))}
+            >
+              <option value="whatsapp">WhatsApp</option>
+              <option value="sms">SMS</option>
+              <option value="email">Email</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-700">Enlace de reseña</label>
+            <input
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              placeholder="https://g.page/r/XXXXX"
+              value={modalReview.link}
+              onChange={(e) => setModalReview((s) => ({ ...s, link: e.target.value }))}
+            />
+          </div>
+          <p className="text-xs text-gray-500">
+            Se enviará a {!selected.length ? 0 : selected.length} cliente(s).
+          </p>
+        </div>
+      </BaseModal>
     </div>
   );
 }
