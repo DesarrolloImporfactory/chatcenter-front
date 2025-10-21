@@ -708,7 +708,18 @@ const Asistentes = () => {
                       isMulti
                       options={productosOptions}
                       value={selectedProductos}
-                      onChange={handleProductosChange}
+                      onChange={(selected) => {
+                        // Limitar la selección a un máximo de 3 productos
+                        if (selected.length <= 3) {
+                          handleProductosChange(selected);
+                        } else {
+                          Toast.fire({
+                          icon: "error",
+                          title: "Maximo 3 productos para alimentar a la IA",
+                          position: "bottom"
+                        });
+                        }
+                      }}
                       placeholder="Selecciona productos"
                       className="w-full"
                       classNamePrefix="react-select"

@@ -3,6 +3,18 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 
+const Toast = Swal.mixin({
+    toast: true,
+    position: "top-end",
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    didOpen: (toast) => {
+      toast.addEventListener("mouseenter", Swal.stopTimer);
+      toast.addEventListener("mouseleave", Swal.resumeTimer);
+    },
+  });
+
 const currency = new Intl.NumberFormat("es-EC", {
   style: "currency",
   currency: "USD",
@@ -521,6 +533,18 @@ const ProductosView = () => {
     </div>
   );
 
+  const handleDescriptionChange = (e) => {
+    const newText = e.target.value;
+    const words = newText.trim().split(/\s+/);
+
+    // Limitar el texto a 200 palabras
+    if (words.length <= 200) {
+      setForm({ ...form, descripcion: newText });
+    } else {
+      Toast.fire({ icon: "error", title: "La descipcion esta a limitada a 200 palabras maximo", position: "bottom"});
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100  px-3 md:px-6">
       {/* Card principal */}
@@ -946,9 +970,7 @@ const ProductosView = () => {
                     rows={4}
                     className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none resize-y"
                     value={form.descripcion}
-                    onChange={(e) =>
-                      setForm({ ...form, descripcion: e.target.value })
-                    }
+                    onChange={handleDescriptionChange}
                   />
                 </div>
 
