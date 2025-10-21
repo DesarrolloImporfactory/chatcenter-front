@@ -466,6 +466,28 @@ export default function Clientes() {
     return /^[\d\s()+-]*$/.test(q) && onlyDigits.length >= 5;
   }
 
+  /* Helpers búsqueda por nombre/apellido (tolerante a acentos y símbolos) */
+  function normalizeHumanText(s = "") {
+    return String(s)
+      .normalize("NFD")                  // separa diacríticos
+      .replace(/[\u0300-\u036f]/g, "")   // quita diacríticos
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]+/gi, " ")    // símbolos -> espacio
+      .replace(/\s+/g, " ")              // colapsa espacios
+      .trim();
+  }
+
+  function matchesFullName(cliente, qRaw) {
+    if (!qRaw) return true;
+    const full = normalizeHumanText(`${cliente.nombre || ""} ${cliente.apellido || ""}`);
+    const qn = normalizeHumanText(qRaw);
+    if (!qn) return true;
+    const parts = qn.split(" ");
+    // AND de todas las palabras: cada token del query debe estar en el nombre completo
+    return parts.every((p) => full.includes(p));
+  }
+
+
   /* ===== Helpers de catálogo ===== */
   function crearMapaCatalogo(cfgId, catsRef) {
     const arr = (catsRef || catalogosPorCfg)[cfgId] || [];
@@ -552,68 +574,94 @@ export default function Clientes() {
   }
 
   /* ====== LISTAR (normal o por etiqueta) ====== */
-  async function apiList(p = 1, replace = false) {
-    setLoading(true);
-    try {
-      const phoneLike = isPhoneQuery(q);
-      const qPhone = phoneLike ? normalizePhone(q) : undefined;
+  // Reemplaza TU función apiList por esta versión (solo difiere en cómo arma q / filtros)
+async function apiList(p = 1, replace = false) {
+  setLoading(true);
+  try {
+    const phoneLike = isPhoneQuery(q);
+    const qPhone = phoneLike ? normalizePhone(q) : undefined;
 
-      const paramsBase = {
-        page: p,
-        limit: LIMIT,
-        sort: orden,
-        q: q ? (phoneLike ? qPhone : q) : undefined,
-        estado: estado !== "todos" ? estado : undefined,
-        search_mode: phoneLike ? "phone" : "name",
-        phone: phoneLike ? qPhone : undefined,
-      };
-
-      let data;
-      if (idEtiquetaFiltro) {
-        const { data: resp } = await chatApi.get("/clientes_chat_center/listar_por_etiqueta", {
-          params: { ...paramsBase, ids: String(idEtiquetaFiltro) },
-        });
-        data = resp;
-      } else {
-        const { data: resp } = await chatApi.get("/clientes_chat_center/listar", {
-          params: paramsBase,
-        });
-        data = resp;
-      }
-
-      const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-      const mapped = rows.map(mapRow);
-
-      const mappedFiltered = phoneLike
-        ? mapped.filter((c) => {
-            const t1 = normalizePhone(c.telefono || "");
-            const t2 = normalizePhone(c.telefono_limpio || "");
-            return t1.includes(qPhone) || t2.includes(qPhone);
-          })
-        : mapped;
-
-      const tot = data?.total ?? undefined;
-
-      const cfgs = Array.from(new Set(mappedFiltered.map((r) => r.id_configuracion).filter(Boolean)));
-      if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
-      const cats = await cargarCatalogosSiFaltan(cfgs);
-
-      const withTags = await anexarEtiquetasAsignadas(mappedFiltered, cats);
-
-      setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
-      setPage(p);
-
-      const effectiveTotalKnown = typeof tot === "number" && !phoneLike;
-      setHasMore(
-        effectiveTotalKnown ? p * LIMIT < tot : withTags.length === LIMIT
-      );
-      setTotal(effectiveTotalKnown ? tot : undefined);
-    } catch (e) {
-      swalError("No se pudo listar clientes", e?.response?.data?.message || e.message);
-    } finally {
-      setLoading(false);
+    // --- NUEVO: preparar tokens cuando es búsqueda por nombre/apellido
+    let qForBackend = undefined;
+    let qOriginal = q;
+    let tokens = [];
+    if (!phoneLike && qOriginal?.trim()) {
+      // tokens “humanos” para filtrar en el front
+      const qn = normalizeHumanText(qOriginal);
+      tokens = qn ? qn.split(" ") : [];
+      // token “ancla” crudo (sin normalizar) para maximizar coincidencias del backend
+      const rawTokens = qOriginal.trim().split(/\s+/);
+      const anchorRaw =
+        rawTokens.length > 1
+          ? rawTokens.slice().sort((a, b) => b.length - a.length)[0] // el más largo
+          : rawTokens[0];
+      qForBackend = anchorRaw || qOriginal;
     }
+
+    const paramsBase = {
+      page: p,
+      limit: LIMIT,
+      sort: orden,
+      q: qOriginal
+        ? (phoneLike ? qPhone : qForBackend) // ⬅️ mandamos el token ancla cuando hay varias palabras
+        : undefined,
+      estado: estado !== "todos" ? estado : undefined,
+      search_mode: phoneLike ? "phone" : "name",
+      phone: phoneLike ? qPhone : undefined,
+    };
+
+    let data;
+    if (idEtiquetaFiltro) {
+      const { data: resp } = await chatApi.get("/clientes_chat_center/listar_por_etiqueta", {
+        params: { ...paramsBase, ids: String(idEtiquetaFiltro) },
+      });
+      data = resp;
+    } else {
+      const { data: resp } = await chatApi.get("/clientes_chat_center/listar", {
+        params: paramsBase,
+      });
+      data = resp;
+    }
+
+    const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+    const mapped = rows.map(mapRow);
+
+    // Filtro final en front:
+    let mappedFiltered = mapped;
+
+    if (phoneLike) {
+      // Búsqueda por teléfono (igual que antes)
+      mappedFiltered = mapped.filter((c) => {
+        const t1 = normalizePhone(c.telefono || "");
+        const t2 = normalizePhone(c.telefono_limpio || "");
+        return t1.includes(qPhone) || t2.includes(qPhone);
+      });
+    } else if (qOriginal?.trim()) {
+      // AND por tokens sobre nombre completo (tolerante a acentos/símbolos)
+      mappedFiltered = mapped.filter((c) => matchesFullName(c, qOriginal));
+    }
+
+    const tot = data?.total ?? undefined;
+
+    const cfgs = Array.from(new Set(mappedFiltered.map((r) => r.id_configuracion).filter(Boolean)));
+    if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
+    const cats = await cargarCatalogosSiFaltan(cfgs);
+
+    const withTags = await anexarEtiquetasAsignadas(mappedFiltered, cats);
+
+    setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
+    setPage(p);
+
+    const effectiveTotalKnown = typeof tot === "number" && !phoneLike;
+    setHasMore(effectiveTotalKnown ? p * LIMIT < tot : withTags.length === LIMIT);
+    setTotal(effectiveTotalKnown ? tot : undefined);
+  } catch (e) {
+    swalError("No se pudo listar clientes", e?.response?.data?.message || e.message);
+  } finally {
+    setLoading(false);
   }
+}
+
 
   /* ===== Toggle/Asignar/Quitar etiquetas ===== */
   function clienteTieneEtiqueta(cliente, idEtiqueta) {
