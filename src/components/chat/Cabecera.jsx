@@ -278,6 +278,27 @@ const Cabecera = ({
   }, [opcionesMenuOpen]);
   /* fin menu de opciones */
 
+  useEffect(() => {
+      // Verificamos si ya está en localStorage
+      const alertaServi = localStorage.getItem("alerta_Servi");
+  
+      // Si el valor en localStorage es "true", ocultamos el banner
+      if (alertaServi != "true") {
+        localStorage.setItem("alerta_Servi", "true");
+  
+        Swal.fire({
+          icon: "warning",
+          title: "🚨 Aviso Importante 🚨",
+          html:
+            `El <strong>26 de octubre</strong> habrá mantenimiento programado en nuestros sistemas:<br><br>` +
+            `<strong>1. Servientrega:</strong> De 8:00 AM a 10:00 PM, se suspenderá temporalmente la generación de guías.<br>` +
+            `<strong>2. Chatcenter:</strong> Estará inactivo por un corto período debido a una actualización en los servidores.<br><br>` +
+            `Agradecemos tu comprensión.`,
+          confirmButtonText: "OK",
+        });
+      }
+    }, []);
+
   return (
     <>
       {/* Cabecera principal (mobile visible si no hay chat seleccionado, desktop siempre) */}

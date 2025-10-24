@@ -8,7 +8,6 @@ const Logo = "https://tiendas.imporsuitpro.com/imgs/LOGOS-IMPORSUIT.png";
 
 const Header = ({ menuButtonRef, onToggleSlider }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const [showBanner, setShowBanner] = useState(false);
   const navigate = useNavigate();
   const menuRef = useRef(null);
 
@@ -39,10 +38,9 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
     const alertaServi = localStorage.getItem("alerta_Servi");
 
     // Si el valor en localStorage es "true", ocultamos el banner
-    if (alertaServi === "true") {
-      setShowBanner(false);
-    } else {
-      setShowBanner(true);
+    if (alertaServi != "true") {
+      localStorage.setItem("alerta_Servi", "true");
+
       Swal.fire({
         icon: "warning",
         title: "🚨 Aviso Importante 🚨",
@@ -54,30 +52,10 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
         confirmButtonText: "OK",
       });
     }
-
-    // Configuramos el timer para 50 segundos
-    const timer = setTimeout(() => {
-      localStorage.setItem("alerta_Servi", "true"); // Establecemos el valor en true
-      setShowBanner(false); // Ocultamos el banner
-    }, 50000); // 50000ms = 50 segundos
-
-    // Limpiar el timer si el componente se desmonta antes de que termine el timeout
-    return () => clearTimeout(timer);
-  }, []); // Solo se ejecuta una vez cuando el componente se monta
+  }, []);
 
   return (
     <header className="w-full fixed top-0 left-0 z-50">
-      {showBanner && (
-        <div className="w-full bg-yellow-500 text-white py-1">
-          <div className="flex items-center justify-center">
-            <div className="animate-marquee whitespace-nowrap px-10 text-lg font-semibold">
-              🚨 AVISO IMPORTANTE: El día 26 de OCTUBRE de 8:00 AM a 10:00 PM se
-              deshabilitará temporalmente la generación de guías de SERVIENTREGA
-              por mantenimiento del sistema 🚨
-            </div>
-          </div>
-        </div>
-      )}
       <nav className="relative flex items-center h-16 px-5 bg-[#171931] text-white">
         {/* Botón “hamburger” */}
         <button
