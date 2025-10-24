@@ -53,7 +53,7 @@ import MainLayout from "./components/layout/MainLayout";
 import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
 
-import Clientes from "./components/clientes/clientes";
+import Clientes from "./components/clientes/Clientes";
 
 function App() {
   useEffect(() => {
