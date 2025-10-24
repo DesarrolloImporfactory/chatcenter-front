@@ -17,8 +17,10 @@ export default function Register() {
     handleSubmit,
     watch,
     reset,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm();
+
+  const acepta = watch("acepta", false);
 
   const onSubmit = (data) => {
     dispatch(registerThunk(data))
@@ -238,12 +240,52 @@ export default function Register() {
             )}
           </div>
 
+          {/* Aceptación de Términos y Privacidad */}
+          <div className="mb-4 text-xs text-gray-600">
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                {...register("acepta", {
+                  required:
+                    "Debe aceptar las Condiciones y la Política de Privacidad",
+                })}
+                className="mt-1 accent-green-600"
+              />
+              <span>
+                He leído y acepto las{" "}
+                <a
+                  href="/condiciones-servicio"
+                  className="underline text-blue-600"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Condiciones del Servicio
+                </a>{" "}
+                y la{" "}
+                <a
+                  href="/politica-privacidad"
+                  className="underline text-blue-600"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Política de Privacidad
+                </a>
+              </span>
+            </label>
+            {errors.acepta && (
+              <p role="alert" className="text-red-600 text-xs mt-1">
+                {errors.acepta.message}
+              </p>
+            )}
+          </div>
+
           {/* Botón registrar */}
           <button
             type="submit"
+            disabled={!acepta || isSubmitting}
             className="w-full py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors disabled:opacity-50"
           >
-            Crear cuenta
+            {isSubmitting ? "Creando cuenta..." : "Crear Cuenta"}
           </button>
 
           {/* Ir a login */}

@@ -91,7 +91,9 @@ export default function PoliticasView() {
             Quito, Ecuador
             <br />
             Correo:{" "}
-            <a href="info@imporfactoryusa.com">info@imporfactoryusa.com</a>
+            <a href="mailto:info@imporfactoryusa.com">
+              info@imporfactoryusa.com
+            </a>
             <br />
             Sistema/App: <strong>ImporChat (by Imporfactory)</strong>
           </p>
@@ -201,11 +203,33 @@ export default function PoliticasView() {
 
         <section id="conservacion">
           <h2>6. Conservación</h2>
-          <p>
-            Conservamos la información el tiempo estrictamente necesario. Tokens
-            OAuth se guardan cifrados y se revocan al cerrar sesión o a petición
-            del usuario.
-          </p>
+          <ul className="check">
+            <li>
+              <strong>Mensajes y archivos en ImporChat:</strong> se conservan
+              por un máximo de
+              <strong> 6 meses (180 días)</strong> desde su recepción, tras lo
+              cual se eliminan automáticamente de forma definitiva en nuestras
+              bases de datos operativas.
+            </li>
+            <li>
+              <strong>Registros técnicos (logs) y seguridad:</strong> podemos
+              conservar resúmenes y evidencias de acceso o eventos por un
+              período adicional razonable para
+              <em>auditoría, prevención de fraude y seguridad</em>, o cuando sea
+              requerido por ley.
+            </li>
+            <li>
+              <strong>Backups operativos:</strong> se mantienen por ciclos de
+              corta duración y se rotan de manera periódica. El contenido
+              eliminado puede subsistir temporalmente hasta la próxima rotación.
+            </li>
+            <li>
+              <strong>Excepciones legales:</strong> cuando exista una obligación
+              legal, requerimiento de autoridad o disputa vigente, podremos
+              conservar la información estrictamente necesaria hasta la
+              resolución del caso.
+            </li>
+          </ul>
         </section>
 
         <section id="seguridad">

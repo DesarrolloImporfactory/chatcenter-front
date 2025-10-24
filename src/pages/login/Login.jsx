@@ -28,7 +28,9 @@ export default function Login() {
         navigate("/conexiones");
       })
       .catch((e) => {
-        setError("root", { message: e?.message || "No se pudo iniciar sesión" });
+        setError("root", {
+          message: e?.message || "No se pudo iniciar sesión",
+        });
       });
   };
 
@@ -93,22 +95,32 @@ export default function Login() {
             ].join(" ")}
           >
             <header className="flex items-center gap-3 mb-6">
-              <i className="bx bxs-message-dots text-3xl text-blue-400" aria-hidden="true" />
-              <span className="text-xl font-semibold tracking-wide text-white">ImporChat</span>
+              <i
+                className="bx bxs-message-dots text-3xl text-blue-400"
+                aria-hidden="true"
+              />
+              <span className="text-xl font-semibold tracking-wide text-white">
+                ImporChat
+              </span>
             </header>
 
-            <h1 className="text-3xl font-extrabold mb-4 leading-tight text-white">¡Bienvenido!</h1>
+            <h1 className="text-3xl font-extrabold mb-4 leading-tight text-white">
+              ¡Bienvenido!
+            </h1>
             <p className="text-base mb-3 text-slate-200">
-              Centraliza tus conversaciones de WhatsApp, acelera ventas y potencia tu marketing en un solo sitio.
+              Centraliza tus conversaciones de WhatsApp, acelera ventas y
+              potencia tu marketing en un solo sitio.
             </p>
             <p className="text-sm text-slate-300">
-              Ahorra tiempo, brinda atención personalizada y fideliza a tus clientes con flujos automáticos.
+              Ahorra tiempo, brinda atención personalizada y fideliza a tus
+              clientes con flujos automáticos.
             </p>
 
             <ul className="space-y-2 text-sm mt-6 text-slate-200">
               <li className="flex gap-2">
                 <i className="bx bx-check text-blue-400 mt-[2px]" />
-                Responde hasta el 80 % de las consultas frecuentes con flujos automáticos.
+                Responde hasta el 80 % de las consultas frecuentes con flujos
+                automáticos.
               </li>
               <li className="flex gap-2">
                 <i className="bx bx-check text-blue-400 mt-[2px]" />
@@ -119,7 +131,9 @@ export default function Login() {
             <div className="grid grid-cols-2 gap-4 mt-8 text-center">
               <div>
                 <p className="text-3xl font-extrabold text-white">+12 000</p>
-                <p className="text-xs text-slate-400">chats diarios gestionados</p>
+                <p className="text-xs text-slate-400">
+                  chats diarios gestionados
+                </p>
               </div>
               <div>
                 <p className="text-3xl font-extrabold text-white">98 %</p>
@@ -196,9 +210,13 @@ export default function Login() {
                 type="button"
                 onClick={() => setShowPwd((prev) => !prev)}
                 className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-slate-700 focus:outline-none"
-                aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+                aria-label={
+                  showPwd ? "Ocultar contraseña" : "Mostrar contraseña"
+                }
               >
-                <i className={`bx ${showPwd ? "bx-hide" : "bx-show"} text-xl`} />
+                <i
+                  className={`bx ${showPwd ? "bx-hide" : "bx-show"} text-xl`}
+                />
               </button>
               {errors.password && (
                 <p className="text-rose-400 text-xs mt-1" role="alert">
@@ -210,12 +228,16 @@ export default function Login() {
             {/* Recordarme / Olvidé */}
             <div className="flex items-center justify-between text-xs mb-6">
               <label className="flex items-center gap-2 select-none text-slate-200">
-                <input type="checkbox" {...register("rememberMe")} className="accent-blue-500" />
+                <input
+                  type="checkbox"
+                  {...register("rememberMe")}
+                  className="accent-blue-500"
+                />
                 Recuérdame
               </label>
-              <Link to="/recuperar-password" className="text-blue-400 hover:underline">
+              {/* <Link to="/recuperar-password" className="text-blue-400 hover:underline">
                 ¿Olvidaste tu contraseña?
-              </Link>
+              </Link> */}
             </div>
 
             {/* Error raíz */}
@@ -247,13 +269,24 @@ export default function Login() {
 
             <p className="mt-4 text-[12px] text-slate-300 leading-tight text-center">
               Al iniciar sesión aceptas nuestras{" "}
-              <a href="/condiciones-servicio" className="underline text-blue-300" target="_blank" rel="noopener noreferrer">
+              <a
+                href="/condiciones-servicio"
+                className="underline text-blue-300"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Condiciones de servicio
               </a>{" "}
               y la{" "}
-              <a href="/politica-privacidad" className="underline text-blue-300" target="_blank" rel="noopener noreferrer">
+              <a
+                href="/politica-privacidad"
+                className="underline text-blue-300"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Política de privacidad
-              </a>.
+              </a>
+              .
             </p>
 
             <div className="flex items-center justify-center gap-1 mt-7 text-[13px] text-slate-300">

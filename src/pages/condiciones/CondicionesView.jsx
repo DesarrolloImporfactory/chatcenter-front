@@ -151,7 +151,26 @@ export default function CondicionesView() {
         </section>
 
         <section>
-          <h2>13. Contacto</h2>
+          <h2>13. Conservación y eliminación automática de mensajes</h2>
+          <p>
+            Para optimizar rendimiento y costos, ImporChat elimina de forma
+            automática los mensajes y archivos con una antigüedad mayor a 6
+            meses (180 días) en las bandejas del sistema. Esta medida no
+            modifica el tratamiento realizado por las plataformas de origen
+            (WhatsApp, Instagram, Facebook, TikTok), que se rigen por sus
+            propias políticas.
+          </p>
+          <p>
+            Usted es responsable de exportar o respaldar la información que
+            desee conservar por períodos superiores. Podemos conservar ciertos
+            registros mínimos (p. ej., auditoría y seguridad) por tiempo
+            adicional cuando exista obligación legal o interés legítimo
+            justificado.
+          </p>
+        </section>
+
+        <section>
+          <h2>14. Contacto</h2>
           <p>
             Escríbanos a{" "}
             <a href="mailto:info@imporfactoryusa.com">
