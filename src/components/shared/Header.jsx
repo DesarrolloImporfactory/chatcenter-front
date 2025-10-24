@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useEffect, useState, useRef } from "react";
+import Swal from "sweetalert2";
 import "./styles/header.css";
 
 const Logo = "https://tiendas.imporsuitpro.com/imgs/LOGOS-IMPORSUIT.png";
@@ -42,6 +43,16 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
       setShowBanner(false);
     } else {
       setShowBanner(true);
+      Swal.fire({
+        icon: "warning",
+        title: "🚨 Aviso Importante 🚨",
+        html:
+          `El <strong>26 de octubre</strong> habrá mantenimiento programado en nuestros sistemas:<br><br>` +
+          `<strong>1. Servientrega:</strong> De 8:00 AM a 10:00 PM, se suspenderá temporalmente la generación de guías.<br>` +
+          `<strong>2. Chatcenter:</strong> Estará inactivo por un corto período debido a una actualización en los servidores.<br><br>` +
+          `Agradecemos tu comprensión.`,
+        confirmButtonText: "OK",
+      });
     }
 
     // Configuramos el timer para 50 segundos
