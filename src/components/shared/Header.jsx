@@ -47,7 +47,6 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
         html:
           `El <strong>26 de octubre</strong> habrá mantenimiento programado en nuestros sistemas:<br><br>` +
           `<strong>1. Servientrega:</strong> De 8:00 AM a 10:00 PM, se suspenderá temporalmente la generación de guías.<br>` +
-          `<strong>2. Chatcenter:</strong> Estará inactivo por un corto período debido a una actualización en los servidores.<br><br>` +
           `Agradecemos tu comprensión.`,
         confirmButtonText: "OK",
       });
