@@ -278,7 +278,7 @@ const Cabecera = ({
   }, [opcionesMenuOpen]);
   /* fin menu de opciones */
 
-  useEffect(() => {
+  /* useEffect(() => {
       // Verificamos si ya está en localStorage
       const alertaServi = localStorage.getItem("alerta_Servi");
   
@@ -296,7 +296,7 @@ const Cabecera = ({
           confirmButtonText: "OK",
         });
       }
-    }, []);
+    }, []); */
 
   return (
     <>

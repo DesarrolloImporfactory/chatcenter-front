@@ -33,7 +33,7 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
   }, []);
 
   // UseEffect para ocultar el banner después de un tiempo
-  useEffect(() => {
+  /* useEffect(() => {
     // Verificamos si ya está en localStorage
     const alertaServi = localStorage.getItem("alerta_Servi");
 
@@ -51,7 +51,7 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
         confirmButtonText: "OK",
       });
     }
-  }, []);
+  }, []); */
 
   return (
     <header className="w-full fixed top-0 left-0 z-50">
