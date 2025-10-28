@@ -489,6 +489,9 @@ const ConexionesGuiada = () => {
 
   const isMessengerConectado = (c) => Number(c?.messenger_conectado) === 1;
 
+  const isInstagramConectado = (c) => Number(c?.instagram_conectado) === 1;
+  const isTikTokConectado = (c) => Number(c?.tiktok_conectado) === 1;
+
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
     const conectados = configuracionAutomatizada.filter(isConectado).length;
@@ -1390,17 +1393,30 @@ const ConexionesGuiada = () => {
                         )}
 
                         {/* Instagram Inbox*/}
-                        <div
-                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                          onClick={() => handleConectarInstagramInbox(config)}
-                          title="Conectar Inbox de Instagram"
-                        >
-                          {/* usa el icono que prefieras. Si tienes boxicons: bxl-messenger / bxl-facebook */}
-                          <i className="bx bxl-instagram text-2xl"></i>
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Conectar Inbox de Instagram
-                          </span>
-                        </div>
+                        {!isInstagramConectado(config) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleConectarInstagramInbox(config)}
+                            className="relative group cursor-pointer text-gray-500 hover:text-pink-600 transition transform hover:scale-110"
+                            title="Conectar Inbox de Instagram"
+                            aria-label="Conectar Inbox de Instagram"
+                          >
+                            <i className="bx bxl-instagram text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Conectar Inbox de Instagram
+                            </span>
+                          </button>
+                        ) : (
+                          <div
+                            className="relative group text-pink-600"
+                            title="Inbox de Instagram conectado"
+                          >
+                            <i className="bx bxl-instagram text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Inbox de Instagram conectado
+                            </span>
+                          </div>
+                        )}
 
                         {/* Meta Developer */}
                         {!conectado ? (
@@ -1457,18 +1473,30 @@ const ConexionesGuiada = () => {
                         )}
 
                         {/* TikTok Inbox */}
-                        <button
-                          type="button"
-                          onClick={() => handleConectarTikTokInbox(config)}
-                          className="relative group cursor-pointer text-gray-500 hover:text-black transition transform hover:scale-110"
-                          title="Conectar Inbox de TikTok"
-                          aria-label="Conectar Inbox de TikTok"
-                        >
-                          <i className="bx bxl-tiktok text-2xl"></i>
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Conectar Inbox de TikTok
-                          </span>
-                        </button>
+                        {!isTikTokConectado(config) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleConectarTikTokInbox(config)}
+                            className="relative group cursor-pointer text-gray-500 hover:text-black transition transform hover:scale-110"
+                            title="Conectar con TikTok"
+                            aria-label="Conectar con TikTok"
+                          >
+                            <i className="bx bxl-tiktok text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Conectar TikTok
+                            </span>
+                          </button>
+                        ) : (
+                          <div
+                            className="relative group text-black"
+                            title="TikTok conectado"
+                          >
+                            <i className="bx bxl-tiktok text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              TikTok conectado
+                            </span>
+                          </div>
+                        )}
 
                         <div
                           className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
