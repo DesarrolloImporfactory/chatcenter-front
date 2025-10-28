@@ -489,6 +489,9 @@ const ConexionesGuiada = () => {
 
   const isMessengerConectado = (c) => Number(c?.messenger_conectado) === 1;
 
+  const isInstagramConectado = (c) => Number(c?.instagram_conectado) === 1;
+  const isTikTokConectado = (c) => Number(c?.tiktok_conectado) === 1;
+
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
     const conectados = configuracionAutomatizada.filter(isConectado).length;
@@ -809,12 +812,42 @@ const ConexionesGuiada = () => {
     const run = async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
+      const state = params.get("state");
       const error = params.get("error");
       if (!code || error) return;
 
       const provider = localStorage.getItem("oauth_provider");
 
       try {
+        if (provider === "tiktok") {
+          const id_configuracion =
+            localStorage.getItem("id_configuracion_tiktok") ||
+            localStorage.getItem("id_configuracion") ||
+            "";
+
+          if (!id_configuracion)
+            throw new Error("Falta id_configuracion (TikTok).");
+
+          const redirectUri = window.location.origin + TIKTOK_REDIRECT_PATH;
+
+          //Canjeamos el code por tokens/perfil
+          const { data: ex } = await chatApi.post(
+            "/tiktok/dev/oauth/exchange",
+            {
+              code,
+              state,
+              redirect_uri: redirectUri,
+            }
+          );
+
+          Swal.fire("¡Listo!", "Cuenta de TikTok conectada ✅", "success");
+          await fetchConfiguracionAutomatizada();
+
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, "", cleanUrl);
+          return;
+        }
+
         if (provider === "instagram") {
           const id_configuracion =
             localStorage.getItem("id_configuracion_ig") ||
@@ -934,6 +967,7 @@ const ConexionesGuiada = () => {
         localStorage.removeItem("oauth_provider");
         localStorage.removeItem("id_configuracion_ig");
         localStorage.removeItem("id_configuracion_fb");
+        localStorage.removeItem("id_configuracion_tiktok");
       }
     };
     run();
@@ -957,6 +991,38 @@ const ConexionesGuiada = () => {
       Swal.fire(
         "Error",
         "No se puede iniciar la conexión con Instagram",
+        "error"
+      );
+    }
+  };
+
+  const TIKTOK_REDIRECT_PATH = "/conexionespruebas";
+
+  const handleConectarTikTokInbox = async (config) => {
+    try {
+      localStorage.setItem("oauth_provider", "tiktok");
+      localStorage.setItem("id_configuracion_tiktok", String(config.id));
+
+      const redirectUri = window.location.origin + TIKTOK_REDIRECT_PATH;
+
+      const { data } = await chatApi.get("/tiktok/dev/login-url", {
+        params: {
+          id_configuracion: config.id,
+          redirect_uri: redirectUri,
+        },
+      });
+
+      if (!data?.url) {
+        throw new Error("No se recibió URL de autorización de TikTok");
+      }
+
+      //Redirige al consentimiento de TikTok
+      window.location.href = data.url;
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Error",
+        err?.message || "No se pudo iniciar la conexión con TikTok.",
         "error"
       );
     }
@@ -1326,19 +1392,31 @@ const ConexionesGuiada = () => {
                           </div>
                         )}
 
-                        {/* Instagram Inbox —*/}
                         {/* Instagram Inbox*/}
-                        <div
-                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                          onClick={() => handleConectarInstagramInbox(config)}
-                          title="Conectar Inbox de Instagram"
-                        >
-                          {/* usa el icono que prefieras. Si tienes boxicons: bxl-messenger / bxl-facebook */}
-                          <i className="bx bxl-instagram text-2xl"></i>
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Conectar Inbox de Instagram
-                          </span>
-                        </div>
+                        {!isInstagramConectado(config) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleConectarInstagramInbox(config)}
+                            className="relative group cursor-pointer text-gray-500 hover:text-pink-600 transition transform hover:scale-110"
+                            title="Conectar Inbox de Instagram"
+                            aria-label="Conectar Inbox de Instagram"
+                          >
+                            <i className="bx bxl-instagram text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Conectar Inbox de Instagram
+                            </span>
+                          </button>
+                        ) : (
+                          <div
+                            className="relative group text-pink-600"
+                            title="Inbox de Instagram conectado"
+                          >
+                            <i className="bx bxl-instagram text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Inbox de Instagram conectado
+                            </span>
+                          </div>
+                        )}
 
                         {/* Meta Developer */}
                         {!conectado ? (
@@ -1390,6 +1468,32 @@ const ConexionesGuiada = () => {
                             <i className="bx bxl-whatsapp text-2xl"></i>
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
                               WhatsApp vinculado
+                            </span>
+                          </div>
+                        )}
+
+                        {/* TikTok Inbox */}
+                        {!isTikTokConectado(config) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleConectarTikTokInbox(config)}
+                            className="relative group cursor-pointer text-gray-500 hover:text-black transition transform hover:scale-110"
+                            title="Conectar con TikTok"
+                            aria-label="Conectar con TikTok"
+                          >
+                            <i className="bx bxl-tiktok text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Conectar TikTok
+                            </span>
+                          </button>
+                        ) : (
+                          <div
+                            className="relative group text-black"
+                            title="TikTok conectado"
+                          >
+                            <i className="bx bxl-tiktok text-2xl"></i>
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              TikTok conectado
                             </span>
                           </div>
                         )}
