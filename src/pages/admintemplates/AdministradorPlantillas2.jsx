@@ -1196,7 +1196,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   );
 
   return (
-    <div className="p-0 mt-16">
+    <div className="p-0 mt-2">
       {!hideHeader && (
         <div className="px-5">
           <SectionHeader
