@@ -1356,7 +1356,7 @@ const ConexionesGuiada = () => {
                               "nombre_configuracion",
                               config.nombre_configuracion
                             );
-                            navigate("/administrador-whatsapp");
+                            navigate("/canal-conexiones");
                           }}
                           title="Ir a configuración"
                         >
