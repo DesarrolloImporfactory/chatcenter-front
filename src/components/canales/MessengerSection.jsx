@@ -91,34 +91,57 @@ const MessengerProfileMini = ({ p }) => {
         </div>
       </div>
 
-      {/* Info breve (si aún no hay permisos, verás “—”)
-      <div className="px-5 pb-5 pt-3 space-y-3">
-        <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+      {/* KPI cards */}
+      <div className="px-5 pb-5 pt-3 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 text-center">
           <div className="text-[11px] uppercase tracking-wide text-gray-500">
-            Acerca de
+            Seguidores
           </div>
-          <div className="mt-1 text-sm text-gray-800 whitespace-pre-line">
-            {p.about || "—"}
+          <div className="mt-1 text-base font-semibold text-gray-900">
+            {typeof p.followers_count === "number"
+              ? p.followers_count.toLocaleString()
+              : "—"}
           </div>
         </div>
+        <div className="rounded-xl border border-gray-100 bg-white p-4 text-center">
+          <div className="text-[11px] uppercase tracking-wide text-gray-500">
+            Me gusta
+          </div>
+          <div className="mt-1 text-base font-semibold text-gray-900">
+            {typeof p.fan_count === "number"
+              ? p.fan_count.toLocaleString()
+              : "—"}
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-white p-4 text-center">
+          <div className="text-[11px] uppercase tracking-wide text-gray-500">
+            Verificación
+          </div>
+          <div className="mt-1 text-base font-semibold text-gray-900">
+            {p.verification_status || "—"}
+          </div>
+        </div>
+      </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+      {/* About / Description y enlaces */}
+      <div className="px-5 pb-5 pt-3 space-y-3">
+        {(p.about || p.description) && (
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <div className="text-[11px] uppercase tracking-wide text-gray-500">
+              Descripción
+            </div>
+            <div className="mt-1 text-sm text-gray-800 whitespace-pre-line">
+              {p.about || p.description}
+            </div>
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-gray-100 bg-white p-4">
             <div className="text-[11px] uppercase tracking-wide text-gray-500">
               Categoría
             </div>
             <div className="mt-1 text-sm text-gray-800">
               {p.category || "—"}
-            </div>
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <div className="text-[11px] uppercase tracking-wide text-gray-500">
-              Seguidores
-            </div>
-            <div className="mt-1 text-sm text-gray-800">
-              {typeof p.fan_count === "number"
-                ? p.fan_count.toLocaleString()
-                : "—"}
             </div>
           </div>
           <div className="rounded-xl border border-gray-100 bg-white p-4">
@@ -133,14 +156,27 @@ const MessengerProfileMini = ({ p }) => {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Ver página
+                  {p.page_link}
                 </a>
               ) : (
-                <span className="text-gray-800">—</span>
+                "—"
               )}
             </div>
+            {p.website && (
+              <div className="mt-1 text-sm">
+                <a
+                  href={p.website}
+                  className="text-blue-600 hover:underline break-all"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {p.website}
+                </a>
+              </div>
+            )}
           </div>
-        </div> */}
+        </div>
+      </div>
 
       {/* Badges */}
       <div className="flex flex-wrap gap-2">
