@@ -67,6 +67,17 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   const [modalResultadosAbierto, setModalResultadosAbierto] = useState(false);
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
 
+  // --- PAGINACIÓN & SEARCH (templates) ---
+  const [tplLoading, setTplLoading] = useState(false);
+  const [pageLimit, setPageLimit] = useState(25); // 10/25/50/100
+  const [pageCursors, setPageCursors] = useState({
+    before: null,
+    after: null,
+    hasPrev: false,
+    hasNext: false,
+  });
+  const [tplSearch, setTplSearch] = useState("");
+
   const socketRef = useRef(null);
 
   // ancla para scroll
@@ -246,20 +257,79 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     }
   }, [currentTab, id_configuracion]);
 
-  const fetchPlantillas = async () => {
+  const plantillasFiltradas = useMemo(() => {
+    if (!tplSearch.trim()) return plantillas;
+    const q = tplSearch.toLowerCase();
+
+    const matchComp = (comp) => {
+      if (!comp) return false;
+      const t = (comp.text || "").toString().toLowerCase();
+      const btns = (comp.buttons || [])
+        .map((b) => (b?.text || "").toLowerCase())
+        .join(" ");
+      return t.includes(q) || btns.includes(q);
+    };
+
+    return plantillas.filter((p) => {
+      const name = (p.name || "").toLowerCase();
+      const lang = (p.language || "").toLowerCase();
+      const cat = (p.category || "").toLowerCase();
+      const comps = Array.isArray(p.components) ? p.components : [];
+      return (
+        name.includes(q) ||
+        lang.includes(q) ||
+        cat.includes(q) ||
+        comps.some(matchComp)
+      );
+    });
+  }, [tplSearch, plantillas]);
+
+  // Carga una página de plantillas con cursores y límite
+  const fetchPlantillas = async ({
+    after = null,
+    before = null,
+    limit = pageLimit,
+  } = {}) => {
     if (!userData || id_configuracion === null) return;
     try {
+      setTplLoading(true);
       const resp = await chatApi.post(
         "/whatsapp_managment/obtenerTemplatesWhatsapp",
-        { id_configuracion }
+        {
+          id_configuracion,
+          after,
+          before,
+          limit,
+        }
       );
-      setPlantillas(resp.data.data || []);
+
+      // data de Meta => resp.data.data, paging => resp.data.paging
+      const data = resp?.data?.data || [];
+      const paging = resp?.data?.paging || {};
+      const curs = paging?.cursors || {};
+
+      setPlantillas(data);
+      setPageCursors({
+        before: curs?.before || null,
+        after: curs?.after || null,
+        hasPrev: Boolean(paging?.previous || curs?.before),
+        hasNext: Boolean(paging?.next || curs?.after),
+      });
     } catch (error) {
       console.error("Error al cargar las plantillas:", error);
       setStatusMessage({
         type: "error",
         text: "No se pudieron cargar las plantillas.",
       });
+      setPlantillas([]);
+      setPageCursors({
+        before: null,
+        after: null,
+        hasPrev: false,
+        hasNext: false,
+      });
+    } finally {
+      setTplLoading(false);
     }
   };
 
@@ -269,6 +339,25 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       return () => clearTimeout(timer);
     }
   }, [statusMessage]);
+
+  const handleNextTemplates = () => {
+    if (pageCursors.hasNext && pageCursors.after) {
+      fetchPlantillas({ after: pageCursors.after, limit: pageLimit });
+    }
+  };
+
+  const handlePrevTemplates = () => {
+    if (pageCursors.hasPrev && pageCursors.before) {
+      fetchPlantillas({ before: pageCursors.before, limit: pageLimit });
+    }
+  };
+
+  const handleChangeLimit = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    setPageLimit(newLimit);
+    // Reiniciar al "inicio" (sin before/after)
+    fetchPlantillas({ after: null, before: null, limit: newLimit });
+  };
 
   const crearPlantillasAutomaticas = async () => {
     setCargandoPlantillas(true);
@@ -627,25 +716,56 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         title="Administrador de Plantillas"
         subtitle="Crea, revisa el estado de aprobación y consulta el contenido de las plantillas asociadas a tu portafolio de Business Manager"
         right={
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMostrarModalPlantilla(true)}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700"
-            >
-              + Crear Plantilla
-            </button>
-            <button
-              onClick={crearPlantillasAutomaticas}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 disabled:opacity-50"
-              disabled={cargandoPlantillas}
-            >
-              {cargandoPlantillas
-                ? "Creando..."
-                : "Crear Plantillas Recomendadas"}
-            </button>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            {/* Buscador local */}
+            <div className="flex items-center gap-2 border rounded-xl px-3 py-2 bg-white">
+              <i className="bx bx-search text-gray-500"></i>
+              <input
+                value={tplSearch}
+                onChange={(e) => setTplSearch(e.target.value)}
+                placeholder="Buscar por nombre, idioma, categoría o texto…"
+                className="outline-none text-sm min-w-[220px]"
+              />
+            </div>
+
+            {/* Límite */}
+            <div className="flex items-center gap-2 border rounded-xl px-3 py-2 bg-white">
+              <span className="text-sm text-gray-600">Mostrar</span>
+              <select
+                value={pageLimit}
+                onChange={handleChangeLimit}
+                className="text-sm outline-none bg-transparent"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-sm text-gray-600">por página</span>
+            </div>
+
+            {/* Botones crear */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMostrarModalPlantilla(true)}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700"
+              >
+                + Crear Plantilla
+              </button>
+              <button
+                onClick={crearPlantillasAutomaticas}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+                disabled={cargandoPlantillas}
+              >
+                {cargandoPlantillas
+                  ? "Creando..."
+                  : "Crear Plantillas Recomendadas"}
+              </button>
+            </div>
           </div>
         }
       />
+
       <div className="overflow-x-auto">
         <table className="min-w-full border bg-white shadow rounded-lg">
           <thead className="bg-gray-200 text-gray-700 text-sm">
@@ -677,7 +797,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
             </tr>
           </thead>
           <tbody>
-            {plantillas.map((plantilla, index) => (
+            {plantillasFiltradas.map((plantilla, index) => (
               <tr key={index} className="border-t hover:bg-gray-50">
                 <td className="py-2 px-4">
                   <div className="font-semibold">{plantilla.name}</div>
@@ -762,8 +882,43 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                 </td>
               </tr>
             ))}
+            {!tplLoading &&
+              plantillas.length > 0 &&
+              plantillasFiltradas.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                    No se encontraron resultados para “{tplSearch}”.
+                  </td>
+                </tr>
+              )}
           </tbody>
         </table>
+      </div>
+      {/* Paginación */}
+      <div className="mt-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="text-sm text-gray-600">
+          {tplLoading
+            ? "Cargando…"
+            : `Mostrando ${plantillasFiltradas.length} de ${plantillas.length} en esta página`}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50"
+            onClick={handlePrevTemplates}
+            disabled={!pageCursors.hasPrev || tplLoading}
+            title="Anterior"
+          >
+            ← Anterior
+          </button>
+          <button
+            className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50"
+            onClick={handleNextTemplates}
+            disabled={!pageCursors.hasNext || tplLoading}
+            title="Siguiente"
+          >
+            Siguiente →
+          </button>
+        </div>
       </div>
     </div>
   );
