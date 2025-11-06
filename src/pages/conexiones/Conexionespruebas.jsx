@@ -1,4 +1,3 @@
-// ConexionesGuiada.jsx
 import React, {
   useEffect,
   useMemo,
@@ -374,7 +373,7 @@ const HoverPopover = ({
    Vista principal con guía
 =========================== */
 
-const ConexionesGuiada = () => {
+const Conexionespruebas = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
     []
   );
@@ -1028,37 +1027,57 @@ const ConexionesGuiada = () => {
     }
   };
 
-  const fetchConfiguracionAutomatizada = useCallback(async () => {
-    if (!userData) return;
+  // util pequeño
+  const getUserIdSafe = () => {
     try {
-      setLoading(true);
-      const response = await chatApi.post("configuraciones/listar_conexiones", {
-        id_usuario: userData.id_usuario,
-      });
-      setConfiguracionAutomatizada(response.data.data || []);
-      setMostrarErrorBot(false);
-    } catch (error) {
-      if (error.response?.status === 403) {
-        Swal.fire({
-          icon: "error",
-          title: error.response?.data?.message,
-          confirmButtonText: "OK",
-        }).then(() => navigate("/planes_view"));
-      } else if (error.response?.status === 402) {
-        Swal.fire({
-          icon: "error",
-          title: error.response?.data?.message,
-          confirmButtonText: "OK",
-        }).then(() => navigate("/miplan"));
-      } else if (error.response?.status === 400) {
-        setMostrarErrorBot(true);
-      } else {
-        console.error("Error al cargar configuración:", error);
-      }
-    } finally {
-      setLoading(false);
+      const t = localStorage.getItem("token");
+      if (!t) return null;
+      const d = jwtDecode(t);
+      return d?.id_usuario ?? null;
+    } catch {
+      return null;
     }
-  }, [userData, navigate]);
+  };
+
+  const fetchConfiguracionAutomatizada = useCallback(
+    async (overrideUserId) => {
+      const uid = overrideUserId ?? userData?.id_usuario ?? getUserIdSafe();
+      if (!uid) return;
+
+      try {
+        setLoading(true);
+        const response = await chatApi.post(
+          "configuraciones/listar_conexiones",
+          {
+            id_usuario: uid,
+          }
+        );
+        setConfiguracionAutomatizada(response.data.data || []);
+        setMostrarErrorBot(false);
+      } catch (error) {
+        if (error.response?.status === 403) {
+          Swal.fire({
+            icon: "error",
+            title: error.response?.data?.message,
+            confirmButtonText: "OK",
+          }).then(() => navigate("/planes_view"));
+        } else if (error.response?.status === 402) {
+          Swal.fire({
+            icon: "error",
+            title: error.response?.data?.message,
+            confirmButtonText: "OK",
+          }).then(() => navigate("/miplan"));
+        } else if (error.response?.status === 400) {
+          setMostrarErrorBot(true);
+        } else {
+          console.error("Error al cargar configuración:", error);
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [userData?.id_usuario, navigate]
+  );
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -1700,4 +1719,4 @@ const ConexionesGuiada = () => {
   );
 };
 
-export default ConexionesGuiada;
+export default Conexionespruebas;
