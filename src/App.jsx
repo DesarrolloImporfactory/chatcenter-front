@@ -176,6 +176,15 @@ function App() {
           />
 
           <Route
+            path="/clientes"
+            element={
+              <MainLayout>
+                <Clientes />
+              </MainLayout>
+            }
+          />
+
+          <Route
             path="/conexiones"
             element={
               <MainLayout_conexiones>
@@ -276,8 +285,6 @@ function App() {
 
         <Route path="/access" element={<Access />} />
         <Route path="/registro_guiado" element={<RegisterGuided />} />
-
-        <Route path="/clientes" element={<Clientes />} />
 
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />

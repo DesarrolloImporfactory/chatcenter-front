@@ -2,6 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import io from "socket.io-client";
+import { jwtDecode } from "jwt-decode";
+import Select from "react-select";
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -153,7 +156,9 @@ function SortButton({ label, active, dir = "asc", onClick, className = "" }) {
       <span
         className={`bx ${
           dir === "asc" ? "bx-chevron-up" : "bx-chevron-down"
-        } text-[16px] text-slate-400 group-hover:text-slate-600 ${active ? "!text-slate-700" : ""}`}
+        } text-[16px] text-slate-400 group-hover:text-slate-600 ${
+          active ? "!text-slate-700" : ""
+        }`}
       />
     </button>
   );
@@ -161,15 +166,11 @@ function SortButton({ label, active, dir = "asc", onClick, className = "" }) {
 function ColumnsDropdown({ state, setState }) {
   return (
     <details className="relative">
-      <summary
-        className="list-none inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-      >
+      <summary className="list-none inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
         Columnas <i className="bx bx-chevron-down text-slate-600" />
       </summary>
 
-      <div
-        className="absolute right-200 z-30 mt-2 w-56 rounded-md border border-slate-200 bg-white p-2 shadow-lg ring-1 ring-black/5"
-      >
+      <div className="absolute right-200 z-30 mt-2 w-56 rounded-md border border-slate-200 bg-white p-2 shadow-lg ring-1 ring-black/5">
         {Object.keys(state).map((k) => (
           <label
             key={k}
@@ -194,9 +195,7 @@ function Tooltip({ label, children }) {
   return (
     <div className="relative inline-flex items-center group">
       {children}
-      <div
-        className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 pt-2 group-hover:block transition-all duration-150 ease-out opacity-0 translate-y-0.5 group-hover:opacity-100 group-hover:translate-y-0"
-      >
+      <div className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 pt-2 group-hover:block transition-all duration-150 ease-out opacity-0 translate-y-0.5 group-hover:opacity-100 group-hover:translate-y-0">
         <div className="mx-auto h-2 w-2 -mb-1 rotate-45 bg-slate-900/95 shadow" />
         <div className="rounded-md bg-slate-900/95 px-2.5 py-1 text-xs font-medium text-white shadow">
           {label}
@@ -241,9 +240,7 @@ function BaseModal({ open, title, onClose, children, footer }) {
         onClick={onClose}
       />
       {/* Card */}
-      <div
-        className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-slate-900/5 opacity-0 translate-y-1 animate-[modalPop_180ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]"
-      >
+      <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-slate-900/5 opacity-0 translate-y-1 animate-[modalPop_180ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
           <button
@@ -281,7 +278,10 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
       onClose={onClose}
       footer={
         <>
-          <button className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition" onClick={onClose}>
+          <button
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+            onClick={onClose}
+          >
             Cancelar
           </button>
           <button
@@ -351,12 +351,18 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
       onClose={onClose}
       footer={
         <>
-          <button className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition" onClick={onClose}>
+          <button
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+            onClick={onClose}
+          >
             Cancelar
           </button>
           <button
             onClick={async () => {
-              const lista = nombres.split(",").map((s) => s.trim()).filter(Boolean);
+              const lista = nombres
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
               if (!lista.length) {
                 swalInfo("Falta información", "Escribe al menos un nombre");
                 return;
@@ -381,17 +387,23 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
     >
       <div className="space-y-3">
         <div>
-          <label className="text-xs font-medium text-slate-700">Nombre(s)</label>
+          <label className="text-xs font-medium text-slate-700">
+            Nombre(s)
+          </label>
           <input
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             placeholder="vip, follow-up, clientes-2025"
             value={nombres}
             onChange={(e) => setNombres(e.target.value)}
           />
-          <p className="mt-1 text-xs text-slate-500">Separa por comas para crear varias.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Separa por comas para crear varias.
+          </p>
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-700">Color (opcional)</label>
+          <label className="text-xs font-medium text-slate-700">
+            Color (opcional)
+          </label>
           <input
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             placeholder="#1677FF"
@@ -406,13 +418,522 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
 
 /* =========================== Vista principal =========================== */
 export default function Clientes() {
+  /** Estilos “glass/premium” + foco accesible */
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: 44,
+      borderRadius: 12,
+      paddingLeft: 6,
+      paddingRight: 6,
+      backgroundColor: "rgba(255,255,255,0.9)",
+      backdropFilter: "saturate(1.2) blur(6px)",
+      borderColor: state.isFocused ? "#3b82f6" : "#e2e8f0",
+      boxShadow: state.isFocused
+        ? "0 0 0 3px rgba(59,130,246,.25)"
+        : "0 1px 2px rgba(2,6,23,.06)",
+      ":hover": {
+        borderColor: state.isFocused ? "#3b82f6" : "#94a3b8",
+      },
+      cursor: "text",
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: "0 4px",
+      gap: 6,
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: "#94a3b8",
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: "#0f172a",
+      fontWeight: 500,
+    }),
+    input: (base) => ({
+      ...base,
+      color: "#0f172a",
+    }),
+    indicatorsContainer: (base) => ({
+      ...base,
+      gap: 6,
+    }),
+    indicatorSeparator: () => ({ display: "none" }),
+    menuPortal: (base) => ({
+      ...base,
+      zIndex: 9999, // por si el modal tiene overflow/oculta
+    }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: 14,
+      marginTop: 8,
+      padding: 4,
+      backgroundColor: "rgba(255,255,255,.92)",
+      backdropFilter: "saturate(1.2) blur(8px)",
+      border: "1px solid rgba(226,232,240,.9)",
+      boxShadow: "0 20px 40px rgba(2,6,23,.12)",
+    }),
+    menuList: (base) => ({
+      ...base,
+      maxHeight: 260,
+      padding: 4,
+    }),
+    option: (base, state) => ({
+      ...base,
+      borderRadius: 10,
+      padding: "10px 12px",
+      color: state.isDisabled
+        ? "#94a3b8"
+        : state.isSelected
+        ? "#0b1324"
+        : "#0f172a",
+      backgroundColor: state.isSelected
+        ? "#DBEAFE"
+        : state.isFocused
+        ? "#F1F5F9"
+        : "transparent",
+      ":active": {
+        backgroundColor: state.isSelected ? "#DBEAFE" : "#E2E8F0",
+      },
+    }),
+    noOptionsMessage: (base) => ({
+      ...base,
+      padding: 12,
+      color: "#64748b",
+    }),
+  };
+  /* diseño selects */
+
+  /* primera carga socket  */
+  const [dataAdmin, setDataAdmin] = useState(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const socketRef = useRef(null);
+  const [nombre_encargado_global, setNombre_encargado_global] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token"); // Leemos el token
+    if (token) {
+      const decoded = jwtDecode(token); // Decodificamos con jwt-decode
+
+      setNombre_encargado_global(decoded.nombre_encargado);
+
+      // Verificamos si el token ha expirado
+      if (decoded.exp < Date.now() / 1000) {
+        localStorage.clear(); // Elimina todo
+        // Si ha expirado, redirigimos al login
+        window.location.href = "/login";
+      }
+
+      setUserData(decoded); // Guardamos los datos en el estado
+
+      // Conectar al servidor de WebSockets
+      const socket = io(import.meta.env.VITE_socket, {
+        transports: ["websocket", "polling"],
+        secure: true,
+      });
+
+      socket.on("connect", () => {
+        console.log("Conectado al servidor de WebSockets");
+        socketRef.current = socket;
+        setIsSocketConnected(true);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("Desconectado del servidor de WebSockets");
+        setIsSocketConnected(false);
+      });
+    } else {
+      window.location.href = "/login"; // Si no hay token, redirigir al login
+    }
+
+    // Limpiar al desmontar
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off("DATA_ADMIN_RESPONSE");
+        socketRef.current.disconnect();
+      }
+    };
+  }, []); // Esto se ejecutará solo una vez cuando el componente se monte
+
+  useEffect(() => {
+    // Asegúrate de que el socket esté conectado antes de emitir
+    if (isSocketConnected && socketRef.current) {
+      const id_configuracion = localStorage.getItem("id_configuracion");
+
+      // Llamada al socket para obtener los datos
+      socketRef.current.emit("GET_DATA_ADMIN", id_configuracion);
+
+      socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
+        setDataAdmin(data);
+
+        if (data.metodo_pago === 0) {
+          Swal.fire({
+            icon: "error",
+            title: "Problema con el método de pago",
+            text: "Tu cuenta de WhatsApp tiene problemas con el método de pago. Debes resolverlo en Business Manager para continuar.",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            allowEnterKey: true,
+            confirmButtonText: "OK",
+          }).then(() => {
+            window.location.href = "/administrador-whatsapp";
+          });
+        }
+
+        // Cargar templates (suponiendo que tienes la función definida)
+        cargarTemplates(data);
+      });
+    }
+
+    // Limpiar el evento cuando el componente se desmonte
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off("DATA_ADMIN_RESPONSE");
+      }
+    };
+  }, [isSocketConnected]);
+
+  const [templates, setTemplates] = useState([]);
+  const [templateText, setTemplateText] = useState("");
+  const [placeholders, setPlaceholders] = useState([]);
+  const [placeholderValues, setPlaceholderValues] = useState({}); // Guardar los valores de cada placeholder
+  const [templateName, setTemplateName] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("es");
+
+  // ✅ template listo para enviar (nombre + destinatario + placeholders completos)
+  const allPlaceholdersFilled = placeholders.every(
+    (ph) => (placeholderValues[ph] || "").trim().length > 0
+  );
+  const templateReady =
+    Boolean(templateName) &&
+    (placeholders.length === 0 || allPlaceholdersFilled);
+
+  const cargarTemplates = async (data) => {
+    console.log(data);
+    const wabaId = data.id_whatsapp;
+    const accessToken = data.token;
+
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/v17.0/${wabaId}/message_templates`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error al obtener templates: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      // Filtrar los templates que están aprobados
+      const templatesAprobados = data.data.filter(
+        (template) => template.status === "APPROVED"
+      );
+
+      // Guardamos solo los templates aprobados en el estado
+      setTemplates(templatesAprobados);
+    } catch (error) {
+      console.error("Error al cargar los templates:", error);
+    }
+  };
+
+  // Manejar la selección del template, extraer el texto, placeholders y el idioma
+  const handleTemplateSelect = (event) => {
+    const selectedTemplateName = event.target.value;
+    setTemplateName(selectedTemplateName);
+
+    const selectedTemplate = templates.find(
+      (template) => template.name === selectedTemplateName
+    );
+
+    if (selectedTemplate) {
+      const templateBodyComponent = selectedTemplate.components.find(
+        (comp) => comp.type === "BODY"
+      );
+
+      if (templateBodyComponent && templateBodyComponent.text) {
+        const templateText = templateBodyComponent.text;
+        setTemplateText(templateText);
+
+        // Extraer placeholders en formato {{1}}, {{2}}, etc.
+        const extractedPlaceholders = [
+          ...templateText.matchAll(/{{(.*?)}}/g),
+        ].map((match) => match[1]);
+
+        // Crear un estado inicial vacío para cada placeholder
+        const initialPlaceholderValues = {};
+        extractedPlaceholders.forEach((placeholder) => {
+          initialPlaceholderValues[placeholder] = "";
+        });
+
+        setPlaceholders(extractedPlaceholders);
+        setPlaceholderValues(initialPlaceholderValues); // Guardar placeholders vacíos para su edición
+      } else {
+        setTemplateText("Este template no tiene un cuerpo definido.");
+        setPlaceholders([]);
+        setPlaceholderValues({});
+      }
+
+      const templateLanguage = selectedTemplate.language || "es";
+      setSelectedLanguage(templateLanguage);
+    }
+  };
+
+  // Función para manejar cambios en el textarea
+  const handleTextareaChange = (event) => {
+    setTemplateText(event.target.value);
+  };
+
+  // Función para manejar cambios en los inputs de los placeholders
+  const handlePlaceholderChange = (placeholder, value) => {
+    setPlaceholderValues((prevValues) => ({
+      ...prevValues,
+      [placeholder]: value,
+    }));
+  };
+
+  const generarObjetoPlaceholders = (placeholders, placeholderValues) => {
+    // Crear un objeto con claves y valores
+    const resultado = {};
+
+    placeholders.forEach((placeholder) => {
+      resultado[placeholder] =
+        placeholderValues[placeholder] || `{{${placeholder}}}`;
+    });
+
+    return resultado;
+  };
+
+  const agregar_mensaje_enviado = async (
+    texto_mensaje,
+    tipo_mensaje,
+    ruta_archivo,
+    telefono_recibe,
+    mid_mensaje,
+    id_recibe,
+    id_configuracion,
+    telefono_configuracion,
+    wamid,
+    template_name,
+    language_code
+  ) => {
+    try {
+      const response = await chatApi.post(
+        "/clientes_chat_center/agregarMensajeEnviado",
+        {
+          texto_mensaje,
+          tipo_mensaje,
+          mid_mensaje,
+          id_recibe,
+          ruta_archivo,
+          telefono_recibe,
+          id_configuracion,
+          telefono_configuracion,
+          responsable: nombre_encargado_global,
+          id_wamid_mensaje: wamid,
+          template_name: template_name,
+          language_code: language_code,
+        }
+      );
+
+      let respuesta = response.data;
+
+      if (respuesta.status != 200) {
+        console.log("Error en la respuesta del servidor: " + respuesta);
+      }
+    } catch (error) {
+      console.error("Error al guardar el mensaje:", error);
+      alert("Ocurrió un error al guardar el mensaje. Inténtalo de nuevo.");
+    }
+  };
+
+  // Función para enviar el template a WhatsApp
+  const enviarTemplateMasivo = async () => {
+    const fromPhoneNumberId = dataAdmin.id_telefono;
+    const accessToken = dataAdmin.token;
+
+    // Arrays para acumular los resultados
+    let exitosos = [];
+    let fallidos = [];
+
+    // Mostrar cargando
+    Swal.fire({
+      title: "Enviando mensajes...",
+      html: "Por favor espera mientras enviamos los mensajes.",
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    // Iterar sobre los IDs seleccionados
+    for (let i = 0; i < selected.length; i++) {
+      const recipientId = selected[i];
+
+      // Filtrar el item correspondiente al id
+      const recipient = items.find((item) => item.id === recipientId);
+
+      if (!recipient) {
+        console.log(`Usuario con id ${recipientId} no encontrado.`);
+        fallidos.push(`ID: ${recipientId}`); // Agregar a los fallidos
+        continue; // Si no se encuentra el usuario, se omite este ID
+      }
+
+      const recipientPhone = recipient.telefono_limpio; // Obtener el teléfono limpio
+      if (!recipientPhone) {
+        console.log(
+          `El teléfono del usuario ${recipientId} no está disponible.`
+        );
+        fallidos.push(`ID: ${recipientId}, Teléfono no disponible`); // Agregar a los fallidos
+        continue; // Si no hay teléfono, se omite este usuario
+      }
+
+      // Construir el cuerpo del mensaje para la API de WhatsApp
+      const body = {
+        messaging_product: "whatsapp",
+        to: recipientPhone,
+        type: "template",
+        template: {
+          name: templateName,
+          language: { code: selectedLanguage },
+          components: [
+            {
+              type: "body",
+              parameters: placeholders.map((placeholder) => {
+                let value =
+                  placeholderValues[placeholder] || `{{${placeholder}}}`;
+
+                // Si el placeholder es '{nombre}', reemplazarlo con recipient.nombre
+                if (placeholderValues[placeholder] === "{nombre}") {
+                  value =
+                    recipient.nombre || `{{${placeholderValues[placeholder]}}}`;
+                }
+
+                return {
+                  type: "text",
+                  text: value,
+                };
+              }),
+            },
+          ],
+        },
+      };
+
+      try {
+        const response = await fetch(
+          `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Error al enviar template a ${recipientPhone}: ${response.statusText}`
+          );
+        }
+
+        const data = await response.json();
+
+        // Extraer el wamid de la respuesta
+        const wamid = data?.messages?.[0]?.id || null;
+
+        // Agregar a la lista de exitosos
+        exitosos.push(`ID: ${recipientId}, Teléfono: ${recipientPhone}`);
+
+        // Ejecutar tu lógica de agregar mensaje enviado
+        let id_recibe = recipientId;
+        let mid_mensaje = dataAdmin.id_telefono;
+        let telefono_configuracion = dataAdmin.telefono;
+        let ruta_archivo = generarObjetoPlaceholders(
+          placeholders,
+          Object.keys(placeholderValues).reduce((acc, key) => {
+            // Si el valor es '{nombre}', reemplazarlo con recipient.nombre
+            acc[key] =
+              placeholderValues[key] === "{nombre}"
+                ? recipient.nombre || "{nombre}"
+                : placeholderValues[key];
+            return acc;
+          }, {})
+        );
+        let id_configuracion = localStorage.getItem("id_configuracion");
+
+        agregar_mensaje_enviado(
+          templateText,
+          "text",
+          JSON.stringify(ruta_archivo),
+          recipientPhone,
+          mid_mensaje,
+          id_recibe,
+          id_configuracion,
+          telefono_configuracion,
+          wamid,
+          templateName,
+          selectedLanguage
+        );
+
+        // No es necesario mostrar cada éxito en un toast, puedes hacerlo de forma global al final
+        // Toast.fire({
+        //   icon: "success",
+        //   title: `Mensaje enviado correctamente a ${recipientPhone}`,
+        // });
+      } catch (error) {
+        console.error(
+          `Error al enviar el template a ${recipientPhone}:`,
+          error
+        );
+        fallidos.push(
+          `ID: ${recipientId}, Teléfono: ${recipientPhone} - Error: ${error.message}`
+        );
+      }
+    }
+
+    // Cerrar el cargador
+    Swal.close();
+
+    // Mostrar el resultado en un Toast o SweetAlert
+    if (exitosos.length > 0) {
+      Swal.fire({
+        icon: "success",
+        title: "Mensajes enviados correctamente",
+        text: `Enviados a: ${exitosos.join(", ")}`,
+      });
+    }
+
+    if (fallidos.length > 0) {
+      Swal.fire({
+        icon: "error",
+        title: "Errores al enviar mensajes",
+        text: `Fallaron los envíos a: ${fallidos.join(", ")}`,
+      });
+    }
+
+    // Aquí puedes agregar lógica para manejar el socket si lo necesitas
+    // cargar_socket();
+  };
+
+  /* masivos fin */
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // densidad
   const [density, setDensity] = useState("compacta");
-  const rowPad = density === "compacta" ? "py-2" : density === "media" ? "py-2.5" : "py-3";
-  const headPad = density === "compacta" ? "py-2" : density === "media" ? "py-2.5" : "py-3";
+  const rowPad =
+    density === "compacta" ? "py-2" : density === "media" ? "py-2.5" : "py-3";
+  const headPad =
+    density === "compacta" ? "py-2" : density === "media" ? "py-2.5" : "py-3";
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -439,11 +960,37 @@ export default function Clientes() {
   const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
   const [modalQuitarOpen, setModalQuitarOpen] = useState(false);
   const [modalCrearEtiquetaOpen, setModalCrearEtiquetaOpen] = useState(false);
+  const [isModalOpenMasivo, setIsModalOpenMasivo] = useState(false);
 
   // Otros modales
   const [modalSMS, setModalSMS] = useState({ open: false, msg: "" });
-  const [modalEmail, setModalEmail] = useState({ open: false, subject: "", body: "" });
-  const [modalReview, setModalReview] = useState({ open: false, channel: "whatsapp", link: "" });
+  const [modalEmail, setModalEmail] = useState({
+    open: false,
+    subject: "",
+    body: "",
+  });
+  const [modalReview, setModalReview] = useState({
+    open: false,
+    channel: "whatsapp",
+    link: "",
+  });
+
+  const openModalMasivos = () => {
+    setIsModalOpenMasivo(true);
+  };
+
+  // Función para cerrar el modal
+  const closeModal = () => {
+    setIsModalOpenMasivo(false);
+    resetNumeroModalState();
+  };
+
+  const resetNumeroModalState = () => {
+    setTemplateName("");
+    setTemplateText("");
+    setPlaceholders([]);
+    setPlaceholderValues({});
+  };
 
   // columnas visibles
   const [cols, setCols] = useState({
@@ -460,7 +1007,9 @@ export default function Clientes() {
   const [idConfigForTags, setIdConfigForTags] = useState(null);
 
   /* Helpers busqueda de telefono */
-  function normalizePhone(s = "") { return String(s).replace(/\D/g, ""); }
+  function normalizePhone(s = "") {
+    return String(s).replace(/\D/g, "");
+  }
   function isPhoneQuery(q = "") {
     const onlyDigits = normalizePhone(q);
     return /^[\d\s()+-]*$/.test(q) && onlyDigits.length >= 5;
@@ -469,24 +1018,25 @@ export default function Clientes() {
   /* Helpers búsqueda por nombre/apellido (tolerante a acentos y símbolos) */
   function normalizeHumanText(s = "") {
     return String(s)
-      .normalize("NFD")                  // separa diacríticos
-      .replace(/[\u0300-\u036f]/g, "")   // quita diacríticos
+      .normalize("NFD") // separa diacríticos
+      .replace(/[\u0300-\u036f]/g, "") // quita diacríticos
       .toLowerCase()
-      .replace(/[^a-z0-9\s]+/gi, " ")    // símbolos -> espacio
-      .replace(/\s+/g, " ")              // colapsa espacios
+      .replace(/[^a-z0-9\s]+/gi, " ") // símbolos -> espacio
+      .replace(/\s+/g, " ") // colapsa espacios
       .trim();
   }
 
   function matchesFullName(cliente, qRaw) {
     if (!qRaw) return true;
-    const full = normalizeHumanText(`${cliente.nombre || ""} ${cliente.apellido || ""}`);
+    const full = normalizeHumanText(
+      `${cliente.nombre || ""} ${cliente.apellido || ""}`
+    );
     const qn = normalizeHumanText(qRaw);
     if (!qn) return true;
     const parts = qn.split(" ");
     // AND de todas las palabras: cada token del query debe estar en el nombre completo
     return parts.every((p) => full.includes(p));
   }
-
 
   /* ===== Helpers de catálogo ===== */
   function crearMapaCatalogo(cfgId, catsRef) {
@@ -501,9 +1051,12 @@ export default function Clientes() {
     const nuevo = { ...catalogosPorCfg };
     for (const cfgId of faltantes) {
       try {
-        const { data } = await chatApi.post("/etiquetas_chat_center/obtenerEtiquetas", {
-          id_configuracion: Number(cfgId),
-        });
+        const { data } = await chatApi.post(
+          "/etiquetas_chat_center/obtenerEtiquetas",
+          {
+            id_configuracion: Number(cfgId),
+          }
+        );
         const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
         nuevo[cfgId] = arr;
       } catch (e) {
@@ -518,11 +1071,19 @@ export default function Clientes() {
   // 🔹 Cargar opciones reales del select "Etiquetas (todas)"
   async function cargarOpcionesFiltroEtiquetas() {
     try {
-      const { data } = await chatApi.get("/etiquetas_chat_center/etiquetas_existentes");
+      const { data } = await chatApi.post(
+        "/etiquetas_chat_center/etiquetas_existentes",
+        {
+          id_configuracion: localStorage.getItem("id_configuracion"),
+        }
+      );
       const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
       setOpcionesFiltroEtiquetas(arr);
     } catch (e) {
-      console.warn("No se pudieron cargar etiquetas existentes:", e?.response?.data || e.message);
+      console.warn(
+        "No se pudieron cargar etiquetas existentes:",
+        e?.response?.data || e.message
+      );
       setOpcionesFiltroEtiquetas([]);
     }
   }
@@ -564,7 +1125,11 @@ export default function Clientes() {
 
           out[i] = { ...c, etiquetas: mapped };
         } catch (err) {
-          console.warn("No se pudieron traer etiquetas asignadas:", id, err?.response?.data || err?.message);
+          console.warn(
+            "No se pudieron traer etiquetas asignadas:",
+            id,
+            err?.response?.data || err?.message
+          );
           out[i] = { ...c, etiquetas: [] };
         }
       })
@@ -575,93 +1140,112 @@ export default function Clientes() {
 
   /* ====== LISTAR (normal o por etiqueta) ====== */
   // Reemplaza TU función apiList por esta versión (solo difiere en cómo arma q / filtros)
-async function apiList(p = 1, replace = false) {
-  setLoading(true);
-  try {
-    const phoneLike = isPhoneQuery(q);
-    const qPhone = phoneLike ? normalizePhone(q) : undefined;
+  async function apiList(p = 1, replace = false) {
+    setLoading(true);
+    try {
+      const phoneLike = isPhoneQuery(q);
+      const qPhone = phoneLike ? normalizePhone(q) : undefined;
 
-    // --- NUEVO: preparar tokens cuando es búsqueda por nombre/apellido
-    let qForBackend = undefined;
-    let qOriginal = q;
-    let tokens = [];
-    if (!phoneLike && qOriginal?.trim()) {
-      // tokens “humanos” para filtrar en el front
-      const qn = normalizeHumanText(qOriginal);
-      tokens = qn ? qn.split(" ") : [];
-      // token “ancla” crudo (sin normalizar) para maximizar coincidencias del backend
-      const rawTokens = qOriginal.trim().split(/\s+/);
-      const anchorRaw =
-        rawTokens.length > 1
-          ? rawTokens.slice().sort((a, b) => b.length - a.length)[0] // el más largo
-          : rawTokens[0];
-      qForBackend = anchorRaw || qOriginal;
+      // --- NUEVO: preparar tokens cuando es búsqueda por nombre/apellido
+      let qForBackend = undefined;
+      let qOriginal = q;
+      let tokens = [];
+      if (!phoneLike && qOriginal?.trim()) {
+        // tokens “humanos” para filtrar en el front
+        const qn = normalizeHumanText(qOriginal);
+        tokens = qn ? qn.split(" ") : [];
+        // token “ancla” crudo (sin normalizar) para maximizar coincidencias del backend
+        const rawTokens = qOriginal.trim().split(/\s+/);
+        const anchorRaw =
+          rawTokens.length > 1
+            ? rawTokens.slice().sort((a, b) => b.length - a.length)[0] // el más largo
+            : rawTokens[0];
+        qForBackend = anchorRaw || qOriginal;
+      }
+
+      const paramsBase = {
+        page: p,
+        limit: LIMIT,
+        sort: orden,
+        q: qOriginal
+          ? phoneLike
+            ? qPhone
+            : qForBackend // ⬅️ mandamos el token ancla cuando hay varias palabras
+          : undefined,
+        estado: estado !== "todos" ? estado : undefined,
+        search_mode: phoneLike ? "phone" : "name",
+        phone: phoneLike ? qPhone : undefined,
+        id_configuracion: localStorage.getItem("id_configuracion"),
+      };
+
+      let data;
+      if (idEtiquetaFiltro) {
+        const { data: resp } = await chatApi.get(
+          "/clientes_chat_center/listar_por_etiqueta",
+          {
+            params: { ...paramsBase, ids: String(idEtiquetaFiltro) },
+          }
+        );
+        data = resp;
+      } else {
+        const { data: resp } = await chatApi.get(
+          "/clientes_chat_center/listar",
+          {
+            params: paramsBase,
+          }
+        );
+        data = resp;
+      }
+
+      const rows = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+        ? data
+        : [];
+      const mapped = rows.map(mapRow);
+
+      // Filtro final en front:
+      let mappedFiltered = mapped;
+
+      if (phoneLike) {
+        // Búsqueda por teléfono (igual que antes)
+        mappedFiltered = mapped.filter((c) => {
+          const t1 = normalizePhone(c.telefono || "");
+          const t2 = normalizePhone(c.telefono_limpio || "");
+          return t1.includes(qPhone) || t2.includes(qPhone);
+        });
+      } else if (qOriginal?.trim()) {
+        // AND por tokens sobre nombre completo (tolerante a acentos/símbolos)
+        mappedFiltered = mapped.filter((c) => matchesFullName(c, qOriginal));
+      }
+
+      const tot = data?.total ?? undefined;
+
+      const cfgs = Array.from(
+        new Set(mappedFiltered.map((r) => r.id_configuracion).filter(Boolean))
+      );
+      if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
+      const cats = await cargarCatalogosSiFaltan(cfgs);
+
+      const withTags = await anexarEtiquetasAsignadas(mappedFiltered, cats);
+
+      setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
+      setPage(p);
+
+      const effectiveTotalKnown = typeof tot === "number" && !phoneLike;
+      setHasMore(
+        effectiveTotalKnown ? p * LIMIT < tot : withTags.length === LIMIT
+      );
+      setTotal(effectiveTotalKnown ? tot : undefined);
+    } catch (e) {
+      swalError(
+        "No se pudo listar clientes",
+        e?.response?.data?.message || e.message
+      );
+    } finally {
+      setLoading(false);
     }
-
-    const paramsBase = {
-      page: p,
-      limit: LIMIT,
-      sort: orden,
-      q: qOriginal
-        ? (phoneLike ? qPhone : qForBackend) // ⬅️ mandamos el token ancla cuando hay varias palabras
-        : undefined,
-      estado: estado !== "todos" ? estado : undefined,
-      search_mode: phoneLike ? "phone" : "name",
-      phone: phoneLike ? qPhone : undefined,
-    };
-
-    let data;
-    if (idEtiquetaFiltro) {
-      const { data: resp } = await chatApi.get("/clientes_chat_center/listar_por_etiqueta", {
-        params: { ...paramsBase, ids: String(idEtiquetaFiltro) },
-      });
-      data = resp;
-    } else {
-      const { data: resp } = await chatApi.get("/clientes_chat_center/listar", {
-        params: paramsBase,
-      });
-      data = resp;
-    }
-
-    const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-    const mapped = rows.map(mapRow);
-
-    // Filtro final en front:
-    let mappedFiltered = mapped;
-
-    if (phoneLike) {
-      // Búsqueda por teléfono (igual que antes)
-      mappedFiltered = mapped.filter((c) => {
-        const t1 = normalizePhone(c.telefono || "");
-        const t2 = normalizePhone(c.telefono_limpio || "");
-        return t1.includes(qPhone) || t2.includes(qPhone);
-      });
-    } else if (qOriginal?.trim()) {
-      // AND por tokens sobre nombre completo (tolerante a acentos/símbolos)
-      mappedFiltered = mapped.filter((c) => matchesFullName(c, qOriginal));
-    }
-
-    const tot = data?.total ?? undefined;
-
-    const cfgs = Array.from(new Set(mappedFiltered.map((r) => r.id_configuracion).filter(Boolean)));
-    if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
-    const cats = await cargarCatalogosSiFaltan(cfgs);
-
-    const withTags = await anexarEtiquetasAsignadas(mappedFiltered, cats);
-
-    setItems((prev) => (replace ? withTags : [...prev, ...withTags]));
-    setPage(p);
-
-    const effectiveTotalKnown = typeof tot === "number" && !phoneLike;
-    setHasMore(effectiveTotalKnown ? p * LIMIT < tot : withTags.length === LIMIT);
-    setTotal(effectiveTotalKnown ? tot : undefined);
-  } catch (e) {
-    swalError("No se pudo listar clientes", e?.response?.data?.message || e.message);
-  } finally {
-    setLoading(false);
   }
-}
-
 
   /* ===== Toggle/Asignar/Quitar etiquetas ===== */
   function clienteTieneEtiqueta(cliente, idEtiqueta) {
@@ -737,7 +1321,10 @@ async function apiList(p = 1, replace = false) {
       cfg = first?.id_configuracion;
     }
     if (!cfg) {
-      await swalInfo("No disponible", "No hay id_configuracion para crear etiquetas.");
+      await swalInfo(
+        "No disponible",
+        "No hay id_configuracion para crear etiquetas."
+      );
       return;
     }
     for (const nombre_etiqueta of lista) {
@@ -748,13 +1335,19 @@ async function apiList(p = 1, replace = false) {
       });
     }
     try {
-      const { data } = await chatApi.post("/etiquetas_chat_center/obtenerEtiquetas", {
-        id_configuracion: Number(cfg),
-      });
+      const { data } = await chatApi.post(
+        "/etiquetas_chat_center/obtenerEtiquetas",
+        {
+          id_configuracion: Number(cfg),
+        }
+      );
       const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
       setCatalogosPorCfg((prev) => ({ ...prev, [Number(cfg)]: arr }));
     } catch (e) {
-      console.error("REFRESH CATALOGO POST-CREAR:", e?.response?.data || e.message);
+      console.error(
+        "REFRESH CATALOGO POST-CREAR:",
+        e?.response?.data || e.message
+      );
     }
     await apiList(1, true);
     await cargarOpcionesFiltroEtiquetas();
@@ -764,7 +1357,9 @@ async function apiList(p = 1, replace = false) {
     for (const idE of idsEtiquetas) {
       await chatApi.delete(`/etiquetas_chat_center/eliminarEtiqueta/${idE}`);
     }
-    const cfgs = Array.from(new Set(items.map((r) => r.id_configuracion).filter(Boolean)));
+    const cfgs = Array.from(
+      new Set(items.map((r) => r.id_configuracion).filter(Boolean))
+    );
     await cargarCatalogosSiFaltan(cfgs);
     await apiList(page, true);
     await cargarOpcionesFiltroEtiquetas();
@@ -772,7 +1367,9 @@ async function apiList(p = 1, replace = false) {
 
   /* ===== Refresh fino de etiquetas ===== */
   async function refrescarEtiquetasDeClientes(idsClientes) {
-    const cfgs = Array.from(new Set(items.map((c) => c.id_configuracion).filter(Boolean)));
+    const cfgs = Array.from(
+      new Set(items.map((c) => c.id_configuracion).filter(Boolean))
+    );
     const cats = await cargarCatalogosSiFaltan(cfgs);
 
     const clon = [...items];
@@ -818,13 +1415,20 @@ async function apiList(p = 1, replace = false) {
       for (const idC of selected) {
         const c = items.find((x) => getId(x) === idC);
         if (!c?.id_configuracion) continue;
-        counts.set(c.id_configuracion, (counts.get(c.id_configuracion) || 0) + 1);
+        counts.set(
+          c.id_configuracion,
+          (counts.get(c.id_configuracion) || 0) + 1
+        );
       }
-      if (counts.size) cfg = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0];
+      if (counts.size)
+        cfg = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0];
     }
     if (!cfg) cfg = items[0]?.id_configuracion || idConfigForTags;
     if (!cfg) {
-      await swalInfo("Sin datos", "No hay clientes para determinar id_configuracion.");
+      await swalInfo(
+        "Sin datos",
+        "No hay clientes para determinar id_configuracion."
+      );
       return;
     }
     setIdConfigForTags(cfg);
@@ -851,14 +1455,15 @@ async function apiList(p = 1, replace = false) {
     }, 250);
 
     return () => clearTimeout(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, estado, orden, pageSize, idEtiquetaFiltro]);
 
   /* Scroll infinito */
   function onScroll(e) {
     if (loading || !hasMore) return;
     const el = e.currentTarget;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 16) apiList(page + 1);
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 16)
+      apiList(page + 1);
   }
 
   /* Selección */
@@ -866,9 +1471,12 @@ async function apiList(p = 1, replace = false) {
     const ids = items.map(getId).filter(Boolean);
     return ids.length > 0 && ids.every((id) => selected.includes(id));
   }, [items, selected]);
-  const toggleSelectAll = (v) => setSelected(v ? items.map(getId).filter(Boolean) : []);
+  const toggleSelectAll = (v) =>
+    setSelected(v ? items.map(getId).filter(Boolean) : []);
   const toggleSelect = (id) =>
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
 
   /* ======= CRUD cliente ======= */
   async function apiCreate(c) {
@@ -888,7 +1496,10 @@ async function apiList(p = 1, replace = false) {
       bot_openia: c.bot_openia ?? 1,
       pedido_confirmado: c.pedido_confirmado ?? 0,
     };
-    const { data } = await chatApi.post("/clientes_chat_center/agregar", payload);
+    const { data } = await chatApi.post(
+      "/clientes_chat_center/agregar",
+      payload
+    );
     return mapRow(data?.data || data);
   }
   async function apiUpdate(id, c) {
@@ -908,7 +1519,10 @@ async function apiList(p = 1, replace = false) {
       bot_openia: c.bot_openia ?? 1,
       pedido_confirmado: c.pedido_confirmado ?? 0,
     };
-    const { data } = await chatApi.put(`/clientes_chat_center/actualizar/${id}`, payload);
+    const { data } = await chatApi.put(
+      `/clientes_chat_center/actualizar/${id}`,
+      payload
+    );
     return mapRow(data?.data || data);
   }
   async function apiDelete(id) {
@@ -918,7 +1532,10 @@ async function apiList(p = 1, replace = false) {
   async function onSave() {
     try {
       if (!editing?.nombre && !editing?.telefono && !editing?.email) {
-        await swalInfo("Datos incompletos", "Ingresa al menos nombre, teléfono o email");
+        await swalInfo(
+          "Datos incompletos",
+          "Ingresa al menos nombre, teléfono o email"
+        );
         return;
       }
       const id = getId(editing);
@@ -971,7 +1588,17 @@ async function apiList(p = 1, replace = false) {
 
   /* Exportar/Importar */
   function exportCSV() {
-    const headers = ["Nombre", "Apellido", "Email", "Telefono", "Estado", "IdEtiqueta", "Creado", "UltActividad", "Tags"];
+    const headers = [
+      "Nombre",
+      "Apellido",
+      "Email",
+      "Telefono",
+      "Estado",
+      "IdEtiqueta",
+      "Creado",
+      "UltActividad",
+      "Tags",
+    ];
     const csv = [headers.join(",")];
     for (const c of items) {
       csv.push(
@@ -987,7 +1614,9 @@ async function apiList(p = 1, replace = false) {
         ].join(",")
       );
     }
-    const blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csv.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `clientes_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -1021,9 +1650,15 @@ async function apiList(p = 1, replace = false) {
           email_cliente: idx.email >= 0 ? cols[idx.email] : "",
           celular_cliente: idx.telefono >= 0 ? cols[idx.telefono] : "",
           estado_cliente: idx.estado >= 0 ? Number(cols[idx.estado] || 1) : 1,
-          id_etiqueta: idx.id_etiqueta >= 0 ? cols[idx.id_etiqueta] || null : null,
+          id_etiqueta:
+            idx.id_etiqueta >= 0 ? cols[idx.id_etiqueta] || null : null,
         };
-        if (!payload.nombre_cliente && !payload.celular_cliente && !payload.email_cliente) continue;
+        if (
+          !payload.nombre_cliente &&
+          !payload.celular_cliente &&
+          !payload.email_cliente
+        )
+          continue;
         await chatApi.post("/clientes_chat_center/agregar", payload);
       }
       await apiList(1, true);
@@ -1045,6 +1680,21 @@ async function apiList(p = 1, replace = false) {
       {/* ====== Topbar ====== */}
       <div className="sticky top-0 z-40 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
         <div className="ml-auto flex items-center gap-2">
+          {/* Envio de masivos */}
+          <Tooltip label="Envio mensaje masivo">
+            <button
+              className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition disabled:opacity-50"
+              onClick={() => openModalMasivos()}
+              disabled={!selected.length}
+              aria-label="Envio mensaje masivo"
+            >
+              <i
+                className={`bx bxs-message-add text-[18px] ${
+                  !selected.length ? "text-slate-700" : "text-green-500"
+                } `}
+              />
+            </button>
+          </Tooltip>
           {/* TAGS */}
           <Tooltip label="Asignar etiquetas">
             <button
@@ -1091,7 +1741,9 @@ async function apiList(p = 1, replace = false) {
             type="file"
             accept=".csv"
             className="hidden"
-            onChange={(e) => e.target.files?.[0] && importCSV(e.target.files[0])}
+            onChange={(e) =>
+              e.target.files?.[0] && importCSV(e.target.files[0])
+            }
           />
           <Tooltip label="Exportar CSV">
             <button
@@ -1117,6 +1769,102 @@ async function apiList(p = 1, replace = false) {
         </div>
       </div>
 
+      {/* Modal */}
+      {isModalOpenMasivo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-md shadow-lg max-h-[70vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold">Enviar mensaje masivo</h2>
+            <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+              <h4 className="font-semibold text-base text-slate-900">
+                Enviar template
+              </h4>
+
+              <Select
+                id="lista_templates"
+                options={templates.map((t) => ({
+                  value: t.name,
+                  label: t.name,
+                }))}
+                placeholder="Seleccione un template"
+                onChange={(opcion) =>
+                  handleTemplateSelect({
+                    target: { value: opcion ? opcion.value : "" },
+                  })
+                }
+                isClearable
+                styles={customSelectStyles}
+                classNamePrefix="react-select"
+              />
+
+              <div>
+                <label
+                  htmlFor="template_textarea"
+                  className="block text-sm font-medium text-slate-700 mb-1"
+                >
+                  Vista previa
+                </label>
+                <textarea
+                  id="template_textarea"
+                  rows="8"
+                  value={templateText}
+                  readOnly
+                  onChange={handleTextareaChange}
+                  className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-800 outline-none
+                           focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+              </div>
+
+              {placeholders.map((ph) => (
+                <div key={ph}>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    {`Valor para {{${ph}}}`}
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
+                             focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    value={placeholderValues[ph] || ""}
+                    onChange={(e) =>
+                      handlePlaceholderChange(ph, e.target.value)
+                    }
+                  />
+                </div>
+              ))}
+
+              <div className="flex justify-between items-center">
+                {!templateReady && (
+                  <p className="text-xs text-slate-500">
+                    Completa todos los campos del template para enviar.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={enviarTemplateMasivo}
+                  disabled={!templateReady}
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4
+                      ${
+                        templateReady
+                          ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
+                          : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                      }`}
+                >
+                  <i className="bx bx-send" />
+                  Enviar template
+                </button>
+              </div>
+            </form>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={closeModal}
+                className="bg-red-500 text-white px-4 py-2 rounded-md"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ====== Subtoolbar ====== */}
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3">
         <ColumnsDropdown state={cols} setState={setCols} />
@@ -1134,7 +1882,9 @@ async function apiList(p = 1, replace = false) {
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="text-slate-600">
             Total {typeof total === "number" ? total : "—"} | Página {page} de{" "}
-            {typeof total === "number" ? Math.max(1, Math.ceil(total / LIMIT)) : "—"}
+            {typeof total === "number"
+              ? Math.max(1, Math.ceil(total / LIMIT))
+              : "—"}
           </span>
           <div className="flex items-center gap-1">
             <label className="text-slate-500">Tamaño:</label>
@@ -1179,7 +1929,11 @@ async function apiList(p = 1, replace = false) {
               key={e}
               onClick={() => setEstado(e)}
               className={`rounded-full border px-3 py-1 transition
-                ${estado === e ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"}`}
+                ${
+                  estado === e
+                    ? "border-blue-600 bg-blue-50 text-blue-700"
+                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                }`}
             >
               {e === "todos" ? "Todos" : e === "1" ? "Activo" : "Inactivo"}
             </button>
@@ -1195,14 +1949,24 @@ async function apiList(p = 1, replace = false) {
             unavailable={false}
           />
 
-          <select className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm" value={orden} onChange={(e) => setOrden(e.target.value)} title="Orden">
+          <select
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
+            value={orden}
+            onChange={(e) => setOrden(e.target.value)}
+            title="Orden"
+          >
             <option value="recientes">Más recientes</option>
             <option value="antiguos">Más antiguos</option>
             <option value="actividad_desc">Actividad (desc)</option>
             <option value="actividad_asc">Actividad (asc)</option>
           </select>
 
-          <select className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm" value={density} onChange={(e) => setDensity(e.target.value)} title="Densidad">
+          <select
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
+            value={density}
+            onChange={(e) => setDensity(e.target.value)}
+            title="Densidad"
+          >
             <option value="compacta">Compacta</option>
             <option value="media">Media</option>
             <option value="amplia">Amplia</option>
@@ -1225,10 +1989,16 @@ async function apiList(p = 1, replace = false) {
       {/* ====== Tabla ====== */}
       <div onScroll={onScroll} className="flex-1 overflow-auto">
         <table className="min-w-full table-fixed border-separate border-spacing-0">
-          <thead className={`sticky top-0 z-20 bg-white ${headPad} border-b border-slate-200`}>
+          <thead
+            className={`sticky top-0 z-20 bg-white ${headPad} border-b border-slate-200`}
+          >
             <tr className="[&>th]:border-b [&>th]:px-3 [&>th]:text-slate-600">
               <th className="w-10">
-                <input type="checkbox" checked={allSelected} onChange={(e) => toggleSelectAll(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={(e) => toggleSelectAll(e.target.checked)}
+                />
               </th>
 
               {cols.name && (
@@ -1237,18 +2007,32 @@ async function apiList(p = 1, replace = false) {
                     label="Nombre"
                     active={/recientes|antiguos/.test(orden)}
                     dir={orden === "antiguos" ? "asc" : "desc"}
-                    onClick={() => setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))}
+                    onClick={() =>
+                      setOrden((o) =>
+                        o === "recientes" ? "antiguos" : "recientes"
+                      )
+                    }
                   />
                 </th>
               )}
               {cols.phone && (
                 <th className="w-56 text-left">
-                  <SortButton label="Teléfono" active={false} onClick={() => {}} className="text-slate-500" />
+                  <SortButton
+                    label="Teléfono"
+                    active={false}
+                    onClick={() => {}}
+                    className="text-slate-500"
+                  />
                 </th>
               )}
               {cols.email && (
                 <th className="w-72 text-left">
-                  <SortButton label="Email" active={false} onClick={() => {}} className="text-slate-500" />
+                  <SortButton
+                    label="Email"
+                    active={false}
+                    onClick={() => {}}
+                    className="text-slate-500"
+                  />
                 </th>
               )}
               {cols.created && (
@@ -1257,7 +2041,11 @@ async function apiList(p = 1, replace = false) {
                     label="Creado"
                     active={/recientes|antiguos/.test(orden)}
                     dir={orden === "antiguos" ? "asc" : "desc"}
-                    onClick={() => setOrden((o) => (o === "recientes" ? "antiguos" : "recientes"))}
+                    onClick={() =>
+                      setOrden((o) =>
+                        o === "recientes" ? "antiguos" : "recientes"
+                      )
+                    }
                   />
                 </th>
               )}
@@ -1267,7 +2055,13 @@ async function apiList(p = 1, replace = false) {
                     label="Última actividad"
                     active={/actividad_/.test(orden)}
                     dir={orden === "actividad_asc" ? "asc" : "desc"}
-                    onClick={() => setOrden((o) => (o === "actividad_desc" ? "actividad_asc" : "actividad_desc"))}
+                    onClick={() =>
+                      setOrden((o) =>
+                        o === "actividad_desc"
+                          ? "actividad_asc"
+                          : "actividad_desc"
+                      )
+                    }
                   />
                 </th>
               )}
@@ -1284,9 +2078,12 @@ async function apiList(p = 1, replace = false) {
                     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-slate-200">
                       <i className="bx bx-user-circle text-2xl text-slate-500" />
                     </div>
-                    <h4 className="text-sm font-semibold text-slate-800">Sin clientes</h4>
+                    <h4 className="text-sm font-semibold text-slate-800">
+                      Sin clientes
+                    </h4>
                     <p className="mt-1 text-sm text-slate-500">
-                      Aún no hay registros que coincidan con tu búsqueda/filtros.
+                      Aún no hay registros que coincidan con tu
+                      búsqueda/filtros.
                     </p>
                     <button
                       className="mt-4 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
@@ -1302,28 +2099,43 @@ async function apiList(p = 1, replace = false) {
               </tr>
             )}
 
-            {loading && items.length === 0 &&
+            {loading &&
+              items.length === 0 &&
               Array.from({ length: 6 }).map((_, i) => (
-                <tr key={`sk-${i}`} className={`[&>td]:border-b [&>td]:px-3 ${rowPad}`}>
-                  <td><div className="h-4 w-4 rounded bg-slate-200 animate-pulse" /></td>
+                <tr
+                  key={`sk-${i}`}
+                  className={`[&>td]:border-b [&>td]:px-3 ${rowPad}`}
+                >
+                  <td>
+                    <div className="h-4 w-4 rounded bg-slate-200 animate-pulse" />
+                  </td>
                   <td colSpan={5}>
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
                       <div className="h-3 w-1/3 rounded bg-slate-200 animate-pulse" />
                     </div>
                   </td>
-                  <td><div className="h-3 w-24 rounded bg-slate-200 animate-pulse" /></td>
+                  <td>
+                    <div className="h-3 w-24 rounded bg-slate-200 animate-pulse" />
+                  </td>
                 </tr>
-              ))
-            }
+              ))}
 
             {items.map((c, idx) => {
               const id = getId(c) ?? idx;
-              const nombre = `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
+              const nombre =
+                `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
               return (
-                <tr key={id} className={`hover:bg-slate-50/60 [&>td]:border-b [&>td]:px-3 ${rowPad} transition-colors`}>
+                <tr
+                  key={id}
+                  className={`hover:bg-slate-50/60 [&>td]:border-b [&>td]:px-3 ${rowPad} transition-colors`}
+                >
                   <td>
-                    <input type="checkbox" checked={selected.includes(id)} onChange={() => toggleSelect(id)} />
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(id)}
+                      onChange={() => toggleSelect(id)}
+                    />
                   </td>
 
                   {cols.name && (
@@ -1342,7 +2154,9 @@ async function apiList(p = 1, replace = false) {
                           >
                             {nombre}
                           </button>
-                          <div className="truncate text-xs text-slate-500">ID {id}</div>
+                          <div className="truncate text-xs text-slate-500">
+                            ID {id}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -1369,7 +2183,9 @@ async function apiList(p = 1, replace = false) {
                   {cols.created && (
                     <td className="text-sm text-slate-700">
                       <div>{fmtDate(c.createdAt)}</div>
-                      <div className="text-xs text-slate-500">{fmtTime(c.createdAt)}</div>
+                      <div className="text-xs text-slate-500">
+                        {fmtTime(c.createdAt)}
+                      </div>
                     </td>
                   )}
 
@@ -1379,7 +2195,9 @@ async function apiList(p = 1, replace = false) {
                         <i className="bx bx-time-five text-slate-500" />
                         <span>{timeAgo(c.ultima_actividad)}</span>
                       </div>
-                      <div className="text-xs text-slate-500">{fmtDateTime(c.ultima_actividad)}</div>
+                      <div className="text-xs text-slate-500">
+                        {fmtDateTime(c.ultima_actividad)}
+                      </div>
                     </td>
                   )}
 
@@ -1387,9 +2205,15 @@ async function apiList(p = 1, replace = false) {
                     <td className="min-w-0">
                       <div className="flex flex-wrap gap-1">
                         {Array.isArray(c.etiquetas) && c.etiquetas.length ? (
-                          c.etiquetas.map((t, i) => <Chip key={i} color={t.color}>{t.nombre}</Chip>)
+                          c.etiquetas.map((t, i) => (
+                            <Chip key={i} color={t.color}>
+                              {t.nombre}
+                            </Chip>
+                          ))
                         ) : (
-                          <span className="text-slate-400 italic">Sin etiquetas</span>
+                          <span className="text-slate-400 italic">
+                            Sin etiquetas
+                          </span>
                         )}
                       </div>
                     </td>
@@ -1414,8 +2238,11 @@ async function apiList(p = 1, replace = false) {
                           <button
                             className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                             onClick={async () => {
-                              if (!selected.includes(id)) setSelected((prev) => [...prev, id]);
-                              setIdConfigForTags(c.id_configuracion || idConfigForTags);
+                              if (!selected.includes(id))
+                                setSelected((prev) => [...prev, id]);
+                              setIdConfigForTags(
+                                c.id_configuracion || idConfigForTags
+                              );
                               await ensureCatalogAndOpen("toggle");
                             }}
                             title="Etiquetas"
@@ -1425,12 +2252,17 @@ async function apiList(p = 1, replace = false) {
                           <button
                             className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                             onClick={async () => {
-                              const ok = await swalConfirm("Eliminar cliente", "¿Seguro que deseas eliminarlo?");
+                              const ok = await swalConfirm(
+                                "Eliminar cliente",
+                                "¿Seguro que deseas eliminarlo?"
+                              );
                               if (!ok) return;
                               try {
                                 swalLoading("Eliminando...");
                                 await apiDelete(id);
-                                setItems((prev) => prev.filter((x) => getId(x) !== id));
+                                setItems((prev) =>
+                                  prev.filter((x) => getId(x) !== id)
+                                );
                                 swalClose();
                                 swalToast("Cliente eliminado");
                                 await cargarOpcionesFiltroEtiquetas();
@@ -1453,7 +2285,9 @@ async function apiList(p = 1, replace = false) {
         </table>
 
         {loading && items.length > 0 && (
-          <div className="flex items-center justify-center py-4 text-sm text-slate-500">Cargando…</div>
+          <div className="flex items-center justify-center py-4 text-sm text-slate-500">
+            Cargando…
+          </div>
         )}
         {!hasMore && items.length > 0 && (
           <div className="flex items-center justify-center py-4 text-xs text-slate-400">
@@ -1465,13 +2299,20 @@ async function apiList(p = 1, replace = false) {
       {/* ===== Drawer crear/editar ===== */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] animate-[backdropIn_180ms_ease-out_forwards]" onClick={() => setDrawerOpen(false)} />
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] animate-[backdropIn_180ms_ease-out_forwards]"
+            onClick={() => setDrawerOpen(false)}
+          />
           <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-xl ring-1 ring-slate-900/5 translate-x-full animate-[drawerIn_200ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
               <h3 className="text-sm font-semibold text-slate-900">
                 {editing && getId(editing) ? "Editar cliente" : "Nuevo cliente"}
               </h3>
-              <button className="rounded p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30" onClick={() => setDrawerOpen(false)} aria-label="Cerrar panel">
+              <button
+                className="rounded p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Cerrar panel"
+              >
                 <i className="bx bx-x text-xl text-slate-600" />
               </button>
             </div>
@@ -1479,7 +2320,10 @@ async function apiList(p = 1, replace = false) {
               <ClienteForm value={editing} onChange={setEditing} />
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
-              <button onClick={() => setDrawerOpen(false)} className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition">
+              <button
+                onClick={() => setDrawerOpen(false)}
+                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+              >
                 Cancelar
               </button>
               <button
@@ -1543,7 +2387,10 @@ async function apiList(p = 1, replace = false) {
         onClose={() => setModalSMS({ open: false, msg: "" })}
         footer={
           <>
-            <button className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition" onClick={() => setModalSMS({ open: false, msg: "" })}>
+            <button
+              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+              onClick={() => setModalSMS({ open: false, msg: "" })}
+            >
               Cancelar
             </button>
             <button
@@ -1551,7 +2398,10 @@ async function apiList(p = 1, replace = false) {
               onClick={async () => {
                 const msg = modalSMS.msg;
                 if (!msg.trim()) {
-                  await swalInfo("Falta mensaje", "Escribe el contenido del SMS");
+                  await swalInfo(
+                    "Falta mensaje",
+                    "Escribe el contenido del SMS"
+                  );
                   return;
                 }
                 try {
@@ -1595,7 +2445,9 @@ async function apiList(p = 1, replace = false) {
           <>
             <button
               className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
-              onClick={() => setModalEmail({ open: false, subject: "", body: "" })}
+              onClick={() =>
+                setModalEmail({ open: false, subject: "", body: "" })
+              }
             >
               Cancelar
             </button>
@@ -1604,11 +2456,17 @@ async function apiList(p = 1, replace = false) {
               onClick={async () => {
                 const { subject, body } = modalEmail;
                 if (!subject.trim()) {
-                  await swalInfo("Asunto requerido", "Escribe un asunto para el email");
+                  await swalInfo(
+                    "Asunto requerido",
+                    "Escribe un asunto para el email"
+                  );
                   return;
                 }
                 if (!body.trim()) {
-                  await swalInfo("Cuerpo requerido", "Escribe el contenido del email");
+                  await swalInfo(
+                    "Cuerpo requerido",
+                    "Escribe el contenido del email"
+                  );
                   return;
                 }
                 try {
@@ -1638,7 +2496,9 @@ async function apiList(p = 1, replace = false) {
             className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             placeholder="Asunto"
             value={modalEmail.subject}
-            onChange={(e) => setModalEmail((s) => ({ ...s, subject: e.target.value }))}
+            onChange={(e) =>
+              setModalEmail((s) => ({ ...s, subject: e.target.value }))
+            }
           />
         </div>
         <div className="space-y-3 mt-3">
@@ -1647,7 +2507,9 @@ async function apiList(p = 1, replace = false) {
             rows={8}
             placeholder="Contenido del email…"
             value={modalEmail.body}
-            onChange={(e) => setModalEmail((s) => ({ ...s, body: e.target.value }))}
+            onChange={(e) =>
+              setModalEmail((s) => ({ ...s, body: e.target.value }))
+            }
           />
         </div>
       </BaseModal>
@@ -1655,12 +2517,16 @@ async function apiList(p = 1, replace = false) {
       <BaseModal
         open={modalReview.open}
         title="Enviar solicitud de reseña"
-        onClose={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
+        onClose={() =>
+          setModalReview({ open: false, channel: "whatsapp", link: "" })
+        }
         footer={
           <>
             <button
               className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
-              onClick={() => setModalReview({ open: false, channel: "whatsapp", link: "" })}
+              onClick={() =>
+                setModalReview({ open: false, channel: "whatsapp", link: "" })
+              }
             >
               Cancelar
             </button>
@@ -1669,7 +2535,10 @@ async function apiList(p = 1, replace = false) {
               onClick={async () => {
                 const { channel, link } = modalReview;
                 if (!link.trim()) {
-                  await swalInfo("Enlace requerido", "Coloca el enlace de reseña");
+                  await swalInfo(
+                    "Enlace requerido",
+                    "Coloca el enlace de reseña"
+                  );
                   return;
                 }
                 try {
@@ -1681,7 +2550,11 @@ async function apiList(p = 1, replace = false) {
                   });
                   swalClose();
                   swalToast("Solicitud enviada");
-                  setModalReview({ open: false, channel: "whatsapp", link: "" });
+                  setModalReview({
+                    open: false,
+                    channel: "whatsapp",
+                    link: "",
+                  });
                 } catch {
                   swalClose();
                   swalInfo("Pendiente", "Función de backend pendiente");
@@ -1700,7 +2573,9 @@ async function apiList(p = 1, replace = false) {
             <select
               className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
               value={modalReview.channel}
-              onChange={(e) => setModalReview((s) => ({ ...s, channel: e.target.value }))}
+              onChange={(e) =>
+                setModalReview((s) => ({ ...s, channel: e.target.value }))
+              }
             >
               <option value="whatsapp">WhatsApp</option>
               <option value="sms">SMS</option>
@@ -1708,12 +2583,16 @@ async function apiList(p = 1, replace = false) {
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-700">Enlace de reseña</label>
+            <label className="text-xs font-medium text-slate-700">
+              Enlace de reseña
+            </label>
             <input
               className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
               placeholder="https://g.page/r/XXXXX"
               value={modalReview.link}
-              onChange={(e) => setModalReview((s) => ({ ...s, link: e.target.value }))}
+              onChange={(e) =>
+                setModalReview((s) => ({ ...s, link: e.target.value }))
+              }
             />
           </div>
           <p className="text-xs text-slate-500">
@@ -1779,7 +2658,9 @@ function ClienteForm({ value, onChange }) {
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-700">Id Etiqueta</label>
+          <label className="text-xs font-medium text-slate-700">
+            Id Etiqueta
+          </label>
           <input
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.id_etiqueta || ""}
@@ -1787,39 +2668,53 @@ function ClienteForm({ value, onChange }) {
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-700">Id Configuración</label>
+          <label className="text-xs font-medium text-slate-700">
+            Id Configuración
+          </label>
           <input
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.id_configuracion || ""}
-            onChange={(e) => onChange({ ...v, id_configuracion: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...v, id_configuracion: e.target.value })
+            }
           />
         </div>
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div>
-          <label className="text-xs font-medium text-slate-700">Chat cerrado</label>
+          <label className="text-xs font-medium text-slate-700">
+            Chat cerrado
+          </label>
           <select
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.chat_cerrado ?? 0}
-            onChange={(e) => onChange({ ...v, chat_cerrado: Number(e.target.value) })}
+            onChange={(e) =>
+              onChange({ ...v, chat_cerrado: Number(e.target.value) })
+            }
           >
             <option value={0}>No</option>
             <option value={1}>Sí</option>
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-700">Bot OpenIA</label>
+          <label className="text-xs font-medium text-slate-700">
+            Bot OpenIA
+          </label>
           <select
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.bot_openia ?? 1}
-            onChange={(e) => onChange({ ...v, bot_openia: Number(e.target.value) })}
+            onChange={(e) =>
+              onChange({ ...v, bot_openia: Number(e.target.value) })
+            }
           >
             <option value={1}>Activo</option>
             <option value={0}>Inactivo</option>
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-700">UID Cliente</label>
+          <label className="text-xs font-medium text-slate-700">
+            UID Cliente
+          </label>
           <input
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.uid_cliente || ""}
@@ -1828,7 +2723,9 @@ function ClienteForm({ value, onChange }) {
         </div>
       </div>
       <div>
-        <label className="text-xs font-medium text-slate-700">Imagen (URL)</label>
+        <label className="text-xs font-medium text-slate-700">
+          Imagen (URL)
+        </label>
         <input
           className="mt-1 w-full rounded-md border border-slate-200 bg白 px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
           value={v.imagePath || ""}
@@ -1837,20 +2734,31 @@ function ClienteForm({ value, onChange }) {
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="text-xs font-medium text-slate-700">Mensajes por día</label>
+          <label className="text-xs font-medium text-slate-700">
+            Mensajes por día
+          </label>
           <input
             type="number"
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.mensajes_por_dia_cliente ?? 0}
-            onChange={(e) => onChange({ ...v, mensajes_por_dia_cliente: Number(e.target.value) })}
+            onChange={(e) =>
+              onChange({
+                ...v,
+                mensajes_por_dia_cliente: Number(e.target.value),
+              })
+            }
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-700">Pedido confirmado</label>
+          <label className="text-xs font-medium text-slate-700">
+            Pedido confirmado
+          </label>
           <select
             className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             value={v.pedido_confirmado ?? 0}
-            onChange={(e) => onChange({ ...v, pedido_confirmado: Number(e.target.value) })}
+            onChange={(e) =>
+              onChange({ ...v, pedido_confirmado: Number(e.target.value) })
+            }
           >
             <option value={0}>No</option>
             <option value={1}>Sí</option>

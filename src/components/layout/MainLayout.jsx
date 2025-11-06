@@ -448,6 +448,29 @@ function MainLayout({ children }) {
               </span>
             </a>
 
+            {/* Clientes contactos */}
+            <a
+              href="/clientes"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/clientes"
+                  ? "bg-gray-200 font-semibold"
+                  : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+
+                localStorage.setItem("id_configuracion", id_configuracion);
+                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+                navigate("/clientes");
+              }}
+            >
+              <i className="bx bxs-contact text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                contactos
+              </span>
+            </a>
+
             {/* integraciones */}
             <a
               href="/integraciones"
