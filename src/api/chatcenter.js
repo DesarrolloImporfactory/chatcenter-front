@@ -74,21 +74,37 @@ chatApi.interceptors.response.use(
     // Manejar diferentes tipos de error
     switch (error.response?.status) {
       case 401:
-        // Token expirado o inválido
+        // IMPORTANTE: Primero verificar si realmente el token está expirado
+        // antes de cerrar sesión del usuario
         if (!originalRequest._retry) {
           originalRequest._retry = true;
 
-          // Intentar refresh token (si tienes implementado)
-          // const newToken = await refreshToken();
-          // if (newToken) {
-          //   originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          //   return chatApi(originalRequest);
-          // }
+          // Verificar si el token está realmente expirado
+          const isStillAuthenticated = authService.isAuthenticated();
 
-          // Si no se puede refrescar, logout
-          authService.logout();
-          window.location.href = "/login";
-          toast.error("Sesión expirada. Por favor, inicia sesión nuevamente.");
+          if (!isStillAuthenticated) {
+            // Token realmente expirado - cerrar sesión
+            authService.logout();
+            window.location.href = "/login";
+            toast.error(
+              "Sesión expirada. Por favor, inicia sesión nuevamente."
+            );
+          } else {
+            // Token válido pero error 401 - probablemente es de una API externa
+            // No cerrar sesión, solo mostrar el error
+            const errorMsg =
+              error.response?.data?.message ||
+              error.response?.data?.error ||
+              "Error de autorización en el servicio externo";
+            toast.error(errorMsg);
+            console.warn(
+              "Error 401 pero token válido - posible error de API externa:",
+              {
+                url: originalRequest?.url,
+                error: errorMsg,
+              }
+            );
+          }
         }
         break;
 
