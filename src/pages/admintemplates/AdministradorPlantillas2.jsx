@@ -253,6 +253,12 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     } else if (currentTab === "asistente") {
       // fetchAsistenteAutomatizado(); // si aplica
     } else if (currentTab === "templates" && id_configuracion !== null) {
+      setPageCursors({
+        beforee: null,
+        after: null,
+        hasPrev: false,
+        hasNext: false,
+      });
       fetchPlantillas();
     }
   }, [currentTab, id_configuracion]);
@@ -304,16 +310,18 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       );
 
       // data de Meta => resp.data.data, paging => resp.data.paging
-      const data = resp?.data?.data || [];
-      const paging = resp?.data?.paging || {};
-      const curs = paging?.cursors || {};
+      const data = resp?.data?.data ?? [];
+      const paging = resp?.data?.paging ?? {};
+      const curs = paging?.cursors ?? {};
 
       setPlantillas(data);
       setPageCursors({
-        before: curs?.before || null,
-        after: curs?.after || null,
-        hasPrev: Boolean(paging?.previous || curs?.before),
-        hasNext: Boolean(paging?.next || curs?.after),
+        // Siempre guardamos los cursores si vienen, pero
+        // habilitamos botones SOLO si Meta envía previous/next.
+        before: curs?.before ?? null,
+        after: curs?.after ?? null,
+        hasPrev: Boolean(paging?.previous),
+        hasNext: Boolean(paging?.next),
       });
     } catch (error) {
       console.error("Error al cargar las plantillas:", error);

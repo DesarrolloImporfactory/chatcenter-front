@@ -2237,7 +2237,7 @@ const Chat = () => {
             confirmButtonText: "OK",
           }).then(() => {
             // localStorage.removeItem("token");
-            window.location.href = "/administrador-whatsapp";
+            window.location.href = "/canal-conexiones";
           });
         }
 

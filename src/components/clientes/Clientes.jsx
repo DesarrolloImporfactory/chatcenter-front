@@ -578,7 +578,7 @@ export default function Clientes() {
             allowEnterKey: true,
             confirmButtonText: "OK",
           }).then(() => {
-            window.location.href = "/administrador-whatsapp";
+            window.location.href = "/canal-conexiones";
           });
         }
 
