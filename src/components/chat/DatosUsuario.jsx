@@ -584,7 +584,7 @@ const DatosUsuario = ({
         Toast.fire({
           title: "ERROR",
           icon: "error",
-          text: "Un producto no cuenta con stock y no se puede generar la guia.",
+          text: data.message,
         });
         resetSelection();
         setGenerandoGuia(false);
