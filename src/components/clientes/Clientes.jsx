@@ -62,9 +62,9 @@ const fmtDateTime = (d) => {
   return isNaN(+x)
     ? "-"
     : `${x.toLocaleDateString()} ${x.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`;
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
 };
 const timeAgo = (d) => {
   if (!d) return "-";
@@ -154,11 +154,9 @@ function SortButton({ label, active, dir = "asc", onClick, className = "" }) {
     >
       {label}
       <span
-        className={`bx ${
-          dir === "asc" ? "bx-chevron-up" : "bx-chevron-down"
-        } text-[16px] text-slate-400 group-hover:text-slate-600 ${
-          active ? "!text-slate-700" : ""
-        }`}
+        className={`bx ${dir === "asc" ? "bx-chevron-up" : "bx-chevron-down"
+          } text-[16px] text-slate-400 group-hover:text-slate-600 ${active ? "!text-slate-700" : ""
+          }`}
       />
     </button>
   );
@@ -486,13 +484,13 @@ export default function Clientes() {
       color: state.isDisabled
         ? "#94a3b8"
         : state.isSelected
-        ? "#0b1324"
-        : "#0f172a",
+          ? "#0b1324"
+          : "#0f172a",
       backgroundColor: state.isSelected
         ? "#DBEAFE"
         : state.isFocused
-        ? "#F1F5F9"
-        : "transparent",
+          ? "#F1F5F9"
+          : "transparent",
       ":active": {
         backgroundColor: state.isSelected ? "#DBEAFE" : "#E2E8F0",
       },
@@ -754,10 +752,21 @@ export default function Clientes() {
     }
   };
 
+  const calcularDelay = (cantidad) => {
+    if (cantidad <= 50) return 3000; // 2s
+    if (cantidad <= 200) return 6000; // 4s
+    if (cantidad <= 500) return 10000; // 6s
+    return 20000; // 10s si es más de 500
+  };
+
+
   // Función para enviar el template a WhatsApp
   const enviarTemplateMasivo = async () => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const delay = calcularDelay(selected.length);
 
     // Arrays para acumular los resultados
     let exitosos = [];
@@ -813,6 +822,13 @@ export default function Clientes() {
                 if (placeholderValues[placeholder] === "{nombre}") {
                   value =
                     recipient.nombre || `{{${placeholderValues[placeholder]}}}`;
+                } else if (placeholderValues[placeholder] === "{direccion}") {
+                  console.log(recipient._raw.direccion)
+                  value =
+                    recipient._raw.direccion || `{{${placeholderValues[placeholder]}}}`;
+                } else if (placeholderValues[placeholder] === "{productos}") {
+                  value =
+                    recipient._raw.productos || `{{${placeholderValues[placeholder]}}}`;
                 }
 
                 return {
@@ -859,14 +875,19 @@ export default function Clientes() {
         let ruta_archivo = generarObjetoPlaceholders(
           placeholders,
           Object.keys(placeholderValues).reduce((acc, key) => {
-            // Si el valor es '{nombre}', reemplazarlo con recipient.nombre
             acc[key] =
               placeholderValues[key] === "{nombre}"
                 ? recipient.nombre || "{nombre}"
-                : placeholderValues[key];
+                : placeholderValues[key] === "{direccion}"
+                  ? recipient._raw.direccion || "{direccion}"
+                  : placeholderValues[key] === "{productos}"
+                    ? recipient._raw.productos || "{productos}"
+                    : placeholderValues[key];
+
             return acc;
           }, {})
         );
+
         let id_configuracion = localStorage.getItem("id_configuracion");
 
         agregar_mensaje_enviado(
@@ -897,6 +918,9 @@ export default function Clientes() {
           `ID: ${recipientId}, Teléfono: ${recipientPhone} - Error: ${error.message}`
         );
       }
+
+      // ⏳ Aplicar delay basado en cantidad
+      await sleep(delay);
     }
 
     // Cerrar el cargador
@@ -1200,8 +1224,8 @@ export default function Clientes() {
       const rows = Array.isArray(data?.data)
         ? data.data
         : Array.isArray(data)
-        ? data
-        : [];
+          ? data
+          : [];
       const mapped = rows.map(mapRow);
 
       // Filtro final en front:
@@ -1689,9 +1713,8 @@ export default function Clientes() {
               aria-label="Envio mensaje masivo"
             >
               <i
-                className={`bx bxs-message-add text-[18px] ${
-                  !selected.length ? "text-slate-700" : "text-green-500"
-                } `}
+                className={`bx bxs-message-add text-[18px] ${!selected.length ? "text-slate-700" : "text-green-500"
+                  } `}
               />
             </button>
           </Tooltip>
@@ -1842,11 +1865,10 @@ export default function Clientes() {
                   onClick={enviarTemplateMasivo}
                   disabled={!templateReady}
                   className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4
-                      ${
-                        templateReady
-                          ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
-                          : "bg-slate-200 text-slate-500 cursor-not-allowed"
-                      }`}
+                      ${templateReady
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
+                      : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                    }`}
                 >
                   <i className="bx bx-send" />
                   Enviar template
@@ -1929,10 +1951,9 @@ export default function Clientes() {
               key={e}
               onClick={() => setEstado(e)}
               className={`rounded-full border px-3 py-1 transition
-                ${
-                  estado === e
-                    ? "border-blue-600 bg-blue-50 text-blue-700"
-                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                ${estado === e
+                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                  : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                 }`}
             >
               {e === "todos" ? "Todos" : e === "1" ? "Activo" : "Inactivo"}
@@ -2020,7 +2041,7 @@ export default function Clientes() {
                   <SortButton
                     label="Teléfono"
                     active={false}
-                    onClick={() => {}}
+                    onClick={() => { }}
                     className="text-slate-500"
                   />
                 </th>
@@ -2030,7 +2051,7 @@ export default function Clientes() {
                   <SortButton
                     label="Email"
                     active={false}
-                    onClick={() => {}}
+                    onClick={() => { }}
                     className="text-slate-500"
                   />
                 </th>
