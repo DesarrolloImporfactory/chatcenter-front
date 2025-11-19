@@ -467,7 +467,7 @@ function MainLayout({ children }) {
             >
               <i className="bx bxs-contact text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                contactos
+                Contactos
               </span>
             </a>
 
