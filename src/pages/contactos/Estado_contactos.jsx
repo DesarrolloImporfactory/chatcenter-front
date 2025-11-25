@@ -16,6 +16,217 @@ const Toast = Swal.mixin({
   },
 });
 
+function PreviewContent({
+  tipo,
+  texto,
+  ruta,
+  rutaRaw,
+  replyRef,
+  replyAuthor,
+  isOpen,
+}) {
+  // ---- helpers ----
+  const parseDocMeta = (raw) => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return { ruta: raw, nombre: "Documento", size: 0, mimeType: "" };
+    }
+  };
+
+  const Quote = () =>
+    replyRef ? (
+      <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white/90">
+        <div className="flex">
+          <div className="w-1.5 bg-slate-300/70" />
+          <div className="flex-1 p-3">
+            <div className="mb-1 text-[11px] font-semibold text-slate-600">
+              <i className="bx bx-reply text-[14px] align-[-1px]" />{" "}
+              Respondiendo a {replyAuthor || "mensaje"}
+            </div>
+            <div className="whitespace-pre-wrap break-words text-[13px] text-slate-700 line-clamp-6">
+              {replyRef}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  // ---- UBICACIÓN ----
+  const renderLocation = () => {
+    try {
+      const json = JSON.parse(texto || "{}");
+      let { latitude, longitude, longitud } = json;
+      if (longitude === undefined && longitud !== undefined) {
+        longitude = longitud;
+      }
+      if (
+        !Number.isFinite(Number(latitude)) ||
+        !Number.isFinite(Number(longitude))
+      ) {
+        return (
+          <div className="text-[13px] text-slate-600">
+            No se pudo leer la ubicación.
+          </div>
+        );
+      }
+
+      const src = `https://www.google.com/maps/embed/v1/place?key=AIzaSyDGulcdBtz_Mydtmu432GtzJz82J_yb-rs&q=${latitude},${longitude}&zoom=15`;
+      const link = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+
+      return (
+        <div className="w-full">
+          <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
+            <iframe
+              title="Mapa de ubicación"
+              width="100%"
+              height="220"
+              frameBorder="0"
+              style={{ border: 0 }}
+              src={src}
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+          <a
+            href={link}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-blue-700 hover:underline"
+          >
+            <i className="bx bx-map-pin" /> Ver ubicación en Google Maps
+          </a>
+        </div>
+      );
+    } catch (error) {
+      console.error("Error al parsear la ubicación:", error);
+      return (
+        <div className="text-[13px] text-slate-600">
+          Error al mostrar la ubicación.
+        </div>
+      );
+    }
+  };
+
+  // ---- RAMAS ----
+
+  // AUDIO
+  if (tipo === "audio") {
+    const src = rutaRaw || ruta;
+    return (
+      <div>
+        <Quote />
+        <PreviewAudioPlayer src={src} />
+      </div>
+    );
+  }
+
+  // IMAGEN / STICKER
+  if (tipo === "image" || tipo === "sticker") {
+    return (
+      <div>
+        <Quote />
+        <img
+          src={ruta}
+          alt="Imagen"
+          className="max-w-[480px] w-full h-auto rounded-xl border border-slate-200 shadow-sm"
+        />
+      </div>
+    );
+  }
+
+  // VIDEO
+  if (tipo === "video") {
+    return (
+      <div>
+        <Quote />
+        <video
+          controls
+          className="w-full max-w-[480px] rounded-xl border border-slate-200 shadow-sm"
+          src={ruta}
+        />
+      </div>
+    );
+  }
+
+  // DOCUMENTO
+  if (tipo === "document") {
+    const meta = parseDocMeta(ruta);
+    const href = /^https?:\/\//.test(meta.ruta)
+      ? meta.ruta
+      : `https://new.imporsuitpro.com/${meta.ruta || ""}`;
+    const sizeLabel = meta.size
+      ? meta.size > 1024 * 1024
+        ? `${(meta.size / 1024 / 1024).toFixed(2)} MB`
+        : `${(meta.size / 1024).toFixed(0)} KB`
+      : "";
+    const ext = (
+      meta.ruta?.split(".").pop() ||
+      meta.mimeType?.split("/").pop() ||
+      ""
+    ).toUpperCase();
+
+    return (
+      <div>
+        <Quote />
+        <a
+          className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white/80 shadow-sm hover:bg-slate-50 transition"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <i className="bx bxs-file-blank text-2xl text-slate-600" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-semibold text-slate-800">
+              {meta.nombre || "Documento"}
+            </div>
+            <div className="text-[12px] text-slate-500">
+              {[sizeLabel, ext].filter(Boolean).join(" • ")}
+            </div>
+          </div>
+          <i className="bx bx-download text-xl text-blue-600" />
+        </a>
+      </div>
+    );
+  }
+
+  // UBICACIÓN
+  if (tipo === "location") {
+    return (
+      <div>
+        <Quote />
+        {renderLocation()}
+      </div>
+    );
+  }
+
+  // TEXTO / TEMPLATE (render simple; si quieres expansión de {{}} hazlo fuera)
+  return (
+    <div>
+    <Quote />
+
+    <div
+      style={{
+        backdropFilter: "blur(14px)",
+        background: "rgba(255,255,255,.55)",
+        padding: "18px 20px",
+        borderRadius: "18px",
+        border: "1px solid rgba(255,255,255,0.4)",
+        boxShadow:"0 8px 24px rgba(0,0,0,.12)",
+        whiteSpace: "pre-wrap",
+        fontSize: "15px",
+        lineHeight: "1.65",
+        color:"#1A1A1A",
+      }}
+    >
+      {texto}
+    </div>
+
+  </div>
+  );
+}
+
 const KANBAN_COLUMNS = {
   CONTACTO_INICIAL: {
     key: "CONTACTO_INICIAL",
@@ -37,6 +248,11 @@ const KANBAN_COLUMNS = {
     label: "VENTAS",
     bg: "#fce4ec",
   },
+  COTIZACIONES: {
+    key: "COTIZACIONES",
+    label: "COTIZACIONES",
+    bg: "#f6f3e7ff",
+  },
   ASESOR: {
     key: "ASESOR",
     label: "ASESOR",
@@ -56,6 +272,7 @@ const Estado_contactos = () => {
     PRODUCTOS_Y_PROVEEDORES: [],
     VENTAS: [],
     ASESOR: [],
+    COTIZACIONES: [],
   });
 
   const [searchTerms, setSearchTerms] = useState({
@@ -64,6 +281,7 @@ const Estado_contactos = () => {
     PRODUCTOS_Y_PROVEEDORES: "",
     VENTAS: "",
     ASESOR: "",
+    COTIZACIONES: "",
   });
 
   useEffect(() => {
@@ -109,6 +327,7 @@ const Estado_contactos = () => {
           PRODUCTOS_Y_PROVEEDORES: boardFromApi.PRODUCTOS_Y_PROVEEDORES || [],
           VENTAS: boardFromApi.VENTAS || [],
           ASESOR: boardFromApi.ASESOR || [],
+          COTIZACIONES: boardFromApi.COTIZACIONES || [],
         };
 
         setBoardData(nextBoard);
@@ -139,7 +358,9 @@ const Estado_contactos = () => {
         .filter(Boolean)
         .join(" ") || "Sin nombre";
 
-    const telefono = "+"+contacto.telefono_limpio || null;
+    const telefono = contacto.telefono_limpio || null;
+
+    const botColor = contacto.bot_openia === 1 ? "#2ECC71" : "#E74C3C"; // verde / rojo
 
     return (
       <div
@@ -156,7 +377,47 @@ const Estado_contactos = () => {
         }}
         className="kanban-contact-card"
       >
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>{nombreCompleto}</div>
+        {/* fila nombre + BOT */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 4,
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>{nombreCompleto}</span>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {/* BOT */}
+            <i
+              className="bx bx-bot"
+              style={{
+                fontSize: "1.25rem",
+                color: botColor,
+              }}
+            ></i>
+
+            {/* OJO */}
+            <i
+              className="bx bx-show"
+              title="Último mensaje recibido"
+              style={{
+                fontSize: "1.2rem",
+                color: "#555",
+                cursor: "pointer",
+                transition: "all .2s ease",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePreview(contacto);
+                setExpandedId(contacto.id);
+              }}
+              onMouseEnter={(e) => (e.target.style.color = "#111")}
+              onMouseLeave={(e) => (e.target.style.color = "#555")}
+            ></i>
+          </div>
+        </div>
 
         {telefono && (
           <div style={{ opacity: 0.85, marginBottom: 6 }}>📱 {telefono}</div>
@@ -204,7 +465,6 @@ const Estado_contactos = () => {
           Abrir
         </button>
 
-        {/* Animación hover */}
         <style>{`
         .kanban-btn-abrir:hover {
           transform: translateY(-2px) scale(1.03);
@@ -214,6 +474,71 @@ const Estado_contactos = () => {
           transform: scale(0.97);
         }
       `}</style>
+
+        {expandedId === contacto.id && (
+          <div
+            style={{
+              marginTop: "10px",
+              background: "#F8F9FF",
+              borderRadius: "12px",
+              padding: "14px",
+              border: "1px solid rgba(0,0,0,.05)",
+              animation: "expand .2s ease",
+              minHeight: "80px",
+            }}
+          >
+            {previewLoading && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "25px 0",
+                  opacity: 0.7,
+                  fontSize: "13px",
+                }}
+              >
+                <i
+                  className="bx bx-loader-alt bx-spin"
+                  style={{ fontSize: "20px" }}
+                ></i>
+                <div>Cargando mensaje...</div>
+              </div>
+            )}
+
+            {!previewLoading && previewData && (
+              <>
+                <PreviewContent
+                  tipo={previewData.tipo}
+                  texto={previewData.texto}
+                  ruta={previewData.ruta}
+                  rutaRaw={previewData.rutaRaw}
+                  replyRef={previewData.replyRef}
+                  replyAuthor={previewData.replyAuthor}
+                />
+
+                <div
+                  style={{
+                    textAlign: "right",
+                    marginTop: "6px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: "#0D6EFD",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      setExpandedId(null);
+                      setPreviewData(null);
+                    }}
+                  >
+                    Cerrar
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -235,6 +560,58 @@ const Estado_contactos = () => {
       );
     });
   };
+
+  /* preview */
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const handlePreview = async (contacto) => {
+    try {
+      setPreviewLoading(true);
+      setPreviewData(null);
+
+      const { data } = await chatApi.post(
+        "/clientes_chat_center/listar_ultimo_mensaje",
+        {
+          id_cliente: contacto.id,
+          id_configuracion,
+        }
+      );
+
+      if (
+        !data ||
+        !data.success ||
+        !Array.isArray(data.data) ||
+        data.data.length === 0
+      ) {
+        Toast.fire({ icon: "error", title: "No hay mensajes aún" });
+        setPreviewLoading(false);
+        return;
+      }
+
+      const msg = data.data[0];
+
+      setPreviewData({
+        tipo: msg.tipo_mensaje,
+        texto: msg.texto_mensaje,
+        ruta: msg.ruta_archivo,
+        rutaRaw: msg.ruta_archivo,
+        replyRef: null,
+        replyAuthor: null,
+      });
+
+      setExpandedId(contacto.id);
+    } catch (error) {
+      console.error(error);
+      Toast.fire({ icon: "error", title: "Error API" });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  /* preview */
 
   return (
     <div className="p-5">
@@ -492,6 +869,15 @@ const Estado_contactos = () => {
           box-shadow: 0 8px 16px rgba(0,0,0,0.12);
         }
       `}</style>
+
+      <style>
+        {`
+@keyframes expand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+`}
+      </style>
     </div>
   );
 };

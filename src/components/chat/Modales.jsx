@@ -1147,6 +1147,8 @@ const Modales = ({
   /* seccion de transferir chat */
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState("");
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState("");
+  const [motivoTransferencia, setMotivoTransferencia] = useState("");
+
 
   const handleTransferirChat = async () => {
     if (!usuarioSeleccionado || !departamentoSeleccionado) {
@@ -1163,6 +1165,7 @@ const Modales = ({
         {
           id_encargado: usuarioSeleccionado,
           id_departamento: departamentoSeleccionado,
+          motivo: motivoTransferencia,
           id_cliente_chat_center: selectedChat.id,
         }
       );
@@ -2267,6 +2270,30 @@ const Modales = ({
                   {Array.isArray(lista_departamentos)
                     ? `${lista_departamentos.length} departamentos`
                     : ""}
+                </p>
+              </div>
+              {/* Textarea para motivo de transferencia (opcional o requerido, como prefieras) */}
+              <div>
+                <label
+                  htmlFor="motivo-transferencia"
+                  className="block text-sm font-medium text-slate-700 mb-1"
+                >
+                  Motivo de la transferencia
+                </label>
+
+                <textarea
+                  id="motivo-transferencia"
+                  className="w-full border border-slate-300 rounded-lg p-2 text-sm 
+               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+               bg-white"
+                  rows={3}
+                  placeholder="Escriba el motivo..."
+                  value={motivoTransferencia}
+                  onChange={(e) => setMotivoTransferencia(e.target.value)}
+                ></textarea>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Este motivo será visible para el usuario que reciba el chat.
                 </p>
               </div>
             </div>

@@ -111,15 +111,15 @@ Y justo debajo, incluye TODOS los datos actuales de `datos_servicio`, cada uno e
 📞 Teléfono: [Número de teléfono]  
 📍 Correo: [Coreo]  
 📍 Servicio que desea: [Servicio que desea]  
-🕒 Fecha y hora de inicio: [Fecha y hora de inicio en formato "YYYY-MM-DD HH:mm:ss"]  
-🕒 Fecha y hora de fin: [Fecha y hora de fin en formato "YYYY-MM-DD HH:mm:ss"]  
+🕒 Fecha y hora de inicio: [Fecha y hora de inicio en formato "YYYY-MM-DD HH:mm:ss", convierte lo que te dice el cliente esta esa fecha con este formato obligatorio]  
+🕒 Fecha y hora de fin: [Fecha y hora de fin en formato "YYYY-MM-DD HH:mm:ss", convierte lo que te dice el cliente esta esa fecha con este formato obligatorio]  
 💰 Precio total: [Monto total]  
 
 Al final, en una línea **sola**, sin texto adicional antes o después, debes escribir:
 
 [cita_confirmada]: true
 
-⚠️ Este formato es obligatorio para activar el envío automático del resumen. No cambies los emojis ni las etiquetas.
+⚠️ Este formato y toda la interaccion 5 son obligatorios para activar el envío automático del resumen. No cambies los emojis ni las etiquetas.
 
 Interacción adicional – Cliente quiere ver en tienda
 
