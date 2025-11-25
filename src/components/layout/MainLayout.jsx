@@ -12,6 +12,8 @@ function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
 
+  const [open, setOpen] = useState(false);
+
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null); // Para el botón "hamburger"
 
@@ -449,27 +451,71 @@ function MainLayout({ children }) {
             </a>
 
             {/* Clientes contactos */}
-            <a
-              href="/clientes"
+            {/* Botón principal */}
+            <button
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/clientes"
+                location.pathname.startsWith("/clientes")
                   ? "bg-gray-200 font-semibold"
                   : ""
               }`}
-              onClick={(e) => {
-                e.preventDefault();
-
-                localStorage.setItem("id_configuracion", id_configuracion);
-                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
-
-                navigate("/clientes");
-              }}
+              onClick={() => setOpen(!open)}
             >
               <i className="bx bxs-contact text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
                 Contactos
               </span>
-            </a>
+
+              <i
+                className={`bx ml-auto transition-transform duration-300 ${
+                  open ? "bx-chevron-up" : "bx-chevron-down"
+                }`}
+              />
+            </button>
+
+            {/* Submenú animado */}
+            <div
+              className={`overflow-hidden transition-all duration-[600ms] ease-out`}
+              style={{
+                maxHeight: open ? "200px" : "0px",
+              }}
+            >
+              <div className="ml-10 flex flex-col py-2">
+                <button
+                  className="text-left px-4 py-2 hover:text-blue-600"
+                  onClick={(e) => {
+                    e.preventDefault();
+
+                    localStorage.setItem("id_configuracion", id_configuracion);
+                    localStorage.setItem(
+                      "id_plataforma_conf",
+                      id_plataforma_conf
+                    );
+
+                    navigate("/clientes");
+                  }}
+                >
+                  Lista de contactos
+                </button>
+
+                <button
+                  className="text-left px-4 py-2 hover:text-blue-600"
+                  onClick={(e) => {
+                    e.preventDefault();
+
+                    localStorage.setItem("id_configuracion", id_configuracion);
+                    localStorage.setItem(
+                      "id_plataforma_conf",
+                      id_plataforma_conf
+                    );
+
+                    navigate("/estados_contactos");
+                  }}
+                >
+                  Estados de contactos
+                </button>
+              </div>
+            </div>
 
             {/* integraciones */}
             <a
