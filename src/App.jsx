@@ -33,6 +33,7 @@ import Estado_contactos_ventas from "./pages/contactos/Estado_contactos_ventas";
 import Vinculaciones from "./pages/vinculaciones/Vinculaciones";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
+import AdminConexiones from "./pages/conexiones/AdminConexiones";
 import Calendario from "./pages/calendario/Calendario";
 
 // Páginas de acceso y registro
@@ -221,6 +222,16 @@ function App() {
               </MainLayout_conexiones>
             }
           />
+
+          <Route
+            path="/administrador-conexiones"
+            element={
+              <MainLayout_conexiones>
+                <AdminConexiones />
+              </MainLayout_conexiones>
+            }
+          />
+
           {/* vista de usuarios */}
           <Route
             path="/usuarios"

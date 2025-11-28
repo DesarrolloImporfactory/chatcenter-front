@@ -1027,57 +1027,36 @@ const Conexiones = () => {
     }
   };
 
-  // util pequeño
-  const getUserIdSafe = () => {
+  const fetchConfiguracionAutomatizada = useCallback(async () => {
     try {
-      const t = localStorage.getItem("token");
-      if (!t) return null;
-      const d = jwtDecode(t);
-      return d?.id_usuario ?? null;
-    } catch {
-      return null;
-    }
-  };
-
-  const fetchConfiguracionAutomatizada = useCallback(
-    async (overrideUserId) => {
-      const uid = overrideUserId ?? userData?.id_usuario ?? getUserIdSafe();
-      if (!uid) return;
-
-      try {
-        setLoading(true);
-        const response = await chatApi.post(
-          "configuraciones/listar_conexiones",
-          {
-            id_usuario: uid,
-          }
-        );
-        setConfiguracionAutomatizada(response.data.data || []);
-        setMostrarErrorBot(false);
-      } catch (error) {
-        if (error.response?.status === 403) {
-          Swal.fire({
-            icon: "error",
-            title: error.response?.data?.message,
-            confirmButtonText: "OK",
-          }).then(() => navigate("/planes_view"));
-        } else if (error.response?.status === 402) {
-          Swal.fire({
-            icon: "error",
-            title: error.response?.data?.message,
-            confirmButtonText: "OK",
-          }).then(() => navigate("/miplan"));
-        } else if (error.response?.status === 400) {
-          setMostrarErrorBot(true);
-        } else {
-          console.error("Error al cargar configuración:", error);
-        }
-      } finally {
-        setLoading(false);
+      setLoading(true);
+      const response = await chatApi.post(
+        "configuraciones/listar_admin_conexiones"
+      );
+      setConfiguracionAutomatizada(response.data.data || []);
+      setMostrarErrorBot(false);
+    } catch (error) {
+      if (error.response?.status === 403) {
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          confirmButtonText: "OK",
+        }).then(() => navigate("/planes_view"));
+      } else if (error.response?.status === 402) {
+        Swal.fire({
+          icon: "error",
+          title: error.response?.data?.message,
+          confirmButtonText: "OK",
+        }).then(() => navigate("/miplan"));
+      } else if (error.response?.status === 400) {
+        setMostrarErrorBot(true);
+      } else {
+        console.error("Error al cargar configuración:", error);
       }
-    },
-    [userData?.id_usuario, navigate]
-  );
+    } finally {
+      setLoading(false);
+    }
+  }, [userData?.id_usuario, navigate]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -1335,275 +1314,12 @@ const Conexiones = () => {
                             )}
                           </div>
                         </div>
-
-                        {/* eliminar */}
-                        <button
-                          type="button"
-                          onClick={() => confirmarEliminar(config)}
-                          disabled={suspendiendoId === config.id}
-                          className={[
-                            "shrink-0 w-10 h-10 rounded-xl grid place-items-center ring-1 transition",
-                            "bg-rose-50 ring-rose-200 text-rose-600",
-                            suspendiendoId === config.id
-                              ? "opacity-60 cursor-not-allowed"
-                              : "hover:scale-105 hover:bg-rose-100",
-                          ].join(" ")}
-                          title="Eliminar conexión"
-                          aria-label="Eliminar conexión"
-                        >
-                          <i className="bx bx-trash text-xl"></i>
-                        </button>
                       </div>
 
                       {/* Teléfono */}
                       <div className="mt-4 flex items-center gap-2 text-sm text-slate-700">
                         <i className="bx bx-phone-call text-xl text-green-600 hover:sacudir"></i>
                         <span className="font-medium">{config.telefono}</span>
-                      </div>
-
-                      {/* Acciones */}
-                      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                        <div
-                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                          onClick={() => {
-                            localStorage.setItem("id_configuracion", config.id);
-                            localStorage.setItem(
-                              "id_plataforma_conf",
-                              config.id_plataforma
-                            );
-                            localStorage.setItem(
-                              "nombre_configuracion",
-                              config.nombre_configuracion
-                            );
-                            navigate("/canal-conexiones");
-                          }}
-                          title="Ir a configuración"
-                        >
-                          <i className="bx bx-cog text-2xl text-blue-600"></i>
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Ir a configuración
-                          </span>
-                        </div>
-
-                        {/* Facebook Inbox (Messenger) */}
-                        {!isMessengerConectado(config) ? (
-                          <button
-                            type="button"
-                            onClick={() => handleConectarFacebookInbox(config)}
-                            className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                            title="Conectar Inbox de Messenger"
-                            aria-label="Conectar Inbox de Messenger"
-                          >
-                            <i className="bx bxl-messenger text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar Inbox de Messenger
-                            </span>
-                          </button>
-                        ) : (
-                          <div
-                            className="relative group text-blue-600"
-                            title="Inbox de Messenger conectado"
-                          >
-                            <i className="bx bxl-messenger text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Inbox de Messenger conectado
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Instagram Inbox*/}
-                        {!isInstagramConectado(config) ? (
-                          <button
-                            type="button"
-                            onClick={() => handleConectarInstagramInbox(config)}
-                            className="relative group cursor-pointer text-gray-500 hover:text-pink-600 transition transform hover:scale-110"
-                            title="Conectar Inbox de Instagram"
-                            aria-label="Conectar Inbox de Instagram"
-                          >
-                            <i className="bx bxl-instagram text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar Inbox de Instagram
-                            </span>
-                          </button>
-                        ) : (
-                          <div
-                            className="relative group text-pink-600"
-                            title="Inbox de Instagram conectado"
-                          >
-                            <i className="bx bxl-instagram text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Inbox de Instagram conectado
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Meta Developer */}
-                        {!conectado ? (
-                          <div
-                            className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
-                            onClick={() => handleConectarMetaDeveloper(config)}
-                            title="Conectar Bussines Manager"
-                          >
-                            <i className="bx bxl-meta text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar Bussines Manager
-                            </span>
-                          </div>
-                        ) : (
-                          <div
-                            className="relative group text-blue-600"
-                            title="Meta Business conectado"
-                          >
-                            <i className="bx bxl-meta text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Meta Business conectado
-                            </span>
-                          </div>
-                        )}
-
-                        {!conectado ? (
-                          <div
-                            className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                            onClick={() => {
-                              setIdConfiguracion(config.id);
-                              setNombreConfiguracion(
-                                config.nombre_configuracion
-                              );
-                              setTelefono(config.telefono);
-                              setModalConfiguracionWhatsappBusiness(true);
-                            }}
-                            title="Conectar WhatsApp Business"
-                          >
-                            <i className="bx bxl-whatsapp text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar WhatsApp Business
-                            </span>
-                          </div>
-                        ) : (
-                          <div
-                            className="relative group text-green-600"
-                            title="WhatsApp vinculado"
-                          >
-                            <i className="bx bxl-whatsapp text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              WhatsApp vinculado
-                            </span>
-                          </div>
-                        )}
-
-                        {/* TikTok Inbox */}
-                        {!isTikTokConectado(config) ? (
-                          <button
-                            type="button"
-                            onClick={() => handleConectarTikTokInbox(config)}
-                            className="relative group cursor-pointer text-gray-500 hover:text-black transition transform hover:scale-110"
-                            title="Conectar con TikTok"
-                            aria-label="Conectar con TikTok"
-                          >
-                            <i className="bx bxl-tiktok text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar TikTok
-                            </span>
-                          </button>
-                        ) : (
-                          <div
-                            className="relative group text-black"
-                            title="TikTok conectado"
-                          >
-                            <i className="bx bxl-tiktok text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              TikTok conectado
-                            </span>
-                          </div>
-                        )}
-
-                        <div
-                          className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                          onClick={() => {
-                            localStorage.setItem("id_configuracion", config.id);
-                            localStorage.setItem(
-                              "id_plataforma_conf",
-                              config.id_plataforma
-                            );
-                            localStorage.setItem(
-                              "tipo_configuracion",
-                              config.tipo_configuracion
-                            );
-                            localStorage.setItem(
-                              "nombre_configuracion",
-                              config.nombre_configuracion
-                            );
-                            navigate("/chat");
-                          }}
-                          title="Ir al chat"
-                        >
-                          <i className="bx bx-chat text-2xl text-green-600"></i>
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Ir al chat
-                          </span>
-                        </div>
-
-                        {/* Hotspot de detalles (hover) */}
-                        <div
-                          className="relative"
-                          onMouseEnter={() => openPopover(config.id)}
-                          onMouseLeave={scheduleClose}
-                          onFocus={() => openPopover(config.id)}
-                          onBlur={() => setHoveredId(null)}
-                        >
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-semibold ring-1 ring-indigo-200 bg-indigo-50 text-indigo-700 cursor-default select-none">
-                            <i className="bx bx-info-circle text-base" />{" "}
-                            Detalles
-                          </span>
-
-                          <HoverPopover
-                            open={isOpen}
-                            onMouseEnter={() => openPopover(config.id)}
-                            onMouseLeave={scheduleClose}
-                            side="right"
-                          >
-                            <div className="space-y-3 pr-1">
-                              <ActionDetailRow
-                                icon={<i className="bx bx-cog" />}
-                                title="Configuración"
-                                desc="Abrí el panel completo de ajustes: plantillas, webhooks, etiquetas y permisos."
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bxl-messenger" />}
-                                title="Messenger Inbox"
-                                desc="Conecta tu Página de Facebook para recibir y responder mensajes directo en el inbox."
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bxl-instagram" />}
-                                title="Instagram (próximo)"
-                                desc="Integración nativa al inbox. Requiere que tu cuenta de IG esté vinculada a una Página en Meta Business."
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bxl-meta" />}
-                                title="Meta Business (requerido para WhatsApp)"
-                                tone="warning"
-                                desc="Para empezar una integración con WhatsApp Business debes iniciar la configuración en el Business Manager de tu empresa (Embedded Signup). Desde aquí finalizas el alta."
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bxl-whatsapp" />}
-                                title={`WhatsApp Business ${
-                                  conectado ? "(conectado)" : "(pendiente)"
-                                }`}
-                                tone={conectado ? "success" : "neutral"}
-                                desc={
-                                  conectado
-                                    ? "Tu número está activo y listo para enviar/recibir mensajes."
-                                    : "Inicia la activación en Business Manager y completa el proceso aquí para vincular tu número."
-                                }
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bx-chat" />}
-                                title="Chat"
-                                desc="Abre la bandeja omnicanal para conversar con tus clientes y ver el historial."
-                              />
-                            </div>
-                          </HoverPopover>
-                        </div>
                       </div>
                     </div>
                   );
@@ -1613,112 +1329,6 @@ const Conexiones = () => {
           </div>
         </div>
       </div>
-
-      {/* === MODALES (como estaban) === */}
-      {ModalConfiguracionAutomatizada && (
-        <CrearConfiguracionModal
-          onClose={() => setModalConfiguracionAutomatizada(false)}
-          fetchConfiguraciones={fetchConfiguracionAutomatizada}
-          setStatusMessage={setStatusMessage}
-        />
-      )}
-
-      {ModalConfiguracionWhatsappBusiness && (
-        <CrearConfiguracionModalWhatsappBusiness
-          onClose={() => setModalConfiguracionWhatsappBusiness(false)}
-          fetchConfiguraciones={fetchConfiguracionAutomatizada}
-          setStatusMessage={setStatusMessage}
-          idConfiguracion={idConfiguracion}
-          nombre_configuracion={NombreConfiguracion}
-          telefono={telefono}
-        />
-      )}
-
-      {/* ==== VISITA GUIADA ==== */}
-      {tourOpen && !loadingTourPref && (
-        <>
-          <Spotlight rect={rect} />
-          {rect && (
-            <Balloon
-              rect={rect}
-              placement={tourSteps[step]?.placement || "auto"}
-            >
-              <div className="text-slate-900 font-semibold text-[15px]">
-                {tourSteps[step].title}
-              </div>
-              <p className="mt-1 text-[13px] leading-5 text-slate-600">
-                {tourSteps[step].body}
-              </p>
-
-              {/* HUD de progreso */}
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-slate-50 px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
-                    Paso {step + 1} / {tourSteps.length}
-                  </div>
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  Atajos: ← → • Esc
-                </div>
-              </div>
-
-              {/* Controles */}
-              <div className="mt-3 flex items-center justify-between">
-                <button
-                  onClick={handleSkip}
-                  className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-slate-600 hover:text-slate-800"
-                  aria-label="Omitir guía"
-                >
-                  <i className="bx bx-x" /> Omitir
-                </button>
-
-                <div className="flex items-center gap-2">
-                  {/* Checkbox SIEMPRE visible; la preferencia se guarda al cerrar o terminar */}
-                  <label className="mr-2 inline-flex items-center gap-2 text-[12px] text-slate-600">
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5 accent-indigo-600"
-                      checked={dontShowAgain}
-                      onChange={(e) => setDontShowAgain(e.target.checked)}
-                    />
-                    No volver a mostrar
-                  </label>
-
-                  <button
-                    onClick={handlePrev}
-                    disabled={step === 0}
-                    className={[
-                      "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px] font-semibold ring-1 transition",
-                      step === 0
-                        ? "text-slate-400 ring-slate-200 cursor-not-allowed"
-                        : "text-slate-700 ring-slate-200 hover:bg-slate-50",
-                    ].join(" ")}
-                    aria-label="Anterior"
-                    title="Anterior (←)"
-                  >
-                    <i className="bx bx-left-arrow-alt" /> Atrás
-                  </button>
-
-                  <button
-                    onClick={handleNext}
-                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-indigo-600 to-indigo-500 px-3 py-1.5 text-[12px] font-semibold text-white ring-1 ring-indigo-500/30 hover:brightness-110"
-                    aria-label={
-                      step === tourSteps.length - 1 ? "Terminar" : "Siguiente"
-                    }
-                    title="Siguiente (→)"
-                  >
-                    {step === tourSteps.length - 1 ? "Terminar" : "Siguiente"}
-                    <i className="bx bx-right-arrow-alt" />
-                  </button>
-                </div>
-              </div>
-            </Balloon>
-          )}
-        </>
-      )}
-
-      {/* Evita parpadeo mientras se consulta la preferencia */}
-      {loadingTourPref && null}
     </div>
   );
 };
