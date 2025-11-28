@@ -17,6 +17,8 @@ function MainLayout({ children }) {
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null); // Para el botón "hamburger"
 
+  const tipo_configuracion = localStorage.getItem("tipo_configuracion");
+
   //Aqui guardaremos las configuraciones automatizadas que vienen de tu API
   const [userData, setUserData] = useState(null);
   const [configuraciones, setConfiguraciones] = useState([]);
@@ -41,6 +43,7 @@ function MainLayout({ children }) {
 
     if (!idc) {
       localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("tipo_configuracion");
       localStorage.removeItem("id_plataforma_conf");
       navigate("/conexiones");
       return;
@@ -77,6 +80,7 @@ function MainLayout({ children }) {
               });
 
               localStorage.removeItem("id_configuracion");
+              localStorage.removeItem("tipo_configuracion");
               localStorage.removeItem("id_plataforma_conf");
               navigate("/conexiones");
             }
@@ -96,6 +100,7 @@ function MainLayout({ children }) {
           });
 
           localStorage.removeItem("id_configuracion");
+          localStorage.removeItem("tipo_configuracion");
           localStorage.removeItem("id_plataforma_conf");
           navigate("/conexiones");
         }
@@ -104,6 +109,7 @@ function MainLayout({ children }) {
       validar_conexion_usuario(usuario, idc);
     } else {
       localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("tipo_configuracion");
       localStorage.removeItem("id_plataforma_conf");
       navigate("/conexiones");
       return;
@@ -350,6 +356,7 @@ function MainLayout({ children }) {
               onClick={(e) => {
                 e.preventDefault();
                 localStorage.removeItem("id_configuracion");
+                localStorage.removeItem("tipo_configuracion");
                 localStorage.removeItem("id_plataforma_conf");
 
                 navigate("/conexiones");
@@ -499,21 +506,25 @@ function MainLayout({ children }) {
                 </button>
 
                 <button
-                  className="text-left px-4 py-2 hover:text-blue-600"
-                  onClick={(e) => {
-                    e.preventDefault();
+                className="text-left px-4 py-2 hover:text-blue-600"
+                onClick={(e) => {
+                  e.preventDefault();
 
-                    localStorage.setItem("id_configuracion", id_configuracion);
-                    localStorage.setItem(
-                      "id_plataforma_conf",
-                      id_plataforma_conf
-                    );
+                  localStorage.setItem("id_configuracion", id_configuracion);
+                  localStorage.setItem(
+                    "id_plataforma_conf",
+                    id_plataforma_conf
+                  );
 
+                  if (tipo_configuracion === "ventas") {
+                    navigate("/estados_contactos_ventas");
+                  } else {
                     navigate("/estados_contactos");
-                  }}
-                >
-                  Estados de contactos
-                </button>
+                  }
+                }}
+              >
+                Estados de contactos
+              </button>
               </div>
             </div>
 

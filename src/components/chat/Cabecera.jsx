@@ -26,6 +26,7 @@ const Cabecera = ({
   SwitchBot,
   setMensajesAcumulados,
   id_plataforma_conf,
+  tipo_configuracion
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -45,7 +46,6 @@ const Cabecera = ({
     setOpcionesMenuOpen(!opcionesMenuOpen);
   };
 
-  const [configuraciones, setConfiguraciones] = useState([]);
   const [estadoNumero, setEstadoNumero] = useState([]);
 
   const volver_seccion_principal = () => {
@@ -360,6 +360,7 @@ const Cabecera = ({
             onClick={(e) => {
               e.preventDefault();
               localStorage.removeItem("id_configuracion");
+              localStorage.removeItem("tipo_configuracion");
               localStorage.removeItem("id_plataforma_conf");
 
               navigate("/conexiones");
@@ -513,7 +514,11 @@ const Cabecera = ({
                     id_plataforma_conf
                   );
 
-                  navigate("/estados_contactos");
+                  if (tipo_configuracion === "ventas") {
+                    navigate("/estados_contactos_ventas");
+                  } else {
+                    navigate("/estados_contactos");
+                  }
                 }}
               >
                 Estados de contactos

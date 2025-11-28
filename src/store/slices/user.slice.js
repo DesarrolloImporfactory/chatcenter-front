@@ -91,6 +91,7 @@ export const newLoginThunk = createAsyncThunk(
       const { data } = await chatApi.post("/auth/newLogin", credentials);
       localStorage.setItem("token", data.token);
       localStorage.setItem("id_plataforma_conf", data.id_plataforma);
+      localStorage.setItem("tipo_configuracion", data.tipo_configuracion);      
       localStorage.setItem("id_configuracion", data.id_configuracion);
       let data_filtrada = {
         user: data.user,

@@ -167,6 +167,7 @@ const ProductosView = () => {
       });
 
       localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("tipo_configuracion");
       localStorage.removeItem("id_plataforma_conf");
       navigate("/conexiones");
       return;

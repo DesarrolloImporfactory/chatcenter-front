@@ -1526,6 +1526,10 @@ const Conexiones = () => {
                               config.id_plataforma
                             );
                             localStorage.setItem(
+                              "tipo_configuracion",
+                              config.tipo_configuracion
+                            );
+                            localStorage.setItem(
                               "nombre_configuracion",
                               config.nombre_configuracion
                             );

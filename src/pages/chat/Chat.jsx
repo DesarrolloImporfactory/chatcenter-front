@@ -285,6 +285,8 @@ const Chat = () => {
     }
   };
 
+  const tipo_configuracion = localStorage.getItem("tipo_configuracion");
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -433,6 +435,7 @@ const Chat = () => {
 
     if (!idc) {
       localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("tipo_configuracion");
       localStorage.removeItem("id_plataforma_conf");
       navigate("/conexiones");
       return;
@@ -473,6 +476,7 @@ const Chat = () => {
               });
 
               localStorage.removeItem("id_configuracion");
+              localStorage.removeItem("tipo_configuracion");
               localStorage.removeItem("id_plataforma_conf");
               navigate("/conexiones");
             }
@@ -481,6 +485,7 @@ const Chat = () => {
           }
         } catch (error) {
           localStorage.removeItem("id_configuracion");
+          localStorage.removeItem("tipo_configuracion");
           localStorage.removeItem("id_plataforma_conf");
 
           if (error.response?.status === 403) {
@@ -514,6 +519,7 @@ const Chat = () => {
       validar_conexion_usuario(usuario, idc);
     } else {
       localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("tipo_configuracion");
       localStorage.removeItem("id_plataforma_conf");
       navigate("/conexiones");
       return;
@@ -3385,6 +3391,7 @@ const Chat = () => {
         SwitchBot={SwitchBot}
         setMensajesAcumulados={setMensajesAcumulados}
         id_plataforma_conf={id_plataforma_conf}
+        tipo_configuracion={tipo_configuracion}
       />
       {/* Historial de chats */}
       <Sidebar
