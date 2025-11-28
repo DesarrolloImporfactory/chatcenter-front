@@ -28,7 +28,8 @@ import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import AdministradorCanales from "./pages/administradorcanales/AdministradorCanales";
 import Asistentes from "./pages/asistentes/Asistentes";
-import Estado_contactos from "./pages/contactos/Estado_contactos";
+import Estado_contactos_imporfactory from "./pages/contactos/Estado_contactos_imporfactory";
+import Estado_contactos_ventas from "./pages/contactos/Estado_contactos_ventas";
 import Vinculaciones from "./pages/vinculaciones/Vinculaciones";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
@@ -162,7 +163,16 @@ function App() {
             path="/estados_contactos"
             element={
               <MainLayout>
-                <Estado_contactos />
+                <Estado_contactos_imporfactory />
+              </MainLayout>
+            }
+          />
+
+          <Route
+            path="/estados_contactos_ventas"
+            element={
+              <MainLayout>
+                <Estado_contactos_ventas />
               </MainLayout>
             }
           />
