@@ -240,6 +240,79 @@ export default function Register() {
             )}
           </div>
 
+          {/* Tipo de Plan */}
+          <div className="mb-6">
+            <p className="text-sm font-semibold text-gray-700 mb-2">
+              Selecciona tu tipo de plan
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Plan Mensual */}
+              <div
+                onClick={() => setActive("mensual")}
+                className={`
+        cursor-pointer p-4 rounded-xl border shadow-sm transition-all
+        ${
+          active === "mensual"
+            ? "border-green-600 bg-green-50"
+            : "border-gray-300 hover:border-green-500"
+        }
+      `}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-800">Mensual</h3>
+                  <i
+                    className={`bx bxs-check-circle text-2xl transition-all 
+          ${active === "mensual" ? "text-green-600" : "text-gray-300"}
+        `}
+                  ></i>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  Pago mensual según la cantidad de bots y uso. Sin límites de
+                  conversaciones.
+                </p>
+              </div>
+
+              {/* Plan por Conversaciones */}
+              <div
+                onClick={() => setActive("conversaciones")}
+                className={`
+                  cursor-pointer p-4 rounded-xl border shadow-sm transition-all
+                  ${
+                    active === "conversaciones"
+                      ? "border-blue-600 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-500"
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-800">
+                    Conversacional
+                  </h3>
+                  <i
+                    className={`bx bxs-check-circle text-2xl transition-all 
+                    ${
+                      active === "conversaciones"
+                        ? "text-blue-600"
+                        : "text-gray-300"
+                    }
+                  `}
+                  ></i>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  Pago según la cantidad de conversaciones del bot. Ideal para
+                  negocios pequeños.
+                </p>
+              </div>
+            </div>
+
+            {errors.tipo_plan && (
+              <p className="text-red-600 text-xs mt-1">
+                {errors.tipo_plan.message}
+              </p>
+            )}
+          </div>
+
           {/* Aceptación de Términos y Privacidad */}
           <div className="mb-4 text-xs text-gray-600">
             <label className="flex items-start gap-2">
