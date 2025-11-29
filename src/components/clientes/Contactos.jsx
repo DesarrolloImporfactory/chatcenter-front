@@ -898,7 +898,7 @@ export default function Contactos() {
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(undefined);
 
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(21);
   const LIMIT = pageSize;
 
   const [q, setQ] = useState("");
