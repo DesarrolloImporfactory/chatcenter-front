@@ -380,6 +380,10 @@ const Conexiones = () => {
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
 
+  // PAGINACIÓN
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [itemsPorPagina, setItemsPorPagina] = useState(12);
+
   const [mostrarErrorBot, setMostrarErrorBot] = useState(false);
   const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
     useState(false);
@@ -529,6 +533,16 @@ const Conexiones = () => {
     }
     return data;
   }, [configuracionAutomatizada, search, filtroEstado, filtroPago]);
+
+  // CALCULO PAGINACIÓN
+  const totalPaginas = Math.ceil(listaFiltrada.length / itemsPorPagina);
+  const inicio = (paginaActual - 1) * itemsPorPagina;
+  const fin = inicio + itemsPorPagina;
+  const paginaActualData = listaFiltrada.slice(inicio, fin);
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [search, filtroEstado, filtroPago]);
 
   // ====== Pasos del tour ======
   const hasCards = listaFiltrada.length > 0;
@@ -1282,7 +1296,7 @@ const Conexiones = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {listaFiltrada.map((config, idx) => {
+                {paginaActualData.map((config, idx) => {
                   const conectado = isConectado(config);
                   const pagoActivo = Number(config.metodo_pago) === 1;
                   const isOpen = hoveredId === config.id;
@@ -1291,39 +1305,86 @@ const Conexiones = () => {
                     <div
                       key={config.id}
                       ref={idx === 0 ? firstCardRef : null}
-                      className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-5 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
+                      className="relative bg-white rounded-2xl shadow-lg ring-1 ring-slate-200 p-5 border border-slate-100 hover:border-indigo-300 hover:shadow-xl transition-all duration-200"
                     >
-                      {/* Header card */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="text-base font-semibold text-slate-800 truncate">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-base font-bold text-slate-700">
                             {config.nombre_configuracion}
                           </h3>
+
                           <div className="mt-2 flex items-center gap-2">
                             {pill(
                               conectado
-                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+                                ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
+                                : "bg-amber-100 text-amber-700 ring-1 ring-amber-300",
                               conectado ? "Conectado" : "Pendiente"
                             )}
                             {pill(
                               pagoActivo
-                                ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
-                                : "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
+                                ? "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300"
+                                : "bg-rose-100 text-rose-700 ring-1 ring-rose-300",
                               pagoActivo ? "Pago activo" : "Pago inactivo"
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Teléfono */}
-                      <div className="mt-4 flex items-center gap-2 text-sm text-slate-700">
-                        <i className="bx bx-phone-call text-xl text-green-600 hover:sacudir"></i>
-                        <span className="font-medium">{config.telefono}</span>
+                      <div className="mt-5">
+                        <div className="flex items-center gap-2 text-sm text-slate-700">
+                          <i className="bx bx-phone-call text-xl text-green-600"></i>
+                          <span>{config.telefono}</span>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {/* PAGINADOR */}
+            {totalPaginas > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between mt-8 gap-4">
+                {/* Selector de items por página */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-600">Mostrar:</span>
+                  <select
+                    value={itemsPorPagina}
+                    onChange={(e) => {
+                      setItemsPorPagina(Number(e.target.value));
+                      setPaginaActual(1);
+                    }}
+                    className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                  >
+                    <option value={8}>8</option>
+                    <option value={12}>12</option>
+                    <option value={20}>20</option>
+                    <option value={32}>32</option>
+                  </select>
+                  <span className="text-sm text-slate-600">por página</span>
+                </div>
+
+                {/* Navegación */}
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm"
+                    disabled={paginaActual === 1}
+                    onClick={() => setPaginaActual((p) => p - 1)}
+                  >
+                    ← Anterior
+                  </button>
+
+                  <span className="text-sm text-slate-600">
+                    Página <b>{paginaActual}</b> de <b>{totalPaginas}</b>
+                  </span>
+
+                  <button
+                    className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm"
+                    disabled={paginaActual === totalPaginas}
+                    onClick={() => setPaginaActual((p) => p + 1)}
+                  >
+                    Siguiente →
+                  </button>
+                </div>
               </div>
             )}
           </div>
