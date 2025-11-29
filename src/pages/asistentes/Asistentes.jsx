@@ -80,19 +80,11 @@ const ChipRemove = (props) => (
 const Asistentes = () => {
   const [id_configuracion, setId_configuracion] = useState(null);
 
-  //controlar id_plataforma_conf para ocultar Logística si es null
   const [idPlataformaConf, setIdPlataformaConf] = useState(null);
 
   // Estado API Key / existencia
   const [existeAsistente, setExisteAsistente] = useState(null);
   const [showModalApiKey, setShowModalApiKey] = useState(false);
-
-  // Logística
-  const [asistenteLogistico, setAsistenteLogistico] = useState(null);
-  const [nombreBotLog, setNombreBotLog] = useState("");
-  const [assistantIdLog, setAssistantIdLog] = useState("");
-  const [activoLog, setActivoLog] = useState(false);
-  const [showModalLogistica, setShowModalLogistica] = useState(false);
 
   // Ventas
   const [asistenteVentas, setAsistenteVentas] = useState(null);
@@ -132,12 +124,10 @@ const Asistentes = () => {
 
       const data = response.data?.data || {};
       setExisteAsistente(data.api_key_openai || null);
-      setAsistenteLogistico(data.logistico || null);
       setAsistenteVentas(data.ventas || null);
     } catch (error) {
       console.error("Error al cargar los asistentes.", error);
       setExisteAsistente(null);
-      setAsistenteLogistico(null);
       setAsistenteVentas(null);
     }
   };
@@ -206,11 +196,6 @@ const Asistentes = () => {
 
   /** Sincroniza estados visuales con datos del backend */
   useEffect(() => {
-    if (asistenteLogistico) {
-      setNombreBotLog(asistenteLogistico.nombre_bot || "");
-      setAssistantIdLog(asistenteLogistico.assistant_id || "");
-      setActivoLog(!!asistenteLogistico.activo);
-    }
     if (asistenteVentas) {
       setNombreBotVenta(asistenteVentas.nombre_bot || "");
       setAssistantIdVenta(asistenteVentas.assistant_id || "");
@@ -255,7 +240,7 @@ const Asistentes = () => {
       // Tiempo remarketing como string ("1","3","5","10","20")
       setTiempo_remarketing(String(asistenteVentas.tiempo_remarketing || "0"));
     }
-  }, [asistenteLogistico, asistenteVentas]);
+  }, [asistenteVentas]);
 
   /** Select multi */
   const productosOptions = useMemo(
@@ -297,21 +282,6 @@ const Asistentes = () => {
     }
   };
 
-  const guardarLogistica = async () => {
-    try {
-      await chatApi.post("openai_assistants/actualizar_ia_logisctica", {
-        id_configuracion: id_configuracion,
-        nombre_bot: nombreBotLog,
-        assistant_id: assistantIdLog,
-        activo: activoLog,
-      });
-      setShowModalLogistica(false);
-      await fetchAsistenteAutomatizado();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const guardarVentas = async () => {
     try {
       await chatApi.post("openai_assistants/actualizar_ia_ventas", {
@@ -336,12 +306,7 @@ const Asistentes = () => {
   const colorEstado = (estado) =>
     estado ? "text-green-600 bg-green-100" : "text-red-600 bg-red-100";
 
-  const iaLogisticaConectada = !!asistenteLogistico;
   const iaVentasConectada = !!asistenteVentas;
-
-  // —— NUEVO: layout condicional para columnas —— //
-  const showLogistica = idPlataformaConf !== null; // si hay valor -> se muestra
-  const gridCols = showLogistica ? "md:grid-cols-2" : "md:grid-cols-1";
 
   /* seccion apra texarea */
   const [texto, setTexto] = useState("");
@@ -387,7 +352,7 @@ const Asistentes = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">Asistentes IA</h1>
             <p className="opacity-90 mt-1">
-              Centraliza y personaliza tus asistentes para ventas y logística.
+              Centraliza y personaliza tus asistentes para ventas.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -395,12 +360,6 @@ const Asistentes = () => {
               API Key:{" "}
               <strong>
                 {existeAsistente ? "Configurada" : "No configurada"}
-              </strong>
-            </span>
-            <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur text-sm">
-              Vinculación:{" "}
-              <strong>
-                {showLogistica ? "Imporsuit vinculada" : "Pendiente"}
               </strong>
             </span>
             <button
@@ -413,80 +372,8 @@ const Asistentes = () => {
         </div>
       </div>
 
-      {/* —— Getting Started (si NO hay vinculación) —— */}
-      {!showLogistica && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
-          <div className="flex items-start gap-3">
-            <div className="text-xl">🧭</div>
-            <div>
-              <h3 className="font-semibold">Completa tu vinculación</h3>
-              <p className="text-sm mt-1">
-                Para habilitar el asistente de Logística, vincula tu cuenta con
-                Imporsuit en la sección <strong>Integraciones</strong>.
-              </p>
-              <a
-                href="/integraciones"
-                className="inline-block mt-2 text-amber-900 underline underline-offset-2 hover:text-amber-700"
-              >
-                Ir a Integraciones →
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* —— Tarjetas —— */}
-      <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
-        {/* IA Logística (CONDICIONAL) */}
-        {showLogistica && (
-          <div className="bg-white border rounded-lg shadow-md hover:shadow-lg p-6 relative">
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex items-center gap-3">
-                <i className="bx bxs-bot text-3xl text-blue-600"></i>
-                <div>
-                  <h3 className="text-xl font-bold">
-                    {asistenteLogistico?.nombre_bot || "IA de Logística"}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Automatiza seguimiento de pedidos y estados de envío.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowModalLogistica(true)}
-                className="p-2 rounded-full hover:bg-blue-50 transition"
-                title={asistenteLogistico ? "Editar" : "Añadir"}
-              >
-                <i
-                  className={`bx ${
-                    asistenteLogistico ? "bx-edit" : "bx-plus"
-                  } text-3xl text-blue-600`}
-                ></i>
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 mb-4">
-              <span
-                className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${colorEstado(
-                  iaLogisticaConectada
-                )}`}
-              >
-                {estadoIA(iaLogisticaConectada)}
-              </span>
-              {assistantIdLog && (
-                <span className="text-xs text-gray-500 border px-2 py-0.5 rounded">
-                  ID: {assistantIdLog}
-                </span>
-              )}
-            </div>
-
-            <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
-              <li>Consulta de guías y estados de envío.</li>
-              <li>Respuestas automáticas sobre tiempos y rutas.</li>
-              <li>Escalado a agente humano si es necesario.</li>
-            </ul>
-          </div>
-        )}
+      <div className={`grid grid-cols-1 md:grid-cols-1 gap-4`}>
 
         {/* IA Ventas */}
         <div className="bg-white border rounded-lg shadow-md hover:shadow-lg p-6 relative">
@@ -561,55 +448,6 @@ const Asistentes = () => {
               </button>
               <button
                 onClick={() => guardarApiKey(existeAsistente)}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showModalLogistica && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              Configurar IA Logística
-            </h3>
-
-            <input
-              type="text"
-              placeholder="Nombre del Bot"
-              value={nombreBotLog}
-              onChange={(e) => setNombreBotLog(e.target.value)}
-              className="w-full border px-3 py-2 rounded mb-3"
-            />
-            <input
-              type="text"
-              placeholder="Assistant ID"
-              value={assistantIdLog}
-              onChange={(e) => setAssistantIdLog(e.target.value)}
-              className="w-full border px-3 py-2 rounded mb-3"
-            />
-
-            <label className="flex items-center gap-2 mb-4">
-              <input
-                type="checkbox"
-                checked={activoLog}
-                onChange={(e) => setActivoLog(e.target.checked)}
-              />
-              <span>Activo</span>
-            </label>
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowModalLogistica(false)}
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={guardarLogistica}
                 className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
               >
                 Guardar
