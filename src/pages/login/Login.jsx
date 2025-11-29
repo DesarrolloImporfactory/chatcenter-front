@@ -25,7 +25,12 @@ export default function Login() {
       .unwrap()
       .then(() => {
         reset();
-        navigate("/conexiones");
+        const role = localStorage.getItem("user_role");
+        if (role === "super_administrador") {
+          navigate("/administrador-conexiones");
+        } else {
+          navigate("/conexiones");
+        }
       })
       .catch((e) => {
         setError("root", {

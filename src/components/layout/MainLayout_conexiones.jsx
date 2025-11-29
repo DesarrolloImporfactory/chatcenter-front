@@ -42,7 +42,10 @@ function MainLayout({ children }) {
     }
 
     //Guardamos userData
-    setUserData(decoded);
+    setUserData({
+      ...decoded,
+      role: decoded.rol || localStorage.getItem("user_role"),
+    });
   }, []);
 
   // Cada vez que tengamos userData, cargamos las configuraciones
@@ -77,10 +80,22 @@ function MainLayout({ children }) {
   //  FUNC: Obtener configuraciones del endpoint
   // -------------------------------------------------------
   const fetchConfiguracionAutomatizada = async () => {
+    if (!userData) return;
+
     try {
-      const response = await chatApi.post("configuraciones/listar_conexiones", {
-        id_usuario: userData.id_usuario,
-      });
+      const isSuperAdmin =
+        userData.role === "super_administrador" ||
+        localStorage.getItem("user_role") === "super_administrador";
+
+      const endpoint = isSuperAdmin
+        ? "configuraciones/listar_admin_conexiones"
+        : "configuraciones/listar_conexiones";
+
+      const body = isSuperAdmin
+        ? {} // no requiere id_usuario
+        : { id_usuario: userData.id_usuario };
+
+      const response = await chatApi.post(endpoint, body);
 
       setConfiguraciones(response.data || []);
     } catch (error) {
@@ -88,10 +103,7 @@ function MainLayout({ children }) {
         Swal.fire({
           icon: "error",
           title: error.response?.data?.message,
-          text: "",
           allowOutsideClick: false,
-          allowEscapeKey: false,
-          allowEnterKey: true,
           confirmButtonText: "OK",
         }).then(() => {
           navigate("/planes_view");
@@ -164,32 +176,45 @@ function MainLayout({ children }) {
           `}
           aria-hidden={!sliderOpen}
         >
-
           {/* Opciones del slider */}
           <div className="mt-6">
+            {/* Conexiones */}
             {/* Conexiones */}
             <button
               onClick={() => {
                 localStorage.removeItem("id_configuracion");
                 localStorage.removeItem("tipo_configuracion");
                 localStorage.removeItem("id_plataforma_conf");
-                navigate("/conexiones");
+
+                const role = localStorage.getItem("user_role");
+
+                if (role === "super_administrador") {
+                  navigate("/administrador-conexiones");
+                } else {
+                  navigate("/conexiones");
+                }
               }}
               className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded ${
-                location.pathname === "/conexiones"
+                location.pathname === "/conexiones" ||
+                location.pathname === "/administrador-conexiones"
                   ? "bg-gray-100 font-semibold"
                   : "hover:bg-gray-100 text-gray-700"
               }`}
             >
               <i
                 className={`bx bx-log-in text-2xl mr-3 transition-colors ${
-                  location.pathname === "/conexiones"
+                  location.pathname === "/conexiones" ||
+                  location.pathname === "/administrador-conexiones"
                     ? ""
                     : "text-gray-600 group-hover:text-blue-600"
                 }`}
               ></i>
+
               <span className="text-lg group-hover:text-blue-600">
-                Conexiones
+                {(userData?.role || localStorage.getItem("user_role")) ===
+                "super_administrador"
+                  ? "Conexiones Admin"
+                  : "Conexiones"}
               </span>
             </button>
 
