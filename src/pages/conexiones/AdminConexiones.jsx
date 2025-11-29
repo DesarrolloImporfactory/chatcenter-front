@@ -1336,6 +1336,21 @@ const Conexiones = () => {
                           <span>{config.telefono}</span>
                         </div>
                       </div>
+
+                      {/* Indicador de conversaciones */}
+                      <div className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-600">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 ring-1 ring-indigo-200">
+                          <i className="bx bx-message-rounded-dots text-indigo-600 text-lg"></i>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">
+                            Conversaciones:
+                          </span>{" "}
+                          <span className="text-slate-800 font-semibold">
+                            {config.cantidad_conversaciones ?? 0}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
