@@ -89,7 +89,6 @@ const Asistentes = () => {
   // Ventas
   const [asistenteVentas, setAsistenteVentas] = useState(null);
   const [nombreBotVenta, setNombreBotVenta] = useState("");
-  const [assistantIdVenta, setAssistantIdVenta] = useState("");
   const [activoVenta, setActivoVenta] = useState(false);
   const [productosVenta, setProductosVenta] = useState([]);
   const [tomar_productos, setTomar_productos] = useState("chat_Center");
@@ -135,7 +134,6 @@ const Asistentes = () => {
   useEffect(() => {
     if (asistenteVentas) {
       setNombreBotVenta(asistenteVentas.nombre_bot || "");
-      setAssistantIdVenta(asistenteVentas.assistant_id || "");
       setActivoVenta(!!asistenteVentas.activo);
 
       // Sincronizar productos
@@ -198,7 +196,6 @@ const Asistentes = () => {
   useEffect(() => {
     if (asistenteVentas) {
       setNombreBotVenta(asistenteVentas.nombre_bot || "");
-      setAssistantIdVenta(asistenteVentas.assistant_id || "");
       setActivoVenta(!!asistenteVentas.activo);
       // --- Normalización de productos a array de strings ---
       (function normalizeProductos() {
@@ -287,7 +284,6 @@ const Asistentes = () => {
       await chatApi.post("openai_assistants/actualizar_ia_ventas", {
         id_configuracion: id_configuracion,
         nombre_bot: nombreBotVenta,
-        assistant_id: assistantIdVenta,
         productos: productosVenta, // ← ya es array de strings, p.ej. ["10478","20511"]
         activo: activoVenta,
         tiempo_remarketing: Number(tiempo_remarketing),
@@ -410,11 +406,6 @@ const Asistentes = () => {
             >
               {estadoIA(iaVentasConectada)}
             </span>
-            {assistantIdVenta && (
-              <span className="text-xs text-gray-500 border px-2 py-0.5 rounded">
-                ID: {assistantIdVenta}
-              </span>
-            )}
           </div>
 
           <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
@@ -479,19 +470,6 @@ const Asistentes = () => {
                       placeholder="Nombre del Bot"
                       value={nombreBotVenta}
                       onChange={(e) => setNombreBotVenta(e.target.value)}
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assistant ID
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Assistant ID"
-                      value={assistantIdVenta}
-                      onChange={(e) => setAssistantIdVenta(e.target.value)}
                       className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
@@ -596,8 +574,7 @@ const Asistentes = () => {
                 </select>
 
                 {/* Textarea con botón copiar */}
-                <div className="relative">
-                  {/* Botón copiar */}
+                {/* <div className="relative">
                   <button
                     type="button"
                     onClick={() => {
@@ -615,7 +592,6 @@ const Asistentes = () => {
                     Copiar
                   </button>
 
-                  {/* Estado de carga / error / textarea */}
                   {cargandoTexto ? (
                     <div className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-500 grid place-items-center">
                       Cargando plantilla…
@@ -631,7 +607,7 @@ const Asistentes = () => {
                       className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-700 cursor-text overflow-y-auto pr-16"
                     />
                   )}
-                </div>
+                </div> */}
               </div>
             </div>
 
