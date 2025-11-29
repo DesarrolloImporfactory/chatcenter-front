@@ -26,7 +26,7 @@ const Cabecera = ({
   SwitchBot,
   setMensajesAcumulados,
   id_plataforma_conf,
-  tipo_configuracion
+  tipo_configuracion,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -233,6 +233,14 @@ const Cabecera = ({
           ...prev,
           bot_openia: nuevoEstado,
         }));
+
+        setMensajesAcumulados((prev) =>
+          prev.map((chat) =>
+            chat.id === chatId
+              ? { ...chat, bot_openia: nuevoEstado } // 🔥 actualiza SOLO el campo bot_openia
+              : chat
+          )
+        );
       } else {
         console.error("Error al actualizar el bot:", data);
       }
