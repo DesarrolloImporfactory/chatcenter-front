@@ -736,7 +736,7 @@ const MiPlan = () => {
                           hoverColor="#171931"
                           /* en móvil solo ícono, desde sm aparece el texto */
                           labelClassName="font-bold hidden sm:inline"
-                          ariaLabel="Volver"
+                          aria-label="Volver"
                           title="Volver"
                         />
                       </div>

@@ -14,7 +14,6 @@ import { BackExpandArrow } from "../../components/icons/PremiumBackIcons";
 import CardPlanPersonalizado from "../../pages/planes/CardPlanPersonalizado";
 // o: import CardPlanPersonalizado from "../../components/CardPlanPersonalizado";
 
-
 // Imágenes usadas por las cards de planes (como en PlanesView.jsx)
 import basico from "../../assets/plan_basico_v2.png";
 import conexion from "../../assets/plan_conexion_v2.png";
@@ -103,7 +102,10 @@ const MiPlan = () => {
         const { data } = await chatApi.get("stripe_plan/addons");
         setAddons(data?.data?.addons || null);
       } catch (e) {
-        console.warn("No se pudieron cargar addons:", e?.response?.data || e.message);
+        console.warn(
+          "No se pudieron cargar addons:",
+          e?.response?.data || e.message
+        );
       }
     })();
   }, []);
@@ -183,7 +185,8 @@ const MiPlan = () => {
       Swal.fire("Listo", "Se procesó el cambio a LITE.", "success");
       obtenerPlanActivo();
     } catch (error) {
-      const msg = error?.response?.data?.message || "No se pudo iniciar el cambio.";
+      const msg =
+        error?.response?.data?.message || "No se pudo iniciar el cambio.";
       Swal.fire({ icon: "error", title: "Error", text: msg });
     } finally {
       setLoading(false);
@@ -191,14 +194,16 @@ const MiPlan = () => {
   };
 
   const cancelarSuscripcion = async () => {
-  // Buscar plan LITE por nombre (sin romper nada si no existe)
-  const planLite = Array.isArray(planes)
-    ? planes.find((p) => (p?.nombre_plan || "").toLowerCase().includes("lite"))
-    : null;
+    // Buscar plan LITE por nombre (sin romper nada si no existe)
+    const planLite = Array.isArray(planes)
+      ? planes.find((p) =>
+          (p?.nombre_plan || "").toLowerCase().includes("lite")
+        )
+      : null;
 
-  if (planLite) {
-    // Card simple para el upsell
-    const cardHtml = `
+    if (planLite) {
+      // Card simple para el upsell
+      const cardHtml = `
       <div style="margin-top:10px; text-align:left">
         <div style="
           border:1px solid #e2e8f0; border-radius:12px; padding:14px;
@@ -219,8 +224,12 @@ const MiPlan = () => {
           }
           <ul style="margin:10px 0 0; padding-left:18px; color:#334155; font-size:13px;">
             ${[
-              planLite?.n_conexiones ? `${planLite.n_conexiones} conexiones` : null,
-              planLite?.max_subusuarios ? `${planLite.max_subusuarios} subusuarios` : null,
+              planLite?.n_conexiones
+                ? `${planLite.n_conexiones} conexiones`
+                : null,
+              planLite?.max_subusuarios
+                ? `${planLite.max_subusuarios} subusuarios`
+                : null,
               "Funciones esenciales para tu día a día",
             ]
               .filter(Boolean)
@@ -231,67 +240,67 @@ const MiPlan = () => {
       </div>
     `;
 
-    const resp = await Swal.fire({
-      title: "¿Desea cancelar suscripción?",
-      html: `
+      const resp = await Swal.fire({
+        title: "¿Desea cancelar suscripción?",
+        html: `
         <p style="margin-bottom:8px;color:#334155;">
           Te ofrecemos un plan más ajustado para tus gestiones:
         </p>
         ${cardHtml}
       `,
-      icon: "question",
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: `Cambiar a ${planLite?.nombre_plan || "Plan LITE"}`,
-      denyButtonText: "No, cancelar",
-      cancelButtonText: "Volver",
-      reverseButtons: true,
-      focusDeny: true,
-    });
+        icon: "question",
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: `Cambiar a ${planLite?.nombre_plan || "Plan LITE"}`,
+        denyButtonText: "No, cancelar",
+        cancelButtonText: "Volver",
+        reverseButtons: true,
+        focusDeny: true,
+      });
 
-    // Si acepta el LITE, usamos tu mismo flujo de selección/compra
-    if (resp.isConfirmed) {
-      await cambiarAPlanLiteCompleto(); // nuevo flujo especial
-      return;
+      // Si acepta el LITE, usamos tu mismo flujo de selección/compra
+      if (resp.isConfirmed) {
+        await cambiarAPlanLiteCompleto(); // nuevo flujo especial
+        return;
+      }
+
+      // Si no confirma ni niega (cerró o "Volver"), no hacemos nada
+      if (!resp.isDenied) return;
+      // Si negó, continuamos con la cancelación normal (tal cual estaba)
+    } else {
+      // Fallback al confirm clásico si no existe el LITE
+      const confirm = await Swal.fire({
+        title: "¿Cancelar suscripción?",
+        text: "Tu plan seguirá activo hasta el final del periodo.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, cancelar",
+      });
+      if (!confirm.isConfirmed) return;
     }
 
-    // Si no confirma ni niega (cerró o "Volver"), no hacemos nada
-    if (!resp.isDenied) return;
-    // Si negó, continuamos con la cancelación normal (tal cual estaba)
-  } else {
-    // Fallback al confirm clásico si no existe el LITE
-    const confirm = await Swal.fire({
-      title: "¿Cancelar suscripción?",
-      text: "Tu plan seguirá activo hasta el final del periodo.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, cancelar",
-    });
-    if (!confirm.isConfirmed) return;
-  }
+    // === Cancelación original (NO se toca la lógica) ===
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const id_usuario = decoded.id_usuario || decoded.id_users;
 
-  // === Cancelación original (NO se toca la lógica) ===
-  try {
-    setLoading(true);
-    const token = localStorage.getItem("token");
-    const decoded = JSON.parse(atob(token.split(".")[1]));
-    const id_usuario = decoded.id_usuario || decoded.id_users;
+      const res = await chatApi.post(
+        "/stripe_plan/cancelarSuscripcion",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-    const res = await chatApi.post(
-      "/stripe_plan/cancelarSuscripcion",
-      { id_usuario },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    Swal.fire("Cancelado", res.data.message, "success");
-    obtenerPlanActivo();
-  } catch (error) {
-    console.error("Error al cancelar:", error);
-    Swal.fire("Error", "No se pudo cancelar la suscripción", "error");
-  } finally {
-    setLoading(false);
-  }
-};
+      Swal.fire("Cancelado", res.data.message, "success");
+      obtenerPlanActivo();
+    } catch (error) {
+      console.error("Error al cancelar:", error);
+      Swal.fire("Error", "No se pudo cancelar la suscripción", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ====== Efectos originales ======
   useEffect(() => {
@@ -329,7 +338,11 @@ const MiPlan = () => {
     const limpiar = (keys) => {
       const url = new URL(window.location.href);
       keys.forEach((k) => url.searchParams.delete(k));
-      window.history.replaceState({}, document.title, url.pathname + (url.search || ""));
+      window.history.replaceState(
+        {},
+        document.title,
+        url.pathname + (url.search || "")
+      );
     };
 
     if (pmSaved === "1" || setupOk === "ok") {
@@ -339,14 +352,22 @@ const MiPlan = () => {
       obtenerPlanActivo();
     }
     if (addpm === "1") {
-      Swal.fire("Listo", "Tu suscripción fue procesada. Estamos sincronizando tu plan.", "success");
+      Swal.fire(
+        "Listo",
+        "Tu suscripción fue procesada. Estamos sincronizando tu plan.",
+        "success"
+      );
       limpiar(["addpm"]);
       obtenerFacturas();
       obtenerPlanActivo();
     }
     if (trialOk === "ok") {
       // El webhook ya debió activar FREE y setear fecha_renovacion=trial_end
-      Swal.fire("¡Listo!", "Tu prueba gratuita de 15 días está activa.", "success");
+      Swal.fire(
+        "¡Listo!",
+        "Tu prueba gratuita de 15 días está activa.",
+        "success"
+      );
       limpiar(["trial"]);
       obtenerFacturas();
       obtenerPlanActivo();
@@ -471,7 +492,11 @@ const MiPlan = () => {
         );
         window.location.href = res.data.url; // redirección directa a Stripe
       } else {
-        await Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success");
+        await Swal.fire(
+          "Listo",
+          "Tu plan fue actualizado correctamente.",
+          "success"
+        );
         setMostrarPlanes(false);
         obtenerPlanActivo();
       }
@@ -507,7 +532,7 @@ const MiPlan = () => {
 
   const buildFeatures = (pl) => {
     const nombre = (pl?.nombre_plan || "").toLowerCase();
-       const esFree = nombre.includes("free") || nombre.includes("gratuito");
+    const esFree = nombre.includes("free") || nombre.includes("gratuito");
     const esConexion =
       nombre.includes("conexión") || nombre.includes("conexion");
     const desactivaCitas = esFree || esConexion;
@@ -518,7 +543,6 @@ const MiPlan = () => {
       { label: "Código QR personalizado", enabled: true },
       { label: "Integración con Meta", enabled: true },
       { label: "Contactos ilimitados", enabled: true },
-      { label: "Conversaciones ilimitadas", enabled: true },
       { label: "Whatsapp coexistencia", enabled: true },
       { label: "Inteligencia artificial", enabled: true },
       { label: "Área de productos y servicios", enabled: true },
@@ -532,7 +556,7 @@ const MiPlan = () => {
   };
 
   return (
-    <div className="min-h-screen w-full px-4 sm:px-6 lg:px-10 py-8 md:py-10 text-black bg-white [padding-bottom:env(safe-area-inset-bottom)]">
+    <div className="min-h-screen w-full px-4 sm:px-6 lg:px-10 text-black bg-white [padding-bottom:env(safe-area-inset-bottom)]">
       {/* Overlay SOLO para gestionar/agregar (original) */}
       {(loadingGestion || loadingAgregar) && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -562,7 +586,7 @@ const MiPlan = () => {
           }}
         >
           {/* ========= PANE 1: Tu plan actual (contenido original SIN cambios visuales) ========= */}
-          <section className="w-1/2 mt-10">
+          <section className="w-1/2">
             <div className="mx-auto w-full mt-10">
               {/* encabezado */}
               <div className="mb-6 md:mb-8 px-1 mt-10">
@@ -838,8 +862,10 @@ const MiPlan = () => {
                       </div>
                     ) : (
                       <div className="flex-1 min-h-[700px] grid place-items-center rounded-2xl bg-[#322b4f]/40 border border-[#c4bde4]/20">
-                         <p className="text-sm text-[#e0dcf3]">Aún no hay facturas para mostrar.</p>
-                       </div>
+                        <p className="text-sm text-[#e0dcf3]">
+                          Aún no hay facturas para mostrar.
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -849,7 +875,7 @@ const MiPlan = () => {
 
           {/* ========= PANE 2: Cards de planes (lo que antes era PlanesView) ========= */}
           <section className="w-1/2">
-            <div className="min-h-screen bg-white flex flex-col items-center px-6 py-12">
+            <div className="min-h-screen bg-white flex flex-col items-center px-6">
               <div className="w-full max-w-8xl">
                 {/* HEADER de planes */}
                 <div className="relative mb-10 mt-10 pl-12 sm:pl-0">
@@ -874,7 +900,7 @@ const MiPlan = () => {
                           hoverColor="#171931"
                           /* en móvil solo ícono, desde sm aparece el texto */
                           labelClassName="font-bold hidden sm:inline"
-                          ariaLabel="Volver"
+                          aria-label="Volver"
                           title="Volver"
                         />
                       </div>
@@ -896,7 +922,6 @@ const MiPlan = () => {
                   )}
 
                   {planes.map((pl) => {
-
                     // si es el plan personalizado, usamos la card especial
                     if (Number(pl.id_plan) === 5) {
                       return (
