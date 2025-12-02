@@ -999,6 +999,30 @@ const MiPlan = () => {
                               </div>
                             </div>
 
+                            {/* Conversaciones incluidas */}
+                            <div className="mt-3 flex justify-center">
+                              <span
+                                className="
+                                  inline-flex items-center gap-2 px-4 py-1.5 rounded-xl 
+                                  bg-gradient-to-r from-emerald-500/20 to-emerald-400/10 
+                                  text-emerald-500 font-semibold text-sm
+                                  shadow-[0_0_12px_rgba(16,185,129,0.25)]
+                                  border border-emerald-400/30 backdrop-blur-md
+                                "
+                              >
+                                <svg
+                                  className="w-4 h-4 text-emerald-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={2}
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path d="M7 8h10M7 12h6M5 20l2-4h10l2 4H5z" />
+                                </svg>
+                                {pl.n_conversaciones} conversaciones incluidas
+                              </span>
+                            </div>
+
                             {/* Beneficios */}
                             <ul className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-x-3 text-sm flex-1 md:w-[100%] mx-auto">
                               {features.map((f, idx) => (
