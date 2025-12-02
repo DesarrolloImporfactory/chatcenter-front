@@ -96,6 +96,7 @@ export const newLoginThunk = createAsyncThunk(
       let data_filtrada = {
         user: data.user,
         estado_creacion: data.estado_creacion,
+        id_plataforma_free: data.id_plataforma,
       };
       return data_filtrada;
     } catch (err) {

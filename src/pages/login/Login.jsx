@@ -63,6 +63,7 @@ export default function Login() {
             if (estado_creacion == "completo") {
               navigate(`/conexiones`);
             } else if (estado_creacion == "incompleto") {
+              localStorage.setItem("id_plataforma_free",data.id_plataforma_free)
               navigate(`/landing`);
             }
           } else {

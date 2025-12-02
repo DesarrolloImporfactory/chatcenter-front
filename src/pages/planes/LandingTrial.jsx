@@ -233,7 +233,7 @@ const StripeTrustPanel = () => (
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[11px] text-slate-600">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span>Prueba gratuita 12 meses • Cancelás cuando quieras</span>
+          <span>Prueba gratuita 100 conversaciones al mes • Cancelás cuando quieras</span>
         </div>
         <div className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] ring-1 ring-slate-200">
           <span className="font-semibold">Powered by</span>
@@ -417,7 +417,8 @@ const LandingTrial = () => {
     try {
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
-      return { token, id_usuario };
+      const id_plataforma = localStorage.getItem("id_plataforma_free");
+      return { token, id_usuario, id_plataforma};
     } catch {
       return {};
     }
@@ -459,8 +460,8 @@ const LandingTrial = () => {
   }, []); */
 
   const startFreeTrial = async () => {
-    const { token, id_usuario } = getAuth();
-    if (!token || !id_usuario) {
+    const { token, id_usuario, id_plataforma } = getAuth();
+    if (!token || !id_usuario || !id_plataforma) {
       Swal.fire("Inicia sesión", "Debes iniciar sesión para continuar.", "info");
       return;
     }
@@ -473,9 +474,10 @@ const LandingTrial = () => {
       const base = window.location.origin;
       const payload = {
         id_usuario,
+        id_plataforma,
         success_url: `${base}/miplan?trial=ok`,
         cancel_url: `${base}${window.location.pathname}?trial=cancel`,
-        trial_days: 365,
+        trial_days: 30,
       };
       const { data } = await chatApi.post(
         "/stripe_plan/crearSesionLiteFree",
@@ -500,9 +502,9 @@ const LandingTrial = () => {
             {/* badge arriba */}
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
               <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] text-white">
-                12
+                100
               </span>
-              meses gratis para alumnos
+              conversaciones gratis para alumnos al mes
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-6xl font-black leading-[1.08] md:leading-[1.02] tracking-tight text-slate-900">
@@ -531,25 +533,24 @@ const LandingTrial = () => {
                 <b>Beneficio exclusivo para alumnos</b>
               </p>
               <p className="mt-2 text-[14px] sm:text-[15px] leading-6 text-slate-700">
-                ¡Por ser alumno, accedés a <b>12 meses totalmente gratis</b> desde el día de tu inscripción! Solo debés
+                ¡Por ser alumno, accedés a <b>100 conversaciones totalmente gratis al mes</b> desde el día de tu inscripción! Solo debés
                 activar tu cuenta registrando una tarjeta de crédito o débito.{" "}
-                <span className="font-semibold">No se te cobrará absolutamente nada</span> hasta que se cumpla el año
-                completo de uso.
+                <span className="font-semibold">No se te cobrará absolutamente nada.</span>
               </p>
             </div>
 
             <div className="mt-5 sm:mt-6">
               <button
                 onClick={startFreeTrial}
-                disabled={checking || loading || eligible === false}
+                disabled={loading || eligible === false}
                 className={`w-full sm:w-auto rounded-xl px-5 py-3 text-center text-sm font-semibold tracking-wide text-white shadow-md transition ring-1 ring-blue-500/30
                 ${
-                  checking || loading || eligible === false
+                  loading || eligible === false
                     ? "bg-blue-500/60 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] active:translate-y-0"
                 }`}
               >
-                {loading ? "Redirigiendo…" : "ACTIVA GRATIS POR 12 MESES"} <FaArrowRight className="ml-1 inline-block" />
+                {loading ? "Redirigiendo…" : "ACTIVA GRATIS POR 1 MES"} <FaArrowRight className="ml-1 inline-block" />
               </button>
               {eligible === false && <p className="mt-2 text-xs text-rose-600">Ya usaste tu prueba gratuita.</p>}
               <p className="mt-2 text-[11px] text-slate-500">
