@@ -4,16 +4,16 @@ import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 
 const Toast = Swal.mixin({
-    toast: true,
-    position: "top-end",
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true,
-    didOpen: (toast) => {
-      toast.addEventListener("mouseenter", Swal.stopTimer);
-      toast.addEventListener("mouseleave", Swal.resumeTimer);
-    },
-  });
+  toast: true,
+  position: "top-end",
+  showConfirmButton: false,
+  timer: 3000,
+  timerProgressBar: true,
+  didOpen: (toast) => {
+    toast.addEventListener("mouseenter", Swal.stopTimer);
+    toast.addEventListener("mouseleave", Swal.resumeTimer);
+  },
+});
 
 const currency = new Intl.NumberFormat("es-EC", {
   style: "currency",
@@ -46,6 +46,7 @@ const ProductosView = () => {
   });
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewVideo, setPreviewVideo] = useState(null);
+  const [previewUpsell, setPreviewUpsell] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
   const [search, setSearch] = useState("");
@@ -58,6 +59,7 @@ const ProductosView = () => {
 
   const dropRef = useRef(null);
   const dropVideoRef = useRef(null);
+  const dropUpsellRef = useRef(null);
 
   const navigate = useNavigate();
 
@@ -324,7 +326,14 @@ const ProductosView = () => {
         id_categoria: "",
         imagen: null,
         video: null,
+
+        // Upsell
+        nombre_upsell: "",
+        descripcion_upsell: "",
+        precio_upsell: "",
+        imagen_upsell: null,
       });
+
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
       setPreviewVideo(null);
@@ -491,6 +500,51 @@ const ProductosView = () => {
     );
   };
 
+  // ------- dropzone imagen upsell -------
+  const onUpsellPicked = (file) => {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      return Swal.fire({
+        icon: "error",
+        title: "Archivo no válido",
+        text: "Debe ser una imagen.",
+      });
+    }
+
+    setForm((prev) => ({ ...prev, imagen_upsell: file }));
+
+    if (previewUpsell && previewUpsell.startsWith("blob:"))
+      URL.revokeObjectURL(previewUpsell);
+
+    const url = URL.createObjectURL(file);
+    setPreviewUpsell(url);
+  };
+
+  const onUpsellDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    onUpsellPicked(file);
+
+    dropUpsellRef.current?.classList.remove(
+      "ring-indigo-300",
+      "bg-indigo-50/40"
+    );
+  };
+
+  const onUpsellDragOver = (e) => {
+    e.preventDefault();
+    dropUpsellRef.current?.classList.add("ring-indigo-300", "bg-indigo-50/40");
+  };
+
+  const onUpsellDragLeave = () => {
+    dropUpsellRef.current?.classList.remove(
+      "ring-indigo-300",
+      "bg-indigo-50/40"
+    );
+  };
+
   // ------- UI -------
   const SortHeader = ({ k, children, align = "left" }) => (
     <th
@@ -542,7 +596,11 @@ const ProductosView = () => {
     if (words.length <= 200) {
       setForm({ ...form, descripcion: newText });
     } else {
-      Toast.fire({ icon: "error", title: "La descipcion esta a limitada a 200 palabras maximo", position: "bottom"});
+      Toast.fire({
+        icon: "error",
+        title: "La descipcion esta a limitada a 200 palabras maximo",
+        position: "bottom",
+      });
     }
   };
 
@@ -922,7 +980,7 @@ const ProductosView = () => {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
           onKeyDown={(e) => e.key === "Escape" && setModalOpen(false)}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-3 overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-3 overflow-hidden max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
               <h2 className="text-xl font-semibold">
                 {editingId ? "Editar producto" : "Agregar producto"}
@@ -944,9 +1002,17 @@ const ProductosView = () => {
 
             <form
               onSubmit={handleSubmit}
-              className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6"
+              className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-10"
             >
-              <div className="space-y-4">
+              {/* ---------------------------------------------------------------- */}
+              {/*                          COLUMNA IZQUIERDA                      */}
+              {/* ---------------------------------------------------------------- */}
+              <div className="space-y-5">
+                <h2 className="text-lg font-semibold text-slate-700">
+                  Producto
+                </h2>
+
+                {/* Nombre */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Nombre
@@ -954,7 +1020,8 @@ const ProductosView = () => {
                   <input
                     required
                     placeholder="Ej. Plan Premium"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
+                   focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                     value={form.nombre}
                     onChange={(e) =>
                       setForm({ ...form, nombre: e.target.value })
@@ -962,6 +1029,7 @@ const ProductosView = () => {
                   />
                 </div>
 
+                {/* Descripción */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Descripción
@@ -969,20 +1037,24 @@ const ProductosView = () => {
                   <textarea
                     placeholder="Detalle del producto o servicio"
                     rows={4}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none resize-y"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
+                   focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none resize-y"
                     value={form.descripcion}
                     onChange={handleDescriptionChange}
                   />
                 </div>
 
+                {/* Tipo + Precio */}
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Tipo */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Tipo
                     </label>
                     <select
                       required
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
+                     focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                       value={form.tipo}
                       onChange={(e) =>
                         setForm({ ...form, tipo: e.target.value })
@@ -994,6 +1066,7 @@ const ProductosView = () => {
                     </select>
                   </div>
 
+                  {/* Precio */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Precio
@@ -1008,7 +1081,8 @@ const ProductosView = () => {
                         min="0"
                         step="0.01"
                         placeholder="0.00"
-                        className="w-full pl-7 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                        className="w-full pl-7 border border-slate-200 rounded-lg px-3 py-2.5 
+                       focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                         value={form.precio}
                         onChange={(e) =>
                           setForm({ ...form, precio: e.target.value })
@@ -1018,37 +1092,40 @@ const ProductosView = () => {
                   </div>
                 </div>
 
-                {/* Render condicional */}
+                {/* Duración */}
                 {form.tipo === "servicio" && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Duración
+                      Duración (horas)
                     </label>
                     <select
                       required
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
+                     focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                       value={form.duracion}
                       onChange={(e) =>
                         setForm({ ...form, duracion: e.target.value })
                       }
                     >
-                      <option value="0">Seleccione duración en horas</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
+                      <option value="0">Seleccione duración</option>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 )}
 
+                {/* Categoría */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Categoría
                   </label>
                   <select
                     required
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
+                   focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                     value={form.id_categoria}
                     onChange={(e) =>
                       setForm({ ...form, id_categoria: e.target.value })
@@ -1062,141 +1139,286 @@ const ProductosView = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* Imagen */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Imagen
+                  </label>
+
+                  <div
+                    ref={dropRef}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onDragLeave={onDragLeave}
+                    className="border-2 border-dashed border-slate-200 rounded-xl p-4 
+                   text-center transition ring-0"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                        <svg
+                          className="w-6 h-6 text-slate-500"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path d="M19 15v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l5 5h-3v6h-4V8H7l5-5z" />
+                        </svg>
+                      </div>
+
+                      <p className="text-sm text-slate-600">
+                        Arrastra una imagen aquí o{" "}
+                        <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
+                          selecciona un archivo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => onFilePicked(e.target.files?.[0])}
+                          />
+                        </label>
+                      </p>
+
+                      <p className="text-xs text-slate-400">
+                        PNG, JPG, WEBP (máx. ~5MB)
+                      </p>
+                    </div>
+                  </div>
+
+                  {previewUrl && (
+                    <div className="relative mt-2">
+                      <img
+                        src={previewUrl}
+                        alt="Vista previa"
+                        className="w-full max-h-48 object-cover rounded-lg ring-1 ring-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (previewUrl.startsWith("blob:"))
+                            URL.revokeObjectURL(previewUrl);
+                          setPreviewUrl(null);
+                          setForm((prev) => ({ ...prev, imagen: null }));
+                        }}
+                        className="absolute top-2 right-2 bg-white/90 hover:bg-white 
+                       text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Dropzone / preview */}
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-slate-700">
-                  Imagen
-                </label>
+              {/* ---------------------------------------------------------------- */}
+              {/*                          COLUMNA DERECHA                        */}
+              {/* ---------------------------------------------------------------- */}
+              <div className="space-y-10">
+                {/* VIDEO */}
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold text-slate-700">
+                    Video (opcional)
+                  </h2>
 
-                <div
-                  ref={dropRef}
-                  onDrop={onDrop}
-                  onDragOver={onDragOver}
-                  onDragLeave={onDragLeave}
-                  className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center transition ring-0"
-                >
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-slate-500"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M19 15v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l5 5h-3v6h-4V8H7l5-5z" />
-                      </svg>
+                  <div
+                    ref={dropVideoRef}
+                    onDrop={onVideoDrop}
+                    onDragOver={onVideoDragOver}
+                    onDragLeave={onVideoDragLeave}
+                    className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center transition"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                        <svg
+                          className="w-6 h-6 text-slate-500"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+
+                      <p className="text-sm text-slate-600">
+                        Arrastra un video aquí o{" "}
+                        <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
+                          selecciona un archivo
+                          <input
+                            type="file"
+                            accept="video/*"
+                            className="hidden"
+                            onChange={(e) => onVideoPicked(e.target.files?.[0])}
+                          />
+                        </label>
+                      </p>
+
+                      <p className="text-xs text-slate-400">
+                        MP4, WEBM, etc. (máx. ~50MB)
+                      </p>
                     </div>
-                    <p className="text-sm text-slate-600">
-                      Arrastra una imagen aquí o{" "}
-                      <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
-                        selecciona un archivo
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => onFilePicked(e.target.files?.[0])}
-                        />
-                      </label>
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      PNG, JPG, WEBP (máx. ~5MB)
-                    </p>
                   </div>
+
+                  {previewVideo && (
+                    <div className="relative">
+                      <video
+                        controls
+                        className="w-full max-h-48 rounded-lg ring-1 ring-slate-200"
+                        src={previewVideo}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          URL.revokeObjectURL(previewVideo);
+                          setPreviewVideo(null);
+                          setForm((prev) => ({ ...prev, video: null }));
+                        }}
+                        className="absolute top-2 right-2 bg-white/90 hover:bg-white 
+                       text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {previewUrl && (
-                  <div className="relative">
-                    <img
-                      src={previewUrl}
-                      alt="Vista previa"
-                      className="w-full max-h-48 object-cover rounded-lg ring-1 ring-slate-200"
+                {/* Línea separadora */}
+                <div className="md:col-span-2 border-t border-slate-200 my-4"></div>
+
+                {/* UPSell */}
+                <div className="space-y-4">
+                  <h2 className="text-lg font-semibold text-slate-700">
+                    Upsell (Opcional)
+                  </h2>
+
+                  {/* Nombre Upsell */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Nombre Upsell
+                    </label>
+                    <input
+                      placeholder="Ej. Soporte premium"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 
+                     focus:ring-indigo-200 focus:border-indigo-300"
+                      value={form.nombre_upsell || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, nombre_upsell: e.target.value })
+                      }
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (previewUrl?.startsWith("blob:"))
-                          URL.revokeObjectURL(previewUrl);
-                        setPreviewUrl(null);
-                        setForm((prev) => ({ ...prev, imagen: null }));
-                      }}
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
-                    >
-                      Quitar
-                    </button>
                   </div>
-                )}
 
-                {!previewUrl && editingId && (
-                  <div className="text-xs text-slate-500">
-                    * Si no seleccionas una imagen, se conserva la actual.
+                  {/* Descripción Upsell */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Descripción Upsell
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Detalle del upsell"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
+                     focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 resize-y"
+                      value={form.descripcion_upsell || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, descripcion_upsell: e.target.value })
+                      }
+                    />
                   </div>
-                )}
-              </div>
 
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-slate-700">
-                  Video (opcional)
-                </label>
-
-                <div
-                  ref={dropVideoRef}
-                  className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center transition ring-0"
-                  onDrop={onVideoDrop}
-                  onDragOver={onVideoDragOver}
-                  onDragLeave={onVideoDragLeave}
-                >
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-slate-500"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
+                  {/* Precio Upsell */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Precio Upsell
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        className="w-full pl-7 border border-slate-200 rounded-lg px-3 py-2.5 
+                       focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300"
+                        value={form.precio_upsell || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, precio_upsell: e.target.value })
+                        }
+                      />
                     </div>
-                    <p className="text-sm text-slate-600">
-                      Arrastra un video aquí o{" "}
-                      <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
-                        selecciona un archivo
-                        <input
-                          type="file"
-                          accept="video/*"
-                          className="hidden"
-                          onChange={(e) => onVideoPicked(e.target.files?.[0])}
+                  </div>
+
+                  {/* Imagen Upsell */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Imagen Upsell (opcional)
+                    </label>
+
+                    <div
+                      ref={dropUpsellRef}
+                      onDrop={onUpsellDrop}
+                      onDragOver={onUpsellDragOver}
+                      onDragLeave={onUpsellDragLeave}
+                      className="border-2 border-dashed border-slate-200 rounded-xl p-4 
+                     text-center transition"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                          <svg
+                            className="w-6 h-6 text-slate-500"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                          >
+                            <path d="M19 15v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l5 5h-3v6h-4V8H7l5-5z" />
+                          </svg>
+                        </div>
+
+                        <p className="text-sm text-slate-600">
+                          Arrastra una imagen aquí o{" "}
+                          <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
+                            selecciona un archivo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) =>
+                                onUpsellPicked(e.target.files?.[0])
+                              }
+                            />
+                          </label>
+                        </p>
+
+                        <p className="text-xs text-slate-400">
+                          PNG, JPG, WEBP (máx. ~5MB)
+                        </p>
+                      </div>
+                    </div>
+
+                    {previewUpsell && (
+                      <div className="relative mt-3">
+                        <img
+                          src={previewUpsell}
+                          alt="Vista previa upsell"
+                          className="w-full max-h-48 object-cover rounded-lg ring-1 ring-slate-200"
                         />
-                      </label>
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      MP4, WEBM, etc. (máx. ~50MB)
-                    </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (previewUpsell.startsWith("blob:"))
+                              URL.revokeObjectURL(previewUpsell);
+                            setPreviewUpsell(null);
+                            setForm((p) => ({ ...p, imagen_upsell: null }));
+                          }}
+                          className="absolute top-2 right-2 bg-white/90 hover:bg-white 
+                         text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {previewVideo && (
-                  <div className="relative">
-                    <video
-                      controls
-                      className="w-full max-h-48 rounded-lg ring-1 ring-slate-200"
-                      src={previewVideo}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        URL.revokeObjectURL(previewVideo);
-                        setPreviewVideo(null);
-                        setForm((prev) => ({ ...prev, video: null }));
-                      }}
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                )}
               </div>
 
-              <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+              {/* Botones */}
+              <div className="md:col-span-2 flex justify-end gap-3 pt-6">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
