@@ -43,6 +43,10 @@ const ProductosView = () => {
     id_categoria: "",
     imagen: null,
     video: null,
+    nombre_upsell: "",
+    descripcion_upsell: "",
+    precio_upsell: "",
+    imagen_upsell: null,
   });
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewVideo, setPreviewVideo] = useState(null);
@@ -363,6 +367,12 @@ const ProductosView = () => {
         id_categoria: p.id_categoria ?? "",
         imagen: null, // se sube solo si cambia
         video: null,
+
+        // Upsell
+        nombre_upsell: p.nombre_upsell ?? "",
+        descripcion_upsell: p.descripcion_upsell ?? "",
+        precio_upsell: p.precio_upsell ?? "",
+        imagen_upsell: null,
       });
       setEditingId(p.id);
       // si tiene imagen actual, la mostramos aparte
@@ -378,6 +388,12 @@ const ProductosView = () => {
         id_categoria: "",
         imagen: null,
         video: null,
+
+        // Upsell
+        nombre_upsell: "",
+        descripcion_upsell: "",
+        precio_upsell: "",
+        imagen_upsell: null,
       });
       setEditingId(null);
       setPreviewUrl(null);
