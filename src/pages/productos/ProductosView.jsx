@@ -378,6 +378,7 @@ const ProductosView = () => {
       // si tiene imagen actual, la mostramos aparte
       setPreviewUrl(p.imagen_url || null);
       setPreviewVideo(p.video_url || null);
+      setPreviewUpsell(p.imagen_upsell_url || null);
     } else {
       setForm({
         nombre: "",
