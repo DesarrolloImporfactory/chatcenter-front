@@ -719,8 +719,9 @@ const Conexiones = () => {
             });
             return;
           }
-          const redirectUri = window.location.origin + window.location.pathname;
+          const redirectUri = "https://chatcenter.imporfactory.app/conexiones";
           console.log("redirectUri: " + redirectUri);
+
           try {
             const { data } = await chatApi.post(
               "/whatsapp_managment/embeddedSignupComplete",
@@ -758,6 +759,7 @@ const Conexiones = () => {
         config_id: "2295613834169297",
         response_type: "code",
         override_default_response_type: true,
+        redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
         scope: "whatsapp_business_management,whatsapp_business_messaging",
         extras: {
           featureType: "whatsapp_business_app_onboarding",
