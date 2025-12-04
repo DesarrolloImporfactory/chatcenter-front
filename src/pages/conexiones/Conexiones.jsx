@@ -723,89 +723,48 @@ const Conexiones = () => {
     };
   }, []);
 
-  const handleConectarMetaDeveloper = (config) => {
-    // 1️⃣ Detectar SDK mal cargado antes de continuar
-    const metaInternalSDK = window.FB?.getAuthResponse;
-    const isSDKCorrupt = !window.FB || typeof metaInternalSDK !== "function";
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state"); // id_configuracion
 
-    if (isSDKCorrupt) {
-      console.error(
-        "❌ SDK de Meta cargado incorrectamente (modo joey o no inicializado)"
-      );
-      setStatusMessage({
-        type: "error",
-        text: "Error cargando Meta SDK. Recarga la página y vuelve a intentarlo.",
-      });
-      return;
-    }
+    if (!code) return;
 
-    if (!window.FB) {
-      setStatusMessage({
-        type: "error",
-        text: "El SDK de Facebook aún no está listo.",
-      });
-      return;
-    }
-    window.FB.login(
-      (response) => {
-        (async () => {
-          const code = response?.authResponse?.code;
-          if (!code) {
-            setStatusMessage({
-              type: "error",
-              text: "No se recibió el código de autorización.",
-            });
-            return;
+    (async () => {
+      try {
+        const { data } = await chatApi.post(
+          "/whatsapp_managment/embeddedSignupComplete",
+          {
+            code,
+            id_usuario: userData.id_usuario,
+            redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
+            id_configuracion: state || null,
           }
-          const redirectUri = "https://chatcenter.imporfactory.app/conexiones";
-          console.log("redirectUri: " + redirectUri);
+        );
 
-          try {
-            const { data } = await chatApi.post(
-              "/whatsapp_managment/embeddedSignupComplete",
-              {
-                code,
-                id_usuario: userData.id_usuario,
-                redirect_uri: redirectUri,
-                id_configuracion: config?.id,
-              }
-            );
-            if (data.success) {
-              setStatusMessage({
-                type: "success",
-                text: "✅ Número conectado correctamente.",
-              });
-              await fetchConfiguracionAutomatizada();
-            } else {
-              throw new Error(data.message || "Error inesperado.");
-            }
-          } catch (err) {
-            const mensaje =
-              err?.response?.data?.message || "Error al activar el número.";
-            const linkWhatsApp = err?.response?.data?.contacto;
-            setStatusMessage({
-              type: "error",
-              text: linkWhatsApp
-                ? `${mensaje} 👉 Haz clic para contactarnos por WhatsApp`
-                : mensaje,
-              extra: linkWhatsApp || null,
-            });
-          }
-        })();
-      },
-      {
-        config_id: "2295613834169297",
-        response_type: "code",
-        override_default_response_type: true,
-        redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
-        scope: "whatsapp_business_management,whatsapp_business_messaging",
-        extras: {
-          featureType: "whatsapp_business_app_onboarding",
-          setup: {},
-          sessionInfoVersion: "3",
-        },
+        if (data.success) {
+          setStatusMessage({
+            type: "success",
+            text: "Número conectado correctamente.",
+          });
+          await fetchConfiguracionAutomatizada();
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (err) {
+        setStatusMessage({
+          type: "error",
+          text: "Error al activar el número.",
+        });
       }
-    );
+    })();
+  }, []);
+
+  const handleConectarMetaDeveloper = (config) => {
+    const setupURL = `https://www.facebook.com/waba/onboarding?config_id=2295613834169297&redirect_uri=${encodeURIComponent(
+      "https://chatcenter.imporfactory.app/conexiones"
+    )}&state=${config?.id || ""}`;
+    window.location.href = setupURL;
   };
 
   const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
