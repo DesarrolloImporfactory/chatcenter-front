@@ -720,6 +720,7 @@ const Conexiones = () => {
             return;
           }
           const redirectUri = window.location.origin + window.location.pathname;
+          console.log("redirectUri: " + redirectUri);
           try {
             const { data } = await chatApi.post(
               "/whatsapp_managment/embeddedSignupComplete",
