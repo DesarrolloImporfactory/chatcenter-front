@@ -550,7 +550,7 @@ const LandingTrial = () => {
                     : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] active:translate-y-0"
                 }`}
               >
-                {loading ? "Redirigiendo…" : "ACTIVA GRATIS POR 1 MES"} <FaArrowRight className="ml-1 inline-block" />
+                {loading ? "Redirigiendo…" : "ACTIVA 100 CONVERSACIONES X MES GRATIS"} <FaArrowRight className="ml-1 inline-block" />
               </button>
               {eligible === false && <p className="mt-2 text-xs text-rose-600">Ya usaste tu prueba gratuita.</p>}
               <p className="mt-2 text-[11px] text-slate-500">
