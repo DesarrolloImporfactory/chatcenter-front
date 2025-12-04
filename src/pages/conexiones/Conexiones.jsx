@@ -724,6 +724,21 @@ const Conexiones = () => {
   }, []);
 
   const handleConectarMetaDeveloper = (config) => {
+    // 1️⃣ Detectar SDK mal cargado antes de continuar
+    const metaInternalSDK = window.FB?.getAuthResponse;
+    const isSDKCorrupt = !window.FB || typeof metaInternalSDK !== "function";
+
+    if (isSDKCorrupt) {
+      console.error(
+        "❌ SDK de Meta cargado incorrectamente (modo joey o no inicializado)"
+      );
+      setStatusMessage({
+        type: "error",
+        text: "Error cargando Meta SDK. Recarga la página y vuelve a intentarlo.",
+      });
+      return;
+    }
+
     if (!window.FB) {
       setStatusMessage({
         type: "error",
