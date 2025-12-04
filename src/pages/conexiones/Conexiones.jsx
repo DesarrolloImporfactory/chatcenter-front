@@ -708,66 +708,110 @@ const Conexiones = () => {
       });
       return;
     }
-    window.FB.login(
-      (response) => {
-        (async () => {
-          const code = response?.authResponse?.code;
-          if (!code) {
-            setStatusMessage({
-              type: "error",
-              text: "No se recibió el código de autorización.",
-            });
-            return;
-          }
-          const redirectUri = "https://chatcenter.imporfactory.app/conexiones";
-          console.log("redirectUri: " + redirectUri);
+    
+    window.FBMeta.startOnboarding({
+      config_id: "2295613834169297",
+      redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
+      callback: async (response) => {
+        const code = response?.code;
 
-          try {
-            const { data } = await chatApi.post(
-              "/whatsapp_managment/embeddedSignupComplete",
-              {
-                code,
-                id_usuario: userData.id_usuario,
-                redirect_uri: redirectUri,
-                id_configuracion: config?.id,
-              }
-            );
-            if (data.success) {
-              setStatusMessage({
-                type: "success",
-                text: "✅ Número conectado correctamente.",
-              });
-              await fetchConfiguracionAutomatizada();
-            } else {
-              throw new Error(data.message || "Error inesperado.");
+        if (!code) {
+          setStatusMessage({
+            type: "error",
+            text: "No se recibió el código de autorización.",
+          });
+          return;
+        }
+
+        try {
+          const { data } = await chatApi.post(
+            "/whatsapp_managment/embeddedSignupComplete",
+            {
+              code,
+              id_usuario: userData.id_usuario,
+              redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
+              id_configuracion: config?.id,
             }
-          } catch (err) {
-            const mensaje =
-              err?.response?.data?.message || "Error al activar el número.";
-            const linkWhatsApp = err?.response?.data?.contacto;
+          );
+
+          if (data.success) {
             setStatusMessage({
-              type: "error",
-              text: linkWhatsApp
-                ? `${mensaje} 👉 Haz clic para contactarnos por WhatsApp`
-                : mensaje,
-              extra: linkWhatsApp || null,
+              type: "success",
+              text: "Número conectado correctamente.",
             });
+            await fetchConfiguracionAutomatizada();
+          } else {
+            throw new Error(data.message || "Error inesperado.");
           }
-        })();
+        } catch (err) {
+          setStatusMessage({
+            type: "error",
+            text: err?.response?.data?.message || "Error al activar el número",
+          });
+        }
       },
-      {
-        config_id: "2295613834169297",
-        response_type: "code",
-        override_default_response_type: true,
-        redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
-        scope: "whatsapp_business_management,whatsapp_business_messaging",
-        extras: {
-          featureType: "whatsapp_business_app_onboarding",
-          setup: {},
-          sessionInfoVersion: "3",
-        },
-      }
-    );
+    });
+
+    // window.FB.login(
+    //   (response) => {
+    //     (async () => {
+    //       const code = response?.authResponse?.code;
+    //       if (!code) {
+    //         setStatusMessage({
+    //           type: "error",
+    //           text: "No se recibió el código de autorización.",
+    //         });
+    //         return;
+    //       }
+    //       const redirectUri = "https://chatcenter.imporfactory.app/conexiones";
+    //       console.log("redirectUri: " + redirectUri);
+
+    //       try {
+    //         const { data } = await chatApi.post(
+    //           "/whatsapp_managment/embeddedSignupComplete",
+    //           {
+    //             code,
+    //             id_usuario: userData.id_usuario,
+    //             redirect_uri: redirectUri,
+    //             id_configuracion: config?.id,
+    //           }
+    //         );
+    //         if (data.success) {
+    //           setStatusMessage({
+    //             type: "success",
+    //             text: "✅ Número conectado correctamente.",
+    //           });
+    //           await fetchConfiguracionAutomatizada();
+    //         } else {
+    //           throw new Error(data.message || "Error inesperado.");
+    //         }
+    //       } catch (err) {
+    //         const mensaje =
+    //           err?.response?.data?.message || "Error al activar el número.";
+    //         const linkWhatsApp = err?.response?.data?.contacto;
+    //         setStatusMessage({
+    //           type: "error",
+    //           text: linkWhatsApp
+    //             ? `${mensaje} 👉 Haz clic para contactarnos por WhatsApp`
+    //             : mensaje,
+    //           extra: linkWhatsApp || null,
+    //         });
+    //       }
+    //     })();
+    //   },
+    //   {
+    //     config_id: "2295613834169297",
+    //     response_type: "code",
+    //     override_default_response_type: true,
+    //     redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
+    //     scope: "whatsapp_business_management,whatsapp_business_messaging",
+    //     extras: {
+    //       featureType: "whatsapp_business_app_onboarding",
+    //       setup: {},
+    //       sessionInfoVersion: "3",
+    //     },
+    //   }
+    // );
   };
 
   const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
