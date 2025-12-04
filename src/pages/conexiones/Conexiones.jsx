@@ -691,21 +691,29 @@ const Conexiones = () => {
         "https://connect.facebook.net/en_US/whatsapp_business_sdk.js";
       document.body.appendChild(script);
     }
-    window.fbAsyncInit = () => {
-      window.FB.init({
-        appId: "1211546113231811",
-        autoLogAppEvents: true,
-        xfbml: true,
-        version: "v22.0",
-      });
-    };
+    // window.fbAsyncInit = () => {
+    //   window.FB.init({
+    //     appId: "1211546113231811",
+    //     autoLogAppEvents: true,
+    //     xfbml: true,
+    //     version: "v22.0",
+    //   });
+    // };
   }, []);
 
   const handleConectarMetaDeveloper = (config) => {
-    if (!window.FB) {
+    // if (!window.FB) {
+    //   setStatusMessage({
+    //     type: "error",
+    //     text: "El SDK de Facebook aún no está listo.",
+    //   });
+    //   return;
+    // }
+
+    if (!window.FBMeta) {
       setStatusMessage({
         type: "error",
-        text: "El SDK de Facebook aún no está listo.",
+        text: "El SDK de WhatsApp Business aún no está listo.",
       });
       return;
     }
