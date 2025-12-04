@@ -681,21 +681,44 @@ const Conexiones = () => {
   };
 
   /* SDK Facebook e integraciones (sin cambios de lógica) */
+  // useEffect(() => {
+  //   if (!document.getElementById("facebook-jssdk")) {
+  //     const script = document.createElement("script");
+  //     script.id = "facebook-jssdk";
+  //     script.src = "https://connect.facebook.net/en_US/sdk.js";
+  //     script.async = true;
+  //     script.defer = true;
+  //     document.body.appendChild(script);
+  //   }
+  //   window.fbAsyncInit = () => {
+  //     window.FB.init({
+  //       appId: "1211546113231811",
+  //       autoLogAppEvents: true,
+  //       xfbml: true,
+  //       version: "v22.0",
+  //     });
+  //   };
+  // }, []);
+
   useEffect(() => {
     if (!document.getElementById("facebook-jssdk")) {
       const script = document.createElement("script");
       script.id = "facebook-jssdk";
-      script.src = "https://connect.facebook.net/en_US/sdk.js";
+      script.src =
+        "https://connect.facebook.net/en_US/sdk.js#xfbml=0&version=v22.0&appId=1211546113231811&autoLogAppEvents=1";
       script.async = true;
       script.defer = true;
       document.body.appendChild(script);
     }
-    window.fbAsyncInit = () => {
+
+    window.fbAsyncInit = function () {
       window.FB.init({
         appId: "1211546113231811",
-        autoLogAppEvents: true,
-        xfbml: true,
         version: "v22.0",
+        cookie: true,
+        xfbml: false,
+        status: true,
+        autoLogAppEvents: true,
       });
     };
   }, []);
