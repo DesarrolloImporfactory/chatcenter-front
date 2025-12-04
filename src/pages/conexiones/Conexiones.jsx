@@ -682,12 +682,13 @@ const Conexiones = () => {
 
   /* SDK Facebook e integraciones (sin cambios de lógica) */
   useEffect(() => {
-    if (!document.getElementById("facebook-jssdk")) {
+    if (!document.getElementById("fb-whatsapp-sdk")) {
       const script = document.createElement("script");
-      script.id = "facebook-jssdk";
-      script.src = "https://connect.facebook.net/en_US/sdk.js";
+      script.id = "fb-whatsapp-sdk";
       script.async = true;
       script.defer = true;
+      script.src =
+        "https://connect.facebook.net/en_US/whatsapp_business_sdk.js";
       document.body.appendChild(script);
     }
     window.fbAsyncInit = () => {
@@ -708,7 +709,7 @@ const Conexiones = () => {
       });
       return;
     }
-    
+
     window.FBMeta.startOnboarding({
       config_id: "2295613834169297",
       redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
