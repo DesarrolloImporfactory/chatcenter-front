@@ -31,6 +31,8 @@ const ProductosView = () => {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [combosOpen, setCombosOpen] = useState(false);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [modalImagen, setModalImagen] = useState({ abierta: false, url: "" });
 
@@ -47,6 +49,12 @@ const ProductosView = () => {
     descripcion_upsell: "",
     precio_upsell: "",
     imagen_upsell: null,
+
+    combos_producto: [
+      { cantidad: "", precio: "" },
+      { cantidad: "", precio: "" },
+      { cantidad: "", precio: "" },
+    ],
   });
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewVideo, setPreviewVideo] = useState(null);
@@ -146,6 +154,7 @@ const ProductosView = () => {
       setArchivoMasivoNombre(null);
       setPreviewUrl(null);
       setPreviewVideo(null);
+      setPreviewUpsell(null);
 
       // Si necesitas volver a obtener los datos, ejecuta una función fetchData
       fetchData();
@@ -212,6 +221,44 @@ const ProductosView = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const normalizeCombos = (value) => {
+    // 1. Si viene NULL → devolver array por defecto
+    if (!value) {
+      return [
+        { cantidad: "", precio: "" },
+        { cantidad: "", precio: "" },
+        { cantidad: "", precio: "" },
+      ];
+    }
+
+    // 2. Si viene en string JSON
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.warn("Error al parsear combos_producto:", e);
+      }
+    }
+
+    // 3. Si viene como otra cosa → proteger
+    if (!Array.isArray(value)) {
+      return [
+        { cantidad: "", precio: "" },
+        { cantidad: "", precio: "" },
+        { cantidad: "", precio: "" },
+      ];
+    }
+
+    // 4. Si viene array, completar a 3 posiciones si faltan
+    const filled = [...value];
+    while (filled.length < 3) {
+      filled.push({ cantidad: "", precio: "" });
+    }
+
+    return filled;
+  };
 
   // ------- helpers -------
   const catMap = useMemo(
@@ -300,8 +347,13 @@ const ProductosView = () => {
     const idc = parseInt(localStorage.getItem("id_configuracion"));
     const data = new FormData();
     Object.entries(form).forEach(([k, v]) => {
-      if (v !== null && v !== "") data.append(k, v);
+      if (k === "combos_producto") {
+        data.append(k, JSON.stringify(v)); // <-- JSON real
+      } else if (v !== null && v !== "") {
+        data.append(k, v);
+      }
     });
+
     if (editingId) data.append("id_producto", editingId);
     else data.append("id_configuracion", idc);
 
@@ -336,11 +388,18 @@ const ProductosView = () => {
         descripcion_upsell: "",
         precio_upsell: "",
         imagen_upsell: null,
+
+        combos_producto: [
+          { cantidad: "", precio: "" },
+          { cantidad: "", precio: "" },
+          { cantidad: "", precio: "" },
+        ],
       });
 
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
       setPreviewVideo(null);
+      setPreviewUpsell(null);
       setEditingId(null);
       fetchData();
     } catch {
@@ -373,6 +432,7 @@ const ProductosView = () => {
         descripcion_upsell: p.descripcion_upsell ?? "",
         precio_upsell: p.precio_upsell ?? "",
         imagen_upsell: null,
+        combos_producto: normalizeCombos(p.combos_producto),
       });
       setEditingId(p.id);
       // si tiene imagen actual, la mostramos aparte
@@ -395,10 +455,16 @@ const ProductosView = () => {
         descripcion_upsell: "",
         precio_upsell: "",
         imagen_upsell: null,
+        combos_producto: [
+          { cantidad: "", precio: "" },
+          { cantidad: "", precio: "" },
+          { cantidad: "", precio: "" },
+        ],
       });
       setEditingId(null);
       setPreviewUrl(null);
       setPreviewVideo(null);
+      setPreviewUpsell(null);
     }
     setModalOpen(true);
   };
@@ -1107,6 +1173,102 @@ const ProductosView = () => {
                       />
                     </div>
                   </div>
+                </div>
+                {/* ------------------------------------------------------------- */}
+                {/*                       ACORDEÓN DE COMBOS                     */}
+                {/* ------------------------------------------------------------- */}
+                <div className="border border-slate-200 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setCombosOpen((prev) => !prev)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left"
+                  >
+                    <span className="text-slate-700 font-semibold text-sm">
+                      Combos (Opcional)
+                    </span>
+
+                    <svg
+                      className={`w-5 h-5 text-slate-500 transition-transform ${
+                        combosOpen ? "rotate-180" : ""
+                      }`}
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M12 15.375l-8.25-8.25 1.5-1.5L12 12.375l6.75-6.75 1.5 1.5z" />
+                    </svg>
+                  </button>
+
+                  {combosOpen && (
+                    <div className="px-4 pb-4 space-y-5 animate-[fadeIn_0.2s_ease]">
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="border border-slate-100 rounded-lg p-4"
+                        >
+                          <h3 className="font-medium text-slate-700 mb-3">
+                            {`Combo ${i + 1}`}
+                          </h3>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            {/* Cantidad */}
+                            <div>
+                              <label className="text-sm text-slate-600">
+                                Cantidad
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 mt-1
+                                  focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                                value={
+                                  form.combos_producto?.[i]?.cantidad || ""
+                                }
+                                onChange={(e) => {
+                                  const updated = [...form.combos_producto];
+                                  updated[i].cantidad = e.target.value;
+                                  setForm({
+                                    ...form,
+                                    combos_producto: updated,
+                                  });
+                                }}
+                              />
+                            </div>
+
+                            {/* Precio */}
+                            <div>
+                              <label className="text-sm text-slate-600">
+                                Precio
+                              </label>
+
+                              <div className="relative mt-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                  $
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="w-full pl-7 border border-slate-200 rounded-lg px-3 py-2.5 
+                                    focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                                  value={
+                                    form.combos_producto?.[i]?.precio || ""
+                                  }
+                                  onChange={(e) => {
+                                    const updated = [...form.combos_producto];
+                                    updated[i].precio = e.target.value;
+                                    setForm({
+                                      ...form,
+                                      combos_producto: updated,
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Duración */}
