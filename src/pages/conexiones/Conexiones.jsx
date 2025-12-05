@@ -742,9 +742,17 @@ const Conexiones = () => {
               throw new Error(data.message || "Error inesperado.");
             }
           } catch (err) {
-            const mensaje =
-              err?.response?.data?.message || "Error al activar el número.";
-            const linkWhatsApp = err?.response?.data?.contacto;
+            const data = err?.response?.data;
+
+            if (data?.partial) {
+              setStatusMessage({
+                type: "warning",
+                text: data.message,
+                extra: data.soporte, // enlace a WhatsApp
+              });
+              return;
+            }
+
             setStatusMessage({
               type: "error",
               text: linkWhatsApp
