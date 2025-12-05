@@ -744,14 +744,19 @@ const Conexiones = () => {
           } catch (err) {
             const data = err?.response?.data;
 
+            // Caso especial cuando se conectó al Business Manager pero no activó el número
             if (data?.partial) {
               setStatusMessage({
                 type: "warning",
                 text: data.message,
-                extra: data.soporte, // enlace a WhatsApp
+                extra: data.soporte, // link a WhatsApp soporte
               });
               return;
             }
+
+            // Errores normales
+            const mensaje = data?.message || "Error al activar el número.";
+            const linkWhatsApp = data?.contacto;
 
             setStatusMessage({
               type: "error",
