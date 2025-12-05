@@ -708,6 +708,7 @@ const Conexiones = () => {
       });
       return;
     }
+
     window.FB.login(
       (response) => {
         (async () => {
@@ -719,6 +720,7 @@ const Conexiones = () => {
             });
             return;
           }
+
           const redirectUri = "https://chatcenter.imporfactory.app/conexiones";
           console.log("redirectUri: " + redirectUri);
 
@@ -732,29 +734,48 @@ const Conexiones = () => {
                 id_configuracion: config?.id,
               }
             );
+
+            // Éxito total
             if (data.success) {
               setStatusMessage({
                 type: "success",
                 text: "✅ Número conectado correctamente.",
               });
               await fetchConfiguracionAutomatizada();
-            } else {
-              throw new Error(data.message || "Error inesperado.");
+              return;
             }
-          } catch (err) {
-            const data = err?.response?.data;
 
-            // Caso especial cuando se conectó al Business Manager pero no activó el número
-            if (data?.partial) {
+            // Éxito parcial
+            if (data.partial) {
               setStatusMessage({
                 type: "warning",
                 text: data.message,
-                extra: data.soporte, // link a WhatsApp soporte
+                extra: data.soporte,
               });
               return;
             }
 
-            // Errores normales
+            // Error normal del backend
+            setStatusMessage({
+              type: "error",
+              text: data.message || "Error al activar el número.",
+              extra: data.contacto || null,
+            });
+            return;
+
+          } catch (err) {
+            const data = err?.response?.data;
+
+            // Mantengo tu catch EXACTO como estaba
+            if (data?.partial) {
+              setStatusMessage({
+                type: "warning",
+                text: data.message,
+                extra: data.soporte,
+              });
+              return;
+            }
+
             const mensaje = data?.message || "Error al activar el número.";
             const linkWhatsApp = data?.contacto;
 
