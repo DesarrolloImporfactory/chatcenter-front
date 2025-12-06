@@ -732,6 +732,9 @@ const Conexiones = () => {
                 id_usuario: userData.id_usuario,
                 redirect_uri: redirectUri,
                 id_configuracion: config?.id,
+                display_number_onboarding: String(
+                  config?.telefono || ""
+                ).trim(),
               }
             );
 
@@ -762,7 +765,6 @@ const Conexiones = () => {
               extra: data.contacto || null,
             });
             return;
-
           } catch (err) {
             const data = err?.response?.data;
 
