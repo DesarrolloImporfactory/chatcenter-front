@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 import {
   FaWhatsapp,
   FaInstagram,
@@ -101,10 +102,29 @@ const BubbleIcon = ({
           strokeLinecap="round"
           style={{ filter: "drop-shadow(0 1px 4px rgba(2,6,23,.12))" }}
         />
-        <circle cx={startX + leadLength} cy={y} r={9} fill="rgba(2,6,23,0.10)" />
+        <circle
+          cx={startX + leadLength}
+          cy={y}
+          r={9}
+          fill="rgba(2,6,23,0.10)"
+        />
         <circle cx={startX + leadLength} cy={y} r={7} fill={color} />
-        <circle cx={startX + leadLength - 2} cy={y - 2} r={2.2} fill="white" opacity="0.85" />
-        <circle cx={startX + leadLength} cy={y} r={7.7} fill="none" stroke="white" strokeWidth="1.4" opacity="0.9" />
+        <circle
+          cx={startX + leadLength - 2}
+          cy={y - 2}
+          r={2.2}
+          fill="white"
+          opacity="0.85"
+        />
+        <circle
+          cx={startX + leadLength}
+          cy={y}
+          r={7.7}
+          fill="none"
+          stroke="white"
+          strokeWidth="1.4"
+          opacity="0.9"
+        />
       </svg>
 
       {/* Cuerpo del globo */}
@@ -129,7 +149,9 @@ const MsgBubble = ({ side = "left", children, tone = "default" }) => {
 
   return (
     <div
-      className={`relative ${isRight ? "ml-auto" : ""} max-w-[92%] sm:max-w-[86%] md:max-w-[82%]`}
+      className={`relative ${
+        isRight ? "ml-auto" : ""
+      } max-w-[92%] sm:max-w-[86%] md:max-w-[82%]`}
     >
       <div
         className={[
@@ -179,7 +201,7 @@ const StripeTrustPanel = () => (
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white ring-1 ring-blue-500/30 shadow">
             <FaLock />
           </span>
-        <div>
+          <div>
             <div className="text-sm font-semibold text-slate-900">
               Pagos seguros con{" "}
               <span className="bg-gradient-to-r from-indigo-500 to-blue-600 bg-clip-text text-transparent font-black tracking-tight">
@@ -233,7 +255,9 @@ const StripeTrustPanel = () => (
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[11px] text-slate-600">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span>Prueba gratuita 100 conversaciones al mes • Cancelás cuando quieras</span>
+          <span>
+            Prueba gratuita 100 conversaciones al mes • Cancelás cuando quieras
+          </span>
         </div>
         <div className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] ring-1 ring-slate-200">
           <span className="font-semibold">Powered by</span>
@@ -273,13 +297,34 @@ const HeroShowcase = () => {
         preserveAspectRatio="none"
       >
         <defs>
-          <marker id="arrG" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+          <marker
+            id="arrG"
+            markerWidth="12"
+            markerHeight="12"
+            refX="9"
+            refY="6"
+            orient="auto"
+          >
             <path d="M0,0 L12,6 L0,12 z" fill="rgba(16,185,129,.9)" />
           </marker>
-          <marker id="arrI" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+          <marker
+            id="arrI"
+            markerWidth="12"
+            markerHeight="12"
+            refX="9"
+            refY="6"
+            orient="auto"
+          >
             <path d="M0,0 L12,6 L0,12 z" fill="rgba(99,102,241,.9)" />
           </marker>
-          <marker id="arrB" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+          <marker
+            id="arrB"
+            markerWidth="12"
+            markerHeight="12"
+            refX="9"
+            refY="6"
+            orient="auto"
+          >
             <path d="M0,0 L12,6 L0,12 z" fill="rgba(37,99,235,.95)" />
           </marker>
           <linearGradient id="lgG" x1="0" x2="1">
@@ -296,12 +341,45 @@ const HeroShowcase = () => {
           </linearGradient>
         </defs>
 
-        <path d={`M 72 115 C 180 105, 255 115, 340 150`} stroke="rgba(16,185,129,.15)" strokeWidth="10" fill="none" />
-        <path d={`M 72 115 C 180 105, 255 115, 340 150`} stroke="url(#lgG)" strokeWidth="3.5" fill="none" markerEnd="url(#arrG)" />
-        <path d={`M 72 190 C 200 185, 300 205, 460 220`} stroke="rgba(99,102,241,.14)" strokeWidth="10" fill="none" />
-        <path d={`M 72 190 C 200 185, 300 205, 460 220`} stroke="url(#lgI)" strokeWidth="3.5" fill="none" markerEnd="url(#arrI)" />
-        <path d={`M 72 270 C 210 275, 310 330, 490 352`} stroke="rgba(37,99,235,.16)" strokeWidth="10" fill="none" />
-        <path d={`M 72 270 C 210 275, 310 330, 490 352`} stroke="url(#lgB)" strokeWidth="3.5" fill="none" markerEnd="url(#arrB)" />
+        <path
+          d={`M 72 115 C 180 105, 255 115, 340 150`}
+          stroke="rgba(16,185,129,.15)"
+          strokeWidth="10"
+          fill="none"
+        />
+        <path
+          d={`M 72 115 C 180 105, 255 115, 340 150`}
+          stroke="url(#lgG)"
+          strokeWidth="3.5"
+          fill="none"
+          markerEnd="url(#arrG)"
+        />
+        <path
+          d={`M 72 190 C 200 185, 300 205, 460 220`}
+          stroke="rgba(99,102,241,.14)"
+          strokeWidth="10"
+          fill="none"
+        />
+        <path
+          d={`M 72 190 C 200 185, 300 205, 460 220`}
+          stroke="url(#lgI)"
+          strokeWidth="3.5"
+          fill="none"
+          markerEnd="url(#arrI)"
+        />
+        <path
+          d={`M 72 270 C 210 275, 310 330, 490 352`}
+          stroke="rgba(37,99,235,.16)"
+          strokeWidth="10"
+          fill="none"
+        />
+        <path
+          d={`M 72 270 C 210 275, 310 330, 490 352`}
+          stroke="url(#lgB)"
+          strokeWidth="3.5"
+          fill="none"
+          markerEnd="url(#arrB)"
+        />
       </svg>
 
       {/* Card con borde “glass” y pantalla */}
@@ -344,7 +422,9 @@ const HeroShowcase = () => {
               <MsgBubble side="right">
                 <div className="h-3 w-36 sm:w-40 rounded bg-white/90" />
                 <div className="mt-2 h-3 w-24 sm:w-28 rounded bg-white/80" />
-                <div className="mt-2 text-[10px] opacity-80">Entregado ✓✓ · 10:22</div>
+                <div className="mt-2 text-[10px] opacity-80">
+                  Entregado ✓✓ · 10:22
+                </div>
               </MsgBubble>
 
               {/* Indicador escribiendo */}
@@ -418,7 +498,7 @@ const LandingTrial = () => {
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const id_plataforma = localStorage.getItem("id_plataforma_free");
-      return { token, id_usuario, id_plataforma};
+      return { token, id_usuario, id_plataforma };
     } catch {
       return {};
     }
@@ -459,10 +539,16 @@ const LandingTrial = () => {
     })();
   }, []); */
 
+  const navigate = useNavigate();
+
   const startFreeTrial = async () => {
     const { token, id_usuario, id_plataforma } = getAuth();
     if (!token || !id_usuario || !id_plataforma) {
-      Swal.fire("Inicia sesión", "Debes iniciar sesión para continuar.", "info");
+      Swal.fire(
+        "Inicia sesión",
+        "Debes iniciar sesión para continuar.",
+        "info"
+      );
       return;
     }
     if (eligible === false) {
@@ -471,7 +557,7 @@ const LandingTrial = () => {
     }
     try {
       setLoading(true);
-      const base = window.location.origin;
+      /* const base = window.location.origin;
       const payload = {
         id_usuario,
         id_plataforma,
@@ -483,11 +569,33 @@ const LandingTrial = () => {
         "/stripe_plan/crearSesionLiteFree",
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (data?.url) window.location.href = data.url;
-      else throw new Error("No se recibió URL de Stripe.");
+      ); */
+
+      const response = await chatApi.post("/planes/seleccionarPlan", {
+        id_plan: 1,
+        id_usuario,
+        id_plataforma,
+      });
+
+      const data = response.data;
+
+      // Verifica si la respuesta fue correcta
+      if (response.status !== 200 || data.status !== "success") {
+        throw new Error(data.message || "Error al actualizar el chat");
+      }
+
+      navigate("/conexiones");
+
+      /* if (data?.url) window.location.href = data.url;
+      else throw new Error("No se recibió URL de Stripe."); */
     } catch (e) {
-      Swal.fire("Error", e?.response?.data?.message || e.message || "No se pudo iniciar la prueba.", "error");
+      Swal.fire(
+        "Error",
+        e?.response?.data?.message ||
+          e.message ||
+          "No se pudo iniciar la prueba.",
+        "error"
+      );
       setLoading(false);
     }
   };
@@ -523,8 +631,8 @@ const LandingTrial = () => {
             </div>
 
             <p className="mt-4 sm:mt-5 max-w-xl text-[14px] sm:text-[15px] leading-7 text-slate-600">
-              Integra WhatsApp, Instagram y Facebook para comunicarte en tiempo real con más de{" "}
-              <b>3000 millones</b> de usuarios.
+              Integra WhatsApp, Instagram y Facebook para comunicarte en tiempo
+              real con más de <b>3000 millones</b> de usuarios.
             </p>
 
             <div className="mt-5 sm:mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
@@ -533,9 +641,13 @@ const LandingTrial = () => {
                 <b>Beneficio exclusivo para alumnos</b>
               </p>
               <p className="mt-2 text-[14px] sm:text-[15px] leading-6 text-slate-700">
-                ¡Por ser alumno, accedés a <b>100 conversaciones totalmente gratis al mes</b> desde el día de tu inscripción! Solo debés
-                activar tu cuenta registrando una tarjeta de crédito o débito.{" "}
-                <span className="font-semibold">No se te cobrará absolutamente nada.</span>
+                ¡Por ser alumno, accedés a{" "}
+                <b>100 conversaciones totalmente gratis al mes</b> desde el día
+                de tu inscripción! Solo debés activar tu cuenta registrando una
+                tarjeta de crédito o débito.{" "}
+                <span className="font-semibold">
+                  No se te cobrará absolutamente nada.
+                </span>
               </p>
             </div>
 
@@ -550,12 +662,19 @@ const LandingTrial = () => {
                     : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] active:translate-y-0"
                 }`}
               >
-                {loading ? "Redirigiendo…" : "ACTIVA 100 CONVERSACIONES X MES GRATIS"} <FaArrowRight className="ml-1 inline-block" />
+                {loading
+                  ? "Redirigiendo…"
+                  : "ACTIVA 100 CONVERSACIONES X MES GRATIS"}{" "}
+                <FaArrowRight className="ml-1 inline-block" />
               </button>
-              {eligible === false && <p className="mt-2 text-xs text-rose-600">Ya usaste tu prueba gratuita.</p>}
+              {eligible === false && (
+                <p className="mt-2 text-xs text-rose-600">
+                  Ya usaste tu prueba gratuita.
+                </p>
+              )}
               <p className="mt-2 text-[11px] text-slate-500">
-                Al finalizar el periodo de prueba se activará el plan y se realizará el cobro automático, salvo
-                cancelación previa.
+                Al finalizar el periodo de prueba se activará el plan y se
+                realizará el cobro automático, salvo cancelación previa.
               </p>
 
               {/* Panel de confianza Stripe (features 2×2) */}
@@ -568,17 +687,21 @@ const LandingTrial = () => {
             <HeroShowcase />
 
             <div className="mt-8 sm:mt-10 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">¿Qué ofrecemos?</h3>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                ¿Qué ofrecemos?
+              </h3>
               <ul className="mt-4 sm:mt-5 space-y-3 text-sm">
                 <CheckItem>
-                  Sincronizá tu <b>WhatsApp Business</b> para gestionar chats en tiempo real y aprovechar
-                  automatizaciones y plantillas.
+                  Sincronizá tu <b>WhatsApp Business</b> para gestionar chats en
+                  tiempo real y aprovechar automatizaciones y plantillas.
                 </CheckItem>
                 <CheckItem>
-                  Automatizá respuestas con <b>IA</b> (conversation AI): responde al instante 24/7 y gestiona consultas.
+                  Automatizá respuestas con <b>IA</b> (conversation AI):
+                  responde al instante 24/7 y gestiona consultas.
                 </CheckItem>
                 <CheckItem>
-                  Centralizá todo: bandejas, etiquetas, estadísticos básicos y envíos masivos.
+                  Centralizá todo: bandejas, etiquetas, estadísticos básicos y
+                  envíos masivos.
                 </CheckItem>
               </ul>
             </div>
