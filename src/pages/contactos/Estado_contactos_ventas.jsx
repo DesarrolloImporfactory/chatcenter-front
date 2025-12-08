@@ -251,7 +251,7 @@ const KANBAN_COLUMNS = {
   CANCELADO: {
     key: "CANCELADO",
     label: "CANCELADO",
-    bg: "#f08585ff",
+    bg: "#fce4ec",
   },
 };
 
