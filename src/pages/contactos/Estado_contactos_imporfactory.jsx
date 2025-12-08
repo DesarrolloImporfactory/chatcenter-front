@@ -3,6 +3,7 @@ import Swal from "sweetalert2";
 import Select, { components } from "react-select";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -204,26 +205,25 @@ function PreviewContent({
   // TEXTO / TEMPLATE (render simple; si quieres expansión de {{}} hazlo fuera)
   return (
     <div>
-    <Quote />
+      <Quote />
 
-    <div
-      style={{
-        backdropFilter: "blur(14px)",
-        background: "rgba(255,255,255,.55)",
-        padding: "18px 20px",
-        borderRadius: "18px",
-        border: "1px solid rgba(255,255,255,0.4)",
-        boxShadow:"0 8px 24px rgba(0,0,0,.12)",
-        whiteSpace: "pre-wrap",
-        fontSize: "15px",
-        lineHeight: "1.65",
-        color:"#1A1A1A",
-      }}
-    >
-      {texto}
+      <div
+        style={{
+          backdropFilter: "blur(14px)",
+          background: "rgba(255,255,255,.55)",
+          padding: "18px 20px",
+          borderRadius: "18px",
+          border: "1px solid rgba(255,255,255,0.4)",
+          boxShadow: "0 8px 24px rgba(0,0,0,.12)",
+          whiteSpace: "pre-wrap",
+          fontSize: "15px",
+          lineHeight: "1.65",
+          color: "#1A1A1A",
+        }}
+      >
+        {texto}
+      </div>
     </div>
-
-  </div>
   );
 }
 
@@ -613,6 +613,66 @@ const Estado_contactos = () => {
 
   /* preview */
 
+  const onDragEnd = async (result) => {
+    const { source, destination } = result;
+
+    if (!destination) return;
+
+    const startCol = source.droppableId;
+    const endCol = destination.droppableId;
+
+    // 🛑 Mismo índice y misma columna → NO HACER NADA
+    if (startCol === endCol && source.index === destination.index) {
+      return;
+    }
+
+    const startList = Array.from(boardData[startCol]);
+    const endList = Array.from(boardData[endCol]);
+
+    // Caso 1: 🟦 Mover dentro de la misma columna
+    if (startCol === endCol) {
+      const [movedItem] = startList.splice(source.index, 1);
+      startList.splice(destination.index, 0, movedItem);
+
+      setBoardData({
+        ...boardData,
+        [startCol]: startList,
+      });
+
+      return; // sin API porque no cambia el estado verdadero
+    }
+
+    // Caso 2: 🟩 Mover a otra columna
+    const [movedItem] = startList.splice(source.index, 1);
+    endList.splice(destination.index, 0, movedItem);
+
+    setBoardData({
+      ...boardData,
+      [startCol]: startList,
+      [endCol]: endList,
+    });
+
+    // API: actualizar estado del cliente
+    try {
+      await chatApi.post("/clientes_chat_center/actualizar_estado", {
+        id_cliente: movedItem.id,
+        nuevo_estado: endCol,
+        id_configuracion,
+      });
+
+      Toast.fire({
+        icon: "success",
+        title: "Estado actualizado",
+      });
+    } catch (error) {
+      console.error(error);
+      Toast.fire({
+        icon: "error",
+        title: "Error al actualizar estado",
+      });
+    }
+  };
+
   return (
     <div className="p-5">
       {/* Encabezado estilizado */}
@@ -743,119 +803,143 @@ const Estado_contactos = () => {
       )}
 
       {/* Contenedor Kanban */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-          gap: "1rem",
-        }}
-      >
-        {Object.values(KANBAN_COLUMNS).map((column) => {
-          const listaOriginal = boardData[column.key] || [];
-          const listaFiltrada = filterContacts(
-            listaOriginal,
-            searchTerms[column.key]
-          );
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+            gap: "1rem",
+          }}
+        >
+          {Object.values(KANBAN_COLUMNS).map((column) => {
+            const listaOriginal = boardData[column.key] || [];
+            const listaFiltrada = filterContacts(
+              listaOriginal,
+              searchTerms[column.key]
+            );
 
-          return (
-            <div
-              key={column.key}
-              style={{
-                backgroundColor: column.bg,
-                borderRadius: "16px",
-                padding: "12px",
-                display: "flex",
-                flexDirection: "column",
-                maxHeight: "75vh",
-                boxShadow: "0 8px 18px rgba(0,0,0,0.08)",
-                border: "1px solid rgba(0,0,0,0.04)",
-              }}
-            >
-              {/* Header */}
-              <div
-                style={{
-                  fontWeight: 700,
-                  fontSize: "0.95rem",
-                  marginBottom: "0.5rem",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span>{column.label}</span>
-                <span
-                  style={{
-                    fontSize: "0.8rem",
-                    backgroundColor: "rgba(255,255,255,0.9)",
-                    borderRadius: "999px",
-                    padding: "3px 9px",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  {listaFiltrada.length}
-                </span>
-              </div>
-
-              {/* Input de búsqueda */}
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={searchTerms[column.key]}
-                onChange={(e) =>
-                  setSearchTerms({
-                    ...searchTerms,
-                    [column.key]: e.target.value,
-                  })
-                }
-                style={{
-                  padding: "6px 10px",
-                  marginBottom: "8px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(0,0,0,0.15)",
-                  fontSize: "0.8rem",
-                  outline: "none",
-                  transition: "all 0.15s ease",
-                }}
-                onFocus={(e) =>
-                  (e.target.style.boxShadow = "0 0 6px rgba(0,0,0,0.15)")
-                }
-                onBlur={(e) => (e.target.style.boxShadow = "none")}
-              />
-
-              {/* Divider */}
-              <div
-                style={{
-                  height: 1,
-                  backgroundColor: "rgba(0,0,0,0.06)",
-                  marginBottom: "8px",
-                }}
-              ></div>
-
-              {/* Lista filtrada */}
-              <div
-                style={{
-                  overflowY: "auto",
-                  paddingRight: "4px",
-                }}
-              >
-                {listaFiltrada.length > 0 ? (
-                  listaFiltrada.map((contacto) => renderContactCard(contacto))
-                ) : (
+            return (
+              <Droppable droppableId={column.key} key={column.key}>
+                {(provided) => (
                   <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
                     style={{
-                      fontSize: "0.8rem",
-                      opacity: 0.7,
-                      fontStyle: "italic",
+                      backgroundColor: column.bg,
+                      borderRadius: "16px",
+                      padding: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      maxHeight: "75vh",
+                      boxShadow: "0 8px 18px rgba(0,0,0,0.08)",
+                      border: "1px solid rgba(0,0,0,0.04)",
                     }}
                   >
-                    No se encontraron resultados.
+                    {/* Header */}
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.95rem",
+                        marginBottom: "0.5rem",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>{column.label}</span>
+                      <span
+                        style={{
+                          fontSize: "0.8rem",
+                          backgroundColor: "rgba(255,255,255,0.9)",
+                          borderRadius: "999px",
+                          padding: "3px 9px",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+                        }}
+                      >
+                        {listaFiltrada.length}
+                      </span>
+                    </div>
+
+                    {/* Input de búsqueda */}
+                    <input
+                      type="text"
+                      placeholder="Buscar..."
+                      value={searchTerms[column.key]}
+                      onChange={(e) =>
+                        setSearchTerms({
+                          ...searchTerms,
+                          [column.key]: e.target.value,
+                        })
+                      }
+                      style={{
+                        padding: "6px 10px",
+                        marginBottom: "8px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(0,0,0,0.15)",
+                        fontSize: "0.8rem",
+                        outline: "none",
+                        transition: "all 0.15s ease",
+                      }}
+                      onFocus={(e) =>
+                        (e.target.style.boxShadow = "0 0 6px rgba(0,0,0,0.15)")
+                      }
+                      onBlur={(e) => (e.target.style.boxShadow = "none")}
+                    />
+
+                    {/* Divider */}
+                    <div
+                      style={{
+                        height: 1,
+                        backgroundColor: "rgba(0,0,0,0.06)",
+                        marginBottom: "8px",
+                      }}
+                    ></div>
+
+                    {/* Lista filtrada */}
+                    <div
+                      style={{
+                        overflowY: "auto",
+                        paddingRight: "4px",
+                      }}
+                    >
+                      {listaFiltrada.length > 0 ? (
+                        listaFiltrada.map((contacto, index) => (
+                          <Draggable
+                            key={contacto.id}
+                            draggableId={String(contacto.id)}
+                            index={index}
+                          >
+                            {(provided) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                              >
+                                {renderContactCard(contacto)}
+                              </div>
+                            )}
+                          </Draggable>
+                        ))
+                      ) : (
+                        <div
+                          style={{
+                            fontSize: "0.8rem",
+                            opacity: 0.7,
+                            fontStyle: "italic",
+                          }}
+                        >
+                          No se encontraron resultados.
+                        </div>
+                      )}
+                    </div>
+                    {provided.placeholder}
                   </div>
                 )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              </Droppable>
+            );
+          })}
+        </div>
+      </DragDropContext>
 
       {/* Pequeño estilo inline para animar el puntito (sin tocar CSS global) */}
       <style>{`
