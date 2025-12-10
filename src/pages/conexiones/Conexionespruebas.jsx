@@ -373,7 +373,7 @@ const HoverPopover = ({
    Vista principal con guía
 =========================== */
 
-const Conexionespruebas = () => {
+const Conexiones = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
     []
   );
@@ -708,6 +708,7 @@ const Conexionespruebas = () => {
       });
       return;
     }
+
     window.FB.login(
       (response) => {
         (async () => {
@@ -719,7 +720,10 @@ const Conexionespruebas = () => {
             });
             return;
           }
-          const redirectUri = window.location.origin + window.location.pathname;
+
+          const redirectUri = "https://chatcenter.imporfactory.app/conexiones";
+          console.log("redirectUri: " + redirectUri);
+
           try {
             const { data } = await chatApi.post(
               "/whatsapp_managment/embeddedSignupComplete",
@@ -728,21 +732,55 @@ const Conexionespruebas = () => {
                 id_usuario: userData.id_usuario,
                 redirect_uri: redirectUri,
                 id_configuracion: config?.id,
+                display_number_onboarding: String(
+                  config?.telefono || ""
+                ).trim(),
               }
             );
+
+            // Éxito total
             if (data.success) {
               setStatusMessage({
                 type: "success",
                 text: "✅ Número conectado correctamente.",
               });
               await fetchConfiguracionAutomatizada();
-            } else {
-              throw new Error(data.message || "Error inesperado.");
+              return;
             }
+
+            // Éxito parcial
+            if (data.partial) {
+              setStatusMessage({
+                type: "warning",
+                text: data.message,
+                extra: data.soporte,
+              });
+              return;
+            }
+
+            // Error normal del backend
+            setStatusMessage({
+              type: "error",
+              text: data.message || "Error al activar el número.",
+              extra: data.contacto || null,
+            });
+            return;
           } catch (err) {
-            const mensaje =
-              err?.response?.data?.message || "Error al activar el número.";
-            const linkWhatsApp = err?.response?.data?.contacto;
+            const data = err?.response?.data;
+
+            // Mantengo tu catch EXACTO como estaba
+            if (data?.partial) {
+              setStatusMessage({
+                type: "warning",
+                text: data.message,
+                extra: data.soporte,
+              });
+              return;
+            }
+
+            const mensaje = data?.message || "Error al activar el número.";
+            const linkWhatsApp = data?.contacto;
+
             setStatusMessage({
               type: "error",
               text: linkWhatsApp
@@ -757,6 +795,7 @@ const Conexionespruebas = () => {
         config_id: "2295613834169297",
         response_type: "code",
         override_default_response_type: true,
+        redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
         scope: "whatsapp_business_management,whatsapp_business_messaging",
         extras: {
           featureType: "whatsapp_business_app_onboarding",
@@ -995,7 +1034,7 @@ const Conexionespruebas = () => {
     }
   };
 
-  const TIKTOK_REDIRECT_PATH = "/conexionespruebas";
+  const TIKTOK_REDIRECT_PATH = "/conexiones";
 
   const handleConectarTikTokInbox = async (config) => {
     try {
@@ -1495,14 +1534,15 @@ const Conexionespruebas = () => {
                         {!isTikTokConectado(config) ? (
                           <button
                             type="button"
-                            onClick={() => handleConectarTikTokInbox(config)}
-                            className="relative group cursor-pointer text-gray-500 hover:text-black transition transform hover:scale-110"
-                            title="Conectar con TikTok"
-                            aria-label="Conectar con TikTok"
+                            disabled
+                            className="relative group cursor-not-allowed text-gray-500"
+                            aria-label="TikTok próximamente"
                           >
                             <i className="bx bxl-tiktok text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar TikTok
+
+                            {/* Tooltip */}
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                              Próximamente
                             </span>
                           </button>
                         ) : (
@@ -1524,6 +1564,10 @@ const Conexionespruebas = () => {
                             localStorage.setItem(
                               "id_plataforma_conf",
                               config.id_plataforma
+                            );
+                            localStorage.setItem(
+                              "tipo_configuracion",
+                              config.tipo_configuracion
                             );
                             localStorage.setItem(
                               "nombre_configuracion",
@@ -1719,4 +1763,4 @@ const Conexionespruebas = () => {
   );
 };
 
-export default Conexionespruebas;
+export default Conexiones;
