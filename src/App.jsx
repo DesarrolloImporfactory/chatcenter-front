@@ -20,6 +20,8 @@ import MiPlan from "./pages/facturacion/Miplan";
 import MiPlanPrueba from "./pages/facturacion/MiplanPrueba";
 import LandingTrial from "./pages/planes/LandingTrial";
 
+import ListaPlanes from "./pages/planes/listaPlanes";
+
 // Páginas de gestión
 import Productos from "./pages/productos/ProductosView";
 import Categorias from "./pages/categorias/CategoriasView";
@@ -275,6 +277,15 @@ function App() {
             element={
               <MainLayoutPlanes>
                 <PlanesViewPrueba />
+              </MainLayoutPlanes>
+            }
+          />
+
+          <Route
+            path="/lista_planes"
+            element={
+              <MainLayoutPlanes>
+                <ListaPlanes/>
               </MainLayoutPlanes>
             }
           />
