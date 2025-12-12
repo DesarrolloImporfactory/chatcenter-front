@@ -1,5 +1,5 @@
-// WhatsappSection.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
 import SectionHeader from "./SectionHeader";
 import StatusPill from "./StatusPill";
@@ -32,6 +32,38 @@ export default function WhatsappSection() {
       </div>
     </div>
   );
+
+  const getUserData = () => {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+
+    try {
+      const decoded = jwtDecode(token); // Decodificamos el JWT para obtener el userData
+      return decoded;
+    } catch (e) {
+      return null; // Si no se puede decodificar, retornamos null
+    }
+  };
+
+  const [config, setConfig] = useState(null);
+
+  const fetchConfig = async () => {
+    const userData = getUserData(); // Usamos getUserData para obtener los datos del usuario.
+    if (!userData) return;
+
+    try {
+      const response = await chatApi.post("configuraciones/listar_conexiones", {
+        id_usuario: userData.id_usuario,
+      });
+      setConfig(response.data.data); // Asignamos la respuesta de la API al estado `config`
+    } catch (err) {
+      console.error("Error al obtener configuraciones", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
 
   const fetchNumbers = async () => {
     if (!id_configuracion) {
@@ -97,6 +129,18 @@ export default function WhatsappSection() {
       });
       return;
     }
+
+    const userData = getUserData(); // Obtenemos los datos del usuario
+    const config = getConfig(); // Obtenemos la configuración de WhatsApp
+
+    if (!userData || !config) {
+      setStatusToast({
+        type: "error",
+        text: "Datos incompletos. No se pudo continuar con la conexión.",
+      });
+      return;
+    }
+
     window.FB.login(
       (response) => {
         (async () => {
@@ -108,17 +152,27 @@ export default function WhatsappSection() {
             });
             return;
           }
+
           try {
             const { data } = await chatApi.post(
               "/whatsapp_managment/embeddedSignupComplete",
-              { code, id_configuracion }
+              {
+                code,
+                id_configuracion: config.id, // Usamos el ID de configuración de WhatsApp
+                redirect_uri: window.location.origin + "/conexiones", // URL de redirección
+                display_number_onboarding: String(
+                  config?.telefono || ""
+                ).trim(),
+                id_usuario: userData.id_usuario, // Pasamos el ID del usuario
+              }
             );
+
             if (data.success) {
               setStatusToast({
                 type: "success",
                 text: "✅ Número conectado correctamente.",
               });
-              fetchNumbers();
+              fetchNumbers(); // Actualiza el estado de conexión
             } else {
               throw new Error(data.message || "Error inesperado.");
             }
@@ -137,7 +191,7 @@ export default function WhatsappSection() {
         })();
       },
       {
-        config_id: "2295613834169297",
+        config_id: "2295613834169297", // ID de la configuración de Facebook
         response_type: "code",
         override_default_response_type: true,
         scope: "whatsapp_business_management,whatsapp_business_messaging",
