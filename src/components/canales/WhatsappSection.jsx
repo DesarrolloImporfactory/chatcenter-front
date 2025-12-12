@@ -13,7 +13,7 @@ export default function WhatsappSection() {
   const [connected, setConnected] = useState(false);
   const [hasNumbers, setHasNumbers] = useState(false);
   const [fetched, setFetched] = useState(false);
-  const [config, setConfig] = useState(null); // Estado para la configuración
+  const [config, setConfig] = useState(null);
 
   const adminRef = useRef(null);
 
@@ -22,7 +22,7 @@ export default function WhatsappSection() {
     return idc ? parseInt(idc) : null;
   }, []);
 
-  // Skeleton compacto (mismo tamaño que el de IG/WA)
+  // Skeleton compacto
   const CardSkeleton = () => (
     <div className="rounded-3xl border border-gray-100 p-5 shadow-xl bg-white">
       <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-2" />
@@ -39,22 +39,22 @@ export default function WhatsappSection() {
     if (!token) return null;
 
     try {
-      const decoded = jwtDecode(token); // Decodificamos el JWT para obtener el userData
+      const decoded = jwtDecode(token);
       return decoded;
     } catch (e) {
-      return null; // Si no se puede decodificar, retornamos null
+      return null;
     }
   };
 
   const fetchConfig = async () => {
-    const userData = getUserData(); // Usamos getUserData para obtener los datos del usuario.
+    const userData = getUserData();
     if (!userData) return;
 
     try {
       const response = await chatApi.post("configuraciones/listar_conexiones", {
         id_usuario: userData.id_usuario,
       });
-      setConfig(response.data.data); // Asignamos la respuesta de la API al estado `config`
+      setConfig(response.data.data);
     } catch (err) {
       console.error("Error al obtener configuraciones", err);
     }
@@ -64,15 +64,26 @@ export default function WhatsappSection() {
     fetchConfig();
   }, []);
 
+  // 🔥 DEBUGGING: Ver qué contiene config
+  useEffect(() => {
+    if (config) {
+      console.log("📋 Configuración cargada:", config);
+      console.log(
+        "📱 Teléfono encontrado:",
+        config.telefono || config.numero || "NO ENCONTRADO"
+      );
+    }
+  }, [config]);
+
   const fetchNumbers = async () => {
     if (!id_configuracion) {
-      setInit(false); // sin id, no bloquees la vista
+      setInit(false);
       return;
     }
     try {
       setLoading(true);
       setFetched(false);
-      const minHold = new Promise((r) => setTimeout(r, 300)); // 👈 evita flash
+      const minHold = new Promise((r) => setTimeout(r, 300));
       const req = chatApi.post("/whatsapp_managment/ObtenerNumeros", {
         id_configuracion,
       });
@@ -89,7 +100,7 @@ export default function WhatsappSection() {
     } finally {
       setFetched(true);
       setLoading(false);
-      setInit(false); // 👈 ya podemos decidir qué mostrar
+      setInit(false);
     }
   };
 
@@ -100,7 +111,7 @@ export default function WhatsappSection() {
     return () => window.removeEventListener("focus", onFocus);
   }, [id_configuracion]);
 
-  /* SDK Facebook e integraciones (sin cambios de lógica) */
+  /* SDK Facebook */
   useEffect(() => {
     if (!document.getElementById("facebook-jssdk")) {
       const script = document.createElement("script");
@@ -129,7 +140,7 @@ export default function WhatsappSection() {
       return;
     }
 
-    const userData = getUserData(); // Obtenemos los datos del usuario
+    const userData = getUserData();
     if (!userData || !config) {
       setStatusToast({
         type: "error",
@@ -138,15 +149,23 @@ export default function WhatsappSection() {
       return;
     }
 
-    // Verificar que config.telefono no esté vacío
-    const telefono = config?.telefono?.trim();
+    const telefono = config?.telefono?.trim() ;
+
     if (!telefono) {
       setStatusToast({
         type: "error",
-        text: "El número de teléfono está vacío.",
+        text: "El número de teléfono no está configurado. Por favor, verifica tu configuración.",
       });
       return;
     }
+
+    // 🔥 CORRECCIÓN: Limpiar el número (remover espacios, guiones, paréntesis)
+    const telefonoLimpio = telefono.replace(/[\s\-\(\)]/g, "");
+
+
+    // 🔥 DEBUGGING: Ver qué se está enviando
+    console.log("📞 Enviando número:", telefonoLimpio);
+    console.log("🔧 Config ID:", config.id);
 
     window.FB.login(
       (response) => {
@@ -165,10 +184,10 @@ export default function WhatsappSection() {
               "/whatsapp_managment/embeddedSignupComplete",
               {
                 code,
-                id_configuracion: config.id, // Usamos el ID de configuración de WhatsApp
-                redirect_uri: window.location.origin + "/conexiones", // URL de redirección
-                display_number_onboarding: telefono, // Número de teléfono actualizado
-                id_usuario: userData.id_usuario, // Pasamos el ID del usuario
+                id_configuracion: config.id,
+                redirect_uri: window.location.origin + "/conexiones",
+                display_number_onboarding: telefonoLimpio, // 🔥 Usar número limpio
+                id_usuario: userData.id_usuario,
               }
             );
 
@@ -177,11 +196,12 @@ export default function WhatsappSection() {
                 type: "success",
                 text: "✅ Número conectado correctamente.",
               });
-              fetchNumbers(); // Actualiza el estado de conexión
+              fetchNumbers();
             } else {
               throw new Error(data.message || "Error inesperado.");
             }
           } catch (err) {
+            console.error("❌ Error en embeddedSignupComplete:", err);
             const mensaje =
               err?.response?.data?.message || "Error al activar el número.";
             const linkWhatsApp = err?.response?.data?.contacto;
@@ -196,7 +216,7 @@ export default function WhatsappSection() {
         })();
       },
       {
-        config_id: "2295613834169297", // ID de la configuración de Facebook
+        config_id: "2295613834169297",
         response_type: "code",
         override_default_response_type: true,
         scope: "whatsapp_business_management,whatsapp_business_messaging",
