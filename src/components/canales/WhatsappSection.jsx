@@ -7,12 +7,13 @@ import ChannelCard from "./ChannelCard";
 import AdministradorPlantillas2 from "../../pages/admintemplates/AdministradorPlantillas2";
 
 export default function WhatsappSection() {
-  const [init, setInit] = useState(true); // 👈 NUEVO
+  const [init, setInit] = useState(true);
   const [loading, setLoading] = useState(false);
   const [statusToast, setStatusToast] = useState(null);
   const [connected, setConnected] = useState(false);
   const [hasNumbers, setHasNumbers] = useState(false);
   const [fetched, setFetched] = useState(false);
+  const [config, setConfig] = useState(null); // Estado para la configuración
 
   const adminRef = useRef(null);
 
@@ -44,8 +45,6 @@ export default function WhatsappSection() {
       return null; // Si no se puede decodificar, retornamos null
     }
   };
-
-  const [config, setConfig] = useState(null);
 
   const fetchConfig = async () => {
     const userData = getUserData(); // Usamos getUserData para obtener los datos del usuario.
@@ -131,12 +130,20 @@ export default function WhatsappSection() {
     }
 
     const userData = getUserData(); // Obtenemos los datos del usuario
-    const config = fetchConfig(); // Obtenemos la configuración de WhatsApp
-
     if (!userData || !config) {
       setStatusToast({
         type: "error",
         text: "Datos incompletos. No se pudo continuar con la conexión.",
+      });
+      return;
+    }
+
+    // Verificar que config.telefono no esté vacío
+    const telefono = config?.telefono?.trim();
+    if (!telefono) {
+      setStatusToast({
+        type: "error",
+        text: "El número de teléfono está vacío.",
       });
       return;
     }
@@ -160,9 +167,7 @@ export default function WhatsappSection() {
                 code,
                 id_configuracion: config.id, // Usamos el ID de configuración de WhatsApp
                 redirect_uri: window.location.origin + "/conexiones", // URL de redirección
-                display_number_onboarding: String(
-                  config?.telefono || ""
-                ).trim(),
+                display_number_onboarding: telefono, // Número de teléfono actualizado
                 id_usuario: userData.id_usuario, // Pasamos el ID del usuario
               }
             );
@@ -208,7 +213,6 @@ export default function WhatsappSection() {
   const connectLabel = connected ? "WhatsApp Conectado" : "Conectar WhatsApp";
   const showOnboarding = fetched && !connected;
 
-  // 👇 Mientras decide (init), mostramos skeleton y nada más
   if (init) {
     return (
       <div className="space-y-6">
