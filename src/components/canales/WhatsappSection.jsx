@@ -131,7 +131,7 @@ export default function WhatsappSection() {
     }
 
     const userData = getUserData(); // Obtenemos los datos del usuario
-    const config = getConfig(); // Obtenemos la configuración de WhatsApp
+    const config = fetchConfig(); // Obtenemos la configuración de WhatsApp
 
     if (!userData || !config) {
       setStatusToast({
