@@ -64,17 +64,6 @@ export default function WhatsappSection() {
     fetchConfig();
   }, []);
 
-  // 🔥 DEBUGGING: Ver qué contiene config
-  useEffect(() => {
-    if (config) {
-      console.log("📋 Configuración cargada:", config);
-      console.log(
-        "📱 Teléfono encontrado:",
-        config.telefono || config.numero || "NO ENCONTRADO"
-      );
-    }
-  }, [config]);
-
   const fetchNumbers = async () => {
     if (!id_configuracion) {
       setInit(false);
@@ -149,7 +138,7 @@ export default function WhatsappSection() {
       return;
     }
 
-    const telefono = config?.telefono?.trim() ;
+    const telefono = localStorage.getItem("telefono");
 
     if (!telefono) {
       setStatusToast({
@@ -158,14 +147,6 @@ export default function WhatsappSection() {
       });
       return;
     }
-
-    // 🔥 CORRECCIÓN: Limpiar el número (remover espacios, guiones, paréntesis)
-    const telefonoLimpio = telefono.replace(/[\s\-\(\)]/g, "");
-
-
-    // 🔥 DEBUGGING: Ver qué se está enviando
-    console.log("📞 Enviando número:", telefonoLimpio);
-    console.log("🔧 Config ID:", config.id);
 
     window.FB.login(
       (response) => {
@@ -186,7 +167,7 @@ export default function WhatsappSection() {
                 code,
                 id_configuracion: config.id,
                 redirect_uri: window.location.origin + "/conexiones",
-                display_number_onboarding: telefonoLimpio, // 🔥 Usar número limpio
+                display_number_onboarding: telefono,
                 id_usuario: userData.id_usuario,
               }
             );

@@ -1573,6 +1573,7 @@ const Conexiones = () => {
                               "nombre_configuracion",
                               config.nombre_configuracion
                             );
+                            localStorage.setItem("telefono", config.telefono);
                             navigate("/chat");
                           }}
                           title="Ir al chat"
