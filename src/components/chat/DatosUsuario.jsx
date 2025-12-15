@@ -1187,9 +1187,150 @@ const DatosUsuario = ({
     }
   };
 
+  const showServientregaSwal = () => {
+    const waLink =
+      "https://wa.me/593998681178?text=" +
+      encodeURIComponent(
+        "Hola, SERVIENTREGA ya no está disponible en nuestra plataforma. ¿Pueden ayudarme a migrar a una alternativa estable?"
+      );
+
+    Swal.fire({
+      showConfirmButton: false,
+      showCancelButton: false,
+      background: "#fff",
+      width: 560,
+      padding: 0,
+      html: `
+      <style>
+        .ceo-modal{ padding:28px 28px 22px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+        .ceo-top{ display:flex; justify-content:center; margin-top:8px; margin-bottom:12px; }
+        .ceo-xwrap{
+          width:84px; height:84px; border-radius:999px;
+          border:4px solid rgba(239,68,68,.65);
+          display:flex; align-items:center; justify-content:center;
+        }
+        .ceo-xwrap i{ font-size:44px; color:#ef4444; }
+        .ceo-title{ text-align:center; font-size:28px; font-weight:800; color:#111827; margin: 12px 0 18px; }
+
+        .ceo-card{
+          display:flex; gap:14px; align-items:center;
+          border:1px solid #e5e7eb; background:#f9fafb;
+          border-radius:14px; padding:14px 14px;
+          box-shadow: 0 1px 0 rgba(17,24,39,0.02);
+          margin: 0 0 14px;
+        }
+        .ceo-wa-badge{
+          width:40px; height:40px; border-radius:12px;
+          display:grid; place-items:center;
+          background: rgba(34,197,94,.12);
+          border:1px solid rgba(34,197,94,.18);
+          flex:0 0 auto;
+        }
+        .ceo-wa-badge i{ font-size:22px; color:#16a34a; }
+
+        .ceo-card h4{ margin:0; font-size:14px; font-weight:800; color:#111827; }
+        .ceo-card p{ margin:2px 0 0; font-size:12.5px; color:#6b7280; line-height:1.35; }
+
+        .ceo-msg{ margin: 10px 0 14px; font-size:14px; color:#374151; line-height:1.55; }
+
+        .ceo-primary{
+          width:100%;
+          background:#22c55e;
+          color:#fff;
+          border:none;
+          border-radius:12px;
+          padding:14px 16px;
+          font-weight:800;
+          font-size:15px;
+          cursor:pointer;
+          display:flex;
+          gap:10px;
+          align-items:center;
+          justify-content:center;
+          box-shadow: 0 10px 25px rgba(34,197,94,.18);
+          transition: transform .12s ease, filter .12s ease;
+        }
+        .ceo-primary i{ font-size:18px; }
+        .ceo-primary:hover{ filter: brightness(.98); transform: translateY(-1px); }
+
+        .ceo-foot{ margin:10px 0 0; font-size:11.5px; color:#9ca3af; text-align:left; }
+        .ceo-divider{ height:1px; background:#eef2f7; margin:18px 0 12px; }
+
+        .ceo-bottom{ display:flex; justify-content:center; padding-bottom:18px; }
+        .ceo-secondary{
+          background:#111827;
+          color:#fff;
+          border:none;
+          border-radius:10px;
+          padding:10px 14px;
+          font-weight:700;
+          font-size:13px;
+          cursor:pointer;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          min-width:120px;
+        }
+      </style>
+
+      <div class="ceo-modal">
+        <div class="ceo-top">
+          <div class="ceo-xwrap" aria-hidden="true">
+            <i class="bx bx-x"></i>
+          </div>
+        </div>
+
+        <div class="ceo-title">Servicio no disponible</div>
+
+        <div class="ceo-card">
+          <div class="ceo-wa-badge" aria-hidden="true">
+            <i class="bx bxl-whatsapp"></i>
+          </div>
+          <div>
+            <h4>Migración asistida por WhatsApp</h4>
+            <p>Le guiamos paso a paso para migrar a una alternativa estable y operativa.</p>
+          </div>
+        </div>
+
+        <div class="ceo-msg">
+          Actualmente, el servicio de <b>SERVIENTREGA</b> ya no se encuentra disponible dentro de nuestra plataforma.<br><br>
+          Para que su operación no se detenga, <b>le ayudamos a migrar a una alternativa</b> que funciona correctamente y se ajusta a su tipo de envío.
+        </div>
+
+        <button id="ceoOpenWa" class="ceo-primary" type="button">
+          <i class="bx bxl-whatsapp"></i>
+          Abrir WhatsApp
+        </button>
+
+        <div class="ceo-foot">Respuesta rápida en horario laboral.</div>
+
+        <div class="ceo-divider"></div>
+
+        <div class="ceo-bottom">
+          <button id="ceoOk" class="ceo-secondary" type="button">Entendido</button>
+        </div>
+      </div>
+    `,
+      didOpen: () => {
+        document.getElementById("ceoOpenWa")?.addEventListener("click", () => {
+          window.open(waLink, "_blank");
+        });
+        document.getElementById("ceoOk")?.addEventListener("click", () => {
+          Swal.close();
+        });
+      },
+    });
+  };
+
   const handleImageClick = (id) => {
+    // ✅ Si es SERVIENTREGA (id = 1), no se hace nada más y se muestra el Swal
+    if (id === 1) {
+      showServientregaSwal();
+      return;
+    }
+
     // Obtener el precio de flete
-    const data_flete = document.getElementById("flete_" + id).innerText.trim(); // .trim() para evitar espacios innecesarios
+    const data_flete = document.getElementById("flete_" + id).innerText.trim();
 
     // Convertir el precio a número
     const precioEnvio = parseFloat(data_flete.replace("$", "")) || 0;
@@ -1202,7 +1343,7 @@ const DatosUsuario = ({
         text: "La transportadora seleccionada no tiene una tarifa válida.",
         confirmButtonText: "Aceptar",
       });
-      return; // Detener la función aquí para que no seleccione la transportadora
+      return;
     }
 
     // Si la tarifa es válida, proceder con la selección
@@ -1210,10 +1351,9 @@ const DatosUsuario = ({
     setValue("transportadora", id);
     setValue("precio_envio", data_flete);
 
-    /* setTarifa_precio(data_flete); */
     calcularGuiaDirecta(data_flete);
 
-    if (id == 3) {
+    if (id === 3) {
       setModal_google_maps(true);
     }
   };
@@ -1305,23 +1445,22 @@ const DatosUsuario = ({
   }, [facturaSeleccionada.productos]);
 
   useEffect(() => {
-  if (
-    facturaSeleccionada.productos &&
-    facturaSeleccionada.productos.length === 1 &&
-    facturaSeleccionada.productos[0].envio_prioritario === 1
-  ) {
-    
-    setValidar_generar(false);
+    if (
+      facturaSeleccionada.productos &&
+      facturaSeleccionada.productos.length === 1 &&
+      facturaSeleccionada.productos[0].envio_prioritario === 1
+    ) {
+      setValidar_generar(false);
 
-    Swal.fire({
-      icon: "warning",
-      title: "¡El producto tiene activado el envío prioritario!",
-      text: "Lo sentimos, este producto es logístico y no puede generarse guía si no está con otro producto no logístico.",
-      timer: 2500,
-      showConfirmButton: false,
-    })
-  }
-}, [facturaSeleccionada.productos]);
+      Swal.fire({
+        icon: "warning",
+        title: "¡El producto tiene activado el envío prioritario!",
+        text: "Lo sentimos, este producto es logístico y no puede generarse guía si no está con otro producto no logístico.",
+        timer: 2500,
+        showConfirmButton: false,
+      });
+    }
+  }, [facturaSeleccionada.productos]);
 
   // Buscar tarifas de envío
   useEffect(() => {

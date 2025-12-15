@@ -32,6 +32,7 @@ import AdministradorCanales from "./pages/administradorcanales/AdministradorCana
 import Asistentes from "./pages/asistentes/Asistentes";
 import Estado_contactos_imporfactory from "./pages/contactos/Estado_contactos_imporfactory";
 import Estado_contactos_ventas from "./pages/contactos/Estado_contactos_ventas";
+import Estado_contactos_imporshop from "./pages/contactos/Estado_contactos_imporshop";
 import Vinculaciones from "./pages/vinculaciones/Vinculaciones";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
@@ -180,6 +181,14 @@ function App() {
               </MainLayout>
             }
           />
+          <Route
+            path="/estados_contactos_imporshop"
+            element={
+              <MainLayout>
+                <Estado_contactos_imporshop />
+              </MainLayout>
+            }
+          />
 
           <Route
             path="/integraciones"
@@ -285,7 +294,7 @@ function App() {
             path="/lista_planes"
             element={
               <MainLayoutPlanes>
-                <ListaPlanes/>
+                <ListaPlanes />
               </MainLayoutPlanes>
             }
           />
