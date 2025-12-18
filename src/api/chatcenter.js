@@ -71,6 +71,8 @@ chatApi.interceptors.response.use(
       data: error.response?.data,
     });
 
+    console.log("Error details:", error.toJSON());
+
     // Manejar diferentes tipos de error
     switch (error.response?.status) {
       case 401:
