@@ -284,10 +284,8 @@ const Asistentes = () => {
       await chatApi.post("openai_assistants/actualizar_ia_ventas", {
         id_configuracion: id_configuracion,
         nombre_bot: nombreBotVenta,
-        productos: productosVenta, // ← ya es array de strings, p.ej. ["10478","20511"]
         activo: activoVenta,
         tiempo_remarketing: Number(tiempo_remarketing),
-        tomar_productos,
         tipo_venta: tipoVenta,
       });
       setShowModalVentas(false);
@@ -370,7 +368,6 @@ const Asistentes = () => {
 
       {/* —— Tarjetas —— */}
       <div className={`grid grid-cols-1 md:grid-cols-1 gap-4`}>
-
         {/* IA Ventas */}
         <div className="bg-white border rounded-lg shadow-md hover:shadow-lg p-6 relative">
           <div className="flex justify-between items-start mb-3">
@@ -495,57 +492,7 @@ const Asistentes = () => {
 
                 {/* Productos */}
 
-                <div className="space-y-4 border-t pt-4">
-                  {idPlataformaConf && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Fuente de productos para la IA
-                      </label>
-                      <select
-                        value={tomar_productos}
-                        onChange={(e) => {
-                          const nuevaFuente = e.target.value;
-                          setTomar_productos(nuevaFuente);
-                          setProductosLista([]);
-                        }}
-                        className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="chat_center">Imporchat</option>
-                        <option value="imporsuit">Imporsuit</option>
-                      </select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Selecciona productos
-                    </label>
-                    <Select
-                      isMulti
-                      options={productosOptions}
-                      value={selectedProductos}
-                      onChange={(selected) => {
-                        // Limitar la selección a un máximo de 3 productos
-                        if (selected.length <= 3) {
-                          handleProductosChange(selected);
-                        } else {
-                          Toast.fire({
-                          icon: "error",
-                          title: "Maximo 3 productos para alimentar a la IA",
-                          position: "bottom"
-                        });
-                        }
-                      }}
-                      placeholder="Selecciona productos"
-                      className="w-full"
-                      classNamePrefix="react-select"
-                      menuPortalTarget={document.body}
-                      styles={{
-                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                      }}
-                    />
-                  </div>
-                </div>
+                <div className="space-y-4 border-t pt-4"></div>
 
                 {/* Estado activo */}
                 <label className="flex items-center gap-2 text-sm">
@@ -572,42 +519,6 @@ const Asistentes = () => {
                   <option value="productos">Productos</option>
                   <option value="servicios">Servicios</option>
                 </select>
-
-                {/* Textarea con botón copiar */}
-                {/* <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(texto).then(() => {
-                        Toast.fire({
-                          icon: "success",
-                          title: "Copiado correctamente",
-                        });
-                      });
-                    }}
-                    className="absolute top-2 right-2 text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-                    disabled={!texto}
-                    title={!texto ? "No hay texto para copiar" : "Copiar"}
-                  >
-                    Copiar
-                  </button>
-
-                  {cargandoTexto ? (
-                    <div className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-500 grid place-items-center">
-                      Cargando plantilla…
-                    </div>
-                  ) : errorTexto ? (
-                    <div className="w-full h-64 border rounded-lg px-3 py-2 bg-red-50 text-red-600">
-                      {errorTexto}
-                    </div>
-                  ) : (
-                    <textarea
-                      readOnly
-                      value={texto}
-                      className="w-full h-64 border rounded-lg px-3 py-2 bg-gray-50 text-gray-700 cursor-text overflow-y-auto pr-16"
-                    />
-                  )}
-                </div> */}
               </div>
             </div>
 
