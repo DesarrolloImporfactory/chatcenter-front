@@ -48,19 +48,6 @@ const PlanesView = () => {
   const [trialElegible, setTrialElegible] = useState(true);
 
   const [addons, setAddons] = useState(null);
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await chatApi.get("stripe_plan/addons"); // ya te pasé este endpoint
-        setAddons(data?.data?.addons || null);
-      } catch (e) {
-        console.warn(
-          "No se pudieron cargar addons:",
-          e?.response?.data || e.message
-        );
-      }
-    })();
-  }, []);
 
   /* ===== Datos ===== */
   useEffect(() => {
@@ -168,42 +155,19 @@ const PlanesView = () => {
       const token = localStorage.getItem("token");
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
+      const id_costumer = decoded.id_costumer || decoded.id_costumer;
       const baseUrl = window.location.origin;
-
-      // ====== CAMBIO SOLO PARA PLAN FREE (id 1): usar Checkout de SUSCRIPCIÓN con TRIAL ======
-      if (idPlan === 1) {
-        if (!trialElegible) {
-          Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
-          setLoading(false);
-          return;
-        }
-        const { data } = await chatApi.post(
-          "stripe_plan/crearFreeTrial",
-          {
-            id_usuario,
-            success_url: `${baseUrl}/miplan?trial=ok`,
-            cancel_url: `${baseUrl}/planes_view?trial=cancel`,
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (data?.url) {
-          window.location.href = data.url; // Redirige a Stripe Checkout (pide tarjeta y crea la suscripción en trial)
-          return; // ← Importante: no seguir con crearSesionPago
-        } else {
-          throw new Error("No se pudo crear la sesión de free trial.");
-        }
-      }
 
       // Plan de pago → Checkout (suscripción o delta)
       const res = await chatApi.post(
-        "stripe_plan/crearSesionPago",
+        "stripepro_pagos/crearSesionPago",
         {
           id_plan: idPlan,
           id_usuario,
+          id_costumer,
           success_url: `${baseUrl}/miplan?addpm=1`,
           cancel_url: `${baseUrl}/planes_view`,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+        }
       );
 
       if (res.data?.url) {
@@ -378,7 +342,7 @@ const PlanesView = () => {
                   plan={plan}
                   stripeMap={stripeMap}
                   currentPlanId={currentPlanId}
-                  addons={addons}
+                  /* addons={addons} */
                 />
               );
             }

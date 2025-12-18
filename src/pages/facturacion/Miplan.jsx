@@ -626,12 +626,12 @@ const MiPlan = () => {
                           {/* botones */}
                           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                             {/* Cambiar plan → abre el panel deslizante */}
-                            <button
+                            {/* <button
                               onClick={() => setMostrarPlanes(true)}
                               className="inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold bg-[#6d5cbf] hover:bg-[#5a4aa5] active:bg-[#4a3e88] transition focus:outline-none focus:ring-2 focus:ring-[#c4bde4]/50"
                             >
                               Cambiar plan <FaArrowRight />
-                            </button>
+                            </button> */}
 
                             <button
                               onClick={cancelarSuscripcion}
