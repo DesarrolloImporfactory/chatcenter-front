@@ -3,6 +3,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
 import "./departamentos.css";
+import Select from "react-select";
 
 const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
   <th
@@ -62,6 +63,7 @@ const DepartamentosView = () => {
     nombre_departamento: "",
     color: "",
     mensaje_saludo: "",
+    id_configuracion: "",
   });
   const [editingId, setEditingId] = useState(null);
 
@@ -78,6 +80,7 @@ const DepartamentosView = () => {
 
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosAsignados, setUsuariosAsignados] = useState([]); // IDs seleccionados
+  const [conexiones, setConexiones] = useState([]);
   const [activeTab, setActiveTab] = useState("departamento"); // 'departamento' o 'usuarios'
 
   const fetchDepartamentos = async () => {
@@ -136,6 +139,7 @@ const DepartamentosView = () => {
         nombre_departamento: "",
         color: "",
         mensaje_saludo: "",
+        id_configuracion: "",
       }); // Limpia el formulario
       setEditingId(null); // Asegura que no esté en modo de edición
       setShowUpgradeOptions(false); // Asegura que no se muestre la opción de upgrade
@@ -191,6 +195,7 @@ const DepartamentosView = () => {
         nombre_departamento: "",
         color: "",
         mensaje_saludo: "",
+        id_configuracion: "",
       });
       setEditingId(null);
       fetchDepartamentos();
@@ -226,6 +231,7 @@ const DepartamentosView = () => {
         nombre_departamento: u.nombre_departamento || "",
         color: u.color || "",
         mensaje_saludo: u.mensaje_saludo || "",
+        id_configuracion: u.id_configuracion || "",
       });
       setEditingId(u.id_departamento);
     } else {
@@ -233,6 +239,7 @@ const DepartamentosView = () => {
         nombre_departamento: "",
         color: "",
         mensaje_saludo: "",
+        id_configuracion: "",
       });
       setEditingId(null);
     }
@@ -250,10 +257,29 @@ const DepartamentosView = () => {
       console.error("Error al cargar usuarios:", error);
     }
 
+    try {
+      const res = await chatApi.post("/configuraciones/listar_conexiones", {
+        id_usuario,
+      });
+      setConexiones(res.data.data || []);
+    } catch (error) {
+      console.error("Error al cargar las conexiones:", error);
+    }
+
     setUsuariosAsignados(u?.usuarios_asignados || []);
     setActiveTab("departamento");
     setModalOpen(true);
   };
+
+  const conexionesOptions = (conexiones || []).map((c) => ({
+    value: c.id, // PK de configuraciones
+    label: c.nombre_configuracion || `Conexión #${c.id}`,
+  }));
+
+  const selectedConexion =
+    conexionesOptions.find(
+      (opt) => String(opt.value) === String(form.id_configuracion)
+    ) || null;
 
   const handleDelete = async (u) => {
     const result = await Swal.fire({
@@ -310,9 +336,8 @@ const DepartamentosView = () => {
 
     if (q) {
       data = data.filter(
-        (d) =>
-          d?.nombre_departamento?.toLowerCase().includes(q) ||
-          d?.mensaje_saludo?.toLowerCase().includes(q)
+        (d) => d?.nombre_departamento?.toLowerCase().includes(q) /* ||
+          d?.mensaje_saludo?.toLowerCase().includes(q) */
       );
     }
 
@@ -774,6 +799,24 @@ const DepartamentosView = () => {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Conexión asignada
+                        </label>
+
+                        <Select
+                          options={conexionesOptions}
+                          value={selectedConexion}
+                          onChange={(opt) =>
+                            setForm({
+                              ...form,
+                              id_configuracion: opt ? opt.value : "", // si limpian, queda vacío
+                            })
+                          }
+                          placeholder="Seleccione una conexión..."
+                          isSearchable
+                          isClearable
+                          noOptionsMessage={() => "No hay conexiones"}
+                        />
+                        {/* <label className="block text-sm font-medium text-slate-700 mb-1">
                           Mensaje de saludo
                         </label>
                         <textarea
@@ -785,7 +828,7 @@ const DepartamentosView = () => {
                           onChange={(e) =>
                             setForm({ ...form, mensaje_saludo: e.target.value })
                           }
-                        />
+                        /> */}
                       </div>
                     </div>
                   </div>
