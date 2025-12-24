@@ -1149,6 +1149,44 @@ const Modales = ({
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState("");
   const [motivoTransferencia, setMotivoTransferencia] = useState("");
 
+  const [listaDepartamentosUsuario, setListaDepartamentosUsuario] = useState(
+    []
+  );
+  const [loadingDepartamentos, setLoadingDepartamentos] = useState(false);
+
+  // cuando cambia el usuario, llamamos la API y llenamos el select de departamentos
+  const handleUsuarioChange = async (opcion) => {
+    const idSubUsuario = opcion ? opcion.value : "";
+
+    setUsuarioSeleccionado(idSubUsuario);
+    setDepartamentoSeleccionado("");
+    setListaDepartamentosUsuario([]);
+
+    if (!idSubUsuario) return;
+
+    try {
+      setLoadingDepartamentos(true);
+
+      const res = await chatApi.post(
+        "/departamentos_chat_center/listar_por_usuario",
+        {
+          id_sub_usuario: idSubUsuario,
+        }
+      );
+
+      // ✅ Ajustado a su controlador: { status, data }
+      const deps = res?.data?.data || [];
+      setListaDepartamentosUsuario(Array.isArray(deps) ? deps : []);
+    } catch (error) {
+      // Si el backend devuelve AppError cuando no hay departamentos, aquí cae
+      console.error("No se pudieron cargar departamentos:", error);
+
+      // Mantener UI estable
+      setListaDepartamentosUsuario([]);
+    } finally {
+      setLoadingDepartamentos(false);
+    }
+  };
 
   const handleTransferirChat = async () => {
     if (!usuarioSeleccionado || !departamentoSeleccionado) {
@@ -2219,15 +2257,14 @@ const Modales = ({
                 >
                   Buscar usuario <span className="text-red-600">*</span>
                 </label>
+
                 <Select
                   inputId="select-usuario-transfer"
                   options={lista_usuarios.map((u) => ({
                     value: u.id_sub_usuario,
                     label: u.nombre_encargado,
                   }))}
-                  onChange={(opcion) =>
-                    setUsuarioSeleccionado(opcion ? opcion.value : "")
-                  }
+                  onChange={handleUsuarioChange}
                   placeholder="Seleccione un usuario"
                   isClearable
                   className="react-select mb-2"
@@ -2235,6 +2272,7 @@ const Modales = ({
                   styles={customSelectStyles}
                   noOptionsMessage={() => "Sin resultados"}
                 />
+
                 <p className="text-xs text-slate-500">
                   {Array.isArray(lista_usuarios)
                     ? `${lista_usuarios.length} usuarios disponibles`
@@ -2242,7 +2280,7 @@ const Modales = ({
                 </p>
               </div>
 
-              {/* Select de departamentos con búsqueda (opcional) */}
+              {/* Select de departamentos: se llena SOLO luego de seleccionar usuario */}
               <div>
                 <label
                   htmlFor="select-departamento-transfer"
@@ -2250,25 +2288,39 @@ const Modales = ({
                 >
                   Buscar departamento
                 </label>
+
                 <Select
                   inputId="select-departamento-transfer"
-                  options={lista_departamentos.map((dep) => ({
+                  options={listaDepartamentosUsuario.map((dep) => ({
                     value: dep.id_departamento,
                     label: dep.nombre_departamento,
                   }))}
                   onChange={(opcion) =>
                     setDepartamentoSeleccionado(opcion ? opcion.value : "")
                   }
-                  placeholder="Seleccione un departamento"
+                  placeholder={
+                    !usuarioSeleccionado
+                      ? "Primero seleccione un usuario"
+                      : loadingDepartamentos
+                      ? "Cargando departamentos..."
+                      : "Seleccione un departamento"
+                  }
                   isClearable
+                  isDisabled={!usuarioSeleccionado || loadingDepartamentos}
+                  isLoading={loadingDepartamentos}
                   className="react-select mb-2"
                   classNamePrefix="rs"
                   styles={customSelectStyles}
-                  noOptionsMessage={() => "Sin resultados"}
+                  noOptionsMessage={() =>
+                    !usuarioSeleccionado
+                      ? "Seleccione un usuario"
+                      : "Sin resultados"
+                  }
                 />
+
                 <p className="text-xs text-slate-500">
-                  {Array.isArray(lista_departamentos)
-                    ? `${lista_departamentos.length} departamentos`
+                  {usuarioSeleccionado
+                    ? `${listaDepartamentosUsuario.length} departamentos`
                     : ""}
                 </p>
               </div>
