@@ -373,7 +373,7 @@ const HoverPopover = ({
    Vista principal con guía
 =========================== */
 
-const Conexiones = () => {
+const Conexionespruebas = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
     []
   );
@@ -1401,248 +1401,268 @@ const Conexiones = () => {
                       </div>
 
                       {/* Acciones */}
-                      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                        <div
-                          className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                          onClick={() => {
-                            localStorage.setItem("id_configuracion", config.id);
-                            localStorage.setItem(
-                              "id_plataforma_conf",
-                              config.id_plataforma
-                            );
-                            localStorage.setItem(
-                              "nombre_configuracion",
-                              config.nombre_configuracion
-                            );
-                            navigate("/canal-conexiones");
-                          }}
-                          title="Ir a configuración"
-                        >
-                          <i className="bx bx-cog text-2xl text-blue-600"></i>
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Ir a configuración
-                          </span>
-                        </div>
-
-                        {/* Facebook Inbox (Messenger) */}
-                        {!isMessengerConectado(config) ? (
-                          <button
-                            type="button"
-                            onClick={() => handleConectarFacebookInbox(config)}
+                      <div className="mt-5 space-y-3">
+                        {/* Fila superior: íconos */}
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div
                             className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                            title="Conectar Inbox de Messenger"
-                            aria-label="Conectar Inbox de Messenger"
-                          >
-                            <i className="bx bxl-messenger text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar Inbox de Messenger
-                            </span>
-                          </button>
-                        ) : (
-                          <div
-                            className="relative group text-blue-600"
-                            title="Inbox de Messenger conectado"
-                          >
-                            <i className="bx bxl-messenger text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Inbox de Messenger conectado
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Instagram Inbox*/}
-                        {!isInstagramConectado(config) ? (
-                          <button
-                            type="button"
-                            onClick={() => handleConectarInstagramInbox(config)}
-                            className="relative group cursor-pointer text-gray-500 hover:text-pink-600 transition transform hover:scale-110"
-                            title="Conectar Inbox de Instagram"
-                            aria-label="Conectar Inbox de Instagram"
-                          >
-                            <i className="bx bxl-instagram text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar Inbox de Instagram
-                            </span>
-                          </button>
-                        ) : (
-                          <div
-                            className="relative group text-pink-600"
-                            title="Inbox de Instagram conectado"
-                          >
-                            <i className="bx bxl-instagram text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Inbox de Instagram conectado
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Meta Developer */}
-                        {!conectado ? (
-                          <div
-                            className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
-                            onClick={() => handleConectarMetaDeveloper(config)}
-                            title="Conectar Bussines Manager"
-                          >
-                            <i className="bx bxl-meta text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar Bussines Manager
-                            </span>
-                          </div>
-                        ) : (
-                          <div
-                            className="relative group text-blue-600"
-                            title="Meta Business conectado"
-                          >
-                            <i className="bx bxl-meta text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Meta Business conectado
-                            </span>
-                          </div>
-                        )}
-
-                        {!conectado ? (
-                          <div
-                            className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
                             onClick={() => {
-                              setIdConfiguracion(config.id);
-                              setNombreConfiguracion(
+                              localStorage.setItem(
+                                "id_configuracion",
+                                config.id
+                              );
+                              localStorage.setItem(
+                                "id_plataforma_conf",
+                                config.id_plataforma
+                              );
+                              localStorage.setItem(
+                                "nombre_configuracion",
                                 config.nombre_configuracion
                               );
-                              setTelefono(config.telefono);
-                              setModalConfiguracionWhatsappBusiness(true);
+                              navigate("/canal-conexiones");
                             }}
-                            title="Conectar WhatsApp Business"
+                            title="Ir a configuración"
                           >
-                            <i className="bx bxl-whatsapp text-2xl"></i>
+                            <i className="bx bx-cog text-2xl text-blue-600"></i>
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Conectar WhatsApp Business
+                              Ir a configuración
                             </span>
                           </div>
-                        ) : (
-                          <div
-                            className="relative group text-green-600"
-                            title="WhatsApp vinculado"
-                          >
-                            <i className="bx bxl-whatsapp text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              WhatsApp vinculado
-                            </span>
-                          </div>
-                        )}
 
-                        {/* TikTok Inbox */}
-                        {!isTikTokConectado(config) ? (
-                          <button
-                            type="button"
-                            disabled
-                            className="relative group cursor-not-allowed text-gray-500"
-                            aria-label="TikTok próximamente"
-                          >
-                            <i className="bx bxl-tiktok text-2xl"></i>
+                          {/* Facebook Inbox (Messenger) */}
+                          {!isMessengerConectado(config) ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleConectarFacebookInbox(config)
+                              }
+                              className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
+                              title="Conectar Inbox de Messenger"
+                              aria-label="Conectar Inbox de Messenger"
+                            >
+                              <i className="bx bxl-messenger text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                Conectar Inbox de Messenger
+                              </span>
+                            </button>
+                          ) : (
+                            <div
+                              className="relative group text-blue-600"
+                              title="Inbox de Messenger conectado"
+                            >
+                              <i className="bx bxl-messenger text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                Inbox de Messenger conectado
+                              </span>
+                            </div>
+                          )}
 
-                            {/* Tooltip */}
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                              Próximamente
-                            </span>
-                          </button>
-                        ) : (
-                          <div
-                            className="relative group text-black"
-                            title="TikTok conectado"
-                          >
-                            <i className="bx bxl-tiktok text-2xl"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              TikTok conectado
-                            </span>
-                          </div>
-                        )}
+                          {/* Instagram Inbox */}
+                          {!isInstagramConectado(config) ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleConectarInstagramInbox(config)
+                              }
+                              className="relative group cursor-pointer text-gray-500 hover:text-pink-600 transition transform hover:scale-110"
+                              title="Conectar Inbox de Instagram"
+                              aria-label="Conectar Inbox de Instagram"
+                            >
+                              <i className="bx bxl-instagram text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                Conectar Inbox de Instagram
+                              </span>
+                            </button>
+                          ) : (
+                            <div
+                              className="relative group text-pink-600"
+                              title="Inbox de Instagram conectado"
+                            >
+                              <i className="bx bxl-instagram text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                Inbox de Instagram conectado
+                              </span>
+                            </div>
+                          )}
 
-                        <div
-                          className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                          onClick={() => {
-                            localStorage.setItem("id_configuracion", config.id);
-                            localStorage.setItem(
-                              "id_plataforma_conf",
-                              config.id_plataforma
-                            );
-                            localStorage.setItem(
-                              "tipo_configuracion",
-                              config.tipo_configuracion
-                            );
-                            localStorage.setItem(
-                              "nombre_configuracion",
-                              config.nombre_configuracion
-                            );
-                            navigate("/chat");
-                          }}
-                          title="Ir al chat"
-                        >
-                          <i className="bx bx-chat text-2xl text-green-600"></i>
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            Ir al chat
-                          </span>
+                          {/* Meta Developer */}
+                          {!conectado ? (
+                            <div
+                              className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
+                              onClick={() =>
+                                handleConectarMetaDeveloper(config)
+                              }
+                              title="Conectar Bussines Manager"
+                            >
+                              <i className="bx bxl-meta text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                Conectar Bussines Manager
+                              </span>
+                            </div>
+                          ) : (
+                            <div
+                              className="relative group text-blue-600"
+                              title="Meta Business conectado"
+                            >
+                              <i className="bx bxl-meta text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                Meta Business conectado
+                              </span>
+                            </div>
+                          )}
+
+                          {/* WhatsApp */}
+                          {!conectado ? (
+                            <div
+                              className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
+                              onClick={() => {
+                                setIdConfiguracion(config.id);
+                                setNombreConfiguracion(
+                                  config.nombre_configuracion
+                                );
+                                setTelefono(config.telefono);
+                                setModalConfiguracionWhatsappBusiness(true);
+                              }}
+                              title="Conectar WhatsApp Business"
+                            >
+                              <i className="bx bxl-whatsapp text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                Conectar WhatsApp Business
+                              </span>
+                            </div>
+                          ) : (
+                            <div
+                              className="relative group text-green-600"
+                              title="WhatsApp vinculado"
+                            >
+                              <i className="bx bxl-whatsapp text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                WhatsApp vinculado
+                              </span>
+                            </div>
+                          )}
+
+                          {/* TikTok */}
+                          {!isTikTokConectado(config) ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="relative group cursor-not-allowed text-gray-500"
+                              aria-label="TikTok próximamente"
+                            >
+                              <i className="bx bxl-tiktok text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                Próximamente
+                              </span>
+                            </button>
+                          ) : (
+                            <div
+                              className="relative group text-black"
+                              title="TikTok conectado"
+                            >
+                              <i className="bx bxl-tiktok text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                TikTok conectado
+                              </span>
+                            </div>
+                          )}
                         </div>
 
-                        {/* Hotspot de detalles (hover) */}
-                        <div
-                          className="relative"
-                          onMouseEnter={() => openPopover(config.id)}
-                          onMouseLeave={scheduleClose}
-                          onFocus={() => openPopover(config.id)}
-                          onBlur={() => setHoveredId(null)}
-                        >
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-semibold ring-1 ring-indigo-200 bg-indigo-50 text-indigo-700 cursor-default select-none">
-                            <i className="bx bx-info-circle text-base" />{" "}
-                            Detalles
-                          </span>
-
-                          <HoverPopover
-                            open={isOpen}
+                        {/* Fila inferior: Detalles (izq) + Ir al Chat (der) */}
+                        <div className="flex items-center justify-between">
+                          {/* Detalles */}
+                          <div
+                            className="relative"
                             onMouseEnter={() => openPopover(config.id)}
                             onMouseLeave={scheduleClose}
-                            side="right"
+                            onFocus={() => openPopover(config.id)}
+                            onBlur={() => setHoveredId(null)}
                           >
-                            <div className="space-y-3 pr-1">
-                              <ActionDetailRow
-                                icon={<i className="bx bx-cog" />}
-                                title="Configuración"
-                                desc="Abrí el panel completo de ajustes: plantillas, webhooks, etiquetas y permisos."
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bxl-messenger" />}
-                                title="Messenger Inbox"
-                                desc="Conecta tu Página de Facebook para recibir y responder mensajes directo en el inbox."
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bxl-instagram" />}
-                                title="Instagram (próximo)"
-                                desc="Integración nativa al inbox. Requiere que tu cuenta de IG esté vinculada a una Página en Meta Business."
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bxl-meta" />}
-                                title="Meta Business (requerido para WhatsApp)"
-                                tone="warning"
-                                desc="Para empezar una integración con WhatsApp Business debes iniciar la configuración en el Business Manager de tu empresa (Embedded Signup). Desde aquí finalizas el alta."
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bxl-whatsapp" />}
-                                title={`WhatsApp Business ${
-                                  conectado ? "(conectado)" : "(pendiente)"
-                                }`}
-                                tone={conectado ? "success" : "neutral"}
-                                desc={
-                                  conectado
-                                    ? "Tu número está activo y listo para enviar/recibir mensajes."
-                                    : "Inicia la activación en Business Manager y completa el proceso aquí para vincular tu número."
-                                }
-                              />
-                              <ActionDetailRow
-                                icon={<i className="bx bx-chat" />}
-                                title="Chat"
-                                desc="Abre la bandeja omnicanal para conversar con tus clientes y ver el historial."
-                              />
-                            </div>
-                          </HoverPopover>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-semibold ring-1 ring-indigo-200 bg-indigo-50 text-indigo-700 cursor-default select-none">
+                              <i className="bx bx-info-circle text-base" />{" "}
+                              Detalles
+                            </span>
+
+                            <HoverPopover
+                              open={hoveredId === config.id}
+                              onMouseEnter={() => openPopover(config.id)}
+                              onMouseLeave={scheduleClose}
+                              side="right"
+                            >
+                              <div className="space-y-3 pr-1">
+                                <ActionDetailRow
+                                  icon={<i className="bx bx-cog" />}
+                                  title="Configuración"
+                                  desc="Abrí el panel completo de ajustes: plantillas, webhooks, etiquetas y permisos."
+                                />
+                                <ActionDetailRow
+                                  icon={<i className="bx bxl-messenger" />}
+                                  title="Messenger Inbox"
+                                  desc="Conecta tu Página de Facebook para recibir y responder mensajes directo en el inbox."
+                                />
+                                <ActionDetailRow
+                                  icon={<i className="bx bxl-instagram" />}
+                                  title="Instagram (próximo)"
+                                  desc="Integración nativa al inbox. Requiere que tu cuenta de IG esté vinculada a una Página en Meta Business."
+                                />
+                                <ActionDetailRow
+                                  icon={<i className="bx bxl-meta" />}
+                                  title="Meta Business (requerido para WhatsApp)"
+                                  tone="warning"
+                                  desc="Para empezar una integración con WhatsApp Business debes iniciar la configuración en el Business Manager de tu empresa (Embedded Signup). Desde aquí finalizas el alta."
+                                />
+                                <ActionDetailRow
+                                  icon={<i className="bx bxl-whatsapp" />}
+                                  title={`WhatsApp Business ${
+                                    conectado ? "(conectado)" : "(pendiente)"
+                                  }`}
+                                  tone={conectado ? "success" : "neutral"}
+                                  desc={
+                                    conectado
+                                      ? "Tu número está activo y listo para enviar/recibir mensajes."
+                                      : "Inicia la activación en Business Manager y completa el proceso aquí para vincular tu número."
+                                  }
+                                />
+                                <ActionDetailRow
+                                  icon={<i className="bx bx-chat" />}
+                                  title="Chat"
+                                  desc="Abre la bandeja omnicanal para conversar con tus clientes y ver el historial."
+                                />
+                              </div>
+                            </HoverPopover>
+                          </div>
+
+                          {/* Ir al Chat */}
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold
+                 text-green-700 bg-green-50 ring-1 ring-green-200
+                 hover:bg-green-100 transition transform hover:scale-105"
+                            onClick={() => {
+                              localStorage.setItem(
+                                "id_configuracion",
+                                config.id
+                              );
+                              localStorage.setItem(
+                                "id_plataforma_conf",
+                                config.id_plataforma
+                              );
+                              localStorage.setItem(
+                                "tipo_configuracion",
+                                config.tipo_configuracion
+                              );
+                              localStorage.setItem(
+                                "nombre_configuracion",
+                                config.nombre_configuracion
+                              );
+                              localStorage.setItem("telefono", config.telefono);
+                              navigate("/chat");
+                            }}
+                            title="Ir al chat"
+                            aria-label="Ir al chat"
+                          >
+                            Ir al Chat
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1763,4 +1783,4 @@ const Conexiones = () => {
   );
 };
 
-export default Conexiones;
+export default Conexionespruebas;

@@ -140,7 +140,7 @@ export default function InstagramSection() {
   }, []);
 
   const redirect_uri = useMemo(
-    () => `${window.location.origin}/conexiones?tab=instagram`,
+    () => `${window.location.origin}/canal-conexiones?tab=instagram`,
     []
   );
 

@@ -218,7 +218,7 @@ export default function MessengerSection() {
   }, []);
 
   const redirect_uri = useMemo(
-    () => `${window.location.origin}/conexiones?tab=messenger`,
+    () => `${window.location.origin}/canal-conexiones?tab=messenger`,
     []
   );
 
