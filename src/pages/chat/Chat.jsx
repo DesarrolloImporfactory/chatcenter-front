@@ -1882,6 +1882,7 @@ const Chat = () => {
               source: "wa",
               id_encargado: id_sub_usuario_global,
               id_cliente_chat_center: selectedChat.id,
+              id_configuracion: selectedChat.id_configuracion,
             };
 
       const res = await chatApi.post(
