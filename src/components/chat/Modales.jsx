@@ -1205,6 +1205,7 @@ const Modales = ({
           id_departamento: departamentoSeleccionado,
           motivo: motivoTransferencia,
           id_cliente_chat_center: selectedChat.id,
+          id_configuracion: selectedChat.id_configuracion
         }
       );
 
