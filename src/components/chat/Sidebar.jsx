@@ -154,6 +154,7 @@ function normalizarTipoMensaje(rawTipo) {
   if (["location", "ubicacion", "ubicación", "mapa", "gps"].includes(t))
     return "location";
   if (["template"].includes(t)) return "template";
+  if (["notificacion"].includes(t)) return "notificacion";
   return "text";
 }
 
@@ -916,18 +917,27 @@ function MessageItem({
   const tipoDetectado = inferirTipoContenido(mensaje);
   const isTemplate = tipoDetectado === "template";
 
+  const esNotificacion =
+    mensaje?.tipo === "notificacion" ||
+    tipoDetectado === "notificacion" ||
+    mensaje?.source === "notificacion";
+
   // Texto para preview (si es location necesitamos el JSON crudo)
   const textoPlano = mensaje?.texto_mensaje || "";
   const textoPreview =
-  tipoDetectado === "location"
-    ? textoPlano // el iframe/Maps necesita el JSON crudo
-    : expandirTemplate(textoPlano, mensaje?.ruta_archivo, 20000);
+    tipoDetectado === "location"
+      ? textoPlano // el iframe/Maps necesita el JSON crudo
+      : expandirTemplate(textoPlano, mensaje?.ruta_archivo, 20000);
 
-  const previewCorto = expandirTemplate(
+  const previewCortoBase = expandirTemplate(
     tipoDetectado === "location" ? "[Ubicación]" : textoPreview,
     mensaje?.ruta_archivo,
     chatTemporales
   );
+
+  const previewCorto = esNotificacion
+    ? `🔔 Notificación: ${previewCortoBase}`
+    : previewCortoBase;
 
   const cancelLeaveTimer = () => {
     if (leaveTimerRef.current) {
@@ -961,8 +971,11 @@ function MessageItem({
       className={[
         "group relative cursor-pointer px-3 py-3 sm:px-4 sm:py-3.5",
         "transition-all duration-150 ease-out",
+        // ✅ 3) Background distinto si es notificación
         seleccionado
           ? "bg-slate-50 cursor-default"
+          : esNotificacion
+          ? "bg-amber-100/70 hover:bg-amber-50 border-l-4 border-amber-300"
           : "hover:bg-slate-50 hover:shadow-xs",
       ].join(" ")}
       onMouseEnter={handleEnter}
@@ -993,7 +1006,12 @@ function MessageItem({
           <div
             className={[
               "h-12 w-12 overflow-hidden rounded-full ring-2 transition-all duration-150",
-              tienePendientes ? "ring-blue-500" : "ring-slate-200",
+              // opcional: anillo distinto para notificación
+              esNotificacion
+                ? "ring-amber-200"
+                : tienePendientes
+                ? "ring-blue-500"
+                : "ring-slate-200",
               "group-hover:ring-slate-300 shadow-sm",
             ].join(" ")}
           >
@@ -1013,6 +1031,14 @@ function MessageItem({
           <span className="truncate text-[13.5px] font-semibold text-slate-900">
             {nombre}
           </span>
+
+          {/* ✅ Badge sutil opcional */}
+          {esNotificacion && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+              Notificación
+            </span>
+          )}
+
           <span className="select-none text-slate-300">•</span>
           <span
             className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums"
@@ -1040,7 +1066,7 @@ function MessageItem({
         </div>
 
         {/* Canal + Preview breve */}
-        <div className="col-[2/4] row-[2] min-w-0 flex items-center gap-2 pt-0.5 text-[12.5px] text-slate-700 leading-[1.45]">
+        <div className="col-[2] row-[2] min-w-0 flex items-center gap-2 pt-0.5 text-[12.5px] text-slate-700 leading-[1.45]">
           <PillCanal source={mensaje?.source} />
           <span
             className="truncate"
@@ -1106,7 +1132,7 @@ export const Sidebar = ({
   isLoadingWA = false,
   isLoadingMS = false,
   isLoadingIG = false,
-  cargandoChats
+  cargandoChats,
 }) => {
   const [input_busqueda, setInput_busqueda] = useState(searchTerm ?? "");
 
