@@ -2260,7 +2260,7 @@ const Chat = () => {
       }
 
       socketRef.current.on("RECEIVED_MESSAGE", (data) => {
-        /* console.log("XD:", data); */
+        /* console.log("XD:", JSON.stringify(data)); */
 
         if (id_configuracion == data.id_configuracion) {
           setMensajesAcumulados((prevChats) => {
@@ -2296,6 +2296,8 @@ const Chat = () => {
                 visto: 0,
                 nombre_cliente:
                   data.ultimoMensaje.clientePorCelular?.nombre_cliente,
+                id_encargado:
+                  data.ultimoMensaje.clientePorCelular?.id_encargado,
                 etiquetas: [
                   {
                     id: null,
@@ -2315,7 +2317,13 @@ const Chat = () => {
 
               /* console.log("nuevoChat: " + JSON.stringify(nuevoChat, null, 2)); */
 
-              actualizado.unshift(nuevoChat);
+              if (
+                data.ultimoMensaje.clientePorCelular?.id_encargado ==
+                  id_sub_usuario_global ||
+                rol_usuario_global == "administrador"
+              ) {
+                actualizado.unshift(nuevoChat);
+              }
             }
 
             return actualizado;
