@@ -1020,7 +1020,7 @@ export default function Contactos() {
 
   /**
    * NUEVO: Obtener etiquetas de muchos clientes usando el endpoint
-   * /etiquetas/multiples para evitar N llamadas por cliente.
+   * clientes_chat_center/etiquetas/multiples para evitar N llamadas por cliente.
    */
   async function anexarEtiquetasAsignadas(clientes) {
     if (!clientes?.length) return clientes;
@@ -1028,7 +1028,7 @@ export default function Contactos() {
     if (!ids.length) return clientes;
 
     try {
-      const { data } = await chatApi.post("/etiquetas/multiples", {
+      const { data } = await chatApi.post("clientes_chat_center/etiquetas/multiples", {
         ids,
       });
       const mapa = data?.etiquetas || {};
@@ -1265,12 +1265,12 @@ export default function Contactos() {
 
   /**
    * NUEVO: refrescar etiquetas de un subconjunto de clientes usando
-   * /etiquetas/multiples en una sola llamada.
+   * clientes_chat_center/etiquetas/multiples en una sola llamada.
    */
   async function refrescarEtiquetasDeClientes(idsClientes) {
     if (!idsClientes?.length) return;
     try {
-      const { data } = await chatApi.post("/etiquetas/multiples", {
+      const { data } = await chatApi.post("clientes_chat_center/etiquetas/multiples", {
         ids: idsClientes,
       });
       const mapa = data?.etiquetas || {};
