@@ -1496,10 +1496,23 @@ const Chat = () => {
     const formData = new FormData();
     formData.append("audio", audioBlob, "audio.ogg");
 
+    // Verificar contenido del FormData
+    console.log("audioBlob:", audioBlob);
+    for (let pair of formData.entries()) {
+      console.log("FormData contenido:", pair[0], pair[1]);
+    }
+
     chatApi
-      .post("whatsapp/upload", formData) // Usamos chatApi.post en lugar de fetch
+      .post("whatsapp/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      })
       .then((response) => {
+        console.log("Respuesta completa del servidor:", response.data);
         const base64Audio = response.data.file;
+        console.log("base64Audio: ");
+        console.log(base64Audio);
 
         // Convertir el audio base64 a un Blob
         const byteCharacters = atob(base64Audio);
@@ -1518,28 +1531,47 @@ const Chat = () => {
 
         // Enviar el audio convertido a WhatsApp usando chatApi.post
         return chatApi
-          .post("whatsapp/guardar_audio", formData2)
-          .then(async (data) => {
-            if (data.status === 200) {
-              console.log("Audio guardado en el servidor:", data.data.fileUrl);
+          .post("whatsapp/guardar_audio", formData2, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          })
+          .then(async (response) => {
+            console.log("Respuesta guardar_audio completa:", response.data);
 
-              await enviarAudioWhatsApp(data.data.fileUrl); // Enviar el audio a WhatsApp
+            if (response.status === 200) {
+              const fileUrl =
+                response.data.fileUrl ||
+                response.data.data?.fileUrl ||
+                response.data.url;
+              console.log("Audio guardado en el servidor:", fileUrl);
 
-              return data.data; // Retorna la URL del audio subido
+              if (fileUrl) {
+                await enviarAudioWhatsApp(fileUrl); // Enviar el audio a WhatsApp
+                return response.data; // Retorna la URL del audio subido
+              } else {
+                console.error(
+                  "No se recibió fileUrl en la respuesta:",
+                  response.data
+                );
+                throw new Error("No se recibió la URL del archivo");
+              }
             } else {
               console.error(
                 "Error al subir el audio a WhatsApp:",
-                data.message
+                response.data.message
               );
-              throw new Error(data.message);
+              throw new Error(response.data.message);
             }
           })
           .catch((error) => {
             console.error("Error en la solicitud a WhatsApp:", error);
+            console.error("Detalles del error:", error.response?.data);
           });
       })
       .catch((error) => {
         console.error("Error en la solicitud de conversión de audio:", error);
+        console.error("Detalles del error:", error.response?.data);
       });
   };
 
