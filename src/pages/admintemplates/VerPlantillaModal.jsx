@@ -66,7 +66,7 @@ const VerPlantillaModal = ({ plantilla, onClose }) => {
             "
             style={{
               backgroundColor: "#DAD3CC",
-              backgroundImage: 'url("https://new.imporsuitpro.com/public/img/fondo_chat_center.png")',
+              backgroundImage: 'url("https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-28-02-060Z-fondo_chat_center.png")',
               backgroundSize: 'cover',
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center',

@@ -737,7 +737,7 @@ const ChatPrincipal = ({
       : {
           backgroundColor: "#DAD3CC",
           backgroundImage:
-            'url("https://new.imporsuitpro.com/public/img/fondo_chat_center.png")',
+            'url("https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-28-02-060Z-fondo_chat_center.png")',
           backgroundSize: "contain",
           backgroundRepeat: "repeat",
           backgroundPosition: "center",
