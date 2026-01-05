@@ -1018,6 +1018,8 @@ export default function Contactos() {
     }
   }
 
+  const id_configuracion = Number(localStorage.getItem("id_configuracion"));
+
   /**
    * NUEVO: Obtener etiquetas de muchos clientes usando el endpoint
    * clientes_chat_center/etiquetas/multiples para evitar N llamadas por cliente.
@@ -1028,9 +1030,13 @@ export default function Contactos() {
     if (!ids.length) return clientes;
 
     try {
-      const { data } = await chatApi.post("clientes_chat_center/etiquetas/multiples", {
-        ids,
-      });
+      const { data } = await chatApi.post(
+        "clientes_chat_center/etiquetas/multiples",
+        {
+          ids,
+          id_configuracion,
+        }
+      );
       const mapa = data?.etiquetas || {};
 
       return clientes.map((c) => {
@@ -1270,9 +1276,13 @@ export default function Contactos() {
   async function refrescarEtiquetasDeClientes(idsClientes) {
     if (!idsClientes?.length) return;
     try {
-      const { data } = await chatApi.post("clientes_chat_center/etiquetas/multiples", {
-        ids: idsClientes,
-      });
+      const { data } = await chatApi.post(
+        "clientes_chat_center/etiquetas/multiples",
+        {
+          ids: idsClientes,
+          id_configuracion,
+        }
+      );
       const mapa = data?.etiquetas || {};
 
       setItems((prev) =>

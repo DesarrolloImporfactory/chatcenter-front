@@ -467,7 +467,7 @@ const Cabecera = ({
           {/* Botón principal */}
           <button
             className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-              location.pathname.startsWith("/clientes")
+              location.pathname.startsWith("/contactos")
                 ? "bg-gray-200 font-semibold"
                 : ""
             }`}
@@ -505,7 +505,7 @@ const Cabecera = ({
                     id_plataforma_conf
                   );
 
-                  navigate("/clientes");
+                  navigate("/contactos");
                 }}
               >
                 Lista de contactos

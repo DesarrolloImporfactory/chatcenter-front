@@ -461,7 +461,7 @@ function MainLayout({ children }) {
             {/* Botón principal */}
             <button
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname.startsWith("/clientes")
+                location.pathname.startsWith("/contactos")
                   ? "bg-gray-200 font-semibold"
                   : ""
               }`}
@@ -499,32 +499,32 @@ function MainLayout({ children }) {
                       id_plataforma_conf
                     );
 
-                    navigate("/clientes");
+                    navigate("/contactos");
                   }}
                 >
                   Lista de contactos
                 </button>
 
                 <button
-                className="text-left px-4 py-2 hover:text-blue-600"
-                onClick={(e) => {
-                  e.preventDefault();
+                  className="text-left px-4 py-2 hover:text-blue-600"
+                  onClick={(e) => {
+                    e.preventDefault();
 
-                  localStorage.setItem("id_configuracion", id_configuracion);
-                  localStorage.setItem(
-                    "id_plataforma_conf",
-                    id_plataforma_conf
-                  );
+                    localStorage.setItem("id_configuracion", id_configuracion);
+                    localStorage.setItem(
+                      "id_plataforma_conf",
+                      id_plataforma_conf
+                    );
 
-                  if (tipo_configuracion === "ventas") {
-                    navigate("/estados_contactos_ventas");
-                  } else {
-                    navigate("/estados_contactos");
-                  }
-                }}
-              >
-                Estados de contactos
-              </button>
+                    if (tipo_configuracion === "ventas") {
+                      navigate("/estados_contactos_ventas");
+                    } else {
+                      navigate("/estados_contactos");
+                    }
+                  }}
+                >
+                  Estados de contactos
+                </button>
               </div>
             </div>
 
