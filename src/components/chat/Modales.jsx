@@ -43,6 +43,8 @@ const Modales = ({
   lista_usuarios,
   lista_departamentos,
   numeroModalPreset,
+  setMensajesAcumulados,
+  setSelectedChat,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -1205,7 +1207,7 @@ const Modales = ({
           id_departamento: departamentoSeleccionado,
           motivo: motivoTransferencia,
           id_cliente_chat_center: selectedChat.id,
-          id_configuracion: selectedChat.id_configuracion
+          id_configuracion: selectedChat.id_configuracion,
         }
       );
 
@@ -1218,6 +1220,14 @@ const Modales = ({
         toggleTransferirChatModal();
         setUsuarioSeleccionado("");
         setDepartamentoSeleccionado("");
+
+        // Actualizar localmente el estado del chat seleccionado
+
+        setMensajesAcumulados((prev) =>
+          prev.filter((chat) => chat.id !== selectedChat.id)
+        );
+
+        setSelectedChat(null);
       } else {
         Toast.fire({
           icon: "error",

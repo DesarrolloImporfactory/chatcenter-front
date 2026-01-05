@@ -3622,6 +3622,8 @@ const Chat = () => {
         lista_departamentos={lista_departamentos}
         numeroModalPreset={numeroModalPreset}
         inputRefNumeroTelefono={inputRefNumeroTelefono}
+        setMensajesAcumulados={setMensajesAcumulados}
+        setSelectedChat={setSelectedChat}
       />
     </div>
   );
