@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import "./styles/header.css";
 
-const Logo = "https://tiendas.imporsuitpro.com/imgs/LOGOS-IMPORSUIT.png";
+const Logo =
+  "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-06-774Z-LOGOS-IMPORSUIT.png";
 
 const Header = ({ menuButtonRef, onToggleSlider }) => {
   const [showMenu, setShowMenu] = useState(false);

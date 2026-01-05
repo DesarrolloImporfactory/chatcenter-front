@@ -2118,7 +2118,7 @@ const DatosUsuario = ({
     setIsOpenNovedades(false);
   };
 
-  const DEFAULT_AVATAR = "https://tiendas.imporsuitpro.com/imgs/react/user.png";
+  const DEFAULT_AVATAR = "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
 
   return (
     <>

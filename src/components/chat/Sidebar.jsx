@@ -956,7 +956,7 @@ function MessageItem({
       : `https://new.imporsuitpro.com/${rawRuta}`;
   })();
 
-  const fallbackAvatar = "https://tiendas.imporsuitpro.com/imgs/react/user.png";
+  const fallbackAvatar = "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
   const avatarUrl =
     !imgError && mensaje?.profile_pic_url
       ? mensaje.profile_pic_url

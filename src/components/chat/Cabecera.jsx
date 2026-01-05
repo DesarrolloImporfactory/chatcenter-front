@@ -742,7 +742,7 @@ const Cabecera = ({
                 src={
                   selectedChat?.profile_pic_url
                     ? selectedChat.profile_pic_url
-                    : "https://tiendas.imporsuitpro.com/imgs/react/user.png"
+                    : "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png"
                 }
                 alt="Avatar"
                 className="h-12 w-12 rounded-full object-cover bg-white"
@@ -750,7 +750,7 @@ const Cabecera = ({
                 onError={(e) => {
                   e.currentTarget.onerror = null;
                   e.currentTarget.src =
-                    "https://tiendas.imporsuitpro.com/imgs/react/user.png";
+                    "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
                 }}
               />
               <div>
