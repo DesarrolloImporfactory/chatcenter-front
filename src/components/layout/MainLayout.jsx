@@ -14,6 +14,8 @@ function MainLayout({ children }) {
 
   const [open, setOpen] = useState(false);
 
+  const [openTools, setOpenTools] = useState(false);
+
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null); // Para el botón "hamburger"
 
@@ -272,6 +274,13 @@ function MainLayout({ children }) {
     }
   }, [userData, canAccessCalendar, location.pathname]);
 
+  // helper (opcional) para no repetir localStorage + navigate
+  const goTo = (path) => {
+    localStorage.setItem("id_configuracion", id_configuracion);
+    localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+    navigate(path);
+  };
+
   const handleCalendarioClick = (e) => {
     e.preventDefault();
 
@@ -413,50 +422,6 @@ function MainLayout({ children }) {
               </span> */}
             {/* </a> */}
 
-            {/* Administrador de Canales */}
-            <a
-              href="/canal-conexiones"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/canal-conexiones"
-                  ? "bg-gray-200 font-semibold"
-                  : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                localStorage.setItem("id_configuracion", id_configuracion);
-                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
-                navigate("/canal-conexiones");
-              }}
-            >
-              <i className="bx bx-network-chart text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Canal de Conexiones
-              </span>
-            </a>
-
-            {/* Asistentes */}
-            <a
-              href="/asistentes"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/asistentes"
-                  ? "bg-gray-200 font-semibold"
-                  : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-
-                localStorage.setItem("id_configuracion", id_configuracion);
-                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
-
-                navigate("/asistentes");
-              }}
-            >
-              <i className="bx bx-support text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Asistentes
-              </span>
-            </a>
-
             {/* Clientes contactos */}
             {/* Botón principal */}
             <button
@@ -470,7 +435,7 @@ function MainLayout({ children }) {
               <i className="bx bxs-contact text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
 
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Contactos
+                Contactos y Conexiones
               </span>
 
               <i
@@ -482,34 +447,46 @@ function MainLayout({ children }) {
 
             {/* Submenú animado */}
             <div
-              className={`overflow-hidden transition-all duration-[600ms] ease-out`}
-              style={{
-                maxHeight: open ? "200px" : "0px",
-              }}
+              className="overflow-hidden transition-all duration-[600ms] ease-out"
+              style={{ maxHeight: open ? "260px" : "0px" }}
             >
               <div className="ml-10 flex flex-col py-2">
                 <button
-                  className="text-left px-4 py-2 hover:text-blue-600"
+                  className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
                   onClick={(e) => {
                     e.preventDefault();
-
                     localStorage.setItem("id_configuracion", id_configuracion);
                     localStorage.setItem(
                       "id_plataforma_conf",
                       id_plataforma_conf
                     );
-
-                    navigate("/contactos");
+                    navigate("/canal-conexiones");
                   }}
                 >
-                  Lista de contactos
+                  <i className="bx bx-network-chart text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Canal de Conexiones</span>
                 </button>
 
                 <button
-                  className="text-left px-4 py-2 hover:text-blue-600"
+                  className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
                   onClick={(e) => {
                     e.preventDefault();
+                    localStorage.setItem("id_configuracion", id_configuracion);
+                    localStorage.setItem(
+                      "id_plataforma_conf",
+                      id_plataforma_conf
+                    );
+                    navigate("/contactos");
+                  }}
+                >
+                  <i className="bx bx-book-content text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Lista de contactos</span>
+                </button>
 
+                <button
+                  className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
+                  onClick={(e) => {
+                    e.preventDefault();
                     localStorage.setItem("id_configuracion", id_configuracion);
                     localStorage.setItem(
                       "id_plataforma_conf",
@@ -523,163 +500,196 @@ function MainLayout({ children }) {
                     }
                   }}
                 >
-                  Estados de contactos
+                  <i className="bx bx-check-shield text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Estados de contactos</span>
                 </button>
               </div>
             </div>
 
-            {/* integraciones */}
-            <a
-              href="/integraciones"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/integraciones"
-                  ? "bg-gray-200 font-semibold"
-                  : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-
-                localStorage.setItem("id_configuracion", id_configuracion);
-                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
-
-                navigate("/integraciones");
-              }}
-            >
-              <i className="bx bx-plug text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Integraciones
-              </span>
-            </a>
-
-            {/* Enlace Automatizador */}
-            <a
-              href={`https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
-                id_configuracion ??
-                "" + "&id_plataforma_conf=" + id_plataforma_conf
-              }`}
-              className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100"
-            >
-              <i className="bx bxs-bot mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Automatizador
-              </span>
-            </a>
-
-            <a
-              href="/calendario"
-              className={`group flex items-center w-full px-5 py-4 text-left transition
-                ${
-                  location.pathname === "/calendario"
+            {/* ====== Acordeón: Herramientas / Productividad ====== */}
+            <div>
+              {/* Header del acordeón */}
+              <button
+                type="button"
+                onClick={() => setOpenTools((v) => !v)}
+                className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                  // opcional: marcar activo si estás en alguna ruta de este grupo
+                  ["/integraciones", "/calendario", "/asistentes"].includes(
+                    location.pathname
+                  )
                     ? "bg-gray-200 font-semibold"
-                    : "hover:bg-gray-100"
-                }
-                ${isCalendarBlocked ? "opacity-100" : ""}
-              `}
-              onClick={handleCalendarioClick}
-            >
-              {/* Icono (candado si no tiene acceso) */}
-              <span className="relative mr-3">
-                <i
-                  className={`text-2xl bx
-                    ${
-                      isCalendarBlocked
-                        ? "bx-lock-alt text-gray-700 group-hover:text-red-600"
-                        : "bx-calendar text-gray-600 group-hover:text-blue-600"
-                    }
-                  `}
-                ></i>
-              </span>
-
-              {/* Texto + chip “Bloqueado” */}
-              <span
-                className={`text-lg
-                  ${
-                    isCalendarBlocked
-                      ? "text-lg text-gray-700 group-hover:text-red-600"
-                      : "text-lg text-gray-700 group-hover:text-blue-600"
-                  }
-                `}
+                    : ""
+                }`}
               >
-                Calendario
-                {isCalendarBlocked ? (
-                  <span className="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
-                    Bloqueado
+                <span className="flex items-center">
+                  <i className="bx bx-cog text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                  <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                    Herramientas
                   </span>
-                ) : (
-                  <span className="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
-                    Beta
-                  </span>
-                )}
-              </span>
-            </a>
+                </span>
+
+                <i
+                  className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
+                    openTools ? "rotate-180" : ""
+                  }`}
+                ></i>
+              </button>
+
+              {/* Contenido del acordeón */}
+              <div
+                className="overflow-hidden transition-all duration-[600ms] ease-out"
+                style={{ maxHeight: openTools ? "360px" : "0px" }}
+              >
+                <div className="ml-10 flex flex-col py-2">
+                  {/* Integraciones */}
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname === "/integraciones"
+                        ? "font-semibold"
+                        : ""
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      goTo("/integraciones");
+                    }}
+                  >
+                    <i className="bx bx-plug text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Integraciones</span>
+                  </button>
+
+                  {/* Automatizador (externo) */}
+                  <a
+                    className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
+                    href={`https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
+                      id_configuracion ?? ""
+                    }&id_plataforma_conf=${id_plataforma_conf ?? ""}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => {
+                      localStorage.setItem(
+                        "id_configuracion",
+                        id_configuracion
+                      );
+                      localStorage.setItem(
+                        "id_plataforma_conf",
+                        id_plataforma_conf
+                      );
+                    }}
+                  >
+                    <i className="bx bxs-bot text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Automatizador</span>
+                  </a>
+
+                  {/* Calendario (manteniendo tu lógica) */}
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 ${
+                      location.pathname === "/calendario" ? "font-semibold" : ""
+                    } ${
+                      isCalendarBlocked
+                        ? "text-gray-700 hover:text-red-600"
+                        : "hover:text-blue-600"
+                    }`}
+                    onClick={handleCalendarioClick}
+                  >
+                    <i
+                      className={`bx text-xl ${
+                        isCalendarBlocked
+                          ? "bx-lock-alt text-gray-700 group-hover:text-red-600"
+                          : "bx-calendar text-gray-600 group-hover:text-blue-600"
+                      }`}
+                    ></i>
+
+                    <span className="flex items-center gap-2">
+                      Calendario
+                      <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
+                        {isCalendarBlocked ? "Bloqueado" : "Beta"}
+                      </span>
+                    </span>
+                  </button>
+
+                  {/* Asistentes */}
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname === "/asistentes" ? "font-semibold" : ""
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      goTo("/asistentes");
+                    }}
+                  >
+                    <i className="bx bx-support text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Asistentes</span>
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Productos y categorias */}
             {/* Grupo de Productos */}
             {/* Grupo de Productos sin flecha y con animación */}
             <div>
-              {/* Botón principal sin ícono de flecha */}
+              {/* Header del acordeón */}
               <button
-                onClick={() => setOpenProductos(!openProductos)}
-                className={`group flex items-center w-full px-5 py-4 text-left rounded ${
+                type="button"
+                onClick={() => setOpenProductos((v) => !v)}
+                className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   location.pathname === "/productos" ||
                   location.pathname === "/categorias"
                     ? "bg-gray-200 font-semibold"
-                    : "hover:bg-gray-100 text-gray-700"
+                    : ""
                 }`}
               >
+                <span className="flex items-center">
+                  <i className="bx bxs-store text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                  <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                    Mis Productos
+                  </span>
+                </span>
+
                 <i
-                  className={`bx bxs-store text-2xl mr-3 transition-colors ${
-                    location.pathname === "/productos" ||
-                    location.pathname === "/categorias"
+                  className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
+                    openProductos ? "rotate-180" : ""
                   }`}
                 ></i>
-                <span className="text-lg group-hover:text-blue-600">
-                  Mis Productos
-                </span>
               </button>
 
-              {/* Submenú con animación suave */}
+              {/* Submenú */}
               <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  openProductos
-                    ? "max-h-[500px] opacity-100"
-                    : "max-h-0 opacity-0"
-                }`}
+                className="overflow-hidden transition-all duration-[600ms] ease-out"
+                style={{ maxHeight: openProductos ? "220px" : "0px" }}
               >
-                <div className="ml-10 mt-1 flex flex-col cursor-pointer">
-                  <a
-                    role="button"
-                    tabIndex={0}
+                <div className="ml-10 flex flex-col py-2">
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       navigate("/productos");
                     }}
-                    className={`cursor-pointer group flex items-center px-4 py-2 text-sm rounded transition-all duration-200 ${
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                       location.pathname === "/productos"
-                        ? "text-green-600 font-semibold bg-gray-100 shadow-md"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "font-semibold text-blue-600"
+                        : ""
                     }`}
                   >
-                    <i className="bx bx-list-ul text-base mr-2"></i>
-                    Listado
-                  </a>
+                    <i className="bx bx-list-ul text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Listado</span>
+                  </button>
 
-                  <a
-                    role="button"
-                    tabIndex={0}
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       navigate("/categorias");
                     }}
-                    className={`cursor-pointer group flex items-center px-4 py-2 text-sm rounded transition-all duration-200 ${
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                       location.pathname === "/categorias"
-                        ? "text-green-600 font-semibold bg-gray-100 shadow-md"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "font-semibold text-blue-600"
+                        : ""
                     }`}
                   >
-                    <i className="bx bx-grid-alt text-base mr-2"></i>
-                    Categorías
-                  </a>
+                    <i className="bx bx-grid-alt text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Categorías</span>
+                  </button>
                 </div>
               </div>
             </div>

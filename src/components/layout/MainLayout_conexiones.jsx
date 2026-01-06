@@ -202,7 +202,7 @@ function MainLayout({ children }) {
               }`}
             >
               <i
-                className={`bx bx-log-in text-2xl mr-3 transition-colors ${
+                className={`bx bx-network-chart text-2xl mr-3 transition-colors ${
                   location.pathname === "/conexiones" ||
                   location.pathname === "/administrador-conexiones"
                     ? ""
