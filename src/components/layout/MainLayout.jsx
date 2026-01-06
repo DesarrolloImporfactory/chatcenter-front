@@ -12,9 +12,15 @@ function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
 
-  const [open, setOpen] = useState(false);
+  const [openContacto, setOpenContacto] = useState(false);
 
   const [openTools, setOpenTools] = useState(false);
+
+  const [openMenu, setOpenMenu] = useState(null);
+
+  const toggleMenu = (key) => {
+    setOpenMenu((prev) => (prev === key ? null : key));
+  };
 
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null); // Para el botón "hamburger"
@@ -274,6 +280,27 @@ function MainLayout({ children }) {
     }
   }, [userData, canAccessCalendar, location.pathname]);
 
+  useEffect(() => {
+    if (["/productos", "/categorias"].includes(location.pathname)) {
+      setOpenMenu("productos");
+    } else if (
+      ["/integraciones", "/calendario", "/asistentes"].includes(
+        location.pathname
+      )
+    ) {
+      setOpenMenu("herramientas");
+    } else if (
+      [
+        "/canal-conexiones",
+        "/contactos",
+        "/estados_contactos",
+        "/estados_contactos_ventas",
+      ].includes(location.pathname)
+    ) {
+      setOpenMenu("contactos");
+    }
+  }, [location.pathname]);
+
   // helper (opcional) para no repetir localStorage + navigate
   const goTo = (path) => {
     localStorage.setItem("id_configuracion", id_configuracion);
@@ -430,7 +457,7 @@ function MainLayout({ children }) {
                   ? "bg-gray-200 font-semibold"
                   : ""
               }`}
-              onClick={() => setOpen(!open)}
+              onClick={() => toggleMenu("contacto")}
             >
               <i className="bx bxs-contact text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
 
@@ -440,7 +467,7 @@ function MainLayout({ children }) {
 
               <i
                 className={`bx ml-auto transition-transform duration-300 ${
-                  open ? "bx-chevron-up" : "bx-chevron-down"
+                  openContacto ? "bx-chevron-up" : "bx-chevron-down"
                 }`}
               />
             </button>
@@ -448,7 +475,7 @@ function MainLayout({ children }) {
             {/* Submenú animado */}
             <div
               className="overflow-hidden transition-all duration-[600ms] ease-out"
-              style={{ maxHeight: open ? "260px" : "0px" }}
+              style={{ maxHeight: openMenu === "contacto" ? "260px" : "0px" }}
             >
               <div className="ml-10 flex flex-col py-2">
                 <button
@@ -511,7 +538,7 @@ function MainLayout({ children }) {
               {/* Header del acordeón */}
               <button
                 type="button"
-                onClick={() => setOpenTools((v) => !v)}
+                onClick={() => toggleMenu("herramientas")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   // opcional: marcar activo si estás en alguna ruta de este grupo
                   ["/integraciones", "/calendario", "/asistentes"].includes(
@@ -538,7 +565,9 @@ function MainLayout({ children }) {
               {/* Contenido del acordeón */}
               <div
                 className="overflow-hidden transition-all duration-[600ms] ease-out"
-                style={{ maxHeight: openTools ? "360px" : "0px" }}
+                style={{
+                  maxHeight: openMenu === "herramientas" ? "360px" : "0px",
+                }}
               >
                 <div className="ml-10 flex flex-col py-2">
                   {/* Integraciones */}
@@ -631,7 +660,7 @@ function MainLayout({ children }) {
               {/* Header del acordeón */}
               <button
                 type="button"
-                onClick={() => setOpenProductos((v) => !v)}
+                onClick={() => toggleMenu("productos")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   location.pathname === "/productos" ||
                   location.pathname === "/categorias"
@@ -656,7 +685,9 @@ function MainLayout({ children }) {
               {/* Submenú */}
               <div
                 className="overflow-hidden transition-all duration-[600ms] ease-out"
-                style={{ maxHeight: openProductos ? "220px" : "0px" }}
+                style={{
+                  maxHeight: openMenu === "productos" ? "220px" : "0px",
+                }}
               >
                 <div className="ml-10 flex flex-col py-2">
                   <button
