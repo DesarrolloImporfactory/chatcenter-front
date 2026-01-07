@@ -1380,8 +1380,6 @@ const ChatPrincipal = ({
                           onClick={() => {
                             const phone = selectedChat?.celular_cliente || "";
 
-                            handleSelectPhoneNumber(phone);
-
                             setNumeroModalPreset({
                               step: "buscar",
                               phone,

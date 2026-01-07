@@ -84,7 +84,7 @@ const Modales = ({
       inputRefNumeroTelefono.current.value = "";
 
     // deselecciona destinatario si quedó alguno
-    handleSelectPhoneNumber("");
+    
     handleInputChange_numeroCliente?.({ target: { value: "" } });
   };
 
