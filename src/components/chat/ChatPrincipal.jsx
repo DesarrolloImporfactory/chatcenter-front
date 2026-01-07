@@ -611,6 +611,58 @@ const ChatPrincipal = ({
     }
   };
 
+  const linkify = (text = "") => {
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+    const nodes = [];
+
+    let lastIndex = 0;
+    let match;
+    let key = 0;
+
+    while ((match = urlRegex.exec(text)) !== null) {
+      const url = match[0];
+      const start = match.index;
+
+      if (start > lastIndex) {
+        nodes.push(<span key={key++}>{text.slice(lastIndex, start)}</span>);
+      }
+
+      // quita puntuación final común del link
+      let cleanUrl = url;
+      let trailing = "";
+      while (/[).,!?:]$/.test(cleanUrl)) {
+        trailing = cleanUrl.slice(-1) + trailing;
+        cleanUrl = cleanUrl.slice(0, -1);
+      }
+
+      const href = cleanUrl.startsWith("http")
+        ? cleanUrl
+        : `https://${cleanUrl}`;
+
+      nodes.push(
+        <a
+          key={key++}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800 hover:no-underline cursor-pointer"
+        >
+          {cleanUrl}
+        </a>
+      );
+
+      if (trailing) nodes.push(<span key={key++}>{trailing}</span>);
+
+      lastIndex = start + url.length;
+    }
+
+    if (lastIndex < text.length) {
+      nodes.push(<span key={key++}>{text.slice(lastIndex)}</span>);
+    }
+
+    return nodes;
+  };
+
   const onReenviar = async (mensaje) => {
     const {
       tipo_mensaje,
@@ -1121,7 +1173,14 @@ const ChatPrincipal = ({
                                 )}
                               </p>
                             ) : (
-                              <p>{mensaje.texto_mensaje}</p>
+                              <p>
+                                {linkify(
+                                  (mensaje.texto_mensaje || "").replace(
+                                    /^\*[^*]+\*\s*🎤:\s*\r?\n/,
+                                    ""
+                                  )
+                                )}
+                              </p>
                             )
                           ) : mensaje.tipo_mensaje === "unsupported" ? (
                             <div className="flex items-start gap-2">

@@ -1465,8 +1465,13 @@ const Chat = () => {
     console.log("Mensaje enviado:", mensaje, file);
     setMensaje("");
     setFile(null);
+
+    const safeName = (nombre_encargado_global || "").replace(/[*_~`]/g, ""); // quita caracteres de formato
+
+    const encabezadoWS = `*${safeName}* 🎤:\n${text}`;
+
     socketRef.current.emit("SEND_MESSAGE", {
-      mensaje,
+      mensaje: encabezadoWS,
       tipo_mensaje: file ? "document" : "text",
       to: selectedChat.celular_cliente,
       id_configuracion: id_configuracion,
