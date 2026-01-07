@@ -45,6 +45,13 @@ const Modales = ({
   numeroModalPreset,
   setMensajesAcumulados,
   setSelectedChat,
+  isTemplateModalOpen,
+  abrirModalTemplates,
+  cerrarModalTemplates,
+  loadingTemplates,
+  templateSearch,
+  setTemplateSearch,
+  templateResults,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -84,7 +91,7 @@ const Modales = ({
       inputRefNumeroTelefono.current.value = "";
 
     // deselecciona destinatario si quedó alguno
-    
+
     handleInputChange_numeroCliente?.({ target: { value: "" } });
   };
 
@@ -980,8 +987,13 @@ const Modales = ({
     const selectedTemplateName = event.target.value;
     setTemplateName(selectedTemplateName);
 
-    const selectedTemplate = templates.find(
-      (template) => template.name === selectedTemplateName
+    const source =
+      templateResults && templateResults.length > 0
+        ? templateResults
+        : templates || [];
+
+    const selectedTemplate = source.find(
+      (t) => t.name === selectedTemplateName
     );
 
     if (selectedTemplate) {
@@ -1470,20 +1482,30 @@ const Modales = ({
               {modalTab === "buscar" && selectedPhoneNumber && (
                 <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
                   <h4 className="font-semibold text-base text-slate-900">
-                    Enviar template
+                    Template de WhatsApp
                   </h4>
 
                   <Select
                     id="lista_templates"
-                    options={templates.map((t) => ({
+                    options={(templateResults || []).map((t) => ({
                       value: t.name,
                       label: t.name,
                     }))}
                     placeholder="Seleccione un template"
+                    onMenuOpen={() => {
+                      // ✅ aquí se hace la única consulta (desde el PADRE)
+                      // y como en el padre ya tiene cache, NO spamea
+                      abrirModalTemplates?.();
+                    }}
+                    isLoading={loadingTemplates}
                     onChange={(opcion) =>
                       handleTemplateSelect({
                         target: { value: opcion ? opcion.value : "" },
                       })
+                    }
+                    loadingMessage={() => "Cargando..."}
+                    noOptionsMessage={() =>
+                      loadingTemplates ? "Cargando..." : "No hay templates"
                     }
                     isClearable
                     styles={customSelectStyles}

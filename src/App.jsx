@@ -59,7 +59,6 @@ import MainLayout from "./components/layout/MainLayout";
 import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
 
-import Clientes from "./components/clientes/Clientes";
 import Contactos from "./components/clientes/Contactos";
 
 function App() {
@@ -204,15 +203,6 @@ function App() {
             element={
               <MainLayout>
                 <Calendario />
-              </MainLayout>
-            }
-          />
-
-          <Route
-            path="/clientes"
-            element={
-              <MainLayout>
-                <Clientes />
               </MainLayout>
             }
           />

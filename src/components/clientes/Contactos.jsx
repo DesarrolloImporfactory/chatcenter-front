@@ -1,4 +1,3 @@
-// /src/pages/Clientes.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
@@ -545,8 +544,6 @@ export default function Contactos() {
             window.location.href = "/canal-conexiones";
           });
         }
-
-        cargarTemplates(data);
       });
     }
 
@@ -558,6 +555,10 @@ export default function Contactos() {
   }, [isSocketConnected]);
 
   const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // cache por id_configuracion para no repetir llamadas
+  const templatesCacheRef = useRef({});
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
   const [placeholderValues, setPlaceholderValues] = useState({});
@@ -571,34 +572,46 @@ export default function Contactos() {
     Boolean(templateName) &&
     (placeholders.length === 0 || allPlaceholdersFilled);
 
-  const cargarTemplates = async (data) => {
-    const wabaId = data.id_whatsapp;
-    const accessToken = data.token;
+  const abrirModalTemplates = async () => {
+    const cfgId = Number(localStorage.getItem("id_configuracion"));
+    if (!cfgId) return;
 
+    // Si ya está en cache, no vuelve a consultar
+    const cached = templatesCacheRef.current[cfgId];
+    if (Array.isArray(cached)) {
+      setTemplates(cached);
+      return;
+    }
+
+    setLoadingTemplates(true);
     try {
-      const response = await fetch(
-        `https://graph.facebook.com/v17.0/${wabaId}/message_templates`,
+      const { data } = await chatApi.post(
+        "/whatsapp_managment/obtenerTemplatesWhatsapp",
         {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
+          id_configuracion: cfgId,
+          limit: 100,
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Error al obtener templates: ${response.statusText}`);
-      }
+      const arr = Array.isArray(data?.templates)
+        ? data.templates
+        : Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+        ? data
+        : [];
 
-      const dataResp = await response.json();
-      const templatesAprobados = dataResp.data.filter(
-        (template) => template.status === "APPROVED"
+      setTemplates(arr);
+      templatesCacheRef.current[cfgId] = arr; // cache
+    } catch (e) {
+      console.error(
+        "Error cargando templates:",
+        e?.response?.data || e.message
       );
-
-      setTemplates(templatesAprobados);
-    } catch (error) {
-      console.error("Error al cargar los templates:", error);
+      setTemplates([]);
+      templatesCacheRef.current[cfgId] = []; // cache vacío para no spamear
+    } finally {
+      setLoadingTemplates(false);
     }
   };
 
@@ -1683,6 +1696,15 @@ export default function Contactos() {
                     label: t.name,
                   }))}
                   placeholder="Selecciona un template aprobado"
+                  onMenuOpen={() => {
+                    // ✅ solo consulta cuando el usuario abre el dropdown
+                    if (selected.length) abrirModalTemplates();
+                  }}
+                  isLoading={loadingTemplates}
+                  loadingMessage={() => "Cargando..."}
+                  noOptionsMessage={() =>
+                    loadingTemplates ? "Cargando..." : "No hay templates"
+                  }
                   onChange={(opcion) =>
                     handleTemplateSelect({
                       target: { value: opcion ? opcion.value : "" },

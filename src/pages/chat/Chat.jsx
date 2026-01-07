@@ -4,7 +4,6 @@ import { addNumberThunk } from "../../store/slices/number.slice";
 import { useNavigate } from "react-router-dom";
 
 import { useDispatch } from "react-redux";
-import EmojiPicker from "emoji-picker-react";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 
@@ -424,6 +423,77 @@ const Chat = () => {
   const [tagList, setTagList] = useState([]);
 
   const [pendingOpen, setPendingOpen] = useState(null);
+
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templatesAll, setTemplatesAll] = useState([]);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [templateResults, setTemplateResults] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  const abrirModalTemplates = async () => {
+    setIsTemplateModalOpen(true);
+    setTemplateSearch("");
+
+    // si ya los cargó antes, no vuelva a pedirlos
+    if (templatesAll.length > 0) {
+      setTemplateResults(templatesAll);
+      return;
+    }
+
+    setLoadingTemplates(true);
+    try {
+      const resp = await chatApi.post(
+        "whatsapp_managment/obtenerTemplatesWhatsapp",
+        {
+          id_configuracion,
+          limit: 100, // o 50
+        }
+      );
+
+      const list = resp.data?.data || [];
+      setTemplatesAll(list);
+      setTemplateResults(list);
+    } catch (e) {
+      console.error(e);
+      setTemplatesAll([]);
+      setTemplateResults([]);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isTemplateModalOpen) return;
+
+    const t = setTimeout(() => {
+      const term = templateSearch.trim().toLowerCase();
+
+      if (!term) {
+        setTemplateResults(templatesAll);
+        return;
+      }
+
+      const filtered = templatesAll.filter((tpl) => {
+        const name = String(tpl.name || "").toLowerCase();
+        const lang = String(tpl.language || "").toLowerCase();
+        // si quiere también filtrar por categoría:
+        const category = String(tpl.category || "").toLowerCase();
+
+        return (
+          name.includes(term) || lang.includes(term) || category.includes(term)
+        );
+      });
+
+      setTemplateResults(filtered);
+    }, 250); // debounce 250ms
+
+    return () => clearTimeout(t);
+  }, [templateSearch, templatesAll, isTemplateModalOpen]);
+
+  const cerrarModalTemplates = () => {
+    setIsTemplateModalOpen(false);
+    setTemplateSearch("");
+  };
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -2148,34 +2218,6 @@ const Chat = () => {
     }
   }, []);
 
-  const cargarTemplates = async (data) => {
-    console.log(data);
-    const wabaId = data.id_whatsapp;
-    const accessToken = data.token;
-
-    try {
-      const response = await fetch(
-        `https://graph.facebook.com/v17.0/${wabaId}/message_templates`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error al obtener templates: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setTemplates(data.data); // Guardamos los templates en el estado
-    } catch (error) {
-      console.error("Error al cargar los templates:", error);
-    }
-  };
-
   /* consumir api de etiquetas */
   useEffect(() => {
     const fetchEtiquetas = async () => {
@@ -2279,9 +2321,6 @@ const Chat = () => {
             window.location.href = "/canal-conexiones";
           });
         }
-
-        /* funcion cargar templates */
-        cargarTemplates(data); // Llamar a cargarTemplates cuando el socket esté conectado
       });
 
       if (id_plataforma_conf !== null) {
@@ -3624,6 +3663,13 @@ const Chat = () => {
         inputRefNumeroTelefono={inputRefNumeroTelefono}
         setMensajesAcumulados={setMensajesAcumulados}
         setSelectedChat={setSelectedChat}
+        isTemplateModalOpen={isTemplateModalOpen}
+        abrirModalTemplates={abrirModalTemplates}
+        cerrarModalTemplates={cerrarModalTemplates}
+        loadingTemplates={loadingTemplates}
+        templateSearch={templateSearch}
+        setTemplateSearch={setTemplateSearch}
+        templateResults={templateResults}
       />
     </div>
   );
