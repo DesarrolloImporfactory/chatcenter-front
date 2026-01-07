@@ -2425,6 +2425,14 @@ const Chat = () => {
               );
               setChatMessages(data);
 
+              setMensajesAcumulados((prev) =>
+                prev.map((chat) =>
+                  chat.id === selectedChat.id
+                    ? { ...chat, mensajes_pendientes: 0 }
+                    : chat
+                )
+              );
+
               const orderedMessages = getOrderedChats();
               setMensajesOrdenados(orderedMessages.slice(-20));
               setMensajesMostrados(20);
@@ -2665,6 +2673,14 @@ const Chat = () => {
         };
 
         socketRef.current.once("CHATS_BOX_RESPONSE", handleChatBoxResponse);
+
+        setMensajesAcumulados((prev) =>
+          prev.map((chat) =>
+            chat.id === selectedChat.id
+              ? { ...chat, mensajes_pendientes: 0 }
+              : chat
+          )
+        );
       }
 
       setSeRecibioMensaje(false);
@@ -2719,6 +2735,11 @@ const Chat = () => {
     };
 
     socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
+    setMensajesAcumulados((prev) =>
+      prev.map((chat) =>
+        chat.id === selectedChat.id ? { ...chat, mensajes_pendientes: 0 } : chat
+      )
+    );
     return () => {
       socketRef.current.off("CHATS_BOX_RESPONSE", handleChatBoxResponse);
     };
