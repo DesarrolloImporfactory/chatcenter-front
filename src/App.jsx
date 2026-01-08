@@ -60,6 +60,7 @@ import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
 
 import Contactos from "./components/clientes/Contactos";
+import Integraciones from "./pages/vinculaciones/Integraciones";
 
 function App() {
   useEffect(() => {
@@ -193,7 +194,7 @@ function App() {
             path="/integraciones"
             element={
               <MainLayout>
-                <Vinculaciones />
+                <Integraciones />
               </MainLayout>
             }
           />
