@@ -1203,8 +1203,8 @@ const Conexiones = () => {
                   Conexiones configuradas
                 </h1>
                 <p className="text-white/80 text-sm">
-                  Administra tus números y canales de WhatsApp Business y
-                  Messenger.
+                  Administra tus números y canales de WhatsApp Business,
+                  Messenger, Instagram y TikTok.
                 </p>
               </div>
 
@@ -1592,24 +1592,57 @@ const Conexiones = () => {
                               <div className="space-y-3 pr-1">
                                 <ActionDetailRow
                                   icon={<i className="bx bx-cog" />}
-                                  title="Configuración"
-                                  desc="Abrí el panel completo de ajustes: plantillas, webhooks, etiquetas y permisos."
+                                  title="Canal de conexiones"
+                                  desc="Visita el panel completo de tus cuentas. Administra plantillas, perfiles, etc."
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-messenger" />}
-                                  title="Messenger Inbox"
-                                  desc="Conecta tu Página de Facebook para recibir y responder mensajes directo en el inbox."
+                                  title={`Messenger Inbox ${
+                                    isMessengerConectado(config)
+                                      ? "(conectado)"
+                                      : "(pendiente)"
+                                  }`}
+                                  tone={
+                                    isMessengerConectado(config)
+                                      ? "success"
+                                      : "neutral"
+                                  }
+                                  desc={
+                                    isMessengerConectado(config)
+                                      ? "Tu Página ya está conectada y lista para recibir mensajes en el inbox."
+                                      : "Conecta tu Página de Facebook para recibir y responder mensajes directo en el inbox."
+                                  }
                                 />
+
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-instagram" />}
-                                  title="Instagram (próximo)"
-                                  desc="Integración nativa al inbox. Requiere que tu cuenta de IG esté vinculada a una Página en Meta Business."
+                                  title={`Instagram ${
+                                    isInstagramConectado(config)
+                                      ? "(conectado)"
+                                      : "(pendiente)"
+                                  }`}
+                                  tone={
+                                    isInstagramConectado(config)
+                                      ? "success"
+                                      : "neutral"
+                                  }
+                                  desc={
+                                    isInstagramConectado(config)
+                                      ? "Tu Instagram ya está conectado al inbox."
+                                      : "Integración nativa al inbox. Requiere que tu IG esté vinculado a una Página en Meta Business."
+                                  }
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-meta" />}
-                                  title="Meta Business (requerido para WhatsApp)"
-                                  tone="warning"
-                                  desc="Para empezar una integración con WhatsApp Business debes iniciar la configuración en el Business Manager de tu empresa (Embedded Signup). Desde aquí finalizas el alta."
+                                  title={`Meta Business ${
+                                    conectado ? "(conectado)" : "(requerido)"
+                                  }`}
+                                  tone={conectado ? "success" : "warning"}
+                                  desc={
+                                    conectado
+                                      ? "Meta Business ya está vinculado y la integración está operativa para WhatsApp Business."
+                                      : "Para activar WhatsApp Business API primero debes iniciar la configuración en el Business Manager de tu empresa."
+                                  }
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-whatsapp" />}
@@ -1622,6 +1655,12 @@ const Conexiones = () => {
                                       ? "Tu número está activo y listo para enviar/recibir mensajes."
                                       : "Inicia la activación en Business Manager y completa el proceso aquí para vincular tu número."
                                   }
+                                />
+                                <ActionDetailRow
+                                  icon={<i className="bx bxl-tiktok" />}
+                                  title="TikTok (próximamente)"
+                                  tone="warning"
+                                  desc="Esta integración estará disponible pronto. Por ahora no se puede conectar desde aquí."
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bx-chat" />}
