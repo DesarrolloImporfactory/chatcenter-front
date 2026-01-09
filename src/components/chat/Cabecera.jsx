@@ -362,12 +362,25 @@ const Cabecera = ({
 
         {/* Nombre de usuario y foto */}
         <div className="flex items-center space-x-3">
-          <div className="text-end">
+          <div className="text-end leading-tight">
             <span className="block text-white font-semibold text-lg">
-              {userData?.nombre ?? "Tony Plaza"}
+              {localStorage.getItem("nombre_configuracion") ?? "Tony Plaza"}
             </span>
-            <span className="text-sm text-white">{userData?.rol}</span>
+
+            {/* Encargado - destacado */}
+            <span className="inline-flex items-center justify-end mt-1">
+              <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/15 text-white/95 text-sm font-medium">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                {userData?.nombre_encargado}
+              </span>
+            </span>
+
+            {/* Rol - secundario */}
+            <span className="block mt-1 text-xs text-white/70 tracking-wide">
+              {userData?.rol}
+            </span>
           </div>
+
           <img
             className="rounded-full w-12 h-12 bg-white object-cover"
             src="https://new.imporsuitpro.com/public/img/img.png"
