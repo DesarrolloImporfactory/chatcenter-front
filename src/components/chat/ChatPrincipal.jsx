@@ -1182,6 +1182,12 @@ const ChatPrincipal = ({
                                 )}
                               </p>
                             )
+                          ) : mensaje.tipo_mensaje === "revoke" ? (
+                            <div className="flex justify-center">
+                              <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs text-gray-600">
+                                <span>{mensaje.texto_mensaje}</span>
+                              </span>{" "}
+                            </div>
                           ) : mensaje.tipo_mensaje === "unsupported" ? (
                             <div className="flex items-start gap-2">
                               <span
