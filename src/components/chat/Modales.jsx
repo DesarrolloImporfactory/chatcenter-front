@@ -1220,6 +1220,7 @@ const Modales = ({
           motivo: motivoTransferencia,
           id_cliente_chat_center: selectedChat.id,
           id_configuracion: selectedChat.id_configuracion,
+          emisor: userData.nombre_encargado ?? "", 
         }
       );
 
