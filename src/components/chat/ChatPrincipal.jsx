@@ -974,7 +974,7 @@ const ChatPrincipal = ({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col h-[calc(100vh_-_110px)] relative">
+          <div className="flex flex-col h-[calc(100vh-140px)] relative">
             {/* 
               1) Contenedor principal del chat 
               (fondo intacto)
@@ -983,11 +983,10 @@ const ChatPrincipal = ({
               ref={chatContainerRef}
               onScroll={handleScroll}
               className="
-                flex flex-col flex-grow
-                max-h-[calc(100vh_-_180px)]
+                flex-1
                 overflow-y-auto
                 p-5
-                pb-20
+                pb-4
                 space-y-5 md:space-y-6
               "
               style={chatBgStyle}
@@ -1423,7 +1422,7 @@ const ChatPrincipal = ({
                 // WhatsApp
                 if (!isMetaDMLocal) {
                   return (
-                    <div className="absolute bottom-[0%] bg-yellow-100 border border-yellow-500 rounded shadow-lg p-4 w-full z-10">
+                    <div className="bg-yellow-100 border-t border-yellow-500 shadow-lg p-4 w-full z-10 shrink-0">
                       <div className="flex items-start gap-3">
                         <p className="text-sm text-yellow-700 flex-1">
                           <strong>Atención: </strong>Han pasado más de 24 horas.
@@ -1472,7 +1471,7 @@ const ChatPrincipal = ({
 
                 // Meta DM (Messenger/Instagram)
                 return (
-                  <div className="absolute bottom-[0%] bg-blue-50 border border-blue-300 rounded shadow-lg p-4 w-full z-10">
+                  <div className="bg-blue-50 border-t border-blue-300 shadow-lg p-4 w-full z-10 shrink-0">
                     <div className="flex items-start gap-3">
                       <p className="text-sm text-blue-800 flex-1">
                         Han pasado más de 24 horas. Al enviar, usaré la etiqueta{" "}
@@ -1505,7 +1504,7 @@ const ChatPrincipal = ({
               })()}
 
             {/* Campo para enviar mensajes */}
-            <div className="flex items-center gap-2 p-4 w-full border-t bg-gray-100 absolute bottom-0 left-0">
+            <div className="flex items-center gap-2 p-4 w-full border-t bg-gray-100 shrink-0">
               <button
                 onClick={() => setEmojiOpen(!emojiOpen)}
                 className="border rounded-full p-2"
