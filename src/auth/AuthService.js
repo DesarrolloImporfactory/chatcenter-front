@@ -8,6 +8,11 @@ class AuthService {
     this.cookieName = APP_CONFIG.auth.cookieName;
   }
 
+  getIsCotizable() {
+    const user = this.getCurrentUser();
+    return user?.activar_cotizacion || false;
+  }
+
   // Obtener token del localStorage o cookies
   getToken() {
     // Buscar token en diferentes claves por compatibilidad
@@ -88,6 +93,8 @@ class AuthService {
         conexiones_adicionales: decoded.conexiones_adicionales,
         permissions: decoded.permissions || [],
         exp: decoded.exp,
+        activar_cotizacion: decoded.activar_cotizacion || false,
+
       };
     } catch (error) {
       console.error("Error decodificando token:", error);
@@ -147,6 +154,7 @@ class AuthService {
           if (data.data.id_usuario) {
             localStorage.setItem("id_usuario", data.data.id_usuario);
           }
+          
         }
 
         return { success: true, user: data.data, token: data.token };

@@ -6,6 +6,7 @@ import "./css/DataUsuarioCss.css";
 import chatApi from "../../api/chatcenter";
 import MiniCalendario from "../calendar/MiniCalendario";
 import { useNavigate } from "react-router-dom";
+import Cotizador from "../cotizador/Cotizador";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -2507,71 +2508,10 @@ const DatosUsuario = ({
                           : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
                       } bg-[#12172e] rounded-lg shadow-md mb-4`}
                     >
-                      <div className="p-4">
-                        <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                          <i className="bx bx-file-blank text-xl"></i>
-                          Cotizaciones
-                        </h3>
-                        
-                        {loadingCotizaciones ? (
-                          <div className="flex flex-col items-center justify-center py-8">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-3"></div>
-                            <span className="text-white text-sm">Cargando cotizaciones...</span>
-                          </div>
-                        ) : (
-                          <div className="w-full overflow-x-auto overflow-y-auto min-h-12 max-h-80 transition-all duration-500 ease-out transform animate-fadeTable custom-scrollbar">
-                            <table className="w-full table-auto border-separate border-spacing-y-2">
-                              <thead className="bg-gradient-to-r from-blue-800 to-blue-700 text-white text-sm">
-                                <tr>
-                                  <th className="px-4 py-2 text-left rounded-tl-md">
-                                    Número Cotización
-                                  </th>
-                                  <th className="px-4 py-2 text-left">
-                                    Fecha
-                                  </th>
-                                  <th className="px-4 py-2 text-center rounded-tr-md">
-                                    Acción
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {cotizacionesData?.length > 0 ? (
-                                  cotizacionesData.map((cotizacion, index) => (
-                                    <tr
-                                      key={index}
-                                      className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
-                                    >
-                                      <td className="px-4 py-3 rounded-l-md">
-                                        {cotizacion.numero_cotizacion || 'N/A'}
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        {cotizacion.fecha ? new Date(cotizacion.fecha).toLocaleDateString('es-EC') : 'N/A'}
-                                      </td>
-                                      <td className="px-4 py-3 text-center rounded-r-md">
-                                        <button
-                                          className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-4 py-2 rounded-md transition duration-200"
-                                          onClick={() => {
-                                            console.log('Ver cotización:', cotizacion);
-                                            // Aquí puedes agregar la lógica para ver la cotización
-                                          }}
-                                        >
-                                          Ver
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))
-                                ) : (
-                                  <tr>
-                                    <td colSpan="3" className="text-center py-6 text-white/60">
-                                      No hay cotizaciones disponibles
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
+                      <Cotizador
+                        loadingCotizaciones={loadingCotizaciones}
+                        cotizacionesData={cotizacionesData}
+                      ></Cotizador>
                     </div>
                   )}
 
@@ -4300,7 +4240,39 @@ const DatosUsuario = ({
                     ></i>
                     <span className="text-white">Calendario</span>
                   </button>
+                      <button 
+                       className={`group w-full flex items-center col-span-2 justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                        isCotizacionesOpen
+                          ? "bg-[#1e3a5f] border-blue-400"
+                          : "bg-[#162c4a] border-transparent hover:border-blue-300"
+                      }`}
+                        onClick={handleToggleCotizaciones}
+                        >
+                      <i className={`bx bx-file-blank text-xl transition-all duration-300 ${
+                          isCotizacionesOpen
+                            ? "glow-yellow"
+                            : "text-green-300 group-hover:text-green-200"
+                        }`}></i>
+                      <span className="text-white">cotizaciones</span>
+                        </button>
+
+
+
                 </div>
+                  {isCotizacionesOpen && (
+                    <div
+                      className={`transition-all duration-300 ease-in-out transform origin-top ${
+                        isCotizacionesOpen
+                          ? "opacity-100 scale-100 max-h-[1000px] pointer-events-auto"
+                          : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
+                      } bg-[#12172e] rounded-lg shadow-md mb-4`}
+                    >
+                      <Cotizador
+                        loadingCotizaciones={loadingCotizaciones}
+                        cotizacionesData={cotizacionesData}
+                      ></Cotizador>
+                    </div>
+                  )}
                 {isOpenMiniCal && (
                   <div
                     className={`transition-all duration-300 ease-in-out transform origin-top ${
