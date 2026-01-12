@@ -931,6 +931,7 @@ export default function Contactos() {
   const [modalQuitarOpen, setModalQuitarOpen] = useState(false);
   const [modalCrearEtiquetaOpen, setModalCrearEtiquetaOpen] = useState(false);
   const [isModalOpenMasivo, setIsModalOpenMasivo] = useState(false);
+  const [isModalOpenNuevoContact, setIsModalOpenNuevoContact] = useState(false);
 
   const openModalMasivos = () => {
     setIsModalOpenMasivo(true);
@@ -939,6 +940,71 @@ export default function Contactos() {
   const closeModal = () => {
     setIsModalOpenMasivo(false);
     resetNumeroModalState();
+  };
+
+  const openModalNuevoContact = () => {
+    setIsModalOpenNuevoContact(true);
+  };
+
+  const closeModalNuevoContact = () => {
+    setIsModalOpenNuevoContact(false);
+  };
+
+  const [nuevoTelefonoContacto, setNuevoTelefonoContacto] = useState("");
+  const [nuevoNombreContacto, setNuevoNombreContacto] = useState("");
+  const [nuevoApellidoContacto, setNuevoApellidoContacto] = useState("");
+
+  const guardarNuevoContacto = async () => {
+    const telefono = (nuevoTelefonoContacto || "").trim();
+    const nombre = (nuevoNombreContacto || "").trim();
+    const apellido = (nuevoApellidoContacto || "").trim();
+
+    if (!telefono || !nombre || !apellido) {
+      swalInfo("Faltan datos", "Completa teléfono, nombre y apellido.");
+      return;
+    }
+
+    try {
+      swalLoading("Guardando contacto...");
+
+      const response = await chatApi.post(
+        "/clientes_chat_center/agregarNumeroChat",
+        { telefono, nombre, apellido, id_configuracion }
+      );
+
+      const data = response?.data;
+
+      // ✅ OK (según tu API)
+      if (data?.status === 200) {
+        swalClose();
+        swalToast(data?.message || "Número agregado correctamente", "success");
+
+        setNuevoTelefonoContacto("");
+        setNuevoNombreContacto("");
+        setNuevoApellidoContacto("");
+        closeModalNuevoContact();
+
+        return data;
+      }
+
+      // ⚠️ Respuesta inesperada
+      swalClose();
+      swalError(
+        "No se pudo guardar",
+        data?.message || "Respuesta inesperada del servidor."
+      );
+      return;
+    } catch (error) {
+      swalClose();
+
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Intenta nuevamente.";
+
+      swalError("Ocurrió un error", msg);
+      throw error;
+    }
   };
 
   const resetNumeroModalState = () => {
@@ -1601,6 +1667,14 @@ export default function Contactos() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 transition ${"bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"}`}
+            onClick={openModalNuevoContact}
+          >
+            <i className="bx bx-plus text-base" />
+            Nuevo contacto
+          </button>
+
           {/* Contador seleccionado */}
           <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-slate-700 shadow-sm">
@@ -1776,6 +1850,110 @@ export default function Contactos() {
                   >
                     <i className="bx bx-send" />
                     Enviar template
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Agregar nuevo contacto */}
+      {isModalOpenNuevoContact && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-h-[80vh] w-full max-w-xl overflow-hidden ring-1 ring-slate-900/10">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Agregar nuevo contacto
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Completa los datos del nuevo contacto
+                </p>
+              </div>
+
+              <button
+                onClick={closeModalNuevoContact}
+                className="rounded p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              >
+                <i className="bx bx-x text-xl text-slate-600" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+                {/* Teléfono */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Teléfono
+                  </label>
+                  <input
+                    type="tel"
+                    value={nuevoTelefonoContacto}
+                    onChange={(e) => setNuevoTelefonoContacto(e.target.value)}
+                    placeholder="Ej: 593 99 999 9999"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  />
+                </div>
+
+                {/* Nombre */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={nuevoNombreContacto}
+                    onChange={(e) => setNuevoNombreContacto(e.target.value)}
+                    placeholder="Ej: Juan"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  />
+                </div>
+
+                {/* Apellido */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Apellido
+                  </label>
+                  <input
+                    type="text"
+                    value={nuevoApellidoContacto}
+                    onChange={(e) => setNuevoApellidoContacto(e.target.value)}
+                    placeholder="Ej: Pérez"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  />
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeModalNuevoContact}
+                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={guardarNuevoContacto}
+                    disabled={
+                      !nuevoTelefonoContacto.trim() ||
+                      !nuevoNombreContacto.trim() ||
+                      !nuevoApellidoContacto.trim()
+                    }
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 ${
+                      nuevoTelefonoContacto.trim() &&
+                      nuevoNombreContacto.trim() &&
+                      nuevoApellidoContacto.trim()
+                        ? "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-200"
+                        : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                    }`}
+                  >
+                    <i className="bx bx-user-plus" />
+                    Guardar contacto
                   </button>
                 </div>
               </form>
