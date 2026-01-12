@@ -5,6 +5,7 @@ import io from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
 import Select from "react-select";
 import * as XLSX from "xlsx";
+import ImportarXlsxModal from "../clientes/modales/ImportarXlsxModal";
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -480,6 +481,7 @@ export default function Contactos() {
   const [userData, setUserData] = useState(null);
   const socketRef = useRef(null);
   const [nombre_encargado_global, setNombre_encargado_global] = useState(null);
+  const [openImportXlsx, setOpenImportXlsx] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -983,7 +985,7 @@ export default function Contactos() {
         setNuevoNombreContacto("");
         setNuevoApellidoContacto("");
         closeModalNuevoContact();
-
+        await apiList(1, true);
         return data;
       }
 
@@ -1553,7 +1555,7 @@ export default function Contactos() {
     }
   }
 
-  /* Exportar/Importar XLSX */
+  /*Exportar XLSX */
   function exportXLSX() {
     if (!items.length) {
       swalInfo("Sin datos", "No hay clientes para exportar.");
@@ -1585,66 +1587,6 @@ export default function Contactos() {
     a.click();
     URL.revokeObjectURL(url);
     swalToast("XLSX exportado");
-  }
-
-  async function importXLSX(file) {
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-
-      if (!rows.length) {
-        await swalInfo("XLSX vacío", "El archivo no contiene filas.");
-        return;
-      }
-
-      swalLoading("Importando...");
-
-      for (const r of rows) {
-        const payload = {
-          nombre_cliente: r.Nombre || r.nombre || r.NOMBRE || r["Nombre"] || "",
-          apellido_cliente:
-            r.Apellido || r.apellido || r.APELLIDO || r["Apellido"] || "",
-          email_cliente:
-            r.Email || r.email || r.EMAIL || r["Email"] || r["Correo"] || "",
-          celular_cliente:
-            r.Telefono ||
-            r.telefono ||
-            r.TELEFONO ||
-            r["Telefono"] ||
-            r["Celular"] ||
-            "",
-          estado_cliente:
-            r.Estado != null && r.Estado !== "" ? Number(r.Estado) : 1,
-          id_etiqueta:
-            r.IdEtiqueta ||
-            r.idEtiqueta ||
-            r.id_etiqueta ||
-            r["IdEtiqueta"] ||
-            null,
-        };
-
-        if (
-          !payload.nombre_cliente &&
-          !payload.celular_cliente &&
-          !payload.email_cliente
-        )
-          continue;
-
-        await chatApi.post("/clientes_chat_center/agregar", payload);
-      }
-
-      await apiList(1, true);
-      swalClose();
-      swalToast("Importación completada");
-      await cargarOpcionesFiltroEtiquetas();
-    } catch (e) {
-      console.error("IMPORT XLSX:", e?.response?.data || e.message);
-      swalClose();
-      swalError("Error importando XLSX", e?.message);
-    }
   }
 
   /* =================== Render =================== */
@@ -1702,20 +1644,12 @@ export default function Contactos() {
           <button
             className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 transition"
             aria-label="Importar XLSX"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => setOpenImportXlsx(true)}
           >
             <i className="bx bx-upload text-sm" />
             Importar XLSX
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(e) =>
-              e.target.files?.[0] && importXLSX(e.target.files[0])
-            }
-          />
+
           <button
             className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 transition"
             aria-label="Exportar XLSX"
@@ -2509,6 +2443,13 @@ export default function Contactos() {
         open={modalCrearEtiquetaOpen}
         onClose={() => setModalCrearEtiquetaOpen(false)}
         onCreate={crearEtiquetas}
+      />
+      <ImportarXlsxModal
+        open={openImportXlsx}
+        onClose={() => setOpenImportXlsx(false)}
+        chatApi={chatApi}
+        apiList={apiList}
+        cargarOpcionesFiltroEtiquetas={cargarOpcionesFiltroEtiquetas}
       />
     </div>
   );
