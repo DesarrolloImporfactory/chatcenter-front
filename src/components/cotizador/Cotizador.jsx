@@ -1,5 +1,6 @@
 
 const Cotizador = ({loadingCotizaciones, cotizacionesData}) => {
+     cotizacionesData = cotizacionesData.cotizaciones || [];
   return (
     <div className="p-4">
                         <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
@@ -18,7 +19,7 @@ const Cotizador = ({loadingCotizaciones, cotizacionesData}) => {
                               <thead className="bg-gradient-to-r from-blue-800 to-blue-700 text-white text-sm">
                                 <tr>
                                   <th className="px-4 py-2 text-left rounded-tl-md">
-                                    Número Cotización
+                                    Id Cotización
                                   </th>
                                   <th className="px-4 py-2 text-left">
                                     Fecha
@@ -36,10 +37,10 @@ const Cotizador = ({loadingCotizaciones, cotizacionesData}) => {
                                       className="bg-[#1f2937] text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400 rounded-md transition-all"
                                     >
                                       <td className="px-4 py-3 rounded-l-md">
-                                        {cotizacion.numero_cotizacion || 'N/A'}
+                                        {/* poner maximo 5 digitos rellenar 0 ala izquierda*/ String(cotizacion.id_cotizacion).padStart(5, '0')}
                                       </td>
                                       <td className="px-4 py-3">
-                                        {cotizacion.fecha ? new Date(cotizacion.fecha).toLocaleDateString('es-EC') : 'N/A'}
+                                        {cotizacion.fecha_creacion ? new Date(cotizacion.fecha_creacion).toLocaleDateString('es-EC') : 'N/A'}
                                       </td>
                                       <td className="px-4 py-3 text-center rounded-r-md">
                                         <button

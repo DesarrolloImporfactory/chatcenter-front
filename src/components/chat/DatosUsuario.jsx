@@ -7,6 +7,7 @@ import chatApi from "../../api/chatcenter";
 import MiniCalendario from "../calendar/MiniCalendario";
 import { useNavigate } from "react-router-dom";
 import Cotizador from "../cotizador/Cotizador";
+import { jwtDecode } from "jwt-decode";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -2157,6 +2158,12 @@ const DatosUsuario = ({
 
   const DEFAULT_AVATAR = "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
 
+  const token = localStorage.getItem("token");
+  let decodedToken = null;
+
+      const decoded = jwtDecode(token);
+      decodedToken = decoded;
+  const activar_cotizacion = decodedToken?.activar_cotizacion || 0;
   return (
     <>
       {opciones && (
@@ -2480,7 +2487,8 @@ const DatosUsuario = ({
                       ></i>
                       <span className="text-white">Calendario</span>
                     </button>
-
+                        {activar_cotizacion == 1 && (
+                    // Cotizaciones
                     <button 
                        className={`group w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isCotizacionesOpen
@@ -2497,7 +2505,7 @@ const DatosUsuario = ({
                       <span className="text-white">cotizaciones</span>
                         </button>
 
-
+                        )}
                   </div>
 
                   {isCotizacionesOpen && (
@@ -4240,6 +4248,8 @@ const DatosUsuario = ({
                     ></i>
                     <span className="text-white">Calendario</span>
                   </button>
+
+                    {activar_cotizacion == 1 && (
                       <button 
                        className={`group w-full flex items-center col-span-2 justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isCotizacionesOpen
@@ -4255,7 +4265,7 @@ const DatosUsuario = ({
                         }`}></i>
                       <span className="text-white">cotizaciones</span>
                         </button>
-
+                    )}
 
 
                 </div>
