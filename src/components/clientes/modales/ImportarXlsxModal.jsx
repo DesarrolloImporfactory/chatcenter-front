@@ -357,8 +357,13 @@ export default function ImportarXlsxModal({
                   <b>Email:</b> la columna email puede ir vacía.
                 </li>
                 <li>
-                  <b>Teléfono:</b> evite caracteres extraños; si viene con + o
-                  espacios, el sistema lo normaliza.
+                  <b>Teléfono:</b> obligatoriamente se debe incluir el{" "}
+                  <b>código de país</b> en la columna teléfono (sin <b>+</b> y
+                  sin espacios).
+                  <div className="mt-1">
+                    <b>Ejemplo Ecuador:</b> <b>593962803007</b> ✅ (no{" "}
+                    <b>0962803007</b> ❌)
+                  </div>
                 </li>
               </ul>
 
