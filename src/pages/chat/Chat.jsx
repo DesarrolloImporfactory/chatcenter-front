@@ -1959,6 +1959,9 @@ const Chat = () => {
   const [cursorFecha, setCursorFecha] = useState(null);
   const [cursorId, setCursorId] = useState(null);
 
+  // ✅ Tabs internos (solo para "abierto"): Mis chats | En espera
+  const [scopeChats, setScopeChats] = useState("mine"); // "mine" | "waiting"
+
   const etiquetasOptions = useMemo(
     () =>
       etiquetas_api.map((e) => ({
@@ -2282,6 +2285,7 @@ const Chat = () => {
             selectedTab,
             selectedPedidos_confirmados,
           },
+          scopeChats,
         }
       );
 
@@ -2510,6 +2514,7 @@ const Chat = () => {
                 selectedTab,
                 selectedPedidos_confirmados,
               },
+              scopeChats,
             }
           );
 
@@ -2542,6 +2547,9 @@ const Chat = () => {
       setMensajesVisibles(10);
       setCursorFecha(null);
       setCursorId(null);
+      if (selectedTab == "resueltos") {
+        setScopeChats("mine");
+      }
 
       if (socketRef.current && isSocketConnected) {
         socketRef.current.emit(
@@ -2562,6 +2570,7 @@ const Chat = () => {
               selectedTab,
               selectedPedidos_confirmados,
             },
+            scopeChats,
           }
         );
 
@@ -2586,6 +2595,7 @@ const Chat = () => {
     selectedNovedad,
     selectedTab,
     selectedPedidos_confirmados,
+    scopeChats,
   ]);
 
   function cargar_socket() {
@@ -2615,6 +2625,7 @@ const Chat = () => {
             selectedTab,
             selectedPedidos_confirmados,
           },
+          scopeChats,
         }
       );
 
@@ -3546,6 +3557,8 @@ const Chat = () => {
         isLoadingMS={isLoadingMS}
         isLoadingIG={isLoadingIG}
         cargandoChats={cargandoChats}
+        scopeChats={scopeChats}
+        setScopeChats={setScopeChats}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

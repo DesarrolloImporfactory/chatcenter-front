@@ -971,7 +971,8 @@ function MessageItem({
       : `https://new.imporsuitpro.com/${rawRuta}`;
   })();
 
-  const fallbackAvatar = "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
+  const fallbackAvatar =
+    "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
   const avatarUrl =
     !imgError && mensaje?.profile_pic_url
       ? mensaje.profile_pic_url
@@ -1070,7 +1071,10 @@ function MessageItem({
 
         {/* Pill encargado */}
         <div className="col-[3] row-[1] flex justify-end">
-          <PillEncargado texto={mensaje.nombre_encargado} colorClass={"bg-emerald-500"} />
+          <PillEncargado
+            texto={mensaje.nombre_encargado}
+            colorClass={"bg-emerald-500"}
+          />
         </div>
 
         {/* Fecha + contador */}
@@ -1153,8 +1157,15 @@ export const Sidebar = ({
   isLoadingMS = false,
   isLoadingIG = false,
   cargandoChats,
+  scopeChats,
+  setScopeChats,
 }) => {
   const [input_busqueda, setInput_busqueda] = useState(searchTerm ?? "");
+
+  // Si cambia a otra pestaña (resueltos), resetea a "Mis chats"
+  useEffect(() => {
+    if (selectedTab !== "abierto") setScopeChats("mine");
+  }, [selectedTab]);
 
   function useDebouncedValue(value, delay = 1000) {
     const [debounced, setDebounced] = useState(value);
@@ -1686,6 +1697,79 @@ export const Sidebar = ({
                 )}
             </div>
           </div>
+
+          {/* ✅ Tabs Mis chats / En espera (solo cuando selectedTab === "abierto") */}
+          {selectedTab === "abierto" && (
+            <div
+              className="px-4 pt-0 pb-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* opcional: línea separadora para que se vea integrado */}
+              <div className="border-t border-slate-200/70" />
+
+              <div className="flex justify-center">
+                {/* ocupa todo el ancho disponible */}
+                <div className="flex w-full max-w-[520px]">
+                  {/* Mis chats */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setScopeChats("mine");
+                    }}
+                    className={[
+                      "relative flex-1 inline-flex items-center justify-center gap-2",
+                      "py-2.5 text-sm font-bold transition-colors",
+                      scopeChats === "mine"
+                        ? "text-blue-600"
+                        : "text-slate-500 hover:text-slate-700",
+                    ].join(" ")}
+                    aria-current={scopeChats === "mine" ? "page" : undefined}
+                  >
+                    <i className="bx bx-user-circle text-lg" />
+                    Mis chats
+                    {/* Línea activa dentro del botón (sin “hueco” arriba/abajo) */}
+                    <span
+                      className={[
+                        "pointer-events-none absolute left-6 right-6 bottom-0 h-[3px] rounded-full transition-opacity",
+                        scopeChats === "mine"
+                          ? "bg-blue-600 opacity-100"
+                          : "opacity-0",
+                      ].join(" ")}
+                    />
+                  </button>
+
+                  {/* En espera */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setScopeChats("waiting");
+                    }}
+                    className={[
+                      "relative flex-1 inline-flex items-center justify-center gap-2",
+                      "py-2.5 text-sm font-bold transition-colors",
+                      scopeChats === "waiting"
+                        ? "text-blue-600"
+                        : "text-slate-500 hover:text-slate-700",
+                    ].join(" ")}
+                    aria-current={scopeChats === "waiting" ? "page" : undefined}
+                  >
+                    <i className="bx bx-time-five text-lg" />
+                    En espera
+                    <span
+                      className={[
+                        "pointer-events-none absolute left-6 right-6 bottom-0 h-[3px] rounded-full transition-opacity",
+                        scopeChats === "waiting"
+                          ? "bg-blue-600 opacity-100"
+                          : "opacity-0",
+                      ].join(" ")}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Lista de chats */}
