@@ -62,6 +62,21 @@ function PillEstado({ texto, colorClass }) {
   );
 }
 
+function PillEncargado({ texto, colorClass }) {
+  if (!texto) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-[3px] text-[10px] font-semibold tracking-wide text-slate-700 transition-colors duration-200"
+      title={`Estado: ${texto}`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${colorClass || "bg-slate-400"}`}
+      />
+      {texto}
+    </span>
+  );
+}
+
 /* ===================== Helpers de texto ===================== */
 function expandirTemplate(texto = "", ruta_archivo, limite = 90) {
   if (!texto) return "";
@@ -1049,8 +1064,13 @@ function MessageItem({
         </div>
 
         {/* Pill estado */}
+        {/* <div className="col-[3] row-[1] flex justify-end">
+          <PillEstado texto={mensaje.nombre_encargado} colorClass={color} />
+        </div> */}
+
+        {/* Pill encargado */}
         <div className="col-[3] row-[1] flex justify-end">
-          <PillEstado texto={estado_guia} colorClass={color} />
+          <PillEncargado texto={mensaje.nombre_encargado} colorClass={"bg-emerald-500"} />
         </div>
 
         {/* Fecha + contador */}
