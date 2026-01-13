@@ -2169,9 +2169,6 @@ export default function Contactos() {
                           >
                             {nombre}
                           </button>
-                          <div className="truncate text-[11px] text-slate-500">
-                            ID {id}
-                          </div>
                         </div>
                       </div>
                     </td>
@@ -2496,41 +2493,7 @@ function ClienteForm({ value, onChange }) {
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div>
-          <label className="text-xs font-medium text-slate-700">Estado</label>
-          <select
-            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
-            value={v.estado ?? 1}
-            onChange={(e) => onChange({ ...v, estado: Number(e.target.value) })}
-          >
-            <option value={1}>Activo</option>
-            <option value={0}>Inactivo</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-slate-700">
-            Id Etiqueta
-          </label>
-          <input
-            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
-            value={v.id_etiqueta || ""}
-            onChange={(e) => onChange({ ...v, id_etiqueta: e.target.value })}
-          />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-slate-700">
-            Id Configuración
-          </label>
-          <input
-            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
-            value={v.id_configuracion || ""}
-            onChange={(e) =>
-              onChange({ ...v, id_configuracion: e.target.value })
-            }
-          />
-        </div>
-      </div>
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div>
           <label className="text-xs font-medium text-slate-700">
@@ -2561,44 +2524,6 @@ function ClienteForm({ value, onChange }) {
             <option value={1}>Activo</option>
             <option value={0}>Inactivo</option>
           </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-slate-700">
-            UID Cliente
-          </label>
-          <input
-            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
-            value={v.uid_cliente || ""}
-            onChange={(e) => onChange({ ...v, uid_cliente: e.target.value })}
-          />
-        </div>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-slate-700">
-          Imagen (URL)
-        </label>
-        <input
-          className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
-          value={v.imagePath || ""}
-          onChange={(e) => onChange({ ...v, imagePath: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div>
-          <label className="text-xs font-medium text-slate-700">
-            Mensajes por día
-          </label>
-          <input
-            type="number"
-            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
-            value={v.mensajes_por_dia_cliente ?? 0}
-            onChange={(e) =>
-              onChange({
-                ...v,
-                mensajes_por_dia_cliente: Number(e.target.value),
-              })
-            }
-          />
         </div>
         <div>
           <label className="text-xs font-medium text-slate-700">
