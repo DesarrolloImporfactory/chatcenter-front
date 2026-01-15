@@ -1793,24 +1793,16 @@ export const Sidebar = ({
                 : filteredChats;
 
             const list = [...base].sort(compareChats);
-
+            console.log("Lista de chats en sidebar:", list);
             if (list.length === 0) {
-              return mensajesAcumulados.length === 0 ? (
-                <div className="flex h-64 items-center justify-center">
-                  {Loading ? (
-                    <Loading />
-                  ) : (
-                    <div className="text-slate-500">Cargando…</div>
-                  )}
-                </div>
-              ) : (
+              return (
                 <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
                   <i className="bx bx-chat text-4xl" />
                   <p className="text-sm">
                     No se encontraron chats con esos filtros.
                   </p>
                 </div>
-              );
+              ) ;
             }
 
             return list.slice(0, mensajesVisibles).map((mensaje) => {
