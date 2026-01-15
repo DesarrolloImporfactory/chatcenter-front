@@ -761,35 +761,33 @@ function HoverPreviewPortal({
     if (!open) return;
 
     const onKey = (e) => e.key === "Escape" && onForceClose?.();
+
     const onDown = (e) => {
-      if (!containerRef.current) return;
-      if (
-        !containerRef.current.contains(e.target) &&
-        !anchorRef?.current?.contains(e.target)
-      )
-        onForceClose?.();
-    };
-    // Solo cerrar si la rueda ocurre fuera del preview (o del anchor)
-    const onWheel = (e) => {
       const root = containerRef.current;
       const anchor = anchorRef?.current;
-      const target = e.target;
       if (!root) return;
 
-      const insidePreview = root.contains(target);
-      const insideAnchor = anchor ? anchor.contains(target) : false;
+      const clickedInsidePreview = root.contains(e.target);
+      const clickedOnAnchor = anchor ? anchor.contains(e.target) : false;
 
-      if (!insidePreview && !insideAnchor) onForceClose?.();
+      // ✅ si clickeo el item (anchor) => cerrar
+      if (clickedOnAnchor) {
+        onForceClose?.();
+        return;
+      }
+
+      // ✅ si clickeo fuera de todo => cerrar
+      if (!clickedInsidePreview && !clickedOnAnchor) {
+        onForceClose?.();
+      }
     };
 
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown, true);
-    document.addEventListener("wheel", onWheel, { passive: true });
 
     return () => {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onDown, true);
-      document.removeEventListener("wheel", onWheel);
     };
   }, [open, onForceClose, anchorRef]);
 
@@ -892,6 +890,7 @@ function MessageItem({
   formatFecha,
   onClick,
   seleccionado = false,
+  selectedChat,
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const liRef = useRef(null);
@@ -980,6 +979,10 @@ function MessageItem({
 
   const own = esMensajePropio(mensaje);
   const { ref: replyRef, autor: replyAuthor } = extraerRespuesta(mensaje);
+
+  useEffect(() => {
+  setPreviewOpen(false);
+}, [selectedChat?.id]);
 
   return (
     <li
@@ -1802,7 +1805,7 @@ export const Sidebar = ({
                     No se encontraron chats con esos filtros.
                   </p>
                 </div>
-              ) ;
+              );
             }
 
             return list.slice(0, mensajesVisibles).map((mensaje) => {
@@ -1826,6 +1829,7 @@ export const Sidebar = ({
                   formatFecha={formatFecha}
                   onClick={() => handleSelectChat(mensaje)}
                   seleccionado={seleccionado}
+                  selectedChat={selectedChat}
                 />
               );
             });
