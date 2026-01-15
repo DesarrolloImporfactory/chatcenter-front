@@ -766,9 +766,9 @@ const Cabecera = ({
           } ${selectedChat === null ? "hidden sm:block" : "block"}`}
         >
           {/* Encabezado del chat seleccionado */}
-          <div className="flex justify-between items-center space-x-3 border-b p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center border-b p-4">
             {/* Botón para volver en móvil + imagen de usuario + nombre/teléfono */}
-            <div className="flex gap-3 items-center">
+            <div className="flex gap-3 items-center min-w-0">
               <button
                 className="p-1 text-[25px] block sm:hidden hover:scale-110 transition-transform"
                 onClick={volver_seccion_principal}
@@ -790,13 +790,13 @@ const Cabecera = ({
                     "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
                 }}
               />
-              <div>
-                <span className="block text-black font-semibold text-lg">
+              <div className="min-w-0">
+                <span className="block text-black font-semibold text-lg truncate">
                   {chatMessages.length > 0 && selectedChat
                     ? selectedChat.nombre_cliente
                     : "SELECCIONE UN CHAT"}
                 </span>
-                <span className="text-sm text-gray-600">
+                <span className="block text-sm text-gray-600 truncate">
                   {chatMessages.length > 0 && selectedChat
                     ? "+" + selectedChat.celular_cliente
                     : "-------"}
@@ -805,7 +805,7 @@ const Cabecera = ({
             </div>
 
             {/* Botones de acciones en la esquina derecha */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 justify-end sm:justify-start shrink-0">
               {/* Apagar/Ecender bot */}
               <SwitchBot
                 botActivo={selectedChat.bot_openia === 1}
