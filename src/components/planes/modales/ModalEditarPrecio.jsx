@@ -11,6 +11,7 @@ const ModalEditarPrecio = ({ open, onClose, data, setData, onSubmit }) => {
           <h2 className="text-xl font-bold text-white">
             Editar precio del plan
           </h2>
+          
           <button
             className="text-white/80 hover:text-white text-xl leading-none"
             onClick={onClose}
