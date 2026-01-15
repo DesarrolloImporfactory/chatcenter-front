@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import Select from "react-select";
@@ -1202,6 +1202,22 @@ const Modales = ({
     }
   };
 
+  const isIgOrMs = ["ig", "ms"].includes(selectedChat?.source);
+
+  const idConfigLS = localStorage.getItem("id_configuracion"); // string o null
+
+  const listaDepartamentosFiltrada = useMemo(() => {
+    if (!Array.isArray(listaDepartamentosUsuario)) return [];
+
+    // Solo filtra en IG/MS
+    if (!isIgOrMs) return listaDepartamentosUsuario;
+
+    // Comparación segura: normaliza a string
+    return listaDepartamentosUsuario.filter((dep) => {
+      return String(dep.id_configuracion) === String(idConfigLS);
+    });
+  }, [listaDepartamentosUsuario, isIgOrMs, idConfigLS]);
+
   const handleTransferirChat = async () => {
     if (!usuarioSeleccionado || !departamentoSeleccionado) {
       Toast.fire({
@@ -1220,7 +1236,8 @@ const Modales = ({
           motivo: motivoTransferencia,
           id_cliente_chat_center: selectedChat.id,
           id_configuracion: selectedChat.id_configuracion,
-          emisor: userData.nombre_encargado ?? "", 
+          emisor: userData.nombre_encargado ?? "",
+          source: selectedChat.source,
         }
       );
 
@@ -2325,7 +2342,7 @@ const Modales = ({
 
                 <Select
                   inputId="select-departamento-transfer"
-                  options={listaDepartamentosUsuario.map((dep) => ({
+                  options={listaDepartamentosFiltrada.map((dep) => ({
                     value: dep.id_departamento,
                     label: dep.nombre_departamento,
                   }))}
@@ -2354,7 +2371,7 @@ const Modales = ({
 
                 <p className="text-xs text-slate-500">
                   {usuarioSeleccionado
-                    ? `${listaDepartamentosUsuario.length} departamentos`
+                    ? `${listaDepartamentosFiltrada.length} departamentos`
                     : ""}
                 </p>
               </div>

@@ -1388,6 +1388,69 @@ const Chat = () => {
     const text = (mensaje || "").trim();
     if (!text || !selectedChat) return;
 
+    // ✅ Helper: actualiza el chat en la lista izquierda (setMensajesAcumulados)
+    const updateMensajesAcumulados = ({
+      chatId,
+      texto_mensaje,
+      tipo_mensaje,
+      ruta_archivo = "{}",
+      source,
+    }) => {
+      const fechaISO = new Date().toISOString();
+
+      setMensajesAcumulados((prevChats) => {
+        const actualizado = prevChats.map((c) => ({ ...c }));
+        const index = actualizado.findIndex(
+          (c) => String(c.id) === String(chatId)
+        );
+
+        if (index !== -1) {
+          actualizado[index] = {
+            ...actualizado[index],
+            mensaje_created_at: fechaISO,
+            texto_mensaje,
+            tipo_mensaje,
+            ruta_archivo,
+            mensajes_pendientes: 0, // ✅ como es enviado por ti
+            visto: 1,
+            nombre_encargado: nombre_encargado_global,
+            source: source ?? actualizado[index].source,
+          };
+
+          // ✅ subir al inicio
+          const [chatMovido] = actualizado.splice(index, 1);
+          actualizado.unshift(chatMovido);
+          return actualizado;
+        }
+
+        // ✅ si no existe (raro, pero por si acaso)
+        const nuevoChat = {
+          id: chatId,
+          chat_cerrado: 0,
+          bot_openia: 0,
+          nombre_cliente: "",
+          apellido_cliente: "",
+          celular_cliente: selectedChat?.celular_cliente || "",
+          id_configuracion: id_configuracion,
+          texto_mensaje,
+          tipo_mensaje,
+          ruta_archivo,
+          mensaje_created_at: fechaISO,
+          mensajes_pendientes: 0,
+          visto: 1,
+          nombre_encargado: nombre_encargado_global,
+          source: source ?? selectedChat?.source,
+          etiquetas: "[]",
+        };
+
+        return [nuevoChat, ...actualizado];
+      });
+    };
+    
+
+    // =========================
+    // ✅ MS
+    // =========================
     if (selectedChat.source === "ms") {
       const tempId =
         "tmp-" + Date.now() + "-" + Math.random().toString(16).slice(2);
@@ -1420,11 +1483,23 @@ const Chat = () => {
 
       socketRef.current.emit("MS_SEND", payload);
 
+      // ✅ actualiza lista izquierda
+      updateMensajesAcumulados({
+        chatId: selectedChat.id,
+        texto_mensaje: text,
+        tipo_mensaje: "text",
+        ruta_archivo: "{}",
+        source: "ms",
+      });
+
       setMensaje("");
       setFile(null);
       return;
     }
 
+    // =========================
+    // ✅ IG
+    // =========================
     if (selectedChat.source === "ig") {
       const tempId =
         "tmp-" + Date.now() + "-" + Math.random().toString(16).slice(2);
@@ -1433,7 +1508,7 @@ const Chat = () => {
         id: tempId,
         client_tmp_id: tempId,
         rol_mensaje: 1,
-        texto_mensaje: (mensaje || "").trim(),
+        texto_mensaje: text,
         tipo_mensaje: "text",
         created_at: new Date().toISOString(),
         visto: 0,
@@ -1447,7 +1522,7 @@ const Chat = () => {
 
       socketRef.current.emit("IG_SEND", {
         conversation_id: selectedChat.id,
-        text: (mensaje || "").trim(),
+        text,
         ...(diffHrs > 24
           ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
           : {}),
@@ -1456,29 +1531,56 @@ const Chat = () => {
         client_tmp_id: tempId,
       });
 
+      // ✅ actualiza lista izquierda
+      updateMensajesAcumulados({
+        chatId: selectedChat.id,
+        texto_mensaje: text,
+        tipo_mensaje: "text",
+        ruta_archivo: "{}",
+        source: "ig",
+      });
+
       setMensaje("");
       setFile(null);
       return;
     }
 
-    // (lo tuyo actual para WhatsApp)
+    // =========================
+    // ✅ WhatsApp
+    // =========================
     console.log("Mensaje enviado:", mensaje, file);
-    setMensaje("");
-    setFile(null);
 
-    const safeName = (nombre_encargado_global || "").replace(/[*_~`]/g, ""); // quita caracteres de formato
-
+    const safeName = (nombre_encargado_global || "").replace(/[*_~`]/g, "");
     const encabezadoWS = `*${safeName}* 🎤:\n${text}`;
+    const tipoWA = file ? "document" : "text";
 
     socketRef.current.emit("SEND_MESSAGE", {
       mensaje: encabezadoWS,
-      tipo_mensaje: file ? "document" : "text",
+      tipo_mensaje: tipoWA,
       to: selectedChat.celular_cliente,
       id_configuracion: id_configuracion,
       file,
       dataAdmin,
       nombre_encargado: nombre_encargado_global,
     });
+
+    // ✅ actualiza lista izquierda (WA)
+    updateMensajesAcumulados({
+      chatId: selectedChat.id,
+      texto_mensaje: encabezadoWS, // si quieres SOLO text: usa text
+      tipo_mensaje: tipoWA,
+      ruta_archivo: file
+        ? JSON.stringify({
+            name: file?.name || "",
+            size: file?.size || 0,
+            type: file?.type || "",
+          })
+        : "{}",
+      source: "wa",
+    });
+
+    setMensaje("");
+    setFile(null);
   };
 
   // Enviar adjunto a Messenger vía socket
