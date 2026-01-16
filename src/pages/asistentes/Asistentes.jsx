@@ -122,7 +122,7 @@ const Asistentes = () => {
       });
 
       const data = response.data?.data || {};
-      /* setExisteAsistente(data.api_key_openai || null); */
+      setExisteAsistente(data.api_key_openai || null);
       setAsistenteVentas(data.ventas || null);
     } catch (error) {
       console.error("Error al cargar los asistentes.", error);
@@ -267,6 +267,7 @@ const Asistentes = () => {
         {
           id_configuracion: id_configuracion,
           api_key: apiKeyInput,
+          tipo_configuracion: localStorage.getItem("tipo_configuracion"),
         }
       );
       const data = response.data || {};
@@ -349,7 +350,7 @@ const Asistentes = () => {
               Centraliza y personaliza tus asistentes para ventas.
             </p>
           </div>
-          {/* <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur text-sm">
               API Key:{" "}
               <strong>
@@ -362,7 +363,7 @@ const Asistentes = () => {
             >
               {existeAsistente ? "Editar API Key" : "Añadir API Key"}
             </button>
-          </div> */}
+          </div>
         </div>
       </div>
 
@@ -414,7 +415,7 @@ const Asistentes = () => {
       </div>
 
       {/* —— Modales (SIN CAMBIOS) —— */}
-      {/* {showModalApiKey && (
+      {showModalApiKey && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">
@@ -443,7 +444,7 @@ const Asistentes = () => {
             </div>
           </div>
         </div>
-      )} */}
+      )}
 
       {showModalVentas && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
