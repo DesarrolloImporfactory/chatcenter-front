@@ -267,7 +267,7 @@ const ChatPrincipal = ({
   const actualizar_mensaje_reenviado = async (
     id_mensaje,
     new_wamid,
-    id_wamid_mensaje
+    id_wamid_mensaje,
   ) => {
     try {
       const response = await chatApi.post(
@@ -276,7 +276,7 @@ const ChatPrincipal = ({
           id_mensaje,
           new_wamid,
           id_wamid_mensaje,
-        }
+        },
       );
 
       let respuesta = response.data;
@@ -298,8 +298,8 @@ const ChatPrincipal = ({
                   id_wamid_mensaje: new_wamid,
                   error_meta: null,
                 }
-              : mensaje
-          )
+              : mensaje,
+          ),
         );
         /* Mensajes seccion derecha */
       }
@@ -313,7 +313,7 @@ const ChatPrincipal = ({
     texto_mensaje,
     ruta_archivo,
     id_wamid_mensaje,
-    id
+    id,
   ) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
@@ -403,7 +403,7 @@ const ChatPrincipal = ({
     texto_mensaje,
     ruta_archivo,
     id_wamid_mensaje,
-    id
+    id,
   ) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
@@ -452,7 +452,7 @@ const ChatPrincipal = ({
     ruta_archivo,
     texto_mensaje,
     id_wamid_mensaje,
-    id
+    id,
   ) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
@@ -556,7 +556,7 @@ const ChatPrincipal = ({
     ruta_archivo, // contiene todos los datos del cliente
     texto_mensaje, // contiene los placeholders usados
     id_wamid_mensaje,
-    id
+    id,
   ) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
@@ -565,7 +565,7 @@ const ChatPrincipal = ({
 
     const datos = JSON.parse(ruta_archivo);
     const placeholders = [...texto_mensaje.matchAll(/{{(.*?)}}/g)].map(
-      (m) => m[1]
+      (m) => m[1],
     );
     const parametros = placeholders.map((clave) => ({
       type: "text",
@@ -648,7 +648,7 @@ const ChatPrincipal = ({
           className="text-blue-600 underline hover:text-blue-800 hover:no-underline cursor-pointer"
         >
           {cleanUrl}
-        </a>
+        </a>,
       );
 
       if (trailing) nodes.push(<span key={key++}>{trailing}</span>);
@@ -684,7 +684,7 @@ const ChatPrincipal = ({
             ruta_archivo,
             texto_mensaje,
             id_wamid_mensaje,
-            id
+            id,
           );
           break;
         case "video":
@@ -692,7 +692,7 @@ const ChatPrincipal = ({
             texto_mensaje,
             ruta_archivo,
             id_wamid_mensaje,
-            id
+            id,
           );
           break;
         case "audio":
@@ -703,7 +703,7 @@ const ChatPrincipal = ({
             texto_mensaje,
             ruta_archivo,
             id_wamid_mensaje,
-            id
+            id,
           );
           break;
         case "template":
@@ -713,7 +713,7 @@ const ChatPrincipal = ({
             ruta_archivo,
             texto_mensaje,
             id_wamid_mensaje,
-            id
+            id,
           );
           break;
         default:
@@ -731,7 +731,7 @@ const ChatPrincipal = ({
     if (mensajesOrdenados && mensajesOrdenados.length > 0) {
       // Filtrar los mensajes que tengan rol_mensaje === 0 (cliente)
       const mensajesCliente = mensajesOrdenados.filter(
-        (mensaje) => mensaje.rol_mensaje === 0
+        (mensaje) => mensaje.rol_mensaje === 0,
       );
 
       if (mensajesCliente.length > 0) {
@@ -812,7 +812,7 @@ const ChatPrincipal = ({
       {
         method: "POST",
         body: form,
-      }
+      },
     );
     const json = await resp.json();
     if (!json?.success) throw new Error("Error subiendo archivo");
@@ -1004,7 +1004,7 @@ const ChatPrincipal = ({
                       <DayDivider
                         key={`day-${mensaje.created_at}-${i}`}
                         label={formatDayLabel(mensaje.created_at)}
-                      />
+                      />,
                     );
                   }
 
@@ -1039,7 +1039,7 @@ const ChatPrincipal = ({
                             {formatHora(mensaje.created_at)}
                           </span>
                         </div>
-                      </div>
+                      </div>,
                     );
                     continue;
                   }
@@ -1079,8 +1079,8 @@ const ChatPrincipal = ({
                         ? "text-white/90"
                         : "text-gray-500"
                       : mensaje.rol_mensaje === 1
-                      ? "text-gray-700"
-                      : "text-gray-500";
+                        ? "text-gray-700"
+                        : "text-gray-500";
 
                   items.push(
                     <div
@@ -1134,7 +1134,7 @@ const ChatPrincipal = ({
                               <span className="opacity-90">
                                 {(() => {
                                   const code = String(
-                                    mensaje.error_meta.codigo_error
+                                    mensaje.error_meta.codigo_error,
                                   );
                                   const label = ERROR_MAP[code];
                                   return (
@@ -1165,10 +1165,10 @@ const ChatPrincipal = ({
                                   /\{\{(.*?)\}\}/g,
                                   (match, key) => {
                                     const valores = JSON.parse(
-                                      mensaje.ruta_archivo
+                                      mensaje.ruta_archivo,
                                     );
                                     return valores[key.trim()] || match;
-                                  }
+                                  },
                                 )}
                               </p>
                             ) : (
@@ -1176,8 +1176,8 @@ const ChatPrincipal = ({
                                 {linkify(
                                   (mensaje.texto_mensaje || "").replace(
                                     /^\*[^*]+\*\s*🎤:\s*\r?\n/,
-                                    ""
-                                  )
+                                    "",
+                                  ),
                                 )}
                               </p>
                             )
@@ -1225,10 +1225,10 @@ const ChatPrincipal = ({
                                 /\{\{(.*?)\}\}/g,
                                 (match, key) => {
                                   const valores = JSON.parse(
-                                    mensaje.ruta_archivo
+                                    mensaje.ruta_archivo,
                                   );
                                   return valores[key.trim()] || match;
-                                }
+                                },
                               )}
                             </p>
                           ) : mensaje.tipo_mensaje === "audio" ? (
@@ -1263,7 +1263,7 @@ const ChatPrincipal = ({
                               )?.toUpperCase();
 
                               const iconInfo = getFileIcon(
-                                meta.ruta?.split(".").pop() || ""
+                                meta.ruta?.split(".").pop() || "",
                               );
 
                               return (
@@ -1292,7 +1292,7 @@ const ChatPrincipal = ({
                                                 1024
                                               ).toFixed(2)} MB`
                                             : `${(meta.size / 1024).toFixed(
-                                                2
+                                                2,
                                               )} KB`}
                                         </span>
                                         <span>•</span>
@@ -1319,7 +1319,7 @@ const ChatPrincipal = ({
                             (() => {
                               try {
                                 const locationData = JSON.parse(
-                                  mensaje.texto_mensaje
+                                  mensaje.texto_mensaje,
                                 );
 
                                 // Usamos 'longitude' si existe, si no, usamos 'longitud'
@@ -1357,7 +1357,7 @@ const ChatPrincipal = ({
                               } catch (error) {
                                 console.error(
                                   "Error al parsear la ubicación:",
-                                  error
+                                  error,
                                 );
                                 return <p>Error al mostrar la ubicación.</p>;
                               }
@@ -1390,7 +1390,7 @@ const ChatPrincipal = ({
                           {formatHora(mensaje.created_at)}
                         </span>
                       </div>
-                    </div>
+                    </div>,
                   );
                 }
                 return items;
@@ -1519,7 +1519,7 @@ const ChatPrincipal = ({
               )}
 
               {isMenuOpen && (
-                <div className="absolute bottom-[70%] left-[5%] bg-white border rounded shadow-lg p-2 w-32 z-10">
+                <div className="absolute bottom-[10%] left-[5%] bg-white border rounded shadow-lg p-2 w-32 z-10">
                   <ul className="flex flex-col space-y-2 text-sm">
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
@@ -1569,6 +1569,27 @@ const ChatPrincipal = ({
                     >
                       Documento
                     </li>
+                    {selectedChat?.source === "wa" && (
+                      <li
+                        className="cursor-pointer hover:bg-gray-200 p-1 rounded"
+                        onClick={() => {
+                          const phone = selectedChat?.celular_cliente || "";
+
+                          setNumeroModalPreset({
+                            step: "buscar",
+                            phone,
+                            lockPhone: true,
+                            contextLabel:
+                              "Responderá con plantilla al chat actual",
+                            clienteNombre: selectedChat?.nombre_cliente || "",
+                          });
+
+                          setNumeroModal(true);
+                        }}
+                      >
+                        Enviar template
+                      </li>
+                    )}
                   </ul>
                 </div>
               )}
@@ -1683,8 +1704,8 @@ const ChatPrincipal = ({
                   mensaje || file
                     ? handleSendMessage
                     : grabando
-                    ? stopRecording
-                    : startRecording
+                      ? stopRecording
+                      : startRecording
                 }
                 className={`${
                   grabando ? "bg-red-500" : "bg-blue-500"
