@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
-import Select from "react-select";
+import Select, { components } from "react-select";
 
 const Modales = ({
   numeroModal,
@@ -59,6 +59,9 @@ const Modales = ({
   const [templateName, setTemplateName] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("es");
 
+  const [bodyPlaceholders, setBodyPlaceholders] = useState([]); // [{ key:'body_1', n:'1' }, ...]
+  const [urlButtons, setUrlButtons] = useState([]); // [{ index:'0', ph:'1', key:'url_0_1', label:'...' }, ...]
+
   // Estado para el modal "Añadir número"
   const [isAddNumberModalOpen, setIsAddNumberModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState("nuevo");
@@ -81,6 +84,9 @@ const Modales = ({
     setTemplateText("");
     setPlaceholders([]);
     setPlaceholderValues({});
+
+    setBodyPlaceholders([]);
+    setUrlButtons([]);
 
     setSearchQuery("");
     setLockPhone(false);
@@ -130,7 +136,7 @@ const Modales = ({
   const highlightMatch = (text, query) => {
     if (!query) return text;
     const parts = String(text ?? "").split(
-      new RegExp(`(${escapeRegExp(query)})`, "ig")
+      new RegExp(`(${escapeRegExp(query)})`, "ig"),
     );
     return parts.map((p, i) =>
       p.toLowerCase() === query.toLowerCase() ? (
@@ -139,18 +145,24 @@ const Modales = ({
         </mark>
       ) : (
         p
-      )
+      ),
     );
   };
 
   // ✅ template listo para enviar (nombre + destinatario + placeholders completos)
-  const allPlaceholdersFilled = placeholders.every(
-    (ph) => (placeholderValues[ph] || "").trim().length > 0
+  const allBodyFilled = bodyPlaceholders.every(
+    (p) => (placeholderValues[p.key] || "").trim().length > 0,
   );
+
+  const allUrlFilled = urlButtons.every(
+    (b) => (placeholderValues[b.key] || "").trim().length > 0,
+  );
+
   const templateReady =
     Boolean(templateName) &&
     Boolean(selectedPhoneNumber) &&
-    (placeholders.length === 0 || allPlaceholdersFilled);
+    (bodyPlaceholders.length === 0 || allBodyFilled) &&
+    (urlButtons.length === 0 || allUrlFilled);
 
   // 🔎 filtra por nombre o teléfono en cliente (fallback si el server solo busca por número)
   const filteredResults =
@@ -267,13 +279,13 @@ const Modales = ({
       color: state.isDisabled
         ? "#94a3b8"
         : state.isSelected
-        ? "#0b1324"
-        : "#0f172a",
+          ? "#0b1324"
+          : "#0f172a",
       backgroundColor: state.isSelected
         ? "#DBEAFE"
         : state.isFocused
-        ? "#F1F5F9"
-        : "transparent",
+          ? "#F1F5F9"
+          : "transparent",
       ":active": {
         backgroundColor: state.isSelected ? "#DBEAFE" : "#E2E8F0",
       },
@@ -315,7 +327,7 @@ const Modales = ({
 
         const response = await chatApi.post(
           "/etiquetas_chat_center/agregarEtiqueta",
-          body
+          body,
         );
 
         Toast.fire({
@@ -340,7 +352,7 @@ const Modales = ({
   const eliminarProducto = async (id_etiqueta) => {
     try {
       await chatApi.delete(
-        `/etiquetas_chat_center/eliminarEtiqueta/${id_etiqueta}`
+        `/etiquetas_chat_center/eliminarEtiqueta/${id_etiqueta}`,
       );
       Toast.fire({ icon: "success", title: "Etiqueta eliminada" });
       fetchTags();
@@ -362,7 +374,7 @@ const Modales = ({
 
       const { data: result } = await chatApi.post(
         "/etiquetas_chat_center/toggleAsignacionEtiqueta",
-        body
+        body,
       );
 
       const isAssigned = result.asignado;
@@ -370,7 +382,7 @@ const Modales = ({
       setTagListAsginadas((prev) =>
         isAssigned
           ? [...prev, { id_etiqueta: idEtiqueta }]
-          : prev.filter((tag) => tag.id_etiqueta !== idEtiqueta)
+          : prev.filter((tag) => tag.id_etiqueta !== idEtiqueta),
       );
     } catch (error) {
       console.error("Error en toggleTagAssignment:", error);
@@ -400,8 +412,8 @@ const Modales = ({
       setImagenSeleccionada({ ...imagenSeleccionada, caption: value });
       setImagenes((prev) =>
         prev.map((img) =>
-          img.id === imagenSeleccionada.id ? { ...img, caption: value } : img
-        )
+          img.id === imagenSeleccionada.id ? { ...img, caption: value } : img,
+        ),
       );
     }
   };
@@ -414,7 +426,7 @@ const Modales = ({
     setImagenes((prev) => prev.filter((img) => img.id !== imageId));
     if (imagenSeleccionada?.id === imageId) {
       setImagenSeleccionada(
-        imagenes.length > 1 ? imagenes.find((img) => img.id !== imageId) : null
+        imagenes.length > 1 ? imagenes.find((img) => img.id !== imageId) : null,
       );
     }
   };
@@ -458,7 +470,7 @@ const Modales = ({
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       const data = await response.json();
@@ -472,7 +484,7 @@ const Modales = ({
     } catch (error) {
       console.error("Error en la solicitud de subida:", error);
       alert(
-        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde."
+        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde.",
       );
       return null;
     }
@@ -534,7 +546,7 @@ const Modales = ({
         telefono_configuracion,
         wamid,
         "",
-        ""
+        "",
       );
 
       /* cargar socket */
@@ -584,8 +596,10 @@ const Modales = ({
       setDocumentoSeleccionado({ ...documentoSeleccionado, caption: value });
       setDocumentos((prev) =>
         prev.map((doc) =>
-          doc.id === documentoSeleccionado.id ? { ...doc, caption: value } : doc
-        )
+          doc.id === documentoSeleccionado.id
+            ? { ...doc, caption: value }
+            : doc,
+        ),
       );
     }
   };
@@ -600,7 +614,7 @@ const Modales = ({
       setDocumentoSeleccionado(
         documentos.length > 1
           ? documentos.find((doc) => doc.id !== documentId)
-          : null
+          : null,
       );
     }
   };
@@ -644,7 +658,7 @@ const Modales = ({
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       const data = await response.json();
@@ -658,7 +672,7 @@ const Modales = ({
     } catch (error) {
       console.error("Error en la solicitud de subida:", error);
       alert(
-        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde."
+        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde.",
       );
       return null;
     }
@@ -720,7 +734,7 @@ const Modales = ({
         telefono_configuracion,
         wamid,
         "",
-        ""
+        "",
       );
 
       /* cargar socket */
@@ -771,8 +785,8 @@ const Modales = ({
       setVideoSeleccionado({ ...videoSeleccionado, caption: value });
       setVideos((prev) =>
         prev.map((vid) =>
-          vid.id === videoSeleccionado.id ? { ...vid, caption: value } : vid
-        )
+          vid.id === videoSeleccionado.id ? { ...vid, caption: value } : vid,
+        ),
       );
     }
   };
@@ -787,7 +801,7 @@ const Modales = ({
     setVideos((prev) => prev.filter((vid) => vid.id !== videoId));
     if (videoSeleccionado?.id === videoId) {
       setVideoSeleccionado(
-        videos.length > 1 ? videos.find((vid) => vid.id !== videoId) : null
+        videos.length > 1 ? videos.find((vid) => vid.id !== videoId) : null,
       );
     }
   };
@@ -832,7 +846,7 @@ const Modales = ({
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       const data = await response.json();
@@ -846,7 +860,7 @@ const Modales = ({
     } catch (error) {
       console.error("Error en la solicitud de subida:", error);
       alert(
-        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde."
+        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde.",
       );
       return null;
     }
@@ -908,7 +922,7 @@ const Modales = ({
         telefono_configuracion,
         wamid,
         "",
-        ""
+        "",
       );
 
       /* cargar socket */
@@ -949,7 +963,7 @@ const Modales = ({
           telefono: newContactPhone,
           apellido: "",
           id_configuracion,
-        }
+        },
       );
 
       if (data.status == 400) {
@@ -993,37 +1007,91 @@ const Modales = ({
         : templates || [];
 
     const selectedTemplate = source.find(
-      (t) => t.name === selectedTemplateName
+      (t) => t.name === selectedTemplateName,
     );
 
     if (selectedTemplate) {
-      const templateBodyComponent = selectedTemplate.components.find(
-        (comp) => comp.type === "BODY"
+      // Limpieza previa
+      setTemplateText("");
+      setPlaceholders([]);
+      setBodyPlaceholders([]);
+      setUrlButtons([]);
+      setPlaceholderValues({});
+
+      // 1) BODY
+      const templateBodyComponent = selectedTemplate.components?.find(
+        (comp) => comp.type === "BODY",
       );
 
-      if (templateBodyComponent && templateBodyComponent.text) {
-        const templateText = templateBodyComponent.text;
-        setTemplateText(templateText);
+      let bodyText = "";
+      let extractedBody = [];
 
-        // Extraer placeholders en formato {{1}}, {{2}}, etc.
-        const extractedPlaceholders = [
-          ...templateText.matchAll(/{{(.*?)}}/g),
-        ].map((match) => match[1]);
+      if (templateBodyComponent?.text) {
+        bodyText = templateBodyComponent.text;
+        setTemplateText(bodyText);
 
-        // Crear un estado inicial vacío para cada placeholder
-        const initialPlaceholderValues = {};
-        extractedPlaceholders.forEach((placeholder) => {
-          initialPlaceholderValues[placeholder] = "";
-        });
+        // extrae {{1}}, {{2}}...
+        extractedBody = [...bodyText.matchAll(/{{(.*?)}}/g)].map((m) => m[1]);
 
-        setPlaceholders(extractedPlaceholders);
-        setPlaceholderValues(initialPlaceholderValues); // Guardar placeholders vacíos para su edición
+        // guardamos como keys únicas
+        const bodyObjs = extractedBody.map((n) => ({
+          n,
+          key: `body_${n}`,
+        }));
+
+        setBodyPlaceholders(bodyObjs);
+        setPlaceholders(extractedBody); // si aún lo usa en otro lado, lo dejamos
       } else {
         setTemplateText("Este template no tiene un cuerpo definido.");
-        setPlaceholders([]);
-        setPlaceholderValues({});
       }
 
+      // 2) BUTTONS (URL)
+      // Algunos listados vienen como { type:"BUTTONS", buttons:[{type:"URL", url:"https://.../{{1}}", text:"Ver"}]}
+      const buttonsComp = selectedTemplate.components?.find(
+        (c) => c.type === "BUTTONS",
+      );
+
+      let urlBtns = [];
+      if (buttonsComp?.buttons?.length) {
+        buttonsComp.buttons.forEach((btn, idx) => {
+          const isUrl = (btn.type || "").toUpperCase() === "URL";
+          if (!isUrl) return;
+
+          // Busca placeholders dentro del "url"
+          const urlText = String(btn.url || "");
+          const matches = [...urlText.matchAll(/{{(.*?)}}/g)].map((m) => m[1]);
+
+          // En WA normalmente es 1 placeholder por botón URL, pero soportamos varios por seguridad
+          matches.forEach((ph) => {
+            urlBtns.push({
+              index: String(idx),
+              ph: String(ph),
+              key: `url_${idx}_${ph}`,
+              label: btn.text || "URL",
+              base: urlText, // ✅ AQUI: guarda "https://.../{{1}}"
+            });
+          });
+        });
+      }
+
+      setUrlButtons(urlBtns);
+
+      // 3) Inicializar placeholderValues (body + url)
+      const initial = {};
+
+      // body
+      extractedBody.forEach((n) => {
+        initial[`body_${n}`] = "";
+      });
+
+      // url
+      urlBtns.forEach((b) => {
+        initial[b.key] = "";
+      });
+
+      setPlaceholderValues(initial);
+
+      // 4) Idioma
       const templateLanguage = selectedTemplate.language || "es";
       setSelectedLanguage(templateLanguage);
     }
@@ -1042,13 +1110,33 @@ const Modales = ({
     }));
   };
 
-  const generarObjetoPlaceholders = (placeholders, placeholderValues) => {
-    // Crear un objeto con claves y valores
+  const generarObjetoPlaceholders = (
+    bodyPlaceholders,
+    urlButtons,
+    placeholderValues,
+  ) => {
     const resultado = {};
 
-    placeholders.forEach((placeholder) => {
-      resultado[placeholder] =
-        placeholderValues[placeholder] || `{{${placeholder}}}`;
+    // BODY => {"1":"asd","2":"42"}
+    (bodyPlaceholders || []).forEach((p) => {
+      resultado[String(p.n)] = (placeholderValues[p.key] || "").trim();
+    });
+
+    // URL => guarda valor y url completa
+    (urlButtons || []).forEach((b) => {
+      const valor = (placeholderValues[b.key] || "").trim();
+
+      // valor ingresado
+      resultado[b.key] = valor; // "url_0_1" : "31"
+
+      // ✅ url completa
+      if (b.base) {
+        const finalUrl = String(b.base).replace(
+          `{{${b.ph}}}`,
+          encodeURIComponent(valor),
+        );
+        resultado[`url_full_${b.index}_${b.ph}`] = finalUrl; // "url_full_0_1": "https://.../31"
+      }
     });
 
     return resultado;
@@ -1083,13 +1171,31 @@ const Modales = ({
           code: selectedLanguage,
         },
         components: [
-          {
-            type: "body",
-            parameters: placeholders.map((placeholder) => ({
-              type: "text",
-              text: placeholderValues[placeholder] || `{{${placeholder}}}`,
-            })),
-          },
+          // BODY (si existe)
+          ...(bodyPlaceholders.length > 0
+            ? [
+                {
+                  type: "body",
+                  parameters: bodyPlaceholders.map((p) => ({
+                    type: "text",
+                    text: placeholderValues[p.key] || `{{${p.n}}}`,
+                  })),
+                },
+              ]
+            : []),
+
+          // BUTTON URL (si existe)
+          ...urlButtons.map((b) => ({
+            type: "button",
+            sub_type: "url",
+            index: b.index, // "0", "1", ...
+            parameters: [
+              {
+                type: "text",
+                text: placeholderValues[b.key] || `{{${b.ph}}}`,
+              },
+            ],
+          })),
         ],
       },
     };
@@ -1104,7 +1210,7 @@ const Modales = ({
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -1126,13 +1232,14 @@ const Modales = ({
       let mid_mensaje = dataAdmin.id_telefono;
       let telefono_configuracion = dataAdmin.telefono;
       let ruta_archivo = generarObjetoPlaceholders(
-        placeholders,
-        placeholderValues
+        bodyPlaceholders,
+        urlButtons,
+        placeholderValues,
       );
 
       agregar_mensaje_enviado(
         templateText,
-        "text",
+        "template",
         JSON.stringify(ruta_archivo),
         recipientPhone,
         mid_mensaje,
@@ -1141,7 +1248,7 @@ const Modales = ({
         telefono_configuracion,
         wamid,
         templateName,
-        selectedLanguage
+        selectedLanguage,
       );
 
       /* cargar socket */
@@ -1164,7 +1271,7 @@ const Modales = ({
   const [motivoTransferencia, setMotivoTransferencia] = useState("");
 
   const [listaDepartamentosUsuario, setListaDepartamentosUsuario] = useState(
-    []
+    [],
   );
   const [loadingDepartamentos, setLoadingDepartamentos] = useState(false);
 
@@ -1185,7 +1292,7 @@ const Modales = ({
         "/departamentos_chat_center/listar_por_usuario",
         {
           id_sub_usuario: idSubUsuario,
-        }
+        },
       );
 
       // ✅ Ajustado a su controlador: { status, data }
@@ -1238,7 +1345,7 @@ const Modales = ({
           id_configuracion: selectedChat.id_configuracion,
           emisor: userData.nombre_encargado ?? "",
           source: selectedChat.source,
-        }
+        },
       );
 
       if (res.data.status === "success") {
@@ -1254,7 +1361,7 @@ const Modales = ({
         // Actualizar localmente el estado del chat seleccionado
 
         setMensajesAcumulados((prev) =>
-          prev.filter((chat) => chat.id !== selectedChat.id)
+          prev.filter((chat) => chat.id !== selectedChat.id),
         );
 
         setSelectedChat(null);
@@ -1450,7 +1557,7 @@ const Modales = ({
                                   key={index}
                                   onClick={() =>
                                     handleSelectPhoneNumber(
-                                      result.celular_cliente
+                                      result.celular_cliente,
                                     )
                                   }
                                   className={`cursor-pointer px-3 py-2 transition ${
@@ -1466,7 +1573,7 @@ const Modales = ({
                                     <span className="text-slate-700">
                                       {highlightMatch(
                                         result.nombre_cliente,
-                                        searchQuery
+                                        searchQuery,
                                       )}
                                     </span>
                                   </div>
@@ -1477,7 +1584,7 @@ const Modales = ({
                                     <span className="text-slate-700">
                                       {highlightMatch(
                                         result.celular_cliente,
-                                        searchQuery
+                                        searchQuery,
                                       )}
                                     </span>
                                   </div>
@@ -1548,22 +1655,57 @@ const Modales = ({
                     />
                   </div>
 
-                  {placeholders.map((ph) => (
-                    <div key={ph}>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        {`Valor para {{${ph}}}`}
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
-                             focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                        value={placeholderValues[ph] || ""}
-                        onChange={(e) =>
-                          handlePlaceholderChange(ph, e.target.value)
-                        }
-                      />
+                  {/* ============ PLACEHOLDERS BODY ============ */}
+                  {bodyPlaceholders.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                        Información del mensaje
+                      </p>
+
+                      {bodyPlaceholders.map((p) => (
+                        <div key={p.key}>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            {`Valor para {{${p.n}}}`}
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
+                 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            value={placeholderValues[p.key] || ""}
+                            onChange={(e) =>
+                              handlePlaceholderChange(p.key, e.target.value)
+                            }
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+
+                  {/* ============ PLACEHOLDERS URL ============ */}
+                  {urlButtons.length > 0 && (
+                    <div className="space-y-3 pt-2 border-t border-slate-200">
+                      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                        Información del URL (botón)
+                      </p>
+
+                      {urlButtons.map((b) => (
+                        <div key={b.key}>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            {`Valor para URL {{${b.ph}}} (Botón: ${b.label} / index ${b.index})`}
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
+                 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            value={placeholderValues[b.key] || ""}
+                            onChange={(e) =>
+                              handlePlaceholderChange(b.key, e.target.value)
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-center">
                     {!templateReady && (
@@ -2004,7 +2146,7 @@ const Modales = ({
                     <div className="mt-2 flex flex-wrap gap-2">
                       {[
                         ...new Set(
-                          tagList.map((t) => t.color_etiqueta).filter(Boolean)
+                          tagList.map((t) => t.color_etiqueta).filter(Boolean),
                         ),
                       ]
                         .slice(0, 8)
@@ -2155,7 +2297,7 @@ const Modales = ({
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {tagList.map((tag) => {
                     const isAssigned = tagListAsginadas?.some(
-                      (a) => a.id_etiqueta === tag.id_etiqueta
+                      (a) => a.id_etiqueta === tag.id_etiqueta,
                     );
                     return (
                       <li key={tag.id_etiqueta}>
@@ -2163,7 +2305,7 @@ const Modales = ({
                           onClick={() =>
                             toggleTagAssignment(
                               tag.id_etiqueta,
-                              selectedChat.id
+                              selectedChat.id,
                             )
                           }
                           className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left
@@ -2353,8 +2495,8 @@ const Modales = ({
                     !usuarioSeleccionado
                       ? "Primero seleccione un usuario"
                       : loadingDepartamentos
-                      ? "Cargando departamentos..."
-                      : "Seleccione un departamento"
+                        ? "Cargando departamentos..."
+                        : "Seleccione un departamento"
                   }
                   isClearable
                   isDisabled={!usuarioSeleccionado || loadingDepartamentos}

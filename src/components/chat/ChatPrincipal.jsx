@@ -553,8 +553,8 @@ const ChatPrincipal = ({
   const reenviarTemplate = async (
     template_name,
     language_code,
-    ruta_archivo, // contiene todos los datos del cliente
-    texto_mensaje, // contiene los placeholders usados
+    ruta_archivo, // JSON string con body y url_0_1, url_1_1, etc.
+    texto_mensaje, // texto BODY con {{1}}, {{2}}...
     id_wamid_mensaje,
     id,
   ) => {
@@ -563,14 +563,78 @@ const ChatPrincipal = ({
     const numeroDestino = selectedChat.celular_cliente;
     const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
 
-    const datos = JSON.parse(ruta_archivo);
-    const placeholders = [...texto_mensaje.matchAll(/{{(.*?)}}/g)].map(
-      (m) => m[1],
-    );
-    const parametros = placeholders.map((clave) => ({
+    let datos = {};
+    try {
+      datos = JSON.parse(ruta_archivo || "{}");
+    } catch (e) {
+      console.error("ruta_archivo no es JSON válido:", e);
+      datos = {};
+    }
+
+    // -------------------------
+    // 1) BODY parameters ({{1}}, {{2}}...)
+    // -------------------------
+    const placeholdersBody = [
+      ...String(texto_mensaje || "").matchAll(/{{(.*?)}}/g),
+    ].map((m) => String(m[1]));
+
+    const parametrosBody = placeholdersBody.map((clave) => ({
       type: "text",
-      text: datos[clave] ?? "",
+      text: String(datos[clave] ?? ""), // aquí espera {"1":"asd","2":"42"}
     }));
+
+    // -------------------------
+    // 2) BUTTON URL parameters
+    // -------------------------
+    // Espera keys tipo: "url_0_1": "31"
+    // (idx botón = 0, placeholder = 1)
+    const urlEntries = Object.entries(datos).filter(([k]) =>
+      /^url_\d+_\d+$/.test(k),
+    );
+
+    // Normaliza en estructuras por botón
+    // { "0": [ {ph:"1", value:"31"} ], "1": [...] }
+    const urlByButtonIndex = {};
+    urlEntries.forEach(([k, v]) => {
+      const [, idx, ph] = k.split("_"); // ["url","0","1"]
+      if (!urlByButtonIndex[idx]) urlByButtonIndex[idx] = [];
+      urlByButtonIndex[idx].push({ ph, value: String(v ?? "") });
+    });
+
+    // Para WhatsApp Cloud API: un componente por botón url:
+    // { type:"button", sub_type:"url", index:"0", parameters:[{type:"text", text:"31"}] }
+    const buttonComponents = Object.entries(urlByButtonIndex).map(
+      ([idx, arr]) => {
+        // normalmente 1 placeholder por botón URL; si hubiera varios, se mandan en orden
+        const ordered = arr.sort((a, b) => Number(a.ph) - Number(b.ph));
+
+        return {
+          type: "button",
+          sub_type: "url",
+          index: String(idx),
+          parameters: ordered.map((x) => ({
+            type: "text",
+            text: x.value,
+          })),
+        };
+      },
+    );
+
+    // -------------------------
+    // 3) Components finales
+    // -------------------------
+    const components = [];
+
+    if (parametrosBody.length > 0) {
+      components.push({
+        type: "body",
+        parameters: parametrosBody,
+      });
+    }
+
+    if (buttonComponents.length > 0) {
+      components.push(...buttonComponents);
+    }
 
     const payload = {
       messaging_product: "whatsapp",
@@ -579,19 +643,17 @@ const ChatPrincipal = ({
       template: {
         name: template_name,
         language: { code: language_code },
-        components: [{ type: "body", parameters: parametros }],
+        components,
       },
-    };
-
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
     };
 
     try {
       const response = await fetch(apiUrl, {
         method: "POST",
-        headers,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       });
 
@@ -952,6 +1014,33 @@ const ChatPrincipal = ({
     );
   };
 
+  const parseRutaArchivo = (ruta) => {
+    try {
+      return ruta ? JSON.parse(ruta) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const getUrlFullItems = (valores) => {
+    // Busca keys tipo: url_full_0_1, url_full_1_1, etc.
+    const entries = Object.entries(valores || {}).filter(([k, v]) => {
+      return /^url_full_\d+_\d+$/.test(k) && typeof v === "string" && v.trim();
+    });
+
+    // Normaliza para render: [{ label, url }]
+    return entries.map(([k, url]) => {
+      const parts = k.split("_"); // ["url","full","0","1"]
+      const index = parts[2]; // "0"
+      return {
+        key: k,
+        index,
+        url,
+        label: `Abrir enlace`, // si luego quiere el nombre del botón, lo mejoramos
+      };
+    });
+  };
+
   return (
     <>
       <div
@@ -1220,17 +1309,57 @@ const ChatPrincipal = ({
                               </div>
                             </div>
                           ) : mensaje.tipo_mensaje === "template" ? (
-                            <p>
-                              {mensaje.texto_mensaje.replace(
+                            (() => {
+                              const valores = parseRutaArchivo(
+                                mensaje.ruta_archivo,
+                              );
+                              const urlFullItems = getUrlFullItems(valores);
+
+                              const textoRender = (
+                                mensaje.texto_mensaje || ""
+                              ).replace(
                                 /\{\{(.*?)\}\}/g,
-                                (match, key) => {
-                                  const valores = JSON.parse(
-                                    mensaje.ruta_archivo,
-                                  );
-                                  return valores[key.trim()] || match;
-                                },
-                              )}
-                            </p>
+                                (match, key) =>
+                                  valores[String(key).trim()] || match,
+                              );
+
+                              return (
+                                <div className="space-y-2">
+                                  <p>{textoRender}</p>
+
+                                  {urlFullItems.length > 0 && (
+                                    <div className="mt-2 flex flex-col gap-2">
+                                      {urlFullItems.map((it) => (
+                                        <a
+                                          key={it.key}
+                                          href={it.url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="
+                                          inline-flex items-center justify-between gap-3
+                                          rounded-xl border border-slate-200 bg-white/70
+                                          px-3 py-2 text-sm
+                                          hover:bg-slate-50 transition
+                                          shadow-sm
+                                        "
+                                        >
+                                          <span className="inline-flex items-center gap-2 text-slate-700 font-semibold">
+                                            <i className="bx bx-link-external text-lg text-blue-600" />
+                                            {it.label}
+                                          </span>
+
+                                          <span className="text-xs text-blue-600 font-semibold">
+                                            Ver
+                                            <i className="bx bx-chevron-right text-base align-middle ml-1" />
+                                          </span>
+                                        </a>
+                                        
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()
                           ) : mensaje.tipo_mensaje === "audio" ? (
                             <WaAudioPlayer src={mensaje.ruta_archivo} />
                           ) : mensaje.tipo_mensaje === "image" ? (
