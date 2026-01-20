@@ -30,7 +30,7 @@ const ConversationItem = memo(
         // Ejecutar click inmediatamente para mejor UX
         onClick(conversation);
       },
-      [conversation, onClick]
+      [conversation, onClick],
     );
 
     const handleContextMenu = useCallback(
@@ -39,7 +39,7 @@ const ConversationItem = memo(
           onContextMenu(e, conversation);
         }
       },
-      [conversation, onContextMenu]
+      [conversation, onContextMenu],
     );
     const getSourceIcon = (source) => {
       switch (source) {
@@ -100,9 +100,9 @@ const ConversationItem = memo(
       >
         {/* Avatar y estado online */}
         <div className="relative flex-shrink-0 mr-3">
-          {conversation.profile_pic_url ? (
+          {conversation.imagePath ? (
             <img
-              src={conversation.profile_pic_url}
+              src={conversation.imagePath}
               alt={conversation.nombre_cliente}
               className="w-12 h-12 rounded-full object-cover"
               onError={(e) => {
@@ -113,7 +113,7 @@ const ConversationItem = memo(
           ) : null}
           <div
             className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-gray-700 font-semibold"
-            style={{ display: conversation.profile_pic_url ? "none" : "flex" }}
+            style={{ display: conversation.imagePath ? "none" : "flex" }}
           >
             {conversation.nombre_cliente?.charAt(0)?.toUpperCase() || "?"}
           </div>
@@ -198,7 +198,7 @@ const ConversationItem = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 ConversationItem.displayName = "ConversationItem";

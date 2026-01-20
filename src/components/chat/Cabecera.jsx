@@ -78,7 +78,7 @@ const Cabecera = ({
       setOpenMenu("productos");
     } else if (
       ["/integraciones", "/calendario", "/asistentes"].includes(
-        location.pathname
+        location.pathname,
       )
     ) {
       setOpenMenu("herramientas");
@@ -217,7 +217,7 @@ const Cabecera = ({
           chatId,
           nuevoEstado,
           bot_openia,
-        }
+        },
       );
 
       const data = response.data;
@@ -234,7 +234,7 @@ const Cabecera = ({
       }));
 
       setMensajesAcumulados((prev) =>
-        prev.filter((chat) => chat.id !== selectedChat.id)
+        prev.filter((chat) => chat.id !== selectedChat.id),
       );
     } catch (error) {
       console.error("Error al actualizar el chat:", error);
@@ -256,7 +256,7 @@ const Cabecera = ({
         {
           chatId,
           nuevoEstado,
-        }
+        },
       );
 
       const data = await response.data;
@@ -272,8 +272,8 @@ const Cabecera = ({
           prev.map((chat) =>
             chat.id === chatId
               ? { ...chat, bot_openia: nuevoEstado } // 🔥 actualiza SOLO el campo bot_openia
-              : chat
-          )
+              : chat,
+          ),
         );
       } else {
         console.error("Error al actualizar el bot:", data);
@@ -502,7 +502,7 @@ const Cabecera = ({
                   localStorage.setItem("id_configuracion", id_configuracion);
                   localStorage.setItem(
                     "id_plataforma_conf",
-                    id_plataforma_conf
+                    id_plataforma_conf,
                   );
                   navigate("/canal-conexiones");
                 }}
@@ -518,7 +518,7 @@ const Cabecera = ({
                   localStorage.setItem("id_configuracion", id_configuracion);
                   localStorage.setItem(
                     "id_plataforma_conf",
-                    id_plataforma_conf
+                    id_plataforma_conf,
                   );
                   navigate("/contactos");
                 }}
@@ -534,7 +534,7 @@ const Cabecera = ({
                   localStorage.setItem("id_configuracion", id_configuracion);
                   localStorage.setItem(
                     "id_plataforma_conf",
-                    id_plataforma_conf
+                    id_plataforma_conf,
                   );
 
                   if (tipo_configuracion === "ventas") {
@@ -559,7 +559,7 @@ const Cabecera = ({
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                 // opcional: marcar activo si estás en alguna ruta de este grupo
                 ["/integraciones", "/calendario", "/asistentes"].includes(
-                  location.pathname
+                  location.pathname,
                 )
                   ? "bg-gray-200 font-semibold"
                   : ""
@@ -615,7 +615,7 @@ const Cabecera = ({
                     localStorage.setItem("id_configuracion", id_configuracion);
                     localStorage.setItem(
                       "id_plataforma_conf",
-                      id_plataforma_conf
+                      id_plataforma_conf,
                     );
                   }}
                 >
@@ -777,8 +777,8 @@ const Cabecera = ({
               </button>
               <img
                 src={
-                  selectedChat?.profile_pic_url
-                    ? selectedChat.profile_pic_url
+                  selectedChat?.imagePath
+                    ? selectedChat.imagePath
                     : "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png"
                 }
                 alt="Avatar"
@@ -792,14 +792,28 @@ const Cabecera = ({
               />
               <div className="min-w-0">
                 <span className="block text-black font-semibold text-lg truncate">
-                  {chatMessages.length > 0 && selectedChat
+                  {selectedChat
                     ? selectedChat.nombre_cliente
                     : "SELECCIONE UN CHAT"}
                 </span>
                 <span className="block text-sm text-gray-600 truncate">
-                  {chatMessages.length > 0 && selectedChat
-                    ? "+" + selectedChat.celular_cliente
-                    : "-------"}
+                  {selectedChat
+                    ? selectedChat.source === "wa"
+                      ? selectedChat.celular_cliente
+                        ? `+${selectedChat.celular_cliente}`
+                        : "—"
+                      : selectedChat.source === "ms"
+                        ? selectedChat.external_id
+                          ? `MS • ${selectedChat.external_id}`
+                          : "MS • —"
+                        : selectedChat.source === "ig"
+                          ? selectedChat.external_id
+                            ? `IG • ${selectedChat.external_id}`
+                            : "IG • —"
+                          : selectedChat.external_id ||
+                            selectedChat.celular_cliente ||
+                            "—"
+                    : "—"}
                 </span>
               </div>
             </div>
@@ -811,7 +825,7 @@ const Cabecera = ({
                 botActivo={selectedChat.bot_openia === 1}
                 onToggle={() =>
                   handleChangeChatBotOpenia(
-                    selectedChat.bot_openia === 1 ? 0 : 1
+                    selectedChat.bot_openia === 1 ? 0 : 1,
                   )
                 }
               />
@@ -860,7 +874,7 @@ const Cabecera = ({
                       role="menuitem"
                       onClick={() =>
                         handleChangeChatStatus(
-                          selectedChat.chat_cerrado === 0 ? 1 : 0
+                          selectedChat.chat_cerrado === 0 ? 1 : 0,
                         )
                       }
                       className={`flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm rounded-lg transition-colors
@@ -967,8 +981,9 @@ const Cabecera = ({
               tagList
                 .filter((tag) =>
                   tagListAsginadas.some(
-                    (assignedTag) => assignedTag.id_etiqueta === tag.id_etiqueta
-                  )
+                    (assignedTag) =>
+                      assignedTag.id_etiqueta === tag.id_etiqueta,
+                  ),
                 )
                 .map((tag) => (
                   <div

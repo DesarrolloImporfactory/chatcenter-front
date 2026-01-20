@@ -56,7 +56,7 @@ export const createConversationBase = () => ({
   mensajes_pendientes: 0,
   visto: 0,
   nombre_cliente: "",
-  profile_pic_url: null,
+  imagePath: null,
   id_encargado: null,
   etiquetas: [],
   transporte: null,

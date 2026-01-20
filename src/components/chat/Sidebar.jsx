@@ -86,7 +86,7 @@ function expandirTemplate(texto = "", ruta_archivo, limite = 90) {
       const valores = JSON.parse(ruta_archivo);
       out = texto.replace(
         /\{\{(.*?)\}\}/g,
-        (m, key) => valores[key.trim()] ?? m
+        (m, key) => valores[key.trim()] ?? m,
       );
     } catch {
       /* ignore */
@@ -118,7 +118,7 @@ const toTitleCaseEs = (str = "") => {
   const words = str.toLowerCase().split(" ");
   return words
     .map((w, i) =>
-      i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)
+      i > 0 && ex.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1),
     )
     .join(" ");
 };
@@ -136,7 +136,11 @@ const getIdLabel = (m) =>
 /* ===================== Heurísticas ===================== */
 const esMensajePropio = (m) =>
   Boolean(
-    m?.from_me ?? m?.es_propio ?? m?.yo ?? m?.is_from_me ?? m?.rol_mensaje === 1
+    m?.from_me ??
+    m?.es_propio ??
+    m?.yo ??
+    m?.is_from_me ??
+    m?.rol_mensaje === 1,
   );
 function extraerRespuesta(m) {
   const ref =
@@ -295,7 +299,7 @@ function PreviewAudioPlayer({ src /* , autoTrigger, isOpen */ }) {
     if (a.paused) {
       // anuncio: “paren todos menos yo”
       document.dispatchEvent(
-        new CustomEvent(BUS, { detail: { from: myId.current } })
+        new CustomEvent(BUS, { detail: { from: myId.current } }),
       );
       try {
         a.muted = false;
@@ -922,7 +926,7 @@ function MessageItem({
   const nombre = acortarTexto(
     formatNombreCliente(mensaje?.nombre_cliente ?? ""),
     10,
-    25
+    25,
   );
   const numero = getIdLabel(mensaje);
   const tienePendientes = (mensaje?.mensajes_pendientes ?? 0) > 0;
@@ -946,7 +950,7 @@ function MessageItem({
   const previewCortoBase = expandirTemplate(
     tipoDetectado === "location" ? "[Ubicación]" : textoPreview,
     mensaje?.ruta_archivo,
-    chatTemporales
+    chatTemporales,
   );
 
   const previewCorto = esNotificacion
@@ -973,16 +977,14 @@ function MessageItem({
   const fallbackAvatar =
     "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
   const avatarUrl =
-    !imgError && mensaje?.profile_pic_url
-      ? mensaje.profile_pic_url
-      : fallbackAvatar;
+    !imgError && mensaje?.imagePath ? mensaje.imagePath : fallbackAvatar;
 
   const own = esMensajePropio(mensaje);
   const { ref: replyRef, autor: replyAuthor } = extraerRespuesta(mensaje);
 
   useEffect(() => {
-  setPreviewOpen(false);
-}, [selectedChat?.id]);
+    setPreviewOpen(false);
+  }, [selectedChat?.id]);
 
   return (
     <li
@@ -994,8 +996,8 @@ function MessageItem({
         seleccionado
           ? "bg-slate-50 cursor-default"
           : esNotificacion
-          ? "bg-amber-100/70 hover:bg-amber-50 border-l-4 border-amber-300"
-          : "hover:bg-slate-50 hover:shadow-xs",
+            ? "bg-amber-100/70 hover:bg-amber-50 border-l-4 border-amber-300"
+            : "hover:bg-slate-50 hover:shadow-xs",
       ].join(" ")}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave} // ⬅️ actualizado
@@ -1029,8 +1031,8 @@ function MessageItem({
               esNotificacion
                 ? "ring-amber-200"
                 : tienePendientes
-                ? "ring-blue-500"
-                : "ring-slate-200",
+                  ? "ring-blue-500"
+                  : "ring-slate-200",
               "group-hover:ring-slate-300 shadow-sm",
             ].join(" ")}
           >
@@ -1102,10 +1104,10 @@ function MessageItem({
             {tipoDetectado === "audio"
               ? "🎧 Audio"
               : tipoDetectado === "image"
-              ? "🖼️ Imagen"
-              : tipoDetectado === "location"
-              ? "📍 Ubicación"
-              : previewCorto}
+                ? "🖼️ Imagen"
+                : tipoDetectado === "location"
+                  ? "📍 Ubicación"
+                  : previewCorto}
           </span>
         </div>
       </div>
@@ -1215,8 +1217,8 @@ export const Sidebar = ({
         backgroundColor: isSelected
           ? "#2563eb"
           : isFocused
-          ? "#eff6ff"
-          : undefined,
+            ? "#eff6ff"
+            : undefined,
         color: isSelected ? "#fff" : "#0f172a",
       }),
       multiValue: (base) => ({
@@ -1236,7 +1238,7 @@ export const Sidebar = ({
       placeholder: (base) => ({ ...base, color: "#64748b" }),
       menuPortal: (base) => ({ ...base, zIndex: 9999 }),
     }),
-    []
+    [],
   );
 
   const FilterChip = ({ label, onClear }) => (
@@ -1413,10 +1415,10 @@ export const Sidebar = ({
                       {channelFilter === "wa"
                         ? "WhatsApp"
                         : channelFilter === "ms"
-                        ? "Messenger"
-                        : channelFilter === "ig"
-                        ? "Instagram"
-                        : "Todos los canales"}
+                          ? "Messenger"
+                          : channelFilter === "ig"
+                            ? "Instagram"
+                            : "Todos los canales"}
                     </span>
                   </span>
                   <i className="bx bx-chevron-down text-lg ml-1 shrink-0" />
@@ -1651,7 +1653,7 @@ export const Sidebar = ({
                     label={`Etiqueta: ${e.label}`}
                     onClear={() => {
                       const next = selectedEtiquetas.filter(
-                        (x) => x.value !== e.value
+                        (x) => x.value !== e.value,
                       );
                       setSelectedEtiquetas(next);
                     }}
@@ -1790,10 +1792,10 @@ export const Sidebar = ({
               channelFilter === "ms"
                 ? filteredChats.filter((c) => matchesFilter(c, "ms"))
                 : channelFilter === "wa"
-                ? filteredChats.filter((c) => matchesFilter(c, "wa"))
-                : channelFilter === "ig"
-                ? filteredChats.filter((c) => matchesFilter(c, "ig"))
-                : filteredChats;
+                  ? filteredChats.filter((c) => matchesFilter(c, "wa"))
+                  : channelFilter === "ig"
+                    ? filteredChats.filter((c) => matchesFilter(c, "ig"))
+                    : filteredChats;
 
             const list = [...base].sort(compareChats);
             console.log("Lista de chats en sidebar:", list);
@@ -1812,7 +1814,7 @@ export const Sidebar = ({
               const { color, estado_guia } = obtenerEstadoGuia(
                 mensaje.transporte,
                 mensaje.estado_factura,
-                mensaje.novedad_info
+                mensaje.novedad_info,
               );
               const seleccionado = selectedChat?.id === mensaje.id;
 

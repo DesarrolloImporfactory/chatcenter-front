@@ -79,7 +79,6 @@ const DatosUsuario = ({
   const [solucionLaar, setSolucionLaar] = useState("");
   const [enviando, setEnviando] = useState(false);
 
-
   /* mostrar cotizaciones */
   const [isCotizacionesOpen, setIsCotizacionesOpen] = useState(false);
   const [loadingCotizaciones, setLoadingCotizaciones] = useState(false);
@@ -111,7 +110,7 @@ const DatosUsuario = ({
       formData.append("numeracion", "00");
       formData.append(
         "referencia",
-        datosNovedadExtra?.factura?.[0]?.referencia
+        datosNovedadExtra?.factura?.[0]?.referencia,
       );
       formData.append("telefono", telefono);
       formData.append("celular", datosNovedadExtra.factura[0].telefono);
@@ -125,7 +124,7 @@ const DatosUsuario = ({
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       const data = await res.json();
@@ -194,7 +193,7 @@ const DatosUsuario = ({
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       const data = await response.json();
@@ -247,7 +246,7 @@ const DatosUsuario = ({
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       if (res.ok) {
@@ -289,7 +288,7 @@ const DatosUsuario = ({
         `https://new.imporsuitpro.com/Pedidos/devolver_novedad/${novedadSeleccionada.guia_novedad}`,
         {
           method: "POST",
-        }
+        },
       );
 
       const data = await res.json();
@@ -338,7 +337,7 @@ const DatosUsuario = ({
   const handleVolverOfrecer = async () => {
     try {
       const res = await fetch(
-        `https://new.imporsuitpro.com/novedades/datos/${novedadSeleccionada.guia_novedad}`
+        `https://new.imporsuitpro.com/novedades/datos/${novedadSeleccionada.guia_novedad}`,
       );
       const data = await res.json();
       setDatosNovedadExtra(data); // guarda todo, puedes extraer luego lo necesario
@@ -348,7 +347,7 @@ const DatosUsuario = ({
       Swal.fire(
         "Error",
         "No se pudo obtener los datos para gestionar la novedad",
-        "error"
+        "error",
       );
     }
   };
@@ -437,7 +436,7 @@ const DatosUsuario = ({
                   .join("")}
               </div>
             </div>
-          `
+          `,
             )
             .join("")}
         </div>
@@ -492,12 +491,12 @@ const DatosUsuario = ({
     formulario.append("id_producto_venta", idProductoVenta);
     formulario.append(
       "nombre_responsable",
-      getValues("nombre_responsable") || ""
+      getValues("nombre_responsable") || "",
     );
     formulario.append("recaudo", getValues("cod_entrega") || "");
     formulario.append(
       "numero_factura",
-      facturaSeleccionada.numero_factura || ""
+      facturaSeleccionada.numero_factura || "",
     );
     formulario.append("total_venta", total || 0);
     formulario.append("transportadora", transportadora);
@@ -505,7 +504,7 @@ const DatosUsuario = ({
     formulario.append("provinciaO", getValues("provinciaO") || "");
     formulario.append(
       "url_google_speed_pedido",
-      getValues("url_google_speed_pedido") || ""
+      getValues("url_google_speed_pedido") || "",
     );
 
     if (transportadora === 4) {
@@ -513,14 +512,14 @@ const DatosUsuario = ({
         "contiene",
         facturaSeleccionada.productos
           .map((p) => `${p.nombre_producto} X${p.cantidad}`)
-          .join(" ")
+          .join(" "),
       );
     } else {
       formulario.append(
         "contiene",
         facturaSeleccionada.productos
           .map((p) => `${p.cantidad} x ${p.nombre_producto}`)
-          .join(", ")
+          .join(", "),
       );
     }
     if (transportadora === 1) {
@@ -540,10 +539,10 @@ const DatosUsuario = ({
         transportadora === 1
           ? "https://new.imporsuitpro.com/Guias/generarServientrega"
           : transportadora === 2
-          ? "https://new.imporsuitpro.com/Guias/generarLaar"
-          : transportadora === 3
-          ? "https://new.imporsuitpro.com/Guias/generarSpeed"
-          : "https://new.imporsuitpro.com/Guias/generarGintracom";
+            ? "https://new.imporsuitpro.com/Guias/generarLaar"
+            : transportadora === 3
+              ? "https://new.imporsuitpro.com/Guias/generarSpeed"
+              : "https://new.imporsuitpro.com/Guias/generarGintracom";
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -566,8 +565,8 @@ const DatosUsuario = ({
         setFacturasChatSeleccionado((prevFacturas) =>
           prevFacturas.filter(
             (factura) =>
-              factura.numero_factura !== facturaSeleccionada.numero_factura
-          )
+              factura.numero_factura !== facturaSeleccionada.numero_factura,
+          ),
         );
 
         // Limpia la factura seleccionada
@@ -649,7 +648,7 @@ const DatosUsuario = ({
     try {
       const id_plataforma_usuario = parseInt(
         localStorage.getItem("id_plataforma_conf"),
-        10
+        10,
       );
 
       const response = await axios.post(
@@ -668,7 +667,7 @@ const DatosUsuario = ({
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
+        },
       );
 
       setProductosAdicionales(response.data.products);
@@ -685,7 +684,7 @@ const DatosUsuario = ({
       const yaExiste = (facturaSeleccionada?.productos || []).some(
         (p) =>
           String(p.id_producto) === String(producto.id_producto) &&
-          String(p.sku) === String(producto.sku)
+          String(p.sku) === String(producto.sku),
       );
 
       if (yaExiste) {
@@ -767,8 +766,8 @@ const DatosUsuario = ({
                   ],
                   monto_factura: factura.monto_factura + producto.pvp * 1,
                 }
-              : factura
-          )
+              : factura,
+          ),
         );
 
         setSelectedImageId(null);
@@ -980,7 +979,7 @@ const DatosUsuario = ({
       if (!prev?.productos) return prev;
 
       const productosActualizados = prev.productos.map((p) =>
-        p.id_detalle === producto.id_detalle ? { ...p, cantidad: nextQty } : p
+        p.id_detalle === producto.id_detalle ? { ...p, cantidad: nextQty } : p,
       );
 
       const delta =
@@ -1004,14 +1003,14 @@ const DatosUsuario = ({
               productos: factura.productos.map((p) =>
                 p.id_detalle === producto.id_detalle
                   ? { ...p, cantidad: nextQty }
-                  : p
+                  : p,
               ),
               monto_factura:
                 factura.monto_factura +
                 (nextQty - producto.cantidad) * (producto.precio_venta || 0),
             }
-          : factura
-      )
+          : factura,
+      ),
     );
 
     // Reseteos que ya hacías
@@ -1042,7 +1041,7 @@ const DatosUsuario = ({
       if (!prev?.productos) return prev;
 
       const productosActualizados = prev.productos.map((p) =>
-        p.id_detalle === producto.id_detalle ? { ...p, cantidad: qty } : p
+        p.id_detalle === producto.id_detalle ? { ...p, cantidad: qty } : p,
       );
 
       return {
@@ -1060,13 +1059,13 @@ const DatosUsuario = ({
               productos: factura.productos.map((p) =>
                 p.id_detalle === producto.id_detalle
                   ? { ...p, cantidad: qty }
-                  : p
+                  : p,
               ),
               monto_factura:
                 factura.monto_factura + diff * (producto.precio_venta || 0),
             }
-          : factura
-      )
+          : factura,
+      ),
     );
 
     setSelectedImageId(null);
@@ -1121,7 +1120,7 @@ const DatosUsuario = ({
       const productosActualizados = prev.productos.map((p) =>
         p.id_detalle === producto.id_detalle
           ? { ...p, precio_venta: parseFloat(nuevoPrecio) || 0 }
-          : p
+          : p,
       );
 
       // Actualizamos facturaSeleccionada
@@ -1131,7 +1130,7 @@ const DatosUsuario = ({
         monto_factura: productosActualizados.reduce(
           (total, producto) =>
             total + producto.precio_venta * producto.cantidad,
-          0
+          0,
         ),
       };
 
@@ -1153,7 +1152,7 @@ const DatosUsuario = ({
                 productos: productosActualizados,
                 monto_factura: updatedFacturaSeleccionada.monto_factura,
               }
-            : factura
+            : factura,
         );
         return updatedFacturas;
       });
@@ -1187,7 +1186,7 @@ const DatosUsuario = ({
       } else {
         console.error(
           "Error al calcularGuiaDirecta (status lógico no OK):",
-          data
+          data,
         );
       }
     } catch (error) {
@@ -1199,7 +1198,7 @@ const DatosUsuario = ({
     const waLink =
       "https://wa.me/593998681178?text=" +
       encodeURIComponent(
-        "Hola, SERVIENTREGA ya no está disponible en nuestra plataforma. ¿Pueden ayudarme a migrar a una alternativa estable?"
+        "Hola, SERVIENTREGA ya no está disponible en nuestra plataforma. ¿Pueden ayudarme a migrar a una alternativa estable?",
       );
 
     Swal.fire({
@@ -1396,7 +1395,7 @@ const DatosUsuario = ({
             cantidad,
             precio,
             total,
-          }
+          },
         );
         setSelectedImageId(null);
         setValidar_generar(false);
@@ -1412,7 +1411,7 @@ const DatosUsuario = ({
         console.error("Error updating values:", error);
       }
     },
-    [facturaSeleccionada.id_factura]
+    [facturaSeleccionada.id_factura],
   );
 
   // Manejo de ciudades por provincia
@@ -1435,7 +1434,7 @@ const DatosUsuario = ({
       facturaSeleccionada.productos?.reduce(
         (acumulado, producto) =>
           acumulado + producto.precio_venta * producto.cantidad,
-        0
+        0,
       ) || 0;
     setTotal(nuevoTotal);
   }, [facturaSeleccionada.productos]);
@@ -1446,7 +1445,7 @@ const DatosUsuario = ({
         (acumulado, producto) =>
           acumulado +
           (Number(producto.pcp) || 0) * (Number(producto.cantidad) || 0),
-        0
+        0,
       ) || 0;
 
     setCosto_general(costo_general);
@@ -1538,17 +1537,17 @@ const DatosUsuario = ({
     if (guiaSeleccionada.transporte === "SERVIENTREGA") {
       window.open(
         `https://www.servientrega.com.ec/Tracking/?guia=${guiaSeleccionada.numero_guia}&tipo=GUIA`,
-        "_blank"
+        "_blank",
       );
     } else if (guiaSeleccionada.transporte === "LAAR") {
       window.open(
         `https://fenixoper.laarcourier.com/Tracking/Guiacompleta.aspx?guia=${guiaSeleccionada.numero_guia}`,
-        "_blank"
+        "_blank",
       );
     } else if (guiaSeleccionada.transporte === "GINTRACOM") {
       window.open(
         `https://ec.gintracom.site/web/site/tracking?guia=${guiaSeleccionada.numero_guia}`,
-        "_blank"
+        "_blank",
       );
     } else if (guiaSeleccionada.transporte === "SPEED") {
     } else {
@@ -1575,7 +1574,7 @@ const DatosUsuario = ({
             setFacturaSeleccionada((prevState) => ({
               ...prevState,
               productos: prevState.productos.filter(
-                (producto) => producto.id_detalle !== id
+                (producto) => producto.id_detalle !== id,
               ),
             }));
 
@@ -1586,11 +1585,11 @@ const DatosUsuario = ({
                   ? {
                       ...factura,
                       productos: factura.productos.filter(
-                        (producto) => producto.id_detalle !== id
+                        (producto) => producto.id_detalle !== id,
                       ),
                     }
-                  : factura
-              )
+                  : factura,
+              ),
             );
 
             setSelectedImageId(null);
@@ -1609,7 +1608,7 @@ const DatosUsuario = ({
             Swal.fire(
               "Error",
               "Ocurrió un error al intentar eliminar el producto.",
-              "error"
+              "error",
             );
           });
       }
@@ -1627,7 +1626,7 @@ const DatosUsuario = ({
           headers: {
             Authorization: `Bearer ${ACCESS_TOKEN}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -1642,7 +1641,7 @@ const DatosUsuario = ({
 
       if (!plantilla) {
         console.error(
-          `No se encontró la plantilla con nombre: ${templateName}`
+          `No se encontró la plantilla con nombre: ${templateName}`,
         );
         return { text: null, language: null };
       }
@@ -1671,7 +1670,7 @@ const DatosUsuario = ({
         "/configuraciones/obtener_template_transportadora",
         {
           id_plataforma,
-        }
+        },
       );
 
       const template = response.data?.data?.template;
@@ -1686,7 +1685,7 @@ const DatosUsuario = ({
   const enviar_guia_plantilla = async (guia, formulario) => {
     try {
       let TEMPLATE_NAME = await obtener_plantilla(
-        formulario.get("id_plataforma")
+        formulario.get("id_plataforma"),
       );
 
       if (!TEMPLATE_NAME) {
@@ -1762,7 +1761,7 @@ const DatosUsuario = ({
             Authorization: `Bearer ${ACCESS_TOKEN}`,
           },
           body: JSON.stringify(mensaje),
-        }
+        },
       );
 
       const data = await response.json();
@@ -1794,7 +1793,7 @@ const DatosUsuario = ({
         telefono_configuracion,
         wamid,
         "",
-        ""
+        "",
       );
 
       return { success: true, data };
@@ -1808,22 +1807,22 @@ const DatosUsuario = ({
     if (guiaSeleccionada.transporte === "SERVIENTREGA") {
       window.open(
         `https://guias.imporsuitpro.com/Servientrega/guia/${guiaSeleccionada.numero_guia}`,
-        "_blank"
+        "_blank",
       );
     } else if (guiaSeleccionada.transporte === "LAAR") {
       window.open(
         `https://api.laarcourier.com:9727/guias/pdfs/DescargarV2?guia=${guiaSeleccionada.numero_guia}`,
-        "_blank"
+        "_blank",
       );
     } else if (guiaSeleccionada.transporte === "GINTRACOM") {
       window.open(
         `https://guias.imporsuitpro.com/Gintracom/label/${guiaSeleccionada.numero_guia}`,
-        "_blank"
+        "_blank",
       );
     } else if (guiaSeleccionada.transporte === "SPEED") {
       window.open(
         `https://guias.imporsuitpro.com/Speed/descargar/${guiaSeleccionada.numero_guia}`,
-        "_blank"
+        "_blank",
       );
     } else {
       console.error("Transportadora desconocida");
@@ -1845,7 +1844,7 @@ const DatosUsuario = ({
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       const data = await response.json();
@@ -1882,8 +1881,8 @@ const DatosUsuario = ({
           prevState.map((guia) =>
             guia.numero_guia === numero_guia
               ? { ...guia, estado_guia_sistema: estado }
-              : guia
-          )
+              : guia,
+          ),
         );
       }
     } catch (error) {
@@ -1952,8 +1951,8 @@ const DatosUsuario = ({
       n("ordenes_imporsuit") >= 4
         ? "Comprador frecuente"
         : n("ordenes_imporsuit") >= 1
-        ? "Comprador ocasional"
-        : "Nuevo";
+          ? "Comprador ocasional"
+          : "Nuevo";
 
     /* colores para marco / texto / icono (según riesgo) -- */
     const theme = {
@@ -2134,20 +2133,22 @@ const DatosUsuario = ({
       setIsOpen(false);
       setIsOpenNovedades(false);
       setIsOpenMiniCal(false);
-      
+
       // Realizar la consulta para obtener cotizaciones
       setLoadingCotizaciones(true);
       try {
-        const response = await chatApi.get(`/cotizaciones/${selectedChat?.id || selectedChat?.psid}`);
+        const response = await chatApi.get(
+          `/cotizaciones/${selectedChat?.id || selectedChat?.psid}`,
+        );
         setCotizacionesData(response.data || []);
       } catch (error) {
-        console.error('Error al cargar cotizaciones:', error);
+        console.error("Error al cargar cotizaciones:", error);
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudieron cargar las cotizaciones',
+          icon: "error",
+          title: "Error",
+          text: "No se pudieron cargar las cotizaciones",
           timer: 2000,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
         setCotizacionesData([]);
       } finally {
@@ -2156,13 +2157,14 @@ const DatosUsuario = ({
     }
   };
 
-  const DEFAULT_AVATAR = "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
+  const DEFAULT_AVATAR =
+    "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
 
   const token = localStorage.getItem("token");
   let decodedToken = null;
 
-      const decoded = jwtDecode(token);
-      decodedToken = decoded;
+  const decoded = jwtDecode(token);
+  decodedToken = decoded;
   const activar_cotizacion = decodedToken?.activar_cotizacion || 0;
   return (
     <>
@@ -2306,7 +2308,7 @@ const DatosUsuario = ({
                         let startPage = Math.max(2, paginaActual - 2);
                         let endPage = Math.min(
                           totalPaginas - 1,
-                          paginaActual + 2
+                          paginaActual + 2,
                         );
 
                         if (paginaActual <= 3) {
@@ -2327,7 +2329,7 @@ const DatosUsuario = ({
                               onClick={() => cargarProductosAdicionales(i)}
                             >
                               {i}
-                            </button>
+                            </button>,
                           );
                         }
 
@@ -2389,7 +2391,7 @@ const DatosUsuario = ({
 
                       <img
                         key={selectedChat?.psid || selectedChat?.id} // fuerza refresco al cambiar de chat
-                        src={selectedChat?.profile_pic_url || DEFAULT_AVATAR}
+                        src={selectedChat?.imagePath || DEFAULT_AVATAR}
                         alt="Avatar"
                         className="h-12 w-12 rounded-full object-cover bg-white block mx-auto"
                         loading="lazy"
@@ -2487,25 +2489,26 @@ const DatosUsuario = ({
                       ></i>
                       <span className="text-white">Calendario</span>
                     </button>
-                        {activar_cotizacion == 1 && (
-                    // Cotizaciones
-                    <button 
-                       className={`group w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
-                        isCotizacionesOpen
-                          ? "bg-[#1e3a5f] border-blue-400"
-                          : "bg-[#162c4a] border-transparent hover:border-blue-300"
-                      }`}
-                        onClick={handleToggleCotizaciones}
-                        >
-                      <i className={`bx bx-file-blank text-xl transition-all duration-300 ${
+                    {activar_cotizacion == 1 && (
+                      // Cotizaciones
+                      <button
+                        className={`group w-full flex items-center justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                           isCotizacionesOpen
-                            ? "glow-yellow"
-                            : "text-green-300 group-hover:text-green-200"
-                        }`}></i>
-                      <span className="text-white">cotizaciones</span>
-                        </button>
-
-                        )}
+                            ? "bg-[#1e3a5f] border-blue-400"
+                            : "bg-[#162c4a] border-transparent hover:border-blue-300"
+                        }`}
+                        onClick={handleToggleCotizaciones}
+                      >
+                        <i
+                          className={`bx bx-file-blank text-xl transition-all duration-300 ${
+                            isCotizacionesOpen
+                              ? "glow-yellow"
+                              : "text-green-300 group-hover:text-green-200"
+                          }`}
+                        ></i>
+                        <span className="text-white">cotizaciones</span>
+                      </button>
+                    )}
                   </div>
 
                   {isCotizacionesOpen && (
@@ -2630,13 +2633,13 @@ const DatosUsuario = ({
                                         </button>
                                       </td>
                                     </tr>
-                                  )
+                                  ),
                                 )
                               : guiasChatSeleccionado?.map((guia, index) => {
                                   const { color, estado_guia } =
                                     obtenerEstadoGuia(
                                       guia.transporte,
-                                      guia.estado_guia_sistema
+                                      guia.estado_guia_sistema,
                                     );
 
                                   return (
@@ -2760,7 +2763,7 @@ const DatosUsuario = ({
                                         novedades,
                                         activeTabNovedad === "gestionadas"
                                           ? "gestionada"
-                                          : "no_gestionada"
+                                          : "no_gestionada",
                                       )
                                     }
                                   >
@@ -2859,10 +2862,10 @@ const DatosUsuario = ({
                               >
                                 {/* Secciones por transportadora */}
                                 {novedadSeleccionada.guia_novedad.startsWith(
-                                  "IMP"
+                                  "IMP",
                                 ) ||
                                 novedadSeleccionada.guia_novedad.startsWith(
-                                  "MKP"
+                                  "MKP",
                                 ) ? (
                                   /* Sección LAAR */
                                   <div
@@ -3038,7 +3041,7 @@ const DatosUsuario = ({
                                   </div>
                                 ) : /* fin laar */
                                 novedadSeleccionada.guia_novedad.startsWith(
-                                    "I"
+                                    "I",
                                   ) ? (
                                   /* Gintracom */
                                   <div
@@ -3116,7 +3119,7 @@ const DatosUsuario = ({
                                           onChange={(e) => {
                                             const selected = e.target.value;
                                             const selectedDate = new Date(
-                                              selected
+                                              selected,
                                             );
                                             const day = selectedDate.getDay();
                                             const today = new Date();
@@ -3181,7 +3184,7 @@ const DatosUsuario = ({
                                   </div>
                                 ) : /* Fin Gintracom */
                                 novedadSeleccionada.guia_novedad.startsWith(
-                                    "SPD"
+                                    "SPD",
                                   ) ? (
                                   /* speed */
                                   <div
@@ -3218,7 +3221,7 @@ const DatosUsuario = ({
                                         // Aquí llamas a la función que manejará la lógica de envío para SPEED
                                         console.log(
                                           "Enviar SPEED (implementa la función)",
-                                          observacionSpeed
+                                          observacionSpeed,
                                         );
                                       }}
                                     >
@@ -3323,7 +3326,7 @@ const DatosUsuario = ({
                         {(() => {
                           const { color, estado_guia } = obtenerEstadoGuia(
                             guiaSeleccionada.transporte,
-                            guiaSeleccionada.estado_guia_sistema
+                            guiaSeleccionada.estado_guia_sistema,
                           );
                           return (
                             <span
@@ -3339,7 +3342,7 @@ const DatosUsuario = ({
                         <p className="text-gray-500 text-sm">
                           <strong>Fecha de la Guia:</strong>{" "}
                           {new Date(
-                            guiaSeleccionada.fecha_guia
+                            guiaSeleccionada.fecha_guia,
                           ).toLocaleDateString("es-EC", {
                             year: "numeric",
                             month: "numeric",
@@ -3444,7 +3447,7 @@ const DatosUsuario = ({
                             anular_guia(
                               guiaSeleccionada.numero_guia,
                               guiaSeleccionada.transporte,
-                              "guia"
+                              "guia",
                             )
                           }
                           disabled={!disableAanular} // Si disableAanular es false, se deshabilita
@@ -3461,7 +3464,7 @@ const DatosUsuario = ({
                               const novedad = novedades_noGestionadas.find(
                                 (n) =>
                                   n.guia_novedad ===
-                                  guiaSeleccionada.numero_guia
+                                  guiaSeleccionada.numero_guia,
                               );
                               if (novedad) {
                                 handleDetalleNovedad(novedad, "no_gestionada");
@@ -3817,12 +3820,12 @@ const DatosUsuario = ({
                                           {image.id === 1
                                             ? tarifas.servientrega
                                             : image.id === 2
-                                            ? tarifas.laar
-                                            : image.id === 3
-                                            ? tarifas.speed
-                                            : image.id === 4
-                                            ? tarifas.gintracom
-                                            : 0}
+                                              ? tarifas.laar
+                                              : image.id === 3
+                                                ? tarifas.speed
+                                                : image.id === 4
+                                                  ? tarifas.gintracom
+                                                  : 0}
                                         </p>
                                       </span>
                                     ) : (
@@ -3927,7 +3930,7 @@ const DatosUsuario = ({
                                                   onChange={(e) =>
                                                     handleCantidadInputChange(
                                                       producto,
-                                                      e.target.value
+                                                      e.target.value,
                                                     )
                                                   }
                                                 />
@@ -3940,7 +3943,7 @@ const DatosUsuario = ({
                                                     onClick={() => {
                                                       handleCantidadChange(
                                                         producto,
-                                                        1
+                                                        1,
                                                       );
                                                     }}
                                                   >
@@ -3968,7 +3971,7 @@ const DatosUsuario = ({
                                                     onClick={() => {
                                                       handleCantidadChange(
                                                         producto,
-                                                        -1
+                                                        -1,
                                                       );
                                                     }}
                                                     disabled={
@@ -4002,7 +4005,7 @@ const DatosUsuario = ({
                                                 onChange={(e) =>
                                                   handlePrecioChange(
                                                     producto,
-                                                    e.target.value
+                                                    e.target.value,
                                                   )
                                                 }
                                               />
@@ -4030,7 +4033,7 @@ const DatosUsuario = ({
                                               </button>
                                             </td>
                                           </tr>
-                                        )
+                                        ),
                                       )}
                                     </tbody>
                                   </table>
@@ -4151,7 +4154,7 @@ const DatosUsuario = ({
                             anular_guia(
                               facturaSeleccionada.numero_factura,
                               facturaSeleccionada.transporte,
-                              "pedido"
+                              "pedido",
                             )
                           }
                           title="Anular el pedido"
@@ -4196,7 +4199,7 @@ const DatosUsuario = ({
 
                     <img
                       key={selectedChat?.psid || selectedChat?.id} // fuerza refresco al cambiar de chat
-                      src={selectedChat?.profile_pic_url || DEFAULT_AVATAR}
+                      src={selectedChat?.imagePath || DEFAULT_AVATAR}
                       alt="Avatar"
                       className="h-12 w-12 rounded-full object-cover bg-white block mx-auto"
                       loading="lazy"
@@ -4249,40 +4252,40 @@ const DatosUsuario = ({
                     <span className="text-white">Calendario</span>
                   </button>
 
-                    {activar_cotizacion == 1 && (
-                      <button 
-                       className={`group w-full flex items-center col-span-2 justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
+                  {activar_cotizacion == 1 && (
+                    <button
+                      className={`group w-full flex items-center col-span-2 justify-center gap-3 px-5 py-3 rounded-lg text-sm font-semibold uppercase tracking-wide transition-all duration-300 border-2 ${
                         isCotizacionesOpen
                           ? "bg-[#1e3a5f] border-blue-400"
                           : "bg-[#162c4a] border-transparent hover:border-blue-300"
                       }`}
-                        onClick={handleToggleCotizaciones}
-                        >
-                      <i className={`bx bx-file-blank text-xl transition-all duration-300 ${
+                      onClick={handleToggleCotizaciones}
+                    >
+                      <i
+                        className={`bx bx-file-blank text-xl transition-all duration-300 ${
                           isCotizacionesOpen
                             ? "glow-yellow"
                             : "text-green-300 group-hover:text-green-200"
-                        }`}></i>
+                        }`}
+                      ></i>
                       <span className="text-white">cotizaciones</span>
-                        </button>
-                    )}
-
-
-                </div>
-                  {isCotizacionesOpen && (
-                    <div
-                      className={`transition-all duration-300 ease-in-out transform origin-top ${
-                        isCotizacionesOpen
-                          ? "opacity-100 scale-100 max-h-[1000px] pointer-events-auto"
-                          : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
-                      } bg-[#12172e] rounded-lg shadow-md mb-4`}
-                    >
-                      <Cotizador
-                        loadingCotizaciones={loadingCotizaciones}
-                        cotizacionesData={cotizacionesData}
-                      ></Cotizador>
-                    </div>
+                    </button>
                   )}
+                </div>
+                {isCotizacionesOpen && (
+                  <div
+                    className={`transition-all duration-300 ease-in-out transform origin-top ${
+                      isCotizacionesOpen
+                        ? "opacity-100 scale-100 max-h-[1000px] pointer-events-auto"
+                        : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
+                    } bg-[#12172e] rounded-lg shadow-md mb-4`}
+                  >
+                    <Cotizador
+                      loadingCotizaciones={loadingCotizaciones}
+                      cotizacionesData={cotizacionesData}
+                    ></Cotizador>
+                  </div>
+                )}
                 {isOpenMiniCal && (
                   <div
                     className={`transition-all duration-300 ease-in-out transform origin-top ${

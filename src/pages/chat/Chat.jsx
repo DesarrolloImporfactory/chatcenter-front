@@ -35,8 +35,8 @@ function mapMsConvToSidebar(row) {
     rawFecha instanceof Date
       ? rawFecha
       : rawFecha
-      ? new Date(rawFecha)
-      : new Date();
+        ? new Date(rawFecha)
+        : new Date();
   const mensaje_created_at = isNaN(+d) ? new Date() : d;
 
   return {
@@ -52,7 +52,7 @@ function mapMsConvToSidebar(row) {
       row.customer_name ??
       row.nombre_cliente ??
       (row.psid ? `Facebook • ${String(row.psid).slice(-6)}` : "Facebook"),
-    profile_pic_url: row.profile_pic_url || null,
+    imagePath: row.imagePath || null,
     id_encargado: row.id_encargado ?? null,
     etiquetas: [],
     transporte: null,
@@ -73,8 +73,8 @@ function mapIgConvToSidebar(row) {
     rawFecha instanceof Date
       ? rawFecha
       : rawFecha
-      ? new Date(rawFecha)
-      : new Date();
+        ? new Date(rawFecha)
+        : new Date();
   const mensaje_created_at = isNaN(+d) ? new Date() : d;
 
   return {
@@ -90,7 +90,7 @@ function mapIgConvToSidebar(row) {
       row.customer_name ??
       row.nombre_cliente ??
       (row.igsid ? `Instagram • ${String(row.igsid).slice(-6)}` : "Instagram"),
-    profile_pic_url: row.profile_pic_url || null,
+    imagePath: row.imagePath || null,
     id_encargado: row.id_encargado ?? null,
     etiquetas: [],
     transporte: null,
@@ -230,7 +230,7 @@ function upsertMsg(list, raw) {
     const i = list.findIndex(
       (x) =>
         norm(x.client_tmp_id) === msg.client_tmp_id ||
-        norm(x.id) === msg.client_tmp_id
+        norm(x.id) === msg.client_tmp_id,
     );
     if (i !== -1) {
       const copy = [...list];
@@ -242,7 +242,7 @@ function upsertMsg(list, raw) {
   // B) por mid
   if (msg.mid) {
     const j = list.findIndex(
-      (x) => norm(x.mid) === msg.mid || norm(x.mid_mensaje) === msg.mid
+      (x) => norm(x.mid) === msg.mid || norm(x.mid_mensaje) === msg.mid,
     );
     if (j !== -1) {
       const copy = [...list];
@@ -370,7 +370,7 @@ const Chat = () => {
     useState(""); // Estado para el término de búsqueda numero Cliente
 
   const [searchResultsNumeroCliente, setSearchResultsNumeroCliente] = useState(
-    []
+    [],
   ); // Estado para almacenar los resultados de la búsqueda numero Cliente
 
   const inputRefNumeroTelefono = useRef(null); // Referencia al input de mensaje numero telefono
@@ -447,7 +447,7 @@ const Chat = () => {
         {
           id_configuracion,
           limit: 100, // o 50
-        }
+        },
       );
 
       const list = resp.data?.data || [];
@@ -528,7 +528,7 @@ const Chat = () => {
             {
               id_usuario,
               id_configuracion,
-            }
+            },
           );
 
           if (res.status === 200) {
@@ -611,7 +611,7 @@ const Chat = () => {
             "plataformas/obtener_usuario_plataforma",
             {
               id_plataforma: idp,
-            }
+            },
           );
 
           if (res.status === 200) {
@@ -619,7 +619,7 @@ const Chat = () => {
           } else {
             console.error(
               "Error al obtener el usuario de la plataforma:",
-              res.data
+              res.data,
             );
           }
         } catch (error) {
@@ -634,8 +634,8 @@ const Chat = () => {
   const getChatByPhone = async (phone, id_configuracion) => {
     return chatApi.get(
       `/clientes_chat_center/findFullByPhone_desconect/${encodeURIComponent(
-        phone
-      )}?id_configuracion=${id_configuracion}`
+        phone,
+      )}?id_configuracion=${id_configuracion}`,
     );
   };
 
@@ -649,96 +649,96 @@ const Chat = () => {
   const msBootstrappedRef = useRef(false);
   const igBootstrappedRef = useRef(false);
 
-  async function fetchMsConversations() {
-    if (!id_configuracion) return;
+  // async function fetchMsConversations() {
+  //   if (!id_configuracion) return;
 
-    // 👉 Marca "cargando" solo hasta el primer batch
-    if (!msBootstrappedRef.current) setIsLoadingMS(true);
+  //   // 👉 Marca "cargando" solo hasta el primer batch
+  //   if (!msBootstrappedRef.current) setIsLoadingMS(true);
 
-    const { data } = await chatApi.get("/messenger/conversations", {
-      params: { id_configuracion, limit: 50 },
-    });
-    const items = (data.items || []).map(mapMsConvToSidebar);
+  //   const { data } = await chatApi.get("/messenger/conversations", {
+  //     params: { id_configuracion, limit: 50 },
+  //   });
+  //   const items = (data.items || []).map(mapMsConvToSidebar);
 
-    setMensajesAcumulados((prev) => {
-      const byKey = new Map(
-        prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
-      );
-      for (const it of items) {
-        byKey.set(`ms:${it.id}`, it);
-      }
-      return Array.from(byKey.values()).sort(
-        (a, b) =>
-          new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
-      );
-    });
+  //   setMensajesAcumulados((prev) => {
+  //     const byKey = new Map(
+  //       prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
+  //     );
+  //     for (const it of items) {
+  //       byKey.set(`ms:${it.id}`, it);
+  //     }
+  //     return Array.from(byKey.values()).sort(
+  //       (a, b) =>
+  //         new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+  //     );
+  //   });
 
-    try {
-      await chatApi.post("/messenger/profiles/refresh-missing", {
-        id_configuracion,
-        limit: 50,
-      });
+  //   try {
+  //     await chatApi.post("/messenger/profiles/refresh-missing", {
+  //       id_configuracion,
+  //       limit: 50,
+  //     });
 
-      const again = await chatApi.get("/messenger/conversations", {
-        params: { id_configuracion, limit: 50 },
-      });
-      const againItems = (again.data.items || []).map(mapMsConvToSidebar);
-      setMensajesAcumulados((prev) => {
-        const byKey = new Map(
-          prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
-        );
-        for (const it of againItems) byKey.set(`ms:${it.id}`, it);
-        return Array.from(byKey.values()).sort(
-          (a, b) =>
-            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
-        );
-      });
-    } catch (err) {
-      console.warn("Profiles refresh error:", err);
-    } finally {
-      // 👉 Fin del primer batch de MS
-      if (!msBootstrappedRef.current) {
-        msBootstrappedRef.current = true;
-        setIsLoadingMS(false);
-      }
-    }
-  }
+  //     const again = await chatApi.get("/messenger/conversations", {
+  //       params: { id_configuracion, limit: 50 },
+  //     });
+  //     const againItems = (again.data.items || []).map(mapMsConvToSidebar);
+  //     setMensajesAcumulados((prev) => {
+  //       const byKey = new Map(
+  //         prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
+  //       );
+  //       for (const it of againItems) byKey.set(`ms:${it.id}`, it);
+  //       return Array.from(byKey.values()).sort(
+  //         (a, b) =>
+  //           new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+  //       );
+  //     });
+  //   } catch (err) {
+  //     console.warn("Profiles refresh error:", err);
+  //   } finally {
+  //     // 👉 Fin del primer batch de MS
+  //     if (!msBootstrappedRef.current) {
+  //       msBootstrappedRef.current = true;
+  //       setIsLoadingMS(false);
+  //     }
+  //   }
+  // }
 
-  async function fetchIgConversations() {
-    if (!id_configuracion) return;
+  // async function fetchIgConversations() {
+  //   if (!id_configuracion) return;
 
-    // 👉 Marca "cargando" solo hasta el primer batch
-    if (!igBootstrappedRef.current) setIsLoadingIG(true);
+  //   // 👉 Marca "cargando" solo hasta el primer batch
+  //   if (!igBootstrappedRef.current) setIsLoadingIG(true);
 
-    const { data } = await chatApi.get("/instagram/conversations", {
-      params: { id_configuracion, limit: 50 },
-    });
-    const items = (data.items || []).map(mapIgConvToSidebar);
+  //   const { data } = await chatApi.get("/instagram/conversations", {
+  //     params: { id_configuracion, limit: 50 },
+  //   });
+  //   const items = (data.items || []).map(mapIgConvToSidebar);
 
-    setMensajesAcumulados((prev) => {
-      const byKey = new Map(
-        prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
-      );
-      for (const it of items) byKey.set(`ig:${it.id}`, it);
-      return Array.from(byKey.values()).sort(
-        (a, b) =>
-          new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
-      );
-    });
+  //   setMensajesAcumulados((prev) => {
+  //     const byKey = new Map(
+  //       prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
+  //     );
+  //     for (const it of items) byKey.set(`ig:${it.id}`, it);
+  //     return Array.from(byKey.values()).sort(
+  //       (a, b) =>
+  //         new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+  //     );
+  //   });
 
-    // 👉 Fin del primer batch de IG
-    if (!igBootstrappedRef.current) {
-      igBootstrappedRef.current = true;
-      setIsLoadingIG(false);
-    }
-  }
+  //   // 👉 Fin del primer batch de IG
+  //   if (!igBootstrappedRef.current) {
+  //     igBootstrappedRef.current = true;
+  //     setIsLoadingIG(false);
+  //   }
+  // }
 
-  useEffect(() => {
-    if (isSocketConnected && id_configuracion) {
-      fetchMsConversations();
-      fetchIgConversations();
-    }
-  }, [isSocketConnected, id_configuracion]);
+  // useEffect(() => {
+  //   if (isSocketConnected && id_configuracion) {
+  //     fetchMsConversations();
+  //     fetchIgConversations();
+  //   }
+  // }, [isSocketConnected, id_configuracion]);
 
   // Mapeo de mensajes Messenger -> formato ChatPrincipal
   function mapMsMessageToUI(m) {
@@ -762,7 +762,7 @@ const Chat = () => {
     if (isAttachmentFlag || (rawAtts && rawAtts.length > 0)) {
       const norm = normalizeMetaAttachmentToUI(
         rawAtts ? rawAtts[0] : {},
-        out.texto_mensaje
+        out.texto_mensaje,
       );
       out = { ...out, ...norm };
     }
@@ -804,7 +804,7 @@ const Chat = () => {
     if (isAttachmentFlag || (rawAtts && rawAtts.length > 0)) {
       const norm = normalizeMetaAttachmentToUI(
         rawAtts ? rawAtts[0] : {},
-        out.texto_mensaje
+        out.texto_mensaje,
       );
       out = { ...out, ...norm };
     }
@@ -841,7 +841,7 @@ const Chat = () => {
     // Carga historial por REST
     const { data } = await chatApi.get(
       `/messenger/conversations/${conv.id}/messages`,
-      { params: { limit: 50 } } // sin before_id => últimos
+      { params: { limit: 50 } }, // sin before_id => últimos
     );
     const ordered = (data.items || []).map(mapMsMessageToUI); // ya viene ASC
     setChatMessages([{ id: conv.id, mensajes: ordered }]);
@@ -871,7 +871,7 @@ const Chat = () => {
       `/instagram/conversations/${conv.id}/messages`,
       {
         params: { limit: 50 },
-      }
+      },
     );
 
     // backend ya entrega mapeado; si no, mapea:
@@ -891,7 +891,7 @@ const Chat = () => {
 
     // 2.1  ¿Ya está en los chats cargados?
     const existente = mensajesAcumulados.find(
-      (c) => String(c.celular_cliente) === String(phone)
+      (c) => String(c.celular_cliente) === String(phone),
     );
 
     if (existente) {
@@ -914,7 +914,7 @@ const Chat = () => {
           Swal.fire(
             "Sin conversación",
             "Ese número aún no tiene historial de chat.",
-            "info"
+            "info",
           );
         } else {
           console.error(err);
@@ -943,7 +943,7 @@ const Chat = () => {
         "/etiquetas_chat_center/obtenerEtiquetas",
         {
           id_configuracion: id_configuracion,
-        }
+        },
       );
 
       const data = response.data;
@@ -980,14 +980,14 @@ const Chat = () => {
         "/etiquetas_asignadas/obtenerEtiquetasAsignadas",
         {
           id_cliente_chat_center: selectedChat.id,
-        }
+        },
       );
 
       const data = response.data;
 
       if (data.status !== "200") {
         throw new Error(
-          data.message || "Error al obtener las etiquetas asignadas"
+          data.message || "Error al obtener las etiquetas asignadas",
         );
       }
 
@@ -1036,7 +1036,7 @@ const Chat = () => {
         "departamentos_chat_center/listarDepartamentos",
         {
           id_usuario: usuario,
-        }
+        },
       );
       setLista_departamentos(res.data.data);
     } catch (error) {
@@ -1061,7 +1061,7 @@ const Chat = () => {
     telefono_configuracion,
     wamid,
     template_name,
-    language_code
+    language_code,
   ) => {
     try {
       const response = await chatApi.post(
@@ -1079,7 +1079,7 @@ const Chat = () => {
           id_wamid_mensaje: wamid,
           template_name: template_name,
           language_code: language_code,
-        }
+        },
       );
 
       let respuesta = response.data;
@@ -1245,7 +1245,7 @@ const Chat = () => {
         {
           telefono: recipientPhone,
           id_configuracion: id_configuracion,
-        }
+        },
       );
 
       const id_recibe = response.data?.data?.id_recibe;
@@ -1364,7 +1364,7 @@ const Chat = () => {
       input.focus();
       input.setSelectionRange(
         cursorPos + emoji.emoji.length,
-        cursorPos + emoji.emoji.length
+        cursorPos + emoji.emoji.length,
       );
     }, 0);
   };
@@ -1401,7 +1401,7 @@ const Chat = () => {
       setMensajesAcumulados((prevChats) => {
         const actualizado = prevChats.map((c) => ({ ...c }));
         const index = actualizado.findIndex(
-          (c) => String(c.id) === String(chatId)
+          (c) => String(c.id) === String(chatId),
         );
 
         if (index !== -1) {
@@ -1446,7 +1446,6 @@ const Chat = () => {
         return [nuevoChat, ...actualizado];
       });
     };
-    
 
     // =========================
     // ✅ MS
@@ -1607,10 +1606,10 @@ const Chat = () => {
       kind === "image"
         ? "image"
         : kind === "video"
-        ? "video"
-        : kind === "audio"
-        ? "audio"
-        : "file"; // documentos
+          ? "video"
+          : kind === "audio"
+            ? "audio"
+            : "file"; // documentos
 
     socketRef.current.emit("MS_SEND", {
       conversation_id: conversationId,
@@ -1651,10 +1650,10 @@ const Chat = () => {
       kind === "image"
         ? "image"
         : kind === "video"
-        ? "video"
-        : kind === "audio"
-        ? "audio"
-        : "file";
+          ? "video"
+          : kind === "audio"
+            ? "audio"
+            : "file";
 
     socketRef.current.emit("IG_SEND", {
       conversation_id: conversationId,
@@ -1729,14 +1728,14 @@ const Chat = () => {
               } else {
                 console.error(
                   "No se recibió fileUrl en la respuesta:",
-                  response.data
+                  response.data,
                 );
                 throw new Error("No se recibió la URL del archivo");
               }
             } else {
               console.error(
                 "Error al subir el audio a WhatsApp:",
-                response.data.message
+                response.data.message,
               );
               throw new Error(response.data.message);
             }
@@ -1809,7 +1808,7 @@ const Chat = () => {
         telefono_configuracion,
         wamid,
         "",
-        ""
+        "",
       );
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
@@ -1832,7 +1831,7 @@ const Chat = () => {
       }
 
       console.log(
-        "El archivo es un .ogg válido basado en el tipo MIME y extensión."
+        "El archivo es un .ogg válido basado en el tipo MIME y extensión.",
       );
 
       try {
@@ -1902,7 +1901,7 @@ const Chat = () => {
       ) {
         setScrollOffset(chatContainer.scrollHeight);
         setMensajesMostrados((prev) =>
-          Math.min(prev + 20, mensajesOrdenados.length)
+          Math.min(prev + 20, mensajesOrdenados.length),
         );
         return;
       }
@@ -2070,7 +2069,7 @@ const Chat = () => {
         value: e.id_etiqueta,
         label: e.nombre_etiqueta,
       })),
-    [etiquetas_api]
+    [etiquetas_api],
   );
 
   /* validador encargado selectedChat */
@@ -2085,21 +2084,21 @@ const Chat = () => {
               id_conversation: selectedChat.id,
             }
           : selectedChat.source === "ig"
-          ? {
-              source: "ig",
-              id_encargado: id_sub_usuario_global,
-              id_conversation: selectedChat.id,
-            }
-          : {
-              source: "wa",
-              id_encargado: id_sub_usuario_global,
-              id_cliente_chat_center: selectedChat.id,
-              id_configuracion: selectedChat.id_configuracion,
-            };
+            ? {
+                source: "ig",
+                id_encargado: id_sub_usuario_global,
+                id_conversation: selectedChat.id,
+              }
+            : {
+                source: "wa",
+                id_encargado: id_sub_usuario_global,
+                id_cliente_chat_center: selectedChat.id,
+                id_configuracion: selectedChat.id_configuracion,
+              };
 
       const res = await chatApi.post(
         "departamentos_chat_center/asignar_encargado",
-        payload
+        payload,
       );
 
       if (res.data.status === "success") {
@@ -2245,7 +2244,8 @@ const Chat = () => {
   useEffect(() => {
     const eliminarDuplicadosPorId = (array) =>
       array.filter(
-        (item, index, self) => index === self.findIndex((t) => t.id === item.id)
+        (item, index, self) =>
+          index === self.findIndex((t) => t.id === item.id),
       );
 
     const sinDuplicados = eliminarDuplicadosPorId(mensajesAcumulados);
@@ -2336,7 +2336,7 @@ const Chat = () => {
           "/etiquetas_chat_center/obtenerEtiquetas",
           {
             id_configuracion: id_configuracion,
-          }
+          },
         );
 
         const data = response.data;
@@ -2388,7 +2388,7 @@ const Chat = () => {
             selectedPedidos_confirmados,
           },
           scopeChats,
-        }
+        },
       );
 
       socketRef.current.once("CHATS", (data) => {
@@ -2532,7 +2532,7 @@ const Chat = () => {
             socketRef.current.once("CHATS_BOX_RESPONSE", (data) => {
               console.log(
                 "Mensajes actualizados tras recibir un nuevo mensaje:",
-                data
+                data,
               );
               setChatMessages(data);
 
@@ -2540,8 +2540,8 @@ const Chat = () => {
                 prev.map((chat) =>
                   chat.id === selectedChat.id
                     ? { ...chat, mensajes_pendientes: 0 }
-                    : chat
-                )
+                    : chat,
+                ),
               );
 
               const orderedMessages = getOrderedChats();
@@ -2617,7 +2617,7 @@ const Chat = () => {
                 selectedPedidos_confirmados,
               },
               scopeChats,
-            }
+            },
           );
 
           setUltimo_cursorId(cursorId);
@@ -2673,7 +2673,7 @@ const Chat = () => {
               selectedPedidos_confirmados,
             },
             scopeChats,
-          }
+          },
         );
 
         socketRef.current.once("CHATS", (data) => {
@@ -2728,7 +2728,7 @@ const Chat = () => {
             selectedPedidos_confirmados,
           },
           scopeChats,
-        }
+        },
       );
 
       socketRef.current.once("CHATS", (data) => {
@@ -2739,7 +2739,7 @@ const Chat = () => {
 
             // Filtrar chats viejos que no están siendo actualizados
             const filtrados = prevChats.filter(
-              (chat) => !nuevosIds.has(chat.id)
+              (chat) => !nuevosIds.has(chat.id),
             );
 
             // Unir chats filtrados con los nuevos
@@ -2748,7 +2748,7 @@ const Chat = () => {
             // Ordenar por mensaje_created_at descendente
             actualizados.sort(
               (a, b) =>
-                new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+                new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at),
             );
 
             return actualizados;
@@ -2770,7 +2770,7 @@ const Chat = () => {
         const handleChatBoxResponse = (data) => {
           console.log(
             "Mensajes actualizados tras recibir un nuevo mensaje:",
-            data
+            data,
           );
           setChatMessages(data);
 
@@ -2796,8 +2796,8 @@ const Chat = () => {
           prev.map((chat) =>
             chat.id === selectedChat.id
               ? { ...chat, mensajes_pendientes: 0 }
-              : chat
-          )
+              : chat,
+          ),
         );
       }
 
@@ -2855,8 +2855,10 @@ const Chat = () => {
     socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
     setMensajesAcumulados((prev) =>
       prev.map((chat) =>
-        chat.id === selectedChat.id ? { ...chat, mensajes_pendientes: 0 } : chat
-      )
+        chat.id === selectedChat.id
+          ? { ...chat, mensajes_pendientes: 0 }
+          : chat,
+      ),
     );
     return () => {
       socketRef.current.off("CHATS_BOX_RESPONSE", handleChatBoxResponse);
@@ -3174,7 +3176,7 @@ const Chat = () => {
 
     let { color, estado_guia } = obtenerEstadoGuia(
       guia.transporte, // El sistema (LAAR, SERVIENTREGA, etc.)
-      guia.estado_guia_sistema // El estado numérico
+      guia.estado_guia_sistema, // El estado numérico
     );
 
     if (estado_guia == "Generado" || estado_guia == "Por recolectar") {
@@ -3196,7 +3198,7 @@ const Chat = () => {
   const obtenerProvinciaCiudad = async (id_ciudad) => {
     try {
       const { data } = await chatApi.get(
-        `/chat_service/ciudadProvincia/${id_ciudad}`
+        `/chat_service/ciudadProvincia/${id_ciudad}`,
       );
 
       if (!data.success) {
@@ -3238,7 +3240,7 @@ const Chat = () => {
       ) {
         const norm = normalizeMetaAttachmentToUI(
           message.attachments[0],
-          message.text || ""
+          message.text || "",
         );
         mapped = { ...mapped, ...norm };
 
@@ -3269,7 +3271,7 @@ const Chat = () => {
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
-          (x) => x.source === "ms" && Number(x.id) === Number(conversation_id)
+          (x) => x.source === "ms" && Number(x.id) === Number(conversation_id),
         );
         if (idx !== -1) {
           const row = out[idx];
@@ -3293,7 +3295,7 @@ const Chat = () => {
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
-          (x) => x.source === "ms" && Number(x.id) === Number(upd.id)
+          (x) => x.source === "ms" && Number(x.id) === Number(upd.id),
         );
         if (idx !== -1) {
           out[idx] = {
@@ -3314,7 +3316,7 @@ const Chat = () => {
             mensajes_pendientes: upd.unread_count ?? 0,
             visto: 0,
             nombre_cliente: upd.customer_name ?? "Facebook",
-            profile_pic_url: upd.profile_pic_url ?? null,
+            imagePath: upd.imagePath ?? null,
             id_encargado: upd.id_encargado ?? null,
             etiquetas: [],
             transporte: null,
@@ -3324,7 +3326,7 @@ const Chat = () => {
         }
         out.sort(
           (a, b) =>
-            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at),
         );
         return out;
       });
@@ -3351,7 +3353,7 @@ const Chat = () => {
       ) {
         const norm = normalizeMetaAttachmentToUI(
           message.attachments[0],
-          message.text || ""
+          message.text || "",
         );
         mapped = { ...mapped, ...norm };
 
@@ -3378,7 +3380,7 @@ const Chat = () => {
             const hasRealWithMid = merged.some(
               (m) =>
                 String(m.mid || m.mid_mensaje || "") === midStr &&
-                !String(m.id).startsWith("tmp-")
+                !String(m.id).startsWith("tmp-"),
             );
             if (hasRealWithMid) {
               return merged.filter(
@@ -3386,7 +3388,7 @@ const Chat = () => {
                   !(
                     String(m.id || "").startsWith("tmp-") &&
                     String(m.mid || m.mid_mensaje || "") === midStr
-                  )
+                  ),
               );
             }
           }
@@ -3401,7 +3403,7 @@ const Chat = () => {
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
-          (x) => x.source === "ig" && Number(x.id) === Number(conversation_id)
+          (x) => x.source === "ig" && Number(x.id) === Number(conversation_id),
         );
         if (idx !== -1) {
           const row = out[idx];
@@ -3425,7 +3427,7 @@ const Chat = () => {
       setMensajesAcumulados((prev) => {
         const out = [...prev];
         const idx = out.findIndex(
-          (x) => x.source === "ig" && Number(x.id) === Number(upd.id)
+          (x) => x.source === "ig" && Number(x.id) === Number(upd.id),
         );
         if (idx !== -1) {
           out[idx] = {
@@ -3446,7 +3448,7 @@ const Chat = () => {
             mensajes_pendientes: upd.unread_count ?? 0,
             visto: 0,
             nombre_cliente: upd.customer_name ?? "Instagram",
-            profile_pic_url: upd.profile_pic_url ?? null,
+            imagePath: upd.imagePath ?? null,
             id_encargado: upd.id_encargado ?? null,
             etiquetas: [],
             transporte: null,
@@ -3456,7 +3458,7 @@ const Chat = () => {
         }
         out.sort(
           (a, b) =>
-            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
+            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at),
         );
         return out;
       });
@@ -3491,7 +3493,7 @@ const Chat = () => {
           idx = [...next]
             .reverse()
             .findIndex(
-              (m) => String(m.id).startsWith("tmp-") && m.rol_mensaje === 1
+              (m) => String(m.id).startsWith("tmp-") && m.rol_mensaje === 1,
             );
           if (idx !== -1) idx = next.length - 1 - idx;
         }
@@ -3576,7 +3578,7 @@ const Chat = () => {
 
       // si quieres también ms.*, wa.*, etc. los pones aquí
     }),
-    [id_configuracion]
+    [id_configuracion],
   );
 
   return (

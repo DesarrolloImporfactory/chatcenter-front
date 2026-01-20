@@ -59,7 +59,7 @@ const mapConversationBase = (row, source, idField, namePrefix) => {
     celular_cliente: clientId,
     mensajes_pendientes: (row.unread_count ?? row.mensajes_pendientes) || 0,
     nombre_cliente: clientName,
-    profile_pic_url: row.profile_pic_url || null,
+    imagePath: row.imagePath || null,
     id_encargado: row.id_encargado ?? null,
     etiquetas: row.etiquetas || [],
     transporte: row.transporte || null,
@@ -74,7 +74,7 @@ export const mapMsConvToSidebar = (row) => {
     row,
     MESSAGE_SOURCES.MESSENGER,
     "psid",
-    "Facebook"
+    "Facebook",
   );
 };
 
@@ -84,7 +84,7 @@ export const mapIgConvToSidebar = (row) => {
     row,
     MESSAGE_SOURCES.INSTAGRAM,
     "igsid",
-    "Instagram"
+    "Instagram",
   );
 };
 
@@ -94,7 +94,7 @@ export const mapWsConvToSidebar = (row) => {
     row,
     MESSAGE_SOURCES.WHATSAPP,
     "celular_cliente",
-    "WhatsApp"
+    "WhatsApp",
   );
 };
 
@@ -104,7 +104,7 @@ export const mapTikTokConvToSidebar = (row) => {
     row,
     MESSAGE_SOURCES.TIKTOK,
     "tiktok_id",
-    "TikTok"
+    "TikTok",
   );
 };
 
