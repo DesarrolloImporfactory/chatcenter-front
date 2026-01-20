@@ -1246,9 +1246,21 @@ const ChatPrincipal = ({
                         {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
                         <span className="text-[15px] md:text-sm pb-2 inline-block">
                           {/* Tipo: TEXT / TEMPLATE */}
-                          {mensaje.tipo_mensaje === "text" ? (
+                          {mensaje.tipo_mensaje === "text" ||
+                          mensaje.tipo_mensaje === "edit" ? (
+                            // ✅ Si es edit: solo texto plano
+                            mensaje.tipo_mensaje === "edit" ? (
+                              <p>
+                                {linkify(
+                                  (mensaje.texto_mensaje || "").replace(
+                                    /^\*[^*]+\*\s*🎤:\s*\r?\n/,
+                                    "",
+                                  ),
+                                )}
+                              </p>
+                            ) : // ✅ Si es text: mantiene tu lógica actual (templates si tiene {{ }} y ruta_archivo)
                             mensaje.texto_mensaje.includes("{{") &&
-                            mensaje.ruta_archivo ? (
+                              mensaje.ruta_archivo ? (
                               <p>
                                 {mensaje.texto_mensaje.replace(
                                   /\{\{(.*?)\}\}/g,
@@ -1353,7 +1365,6 @@ const ChatPrincipal = ({
                                             <i className="bx bx-chevron-right text-base align-middle ml-1" />
                                           </span>
                                         </a>
-                                        
                                       ))}
                                     </div>
                                   )}
