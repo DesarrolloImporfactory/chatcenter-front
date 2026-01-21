@@ -297,10 +297,10 @@ const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
     tone === "primary"
       ? "text-indigo-700 bg-indigo-50 ring-indigo-200"
       : tone === "success"
-      ? "text-emerald-700 bg-emerald-50 ring-emerald-200"
-      : tone === "warning"
-      ? "text-amber-700 bg-amber-50 ring-amber-200"
-      : "text-slate-700 bg-slate-50 ring-slate-200";
+        ? "text-emerald-700 bg-emerald-50 ring-emerald-200"
+        : tone === "warning"
+          ? "text-amber-700 bg-amber-50 ring-amber-200"
+          : "text-slate-700 bg-slate-50 ring-slate-200";
 
   return (
     <div className="flex gap-3 items-start">
@@ -334,10 +334,10 @@ const HoverPopover = ({
     side === "right"
       ? "left-full top-0 ml-2"
       : side === "left"
-      ? "right-full top-0 mr-2"
-      : side === "top"
-      ? "left-1/2 -translate-x-1/2 bottom-full mb-2"
-      : "left-1/2 -translate-x-1/2 top-full mt-2";
+        ? "right-full top-0 mr-2"
+        : side === "top"
+          ? "left-1/2 -translate-x-1/2 bottom-full mb-2"
+          : "left-1/2 -translate-x-1/2 top-full mt-2";
 
   return (
     <div
@@ -355,10 +355,10 @@ const HoverPopover = ({
             side === "right"
               ? "-left-1 top-3"
               : side === "left"
-              ? "-right-1 top-3"
-              : side === "top"
-              ? "left-1/2 -translate-x-1/2 -bottom-1"
-              : "left-1/2 -translate-x-1/2 -top-1"
+                ? "-right-1 top-3"
+                : side === "top"
+                  ? "left-1/2 -translate-x-1/2 -bottom-1"
+                  : "left-1/2 -translate-x-1/2 -top-1"
           } w-3 h-3 rotate-45 bg-white ring-1 ring-slate-200`}
         />
         <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.20)] backdrop-blur w-[340px] max-h-[240px] overflow-auto">
@@ -375,7 +375,7 @@ const HoverPopover = ({
 
 const Conexiones = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
-    []
+    [],
   );
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
@@ -412,6 +412,8 @@ const Conexiones = () => {
     closeTimerRef.current = setTimeout(() => setHoveredId(null), 120);
   };
 
+  const [syncingId, setSyncingId] = useState(null);
+
   // ==== REFS para guía ====
   const headerRef = useRef(null);
   const statsRef = useRef(null);
@@ -443,7 +445,7 @@ const Conexiones = () => {
           "usuarios_chat_center/tour-conexiones/get",
           {
             id_usuario: userData.id_usuario,
-          }
+          },
         );
         const dismissed = Number(data?.tour_conexiones_dismissed) === 1;
         setDontShowAgain(dismissed);
@@ -474,7 +476,7 @@ const Conexiones = () => {
         console.error("No se pudo guardar preferencia de tour:", e);
       }
     },
-    [userData?.id_usuario]
+    [userData?.id_usuario],
   );
 
   // Derivados/estadísticas
@@ -482,7 +484,8 @@ const Conexiones = () => {
     if (typeof c?.status_whatsapp === "string")
       return c.status_whatsapp.toUpperCase() === "CONNECTED";
     return Boolean(
-      String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim()
+      String(c?.id_telefono || "").trim() &&
+      String(c?.id_whatsapp || "").trim(),
     );
   };
 
@@ -491,14 +494,20 @@ const Conexiones = () => {
   const isInstagramConectado = (c) => Number(c?.instagram_conectado) === 1;
   const isTikTokConectado = (c) => Number(c?.tiktok_conectado) === 1;
 
+  // ✅ Overlay de conexión Meta (Embedded Signup)
+  const [metaConnecting, setMetaConnecting] = useState(false);
+  const [metaConnectText, setMetaConnectText] = useState(
+    "Conectando con Meta…",
+  );
+
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
     const conectados = configuracionAutomatizada.filter(isConectado).length;
     const pagosActivos = configuracionAutomatizada.filter(
-      (c) => Number(c.metodo_pago) === 1
+      (c) => Number(c.metodo_pago) === 1,
     ).length;
     const messengerCon = configuracionAutomatizada.filter(
-      (c) => Number(c.messenger_conectado) === 1
+      (c) => Number(c.messenger_conectado) === 1,
     ).length;
     return {
       total,
@@ -516,7 +525,7 @@ const Conexiones = () => {
       data = data.filter(
         (c) =>
           c?.nombre_configuracion?.toLowerCase().includes(q) ||
-          c?.telefono?.toLowerCase().includes(q)
+          c?.telefono?.toLowerCase().includes(q),
       );
     }
     if (filtroEstado) {
@@ -666,7 +675,7 @@ const Conexiones = () => {
         suspendido: true,
       });
       setConfiguracionAutomatizada((prev) =>
-        prev.filter((c) => c.id !== config.id)
+        prev.filter((c) => c.id !== config.id),
       );
       setStatusMessage({ type: "success", text: "Conexión eliminada." });
     } catch (err) {
@@ -709,22 +718,32 @@ const Conexiones = () => {
       return;
     }
 
+    // ✅ Arrancamos overlay ANTES del login para que nunca quede “en blanco”
+    setMetaConnectText("Abriendo conexión con Meta…");
+    setMetaConnecting(true);
+
     window.FB.login(
       (response) => {
         (async () => {
-          const code = response?.authResponse?.code;
-          if (!code) {
-            setStatusMessage({
-              type: "error",
-              text: "No se recibió el código de autorización.",
-            });
-            return;
-          }
-
-          const redirectUri = "https://chatcenter.imporfactory.app/conexiones";
-          console.log("redirectUri: " + redirectUri);
-
           try {
+            const code = response?.authResponse?.code;
+
+            // ❌ Si el usuario cerró / canceló en Meta
+            if (!code) {
+              setMetaConnecting(false);
+              setStatusMessage({
+                type: "warning",
+                text: "Conexión cancelada. No se recibió el código de autorización.",
+              });
+              return;
+            }
+
+            const redirectUri =
+              "https://chatcenter.imporfactory.app/conexiones";
+
+            // ✅ Cambiamos el texto mientras consume el endpoint
+            setMetaConnectText("Activando y sincronizando tu número…");
+
             const { data } = await chatApi.post(
               "/whatsapp_managment/embeddedSignupComplete",
               {
@@ -733,23 +752,27 @@ const Conexiones = () => {
                 redirect_uri: redirectUri,
                 id_configuracion: config?.id,
                 display_number_onboarding: String(
-                  config?.telefono || ""
+                  config?.telefono || "",
                 ).trim(),
-              }
+              },
             );
 
-            // Éxito total
-            if (data.success) {
+            // ✅ Éxito total
+            if (data?.success) {
+              setMetaConnectText("¡Listo! Actualizando conexiones…");
+              await fetchConfiguracionAutomatizada();
+              setMetaConnecting(false);
+
               setStatusMessage({
                 type: "success",
                 text: "✅ Número conectado correctamente.",
               });
-              await fetchConfiguracionAutomatizada();
               return;
             }
 
-            // Éxito parcial
-            if (data.partial) {
+            // ✅ Éxito parcial
+            if (data?.partial) {
+              setMetaConnecting(false);
               setStatusMessage({
                 type: "warning",
                 text: data.message,
@@ -758,18 +781,19 @@ const Conexiones = () => {
               return;
             }
 
-            // Error normal del backend
+            // ❌ Error normal del backend
+            setMetaConnecting(false);
             setStatusMessage({
               type: "error",
-              text: data.message || "Error al activar el número.",
-              extra: data.contacto || null,
+              text: data?.message || "Error al activar el número.",
+              extra: data?.contacto || null,
             });
-            return;
           } catch (err) {
             const data = err?.response?.data;
 
-            // Mantengo tu catch EXACTO como estaba
+            // Mantengo su lógica
             if (data?.partial) {
+              setMetaConnecting(false);
               setStatusMessage({
                 type: "warning",
                 text: data.message,
@@ -781,6 +805,7 @@ const Conexiones = () => {
             const mensaje = data?.message || "Error al activar el número.";
             const linkWhatsApp = data?.contacto;
 
+            setMetaConnecting(false);
             setStatusMessage({
               type: "error",
               text: linkWhatsApp
@@ -802,7 +827,7 @@ const Conexiones = () => {
           setup: {},
           sessionInfoVersion: "3",
         },
-      }
+      },
     );
   };
 
@@ -824,7 +849,7 @@ const Conexiones = () => {
       Swal.fire(
         "Error",
         "No se pudo iniciar la conexión con Facebook.",
-        "error"
+        "error",
       );
     }
   };
@@ -875,7 +900,7 @@ const Conexiones = () => {
               code,
               state,
               redirect_uri: redirectUri,
-            }
+            },
           );
 
           Swal.fire("¡Listo!", "Cuenta de TikTok conectada ✅", "success");
@@ -900,11 +925,11 @@ const Conexiones = () => {
               code,
               id_configuracion,
               redirect_uri: window.location.origin + "/conexiones",
-            }
+            },
           );
           const { data: pagesRes } = await chatApi.get(
             "/instagram/facebook/pages",
-            { params: { oauth_session_id: ex.oauth_session_id } }
+            { params: { oauth_session_id: ex.oauth_session_id } },
           );
 
           if (
@@ -967,11 +992,11 @@ const Conexiones = () => {
               code,
               id_configuracion,
               redirect_uri: window.location.origin + "/conexiones",
-            }
+            },
           );
           const { data: pagesRes } = await chatApi.get(
             "/messenger/facebook/pages",
-            { params: { oauth_session_id: ex.oauth_session_id } }
+            { params: { oauth_session_id: ex.oauth_session_id } },
           );
           if (!pagesRes?.pages?.length)
             throw new Error("No se encontraron páginas.");
@@ -997,7 +1022,7 @@ const Conexiones = () => {
         Swal.fire(
           "Error",
           e?.message || "No fue posible completar la conexión",
-          "error"
+          "error",
         );
       } finally {
         const cleanUrl = window.location.origin + window.location.pathname;
@@ -1029,7 +1054,7 @@ const Conexiones = () => {
       Swal.fire(
         "Error",
         "No se puede iniciar la conexión con Instagram",
-        "error"
+        "error",
       );
     }
   };
@@ -1061,7 +1086,7 @@ const Conexiones = () => {
       Swal.fire(
         "Error",
         err?.message || "No se pudo iniciar la conexión con TikTok.",
-        "error"
+        "error",
       );
     }
   };
@@ -1089,7 +1114,7 @@ const Conexiones = () => {
           "configuraciones/listar_conexiones",
           {
             id_usuario: uid,
-          }
+          },
         );
         setConfiguracionAutomatizada(response.data.data || []);
         setMostrarErrorBot(false);
@@ -1115,7 +1140,7 @@ const Conexiones = () => {
         setLoading(false);
       }
     },
-    [userData?.id_usuario, navigate]
+    [userData?.id_usuario, navigate],
   );
 
   useEffect(() => {
@@ -1183,6 +1208,150 @@ const Conexiones = () => {
       if (dontShow) localStorage.setItem(KEY, "1");
     })();
   }, [userData]);
+
+  // ✅ FUNCIÓN COMPLETA (reemplaza tu handleSyncCoexistencia actual)
+  const handleSyncCoexistencia = async (config) => {
+    if (!config?.id) return;
+
+    // Regla: solo si WhatsApp ya está conectado
+    if (!isConectado(config)) {
+      return Swal.fire(
+        "Aún no se puede sincronizar",
+        "Primero conecte WhatsApp Business y luego ejecute la sincronización.",
+        "info",
+      );
+    }
+
+    // Ya marcado en BD -> no llamamos
+    if (Number(config.sincronizo_coexistencia) === 1) {
+      return Swal.fire(
+        "Ya sincronizado",
+        "Este número ya realizó la sincronización previamente.",
+        "success",
+      );
+    }
+
+    const ask = await Swal.fire({
+      title: "Sincronizar Chats",
+      html: `
+      <div style="text-align:left; line-height:1.5">
+        <p style="margin:0 0 10px">
+          Esta opción <b>solo aplica</b> si vinculó una cuenta de  WhatsApp Business existente.
+        </p>
+        
+      </div>
+    `,
+      icon: "info",
+      showCancelButton: true,
+      confirmButtonText: "Entendido, sincronizar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#4f46e5",
+      reverseButtons: true,
+    });
+
+    if (!ask.isConfirmed) return;
+
+    try {
+      setSyncingId(config.id);
+
+      const { data } = await chatApi.post(
+        "/whatsapp_managment/coexistencia/sync",
+        {
+          id_configuracion: config.id,
+        },
+      );
+
+      // ✅ OK
+      if (data?.success) {
+        // marcar en UI inmediatamente
+        setConfiguracionAutomatizada((prev) =>
+          prev.map((c) =>
+            c.id === config.id ? { ...c, sincronizo_coexistencia: 1 } : c,
+          ),
+        );
+
+        const msg =
+          data?.status === "synced"
+            ? "Sincronización realizada correctamente."
+            : "Este número ya realizó la sincronización. No es necesario repetir el proceso.";
+
+        Swal.fire("Listo ✅", msg, "success");
+        return;
+      }
+
+      // ❌ NO OK: manejar status especiales del backend
+      const status = data?.status;
+
+      if (status === "not_coexistence_number") {
+        return Swal.fire(
+          "No aplica para este número",
+          data?.mensaje ||
+            "Este número no es compatible con Coexistencia. La sincronización solo aplica a números vinculados desde WhatsApp Business App.",
+          "info",
+        );
+      }
+
+      if (status === "missing_data") {
+        return Swal.fire(
+          "Faltan datos",
+          data?.mensaje ||
+            "Falta información del número/token para sincronizar.",
+          "error",
+        );
+      }
+
+      if (status === "already_synced" || status === "already_done_by_meta") {
+        // Por si el back alguna vez lo devuelve con success:false (edge)
+        setConfiguracionAutomatizada((prev) =>
+          prev.map((c) =>
+            c.id === config.id ? { ...c, sincronizo_coexistencia: 1 } : c,
+          ),
+        );
+        return Swal.fire(
+          "Ya sincronizado",
+          data?.mensaje ||
+            "Este número ya realizó la sincronización. No es necesario repetir el proceso.",
+          "success",
+        );
+      }
+
+      // default
+      return Swal.fire(
+        "No se pudo sincronizar",
+        data?.mensaje ||
+          "No fue posible completar la sincronización. Vuelva a vincular el número e intente nuevamente.",
+        "info",
+      );
+    } catch (err) {
+      const data = err?.response?.data;
+
+      if (data?.status === "not_coexistence_number") {
+        return Swal.fire(
+          "No aplica para este número",
+          data?.mensaje ||
+            "Este número no es compatible con Coexistencia. La sincronización solo aplica a números vinculados desde WhatsApp Business App.",
+          "info",
+        );
+      }
+
+      if (data?.status === "missing_data") {
+        return Swal.fire(
+          "Faltan datos",
+          data?.mensaje ||
+            "Falta información del número/token para sincronizar.",
+          "error",
+        );
+      }
+
+      return Swal.fire(
+        "Error",
+        data?.mensaje || "Ocurrió un error al procesar la sincronización.",
+        "error",
+      );
+    } finally {
+      setSyncingId(null);
+    }
+  };
 
   /* ===========================
      UI
@@ -1288,7 +1457,9 @@ const Conexiones = () => {
               className={`rounded-lg px-4 py-3 text-sm ${
                 statusMessage.type === "success"
                   ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
-                  : "bg-rose-50 text-rose-800 ring-1 ring-rose-200"
+                  : statusMessage.type === "warning"
+                    ? "bg-amber-50 text-amber-800 ring-1 ring-amber-200"
+                    : "bg-rose-50 text-rose-800 ring-1 ring-rose-200"
               }`}
             >
               {statusMessage.text}{" "}
@@ -1345,13 +1516,16 @@ const Conexiones = () => {
                 {listaFiltrada.map((config, idx) => {
                   const conectado = isConectado(config);
                   const pagoActivo = Number(config.metodo_pago) === 1;
-                  const isOpen = hoveredId === config.id;
+
+                  const yaSincronizo =
+                    Number(config?.sincronizo_coexistencia) === 1;
+                  const puedeSincronizar = conectado && !yaSincronizo;
 
                   return (
                     <div
                       key={config.id}
                       ref={idx === 0 ? firstCardRef : null}
-                      className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-5 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
+                      className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-6 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
                     >
                       {/* Header card */}
                       <div className="flex items-start justify-between gap-3">
@@ -1364,13 +1538,13 @@ const Conexiones = () => {
                               conectado
                                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
                                 : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-                              conectado ? "Conectado" : "Pendiente"
+                              conectado ? "Conectado" : "Pendiente",
                             )}
                             {pill(
                               pagoActivo
                                 ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
                                 : "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
-                              pagoActivo ? "Pago activo" : "Pago inactivo"
+                              pagoActivo ? "Pago activo" : "Pago inactivo",
                             )}
                           </div>
                         </div>
@@ -1394,42 +1568,79 @@ const Conexiones = () => {
                         </button>
                       </div>
 
-                      {/* Teléfono */}
-                      <div className="mt-4 flex items-center gap-2 text-sm text-slate-700">
-                        <i className="bx bx-phone-call text-xl text-green-600 hover:sacudir"></i>
-                        <span className="font-medium">{config.telefono}</span>
+                      {/* Teléfono + Copiar */}
+                      <div className="mt-5 flex items-center justify-between gap-2 text-sm text-slate-700">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <i className="bx bx-phone-call text-xl text-green-600 hover:sacudir"></i>
+                          <span className="font-medium truncate">
+                            {config.telefono}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(
+                                String(config.telefono || "").trim(),
+                              );
+                              Swal.fire({
+                                toast: true,
+                                position: "top-end",
+                                icon: "success",
+                                title: "Número copiado",
+                                showConfirmButton: false,
+                                timer: 1400,
+                                timerProgressBar: true,
+                              });
+                            } catch (e) {
+                              Swal.fire(
+                                "Error",
+                                "No se pudo copiar el número.",
+                                "error",
+                              );
+                            }
+                          }}
+                          className="shrink-0 w-9 h-9 rounded-xl grid place-items-center ring-1 ring-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
+                          title="Copiar número"
+                          aria-label="Copiar número"
+                        >
+                          <i className="bx bx-copy text-lg" />
+                        </button>
                       </div>
 
-                      {/* Acciones */}
-                      <div className="mt-5 space-y-3">
-                        {/* Fila superior: íconos */}
+                      {/* Acciones (iconos) */}
+                      <div className="mt-6 space-y-4">
+                        {/* Icon bar */}
                         <div className="flex flex-wrap items-center gap-3">
+                          {/* Config */}
                           <div
                             className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
                             onClick={() => {
                               localStorage.setItem(
                                 "id_configuracion",
-                                config.id
+                                config.id,
                               );
                               localStorage.setItem(
                                 "id_plataforma_conf",
-                                config.id_plataforma
+                                config.id_plataforma,
                               );
                               localStorage.setItem(
                                 "nombre_configuracion",
-                                config.nombre_configuracion
+                                config.nombre_configuracion,
                               );
                               navigate("/canal-conexiones");
                             }}
                             title="Ir a configuración"
                           >
                             <i className="bx bx-cog text-2xl text-blue-600"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                            {/* Tooltip arriba para no tapar el teléfono */}
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                               Ir a configuración
                             </span>
                           </div>
 
-                          {/* Facebook Inbox (Messenger) */}
+                          {/* Messenger */}
                           {!isMessengerConectado(config) ? (
                             <button
                               type="button"
@@ -1441,7 +1652,7 @@ const Conexiones = () => {
                               aria-label="Conectar Inbox de Messenger"
                             >
                               <i className="bx bxl-messenger text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Conectar Inbox de Messenger
                               </span>
                             </button>
@@ -1451,13 +1662,13 @@ const Conexiones = () => {
                               title="Inbox de Messenger conectado"
                             >
                               <i className="bx bxl-messenger text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Inbox de Messenger conectado
                               </span>
                             </div>
                           )}
 
-                          {/* Instagram Inbox */}
+                          {/* Instagram */}
                           {!isInstagramConectado(config) ? (
                             <button
                               type="button"
@@ -1469,7 +1680,7 @@ const Conexiones = () => {
                               aria-label="Conectar Inbox de Instagram"
                             >
                               <i className="bx bxl-instagram text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Conectar Inbox de Instagram
                               </span>
                             </button>
@@ -1479,7 +1690,7 @@ const Conexiones = () => {
                               title="Inbox de Instagram conectado"
                             >
                               <i className="bx bxl-instagram text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Inbox de Instagram conectado
                               </span>
                             </div>
@@ -1492,11 +1703,11 @@ const Conexiones = () => {
                               onClick={() =>
                                 handleConectarMetaDeveloper(config)
                               }
-                              title="Conectar Bussines Manager"
+                              title="Conectar Business Manager"
                             >
                               <i className="bx bxl-meta text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                                Conectar Bussines Manager
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                Conectar Business Manager
                               </span>
                             </div>
                           ) : (
@@ -1505,7 +1716,7 @@ const Conexiones = () => {
                               title="Meta Business conectado"
                             >
                               <i className="bx bxl-meta text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Meta Business conectado
                               </span>
                             </div>
@@ -1518,7 +1729,7 @@ const Conexiones = () => {
                               onClick={() => {
                                 setIdConfiguracion(config.id);
                                 setNombreConfiguracion(
-                                  config.nombre_configuracion
+                                  config.nombre_configuracion,
                                 );
                                 setTelefono(config.telefono);
                                 setModalConfiguracionWhatsappBusiness(true);
@@ -1526,7 +1737,7 @@ const Conexiones = () => {
                               title="Conectar WhatsApp Business"
                             >
                               <i className="bx bxl-whatsapp text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Conectar WhatsApp Business
                               </span>
                             </div>
@@ -1536,10 +1747,59 @@ const Conexiones = () => {
                               title="WhatsApp vinculado"
                             >
                               <i className="bx bxl-whatsapp text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 WhatsApp vinculado
                               </span>
                             </div>
+                          )}
+
+                          {/* Coexistencia (misma lógica visual: gris -> activo -> check) */}
+                          {!conectado ? (
+                            <div
+                              className="relative group text-slate-400"
+                              title="Disponible al conectar WhatsApp"
+                            >
+                              <i className="bx bx-refresh text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                Disponible al conectar WhatsApp
+                              </span>
+                            </div>
+                          ) : yaSincronizo ? (
+                            <div
+                              className="relative group text-emerald-600"
+                              title="Chats sincronizados"
+                            >
+                              <i className="bx bx-check-circle text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-emerald-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                Chats sincronizados
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSyncCoexistencia(config)}
+                              disabled={syncingId === config.id}
+                              className={[
+                                "relative group cursor-pointer transition transform hover:scale-110",
+                                "text-indigo-600 hover:text-indigo-700",
+                                syncingId === config.id
+                                  ? "opacity-60 cursor-not-allowed"
+                                  : "",
+                              ].join(" ")}
+                              title="Sincronizar (solo Coexistencia)"
+                              aria-label="Sincronizar (solo Coexistencia)"
+                            >
+                              <i
+                                className={`bx bx-refresh text-2xl ${
+                                  syncingId === config.id ? "animate-spin" : ""
+                                }`}
+                              />
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-indigo-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                {syncingId === config.id
+                                  ? "Procesando..."
+                                  : "Sincronizar chats"}
+                              </span>
+                            </button>
                           )}
 
                           {/* TikTok */}
@@ -1551,7 +1811,7 @@ const Conexiones = () => {
                               aria-label="TikTok próximamente"
                             >
                               <i className="bx bxl-tiktok text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Próximamente
                               </span>
                             </button>
@@ -1561,15 +1821,15 @@ const Conexiones = () => {
                               title="TikTok conectado"
                             >
                               <i className="bx bxl-tiktok text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 TikTok conectado
                               </span>
                             </div>
                           )}
                         </div>
 
-                        {/* Fila inferior: Detalles (izq) + Ir al Chat (der) */}
-                        <div className="flex items-center justify-between">
+                        {/* Footer actions: más abajo + más “premium” */}
+                        <div className="mt-2 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
                           {/* Detalles */}
                           <div
                             className="relative"
@@ -1578,10 +1838,16 @@ const Conexiones = () => {
                             onFocus={() => openPopover(config.id)}
                             onBlur={() => setHoveredId(null)}
                           >
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-semibold ring-1 ring-indigo-200 bg-indigo-50 text-indigo-700 cursor-default select-none">
-                              <i className="bx bx-info-circle text-base" />{" "}
-                              Detalles
-                            </span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold
+                              text-slate-700 bg-slate-50 ring-1 ring-slate-200
+                              hover:bg-slate-100 hover:text-slate-900 transition"
+                              aria-label="Ver detalles"
+                            >
+                              <i className="bx bx-info-circle text-base text-indigo-600" />
+                              Ver detalles
+                            </button>
 
                             <HoverPopover
                               open={hoveredId === config.id}
@@ -1613,7 +1879,6 @@ const Conexiones = () => {
                                       : "Conecta tu Página de Facebook para recibir y responder mensajes directo en el inbox."
                                   }
                                 />
-
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-instagram" />}
                                   title={`Instagram ${
@@ -1634,9 +1899,7 @@ const Conexiones = () => {
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-meta" />}
-                                  title={`Meta Business ${
-                                    conectado ? "(conectado)" : "(requerido)"
-                                  }`}
+                                  title={`Meta Business ${conectado ? "(conectado)" : "(requerido)"}`}
                                   tone={conectado ? "success" : "warning"}
                                   desc={
                                     conectado
@@ -1657,6 +1920,24 @@ const Conexiones = () => {
                                   }
                                 />
                                 <ActionDetailRow
+                                  icon={<i className="bx bx-refresh" />}
+                                  title="Coexistencia"
+                                  tone={
+                                    !conectado
+                                      ? "neutral"
+                                      : yaSincronizo
+                                        ? "success"
+                                        : "warning"
+                                  }
+                                  desc={
+                                    !conectado
+                                      ? "Disponible cuando WhatsApp esté conectado."
+                                      : yaSincronizo
+                                        ? "Ya está sincronizado. No es necesario repetir."
+                                        : "Ejecuta una sola vez para traer mensajes y contactos si vinculaste un WhatsApp Business existente."
+                                  }
+                                />
+                                <ActionDetailRow
                                   icon={<i className="bx bxl-tiktok" />}
                                   title="TikTok (próximamente)"
                                   tone="warning"
@@ -1674,25 +1955,25 @@ const Conexiones = () => {
                           {/* Ir al Chat */}
                           <button
                             type="button"
-                            className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold
-                 text-green-700 bg-green-50 ring-1 ring-green-200
-                 hover:bg-green-100 transition transform hover:scale-105"
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
+                            text-white bg-gradient-to-b from-emerald-700 to-emerald-500 ring-1 ring-emerald-500/30
+                            hover:brightness-110 transition"
                             onClick={() => {
                               localStorage.setItem(
                                 "id_configuracion",
-                                config.id
+                                config.id,
                               );
                               localStorage.setItem(
                                 "id_plataforma_conf",
-                                config.id_plataforma
+                                config.id_plataforma,
                               );
                               localStorage.setItem(
                                 "tipo_configuracion",
-                                config.tipo_configuracion
+                                config.tipo_configuracion,
                               );
                               localStorage.setItem(
                                 "nombre_configuracion",
-                                config.nombre_configuracion
+                                config.nombre_configuracion,
                               );
                               localStorage.setItem("telefono", config.telefono);
                               navigate("/chat");
@@ -1700,6 +1981,7 @@ const Conexiones = () => {
                             title="Ir al chat"
                             aria-label="Ir al chat"
                           >
+                            <i className="bx bx-message-rounded-dots text-lg" />
                             Ir al Chat
                           </button>
                         </div>
@@ -1772,7 +2054,6 @@ const Conexiones = () => {
                 </button>
 
                 <div className="flex items-center gap-2">
-                  {/* Checkbox SIEMPRE visible; la preferencia se guarda al cerrar o terminar */}
                   <label className="mr-2 inline-flex items-center gap-2 text-[12px] text-slate-600">
                     <input
                       type="checkbox"
@@ -1816,8 +2097,55 @@ const Conexiones = () => {
         </>
       )}
 
-      {/* Evita parpadeo mientras se consulta la preferencia */}
       {loadingTourPref && null}
+
+      {metaConnecting && (
+        <>
+          <div className="fixed inset-0 z-[999] bg-slate-950/60 backdrop-blur-sm" />
+          <div className="fixed inset-0 z-[1000] grid place-items-center px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white/95 p-5 ring-1 ring-slate-200 shadow-[0_30px_80px_rgba(2,6,23,.35)] animate-[sheetIn_.22s_ease-out]">
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 w-12 h-12 rounded-2xl grid place-items-center bg-indigo-50 ring-1 ring-indigo-200">
+                  <i className="bx bx-loader-alt text-3xl text-indigo-600 animate-spin" />
+                </div>
+
+                <div className="min-w-0">
+                  <div className="text-base font-bold text-slate-900">
+                    Procesando conexión
+                  </div>
+                  <div className="mt-1 text-sm text-slate-600">
+                    {metaConnectText}
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1">
+                      <i className="bx bx-shield-quarter text-base text-emerald-600" />
+                      Seguro
+                    </span>
+                    <span className="opacity-60">•</span>
+                    <span className="inline-flex items-center gap-1">
+                      <i className="bx bx-time-five text-base text-indigo-600" />
+                      Puede tardar unos segundos
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-2 w-1/2 bg-indigo-500 animate-[progressBar_1.1s_ease-in-out_infinite]" />
+              </div>
+
+              <style>{`
+          @keyframes progressBar {
+            0% { transform: translateX(-80%); }
+            50% { transform: translateX(40%); }
+            100% { transform: translateX(180%); }
+          }
+        `}</style>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
