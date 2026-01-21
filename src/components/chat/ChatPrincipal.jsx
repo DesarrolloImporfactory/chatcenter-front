@@ -245,10 +245,7 @@ const ChatPrincipal = ({
   handleCloseModal,
   dataAdmin,
   setMensajesOrdenados,
-  onSendMsAttachment,
-  onSendIgAttachment,
   setNumeroModalPreset,
-  actions,
   isSocketConnected,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -828,23 +825,6 @@ const ChatPrincipal = ({
   const wasTypingRef = useRef(false);
   const TYPING_IDLE_MS = 1500;
 
-  function handleTypingIG() {
-    if (!isSocketConnected || !isInstagram || !selectedChat?.id) return;
-
-    // encender typing_on si no estaba
-    if (!wasTypingRef.current) {
-      wasTypingRef.current = true;
-      actions?.ig?.typing?.(selectedChat.id, true);
-    }
-
-    // programar typing_off si no se sigue tecleando
-    clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = setTimeout(() => {
-      wasTypingRef.current = false;
-      actions?.ig?.typing?.(selectedChat.id, false);
-    }, TYPING_IDLE_MS);
-  }
-
   const chatBgStyle =
     isMessenger || isInstagram
       ? { backgroundColor: "#FFFFFF" } // fondo blanco para Messenger
@@ -920,27 +900,6 @@ const ChatPrincipal = ({
         },
       ]);
 
-      // enviar según canal
-      if (selectedChat.source === "ms") {
-        onSendMsAttachment({
-          kind,
-          url: up.url,
-          name: up.fileName,
-          mimeType: up.mimeType,
-          size: up.size,
-          clientTmpId,
-        });
-      } else if (selectedChat.source === "ig") {
-        onSendIgAttachment({
-          kind,
-          url: up.url,
-          name: up.fileName,
-          mimeType: up.mimeType,
-          size: up.size,
-          clientTmpId,
-        });
-      }
-
       setIsMenuOpen(false);
     } catch (err) {
       console.error("Attach error:", err);
@@ -970,21 +929,6 @@ const ChatPrincipal = ({
     handleInputChange(e);
     if (selectedChat?.source === "ig") handleTypingIG();
   };
-
-  // cleanup typing_off al salir del chat
-  useEffect(() => {
-    return () => {
-      clearTimeout(typingTimerRef.current);
-      if (
-        wasTypingRef.current &&
-        selectedChat?.source === "ig" &&
-        selectedChat?.id
-      ) {
-        actions?.ig?.typing?.(selectedChat.id, false);
-      }
-      wasTypingRef.current = false;
-    };
-  }, []);
 
   /* === Hora HH:mm para mostrar en burbuja y fecha como tooltip === */
   const formatHora = (iso) =>

@@ -23,248 +23,6 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { useMemo } from "react";
 
-// Mapeo de conversaciones Messenger -> formato Sidebar
-function mapMsConvToSidebar(row) {
-  const rawFecha =
-    row.last_message_at ??
-    row.mensaje_created_at ??
-    row.updated_at ??
-    row.first_contact_at ??
-    null;
-  const d =
-    rawFecha instanceof Date
-      ? rawFecha
-      : rawFecha
-        ? new Date(rawFecha)
-        : new Date();
-  const mensaje_created_at = isNaN(+d) ? new Date() : d;
-
-  return {
-    id: row.id,
-    source: "ms",
-    page_id: row.page_id,
-    mensaje_created_at: mensaje_created_at.toISOString(),
-    texto_mensaje: row.preview ?? row.texto_mensaje ?? "",
-    celular_cliente: row.psid ?? row.celular_cliente,
-    mensajes_pendientes: (row.unread_count ?? row.mensajes_pendientes) || 0,
-    visto: 0,
-    nombre_cliente:
-      row.customer_name ??
-      row.nombre_cliente ??
-      (row.psid ? `Facebook • ${String(row.psid).slice(-6)}` : "Facebook"),
-    imagePath: row.imagePath || null,
-    id_encargado: row.id_encargado ?? null,
-    etiquetas: [],
-    transporte: null,
-    estado_factura: null,
-    novedad_info: null,
-  };
-}
-
-// Mapeo de conversaciones Instagram -> formato Sidebar
-function mapIgConvToSidebar(row) {
-  const rawFecha =
-    row.last_message_at ??
-    row.mensaje_created_at ??
-    row.updated_at ??
-    row.first_contact_at ??
-    null;
-  const d =
-    rawFecha instanceof Date
-      ? rawFecha
-      : rawFecha
-        ? new Date(rawFecha)
-        : new Date();
-  const mensaje_created_at = isNaN(+d) ? new Date() : d;
-
-  return {
-    id: row.id,
-    source: "ig",
-    page_id: row.page_id,
-    mensaje_created_at: mensaje_created_at.toISOString(),
-    texto_mensaje: row.preview ?? row.texto_mensaje ?? "",
-    celular_cliente: row.igsid ?? row.celular_cliente,
-    mensajes_pendientes: (row.unread_count ?? row.mensajes_pendientes) || 0,
-    visto: 0,
-    nombre_cliente:
-      row.customer_name ??
-      row.nombre_cliente ??
-      (row.igsid ? `Instagram • ${String(row.igsid).slice(-6)}` : "Instagram"),
-    imagePath: row.imagePath || null,
-    id_encargado: row.id_encargado ?? null,
-    etiquetas: [],
-    transporte: null,
-    estado_factura: null,
-    novedad_info: null,
-  };
-}
-
-// Normaliza un attachment de Messenger/Instagram a tu formato de UI (image|video|audio|document|sticker|location)
-function normalizeMetaAttachmentToUI(att, fallbackText = "") {
-  const t = (att?.type || att?.kind || "").toLowerCase();
-  // IG/MS traen la URL dentro de payload.url muchas veces
-  const payload = att?.payload || {};
-  const url =
-    att?.url || payload?.url || payload?.preview_url || payload?.src || null;
-
-  if (t === "image") {
-    return {
-      tipo_mensaje: "image",
-      ruta_archivo: url || "",
-      texto_mensaje: fallbackText || "",
-    };
-  }
-
-  if (t === "video") {
-    return {
-      tipo_mensaje: "video",
-      ruta_archivo: url || "",
-      texto_mensaje: fallbackText || "",
-    };
-  }
-
-  if (t === "audio") {
-    return {
-      tipo_mensaje: "audio",
-      ruta_archivo: url || "",
-      texto_mensaje: fallbackText || "",
-    };
-  }
-
-  // documentos genéricos (Messenger suele usar "file")
-  if (t === "file" || t === "document") {
-    return {
-      tipo_mensaje: "document",
-      ruta_archivo: JSON.stringify({
-        ruta: url || "",
-        nombre: att?.name || payload?.file_name || "archivo",
-        size: att?.size || payload?.size || 0,
-        mimeType: att?.mimeType || payload?.mime_type || "",
-      }),
-      texto_mensaje: fallbackText || "",
-    };
-  }
-
-  if (t === "sticker") {
-    return {
-      tipo_mensaje: "sticker",
-      ruta_archivo: url || "",
-      texto_mensaje: "",
-    };
-  }
-
-  if (t === "location" && (payload.latitude || payload.lat)) {
-    const latitude = payload.latitude ?? payload.lat;
-    const longitude =
-      payload.longitude ?? payload.lng ?? payload.longitud ?? null;
-    return {
-      tipo_mensaje: "location",
-      texto_mensaje: JSON.stringify({ latitude, longitude }),
-      ruta_archivo: null,
-    };
-  }
-
-  // Fallback seguro → tratar como documento
-  return {
-    tipo_mensaje: "document",
-    ruta_archivo: JSON.stringify({
-      ruta: url || "",
-      nombre: att?.name || payload?.file_name || "archivo",
-      size: att?.size || payload?.size || 0,
-      mimeType: att?.mimeType || payload?.mime_type || "",
-    }),
-    texto_mensaje: fallbackText || "",
-  };
-}
-
-// Reconciliador para no duplicar mensajes
-function upsertMsg(list, raw) {
-  const norm = (v) => (v == null ? null : String(v));
-
-  const msg = {
-    ...raw,
-    id: norm(raw.id ?? raw.message_id ?? raw.mid_mensaje),
-    mid: norm(raw.mid ?? raw.mid_mensaje),
-    client_tmp_id: norm(raw.client_tmp_id),
-  };
-
-  const keep = (v) =>
-    v !== null &&
-    v !== undefined &&
-    !(typeof v === "string" && v.trim() === "");
-
-  const mergePref = (oldMsg, newMsg) => {
-    const merged = { ...oldMsg, ...newMsg };
-
-    // ► No pisar con vacío
-    merged.responsable = keep(newMsg.responsable)
-      ? newMsg.responsable
-      : oldMsg.responsable;
-
-    merged.texto_mensaje = keep(newMsg.texto_mensaje)
-      ? newMsg.texto_mensaje
-      : oldMsg.texto_mensaje;
-
-    merged.tipo_mensaje = keep(newMsg.tipo_mensaje)
-      ? newMsg.tipo_mensaje
-      : oldMsg.tipo_mensaje;
-
-    // archivos: si viene null/undefined no borres lo que ya tenías
-    if (newMsg.ruta_archivo === undefined || newMsg.ruta_archivo === null) {
-      merged.ruta_archivo = oldMsg.ruta_archivo;
-    }
-
-    // conservar created_at si el nuevo viene vacío
-    merged.created_at = keep(newMsg.created_at)
-      ? newMsg.created_at
-      : oldMsg.created_at;
-
-    // limpia el tmp al consolidar
-    merged.client_tmp_id = null;
-
-    return merged;
-  };
-
-  // A) por client_tmp_id
-  if (msg.client_tmp_id) {
-    const i = list.findIndex(
-      (x) =>
-        norm(x.client_tmp_id) === msg.client_tmp_id ||
-        norm(x.id) === msg.client_tmp_id,
-    );
-    if (i !== -1) {
-      const copy = [...list];
-      copy[i] = mergePref(copy[i], msg);
-      return copy;
-    }
-  }
-
-  // B) por mid
-  if (msg.mid) {
-    const j = list.findIndex(
-      (x) => norm(x.mid) === msg.mid || norm(x.mid_mensaje) === msg.mid,
-    );
-    if (j !== -1) {
-      const copy = [...list];
-      copy[j] = mergePref(copy[j], msg);
-      return copy;
-    }
-  }
-
-  // C) por id
-  if (msg.id) {
-    const k = list.findIndex((x) => norm(x.id) === msg.id);
-    if (k !== -1) {
-      const copy = [...list];
-      copy[k] = mergePref(copy[k], msg);
-      return copy;
-    }
-  }
-
-  // D) insertar
-  return [...list, msg];
-}
-
 const Chat = () => {
   const formatFecha = (fechaISO) => {
     const fecha = new Date(fechaISO);
@@ -649,240 +407,6 @@ const Chat = () => {
   const msBootstrappedRef = useRef(false);
   const igBootstrappedRef = useRef(false);
 
-  // async function fetchMsConversations() {
-  //   if (!id_configuracion) return;
-
-  //   // 👉 Marca "cargando" solo hasta el primer batch
-  //   if (!msBootstrappedRef.current) setIsLoadingMS(true);
-
-  //   const { data } = await chatApi.get("/messenger/conversations", {
-  //     params: { id_configuracion, limit: 50 },
-  //   });
-  //   const items = (data.items || []).map(mapMsConvToSidebar);
-
-  //   setMensajesAcumulados((prev) => {
-  //     const byKey = new Map(
-  //       prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
-  //     );
-  //     for (const it of items) {
-  //       byKey.set(`ms:${it.id}`, it);
-  //     }
-  //     return Array.from(byKey.values()).sort(
-  //       (a, b) =>
-  //         new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
-  //     );
-  //   });
-
-  //   try {
-  //     await chatApi.post("/messenger/profiles/refresh-missing", {
-  //       id_configuracion,
-  //       limit: 50,
-  //     });
-
-  //     const again = await chatApi.get("/messenger/conversations", {
-  //       params: { id_configuracion, limit: 50 },
-  //     });
-  //     const againItems = (again.data.items || []).map(mapMsConvToSidebar);
-  //     setMensajesAcumulados((prev) => {
-  //       const byKey = new Map(
-  //         prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
-  //       );
-  //       for (const it of againItems) byKey.set(`ms:${it.id}`, it);
-  //       return Array.from(byKey.values()).sort(
-  //         (a, b) =>
-  //           new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
-  //       );
-  //     });
-  //   } catch (err) {
-  //     console.warn("Profiles refresh error:", err);
-  //   } finally {
-  //     // 👉 Fin del primer batch de MS
-  //     if (!msBootstrappedRef.current) {
-  //       msBootstrappedRef.current = true;
-  //       setIsLoadingMS(false);
-  //     }
-  //   }
-  // }
-
-  // async function fetchIgConversations() {
-  //   if (!id_configuracion) return;
-
-  //   // 👉 Marca "cargando" solo hasta el primer batch
-  //   if (!igBootstrappedRef.current) setIsLoadingIG(true);
-
-  //   const { data } = await chatApi.get("/instagram/conversations", {
-  //     params: { id_configuracion, limit: 50 },
-  //   });
-  //   const items = (data.items || []).map(mapIgConvToSidebar);
-
-  //   setMensajesAcumulados((prev) => {
-  //     const byKey = new Map(
-  //       prev.map((x) => [`${x.source || "wa"}:${x.id}`, x])
-  //     );
-  //     for (const it of items) byKey.set(`ig:${it.id}`, it);
-  //     return Array.from(byKey.values()).sort(
-  //       (a, b) =>
-  //         new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at)
-  //     );
-  //   });
-
-  //   // 👉 Fin del primer batch de IG
-  //   if (!igBootstrappedRef.current) {
-  //     igBootstrappedRef.current = true;
-  //     setIsLoadingIG(false);
-  //   }
-  // }
-
-  // useEffect(() => {
-  //   if (isSocketConnected && id_configuracion) {
-  //     fetchMsConversations();
-  //     fetchIgConversations();
-  //   }
-  // }, [isSocketConnected, id_configuracion]);
-
-  // Mapeo de mensajes Messenger -> formato ChatPrincipal
-  function mapMsMessageToUI(m) {
-    let out = {
-      id: m.id,
-      rol_mensaje: m.rol_mensaje, // 1 = out, 0 = in
-      texto_mensaje: m.texto_mensaje || m.text || "",
-      tipo_mensaje: m.tipo_mensaje || "text",
-      ruta_archivo: m.ruta_archivo || null,
-      mid_mensaje: m.mid_mensaje || m.mid || null,
-      visto: m.visto || 0,
-      created_at: m.created_at,
-      responsable:
-        m.rol_mensaje === 1 ? m.responsable || nombre_encargado_global : "",
-    };
-
-    // Si hay attachments crudos en el objeto del REST, normaliza el PRIMERO
-    const rawAtts = Array.isArray(m.attachments) ? m.attachments : null;
-    const isAttachmentFlag = m.tipo_mensaje === "attachment";
-
-    if (isAttachmentFlag || (rawAtts && rawAtts.length > 0)) {
-      const norm = normalizeMetaAttachmentToUI(
-        rawAtts ? rawAtts[0] : {},
-        out.texto_mensaje,
-      );
-      out = { ...out, ...norm };
-    }
-
-    // HOTFIX: si quedó como image/video/audio y ruta_archivo vacío, intenta rescatar payload.url
-    if (
-      (out.tipo_mensaje === "image" ||
-        out.tipo_mensaje === "video" ||
-        out.tipo_mensaje === "audio") &&
-      !out.ruta_archivo
-    ) {
-      const a0 = rawAtts?.[0];
-      const rescue =
-        a0?.payload?.url || a0?.payload?.preview_url || a0?.url || null;
-      if (rescue) out.ruta_archivo = rescue;
-    }
-
-    return out;
-  }
-
-  // Mapeo de mensajes Instagram -> formato ChatPrincipal (incluye attachments si vienen por REST)
-  function mapIgMessageToUI(m) {
-    let out = {
-      id: m.id,
-      rol_mensaje: m.rol_mensaje, // 1 = out, 0 = in
-      texto_mensaje: m.texto_mensaje || m.text || "",
-      tipo_mensaje: m.tipo_mensaje || "text",
-      ruta_archivo: m.ruta_archivo || null,
-      mid_mensaje: m.mid_mensaje || m.mid || null,
-      visto: m.visto || 0,
-      created_at: m.created_at,
-      responsable:
-        m.rol_mensaje === 1 ? m.responsable || nombre_encargado_global : "",
-    };
-
-    const rawAtts = Array.isArray(m.attachments) ? m.attachments : null;
-    const isAttachmentFlag = m.tipo_mensaje === "attachment";
-
-    if (isAttachmentFlag || (rawAtts && rawAtts.length > 0)) {
-      const norm = normalizeMetaAttachmentToUI(
-        rawAtts ? rawAtts[0] : {},
-        out.texto_mensaje,
-      );
-      out = { ...out, ...norm };
-    }
-
-    if (
-      (out.tipo_mensaje === "image" ||
-        out.tipo_mensaje === "video" ||
-        out.tipo_mensaje === "audio") &&
-      !out.ruta_archivo
-    ) {
-      const a0 = rawAtts?.[0];
-      const rescue =
-        a0?.payload?.url || a0?.payload?.preview_url || a0?.url || null;
-      if (rescue) out.ruta_archivo = rescue;
-    }
-
-    return out;
-  }
-
-  async function openMessengerConversation(conv) {
-    setActiveChannel("messenger");
-    setMsActiveConversationId(conv.id);
-    setSelectedChat(conv); // Para que la UI derecha se actualice
-    setMensajesMostrados(20);
-    setScrollOffset(0);
-    setMensaje("");
-
-    // Únete al room para tiempo real
-    socketRef.current.emit("MS_JOIN_CONV", {
-      conversation_id: conv.id,
-      id_configuracion,
-    });
-
-    // Carga historial por REST
-    const { data } = await chatApi.get(
-      `/messenger/conversations/${conv.id}/messages`,
-      { params: { limit: 50 } }, // sin before_id => últimos
-    );
-    const ordered = (data.items || []).map(mapMsMessageToUI); // ya viene ASC
-    setChatMessages([{ id: conv.id, mensajes: ordered }]);
-    setMensajesOrdenados(ordered);
-    const initial = Math.min(20, ordered.length);
-    setMensajesMostrados(initial);
-    setMsNextBeforeId(data.next_before_id ?? null);
-    scrollToBottomNow();
-  }
-
-  async function openInstagramConversation(conv) {
-    setActiveChannel("instagram");
-    setSelectedChat(conv);
-    setMsActiveConversationId(null);
-    setMensaje("");
-    setMensajesMostrados(20);
-    setScrollOffset(0);
-
-    // únete al room IG
-    actions.ig.joinConv(conv.id);
-
-    // marca como leído (se envía IG_MARK_SEEN a tu backend)
-    actions.ig.markSeen(conv.id);
-
-    // Carga historial por REST
-    const { data } = await chatApi.get(
-      `/instagram/conversations/${conv.id}/messages`,
-      {
-        params: { limit: 50 },
-      },
-    );
-
-    // backend ya entrega mapeado; si no, mapea:
-    const ordered = (data.items || []).map(mapIgMessageToUI); // ASC
-    setChatMessages([{ id: conv.id, mensajes: ordered }]);
-    setMensajesOrdenados(ordered);
-    setMensajesMostrados(Math.min(20, ordered.length));
-    setMsNextBeforeId(data.next_before_id ?? null); // puedes usar mismo cursor var
-    scrollToBottomNow();
-  }
-
   /* 2️⃣  cuando ya hay chats */
   useEffect(() => {
     if (!pendingOpen || !id_configuracion) return;
@@ -957,8 +481,6 @@ const Chat = () => {
       console.error("Error fetching tags:", error);
     }
   };
-
-  /* fin abrir modal crear etiquetas */
 
   /* abrir modal asignar etiquetas */
   const [tagListAsginadas, setTagListAsginadas] = useState([]);
@@ -1386,9 +908,49 @@ const Chat = () => {
 
   const handleSendMessage = () => {
     const text = (mensaje || "").trim();
-    if (!text || !selectedChat) return;
+    if (!text || !selectedChat || !socketRef.current) return;
 
-    // ✅ Helper: actualiza el chat en la lista izquierda (setMensajesAcumulados)
+    const nowISO = new Date().toISOString();
+    const tmpId = `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const safeName = (nombre_encargado_global || "").replace(/[*_~`]/g, "");
+
+    // ✅ Para WA usted quería el encabezado con nombre + 🎤
+    const finalTextWA = `*${safeName}* 🎤:\n${text}`;
+
+    // ✅ Para IG/MS (recomendado) NO meta ese encabezado, envíe solo texto.
+    const finalTextSocial = text;
+
+    const isWA = (selectedChat?.source || "wa") === "wa";
+    const isIG = selectedChat?.source === "ig";
+    const isMS = selectedChat?.source === "ms";
+
+    const tipo = file ? "document" : "text";
+
+    // =========================
+    // ✅ 1) OPTIMISTIC UI (Derecha) - siempre
+    // =========================
+    const optimisticMsg = {
+      id: tmpId,
+      created_at: nowISO,
+      texto_mensaje: isWA ? finalTextWA : finalTextSocial,
+      tipo_mensaje: tipo,
+      ruta_archivo: file ? file?.name || "" : null,
+      rol_mensaje: 1, // 1 = nosotros
+      visto: 1,
+      direction: "out",
+      status_unificado: "sent", // o "pending"
+      responsable: nombre_encargado_global,
+      // opcional:
+      source: selectedChat?.source || "wa",
+    };
+
+    setMensajesOrdenados((prev) => [...prev, optimisticMsg]);
+    scrollToBottomNow();
+
+    // =========================
+    // ✅ 2) Actualiza lista izquierda (preview) - siempre
+    // =========================
     const updateMensajesAcumulados = ({
       chatId,
       texto_mensaje,
@@ -1396,7 +958,7 @@ const Chat = () => {
       ruta_archivo = "{}",
       source,
     }) => {
-      const fechaISO = new Date().toISOString();
+      const fechaISO = nowISO;
 
       setMensajesAcumulados((prevChats) => {
         const actualizado = prevChats.map((c) => ({ ...c }));
@@ -1411,35 +973,27 @@ const Chat = () => {
             texto_mensaje,
             tipo_mensaje,
             ruta_archivo,
-            mensajes_pendientes: 0, // ✅ como es enviado por ti
+            mensajes_pendientes: 0,
             visto: 1,
-            nombre_encargado: nombre_encargado_global,
             source: source ?? actualizado[index].source,
           };
 
-          // ✅ subir al inicio
-          const [chatMovido] = actualizado.splice(index, 1);
-          actualizado.unshift(chatMovido);
+          const [movido] = actualizado.splice(index, 1);
+          actualizado.unshift(movido);
           return actualizado;
         }
 
-        // ✅ si no existe (raro, pero por si acaso)
         const nuevoChat = {
           id: chatId,
-          chat_cerrado: 0,
-          bot_openia: 0,
-          nombre_cliente: "",
-          apellido_cliente: "",
-          celular_cliente: selectedChat?.celular_cliente || "",
-          id_configuracion: id_configuracion,
+          id_configuracion,
           texto_mensaje,
           tipo_mensaje,
           ruta_archivo,
           mensaje_created_at: fechaISO,
           mensajes_pendientes: 0,
           visto: 1,
-          nombre_encargado: nombre_encargado_global,
           source: source ?? selectedChat?.source,
+          celular_cliente: selectedChat?.celular_cliente || "",
           etiquetas: "[]",
         };
 
@@ -1447,127 +1001,10 @@ const Chat = () => {
       });
     };
 
-    // =========================
-    // ✅ MS
-    // =========================
-    if (selectedChat.source === "ms") {
-      const tempId =
-        "tmp-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-
-      const optimistic = {
-        id: tempId,
-        rol_mensaje: 1,
-        texto_mensaje: text,
-        tipo_mensaje: "text",
-        created_at: new Date().toISOString(),
-        visto: 0,
-        responsable: nombre_encargado_global,
-      };
-      setMensajesOrdenados((prev) => [...prev, optimistic]);
-
-      const diffHrs =
-        (Date.now() - new Date(selectedChat.mensaje_created_at).getTime()) /
-        36e5;
-
-      const payload = {
-        conversation_id: selectedChat.id,
-        text,
-        ...(diffHrs > 24
-          ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
-          : {}),
-        agent_id: id_sub_usuario_global,
-        agent_name: nombre_encargado_global,
-        client_tmp_id: tempId,
-      };
-
-      socketRef.current.emit("MS_SEND", payload);
-
-      // ✅ actualiza lista izquierda
-      updateMensajesAcumulados({
-        chatId: selectedChat.id,
-        texto_mensaje: text,
-        tipo_mensaje: "text",
-        ruta_archivo: "{}",
-        source: "ms",
-      });
-
-      setMensaje("");
-      setFile(null);
-      return;
-    }
-
-    // =========================
-    // ✅ IG
-    // =========================
-    if (selectedChat.source === "ig") {
-      const tempId =
-        "tmp-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-
-      const optimistic = {
-        id: tempId,
-        client_tmp_id: tempId,
-        rol_mensaje: 1,
-        texto_mensaje: text,
-        tipo_mensaje: "text",
-        created_at: new Date().toISOString(),
-        visto: 0,
-        responsable: nombre_encargado_global,
-      };
-      setMensajesOrdenados((prev) => [...prev, optimistic]);
-
-      const diffHrs =
-        (Date.now() - new Date(selectedChat.mensaje_created_at).getTime()) /
-        36e5;
-
-      socketRef.current.emit("IG_SEND", {
-        conversation_id: selectedChat.id,
-        text,
-        ...(diffHrs > 24
-          ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
-          : {}),
-        agent_id: id_sub_usuario_global,
-        agent_name: nombre_encargado_global,
-        client_tmp_id: tempId,
-      });
-
-      // ✅ actualiza lista izquierda
-      updateMensajesAcumulados({
-        chatId: selectedChat.id,
-        texto_mensaje: text,
-        tipo_mensaje: "text",
-        ruta_archivo: "{}",
-        source: "ig",
-      });
-
-      setMensaje("");
-      setFile(null);
-      return;
-    }
-
-    // =========================
-    // ✅ WhatsApp
-    // =========================
-    console.log("Mensaje enviado:", mensaje, file);
-
-    const safeName = (nombre_encargado_global || "").replace(/[*_~`]/g, "");
-    const encabezadoWS = `*${safeName}* 🎤:\n${text}`;
-    const tipoWA = file ? "document" : "text";
-
-    socketRef.current.emit("SEND_MESSAGE", {
-      mensaje: encabezadoWS,
-      tipo_mensaje: tipoWA,
-      to: selectedChat.celular_cliente,
-      id_configuracion: id_configuracion,
-      file,
-      dataAdmin,
-      nombre_encargado: nombre_encargado_global,
-    });
-
-    // ✅ actualiza lista izquierda (WA)
     updateMensajesAcumulados({
       chatId: selectedChat.id,
-      texto_mensaje: encabezadoWS, // si quieres SOLO text: usa text
-      tipo_mensaje: tipoWA,
+      texto_mensaje: isWA ? finalTextWA : finalTextSocial,
+      tipo_mensaje: tipo,
       ruta_archivo: file
         ? JSON.stringify({
             name: file?.name || "",
@@ -1575,97 +1012,52 @@ const Chat = () => {
             type: file?.type || "",
           })
         : "{}",
-      source: "wa",
+      source: selectedChat?.source || "wa",
     });
 
+    // limpiar input
     setMensaje("");
     setFile(null);
+
+    // =========================
+    // ✅ 3) Emit unificado (WA / IG / MS)
+    // =========================
+
+    // 📌 IMPORTANTE:
+    // - Para WA: mandamos to
+    // - Para IG/MS: mandamos chatId + source + page_id + external_id (mínimo chatId)
+    const basePayload = {
+      id_configuracion,
+      tipo_mensaje: tipo,
+      file,
+      dataAdmin,
+      nombre_encargado: nombre_encargado_global,
+      client_tmp_id: tmpId, // ✅ para luego reconciliar si quiere
+    };
+
+    if (isWA) {
+      socketRef.current.emit("SEND_MESSAGE", {
+        ...basePayload,
+        mensaje: finalTextWA,
+        to: selectedChat.celular_cliente,
+        // opcional (por si quiere):
+        chatId: selectedChat.id,
+        source: "wa",
+      });
+      return;
+    }
+
+    // IG/MS
+    socketRef.current.emit("SEND_MESSAGE", {
+      ...basePayload,
+      mensaje: finalTextSocial,
+      chatId: selectedChat.id, // ✅ clave
+      source: selectedChat.source, // 'ig' o 'ms'
+      page_id: selectedChat.page_id, // ✅
+      external_id: selectedChat.external_id, // ✅
+      to: null, // para que quede explícito
+    });
   };
-
-  // Enviar adjunto a Messenger vía socket
-  function onSendMsAttachment({
-    kind,
-    url,
-    name,
-    mimeType,
-    size,
-    clientTmpId,
-  }) {
-    if (!selectedChat || selectedChat.source !== "ms") return;
-    const conversationId = selectedChat.id;
-
-    // ¿Han pasado más de 24h desde el último entrante?
-    const refISO = selectedChat.mensaje_created_at;
-    const diffHrs = refISO
-      ? (Date.now() - new Date(refISO).getTime()) / 36e5
-      : 0;
-
-    // Mapear al tipo que acepta la API de Messenger
-    // Messenger acepta: image | video | audio | file
-    const msType =
-      kind === "image"
-        ? "image"
-        : kind === "video"
-          ? "video"
-          : kind === "audio"
-            ? "audio"
-            : "file"; // documentos
-
-    socketRef.current.emit("MS_SEND", {
-      conversation_id: conversationId,
-      attachment: {
-        type: msType,
-        url,
-        name,
-        mimeType,
-        size,
-      },
-      ...(diffHrs > 24
-        ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
-        : {}),
-      agent_id: id_sub_usuario_global,
-      agent_name: nombre_encargado_global,
-      client_tmp_id: clientTmpId,
-    });
-  }
-
-  function onSendIgAttachment({
-    kind,
-    url,
-    name,
-    mimeType,
-    size,
-    clientTmpId,
-  }) {
-    if (!selectedChat || selectedChat.source !== "ig") return;
-    const conversationId = selectedChat.id;
-
-    const refISO = selectedChat.mensaje_created_at;
-    const diffHrs = refISO
-      ? (Date.now() - new Date(refISO).getTime()) / 36e5
-      : 0;
-
-    // Graph IG usa los mismos types: image | video | file (audio también soporta 'audio')
-    const type =
-      kind === "image"
-        ? "image"
-        : kind === "video"
-          ? "video"
-          : kind === "audio"
-            ? "audio"
-            : "file";
-
-    socketRef.current.emit("IG_SEND", {
-      conversation_id: conversationId,
-      attachment: { kind, url, name, mimeType, size }, // el gateway mapea kind->type
-      ...(diffHrs > 24
-        ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" }
-        : {}),
-      agent_id: id_sub_usuario_global,
-      agent_name: nombre_encargado_global,
-      client_tmp_id: clientTmpId,
-    });
-  }
 
   const uploadAudio = (audioBlob) => {
     // Primero, enviamos el archivo para su conversión
@@ -1920,21 +1312,6 @@ const Chat = () => {
         const convId = msActiveConversationId || selectedChat?.id;
         if (!convId) return;
 
-        // endpoint y mapeo según canal
-        const isMs = selectedChat?.source === "ms";
-        const isIg = selectedChat?.source === "ig";
-
-        let url, mapFn;
-        if (isMs) {
-          url = `/messenger/conversations/${convId}/messages`;
-          mapFn = mapMsMessageToUI;
-        } else if (isIg) {
-          url = `/instagram/conversations/${convId}/messages`;
-          mapFn = mapIgMessageToUI;
-        } else {
-          return; // solo paginamos MS/IG aquí
-        }
-
         const { data } = await chatApi.get(url, {
           params: { limit: 50, before_id: msNextBeforeId },
         });
@@ -2010,22 +1387,16 @@ const Chat = () => {
     setFulfillment(null);
     setTotal_directo(null);
 
-    if (chat.source === "ms") {
-      openMessengerConversation(chat);
-      return;
-    }
-
-    if (chat.source === "ig") {
-      openInstagramConversation(chat);
-      return;
-    }
-
-    // — WhatsApp (lo que ya tenías) —
     setSelectedChat(chat);
-    setActiveChannel("whatsapp");
+
+    const src = chat?.source || "wa";
+    setActiveChannel(
+      src === "ms" ? "messenger" : src === "ig" ? "instagram" : "whatsapp",
+    );
 
     // pedir facturas/guías apenas seleccionas un chat de WhatsApp
     if (
+      src === "wa" &&
       id_plataforma_conf !== null &&
       socketRef.current &&
       chat.celular_cliente
@@ -2199,39 +1570,6 @@ const Chat = () => {
     if (!selectedChat) return;
 
     const needsAssign = (v) => v === null || v === undefined || v === "null";
-
-    // 🔵 MESSENGER
-    if (selectedChat.source === "ms") {
-      if (!needsAssign(selectedChat.id_encargado)) return;
-
-      (async () => {
-        try {
-          const { data } = await chatApi.get("/messenger/conversations", {
-            params: { id_configuracion, limit: 1, id: selectedChat.id },
-          });
-          const owner =
-            data?.item?.id_encargado ??
-            data?.id_encargado ??
-            data?.encargado_id ??
-            null;
-
-          setSelectedChat((prev) => ({ ...prev, id_encargado: owner }));
-          if (needsAssign(owner)) showAsignarChatDialog();
-        } catch {
-          showAsignarChatDialog();
-        }
-      })();
-
-      return;
-    }
-
-    // 🟣 INSTAGRAM
-    if (selectedChat.source === "ig") {
-      if (!needsAssign(selectedChat.id_encargado)) return;
-
-      showAsignarChatDialog();
-      return;
-    }
 
     // 🟢 WHATSAPP
     if (needsAssign(selectedChat.id_encargado)) {
@@ -2816,28 +2154,6 @@ const Chat = () => {
     fetchTags();
     fetchTagsAsginadas();
 
-    // ⚠️ Si es Messenger, NO usar GET_CHATS_BOX ni su listener
-    if (selectedChat.source === "ms") {
-      if (id_plataforma_conf !== null) {
-        socketRef.current.emit("GET_FACTURAS", {
-          id_plataforma: id_plataforma_conf,
-          telefono: selectedChat.celular_cliente,
-        });
-      }
-      return; // <- clave: no registres CHATS_BOX_RESPONSE aquí
-    }
-
-    // ⚠️ Si es Instagram, NO usar GET_CHATS_BOX ni su listener
-    if (selectedChat.source === "ig") {
-      if (id_plataforma_conf !== null) {
-        socketRef.current.emit("GET_FACTURAS", {
-          id_plataforma: id_plataforma_conf,
-          telefono: selectedChat.celular_cliente,
-        });
-      }
-      return;
-    }
-
     // WhatsApp / otros canales
     socketRef.current.emit("GET_CHATS_BOX", {
       chatId: selectedChat.id,
@@ -2948,34 +2264,32 @@ const Chat = () => {
   }, [menuSearchTermNumeroCliente]);
 
   useEffect(() => {
-    if (isSocketConnected && selectedChat) {
-      // Escuchar el evento UPDATE_CHAT
-      const handleUpdateChat = (data) => {
-        const { chatId, message } = data;
-        if (selectedChat && chatId === selectedChat.celular_cliente) {
-          setMensajesOrdenados((prevMessages) => {
-            const updatedMessages = [...prevMessages, message.mensajeNuevo];
-            return updatedMessages.slice(-mensajesMostrados); // Mantén solo los últimos mostrados
-          });
+    if (!isSocketConnected || !selectedChat || !socketRef.current) return;
 
-          setTimeout(() => {
-            if (chatContainerRef.current) {
-              chatContainerRef.current.scrollTop =
-                chatContainerRef.current.scrollHeight;
-            }
-          }, 200);
-        }
-      };
+    const handleUpdateChat = (data) => {
+      const { chatId, message } = data;
 
-      // Añadir el listener
-      socketRef.current.on("UPDATE_CHAT", handleUpdateChat);
+      if (String(chatId) === String(selectedChat.id)) {
+        // Si el backend manda message.mensajeNuevo ya listo:
+        const msg = message?.mensajeNuevo || message;
 
-      // Cleanup: remover el listener cuando `selectedChat` cambie
-      return () => {
-        socketRef.current.off("UPDATE_CHAT", handleUpdateChat);
-      };
-    }
-  }, [isSocketConnected, selectedChat, mensajesMostrados]);
+        setMensajesOrdenados((prev) => [...prev, msg]);
+        scrollToBottomNow();
+
+        // marcar pendientes en 0 si aplica
+        setMensajesAcumulados((prev) =>
+          prev.map((c) =>
+            String(c.id) === String(chatId)
+              ? { ...c, mensajes_pendientes: 0, visto: 1 }
+              : c,
+          ),
+        );
+      }
+    };
+
+    socketRef.current.on("UPDATE_CHAT", handleUpdateChat);
+    return () => socketRef.current.off("UPDATE_CHAT", handleUpdateChat);
+  }, [isSocketConnected, selectedChat]);
 
   const recargarDatosFactura = () => {
     if (socketRef.current) {
@@ -3215,331 +2529,6 @@ const Chat = () => {
     }
   };
 
-  // Escuchar eventos de Messenger/Instagram cuando el socket esté listo
-  useEffect(() => {
-    if (!isSocketConnected || !socketRef.current) return;
-
-    // --- MS: MESSAGE ---
-    const onMsMessage = ({ conversation_id, message }) => {
-      let mapped = {
-        id: message.id,
-        rol_mensaje: message.direction === "out" ? 1 : 0,
-        texto_mensaje: message.text || "",
-        tipo_mensaje: "text",
-        ruta_archivo: null,
-        mid: message.mid || null,
-        visto: message.status === "read" ? 1 : 0,
-        created_at: message.created_at || new Date().toISOString(),
-        responsable: message.direction === "out" ? message.agent_name : "",
-        client_tmp_id: message.client_tmp_id || null,
-      };
-
-      if (
-        Array.isArray(message.attachments) &&
-        message.attachments.length > 0
-      ) {
-        const norm = normalizeMetaAttachmentToUI(
-          message.attachments[0],
-          message.text || "",
-        );
-        mapped = { ...mapped, ...norm };
-
-        // rescate por si el helper no encontró url
-        if (
-          (mapped.tipo_mensaje === "image" ||
-            mapped.tipo_mensaje === "video" ||
-            mapped.tipo_mensaje === "audio") &&
-          !mapped.ruta_archivo
-        ) {
-          const a0 = message.attachments[0];
-          mapped.ruta_archivo =
-            a0?.payload?.url || a0?.payload?.preview_url || a0?.url || null;
-        }
-      }
-
-      if (
-        selectedChat?.source === "ms" &&
-        Number(selectedChat.id) === Number(conversation_id)
-      ) {
-        setMensajesOrdenados((prev) => upsertMsg(prev, mapped));
-        requestAnimationFrame(() => {
-          const el = chatContainerRef.current;
-          if (el) el.scrollTop = el.scrollHeight;
-        });
-      }
-
-      setMensajesAcumulados((prev) => {
-        const out = [...prev];
-        const idx = out.findIndex(
-          (x) => x.source === "ms" && Number(x.id) === Number(conversation_id),
-        );
-        if (idx !== -1) {
-          const row = out[idx];
-          const next = {
-            ...row,
-            texto_mensaje: message.text || row.texto_mensaje,
-            mensaje_created_at: mapped.created_at,
-            mensajes_pendientes:
-              (row.mensajes_pendientes || 0) +
-              (message.direction === "in" ? 1 : 0),
-          };
-          out.splice(idx, 1);
-          out.unshift(next);
-        }
-        return out;
-      });
-    };
-
-    // --- MS: CONV_UPSERT ---
-    const onMsConvUpsert = (upd) => {
-      setMensajesAcumulados((prev) => {
-        const out = [...prev];
-        const idx = out.findIndex(
-          (x) => x.source === "ms" && Number(x.id) === Number(upd.id),
-        );
-        if (idx !== -1) {
-          out[idx] = {
-            ...out[idx],
-            mensaje_created_at: upd.last_message_at,
-            texto_mensaje: upd.preview ?? out[idx].texto_mensaje,
-            mensajes_pendientes:
-              upd.unread_count ?? out[idx].mensajes_pendientes,
-          };
-        } else {
-          out.unshift({
-            id: upd.id,
-            source: "ms",
-            page_id: upd.page_id,
-            mensaje_created_at: upd.last_message_at,
-            texto_mensaje: upd.preview ?? "",
-            celular_cliente: upd.psid,
-            mensajes_pendientes: upd.unread_count ?? 0,
-            visto: 0,
-            nombre_cliente: upd.customer_name ?? "Facebook",
-            imagePath: upd.imagePath ?? null,
-            id_encargado: upd.id_encargado ?? null,
-            etiquetas: [],
-            transporte: null,
-            estado_factura: null,
-            novedad_info: null,
-          });
-        }
-        out.sort(
-          (a, b) =>
-            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at),
-        );
-        return out;
-      });
-    };
-
-    // --- IG: MESSAGE ---
-    const onIgMessage = ({ conversation_id, message }) => {
-      let mapped = {
-        id: message.id,
-        rol_mensaje: message.direction === "out" ? 1 : 0,
-        texto_mensaje: message.text || "",
-        tipo_mensaje: "text",
-        ruta_archivo: null,
-        mid: message.mid || null,
-        visto: message.status === "read" ? 1 : 0,
-        created_at: message.created_at || new Date().toISOString(),
-        responsable: message.direction === "out" ? message.agent_name : "",
-        client_tmp_id: message.client_tmp_id || null,
-      };
-
-      if (
-        Array.isArray(message.attachments) &&
-        message.attachments.length > 0
-      ) {
-        const norm = normalizeMetaAttachmentToUI(
-          message.attachments[0],
-          message.text || "",
-        );
-        mapped = { ...mapped, ...norm };
-
-        if (
-          (mapped.tipo_mensaje === "image" ||
-            mapped.tipo_mensaje === "video" ||
-            mapped.tipo_mensaje === "audio") &&
-          !mapped.ruta_archivo
-        ) {
-          const a0 = message.attachments[0];
-          mapped.ruta_archivo =
-            a0?.payload?.url || a0?.payload?.preview_url || a0?.url || null;
-        }
-      }
-
-      if (
-        selectedChat?.source === "ig" &&
-        Number(selectedChat.id) === Number(conversation_id)
-      ) {
-        setMensajesOrdenados((prev) => {
-          const merged = upsertMsg(prev, mapped);
-          if (mapped.mid) {
-            const midStr = String(mapped.mid);
-            const hasRealWithMid = merged.some(
-              (m) =>
-                String(m.mid || m.mid_mensaje || "") === midStr &&
-                !String(m.id).startsWith("tmp-"),
-            );
-            if (hasRealWithMid) {
-              return merged.filter(
-                (m) =>
-                  !(
-                    String(m.id || "").startsWith("tmp-") &&
-                    String(m.mid || m.mid_mensaje || "") === midStr
-                  ),
-              );
-            }
-          }
-          return merged;
-        });
-        requestAnimationFrame(() => {
-          const el = chatContainerRef.current;
-          if (el) el.scrollTop = el.scrollHeight;
-        });
-      }
-
-      setMensajesAcumulados((prev) => {
-        const out = [...prev];
-        const idx = out.findIndex(
-          (x) => x.source === "ig" && Number(x.id) === Number(conversation_id),
-        );
-        if (idx !== -1) {
-          const row = out[idx];
-          const next = {
-            ...row,
-            texto_mensaje: message.text || row.texto_mensaje,
-            mensaje_created_at: mapped.created_at,
-            mensajes_pendientes:
-              (row.mensajes_pendientes || 0) +
-              (message.direction === "in" ? 1 : 0),
-          };
-          out.splice(idx, 1);
-          out.unshift(next);
-        }
-        return out;
-      });
-    };
-
-    // --- IG: CONV_UPSERT (igual que ya tienes) ---
-    const onIgConvUpsert = (upd) => {
-      setMensajesAcumulados((prev) => {
-        const out = [...prev];
-        const idx = out.findIndex(
-          (x) => x.source === "ig" && Number(x.id) === Number(upd.id),
-        );
-        if (idx !== -1) {
-          out[idx] = {
-            ...out[idx],
-            mensaje_created_at: upd.last_message_at,
-            texto_mensaje: upd.preview ?? out[idx].texto_mensaje,
-            mensajes_pendientes:
-              upd.unread_count ?? out[idx].mensajes_pendientes,
-          };
-        } else {
-          out.unshift({
-            id: upd.id,
-            source: "ig",
-            page_id: upd.page_id,
-            mensaje_created_at: upd.last_message_at,
-            texto_mensaje: upd.preview ?? "",
-            celular_cliente: upd.igsid,
-            mensajes_pendientes: upd.unread_count ?? 0,
-            visto: 0,
-            nombre_cliente: upd.customer_name ?? "Instagram",
-            imagePath: upd.imagePath ?? null,
-            id_encargado: upd.id_encargado ?? null,
-            etiquetas: [],
-            transporte: null,
-            estado_factura: null,
-            novedad_info: null,
-          });
-        }
-        out.sort(
-          (a, b) =>
-            new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at),
-        );
-        return out;
-      });
-    };
-
-    // Registrar
-    socketRef.current.on("MS_MESSAGE", onMsMessage);
-    socketRef.current.on("MS_CONV_UPSERT", onMsConvUpsert);
-    socketRef.current.on("IG_MESSAGE", onIgMessage);
-    socketRef.current.on("IG_CONV_UPSERT", onIgConvUpsert);
-
-    // Cleanup único
-    return () => {
-      socketRef.current?.off("MS_MESSAGE", onMsMessage);
-      socketRef.current?.off("MS_CONV_UPSERT", onMsConvUpsert);
-      socketRef.current?.off("IG_MESSAGE", onIgMessage);
-      socketRef.current?.off("IG_CONV_UPSERT", onIgConvUpsert);
-    };
-  }, [isSocketConnected, selectedChat?.id, selectedChat?.source]);
-
-  useEffect(() => {
-    if (!isSocketConnected || !socketRef.current) return;
-
-    const markTmpAsError = (msgText, client_tmp_id) => {
-      setMensajesOrdenados((prev) => {
-        const next = [...prev];
-        let idx = -1;
-        if (client_tmp_id) {
-          idx = next.findIndex((m) => m.id === client_tmp_id);
-        }
-        if (idx === -1) {
-          idx = [...next]
-            .reverse()
-            .findIndex(
-              (m) => String(m.id).startsWith("tmp-") && m.rol_mensaje === 1,
-            );
-          if (idx !== -1) idx = next.length - 1 - idx;
-        }
-        if (idx !== -1)
-          next[idx] = { ...next[idx], error_meta: { mensaje_error: msgText } };
-        return next;
-      });
-    };
-
-    const onMsSendError = ({ conversation_id, error, client_tmp_id }) => {
-      if (
-        !(
-          selectedChat?.source === "ms" &&
-          Number(selectedChat.id) === Number(conversation_id)
-        )
-      )
-        return;
-      const msgText =
-        error?.error?.message ||
-        (typeof error === "string" ? error : "No se pudo enviar el mensaje");
-      markTmpAsError(msgText, client_tmp_id);
-    };
-
-    const onIgSendError = ({ conversation_id, error, client_tmp_id }) => {
-      if (
-        !(
-          selectedChat?.source === "ig" &&
-          Number(selectedChat.id) === Number(conversation_id)
-        )
-      )
-        return;
-      const msgText =
-        error?.error?.message ||
-        (typeof error === "string" ? error : "No se pudo enviar el mensaje");
-      markTmpAsError(msgText, client_tmp_id);
-    };
-
-    socketRef.current.on("MS_SEND_ERROR", onMsSendError);
-    socketRef.current.on("IG_SEND_ERROR", onIgSendError);
-
-    return () => {
-      socketRef.current?.off("MS_SEND_ERROR", onMsSendError);
-      socketRef.current?.off("IG_SEND_ERROR", onIgSendError);
-    };
-  }, [isSocketConnected, selectedChat?.id, selectedChat?.source]);
-
   const [numeroModalPreset, setNumeroModalPreset] = useState(null);
 
   // abrir limpio (por el botón “más”)
@@ -3555,31 +2544,6 @@ const Chat = () => {
       setNumeroModal(true);
     }
   };
-
-  const actions = useMemo(
-    () => ({
-      on: (ev, cb) => socketRef.current?.on(ev, cb),
-      off: (ev, cb) => socketRef.current?.off(ev, cb),
-
-      ig: {
-        joinConv: (conversation_id) => {
-          socketRef.current?.emit("IG_JOIN_CONV", {
-            conversation_id,
-            id_configuracion,
-          });
-        },
-        markSeen: (conversation_id) => {
-          socketRef.current?.emit("IG_MARK_SEEN", { conversation_id });
-        },
-        typing: (conversation_id, on) => {
-          socketRef.current?.emit("IG_TYPING", { conversation_id, on });
-        },
-      },
-
-      // si quieres también ms.*, wa.*, etc. los pones aquí
-    }),
-    [id_configuracion],
-  );
 
   return (
     <div className="sm:grid grid-cols-4">
@@ -3708,9 +2672,6 @@ const Chat = () => {
         handleCloseModal={handleCloseModal}
         dataAdmin={dataAdmin}
         setMensajesOrdenados={setMensajesOrdenados}
-        onSendMsAttachment={onSendMsAttachment}
-        onSendIgAttachment={onSendIgAttachment}
-        actions={actions}
         isSocketConnected={isSocketConnected}
       />
       {/* Opciones adicionales con animación */}
