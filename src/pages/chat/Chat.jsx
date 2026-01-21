@@ -2263,64 +2263,175 @@ const Chat = () => {
   useEffect(() => {
     if (!isSocketConnected || !socketRef.current) return;
 
+    const normalizeMsg = (m = {}, fallbackSource) => {
+      const created =
+        m.created_at || m.createdAt || m.timestamp || new Date().toISOString();
+
+      const texto =
+        m.texto_mensaje ?? m.text ?? m.message ?? m.body ?? m.payload ?? "";
+
+      const tipo = m.tipo_mensaje || m.type || "text";
+
+      const direction =
+        m.direction ||
+        (m.rol_mensaje === 1 ? "out" : m.rol_mensaje === 0 ? "in" : undefined);
+
+      return {
+        ...m,
+        created_at: created,
+        texto_mensaje: texto,
+        tipo_mensaje: tipo,
+        direction,
+        source: m.source || fallbackSource,
+      };
+    };
+
+    const scrollIfAtBottom = () => {
+      if (!chatContainerRef.current) return;
+      const el = chatContainerRef.current;
+      const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 5;
+      if (isAtBottom) el.scrollTop = el.scrollHeight;
+    };
+
     const onUpdateChat = (payload) => {
-      const { id_configuracion: cfg, chatId, message, source } = payload || {};
+      const {
+        id_configuracion: cfg,
+        chatId, // ✅ MULTI-CANAL: debe venir SIEMPRE
+        message,
+        source,
+        chat, // ✅ MULTI-CANAL: idealmente viene con id_encargado
+        ultimoMensaje, // compat si alguna vez llega así
+      } = payload || {};
+
+      if (!chatId) return;
       if (String(cfg) !== String(id_configuracion)) return;
 
-      // 1) izquierda (preview)
-      setMensajesAcumulados((prev) => {
-        const list = prev.map((c) => ({ ...c }));
-        const idx = list.findIndex((c) => String(c.id) === String(chatId));
+      const msg = normalizeMsg(ultimoMensaje ?? message, source);
 
-        if (idx !== -1) {
-          list[idx].mensaje_created_at = message.created_at;
-          list[idx].texto_mensaje = message.texto_mensaje;
-          list[idx].tipo_mensaje = message.tipo_mensaje;
-          list[idx].visto = 0;
-          list[idx].mensajes_pendientes =
-            (list[idx].mensajes_pendientes || 0) + 1;
-          list[idx].source = source || list[idx].source;
+      const isIncoming =
+        msg.direction === "in" ||
+        msg.rol_mensaje === 0 ||
+        msg.rol_mensaje === "0";
 
-          const [moved] = list.splice(idx, 1);
-          list.unshift(moved);
-          return list;
+      // encargado unificado
+      const clienteWa = msg.clientePorCelular || null;
+      const encargadoId = chat?.id_encargado ?? clienteWa?.id_encargado ?? null;
+
+      // 1) IZQUIERDA
+      setMensajesAcumulados((prevChats) => {
+        const actualizado = prevChats.map((c) => ({ ...c }));
+
+        const index = actualizado.findIndex(
+          (c) => String(c.id) === String(chatId),
+        );
+
+        if (index !== -1) {
+          actualizado[index].mensaje_created_at = msg.created_at;
+          actualizado[index].texto_mensaje = msg.texto_mensaje;
+          actualizado[index].tipo_mensaje = msg.tipo_mensaje;
+          actualizado[index].source = msg.source || actualizado[index].source;
+
+          if (isIncoming) {
+            actualizado[index].mensajes_pendientes =
+              (actualizado[index].mensajes_pendientes || 0) + 1;
+            actualizado[index].visto = 0;
+          }
+
+          const [moved] = actualizado.splice(index, 1);
+          actualizado.unshift(moved);
+          return actualizado;
         }
 
-        // si no existe en lista, lo agrega (si aplica por permisos)
-        return [
-          {
-            id: chatId,
-            id_configuracion: cfg,
-            mensaje_created_at: message.created_at,
-            texto_mensaje: message.texto_mensaje,
-            tipo_mensaje: message.tipo_mensaje,
-            mensajes_pendientes: 1,
-            visto: 0,
-            source,
-          },
-          ...list,
-        ];
+        const nuevoChat = chat
+          ? {
+              ...chat,
+              id: chat.id ?? chatId,
+              mensaje_created_at: msg.created_at,
+              texto_mensaje: msg.texto_mensaje,
+              tipo_mensaje: msg.tipo_mensaje,
+              mensajes_pendientes: isIncoming ? 1 : 0,
+              visto: isIncoming ? 0 : 1,
+              source: msg.source,
+              id_configuracion: cfg,
+            }
+          : {
+              id: chatId,
+              id_configuracion: cfg,
+              mensaje_created_at: msg.created_at,
+              texto_mensaje: msg.texto_mensaje,
+              tipo_mensaje: msg.tipo_mensaje,
+              mensajes_pendientes: isIncoming ? 1 : 0,
+              visto: isIncoming ? 0 : 1,
+              source: msg.source,
+              id_encargado: encargadoId,
+              nombre_cliente: clienteWa?.nombre_cliente,
+              celular_cliente: clienteWa?.celular_cliente,
+              etiquetas: [{ id: null, nombre: null, color: null }],
+              transporte: null,
+              estado_factura: null,
+              novedad_info: {
+                id_novedad: null,
+                novedad: null,
+                solucionada: null,
+                terminado: null,
+              },
+            };
+
+        // ✅ CONDICIÓN EXACTA DEL ANTIGUO (pero con encargado unificado)
+        if (
+          String(encargadoId) === String(id_sub_usuario_global) ||
+          rol_usuario_global === "administrador"
+        ) {
+          actualizado.unshift(nuevoChat);
+        }
+
+        return actualizado;
       });
 
-      // 2) derecha (si es el chat abierto)
-      if (selectedChat && String(selectedChat.id) === String(chatId)) {
-        setMensajesOrdenados((prev) => [...prev, message]);
-        scrollToBottomNow();
+      // 1.1) CURSOR (igual antiguo)
+      if (!cursorFecha || !cursorId) {
+        if (!cursorFecha && msg?.created_at) setCursorFecha(msg.created_at);
+        if (!cursorId && msg?.id) setCursorId(msg.id);
+      }
 
-        // marcar pendientes 0 visualmente en ese chat
-        setMensajesAcumulados((prev) =>
-          prev.map((c) =>
-            String(c.id) === String(chatId)
-              ? { ...c, mensajes_pendientes: 0, visto: 1 }
-              : c,
-          ),
-        );
+      // 2) DERECHA (igual antiguo: refresca con GET_CHATS_BOX)
+      if (selectedChat && String(selectedChat.id) === String(chatId)) {
+        socketRef.current.emit("GET_CHATS_BOX", {
+          chatId: selectedChat.id,
+          id_configuracion: id_configuracion,
+        });
+
+        socketRef.current.once("CHATS_BOX_RESPONSE", (boxData) => {
+          setChatMessages(boxData);
+
+          setMensajesAcumulados((prev) =>
+            prev.map((c) =>
+              String(c.id) === String(selectedChat.id)
+                ? { ...c, mensajes_pendientes: 0 }
+                : c,
+            ),
+          );
+
+          const orderedMessages = getOrderedChats();
+          setMensajesOrdenados(orderedMessages.slice(-20));
+          setMensajesMostrados(20);
+
+          scrollIfAtBottom();
+        });
       }
     };
 
     socketRef.current.on("UPDATE_CHAT", onUpdateChat);
     return () => socketRef.current.off("UPDATE_CHAT", onUpdateChat);
-  }, [isSocketConnected, id_configuracion, selectedChat]);
+  }, [
+    isSocketConnected,
+    id_configuracion,
+    selectedChat,
+    rol_usuario_global,
+    id_sub_usuario_global,
+    cursorFecha,
+    cursorId,
+  ]);
 
   const recargarDatosFactura = () => {
     if (socketRef.current) {
