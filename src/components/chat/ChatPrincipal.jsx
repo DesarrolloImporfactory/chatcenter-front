@@ -1610,15 +1610,7 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (
-                          selectedChat?.source === "ms" ||
-                          selectedChat?.source === "ig"
-                        ) {
-                          setIsMenuOpen(false);
-                          imageInputRef.current?.click();
-                        } else {
-                          handleModal_enviarArchivos("Imagen"); // WhatsApp
-                        }
+                        handleModal_enviarArchivos("Imagen");
                       }}
                     >
                       Imagen
@@ -1626,14 +1618,8 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (
-                          selectedChat?.source === "ms" ||
-                          selectedChat?.source === "ig"
-                        ) {
-                          setIsMenuOpen(false);
-                          videoInputRef.current?.click();
-                        } else {
-                          handleModal_enviarArchivos("Video"); // WhatsApp
+                        {
+                          handleModal_enviarArchivos("Video");
                         }
                       }}
                     >
@@ -1642,15 +1628,7 @@ const ChatPrincipal = ({
                     <li
                       className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                       onClick={() => {
-                        if (
-                          selectedChat?.source === "ms" ||
-                          selectedChat?.source === "ig"
-                        ) {
-                          setIsMenuOpen(false);
-                          fileInputRef.current?.click();
-                        } else {
-                          handleModal_enviarArchivos("Documento"); // WhatsApp
-                        }
+                        handleModal_enviarArchivos("Documento");
                       }}
                     >
                       Documento

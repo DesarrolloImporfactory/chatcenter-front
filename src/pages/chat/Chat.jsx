@@ -1299,11 +1299,8 @@ const Chat = () => {
       }
 
       // 2) pedir más al backend (paginación hacia atrás)
-      if (!msIsLoadingOlder || !msNextBeforeId) {
-        if (!msNextBeforeId) return; // no hay más
-      } else {
-        return; // ya está cargando
-      }
+      if (msIsLoadingOlder) return;
+      if (!msNextBeforeId) return;
 
       try {
         setMsIsLoadingOlder(true);
@@ -2264,19 +2261,53 @@ const Chat = () => {
   }, [menuSearchTermNumeroCliente]);
 
   useEffect(() => {
-    if (!isSocketConnected || !selectedChat || !socketRef.current) return;
+    if (!isSocketConnected || !socketRef.current) return;
 
-    const handleUpdateChat = (data) => {
-      const { chatId, message } = data;
+    const onUpdateChat = (payload) => {
+      const { id_configuracion: cfg, chatId, message, source } = payload || {};
+      if (String(cfg) !== String(id_configuracion)) return;
 
-      if (String(chatId) === String(selectedChat.id)) {
-        // Si el backend manda message.mensajeNuevo ya listo:
-        const msg = message?.mensajeNuevo || message;
+      // 1) izquierda (preview)
+      setMensajesAcumulados((prev) => {
+        const list = prev.map((c) => ({ ...c }));
+        const idx = list.findIndex((c) => String(c.id) === String(chatId));
 
-        setMensajesOrdenados((prev) => [...prev, msg]);
+        if (idx !== -1) {
+          list[idx].mensaje_created_at = message.created_at;
+          list[idx].texto_mensaje = message.texto_mensaje;
+          list[idx].tipo_mensaje = message.tipo_mensaje;
+          list[idx].visto = 0;
+          list[idx].mensajes_pendientes =
+            (list[idx].mensajes_pendientes || 0) + 1;
+          list[idx].source = source || list[idx].source;
+
+          const [moved] = list.splice(idx, 1);
+          list.unshift(moved);
+          return list;
+        }
+
+        // si no existe en lista, lo agrega (si aplica por permisos)
+        return [
+          {
+            id: chatId,
+            id_configuracion: cfg,
+            mensaje_created_at: message.created_at,
+            texto_mensaje: message.texto_mensaje,
+            tipo_mensaje: message.tipo_mensaje,
+            mensajes_pendientes: 1,
+            visto: 0,
+            source,
+          },
+          ...list,
+        ];
+      });
+
+      // 2) derecha (si es el chat abierto)
+      if (selectedChat && String(selectedChat.id) === String(chatId)) {
+        setMensajesOrdenados((prev) => [...prev, message]);
         scrollToBottomNow();
 
-        // marcar pendientes en 0 si aplica
+        // marcar pendientes 0 visualmente en ese chat
         setMensajesAcumulados((prev) =>
           prev.map((c) =>
             String(c.id) === String(chatId)
@@ -2287,9 +2318,9 @@ const Chat = () => {
       }
     };
 
-    socketRef.current.on("UPDATE_CHAT", handleUpdateChat);
-    return () => socketRef.current.off("UPDATE_CHAT", handleUpdateChat);
-  }, [isSocketConnected, selectedChat]);
+    socketRef.current.on("UPDATE_CHAT", onUpdateChat);
+    return () => socketRef.current.off("UPDATE_CHAT", onUpdateChat);
+  }, [isSocketConnected, id_configuracion, selectedChat]);
 
   const recargarDatosFactura = () => {
     if (socketRef.current) {
