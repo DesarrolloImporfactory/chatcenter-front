@@ -169,6 +169,8 @@ function PremiumVideoPlayer({ src }) {
   const realSrc = /^https?:\/\//.test(src)
     ? src
     : `https://new.imporsuitpro.com/${src}`;
+
+  console.log("realSrc: " + realSrc);
   return (
     <div className="w-full max-w-[460px]">
       <div className="relative w-full rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/10 bg-black">
@@ -1188,7 +1190,7 @@ const ChatPrincipal = ({
                         )}
 
                         {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
-                        <span className="text-[15px] md:text-sm pb-2 inline-block">
+                        <span className="text-[15px] md:text-sm pb-2 inline-block w-full">
                           {/* Tipo: TEXT / TEMPLATE */}
                           {mensaje.tipo_mensaje === "text" ||
                           mensaje.tipo_mensaje === "edit" ? (
