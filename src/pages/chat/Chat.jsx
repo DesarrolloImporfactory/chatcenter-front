@@ -1157,7 +1157,7 @@ const Chat = () => {
       to: numeroDestino,
       type: "audio",
       audio: {
-        link: "https://new.imporsuitpro.com/" + audioUrl, // URL completa del audio en el servidor
+        link: "" + audioUrl, // URL completa del audio en el servidor
       },
     };
 
