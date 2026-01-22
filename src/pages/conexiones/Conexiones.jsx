@@ -1106,14 +1106,16 @@ const Conexiones = () => {
   const fetchConfiguracionAutomatizada = useCallback(
     async (overrideUserId) => {
       const uid = overrideUserId ?? userData?.id_usuario ?? getUserIdSafe();
+      const uid_sub = userData?.id_sub_usuario;
       if (!uid) return;
 
       try {
         setLoading(true);
         const response = await chatApi.post(
-          "configuraciones/listar_conexiones",
+          "configuraciones/listar_conexiones_sub_user",
           {
             id_usuario: uid,
+            id_sub_usuario: uid_sub,
           },
         );
         setConfiguracionAutomatizada(response.data.data || []);
@@ -1626,9 +1628,14 @@ const Conexiones = () => {
                                 config.id_plataforma,
                               );
                               localStorage.setItem(
+                                "tipo_configuracion",
+                                config.tipo_configuracion,
+                              );
+                              localStorage.setItem(
                                 "nombre_configuracion",
                                 config.nombre_configuracion,
                               );
+                              localStorage.setItem("telefono", config.telefono);
                               navigate("/canal-conexiones");
                             }}
                             title="Ir a configuración"

@@ -89,11 +89,14 @@ function MainLayout({ children }) {
 
       const endpoint = isSuperAdmin
         ? "configuraciones/listar_admin_conexiones"
-        : "configuraciones/listar_conexiones";
+        : "configuraciones/listar_conexiones_sub_user";
 
       const body = isSuperAdmin
         ? {} // no requiere id_usuario
-        : { id_usuario: userData.id_usuario };
+        : {
+            id_usuario: userData.id_usuario,
+            id_sub_usuario: userData.id_sub_usuario,
+          };
 
       const response = await chatApi.post(endpoint, body);
 

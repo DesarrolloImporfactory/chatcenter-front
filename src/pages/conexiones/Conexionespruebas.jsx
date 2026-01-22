@@ -297,10 +297,10 @@ const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
     tone === "primary"
       ? "text-indigo-700 bg-indigo-50 ring-indigo-200"
       : tone === "success"
-      ? "text-emerald-700 bg-emerald-50 ring-emerald-200"
-      : tone === "warning"
-      ? "text-amber-700 bg-amber-50 ring-amber-200"
-      : "text-slate-700 bg-slate-50 ring-slate-200";
+        ? "text-emerald-700 bg-emerald-50 ring-emerald-200"
+        : tone === "warning"
+          ? "text-amber-700 bg-amber-50 ring-amber-200"
+          : "text-slate-700 bg-slate-50 ring-slate-200";
 
   return (
     <div className="flex gap-3 items-start">
@@ -334,10 +334,10 @@ const HoverPopover = ({
     side === "right"
       ? "left-full top-0 ml-2"
       : side === "left"
-      ? "right-full top-0 mr-2"
-      : side === "top"
-      ? "left-1/2 -translate-x-1/2 bottom-full mb-2"
-      : "left-1/2 -translate-x-1/2 top-full mt-2";
+        ? "right-full top-0 mr-2"
+        : side === "top"
+          ? "left-1/2 -translate-x-1/2 bottom-full mb-2"
+          : "left-1/2 -translate-x-1/2 top-full mt-2";
 
   return (
     <div
@@ -355,10 +355,10 @@ const HoverPopover = ({
             side === "right"
               ? "-left-1 top-3"
               : side === "left"
-              ? "-right-1 top-3"
-              : side === "top"
-              ? "left-1/2 -translate-x-1/2 -bottom-1"
-              : "left-1/2 -translate-x-1/2 -top-1"
+                ? "-right-1 top-3"
+                : side === "top"
+                  ? "left-1/2 -translate-x-1/2 -bottom-1"
+                  : "left-1/2 -translate-x-1/2 -top-1"
           } w-3 h-3 rotate-45 bg-white ring-1 ring-slate-200`}
         />
         <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.20)] backdrop-blur w-[340px] max-h-[240px] overflow-auto">
@@ -375,7 +375,7 @@ const HoverPopover = ({
 
 const Conexionespruebas = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
-    []
+    [],
   );
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
@@ -443,7 +443,7 @@ const Conexionespruebas = () => {
           "usuarios_chat_center/tour-conexiones/get",
           {
             id_usuario: userData.id_usuario,
-          }
+          },
         );
         const dismissed = Number(data?.tour_conexiones_dismissed) === 1;
         setDontShowAgain(dismissed);
@@ -474,7 +474,7 @@ const Conexionespruebas = () => {
         console.error("No se pudo guardar preferencia de tour:", e);
       }
     },
-    [userData?.id_usuario]
+    [userData?.id_usuario],
   );
 
   // Derivados/estadísticas
@@ -482,7 +482,8 @@ const Conexionespruebas = () => {
     if (typeof c?.status_whatsapp === "string")
       return c.status_whatsapp.toUpperCase() === "CONNECTED";
     return Boolean(
-      String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim()
+      String(c?.id_telefono || "").trim() &&
+      String(c?.id_whatsapp || "").trim(),
     );
   };
 
@@ -495,10 +496,10 @@ const Conexionespruebas = () => {
     const total = configuracionAutomatizada.length;
     const conectados = configuracionAutomatizada.filter(isConectado).length;
     const pagosActivos = configuracionAutomatizada.filter(
-      (c) => Number(c.metodo_pago) === 1
+      (c) => Number(c.metodo_pago) === 1,
     ).length;
     const messengerCon = configuracionAutomatizada.filter(
-      (c) => Number(c.messenger_conectado) === 1
+      (c) => Number(c.messenger_conectado) === 1,
     ).length;
     return {
       total,
@@ -516,7 +517,7 @@ const Conexionespruebas = () => {
       data = data.filter(
         (c) =>
           c?.nombre_configuracion?.toLowerCase().includes(q) ||
-          c?.telefono?.toLowerCase().includes(q)
+          c?.telefono?.toLowerCase().includes(q),
       );
     }
     if (filtroEstado) {
@@ -666,7 +667,7 @@ const Conexionespruebas = () => {
         suspendido: true,
       });
       setConfiguracionAutomatizada((prev) =>
-        prev.filter((c) => c.id !== config.id)
+        prev.filter((c) => c.id !== config.id),
       );
       setStatusMessage({ type: "success", text: "Conexión eliminada." });
     } catch (err) {
@@ -733,9 +734,9 @@ const Conexionespruebas = () => {
                 redirect_uri: redirectUri,
                 id_configuracion: config?.id,
                 display_number_onboarding: String(
-                  config?.telefono || ""
+                  config?.telefono || "",
                 ).trim(),
-              }
+              },
             );
 
             // Éxito total
@@ -802,7 +803,7 @@ const Conexionespruebas = () => {
           setup: {},
           sessionInfoVersion: "3",
         },
-      }
+      },
     );
   };
 
@@ -824,7 +825,7 @@ const Conexionespruebas = () => {
       Swal.fire(
         "Error",
         "No se pudo iniciar la conexión con Facebook.",
-        "error"
+        "error",
       );
     }
   };
@@ -875,7 +876,7 @@ const Conexionespruebas = () => {
               code,
               state,
               redirect_uri: redirectUri,
-            }
+            },
           );
 
           Swal.fire("¡Listo!", "Cuenta de TikTok conectada ✅", "success");
@@ -900,11 +901,11 @@ const Conexionespruebas = () => {
               code,
               id_configuracion,
               redirect_uri: window.location.origin + "/conexiones",
-            }
+            },
           );
           const { data: pagesRes } = await chatApi.get(
             "/instagram/facebook/pages",
-            { params: { oauth_session_id: ex.oauth_session_id } }
+            { params: { oauth_session_id: ex.oauth_session_id } },
           );
 
           if (
@@ -967,11 +968,11 @@ const Conexionespruebas = () => {
               code,
               id_configuracion,
               redirect_uri: window.location.origin + "/conexiones",
-            }
+            },
           );
           const { data: pagesRes } = await chatApi.get(
             "/messenger/facebook/pages",
-            { params: { oauth_session_id: ex.oauth_session_id } }
+            { params: { oauth_session_id: ex.oauth_session_id } },
           );
           if (!pagesRes?.pages?.length)
             throw new Error("No se encontraron páginas.");
@@ -997,7 +998,7 @@ const Conexionespruebas = () => {
         Swal.fire(
           "Error",
           e?.message || "No fue posible completar la conexión",
-          "error"
+          "error",
         );
       } finally {
         const cleanUrl = window.location.origin + window.location.pathname;
@@ -1029,7 +1030,7 @@ const Conexionespruebas = () => {
       Swal.fire(
         "Error",
         "No se puede iniciar la conexión con Instagram",
-        "error"
+        "error",
       );
     }
   };
@@ -1061,7 +1062,7 @@ const Conexionespruebas = () => {
       Swal.fire(
         "Error",
         err?.message || "No se pudo iniciar la conexión con TikTok.",
-        "error"
+        "error",
       );
     }
   };
@@ -1081,15 +1082,17 @@ const Conexionespruebas = () => {
   const fetchConfiguracionAutomatizada = useCallback(
     async (overrideUserId) => {
       const uid = overrideUserId ?? userData?.id_usuario ?? getUserIdSafe();
+      const uid_sub = userData?.id_sub_usuario;
       if (!uid) return;
 
       try {
         setLoading(true);
         const response = await chatApi.post(
-          "configuraciones/listar_conexiones",
+          "configuraciones/listar_conexiones_sub_user",
           {
             id_usuario: uid,
-          }
+            id_sub_usuario: uid_sub,
+          },
         );
         setConfiguracionAutomatizada(response.data.data || []);
         setMostrarErrorBot(false);
@@ -1115,7 +1118,7 @@ const Conexionespruebas = () => {
         setLoading(false);
       }
     },
-    [userData?.id_usuario, navigate]
+    [userData?.id_usuario, navigate],
   );
 
   useEffect(() => {
@@ -1364,13 +1367,13 @@ const Conexionespruebas = () => {
                               conectado
                                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
                                 : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-                              conectado ? "Conectado" : "Pendiente"
+                              conectado ? "Conectado" : "Pendiente",
                             )}
                             {pill(
                               pagoActivo
                                 ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
                                 : "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
-                              pagoActivo ? "Pago activo" : "Pago inactivo"
+                              pagoActivo ? "Pago activo" : "Pago inactivo",
                             )}
                           </div>
                         </div>
@@ -1409,15 +1412,15 @@ const Conexionespruebas = () => {
                             onClick={() => {
                               localStorage.setItem(
                                 "id_configuracion",
-                                config.id
+                                config.id,
                               );
                               localStorage.setItem(
                                 "id_plataforma_conf",
-                                config.id_plataforma
+                                config.id_plataforma,
                               );
                               localStorage.setItem(
                                 "nombre_configuracion",
-                                config.nombre_configuracion
+                                config.nombre_configuracion,
                               );
                               navigate("/canal-conexiones");
                             }}
@@ -1518,7 +1521,7 @@ const Conexionespruebas = () => {
                               onClick={() => {
                                 setIdConfiguracion(config.id);
                                 setNombreConfiguracion(
-                                  config.nombre_configuracion
+                                  config.nombre_configuracion,
                                 );
                                 setTelefono(config.telefono);
                                 setModalConfiguracionWhatsappBusiness(true);
@@ -1641,19 +1644,19 @@ const Conexionespruebas = () => {
                             onClick={() => {
                               localStorage.setItem(
                                 "id_configuracion",
-                                config.id
+                                config.id,
                               );
                               localStorage.setItem(
                                 "id_plataforma_conf",
-                                config.id_plataforma
+                                config.id_plataforma,
                               );
                               localStorage.setItem(
                                 "tipo_configuracion",
-                                config.tipo_configuracion
+                                config.tipo_configuracion,
                               );
                               localStorage.setItem(
                                 "nombre_configuracion",
-                                config.nombre_configuracion
+                                config.nombre_configuracion,
                               );
                               localStorage.setItem("telefono", config.telefono);
                               navigate("/chat");

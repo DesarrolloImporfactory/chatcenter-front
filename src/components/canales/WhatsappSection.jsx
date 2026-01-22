@@ -51,8 +51,10 @@ export default function WhatsappSection() {
     if (!userData) return;
 
     try {
-      const response = await chatApi.post("configuraciones/listar_conexiones", {
+      const response = await chatApi.post("configuraciones/listar_conexiones_sub_user", {
         id_usuario: userData.id_usuario,
+        id_sub_usuario: userData.id_sub_usuario,
+        
       });
       setConfig(response.data.data);
     } catch (err) {

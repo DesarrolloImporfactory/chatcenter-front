@@ -70,7 +70,7 @@ function MainLayout({ children }) {
             {
               id_usuario,
               id_configuracion,
-            }
+            },
           );
 
           if (res.status === 200) {
@@ -190,9 +190,13 @@ function MainLayout({ children }) {
   // -------------------------------------------------------
   const fetchConfiguracionAutomatizada = async () => {
     try {
-      const response = await chatApi.post("configuraciones/listar_conexiones", {
-        id_usuario: userData.id_usuario,
-      });
+      const response = await chatApi.post(
+        "configuraciones/listar_conexiones_sub_user",
+        {
+          id_usuario: userData.id_usuario,
+          id_sub_usuario: userData.id_sub_usuario,
+        },
+      );
 
       setConfiguraciones(response.data || []);
     } catch (error) {
@@ -285,7 +289,7 @@ function MainLayout({ children }) {
       setOpenMenu("productos");
     } else if (
       ["/integraciones", "/calendario", "/asistentes"].includes(
-        location.pathname
+        location.pathname,
       )
     ) {
       setOpenMenu("herramientas");
@@ -485,7 +489,7 @@ function MainLayout({ children }) {
                     localStorage.setItem("id_configuracion", id_configuracion);
                     localStorage.setItem(
                       "id_plataforma_conf",
-                      id_plataforma_conf
+                      id_plataforma_conf,
                     );
                     navigate("/canal-conexiones");
                   }}
@@ -501,7 +505,7 @@ function MainLayout({ children }) {
                     localStorage.setItem("id_configuracion", id_configuracion);
                     localStorage.setItem(
                       "id_plataforma_conf",
-                      id_plataforma_conf
+                      id_plataforma_conf,
                     );
                     navigate("/contactos");
                   }}
@@ -517,7 +521,7 @@ function MainLayout({ children }) {
                     localStorage.setItem("id_configuracion", id_configuracion);
                     localStorage.setItem(
                       "id_plataforma_conf",
-                      id_plataforma_conf
+                      id_plataforma_conf,
                     );
 
                     if (tipo_configuracion === "ventas") {
@@ -542,7 +546,7 @@ function MainLayout({ children }) {
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   // opcional: marcar activo si estás en alguna ruta de este grupo
                   ["/integraciones", "/calendario", "/asistentes"].includes(
-                    location.pathname
+                    location.pathname,
                   )
                     ? "bg-gray-200 font-semibold"
                     : ""
@@ -597,11 +601,11 @@ function MainLayout({ children }) {
                     onClick={() => {
                       localStorage.setItem(
                         "id_configuracion",
-                        id_configuracion
+                        id_configuracion,
                       );
                       localStorage.setItem(
                         "id_plataforma_conf",
-                        id_plataforma_conf
+                        id_plataforma_conf,
                       );
                     }}
                   >
