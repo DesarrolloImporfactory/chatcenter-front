@@ -950,11 +950,6 @@ const ChatPrincipal = ({
       .trim();
   }
 
-  const onChangeWithTyping = (e) => {
-    handleInputChange(e);
-    if (selectedChat?.source === "ig") handleTypingIG();
-  };
-
   /* === Hora HH:mm para mostrar en burbuja y fecha como tooltip === */
   const formatHora = (iso) =>
     new Date(iso).toLocaleTimeString([], {
