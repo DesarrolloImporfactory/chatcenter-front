@@ -814,6 +814,29 @@ const ChatPrincipal = ({
 
   const [hide24hBanner, setHide24hBanner] = useState(false);
 
+  // ✅ Determina si WhatsApp está fuera de 24h y el banner está visible
+  const isMetaDMLocal =
+    selectedChat?.source === "ms" || selectedChat?.source === "ig";
+
+  // ✅ Fecha referencia: WA usa SIEMPRE el último mensaje del cliente
+  const refDateISO = !selectedChat
+    ? null
+    : isMetaDMLocal
+      ? selectedChat.last_incoming_at || selectedChat.mensaje_created_at
+      : ultimoMensaje?.created_at;
+
+  const diffHrs = refDateISO
+    ? (Date.now() - new Date(refDateISO).getTime()) / (1000 * 60 * 60)
+    : 0;
+
+  // ✅ SOLO WhatsApp + >24h + banner visible
+  // ✅ SOLO WhatsApp + >24h + banner visible
+  const waNeedsTemplate =
+    !!selectedChat &&
+    selectedChat?.source === "wa" &&
+    !hide24hBanner &&
+    diffHrs > 24;
+
   // cuando cambia el chat seleccionado, resetea
   useEffect(() => {
     setHide24hBanner(false);
@@ -1590,201 +1613,203 @@ const ChatPrincipal = ({
               })()}
 
             {/* Campo para enviar mensajes */}
-            <div className="flex items-center gap-2 p-4 w-full border-t bg-gray-100 shrink-0">
-              <button
-                onClick={() => setEmojiOpen(!emojiOpen)}
-                className="border rounded-full p-2"
-                disabled={isChatBlocked}
-              >
-                😊
-              </button>
-              {emojiOpen && (
-                <div className="absolute bottom-16" ref={emojiPickerRef}>
-                  <EmojiPicker onEmojiClick={handleEmojiClick} />
-                </div>
-              )}
+            {!waNeedsTemplate && (
+              <div className="flex items-center gap-2 p-4 w-full border-t bg-gray-100 shrink-0">
+                <button
+                  onClick={() => setEmojiOpen(!emojiOpen)}
+                  className="border rounded-full p-2"
+                  disabled={isChatBlocked}
+                >
+                  😊
+                </button>
+                {emojiOpen && (
+                  <div className="absolute bottom-16" ref={emojiPickerRef}>
+                    <EmojiPicker onEmojiClick={handleEmojiClick} />
+                  </div>
+                )}
 
-              {isMenuOpen && (
-                <div className="absolute bottom-[10%] left-[5%] bg-white border rounded shadow-lg p-2 w-32 z-10">
-                  <ul className="flex flex-col space-y-2 text-sm">
-                    <li
-                      className="cursor-pointer hover:bg-gray-200 p-1 rounded"
-                      onClick={() => {
-                        handleModal_enviarArchivos("Imagen");
-                      }}
-                    >
-                      Imagen
-                    </li>
-                    <li
-                      className="cursor-pointer hover:bg-gray-200 p-1 rounded"
-                      onClick={() => {
-                        {
-                          handleModal_enviarArchivos("Video");
-                        }
-                      }}
-                    >
-                      Video
-                    </li>
-                    <li
-                      className="cursor-pointer hover:bg-gray-200 p-1 rounded"
-                      onClick={() => {
-                        handleModal_enviarArchivos("Documento");
-                      }}
-                    >
-                      Documento
-                    </li>
-                    {selectedChat?.source === "wa" && (
+                {isMenuOpen && (
+                  <div className="absolute bottom-[10%] left-[5%] bg-white border rounded shadow-lg p-2 w-32 z-10">
+                    <ul className="flex flex-col space-y-2 text-sm">
                       <li
                         className="cursor-pointer hover:bg-gray-200 p-1 rounded"
                         onClick={() => {
-                          const phone = selectedChat?.celular_cliente || "";
-
-                          setNumeroModalPreset({
-                            step: "buscar",
-                            phone,
-                            lockPhone: true,
-                            contextLabel:
-                              "Responderá con plantilla al chat actual",
-                            clienteNombre: selectedChat?.nombre_cliente || "",
-                          });
-
-                          setNumeroModal(true);
+                          handleModal_enviarArchivos("Imagen");
                         }}
                       >
-                        Enviar template
+                        Imagen
                       </li>
-                    )}
-                  </ul>
-                </div>
-              )}
-
-              {/* Inputs ocultos para Messenger/IG */}
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) =>
-                  e.target.files?.[0] &&
-                  handleFilePicked("image", e.target.files[0])
-                }
-              />
-              <input
-                ref={videoInputRef}
-                type="file"
-                accept="video/*"
-                className="hidden"
-                onChange={(e) =>
-                  e.target.files?.[0] &&
-                  handleFilePicked("video", e.target.files[0])
-                }
-              />
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={(e) =>
-                  e.target.files?.[0] &&
-                  handleFilePicked("document", e.target.files[0])
-                }
-              />
-
-              <label
-                htmlFor="file-upload"
-                className="cursor-pointer"
-                onClick={toggleMenu}
-              >
-                <i className="bx bx-plus text-2xl"></i>
-              </label>
-
-              <input
-                type="text"
-                value={mensaje}
-                onChange={onChangeWithTyping}
-                onKeyDown={handleKeyDown}
-                placeholder="Escribe un mensaje..."
-                className="flex-1 p-2 border rounded"
-                ref={inputRef}
-                id="mensaje"
-                disabled={isChatBlocked}
-              />
-
-              {/* Menú de comandos */}
-              {isCommandActive && (
-                <div className="absolute bottom-20 left-0 bg-white border rounded shadow-lg p-4 z-50 w-full max-w-md">
-                  <button
-                    onClick={handleCloseModal}
-                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                      className="w-6 h-6"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-
-                  <input
-                    type="text"
-                    value={menuSearchTerm}
-                    onChange={handleMenuSearchChange}
-                    placeholder="Buscar opciones..."
-                    className="w-full p-2 mb-4 border rounded"
-                    ref={inputSearchRef}
-                  />
-                  <ul className="space-y-2">
-                    {searchResults.length > 0 ? (
-                      searchResults.map((result, index) => (
+                      <li
+                        className="cursor-pointer hover:bg-gray-200 p-1 rounded"
+                        onClick={() => {
+                          {
+                            handleModal_enviarArchivos("Video");
+                          }
+                        }}
+                      >
+                        Video
+                      </li>
+                      <li
+                        className="cursor-pointer hover:bg-gray-200 p-1 rounded"
+                        onClick={() => {
+                          handleModal_enviarArchivos("Documento");
+                        }}
+                      >
+                        Documento
+                      </li>
+                      {selectedChat?.source === "wa" && (
                         <li
-                          key={index}
-                          onClick={() => handleOptionSelect(result.mensaje)}
-                          className="cursor-pointer hover:bg-gray-200 p-2 rounded"
-                        >
-                          <div>
-                            <strong>Atajo:</strong> {result.atajo}
-                          </div>
-                          <div>
-                            <strong>Mensaje:</strong> {result.mensaje}
-                          </div>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-gray-500">No hay resultados</li>
-                    )}
-                  </ul>
-                </div>
-              )}
+                          className="cursor-pointer hover:bg-gray-200 p-1 rounded"
+                          onClick={() => {
+                            const phone = selectedChat?.celular_cliente || "";
 
-              <button
-                onClick={
-                  mensaje || file
-                    ? handleSendMessage
-                    : grabando
-                      ? stopRecording
-                      : startRecording
-                }
-                className={`${
-                  grabando ? "bg-red-500" : "bg-blue-500"
-                } text-white px-4 py-2 rounded`}
-                disabled={isChatBlocked}
-              >
-                {mensaje || file ? (
-                  <i className="bx bx-send"></i>
-                ) : grabando ? (
-                  <i className="bx bx-stop"></i>
-                ) : (
-                  <i className="bx bx-microphone"></i>
+                            setNumeroModalPreset({
+                              step: "buscar",
+                              phone,
+                              lockPhone: true,
+                              contextLabel:
+                                "Responderá con plantilla al chat actual",
+                              clienteNombre: selectedChat?.nombre_cliente || "",
+                            });
+
+                            setNumeroModal(true);
+                          }}
+                        >
+                          Enviar template
+                        </li>
+                      )}
+                    </ul>
+                  </div>
                 )}
-              </button>
-            </div>
+
+                {/* Inputs ocultos para Messenger/IG */}
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) =>
+                    e.target.files?.[0] &&
+                    handleFilePicked("image", e.target.files[0])
+                  }
+                />
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) =>
+                    e.target.files?.[0] &&
+                    handleFilePicked("video", e.target.files[0])
+                  }
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) =>
+                    e.target.files?.[0] &&
+                    handleFilePicked("document", e.target.files[0])
+                  }
+                />
+
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer"
+                  onClick={toggleMenu}
+                >
+                  <i className="bx bx-plus text-2xl"></i>
+                </label>
+
+                <input
+                  type="text"
+                  value={mensaje}
+                  onChange={onChangeWithTyping}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Escribe un mensaje..."
+                  className="flex-1 p-2 border rounded"
+                  ref={inputRef}
+                  id="mensaje"
+                  disabled={isChatBlocked}
+                />
+
+                {/* Menú de comandos */}
+                {isCommandActive && (
+                  <div className="absolute bottom-20 left-0 bg-white border rounded shadow-lg p-4 z-50 w-full max-w-md">
+                    <button
+                      onClick={handleCloseModal}
+                      className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                        className="w-6 h-6"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+
+                    <input
+                      type="text"
+                      value={menuSearchTerm}
+                      onChange={handleMenuSearchChange}
+                      placeholder="Buscar opciones..."
+                      className="w-full p-2 mb-4 border rounded"
+                      ref={inputSearchRef}
+                    />
+                    <ul className="space-y-2">
+                      {searchResults.length > 0 ? (
+                        searchResults.map((result, index) => (
+                          <li
+                            key={index}
+                            onClick={() => handleOptionSelect(result.mensaje)}
+                            className="cursor-pointer hover:bg-gray-200 p-2 rounded"
+                          >
+                            <div>
+                              <strong>Atajo:</strong> {result.atajo}
+                            </div>
+                            <div>
+                              <strong>Mensaje:</strong> {result.mensaje}
+                            </div>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-gray-500">No hay resultados</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                <button
+                  onClick={
+                    mensaje || file
+                      ? handleSendMessage
+                      : grabando
+                        ? stopRecording
+                        : startRecording
+                  }
+                  className={`${
+                    grabando ? "bg-red-500" : "bg-blue-500"
+                  } text-white px-4 py-2 rounded`}
+                  disabled={isChatBlocked}
+                >
+                  {mensaje || file ? (
+                    <i className="bx bx-send"></i>
+                  ) : grabando ? (
+                    <i className="bx bx-stop"></i>
+                  ) : (
+                    <i className="bx bx-microphone"></i>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
