@@ -190,7 +190,6 @@ const Chat = () => {
 
   const [dataPlanes, setDataPlanes] = useState(null);
 
-
   const abrirModalTemplates = async () => {
     setIsTemplateModalOpen(true);
     setTemplateSearch("");
@@ -522,6 +521,35 @@ const Chat = () => {
     }
   };
   /* fin abrir modal asignar etiquetas */
+
+  /* modal asignar etiquetas */
+  const toggleTagAssignment = async (idEtiqueta, idClienteChat) => {
+    try {
+      const body = {
+        id_cliente_chat_center: idClienteChat,
+        id_etiqueta: idEtiqueta,
+        id_configuracion: id_configuracion,
+      };
+
+      const { data: result } = await chatApi.post(
+        "/etiquetas_chat_center/toggleAsignacionEtiqueta",
+        body,
+      );
+
+      const isAssigned = result.asignado;
+
+      setTagListAsginadas((prev) =>
+        isAssigned
+          ? [...prev, { id_etiqueta: idEtiqueta }]
+          : prev.filter((tag) => tag.id_etiqueta !== idEtiqueta),
+      );
+    } catch (error) {
+      console.error("Error en toggleTagAssignment:", error);
+      Toast.fire({ icon: "error", title: "Error al asignar etiqueta" });
+    }
+  };
+
+  /* fin modal asignar etiquetas */
 
   /* abrir modal transferir chats */
   const [transferirChatModalOpen, setTransferirChatModalOpen] = useState(false);
@@ -2726,8 +2754,8 @@ const Chat = () => {
         setMensajesAcumulados={setMensajesAcumulados}
         id_plataforma_conf={id_plataforma_conf}
         tipo_configuracion={tipo_configuracion}
-                dataPlanes={dataPlanes}
-
+        dataPlanes={dataPlanes}
+        toggleTagAssignment={toggleTagAssignment}
       />
       {/* Historial de chats */}
       <Sidebar
@@ -2907,6 +2935,7 @@ const Chat = () => {
         toggleAsignarEtiquetaModal={toggleAsignarEtiquetaModal}
         tagListAsginadas={tagListAsginadas}
         setTagListAsginadas={setTagListAsginadas}
+        toggleTagAssignment={toggleTagAssignment}
         setNumeroModal={setNumeroModal}
         cargar_socket={cargar_socket}
         buscarIdRecibe={buscarIdRecibe}

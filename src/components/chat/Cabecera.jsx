@@ -27,8 +27,8 @@ const Cabecera = ({
   setMensajesAcumulados,
   id_plataforma_conf,
   tipo_configuracion,
-          dataPlanes
-
+  dataPlanes,
+  toggleTagAssignment,
 }) => {
   const [openContacto, setOpenContacto] = useState(false);
   const [openTools, setOpenTools] = useState(false);
@@ -283,10 +283,6 @@ const Cabecera = ({
     } catch (error) {
       console.error("Error al actualizar bot_openia:", error);
     }
-  };
-
-  const toggleTagAssignment = (tagId, chatId) => {
-    console.log("Desasignar etiqueta con ID:", tagId, "del chat:", chatId);
   };
 
   const navigate = useNavigate();
@@ -794,27 +790,29 @@ const Cabecera = ({
               />
               <div className="min-w-0">
                 <div className="flex">
-
-                <span className="block text-black font-semibold text-lg truncate">
-                  {selectedChat
-                    ? selectedChat.nombre_cliente
-                    : "SELECCIONE UN CHAT"}
-                </span>
-                <div className="flex flex-wrap gap-1 ml-2">
-                  {dataPlanes && typeof dataPlanes === 'object' && Object.keys(dataPlanes).length > 0 && (
-                    Object.entries(dataPlanes)
-                      .filter(([key, value]) => value === 1)
-                      .map(([planName]) => (
-                        <span
-                          key={planName}
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                        >
-                          {planName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </span>
-                      ))
-                  )}
+                  <span className="block text-black font-semibold text-lg truncate">
+                    {selectedChat
+                      ? selectedChat.nombre_cliente
+                      : "SELECCIONE UN CHAT"}
+                  </span>
+                  <div className="flex flex-wrap gap-1 ml-2">
+                    {dataPlanes &&
+                      typeof dataPlanes === "object" &&
+                      Object.keys(dataPlanes).length > 0 &&
+                      Object.entries(dataPlanes)
+                        .filter(([key, value]) => value === 1)
+                        .map(([planName]) => (
+                          <span
+                            key={planName}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                          >
+                            {planName
+                              .replace(/_/g, " ")
+                              .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          </span>
+                        ))}
+                  </div>
                 </div>
-                    </div>
                 <span className="block text-sm text-gray-600 truncate">
                   {selectedChat
                     ? selectedChat.source === "wa"
@@ -999,27 +997,63 @@ const Cabecera = ({
             {tagList && tagList.length > 0 ? (
               tagList
                 .filter((tag) =>
-                  tagListAsginadas.some(
+                  tagListAsginadas?.some(
                     (assignedTag) =>
                       assignedTag.id_etiqueta === tag.id_etiqueta,
                   ),
                 )
-                .map((tag) => (
-                  <div
-                    key={tag.id_etiqueta}
-                    className="bg-gray-800 text-white text-xs font-semibold py-1 px-3 rounded-full flex items-center gap-2"
-                  >
-                    <span>{tag.nombre_etiqueta}</span>
-                    <button
-                      onClick={() =>
-                        toggleTagAssignment(tag.id_etiqueta, selectedChat.id)
-                      }
-                      className="text-gray-400 hover:text-gray-200"
+                .map((tag) => {
+                  const color = tag.color_etiqueta || "#64748b"; // fallback slate
+
+                  return (
+                    <div
+                      key={tag.id_etiqueta}
+                      className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5
+                 shadow-sm transition hover:border-slate-300 hover:shadow
+                 max-w-full"
+                      title={tag.nombre_etiqueta}
                     >
-                      <i className="bx bx-x text-xs"></i>
-                    </button>
-                  </div>
-                ))
+                      {/* Circulito de color + aro (se ve pro) */}
+                      <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                        <span
+                          className="absolute inset-0 rounded-full"
+                          style={{ backgroundColor: color }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className="absolute inset-[-2px] rounded-full ring-2 ring-white"
+                          aria-hidden="true"
+                        />
+                        <span
+                          className="absolute inset-[-3px] rounded-full ring-1 ring-slate-200"
+                          aria-hidden="true"
+                        />
+                      </span>
+
+                      {/* Texto */}
+                      <span className="text-xs font-semibold text-slate-800 truncate max-w-[180px]">
+                        {tag.nombre_etiqueta}
+                      </span>
+
+                      {/* Botón quitar */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation(); // ✅ no dispara clicks del contenedor padre
+                          toggleTagAssignment(tag.id_etiqueta, selectedChat.id); // ✅ desasigna
+                        }}
+                        className="ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full
+                   text-slate-400 hover:text-slate-700 hover:bg-slate-100
+                   transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        aria-label={`Quitar etiqueta ${tag.nombre_etiqueta}`}
+                        title="Quitar"
+                      >
+                        <i className="bx bx-x text-base" />
+                      </button>
+                    </div>
+                  );
+                })
             ) : (
               <p className="text-gray-500 text-sm">
                 No hay etiquetas asignadas.
