@@ -27,6 +27,8 @@ const Cabecera = ({
   setMensajesAcumulados,
   id_plataforma_conf,
   tipo_configuracion,
+          dataPlanes
+
 }) => {
   const [openContacto, setOpenContacto] = useState(false);
   const [openTools, setOpenTools] = useState(false);
@@ -791,11 +793,28 @@ const Cabecera = ({
                 }}
               />
               <div className="min-w-0">
+                <div className="flex">
+
                 <span className="block text-black font-semibold text-lg truncate">
                   {selectedChat
                     ? selectedChat.nombre_cliente
                     : "SELECCIONE UN CHAT"}
                 </span>
+                <div className="flex flex-wrap gap-1 ml-2">
+                  {dataPlanes && typeof dataPlanes === 'object' && Object.keys(dataPlanes).length > 0 && (
+                    Object.entries(dataPlanes)
+                      .filter(([key, value]) => value === 1)
+                      .map(([planName]) => (
+                        <span
+                          key={planName}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                        >
+                          {planName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      ))
+                  )}
+                </div>
+                    </div>
                 <span className="block text-sm text-gray-600 truncate">
                   {selectedChat
                     ? selectedChat.source === "wa"

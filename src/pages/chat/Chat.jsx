@@ -188,6 +188,9 @@ const Chat = () => {
   const [templateResults, setTemplateResults] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
+  const [dataPlanes, setDataPlanes] = useState(null);
+
+
   const abrirModalTemplates = async () => {
     setIsTemplateModalOpen(true);
     setTemplateSearch("");
@@ -2163,6 +2166,8 @@ const Chat = () => {
       const orderedMessages = getOrderedChats();
       setMensajesOrdenados(orderedMessages.slice(-20));
       setMensajesMostrados(20);
+      setDataPlanes(data[0].paquetes || []);
+      console.log("Paquetes recibidos:", data.paquetes);
     };
 
     socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
@@ -2719,6 +2724,8 @@ const Chat = () => {
         setMensajesAcumulados={setMensajesAcumulados}
         id_plataforma_conf={id_plataforma_conf}
         tipo_configuracion={tipo_configuracion}
+                dataPlanes={dataPlanes}
+
       />
       {/* Historial de chats */}
       <Sidebar
