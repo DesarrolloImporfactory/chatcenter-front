@@ -8,14 +8,17 @@ import ImageWithModal from "./modales/ImageWithModal";
 /* ===================== Estilos de canal ===================== */
 const CHANNEL_STYLES = {
   wa: {
+    // label: "WA",
     icon: "bx bxl-whatsapp",
     cls: "bg-green-50 text-green-700 border border-green-200",
   },
   ms: {
+    // label: "MS",
     icon: "bx bxl-messenger",
     cls: "bg-blue-50 text-blue-700 border border-blue-200",
   },
   ig: {
+    // label: "IG",
     icon: "bx bxl-instagram",
     cls: "bg-red-50 text-red-700 border border-red-200",
   },
@@ -986,6 +989,34 @@ function MessageItem({
     setPreviewOpen(false);
   }, [selectedChat?.id]);
 
+  const displayId = (() => {
+    const n = String(numero || "").trim();
+
+    // ✅ Si "numero" es realmente un número (solo dígitos, con o sin +), forzar +
+    // Ej: "593999..." => "+593999..."
+    // Ej: "+593999..." => "+593999..."
+    if (n) {
+      const digits = n.replace(/^\+/, "");
+      const esNumero = /^\d{6,15}$/.test(digits); // ajuste si quiere (6-15)
+      if (esNumero) return `+${digits}`;
+    }
+
+    // Caso IG/MS: usar identificador alterno (SIN forzar +)
+    const ext = String(mensaje?.external_id || "").trim();
+    if (ext) return ext;
+
+    const page = String(mensaje?.page_id || mensaje?.id_page || "").trim();
+    if (page) return page;
+
+    const conv = String(
+      mensaje?.conversation_id || mensaje?.thread_id || "",
+    ).trim();
+    if (conv) return conv;
+
+    // Último recurso
+    return "";
+  })();
+
   return (
     <li
       ref={liRef}
@@ -1046,26 +1077,26 @@ function MessageItem({
             <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-transparent to-white/20" />
           </div>
         </div>
-
-        {/* Nombre + Número */}
-        <div className="col-[2] row-[1] min-w-0 flex items-end gap-2 leading-[1.2]">
-          <span className="truncate text-[13.5px] font-semibold text-slate-900">
-            {nombre}
-          </span>
-
-          {/* ✅ Badge sutil opcional */}
-          {esNotificacion && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
-              Notificación
+        {/* Nombre + Número (número abajo) */}
+        <div className="col-[2] row-[1] min-w-0 flex flex-col gap-0.5 leading-[1.15]">
+          <div className="min-w-0 flex items-center gap-2">
+            <span className="truncate text-[13.5px] font-semibold text-slate-900">
+              {nombre}
             </span>
-          )}
 
-          <span className="select-none text-slate-300">•</span>
+            {/* Badge solo arriba */}
+            {/* {esNotificacion && (
+              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                Notificación
+              </span>
+            )} */}
+          </div>
+
           <span
-            className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums"
-            title={numero}
+            className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums pt-1"
+            title={displayId}
           >
-            {numero}
+            {displayId}
           </span>
         </div>
 
@@ -1073,7 +1104,6 @@ function MessageItem({
         {/* <div className="col-[3] row-[1] flex justify-end">
           <PillEstado texto={mensaje.nombre_encargado} colorClass={color} />
         </div> */}
-
         {/* Pill encargado */}
         <div className="col-[3] row-[1] flex justify-end">
           <PillEncargado
@@ -1081,7 +1111,6 @@ function MessageItem({
             colorClass={"bg-emerald-500"}
           />
         </div>
-
         {/* Fecha + contador */}
         <div className="col-[3] row-[2] mt-0.5 flex items-center justify-end gap-2">
           <span className="text-[11px] text-slate-500 leading-[1.2]">
@@ -1093,7 +1122,6 @@ function MessageItem({
             </span>
           )}
         </div>
-
         {/* Canal + Preview breve */}
         <div className="col-[2] row-[2] min-w-0 flex items-center gap-2 pt-0.5 text-[12.5px] text-slate-700 leading-[1.45]">
           <PillCanal source={mensaje?.source} />
