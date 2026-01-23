@@ -2160,6 +2160,8 @@ const Chat = () => {
       id_configuracion,
     });
 
+    setDataPlanes([]);
+
     const handleChatBoxResponse = (data) => {
       console.log("Mensajes recibidos:", data);
       setChatMessages(data);
