@@ -812,6 +812,58 @@ const ChatPrincipal = ({
     }
   };
 
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      
+      // Si es un archivo (imagen o video)
+      if (item.kind === 'file') {
+        e.preventDefault(); // Prevenir el pegado por defecto
+        
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        const type = file.type;
+        
+        if (type.startsWith('image/')) {
+          // Abrir el modal y dejar que el usuario suba la imagen manualmente
+          handleModal_enviarArchivos('Imagen');
+          
+          // Simular el archivo en el input del modal después de un pequeño delay
+          setTimeout(() => {
+            const modalInput = document.querySelector('input[type="file"][accept="image/*"][multiple]');
+            if (modalInput) {
+              const dataTransfer = new DataTransfer();
+              dataTransfer.items.add(file);
+              modalInput.files = dataTransfer.files;
+              const changeEvent = new Event('change', { bubbles: true });
+              modalInput.dispatchEvent(changeEvent);
+            }
+          }, 100);
+          return;
+        } else if (type.startsWith('video/')) {
+          handleModal_enviarArchivos('Video');
+          
+          setTimeout(() => {
+            const modalInput = document.querySelector('input[type="file"][accept="video/*"][multiple]');
+            if (modalInput) {
+              const dataTransfer = new DataTransfer();
+              dataTransfer.items.add(file);
+              modalInput.files = dataTransfer.files;
+              const changeEvent = new Event('change', { bubbles: true });
+              modalInput.dispatchEvent(changeEvent);
+            }
+          }, 100);
+          return;
+        }
+      }
+    }
+    // Si no es archivo, deja que se pegue el texto normalmente
+  };
+
   const [hide24hBanner, setHide24hBanner] = useState(false);
 
   // ✅ Determina si WhatsApp está fuera de 24h y el banner está visible
@@ -1726,6 +1778,7 @@ const ChatPrincipal = ({
                   value={mensaje}
                   onChange={onChangeWithTyping}
                   onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
                   placeholder="Escribe un mensaje..."
                   className="flex-1 p-2 border rounded"
                   ref={inputRef}
