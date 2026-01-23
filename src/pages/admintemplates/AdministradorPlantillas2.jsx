@@ -26,7 +26,7 @@ import { ThWithTooltip } from "../../components/canales/Tooltip";
 
 const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   { hideHeader = false },
-  ref
+  ref,
 ) {
   const [currentTab, setCurrentTab] = useState("numbers");
 
@@ -47,7 +47,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   const navigate = useNavigate();
 
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
-    []
+    [],
   );
   const [modalConfigOpen, setModalConfigOpen] = useState(false);
   const [modalConfigOpenCalendario, setModalConfigOpenCalendario] =
@@ -213,7 +213,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     try {
       const response = await chatApi.post(
         "/whatsapp_managment/obtenerPlantillasPlataforma",
-        { id_configuracion }
+        { id_configuracion },
       );
       setRespuestasRapidas(response.data || []);
     } catch (error) {
@@ -227,7 +227,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     try {
       const response = await chatApi.post(
         "configuraciones/listar_configuraciones",
-        { id_configuracion }
+        { id_configuracion },
       );
       setConfiguracionAutomatizada(response.data.data || []);
     } catch (error) {
@@ -306,7 +306,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
           after,
           before,
           limit,
-        }
+        },
       );
 
       // data de Meta => resp.data.data, paging => resp.data.paging
@@ -372,7 +372,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     try {
       const response = await chatApi.post(
         "/whatsapp_managment/crearPlantillasAutomaticas",
-        { id_configuracion }
+        { id_configuracion },
       );
       if (response.data.success) {
         setResultadoPlantillas(response.data.resultados || []);
@@ -511,8 +511,8 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
               const p = Array.isArray(num.profile?.data)
                 ? num.profile.data[0]
                 : Array.isArray(num.profile)
-                ? num.profile[0]
-                : num.profile || null;
+                  ? num.profile[0]
+                  : num.profile || null;
 
               const photo =
                 p?.profile_picture_url ||
@@ -760,7 +760,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
               >
                 + Crear Plantilla
               </button>
-              <button
+              {/* <button
                 onClick={crearPlantillasAutomaticas}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50"
                 disabled={cargandoPlantillas}
@@ -768,7 +768,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                 {cargandoPlantillas
                   ? "Creando..."
                   : "Crear Plantillas Recomendadas"}
-              </button>
+              </button> */}
             </div>
           </div>
         }
@@ -944,12 +944,12 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
             >
               + Agregar
             </button>
-            <button
+            {/* <button
               onClick={handleAbrirConfiguraciones}
               className="bg-amber-500 text-white px-4 py-2 rounded-xl hover:bg-amber-600"
             >
               Guía Generada
-            </button>
+            </button> */}
             <button
               onClick={handleAbrirConfiguracionesCalendario}
               className="bg-teal-600 text-white px-4 py-2 rounded-xl hover:bg-teal-700"
@@ -989,7 +989,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                       : respuestasRapidas.some(
                           (r) =>
                             parseInt(r.principal) === 1 &&
-                            r.id_template !== respuesta.id_template
+                            r.id_template !== respuesta.id_template,
                         )
                   }
                   onChange={() => cambiarEstadoRespuesta(respuesta)}
@@ -1264,7 +1264,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     try {
       const resp = await chatApi.put(
         "/whatsapp_managment/actualizarMetodoPago",
-        { id: configItem.id, metodo_pago: nuevoMetodoPago }
+        { id: configItem.id, metodo_pago: nuevoMetodoPago },
       );
       if (resp.data.success) {
         setStatusMessage({
@@ -1291,7 +1291,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     try {
       const resp = await chatApi.delete(
         "/whatsapp_managment/eliminarPlantilla",
-        { data: { id_template } }
+        { data: { id_template } },
       );
       if (resp.data.success) {
         setStatusMessage({ type: "success", text: resp.data.message });
@@ -1336,8 +1336,8 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                 r.status === "success"
                   ? "text-green-600"
                   : r.status === "omitido"
-                  ? "text-yellow-600"
-                  : "text-red-600"
+                    ? "text-yellow-600"
+                    : "text-red-600"
               }`}
             >
               {r.status.toUpperCase()} -{" "}
