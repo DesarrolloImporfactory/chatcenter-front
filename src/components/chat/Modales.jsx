@@ -35,6 +35,7 @@ const Modales = ({
   toggleAsignarEtiquetaModal,
   tagListAsginadas,
   setTagListAsginadas,
+  toggleTagAssignment,
   setNumeroModal,
   cargar_socket,
   buscarIdRecibe,
@@ -363,34 +364,7 @@ const Modales = ({
   };
   /* fin modal crear etiquetas */
 
-  /* modal asignar etiquetas */
-  const toggleTagAssignment = async (idEtiqueta, idClienteChat) => {
-    try {
-      const body = {
-        id_cliente_chat_center: idClienteChat,
-        id_etiqueta: idEtiqueta,
-        id_configuracion: id_configuracion,
-      };
-
-      const { data: result } = await chatApi.post(
-        "/etiquetas_chat_center/toggleAsignacionEtiqueta",
-        body,
-      );
-
-      const isAssigned = result.asignado;
-
-      setTagListAsginadas((prev) =>
-        isAssigned
-          ? [...prev, { id_etiqueta: idEtiqueta }]
-          : prev.filter((tag) => tag.id_etiqueta !== idEtiqueta),
-      );
-    } catch (error) {
-      console.error("Error en toggleTagAssignment:", error);
-      Toast.fire({ icon: "error", title: "Error al asignar etiqueta" });
-    }
-  };
-
-  /* fin modal asignar etiquetas */
+  
 
   /* ----- enviar imagenes ---------*/
   const [imagenes, setImagenes] = useState([]);
@@ -1325,6 +1299,24 @@ const Modales = ({
     });
   }, [listaDepartamentosUsuario, isIgOrMs, idConfigLS]);
 
+  // 🔎 Buscador de etiquetas (modal asignar)
+  const [tagSearch, setTagSearch] = useState("");
+
+  // 🔎 Filtra etiquetas por nombre (y opcionalmente por id) para el modal asignar
+  const filteredTags = useMemo(() => {
+    const q = String(tagSearch || "")
+      .trim()
+      .toLowerCase();
+    const arr = Array.isArray(tagList) ? tagList : [];
+    if (!q) return arr;
+
+    return arr.filter((t) => {
+      const name = String(t?.nombre_etiqueta || "").toLowerCase();
+      const id = String(t?.id_etiqueta || "").toLowerCase();
+      return name.includes(q) || id.includes(q);
+    });
+  }, [tagList, tagSearch]);
+
   const handleTransferirChat = async () => {
     if (!usuarioSeleccionado || !departamentoSeleccionado) {
       Toast.fire({
@@ -2248,116 +2240,187 @@ const Modales = ({
       {/* Modal para asignar etiqueta */}
       {isAsignarEtiquetaModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="asignar-etiquetas-titulo"
+          onKeyDown={(e) => e.key === "Escape" && toggleAsignarEtiquetaModal()}
         >
           {/* Fondo */}
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={toggleAsignarEtiquetaModal}
             aria-hidden="true"
           />
 
           {/* Panel */}
           <div
-            className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl
-                       ring-1 ring-black/5 border border-slate-200 overflow-hidden"
+            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl
+                 ring-1 ring-black/5 border border-slate-200 overflow-hidden"
             role="document"
           >
             {/* Header */}
-            <div className="flex items-start justify-between p-4">
-              <div>
-                <h3
-                  id="asignar-etiquetas-titulo"
-                  className="text-lg font-semibold text-slate-900"
+            <div className="flex items-start justify-between px-5 py-4 border-b bg-gradient-to-b from-slate-50 to-white">
+              <div className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl
+                       bg-blue-50 text-blue-700 border border-blue-100"
                 >
-                  Asignar etiquetas
-                </h3>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Haz clic para asignar o quitar.
-                </p>
+                  <i className="bx bxs-purchase-tag-alt text-xl"></i>
+                </span>
+
+                <div>
+                  <h3
+                    id="asignar-etiquetas-titulo"
+                    className="text-lg font-semibold text-slate-900"
+                  >
+                    Asignar etiquetas
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Busque una etiqueta y haga clic para asignar o quitar.
+                  </p>
+
+                  {/* Contadores */}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700 border border-slate-200">
+                      <i className="bx bx-list-ul"></i>
+                      {Array.isArray(tagList) ? tagList.length : 0} etiquetas
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-800 border border-blue-100">
+                      <i className="bx bx-check"></i>
+                      {Array.isArray(tagListAsginadas)
+                        ? tagListAsginadas.length
+                        : 0}{" "}
+                      asignadas
+                    </span>
+                  </div>
+                </div>
               </div>
+
               <button
-                onClick={toggleAsignarEtiquetaModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full
-                           text-slate-500 hover:text-slate-700 hover:bg-slate-100
-                           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                onClick={() => {
+                  setTagSearch("");
+                  toggleAsignarEtiquetaModal();
+                }}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl
+                     text-slate-500 hover:text-slate-700 hover:bg-slate-100
+                     focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
                 aria-label="Cerrar"
                 title="Cerrar"
               >
-                <i className="bx bx-x text-lg"></i>
+                <i className="bx bx-x text-2xl"></i>
               </button>
             </div>
 
-            {/* Lista de etiquetas */}
-            <div className="px-4 pb-4 pt-2 max-h-[50vh] overflow-auto">
-              {tagList?.length > 0 ? (
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {tagList.map((tag) => {
-                    const isAssigned = tagListAsginadas?.some(
-                      (a) => a.id_etiqueta === tag.id_etiqueta,
-                    );
-                    return (
-                      <li key={tag.id_etiqueta}>
-                        <button
-                          onClick={() =>
-                            toggleTagAssignment(
-                              tag.id_etiqueta,
-                              selectedChat.id,
-                            )
-                          }
-                          className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left
-                                     transition-all duration-200 focus:outline-none
-                                     focus-visible:ring-2 focus-visible:ring-blue-500
-                                     ${
-                                       isAssigned
-                                         ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
-                                         : "border-slate-200 bg-white hover:bg-slate-50"
-                                     }`}
-                          aria-pressed={isAssigned}
-                        >
-                          {/* Punto de color */}
-                          <span
-                            aria-hidden="true"
-                            className="h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{
-                              backgroundColor: tag.color_etiqueta || "#64748b",
-                            }}
-                          />
+            {/* Buscador */}
+            <div className="px-5 pt-4">
+              <div className="relative">
+                <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input
+                  type="text"
+                  value={tagSearch}
+                  onChange={(e) => setTagSearch(e.target.value)}
+                  placeholder="Buscar etiqueta (nombre o ID)…"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm
+                       focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                />
+                {tagSearch?.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setTagSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg
+                         text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Limpiar búsqueda"
+                    title="Limpiar"
+                  >
+                    <i className="bx bx-x text-xl"></i>
+                  </button>
+                )}
+              </div>
+            </div>
 
-                          {/* Nombre (truncado elegante) */}
-                          <span
-                            className={`flex-1 text-sm font-medium truncate ${
-                              isAssigned ? "text-blue-900" : "text-slate-700"
-                            }`}
-                            title={tag.nombre_etiqueta}
-                          >
-                            {tag.nombre_etiqueta}
-                          </span>
+            {/* Lista */}
+            <div className="px-5 pb-5 pt-4 max-h-[52vh] overflow-auto">
+              {Array.isArray(tagList) && tagList.length > 0 ? (
+                filteredTags.length > 0 ? (
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {filteredTags.map((tag) => {
+                      const isAssigned = tagListAsginadas?.some(
+                        (a) => a.id_etiqueta === tag.id_etiqueta,
+                      );
 
-                          {/* Estado */}
-                          <span
-                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full
-                                        ${
-                                          isAssigned
-                                            ? "bg-blue-600 text-white"
-                                            : "bg-slate-100 text-slate-500"
-                                        }`}
-                            aria-hidden="true"
+                      return (
+                        <li key={tag.id_etiqueta}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleTagAssignment(
+                                tag.id_etiqueta,
+                                selectedChat.id,
+                              )
+                            }
+                            className={`group w-full flex items-center gap-3 rounded-2xl border p-3 text-left
+                                  transition-all duration-200 focus:outline-none
+                                  focus-visible:ring-4 focus-visible:ring-blue-200
+                                  ${
+                                    isAssigned
+                                      ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
+                                      : "border-slate-200 bg-white hover:bg-slate-50"
+                                  }`}
+                            aria-pressed={isAssigned}
                           >
-                            <i
-                              className={`bx ${
-                                isAssigned ? "bx-check" : "bx-plus"
-                              } text-base`}
-                            ></i>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
+                            {/* Punto de color */}
+                            <span
+                              aria-hidden="true"
+                              className="h-3 w-3 rounded-full shrink-0 ring-2 ring-white shadow"
+                              style={{
+                                backgroundColor:
+                                  tag.color_etiqueta || "#64748b",
+                              }}
+                            />
+
+                            {/* Nombre */}
+                            <div className="flex-1 min-w-0">
+                              <div
+                                className={`text-sm font-semibold truncate ${
+                                  isAssigned
+                                    ? "text-blue-900"
+                                    : "text-slate-800"
+                                }`}
+                                title={tag.nombre_etiqueta}
+                              >
+                                {tag.nombre_etiqueta}
+                              </div>
+                              <div className="text-xs text-slate-500 truncate">
+                                ID: {tag.id_etiqueta}
+                              </div>
+                            </div>
+
+                            {/* Estado */}
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold
+                                    ${
+                                      isAssigned
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-slate-100 text-slate-600"
+                                    }`}
+                            >
+                              <i
+                                className={`bx ${isAssigned ? "bx-check" : "bx-plus"} text-base`}
+                              ></i>
+                              {isAssigned ? "Asignada" : "Asignar"}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    No se encontraron etiquetas para: <b>{tagSearch}</b>
+                  </div>
+                )
               ) : (
                 <div className="flex items-center gap-2 text-slate-500 text-sm">
                   <i className="bx bxs-purchase-tag-alt text-base"></i>
@@ -2367,13 +2430,20 @@ const Modales = ({
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
+              <p className="text-xs text-slate-500">
+                Tip: Puede cerrar con <b>ESC</b>.
+              </p>
+
               <button
-                onClick={toggleAsignarEtiquetaModal}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-md
-                           bg-white border border-slate-200 text-slate-700
-                           hover:bg-slate-100 focus:outline-none
-                           focus-visible:ring-2 focus-visible:ring-blue-500"
+                onClick={() => {
+                  setTagSearch("");
+                  toggleAsignarEtiquetaModal();
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+                     bg-white border border-slate-200 text-slate-700 font-semibold
+                     hover:bg-slate-100 focus:outline-none
+                     focus-visible:ring-4 focus-visible:ring-blue-200"
               >
                 <i className="bx bx-x"></i>
                 Cerrar

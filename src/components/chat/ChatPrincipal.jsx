@@ -818,42 +818,46 @@ const ChatPrincipal = ({
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       // Si es un archivo (imagen o video)
-      if (item.kind === 'file') {
+      if (item.kind === "file") {
         e.preventDefault(); // Prevenir el pegado por defecto
-        
+
         const file = item.getAsFile();
         if (!file) continue;
 
         const type = file.type;
-        
-        if (type.startsWith('image/')) {
+
+        if (type.startsWith("image/")) {
           // Abrir el modal y dejar que el usuario suba la imagen manualmente
-          handleModal_enviarArchivos('Imagen');
-          
+          handleModal_enviarArchivos("Imagen");
+
           // Simular el archivo en el input del modal después de un pequeño delay
           setTimeout(() => {
-            const modalInput = document.querySelector('input[type="file"][accept="image/*"][multiple]');
+            const modalInput = document.querySelector(
+              'input[type="file"][accept="image/*"][multiple]',
+            );
             if (modalInput) {
               const dataTransfer = new DataTransfer();
               dataTransfer.items.add(file);
               modalInput.files = dataTransfer.files;
-              const changeEvent = new Event('change', { bubbles: true });
+              const changeEvent = new Event("change", { bubbles: true });
               modalInput.dispatchEvent(changeEvent);
             }
           }, 100);
           return;
-        } else if (type.startsWith('video/')) {
-          handleModal_enviarArchivos('Video');
-          
+        } else if (type.startsWith("video/")) {
+          handleModal_enviarArchivos("Video");
+
           setTimeout(() => {
-            const modalInput = document.querySelector('input[type="file"][accept="video/*"][multiple]');
+            const modalInput = document.querySelector(
+              'input[type="file"][accept="video/*"][multiple]',
+            );
             if (modalInput) {
               const dataTransfer = new DataTransfer();
               dataTransfer.items.add(file);
               modalInput.files = dataTransfer.files;
-              const changeEvent = new Event('change', { bubbles: true });
+              const changeEvent = new Event("change", { bubbles: true });
               modalInput.dispatchEvent(changeEvent);
             }
           }, 100);
@@ -1004,7 +1008,6 @@ const ChatPrincipal = ({
 
   const onChangeWithTyping = (e) => {
     handleInputChange(e);
-    if (selectedChat?.source === "ig") handleTypingIG();
   };
 
   /* === Hora HH:mm para mostrar en burbuja y fecha como tooltip === */
@@ -1586,17 +1589,13 @@ const ChatPrincipal = ({
                     <div className="bg-yellow-100 border-t border-yellow-500 shadow-lg p-4 w-full z-10 shrink-0">
                       <div className="flex items-start gap-3">
                         <p className="text-sm text-yellow-700 flex-1">
-                          <strong>Atención: </strong>Han pasado más de 24 horas.
-                          En WhatsApp API necesitas responder con una{" "}
-                          <b>plantilla</b>.
+                          <strong>Atención:</strong> Pasaron más de 24 horas
+                          desde el último mensaje. Por una regla de WhatsApp,
+                          ahora solo podemos responder con una{" "}
+                          <b>plantilla aprobada</b>. <br />Para continuar, haz clic en{" "}
+                          <b>“Responder con plantilla”</b> y elige una
+                          de la lista.
                         </p>
-                        <button
-                          className="text-yellow-700/70 hover:text-yellow-900"
-                          onClick={() => setHide24hBanner(true)}
-                          title="Cerrar"
-                        >
-                          ✕
-                        </button>
                       </div>
 
                       <div className="mt-3 flex gap-2">
@@ -1618,12 +1617,6 @@ const ChatPrincipal = ({
                           }}
                         >
                           Responder con plantilla
-                        </button>
-                        <button
-                          className="px-3 py-2 rounded-md border border-yellow-400 text-yellow-700 hover:bg-yellow-50"
-                          onClick={() => setHide24hBanner(true)}
-                        >
-                          Entendido
                         </button>
                       </div>
                     </div>

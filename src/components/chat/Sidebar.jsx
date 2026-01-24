@@ -1826,7 +1826,7 @@ export const Sidebar = ({
                     : filteredChats;
 
             const list = [...base].sort(compareChats);
-            console.log("Lista de chats en sidebar:", list);
+            /* console.log("Lista de chats en sidebar:", list); */
             if (list.length === 0) {
               return (
                 <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
