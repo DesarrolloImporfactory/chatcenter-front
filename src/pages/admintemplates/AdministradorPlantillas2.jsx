@@ -1210,10 +1210,31 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   // Creación / edición / switches
   const handleCreatePlantilla = async (payload) => {
     try {
-      const resp = await chatApi.post("/whatsapp_managment/CrearPlantilla", {
-        ...payload,
-        id_configuracion,
-      });
+      const { headerFile, ...rest } = payload || {};
+
+      let resp;
+
+      // Si viene archivo => multipart/form-data
+      if (headerFile) {
+        const fd = new FormData();
+        fd.append("id_configuracion", id_configuracion);
+        fd.append("name", rest.name);
+        fd.append("language", rest.language);
+        fd.append("category", rest.category);
+        fd.append("components", JSON.stringify(rest.components || []));
+        fd.append("headerFile", headerFile);
+
+        resp = await chatApi.post("/whatsapp_managment/CrearPlantilla", fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        // Sin archivo => JSON
+        resp = await chatApi.post("/whatsapp_managment/CrearPlantilla", {
+          ...rest,
+          id_configuracion,
+        });
+      }
+
       if (resp.data.success) {
         setStatusMessage({
           type: "success",
@@ -1224,7 +1245,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       } else {
         setStatusMessage({
           type: "error",
-          text: "Error al crear la plantilla.",
+          text: resp.data?.error || "Error al crear la plantilla.",
         });
       }
     } catch {

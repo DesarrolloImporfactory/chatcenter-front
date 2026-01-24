@@ -30,38 +30,24 @@ const InfoIcon = ({ tooltipText }) => {
   return (
     <span className="relative group inline-block text-blue-500 ml-2 cursor-pointer">
       <svg
-         className="w-4 h-4"
-         fill="none"
-         stroke="currentColor"
-         viewBox="0 0 24 24"
-         xmlns="http://www.w3.org/2000/svg"
-       >
-         <path
-           strokeLinecap="round"
-           strokeLinejoin="round"
-           strokeWidth="2"
-           d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
-         />
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          d="M13 16h-1v-4h-1m1-4h.01M12 20.5c4.694 0 8.5-3.806 8.5-8.5s-3.806-8.5-8.5-8.5-8.5 3.806-8.5 8.5 3.806 8.5 8.5 8.5z"
+        />
       </svg>
-      {/* Tooltip */}
       <div
         className="
-          hidden
-          group-hover:block
-          absolute
-          z-50
-          top-full
-          left-1/2
-          -translate-x-1/2
-          mt-1
-          w-48
-          bg-black
-          text-white
-          text-xs
-          rounded
-          px-2
-          py-2
-          shadow-lg
+          hidden group-hover:block absolute z-50
+          top-full left-1/2 -translate-x-1/2 mt-1
+          w-48 bg-black text-white text-xs rounded px-2 py-2 shadow-lg
         "
       >
         {tooltipText}
@@ -82,17 +68,28 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("MARKETING");
   const [language, setLanguage] = useState("es");
-  
+
   const [showHeader, setShowHeader] = useState(true);
+
+  // Tipo de header (Meta)
+  const [headerType, setHeaderType] = useState("TEXT"); // TEXT | IMAGE | VIDEO | DOCUMENT | LOCATION
+
+  // Para header TEXT
   const [headerText, setHeaderText] = useState("");
+
+  // Archivo para header media
+  const [headerFile, setHeaderFile] = useState(null);
+
+  // NUEVO: URL temporal para vista previa
+  const [headerPreviewUrl, setHeaderPreviewUrl] = useState(null);
 
   const [bodyText, setBodyText] = useState("");
   const [footerText, setFooterText] = useState("");
 
-  // Para placeholders/variables en HEADER
-  const [headerVars, setHeaderVars] = useState([]); 
+  // Para placeholders/variables en HEADER (solo TEXT)
+  const [headerVars, setHeaderVars] = useState([]);
   // Para placeholders/variables en BODY
-  const [bodyVars, setBodyVars] = useState([]);  
+  const [bodyVars, setBodyVars] = useState([]);
 
   // Botones
   const [buttons, setButtons] = useState([]);
@@ -101,15 +98,32 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   // ---------------------
-  // DETECCIÓN PLACEHOLDERS (HEADER)
+  // Vista previa (Object URL) para IMAGE/VIDEO/DOCUMENT
   // ---------------------
   useEffect(() => {
+    if (!headerFile) {
+      setHeaderPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(headerFile);
+    setHeaderPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [headerFile]);
+
+  // ---------------------
+  // DETECCIÓN PLACEHOLDERS (HEADER) SOLO SI ES TEXT
+  // ---------------------
+  useEffect(() => {
+    if (!showHeader || headerType !== "TEXT") {
+      if (headerVars.length) setHeaderVars([]);
+      return;
+    }
     const foundHeader = detectPlaceholders(headerText);
     if (foundHeader.length !== headerVars.length) {
       const newVars = foundHeader.map((_, idx) => headerVars[idx] || "");
       setHeaderVars(newVars);
     }
-  }, [headerText]);
+  }, [headerText, headerType, showHeader]);
 
   // ---------------------
   // DETECCIÓN PLACEHOLDERS (BODY)
@@ -122,15 +136,44 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     }
   }, [bodyText]);
 
+  // Si cambia el tipo de header, limpia lo que no aplica
+  useEffect(() => {
+    if (!showHeader) return;
+
+    if (headerType === "TEXT") {
+      setHeaderFile(null);
+    } else if (headerType === "LOCATION") {
+      setHeaderText("");
+      setHeaderVars([]);
+      setHeaderFile(null);
+    } else {
+      // media
+      setHeaderText("");
+      setHeaderVars([]);
+      // headerFile se mantiene
+    }
+  }, [headerType, showHeader]);
+
+  const getAcceptForHeader = () => {
+    if (headerType === "IMAGE") return "image/*";
+    if (headerType === "VIDEO") return "video/*";
+    if (headerType === "DOCUMENT")
+      return ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf";
+    return undefined;
+  };
+
   // Agregar nuevo botón
   const addButton = () => {
-    setButtons([...buttons, { 
-      type: "QUICK_REPLY", 
-      text: "", 
-      linkType: "static",
-      urlBase: "",
-      urlVar: ""
-    }]);
+    setButtons([
+      ...buttons,
+      {
+        type: "QUICK_REPLY",
+        text: "",
+        linkType: "static",
+        urlBase: "",
+        urlVar: "",
+      },
+    ]);
   };
 
   // Actualizar botón
@@ -147,19 +190,47 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
   };
 
   // Reemplazar placeholders en la vista previa
-  const replacePlaceholders = (text, varValues=[]) => {
+  const replacePlaceholders = (text, varValues = []) => {
     let result = text;
     varValues.forEach((example, i) => {
-      const ph = `{{${i+1}}}`;
+      const ph = `{{${i + 1}}}`;
       result = result.replace(ph, example);
     });
     return result;
   };
 
-  const headerPreview = showHeader
-    ? replacePlaceholders(headerText, headerVars)
-    : "";
+  const headerPreview =
+    showHeader && headerType === "TEXT"
+      ? replacePlaceholders(headerText, headerVars)
+      : "";
+
   const bodyPreview = replacePlaceholders(bodyText, bodyVars);
+
+  // Validaciones
+  const areHeaderVarsFilled = headerVars.every((val) => val.trim() !== "");
+  const areBodyVarsFilled = bodyVars.every((val) => val.trim() !== "");
+
+  const headerIsValid = (() => {
+    if (!showHeader) return true;
+
+    if (headerType === "TEXT") {
+      if (!headerText.trim()) return true;
+      return areHeaderVarsFilled;
+    }
+
+    if (headerType === "LOCATION") {
+      return true;
+    }
+
+    return Boolean(headerFile);
+  })();
+
+  const isDisabled =
+    !name.trim() ||
+    !bodyText.trim() ||
+    !areBodyVarsFilled ||
+    !headerIsValid ||
+    isLoading;
 
   // Enviar la plantilla
   const handleCreate = async () => {
@@ -167,21 +238,36 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     const components = [];
 
     // HEADER
-    if (showHeader && headerText.trim()) {
-      const hasHeaderPlaceholders = headerVars.length > 0;
-      const headerComp = {
-        type: "HEADER",
-        format: "TEXT",
-        text: headerText,
-      };
-      if (hasHeaderPlaceholders) {
-        headerComp.example = {
-          header_text: [...headerVars],
-        };
+    if (showHeader) {
+      if (headerType === "TEXT") {
+        if (headerText.trim()) {
+          const hasHeaderPlaceholders = headerVars.length > 0;
+          const headerComp = {
+            type: "HEADER",
+            format: "TEXT",
+            text: headerText,
+          };
+          if (hasHeaderPlaceholders) {
+            headerComp.example = {
+              header_text: [...headerVars],
+            };
+          }
+          components.push(headerComp);
+        }
+      } else if (headerType === "LOCATION") {
+        components.push({
+          type: "HEADER",
+          format: "LOCATION",
+        });
+      } else {
+        // IMAGE / VIDEO / DOCUMENT
+        components.push({
+          type: "HEADER",
+          format: headerType,
+        });
       }
-      components.push(headerComp);
     }
-    
+
     // BODY
     if (bodyText.trim()) {
       const hasBodyPlaceholders = bodyVars.length > 0;
@@ -201,7 +287,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     if (footerText.trim()) {
       components.push({
         type: "FOOTER",
-        text: footerText
+        text: footerText,
       });
     }
 
@@ -212,13 +298,13 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
           if (b.type === "QUICK_REPLY") {
             return {
               type: "QUICK_REPLY",
-              text: b.text || "Botón sin texto"
+              text: b.text || "Botón sin texto",
             };
           } else if (b.type === "PHONE_NUMBER") {
             return {
               type: "PHONE_NUMBER",
               text: b.text || "Llamar",
-              phone_number: b.phone_number || "+593999999999"
+              phone_number: b.phone_number || "+593999999999",
             };
           } else {
             // URL
@@ -233,23 +319,23 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                 type: "URL",
                 text: b.text || "Ir al sitio",
                 url: finalUrl,
-                example: [finalExample]
+                example: [finalExample],
               };
             } else {
               return {
                 type: "URL",
                 text: b.text || "Ir al sitio",
-                url: b.url || "https://google.com"
+                url: b.url || "https://google.com",
               };
             }
           }
         })
-        .filter(btn => btn.text.trim() !== "");
+        .filter((btn) => btn.text.trim() !== "");
 
       if (filteredButtons.length > 0) {
         components.push({
           type: "BUTTONS",
-          buttons: filteredButtons
+          buttons: filteredButtons,
         });
       }
     }
@@ -258,7 +344,12 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
       name: finalName,
       category,
       language,
-      components
+      components,
+      ...(showHeader &&
+      ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType) &&
+      headerFile
+        ? { headerFile } // el padre lo convierte a FormData (campo header_file)
+        : {}),
     };
 
     setIsLoading(true);
@@ -270,46 +361,109 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
     setIsLoading(false);
   };
 
-  // Validaciones
-  const areHeaderVarsFilled = headerVars.every((val) => val.trim() !== "");
-  const areBodyVarsFilled = bodyVars.every((val) => val.trim() !== "");
-  const isDisabled =
-    !name.trim() ||
-    !bodyText.trim() ||
-    !areHeaderVarsFilled ||
-    !areBodyVarsFilled ||
-    isLoading;
+  // Preview header “visual”
+  const renderHeaderPreview = () => {
+    if (!showHeader) return null;
 
-  // ----------------------------------
-  // ARMA EL TEXTO UNIFICADO (Header + Body + Footer)
-  // ----------------------------------
-  let combinedText = "";
-  if (headerPreview.trim() !== "") {
-    combinedText += headerPreview + "\n";
-  }
-  if (bodyPreview.trim() !== "") {
-    combinedText += bodyPreview + "\n";
-  }
-  if (footerText.trim() !== "") {
-    combinedText += footerText + "\n";
-  }
+    if (headerType === "TEXT") {
+      if (!headerPreview.trim()) return null;
+      return (
+        <div className="font-bold whitespace-pre-wrap break-words">
+          {headerPreview}
+        </div>
+      );
+    }
+
+    if (headerType === "LOCATION") {
+      return (
+        <div className="flex items-center gap-2 text-sm text-gray-700">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded bg-gray-100">
+            📍
+          </span>
+          <div>
+            <div className="font-semibold">Ubicación</div>
+            <div className="text-xs text-gray-500">
+              Encabezado tipo LOCATION (sin archivo)
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Media (con preview real)
+    const isPdf =
+      headerFile &&
+      (headerFile.type === "application/pdf" ||
+        String(headerFile.name || "")
+          .toLowerCase()
+          .endsWith(".pdf"));
+
+    return (
+      <div className="flex flex-col gap-2 text-sm text-gray-700">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded bg-gray-100">
+            {headerType === "IMAGE"
+              ? "🖼️"
+              : headerType === "VIDEO"
+                ? "🎬"
+                : "📄"}
+          </span>
+          <div className="min-w-0">
+            <div className="font-semibold">
+              {headerType === "IMAGE"
+                ? "Imagen"
+                : headerType === "VIDEO"
+                  ? "Video"
+                  : "Documento"}
+            </div>
+            <div className="text-xs text-gray-500 truncate max-w-[220px]">
+              {headerFile?.name ? headerFile.name : "Sin archivo seleccionado"}
+            </div>
+          </div>
+        </div>
+
+        {/* Vista previa */}
+        {!headerFile || !headerPreviewUrl ? (
+          <div className="text-xs text-gray-500">Sin vista previa.</div>
+        ) : headerType === "IMAGE" ? (
+          <img
+            src={headerPreviewUrl}
+            alt="Vista previa"
+            className="w-full rounded border bg-white"
+          />
+        ) : headerType === "VIDEO" ? (
+          <video
+            src={headerPreviewUrl}
+            controls
+            className="w-full rounded border bg-black"
+          />
+        ) : isPdf ? (
+          <iframe
+            title="Vista previa PDF"
+            src={headerPreviewUrl}
+            className="w-full h-56 rounded border bg-white"
+          />
+        ) : (
+          <div className="text-xs text-gray-500">
+            Vista previa disponible solo para PDF. Para este archivo se mostrará
+            únicamente el nombre.
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-      <div className="
-        bg-white
-        p-6
-        rounded-xl
-        shadow-lg
-        w-full
-        max-w-5xl
-        relative
-        max-h-[80vh]
-        overflow-y-auto
-      ">
+      <div
+        className="
+          bg-white p-6 rounded-xl shadow-lg w-full max-w-5xl relative
+          max-h-[80vh] overflow-y-auto
+        "
+      >
         {/* Botón Cerrar */}
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-black"
         >
           ✕
@@ -323,7 +477,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
             {/* Nombre */}
             <div className="mb-4">
               <LabelRequired>Nombre de la plantilla</LabelRequired>
-              <input 
+              <input
                 type="text"
                 className="w-full border rounded px-3 py-2"
                 value={name}
@@ -338,9 +492,9 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                 <LabelRequired tooltip="Selecciona la categoría correctamente para que no sea rechazada.">
                   Categoría
                 </LabelRequired>
-                <select 
-                  className="w-full border rounded px-3 py-2" 
-                  value={category} 
+                <select
+                  className="w-full border rounded px-3 py-2"
+                  value={category}
                   onChange={(e) => setCategory(e.target.value)}
                 >
                   <option value="MARKETING">Marketing</option>
@@ -351,7 +505,7 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                 <LabelRequired tooltip="Elige el idioma en el que redactarás la plantilla.">
                   Lenguaje
                 </LabelRequired>
-                <select 
+                <select
                   className="w-full border rounded px-3 py-2"
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
@@ -365,44 +519,127 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
             {/* Header */}
             <div className="mb-4">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input 
+                <input
                   type="checkbox"
                   checked={showHeader}
                   onChange={() => setShowHeader(!showHeader)}
                 />
                 <span className="font-semibold">¿Incluir encabezado?</span>
               </label>
+
               {showHeader && (
-                <div className="mt-2">
-                  <label className="font-semibold block mb-1">
-                    Texto del Encabezado <InfoIcon tooltipText="Ingresa el título de la plantilla. Puedes usar {{1}}" />
+                <div className="mt-2 border rounded p-3 bg-gray-50">
+                  <label className="font-semibold block mb-2">
+                    Tipo de Encabezado
+                    <InfoIcon tooltipText="Seleccione TEXT para título normal. Para IMAGE/VIDEO/DOCUMENT adjunte un archivo. LOCATION no requiere archivo." />
                   </label>
-                  <input 
-                    type="text"
-                    className="w-full border rounded px-3 py-2"
-                    value={headerText}
-                    onChange={(e) => setHeaderText(e.target.value)}
-                    placeholder="Ej: ¡Hola {{1}}!"
-                  />
-                  {headerVars.length > 0 && (
-                    <div className="mt-2 text-sm">
-                      <p className="font-semibold">Variables detectadas en el Encabezado:</p>
-                      {headerVars.map((val, idx) => (
-                        <div key={idx} className="flex gap-2 items-center my-1">
-                          <label className="text-gray-600 whitespace-nowrap">
-                            {"{{"}{idx + 1}{"}}"}:
-                          </label>
-                          <input 
-                            className="border rounded px-2 py-1 flex-1"
-                            value={val}
-                            onChange={(e) => {
-                              const newArr = [...headerVars];
-                              newArr[idx] = e.target.value;
-                              setHeaderVars(newArr);
-                            }}
-                          />
+
+                  <select
+                    className="w-full border rounded px-3 py-2 bg-white"
+                    value={headerType}
+                    onChange={(e) => setHeaderType(e.target.value)}
+                  >
+                    <option value="TEXT">Texto</option>
+                    <option value="IMAGE">Imagen</option>
+                    <option value="VIDEO">Video</option>
+                    <option value="DOCUMENT">Documento</option>
+                    <option value="LOCATION">Ubicación</option>
+                  </select>
+
+                  {/* TEXT */}
+                  {headerType === "TEXT" && (
+                    <div className="mt-3">
+                      <label className="font-semibold block mb-1">
+                        Texto del Encabezado{" "}
+                        <InfoIcon tooltipText="Ingrese el título. Puede usar {{1}}." />
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border rounded px-3 py-2 bg-white"
+                        value={headerText}
+                        onChange={(e) => setHeaderText(e.target.value)}
+                        placeholder="Ej: ¡Hola {{1}}!"
+                      />
+
+                      {headerVars.length > 0 && (
+                        <div className="mt-2 text-sm">
+                          <p className="font-semibold">
+                            Variables detectadas en el Encabezado:
+                          </p>
+                          {headerVars.map((val, idx) => (
+                            <div
+                              key={idx}
+                              className="flex gap-2 items-center my-1"
+                            >
+                              <label className="text-gray-600 whitespace-nowrap">
+                                {"{{"}
+                                {idx + 1}
+                                {"}}"}:
+                              </label>
+                              <input
+                                className="border rounded px-2 py-1 flex-1 bg-white"
+                                value={val}
+                                onChange={(e) => {
+                                  const newArr = [...headerVars];
+                                  newArr[idx] = e.target.value;
+                                  setHeaderVars(newArr);
+                                }}
+                              />
+                            </div>
+                          ))}
+                          {!areHeaderVarsFilled && (
+                            <p className="text-xs text-red-600 mt-1">
+                              Debe llenar los ejemplos del encabezado.
+                            </p>
+                          )}
                         </div>
-                      ))}
+                      )}
+                    </div>
+                  )}
+
+                  {/* MEDIA */}
+                  {["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType) && (
+                    <div className="mt-3">
+                      <label className="font-semibold block mb-1">
+                        Archivo de Encabezado{" "}
+                        <InfoIcon tooltipText="Este archivo se usa como ejemplo para aprobación de la plantilla en Meta." />
+                      </label>
+                      <input
+                        type="file"
+                        className="w-full border rounded px-3 py-2 bg-white"
+                        accept={getAcceptForHeader()}
+                        onChange={(e) =>
+                          setHeaderFile(e.target.files?.[0] || null)
+                        }
+                      />
+                      <div className="mt-1 text-xs text-gray-600">
+                        {headerFile?.name
+                          ? `Seleccionado: ${headerFile.name}`
+                          : "No ha seleccionado archivo."}
+                      </div>
+                      {!headerFile && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Para {headerType} debe adjuntar un archivo.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* LOCATION */}
+                  {headerType === "LOCATION" && (
+                    <div className="mt-3 text-sm text-gray-700">
+                      <div className="flex items-start gap-2">
+                        <span>📍</span>
+                        <div>
+                          <div className="font-semibold">
+                            Encabezado de ubicación
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            No requiere archivo. La ubicación real se define
+                            cuando envíe el mensaje usando esta plantilla.
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -427,9 +664,11 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                   {bodyVars.map((val, idx) => (
                     <div key={idx} className="flex gap-2 items-center my-1">
                       <label className="text-gray-600 whitespace-nowrap">
-                        {"{{"}{idx + 1}{"}}"}:
+                        {"{{"}
+                        {idx + 1}
+                        {"}}"}:
                       </label>
-                      <input 
+                      <input
                         className="border rounded px-2 py-1 flex-1"
                         value={val}
                         onChange={(e) => {
@@ -440,6 +679,11 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                       />
                     </div>
                   ))}
+                  {!areBodyVarsFilled && (
+                    <p className="text-xs text-red-600 mt-1">
+                      Debe llenar los ejemplos del cuerpo.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -447,9 +691,10 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
             {/* Footer */}
             <div className="mb-4">
               <label className="block font-semibold mb-1">
-                Pie de página (Opcional) <InfoIcon tooltipText="Texto breve al final del mensaje" />
+                Pie de página (Opcional){" "}
+                <InfoIcon tooltipText="Texto breve al final del mensaje" />
               </label>
-              <input 
+              <input
                 type="text"
                 className="w-full border rounded px-3 py-2"
                 value={footerText}
@@ -461,14 +706,15 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
             {/* Botones */}
             <div className="mb-4">
               <label className="block font-semibold mb-2">
-                Botones (Opcionales) <InfoIcon tooltipText="Crea botones para que los clientes puedan responder tu mensaje o realizar una acción." />
+                Botones (Opcionales){" "}
+                <InfoIcon tooltipText="Crea botones para que los clientes puedan responder tu mensaje o realizar una acción." />
               </label>
 
               {buttons.map((btn, i) => (
                 <div key={i} className="border p-2 mb-2 rounded bg-gray-50">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold">Botón #{i+1}</span>
-                    <button 
+                    <span className="font-semibold">Botón #{i + 1}</span>
+                    <button
                       className="text-red-600 text-sm"
                       onClick={() => removeButton(i)}
                     >
@@ -476,7 +722,6 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                     </button>
                   </div>
 
-                  {/* Selección tipo de botón */}
                   <div className="mt-2 flex gap-2">
                     <select
                       className="border rounded px-2 py-1"
@@ -484,7 +729,9 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                       onChange={(e) => updateButton(i, "type", e.target.value)}
                     >
                       <option value="QUICK_REPLY">Personalizado</option>
-                      <option value="PHONE_NUMBER">Llamar al número de teléfono</option>
+                      <option value="PHONE_NUMBER">
+                        Llamar al número de teléfono
+                      </option>
                       <option value="URL">Ir al sitio web</option>
                     </select>
 
@@ -496,16 +743,13 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                     />
                   </div>
 
-                  {/* Mensaje indicando límite según tipo */}
                   {btn.type === "QUICK_REPLY" && (
                     <p className="text-xs text-gray-400 mt-1">
                       Sin límite de botones
                     </p>
                   )}
                   {btn.type === "PHONE_NUMBER" && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Máximo 1 botón
-                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Máximo 1 botón</p>
                   )}
                   {btn.type === "URL" && (
                     <p className="text-xs text-gray-400 mt-1">
@@ -513,27 +757,33 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                     </p>
                   )}
 
-                  {/* PHONE_NUMBER => pide phone_number */}
                   {btn.type === "PHONE_NUMBER" && (
                     <div className="mt-2">
-                      <label className="text-sm text-gray-600 block mb-1">Número de teléfono</label>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        Número de teléfono
+                      </label>
                       <input
                         className="border rounded px-2 py-1 w-full"
                         placeholder="+573001234567"
                         value={btn.phone_number || ""}
-                        onChange={(e) => updateButton(i, "phone_number", e.target.value)}
+                        onChange={(e) =>
+                          updateButton(i, "phone_number", e.target.value)
+                        }
                       />
                     </div>
                   )}
 
-                  {/* URL => pide linkType “estático” o “dinámico” */}
                   {btn.type === "URL" && (
                     <div className="mt-2 border rounded p-2 bg-white">
-                      <label className="text-sm font-semibold block mb-1">Tipo de URL:</label>
+                      <label className="text-sm font-semibold block mb-1">
+                        Tipo de URL:
+                      </label>
                       <select
                         className="border rounded px-2 py-1 w-full"
                         value={btn.linkType}
-                        onChange={(e) => updateButton(i, "linkType", e.target.value)}
+                        onChange={(e) =>
+                          updateButton(i, "linkType", e.target.value)
+                        }
                       >
                         <option value="static">Estático</option>
                         <option value="dynamic">Dinámico</option>
@@ -541,36 +791,53 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
 
                       {btn.linkType === "static" && (
                         <div className="mt-2">
-                          <label className="text-sm text-gray-600 block mb-1">URL</label>
+                          <label className="text-sm text-gray-600 block mb-1">
+                            URL
+                          </label>
                           <input
                             className="border rounded px-2 py-1 w-full"
                             placeholder="https://tusitio.com"
                             value={btn.url || ""}
-                            onChange={(e) => updateButton(i, "url", e.target.value)}
+                            onChange={(e) =>
+                              updateButton(i, "url", e.target.value)
+                            }
                           />
                         </div>
                       )}
 
                       {btn.linkType === "dynamic" && (
                         <div className="mt-2">
-                          <label className="text-sm text-gray-600 block mb-1">Base URL</label>
+                          <label className="text-sm text-gray-600 block mb-1">
+                            Base URL
+                          </label>
                           <input
                             className="border rounded px-2 py-1 w-full"
                             placeholder="Ej: https://new.imporsuitpro.com/Pedidos/imprimir_guia/"
                             value={btn.urlBase || ""}
-                            onChange={(e) => updateButton(i, "urlBase", e.target.value)}
+                            onChange={(e) =>
+                              updateButton(i, "urlBase", e.target.value)
+                            }
                           />
 
-                          <label className="text-sm text-gray-600 block mt-2 mb-1">Variable</label>
+                          <label className="text-sm text-gray-600 block mt-2 mb-1">
+                            Variable
+                          </label>
                           <input
                             className="border rounded px-2 py-1 w-full"
                             placeholder="Ej: numero_guia"
                             value={btn.urlVar || ""}
-                            onChange={(e) => updateButton(i, "urlVar", e.target.value)}
+                            onChange={(e) =>
+                              updateButton(i, "urlVar", e.target.value)
+                            }
                           />
 
                           <p className="text-xs text-gray-500 mt-1">
-                            El resultado del url al que el cliente ingresará sería: https://new.imporsuitpro.com/Pedidos/imprimir_guia/numero_guia
+                            Ejemplo:{" "}
+                            {btn.urlBase
+                              ? btn.urlBase.endsWith("/")
+                                ? btn.urlBase + (btn.urlVar || "valor")
+                                : btn.urlBase + "/" + (btn.urlVar || "valor")
+                              : "—"}
                           </p>
                         </div>
                       )}
@@ -579,102 +846,73 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                 </div>
               ))}
 
-              <button 
-                className="bg-gray-200 px-3 py-1 rounded text-sm" 
+              <button
+                className="bg-gray-200 px-3 py-1 rounded text-sm"
                 onClick={addButton}
               >
                 + Agregar Botón
               </button>
             </div>
           </div>
-          
+
           {/* Columna Derecha => Vista previa estilo WhatsApp */}
           <div className="w-1/3">
             <h3 className="font-semibold mb-2">Vista Previa</h3>
 
-            {/*
-              Simulamos un “teléfono” con fondo + una sola burbuja.
-              1) Se arma 'combinedText' con (header + body + footer).
-              2) Se dibuja todo en la misma burbuja.
-              3) Separador (hr) para los botones, en la misma burbuja, color verde.
-            */}
             <div className="border border-gray-300 rounded overflow-hidden text-sm">
               <div
                 className="
-                  relative
-                  w-full
-                  h-full
-                  p-3
-                  flex
-                  flex-col
-                  gap-2
-                  max-h-[400px]
-                  overflow-y-auto
+                  relative w-full h-full p-3 flex flex-col gap-2
+                  max-h-[400px] overflow-y-auto
                 "
                 style={{
                   backgroundColor: "#DAD3CC",
-                  backgroundImage: 'url("https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-28-02-060Z-fondo_chat_center.png")',
-                  backgroundSize: 'cover',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'center',
-                  backgroundBlendMode: 'overlay',
-                  opacity: 0.8
+                  backgroundImage:
+                    'url("https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-28-02-060Z-fondo_chat_center.png")',
+                  backgroundSize: "cover",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center",
+                  backgroundBlendMode: "overlay",
+                  opacity: 0.8,
                 }}
               >
-                {/* UNA SOLA BURBUJA */}
-                {(headerPreview.trim() !== "" || bodyPreview.trim() !== "" || footerText.trim() !== "" || buttons.length > 0) && (
+                {(showHeader ||
+                  bodyPreview.trim() !== "" ||
+                  footerText.trim() !== "" ||
+                  buttons.length > 0) && (
                   <div
                     className="
-                      self-end
-                      bg-white
-                      rounded-lg
-                      shadow
-                      text-black
-                      max-w-[80%]
-                      p-3
-                      flex
-                      flex-col
-                      gap-2
+                      self-end bg-white rounded-lg shadow text-black
+                      max-w-[80%] p-3 flex flex-col gap-2
                     "
                   >
-                    {/* Encabezado en negrita, si existe */}
-                    {headerPreview.trim() !== "" && (
-                      <div className="font-bold whitespace-pre-wrap break-words">
-                        {headerPreview}
-                      </div>
-                    )}
+                    {/* Header visual */}
+                    {renderHeaderPreview()}
 
-                    {/* Body normal */}
+                    {/* Body */}
                     {bodyPreview.trim() !== "" && (
                       <div className="whitespace-pre-wrap break-words">
                         {bodyPreview}
                       </div>
                     )}
 
-                    {/* Footer en texto pequeño y gris */}
+                    {/* Footer */}
                     {footerText.trim() !== "" && (
                       <div className="text-xs text-gray-500 whitespace-pre-wrap break-words">
                         {footerText}
                       </div>
                     )}
 
-                    {/* Si existen botones => un contenedor con líneas entre cada uno */}
+                    {/* Buttons */}
                     {buttons.length > 0 && (
                       <div className="flex flex-col mt-2">
                         {buttons.map((btn, i) => (
                           <React.Fragment key={i}>
-                            {/* Dibujamos una línea gris encima de los botones */}
                             <hr className="border-gray-300 my-1" />
-
                             <div
                               className="
-                                text-blue-600
-                                text-sm
-                                px-3
-                                py-2
-                                rounded
-                                text-center
-                                cursor-pointer
+                                text-blue-600 text-sm px-3 py-2 rounded
+                                text-center cursor-pointer
                               "
                               title={
                                 btn.type === "URL"
@@ -698,21 +936,32 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
                 )}
               </div>
             </div>
+
+            {/* Nota de validación */}
+            {showHeader &&
+              ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType) &&
+              !headerFile && (
+                <div className="mt-2 text-xs text-red-600">
+                  Para este tipo de encabezado debe seleccionar un archivo.
+                </div>
+              )}
           </div>
         </div>
 
         {/* Botones Finales */}
         <div className="flex justify-end gap-3 mt-4">
-          <button 
+          <button
             className="px-4 py-2 bg-gray-300 rounded"
             onClick={onClose}
             disabled={isLoading}
           >
             Cancelar
           </button>
-          <button 
+          <button
             className={`px-4 py-2 rounded flex items-center justify-center gap-2 ${
-              isDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white'
+              isDisabled
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 text-white"
             }`}
             onClick={handleCreate}
             disabled={isDisabled}
@@ -726,7 +975,9 @@ const CrearPlantillaModal = ({ onClose, onCreate }) => {
               >
                 <circle
                   className="opacity-25"
-                  cx="12" cy="12" r="10"
+                  cx="12"
+                  cy="12"
+                  r="10"
                   stroke="currentColor"
                   strokeWidth="4"
                 />
