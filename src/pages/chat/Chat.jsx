@@ -190,7 +190,6 @@ const Chat = () => {
 
   const [dataPlanes, setDataPlanes] = useState(null);
 
-
   const abrirModalTemplates = async () => {
     setIsTemplateModalOpen(true);
     setTemplateSearch("");
@@ -1592,7 +1591,108 @@ const Chat = () => {
 
   /* fin filtro */
 
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    if (
+      (selectedChat.source === "ms" || selectedChat.source === "ig") &&
+      (!hasName(selectedChat) || !hasPic(selectedChat))
+    ) {
+      fetchStoreProfile(selectedChat, { force: true }); // force true para el seleccionado
+    }
+  }, [selectedChat]);
+
   const socketRef = useRef(null);
+  //cache en memoria para no repetir llamadas
+  const profileFetchInFlightRef = useRef(new Set()); // chatId en proceso
+  const profileFetchedRef = useRef(new Set()); // chatId ya completado
+
+  const hasName = (c) =>
+    (c?.nombre_cliente && String(c.nombre_cliente).trim() !== "") ||
+    (c?.apellido_cliente && String(c.apellido_cliente).trim() !== "");
+
+  const hasPic = (c) => c?.imagePath && String(c.imagePath).trim() !== "";
+
+  const patchChatProfileLocal = (chatId, patch) => {
+    setMensajesAcumulados((prev) =>
+      prev.map((c) =>
+        String(c.id) === String(chatId) ? { ...c, ...patch } : c,
+      ),
+    );
+    setSelectedChat((prev) =>
+      prev && String(prev.id) === String(chatId) ? { ...prev, ...patch } : prev,
+    );
+  };
+
+  const fetchStoreProfile = async (chat, { force = false } = {}) => {
+    if (!chat || !id_configuracion) return;
+
+    const src = (chat?.source || "").toLowerCase();
+    if (src !== "ms" && src !== "ig") return;
+
+    const chatId = chat.id;
+    if (!chatId) return;
+
+    // No repetir si ya está completo y no es force
+    if (!force && hasName(chat) && hasPic(chat)) {
+      profileFetchedRef.current.add(String(chatId));
+      return;
+    }
+
+    // Evitar llamadas duplicadas
+    const key = String(chatId);
+    if (profileFetchInFlightRef.current.has(key)) return;
+    profileFetchInFlightRef.current.add(key);
+
+    try {
+      const { data } = await chatApi.post("messenger/profiles/fetch-store", {
+        id_configuracion,
+        chatId, //
+        external_id: chat.external_id, // ✅ psid/igsid
+        page_id: chat.page_id,
+        source: src,
+        force,
+      });
+
+      if (data?.ok && data?.data) {
+        patchChatProfileLocal(chatId, {
+          nombre_cliente: data.data.nombre_cliente ?? chat.nombre_cliente,
+          apellido_cliente: data.data.apellido_cliente ?? chat.apellido_cliente,
+          imagePath: data.data.imagePath ?? chat.imagePath,
+        });
+        profileFetchedRef.current.add(key);
+      }
+    } catch (e) {
+      // no molestar al usuario, solo log
+      console.error("fetchStoreProfile:", e?.response?.data || e);
+    } finally {
+      profileFetchInFlightRef.current.delete(key);
+    }
+  };
+
+  const prefetchProfilesFromChats = (data) => {
+    // ✅ Prefetch liviano: solo ms/ig incompletos
+    setTimeout(() => {
+      const candidatos = data
+        .filter((c) => c.source === "ms" || c.source === "ig")
+        .filter((c) => !hasName(c) || !hasPic(c))
+        .slice(0, 15);
+
+      const runPool = async (items, concurrency = 3) => {
+        const queue = [...items];
+        const workers = Array.from({ length: concurrency }).map(async () => {
+          while (queue.length) {
+            const item = queue.shift();
+            await fetchStoreProfile(item, { force: false });
+          }
+        });
+        await Promise.all(workers);
+      };
+
+      runPool(candidatos, 3);
+    }, 0);
+  };
+
   const inputSearchRef = useRef(null);
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -1703,7 +1803,7 @@ const Chat = () => {
       if (!waBootstrappedRef.current) setIsLoadingWA(true);
 
       // Limpiar listeners existentes antes de registrar nuevos
-      socketRef.current.off("RECEIVED_MESSAGE");
+      // socketRef.current.off("RECEIVED_MESSAGE");
       socketRef.current.off("DATA_FACTURA_RESPONSE");
       socketRef.current.off("DATA_NOVEDADES");
 
@@ -1744,6 +1844,8 @@ const Chat = () => {
           waBootstrappedRef.current = true;
           setIsLoadingWA(false);
         }
+
+        prefetchProfilesFromChats(data);
       });
 
       // Emitir el evento con los filtros y la paginación
@@ -1779,127 +1881,127 @@ const Chat = () => {
         });
       }
 
-      socketRef.current.on("RECEIVED_MESSAGE", (data) => {
-        /* console.log("XD:", JSON.stringify(data)); */
+      // socketRef.current.on("RECEIVED_MESSAGE", (data) => {
+      //   /* console.log("XD:", JSON.stringify(data)); */
 
-        if (id_configuracion == data.id_configuracion) {
-          setMensajesAcumulados((prevChats) => {
-            const actualizado = prevChats.map((chat) => ({ ...chat }));
+      //   if (id_configuracion == data.id_configuracion) {
+      //     setMensajesAcumulados((prevChats) => {
+      //       const actualizado = prevChats.map((chat) => ({ ...chat }));
 
-            const idChat = data.celular_recibe;
+      //       const idChat = data.celular_recibe;
 
-            const index = actualizado.findIndex((chat) => {
-              console.log(String(chat.id) === String(idChat));
-              return String(chat.id) === String(idChat);
-            });
+      //       const index = actualizado.findIndex((chat) => {
+      //         console.log(String(chat.id) === String(idChat));
+      //         return String(chat.id) === String(idChat);
+      //       });
 
-            if (index !== -1) {
-              actualizado[index].mensaje_created_at =
-                data.ultimoMensaje.created_at;
-              actualizado[index].texto_mensaje =
-                data.ultimoMensaje.texto_mensaje;
-              actualizado[index].mensajes_pendientes =
-                (actualizado[index].mensajes_pendientes || 0) + 1;
-              actualizado[index].visto = 0;
+      //       if (index !== -1) {
+      //         actualizado[index].mensaje_created_at =
+      //           data.ultimoMensaje.created_at;
+      //         actualizado[index].texto_mensaje =
+      //           data.ultimoMensaje.texto_mensaje;
+      //         actualizado[index].mensajes_pendientes =
+      //           (actualizado[index].mensajes_pendientes || 0) + 1;
+      //         actualizado[index].visto = 0;
 
-              const [actualizadoChat] = actualizado.splice(index, 1);
-              actualizado.unshift(actualizadoChat);
-            } else {
-              // Si no está, crear uno nuevo con id = celular_recibe
-              const nuevoChat = {
-                id: idChat,
-                mensaje_created_at: data.ultimoMensaje.created_at,
-                texto_mensaje: data.ultimoMensaje.texto_mensaje,
-                celular_cliente:
-                  data.ultimoMensaje.clientePorCelular?.celular_cliente,
-                mensajes_pendientes: 1,
-                visto: 0,
-                nombre_cliente:
-                  data.ultimoMensaje.clientePorCelular?.nombre_cliente,
-                id_encargado:
-                  data.ultimoMensaje.clientePorCelular?.id_encargado,
-                etiquetas: [
-                  {
-                    id: null,
-                    nombre: null,
-                    color: null,
-                  },
-                ],
-                transporte: null,
-                estado_factura: null,
-                novedad_info: {
-                  id_novedad: null,
-                  novedad: null,
-                  solucionada: null,
-                  terminado: null,
-                },
-              };
+      //         const [actualizadoChat] = actualizado.splice(index, 1);
+      //         actualizado.unshift(actualizadoChat);
+      //       } else {
+      //         // Si no está, crear uno nuevo con id = celular_recibe
+      //         const nuevoChat = {
+      //           id: idChat,
+      //           mensaje_created_at: data.ultimoMensaje.created_at,
+      //           texto_mensaje: data.ultimoMensaje.texto_mensaje,
+      //           celular_cliente:
+      //             data.ultimoMensaje.clientePorCelular?.celular_cliente,
+      //           mensajes_pendientes: 1,
+      //           visto: 0,
+      //           nombre_cliente:
+      //             data.ultimoMensaje.clientePorCelular?.nombre_cliente,
+      //           id_encargado:
+      //             data.ultimoMensaje.clientePorCelular?.id_encargado,
+      //           etiquetas: [
+      //             {
+      //               id: null,
+      //               nombre: null,
+      //               color: null,
+      //             },
+      //           ],
+      //           transporte: null,
+      //           estado_factura: null,
+      //           novedad_info: {
+      //             id_novedad: null,
+      //             novedad: null,
+      //             solucionada: null,
+      //             terminado: null,
+      //           },
+      //         };
 
-              /* console.log("nuevoChat: " + JSON.stringify(nuevoChat, null, 2)); */
+      //         /* console.log("nuevoChat: " + JSON.stringify(nuevoChat, null, 2)); */
 
-              if (
-                data.ultimoMensaje.clientePorCelular?.id_encargado ==
-                  id_sub_usuario_global ||
-                rol_usuario_global == "administrador"
-              ) {
-                actualizado.unshift(nuevoChat);
-              }
-            }
+      //         if (
+      //           data.ultimoMensaje.clientePorCelular?.id_encargado ==
+      //             id_sub_usuario_global ||
+      //           rol_usuario_global == "administrador"
+      //         ) {
+      //           actualizado.unshift(nuevoChat);
+      //         }
+      //       }
 
-            return actualizado;
-          });
+      //       return actualizado;
+      //     });
 
-          // Si el cursor era null, se debe actualizar
-          if (!cursorFecha || !cursorId) {
-            setCursorFecha(data.ultimoMensaje.created_at);
-            setCursorId(data.ultimoMensaje.id);
-          }
+      //     // Si el cursor era null, se debe actualizar
+      //     if (!cursorFecha || !cursorId) {
+      //       setCursorFecha(data.ultimoMensaje.created_at);
+      //       setCursorId(data.ultimoMensaje.id);
+      //     }
 
-          /* carga de la derecha */
-          if (
-            selectedChat &&
-            String(selectedChat.id) === String(data.celular_recibe)
-          ) {
-            console.log("entro en la consola");
+      //     /* carga de la derecha */
+      //     if (
+      //       selectedChat &&
+      //       String(selectedChat.id) === String(data.celular_recibe)
+      //     ) {
+      //       console.log("entro en la consola");
 
-            socketRef.current.emit("GET_CHATS_BOX", {
-              chatId: selectedChat.id,
-              id_configuracion: id_configuracion,
-            });
+      //       socketRef.current.emit("GET_CHATS_BOX", {
+      //         chatId: selectedChat.id,
+      //         id_configuracion: id_configuracion,
+      //       });
 
-            socketRef.current.once("CHATS_BOX_RESPONSE", (data) => {
-              console.log(
-                "Mensajes actualizados tras recibir un nuevo mensaje:",
-                data,
-              );
-              setChatMessages(data);
+      //       socketRef.current.once("CHATS_BOX_RESPONSE", (data) => {
+      //         console.log(
+      //           "Mensajes actualizados tras recibir un nuevo mensaje:",
+      //           data,
+      //         );
+      //         setChatMessages(data);
 
-              setMensajesAcumulados((prev) =>
-                prev.map((chat) =>
-                  chat.id === selectedChat.id
-                    ? { ...chat, mensajes_pendientes: 0 }
-                    : chat,
-                ),
-              );
+      //         setMensajesAcumulados((prev) =>
+      //           prev.map((chat) =>
+      //             chat.id === selectedChat.id
+      //               ? { ...chat, mensajes_pendientes: 0 }
+      //               : chat,
+      //           ),
+      //         );
 
-              const orderedMessages = getOrderedChats();
-              setMensajesOrdenados(orderedMessages.slice(-20));
-              setMensajesMostrados(20);
+      //         const orderedMessages = getOrderedChats();
+      //         setMensajesOrdenados(orderedMessages.slice(-20));
+      //         setMensajesMostrados(20);
 
-              if (chatContainerRef.current) {
-                const chatContainer = chatContainerRef.current;
-                const isAtBottom =
-                  chatContainer.scrollHeight - chatContainer.scrollTop <=
-                  chatContainer.clientHeight + 5;
+      //         if (chatContainerRef.current) {
+      //           const chatContainer = chatContainerRef.current;
+      //           const isAtBottom =
+      //             chatContainer.scrollHeight - chatContainer.scrollTop <=
+      //             chatContainer.clientHeight + 5;
 
-                if (isAtBottom) {
-                  chatContainer.scrollTop = chatContainer.scrollHeight;
-                }
-              }
-            });
-          }
-        }
-      });
+      //           if (isAtBottom) {
+      //             chatContainer.scrollTop = chatContainer.scrollHeight;
+      //           }
+      //         }
+      //       });
+      //     }
+      //   }
+      // });
 
       if (id_plataforma_conf !== null) {
         socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
@@ -1973,6 +2075,7 @@ const Chat = () => {
               setCursorId(ultimo.id);
             }
             setCargandoChats(false);
+            prefetchProfilesFromChats(data);
           });
         }
       }
@@ -2022,6 +2125,7 @@ const Chat = () => {
             setCursorFecha(ultimo.mensaje_created_at);
             setCursorId(ultimo.id);
           }
+          prefetchProfilesFromChats(data);
         });
       }
     };
@@ -2096,6 +2200,7 @@ const Chat = () => {
           setCursorFecha(ultimo.mensaje_created_at);
           setCursorId(ultimo.id);
         }
+        prefetchProfilesFromChats(data);
       });
 
       // Obtener mensajes del chat seleccionado si existe
@@ -2726,8 +2831,7 @@ const Chat = () => {
         setMensajesAcumulados={setMensajesAcumulados}
         id_plataforma_conf={id_plataforma_conf}
         tipo_configuracion={tipo_configuracion}
-                dataPlanes={dataPlanes}
-
+        dataPlanes={dataPlanes}
       />
       {/* Historial de chats */}
       <Sidebar
