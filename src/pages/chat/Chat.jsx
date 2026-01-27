@@ -3030,6 +3030,9 @@ const Chat = () => {
         dataAdmin={dataAdmin}
         handleSelectPhoneNumber={handleSelectPhoneNumber}
         selectedPhoneNumber={selectedPhoneNumber}
+        setSelectedPhoneNumber={setSelectedPhoneNumber}
+        selectedPhoneNumberNombre={selectedPhoneNumberNombre}
+        setSelectedPhoneNumberNombre={setSelectedPhoneNumberNombre}
         userData={userData}
         id_configuracion={id_configuracion}
         tipo_modalEnviarArchivo={tipo_modalEnviarArchivo}
