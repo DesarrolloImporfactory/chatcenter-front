@@ -18,6 +18,9 @@ const Modales = ({
   seleccionado,
   handleSelectPhoneNumber,
   selectedPhoneNumber,
+  setSelectedPhoneNumber,
+  selectedPhoneNumberNombre,
+  setSelectedPhoneNumberNombre,
   userData,
   id_configuracion,
   modal_enviarArchivos,
@@ -81,6 +84,9 @@ const Modales = ({
     setNewContactName("");
     setNewContactPhone("");
 
+    setSelectedPhoneNumber("");
+    setSelectedPhoneNumberNombre("");
+
     setTemplateName("");
     setTemplateText("");
     setPlaceholders([]);
@@ -115,7 +121,10 @@ const Modales = ({
       setContextLabel(numeroModalPreset.contextLabel || "");
       setClienteNombreCtx(numeroModalPreset.clienteNombre || "");
 
-      handleSelectPhoneNumber(numeroModalPreset.phone);
+      handleSelectPhoneNumber(
+        numeroModalPreset.phone,
+        numeroModalPreset.clienteNombre,
+      );
 
       setSearchQuery(numeroModalPreset.phone);
       if (inputRefNumeroTelefono?.current) {
@@ -363,8 +372,6 @@ const Modales = ({
     }
   };
   /* fin modal crear etiquetas */
-
-  
 
   /* ----- enviar imagenes ---------*/
   const [imagenes, setImagenes] = useState([]);
@@ -948,7 +955,7 @@ const Modales = ({
       Toast.fire({ icon: "success", title: "Contacto añadido" });
 
       // Marca al nuevo contacto como destinatario
-      handleSelectPhoneNumber(newContactPhone);
+      handleSelectPhoneNumber(newContactPhone, newContactName);
 
       // Cambia de pestaña: búsqueda + plantilla
       setModalTab("buscar");
@@ -1121,6 +1128,7 @@ const Modales = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const recipientPhone = selectedPhoneNumber;
+    const nombre_cliente = selectedPhoneNumberNombre;
 
     if (!recipientPhone) {
       alert("Debes ingresar un número de destinatario.");
@@ -1223,6 +1231,7 @@ const Modales = ({
         wamid,
         templateName,
         selectedLanguage,
+        nombre_cliente,
       );
 
       /* cargar socket */
@@ -1550,6 +1559,7 @@ const Modales = ({
                                   onClick={() =>
                                     handleSelectPhoneNumber(
                                       result.celular_cliente,
+                                      result.nombre_cliente,
                                     )
                                   }
                                   className={`cursor-pointer px-3 py-2 transition ${

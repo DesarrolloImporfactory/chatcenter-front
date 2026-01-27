@@ -138,6 +138,8 @@ const Chat = () => {
   const [templates, setTemplates] = useState([]);
 
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
+  const [selectedPhoneNumberNombre, setSelectedPhoneNumberNombre] =
+    useState("");
 
   const [buscarIdRecibe, setBuscarIdRecibe] = useState(null);
 
@@ -615,6 +617,7 @@ const Chat = () => {
     wamid,
     template_name,
     language_code,
+    nombre_cliente = "",
   ) => {
     try {
       const response = await chatApi.post(
@@ -674,7 +677,7 @@ const Chat = () => {
               celular_cliente: telefono_recibe,
               mensajes_pendientes: 1,
               visto: 0,
-              nombre_cliente: "",
+              nombre_cliente: nombre_cliente,
               etiquetas: [
                 {
                   id: null,
@@ -684,6 +687,7 @@ const Chat = () => {
               ],
               transporte: null,
               estado_factura: null,
+              id_configuracion: id_configuracion,
               novedad_info: {
                 id_novedad: null,
                 novedad: null,
@@ -775,8 +779,11 @@ const Chat = () => {
   };
 
   // Manejar la selección del número de teléfono y activar la sección de templates
-  const handleSelectPhoneNumber = async (phoneNumber) => {
+  const handleSelectPhoneNumber = async (phoneNumber, nombre_cliente) => {
     setSelectedPhoneNumber(phoneNumber); // Actualiza el número seleccionado
+
+    setSelectedPhoneNumberNombre(nombre_cliente);
+
     setValue("numero", phoneNumber); // Actualiza el campo "numero" en el formulario
 
     // Llama manualmente a la función de búsqueda con el nuevo valor
