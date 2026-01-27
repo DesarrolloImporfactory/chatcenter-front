@@ -584,7 +584,7 @@ const Chat = () => {
 
   const fetchListDepartamentos = async () => {
     try {
-      const decoded = jwtDecode(token);
+      const decoded = jwtDecode(localStorage.getItem("token"));
       const usuario = decoded.id_usuario;
 
       const res = await chatApi.post(

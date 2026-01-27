@@ -17,9 +17,7 @@ class AuthService {
   getToken() {
     // Buscar token en diferentes claves por compatibilidad
     let token =
-      localStorage.getItem(this.tokenKey) ||
-      localStorage.getItem("token") ||
-      localStorage.getItem("chat_token");
+      localStorage.getItem(this.tokenKey) || localStorage.getItem("token");
 
     if (!token || token === "undefined" || token === "") {
       const cookieToken = this.getCookie(this.cookieName);
@@ -38,7 +36,6 @@ class AuthService {
       // Guardar en múltiples claves para compatibilidad
       localStorage.setItem(this.tokenKey, token);
       localStorage.setItem("token", token);
-      localStorage.setItem("chat_token", token);
       this.setCookie(this.cookieName, token, 7); // 7 días
     } else {
       this.removeToken();
@@ -50,7 +47,6 @@ class AuthService {
     // Limpiar todas las claves de token
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem("token");
-    localStorage.removeItem("chat_token");
     localStorage.removeItem(this.userKey);
     localStorage.removeItem("id_sub_usuario");
     localStorage.removeItem("id_usuario");
@@ -94,7 +90,6 @@ class AuthService {
         permissions: decoded.permissions || [],
         exp: decoded.exp,
         activar_cotizacion: decoded.activar_cotizacion || false,
-
       };
     } catch (error) {
       console.error("Error decodificando token:", error);
@@ -154,7 +149,6 @@ class AuthService {
           if (data.data.id_usuario) {
             localStorage.setItem("id_usuario", data.data.id_usuario);
           }
-          
         }
 
         return { success: true, user: data.data, token: data.token };
@@ -171,8 +165,10 @@ class AuthService {
   getCookie(name) {
     const match = document.cookie.match(
       new RegExp(
-        "(?:^|; )" + name.replace(/([$?*|{}\]\\[\]\/+^])/g, "\\$1") + "=([^;]*)"
-      )
+        "(?:^|; )" +
+          name.replace(/([$?*|{}\]\\[\]\/+^])/g, "\\$1") +
+          "=([^;]*)",
+      ),
     );
     return match ? decodeURIComponent(match[1]) : null;
   }
@@ -181,7 +177,7 @@ class AuthService {
     const expires = new Date();
     expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
     document.cookie = `${name}=${encodeURIComponent(
-      value
+      value,
     )};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
   }
 
@@ -205,7 +201,7 @@ class AuthService {
             client_key: APP_CONFIG.tiktok.clientKey,
             redirect_uri: APP_CONFIG.tiktok.redirectURI,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -243,7 +239,7 @@ class AuthService {
   // Generar state para OAuth
   generateState() {
     return btoa(
-      Math.random().toString(36).substring(2) + Date.now().toString(36)
+      Math.random().toString(36).substring(2) + Date.now().toString(36),
     );
   }
 

@@ -48,9 +48,9 @@ export const APP_CONFIG = {
 
   // Configuración de autenticación
   auth: {
-    tokenKey: "chat_token",
+    tokenKey: "token",
     userKey: "chat_user",
-    cookieName: "chat_token",
+    cookieName: "token",
     tokenExpiry: 24 * 60 * 60 * 1000, // 24 horas
     refreshThreshold: 5 * 60 * 1000, // 5 minutos antes de expirar
   },

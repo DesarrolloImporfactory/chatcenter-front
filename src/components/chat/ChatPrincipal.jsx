@@ -1139,16 +1139,16 @@ const ChatPrincipal = ({
                             bg-yellow-100/70
                             border border-yellow-200
                             px-4 py-2
-                            text-[14px] text-yellow-900
+                            text-[16px] text-yellow-900
                             shadow-sm
                           "
                           title={formatFecha(mensaje.created_at)}
                         >
-                          <i className="bx bx-info-circle text-base text-yellow-900/80" />
+                          <i className="bx bx-info-circle text-[21px] text-yellow-900/80" />
                           <span className="leading-snug">
                             {mensaje.texto_mensaje || "Notificación"}
                           </span>
-                          <span className="ml-2 text-[11px] text-yellow-900/60">
+                          <span className="ml-2 text-[14px] text-yellow-900/60">
                             {formatHora(mensaje.created_at)}
                           </span>
                         </div>

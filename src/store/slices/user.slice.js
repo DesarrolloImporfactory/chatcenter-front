@@ -56,7 +56,6 @@ export const loginThunk = createAsyncThunk(
 
       // Guardar token usando el AuthService para consistencia
       localStorage.setItem("token", token);
-      localStorage.setItem("chat_token", token);
 
       // Opcional: guardar datos adicionales si existen
       if (user.id_sub_usuario) {
