@@ -1139,7 +1139,7 @@ const ChatPrincipal = ({
                             bg-yellow-100/70
                             border border-yellow-200
                             px-4 py-2
-                            text-[16px] text-yellow-900
+                              text-[16px] text-yellow-900
                             shadow-sm
                           "
                           title={formatFecha(mensaje.created_at)}
@@ -1592,9 +1592,10 @@ const ChatPrincipal = ({
                           <strong>Atención:</strong> Pasaron más de 24 horas
                           desde el último mensaje. Por una regla de WhatsApp,
                           ahora solo podemos responder con una{" "}
-                          <b>plantilla aprobada</b>. <br />Para continuar, haz clic en{" "}
-                          <b>“Responder con plantilla”</b> y elige una
-                          de la lista.
+                          <b>plantilla aprobada</b>. <br />
+                          Para continuar, haz clic en{" "}
+                          <b>“Responder con plantilla”</b> y elige una de la
+                          lista.
                         </p>
                       </div>
 

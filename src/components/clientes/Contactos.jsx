@@ -7,6 +7,7 @@ import Select from "react-select";
 import * as XLSX from "xlsx";
 import ImportarXlsxModal from "../clientes/modales/ImportarXlsxModal";
 import ClientForm from "../clientes/modales/ClientForm";
+import { useNavigate } from "react-router-dom";
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -87,9 +88,9 @@ const timeAgo = (d) => {
   return rtf.format(-Math.round(y), "year");
 };
 
-// admite id_cliente_chat_center como posible ID (combina ambos)
+// ✅ chat_id primero (id_cliente_chat_center)
 const getId = (r) =>
-  r?.id ?? r?.id_cliente_chat_center ?? r?._id ?? r?.id_cliente ?? null;
+  r?.id_cliente_chat_center ?? r?.id ?? r?._id ?? r?.id_cliente ?? null;
 
 const initials = (n, a) => {
   const s = `${n || ""} ${a || ""}`.trim();
@@ -102,16 +103,74 @@ const initials = (n, a) => {
   return i || "?";
 };
 
-/* Normaliza fila -> llaves del front (combina ids) */
+function getDisplayContact(c) {
+  const phone = String(c?.telefono_limpio || c?.telefono || "").trim();
+  if (phone) return phone;
+
+  const ext = String(c?.external_id || c?._raw?.external_id || "").trim();
+  if (ext) return ext;
+
+  const page = String(c?.page_id || c?._raw?.page_id || "").trim();
+  if (page) return page;
+
+  const conv = String(
+    c?.conversation_id || c?._raw?.conversation_id || "",
+  ).trim();
+  if (conv) return conv;
+
+  return "-";
+}
+
+/* Normaliza fila -> llaves del front (id = chat_id) */
 function mapRow(row) {
+  const chatId = row.id_cliente_chat_center ?? row.id ?? null;
+  const lastAt = row.ultimo_mensaje_at ?? row.updated_at ?? row.created_at;
+
+  // 👇 NUEVO: ids externos típicos IG/MS
+  const externalId =
+    row.external_id ??
+    row.external_mid ??
+    row.mid ??
+    row.psid ??
+    row.ig_user_id ??
+    row.fb_user_id ??
+    "";
+
+  const pageId = row.page_id ?? row.id_page ?? "";
+  const convId =
+    row.conversation_id ?? row.thread_id ?? row.id_conversation ?? "";
+
+  // 👇 NUEVO: “contacto visible” para UI (WhatsApp o IG/MS)
+  const telefonoLimpio = row.telefono_limpio || "";
+  const telefono = row.celular_cliente || "";
+  const display_contact =
+    telefonoLimpio || telefono || externalId || pageId || convId || "";
+
   return {
-    id: row.id ?? row.id_cliente_chat_center,
+    id: chatId,
+    id_cliente_chat_center: chatId,
+
     nombre: row.nombre_cliente || "",
     apellido: row.apellido_cliente || "",
     email: row.email_cliente || "",
-    telefono: row.celular_cliente || "",
+    telefono: telefono,
+    telefono_limpio: telefonoLimpio,
+
+    // ✅ NUEVOS
+    external_id: externalId,
+    page_id: pageId,
+    conversation_id: convId,
+    display_contact,
+
     createdAt: row.created_at,
-    ultima_actividad: row.updated_at,
+    ultima_actividad: lastAt,
+
+    ultimo_mensaje_at: row.ultimo_mensaje_at ?? null,
+    ultimo_texto: row.ultimo_texto ?? "",
+    ultimo_tipo_mensaje: row.ultimo_tipo_mensaje ?? "",
+    ultimo_rol_mensaje: row.ultimo_rol_mensaje ?? null,
+    ultimo_msg_id: row.ultimo_msg_id ?? null,
+
     estado: row.estado_cliente,
     id_etiqueta: row.id_etiqueta ?? null,
     id_plataforma: row.id_plataforma ?? null,
@@ -119,7 +178,6 @@ function mapRow(row) {
     chat_cerrado: row.chat_cerrado ?? 0,
     bot_openia: row.bot_openia ?? 1,
     uid_cliente: row.uid_cliente || "",
-    telefono_limpio: row.telefono_limpio || "",
     mensajes_por_dia_cliente: row.mensajes_por_dia_cliente ?? 0,
     pedido_confirmado: row.pedido_confirmado ?? 0,
     imagePath: row.imagePath || "",
@@ -295,7 +353,7 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
                   setSeleccion((prev) =>
                     e.target.checked
                       ? [...prev, t.id_etiqueta]
-                      : prev.filter((x) => x !== t.id_etiqueta)
+                      : prev.filter((x) => x !== t.id_etiqueta),
                   )
                 }
               />
@@ -387,8 +445,31 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
   );
 }
 
+const CHAT_ROUTE = "/chat";
+
 /* =========================== Vista principal =========================== */
 export default function Contactos() {
+  const navigate = useNavigate();
+  const openChatById = (cOrId) => {
+    const chatId =
+      typeof cOrId === "object"
+        ? (cOrId?.id_cliente_chat_center ?? cOrId?.id)
+        : cOrId;
+
+    if (!chatId) return;
+
+    navigate(`${CHAT_ROUTE}/${chatId}`, {
+      state: {
+        id_configuracion: Number(localStorage.getItem("id_configuracion")),
+      },
+    });
+  };
+
+  const closeRowMenu = (ev) => {
+    const details = ev.currentTarget.closest("details");
+    if (details) details.removeAttribute("open");
+  };
+
   /** Estilos “glass/premium” + foco accesible */
   const customSelectStyles = {
     control: (base, state) => ({
@@ -457,13 +538,13 @@ export default function Contactos() {
       color: state.isDisabled
         ? "#94a3b8"
         : state.isSelected
-        ? "#0b1324"
-        : "#0f172a",
+          ? "#0b1324"
+          : "#0f172a",
       backgroundColor: state.isSelected
         ? "#DBEAFE"
         : state.isFocused
-        ? "#F1F5F9"
-        : "transparent",
+          ? "#F1F5F9"
+          : "transparent",
       ":active": {
         backgroundColor: state.isSelected ? "#DBEAFE" : "#E2E8F0",
       },
@@ -568,12 +649,40 @@ export default function Contactos() {
   const [templateName, setTemplateName] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("es");
 
+  // ====== NUEVO: soporte HEADER (TEXT / IMAGE / VIDEO / DOCUMENT) ======
+  const [headerRequired, setHeaderRequired] = useState(false);
+  const [headerFormat, setHeaderFormat] = useState(null); // 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | null
+  const [headerPlaceholders, setHeaderPlaceholders] = useState([]);
+  const [headerPlaceholderValues, setHeaderPlaceholderValues] = useState({});
+  const [headerMediaUrl, setHeaderMediaUrl] = useState("");
+  const [headerMediaFilename, setHeaderMediaFilename] = useState(""); // útil para DOCUMENT
+
   const allPlaceholdersFilled = placeholders.every(
-    (ph) => (placeholderValues[ph] || "").trim().length > 0
+    (ph) => (placeholderValues[ph] || "").trim().length > 0,
   );
+
+  const allBodyPlaceholdersFilled = placeholders.every(
+    (ph) => (placeholderValues[ph] || "").trim().length > 0,
+  );
+
+  const isHeaderText = headerRequired && headerFormat === "TEXT";
+  const isHeaderMedia =
+    headerRequired && ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat);
+
+  const allHeaderPlaceholdersFilled = headerPlaceholders.every(
+    (ph) => (headerPlaceholderValues[ph] || "").trim().length > 0,
+  );
+
+  const headerTextReady = !isHeaderText || allHeaderPlaceholdersFilled;
+  const headerMediaReady =
+    !isHeaderMedia || (headerMediaUrl || "").trim().length > 0;
+
+  // ✅ Listo si hay nombre + body placeholders (si existen) + header (si aplica)
   const templateReady =
     Boolean(templateName) &&
-    (placeholders.length === 0 || allPlaceholdersFilled);
+    (placeholders.length === 0 || allBodyPlaceholdersFilled) &&
+    headerTextReady &&
+    headerMediaReady;
 
   const abrirModalTemplates = async () => {
     const cfgId = Number(localStorage.getItem("id_configuracion"));
@@ -593,23 +702,23 @@ export default function Contactos() {
         {
           id_configuracion: cfgId,
           limit: 100,
-        }
+        },
       );
 
       const arr = Array.isArray(data?.templates)
         ? data.templates
         : Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data)
-        ? data
-        : [];
+          ? data.data
+          : Array.isArray(data)
+            ? data
+            : [];
 
       setTemplates(arr);
       templatesCacheRef.current[cfgId] = arr; // cache
     } catch (e) {
       console.error(
         "Error cargando templates:",
-        e?.response?.data || e.message
+        e?.response?.data || e.message,
       );
       setTemplates([]);
       templatesCacheRef.current[cfgId] = []; // cache vacío para no spamear
@@ -623,42 +732,86 @@ export default function Contactos() {
     setTemplateName(selectedTemplateName);
 
     const selectedTemplate = templates.find(
-      (template) => template.name === selectedTemplateName
+      (template) => template.name === selectedTemplateName,
     );
 
-    if (selectedTemplate) {
-      const templateBodyComponent = selectedTemplate.components.find(
-        (comp) => comp.type === "BODY"
-      );
+    // Reset header cada vez que cambia template
+    setHeaderRequired(false);
+    setHeaderFormat(null);
+    setHeaderPlaceholders([]);
+    setHeaderPlaceholderValues({});
+    setHeaderMediaUrl("");
+    setHeaderMediaFilename("");
 
-      if (templateBodyComponent && templateBodyComponent.text) {
-        const bodyText = templateBodyComponent.text;
-        setTemplateText(bodyText);
-
-        const extractedPlaceholders = [...bodyText.matchAll(/{{(.*?)}}/g)].map(
-          (match) => match[1]
-        );
-
-        const initialPlaceholderValues = {};
-        extractedPlaceholders.forEach((placeholder) => {
-          initialPlaceholderValues[placeholder] = "";
-        });
-
-        setPlaceholders(extractedPlaceholders);
-        setPlaceholderValues(initialPlaceholderValues);
-      } else {
-        setTemplateText("Este template no tiene un cuerpo definido.");
-        setPlaceholders([]);
-        setPlaceholderValues({});
-      }
-
-      const templateLanguage = selectedTemplate.language || "es";
-      setSelectedLanguage(templateLanguage);
-    } else {
+    if (!selectedTemplate) {
       setTemplateText("");
       setPlaceholders([]);
       setPlaceholderValues({});
+      return;
     }
+
+    // ===== BODY =====
+    const templateBodyComponent = selectedTemplate.components?.find(
+      (comp) => String(comp.type || "").toUpperCase() === "BODY",
+    );
+
+    if (templateBodyComponent?.text) {
+      const bodyText = templateBodyComponent.text;
+      setTemplateText(bodyText);
+
+      const extractedPlaceholders = [...bodyText.matchAll(/{{(.*?)}}/g)].map(
+        (match) => match[1],
+      );
+
+      const initialPlaceholderValues = {};
+      extractedPlaceholders.forEach((placeholder) => {
+        initialPlaceholderValues[placeholder] = "";
+      });
+
+      setPlaceholders(extractedPlaceholders);
+      setPlaceholderValues(initialPlaceholderValues);
+    } else {
+      setTemplateText("Este template no tiene un cuerpo definido.");
+      setPlaceholders([]);
+      setPlaceholderValues({});
+    }
+
+    // ===== HEADER =====
+    const headerComp = selectedTemplate.components?.find(
+      (comp) => String(comp.type || "").toUpperCase() === "HEADER",
+    );
+
+    if (headerComp) {
+      const fmt = String(headerComp.format || "").toUpperCase(); // TEXT/IMAGE/VIDEO/DOCUMENT
+      if (fmt) {
+        setHeaderRequired(true);
+        setHeaderFormat(fmt);
+
+        if (fmt === "TEXT" && headerComp.text) {
+          const headerText = String(headerComp.text);
+
+          const extractedHeaderPH = [...headerText.matchAll(/{{(.*?)}}/g)].map(
+            (match) => match[1],
+          );
+
+          const initialHeaderValues = {};
+          extractedHeaderPH.forEach((placeholder) => {
+            initialHeaderValues[placeholder] = "";
+          });
+
+          setHeaderPlaceholders(extractedHeaderPH);
+          setHeaderPlaceholderValues(initialHeaderValues);
+        }
+      }
+    }
+
+    // idioma
+    const templateLanguage =
+      selectedTemplate.language?.code ||
+      selectedTemplate.language ||
+      selectedTemplate?.languages?.[0]?.code ||
+      "es";
+    setSelectedLanguage(templateLanguage);
   };
 
   const handleTextareaChange = (event) => {
@@ -694,7 +847,7 @@ export default function Contactos() {
     telefono_configuracion,
     wamid,
     template_name,
-    language_code
+    language_code,
   ) => {
     try {
       const response = await chatApi.post(
@@ -712,7 +865,7 @@ export default function Contactos() {
           id_wamid_mensaje: wamid,
           template_name: template_name,
           language_code: language_code,
-        }
+        },
       );
 
       let respuesta = response.data;
@@ -733,17 +886,37 @@ export default function Contactos() {
     return 20000;
   };
 
+  const guessFilenameFromUrl = (url = "") => {
+    try {
+      const clean = String(url).split("?")[0];
+      const name = clean.split("/").pop() || "";
+      return name || "archivo";
+    } catch {
+      return "archivo";
+    }
+  };
+
   const enviarTemplateMasivo = async () => {
     if (!dataAdmin) {
       swalInfo(
         "Config pendiente",
-        "No hay datos de configuración de WhatsApp cargados."
+        "No hay datos de configuración de WhatsApp cargados.",
       );
       return;
     }
 
-    const fromPhoneNumberId = dataAdmin.id_telefono;
-    const accessToken = dataAdmin.token;
+    if (!selected || selected.length === 0) {
+      swalInfo("Sin seleccionados", "Seleccione al menos un destinatario.");
+      return;
+    }
+
+    if (!templateReady) {
+      swalInfo(
+        "Template incompleto",
+        "Complete los campos requeridos del template antes de enviar.",
+      );
+      return;
+    }
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const delay = calcularDelay(selected.length);
@@ -754,9 +927,7 @@ export default function Contactos() {
     Swal.fire({
       title: "Enviando mensajes...",
       html: "Por favor espera mientras enviamos los mensajes.",
-      didOpen: () => {
-        Swal.showLoading();
-      },
+      didOpen: () => Swal.showLoading(),
     });
 
     for (let i = 0; i < selected.length; i++) {
@@ -764,19 +935,79 @@ export default function Contactos() {
       const recipient = items.find((item) => item.id === recipientId);
 
       if (!recipient) {
-        console.log(`Usuario con id ${recipientId} no encontrado.`);
         fallidos.push(`ID: ${recipientId}`);
         continue;
       }
 
       const recipientPhone = recipient.telefono_limpio;
       if (!recipientPhone) {
-        console.log(
-          `El teléfono del usuario ${recipientId} no está disponible.`
-        );
         fallidos.push(`ID: ${recipientId}, Teléfono no disponible`);
         continue;
       }
+
+      // ===== Construir COMPONENTS (HEADER opcional + BODY) =====
+      const components = [];
+
+      // HEADER
+      if (headerRequired) {
+        if (headerFormat === "TEXT") {
+          // placeholders del header text
+          const params = (headerPlaceholders || []).map((ph) => ({
+            type: "text",
+            text: String(headerPlaceholderValues?.[ph] ?? "").trim(),
+          }));
+
+          components.push({
+            type: "header",
+            parameters: params,
+          });
+        } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat)) {
+          const link = String(headerMediaUrl || "").trim();
+          const typeLower = headerFormat.toLowerCase(); // image/video/document
+
+          const mediaObj =
+            headerFormat === "DOCUMENT"
+              ? {
+                  link,
+                  filename:
+                    String(headerMediaFilename || "").trim() ||
+                    guessFilenameFromUrl(link),
+                }
+              : { link };
+
+          components.push({
+            type: "header",
+            parameters: [
+              {
+                type: typeLower,
+                [typeLower]: mediaObj,
+              },
+            ],
+          });
+        }
+      }
+
+      // BODY
+      components.push({
+        type: "body",
+        parameters: (placeholders || []).map((placeholder) => {
+          let value = placeholderValues[placeholder] || `{{${placeholder}}}`;
+
+          if (placeholderValues[placeholder] === "{nombre}") {
+            value = recipient.nombre || `{{${placeholderValues[placeholder]}}}`;
+          } else if (placeholderValues[placeholder] === "{direccion}") {
+            value =
+              recipient?._raw?.direccion ||
+              `{{${placeholderValues[placeholder]}}}`;
+          } else if (placeholderValues[placeholder] === "{productos}") {
+            value =
+              recipient?._raw?.productos ||
+              `{{${placeholderValues[placeholder]}}}`;
+          }
+
+          return { type: "text", text: String(value) };
+        }),
+      });
 
       const body = {
         messaging_product: "whatsapp",
@@ -785,101 +1016,88 @@ export default function Contactos() {
         template: {
           name: templateName,
           language: { code: selectedLanguage },
-          components: [
-            {
-              type: "body",
-              parameters: placeholders.map((placeholder) => {
-                let value =
-                  placeholderValues[placeholder] || `{{${placeholder}}}`;
-
-                if (placeholderValues[placeholder] === "{nombre}") {
-                  value =
-                    recipient.nombre || `{{${placeholderValues[placeholder]}}}`;
-                } else if (placeholderValues[placeholder] === "{direccion}") {
-                  value =
-                    recipient._raw.direccion ||
-                    `{{${placeholderValues[placeholder]}}}`;
-                } else if (placeholderValues[placeholder] === "{productos}") {
-                  value =
-                    recipient._raw.productos ||
-                    `{{${placeholderValues[placeholder]}}}`;
-                }
-
-                return {
-                  type: "text",
-                  text: value,
-                };
-              }),
-            },
-          ],
+          components,
         },
       };
 
       try {
-        const response = await fetch(
-          `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`,
+        const id_configuracion = localStorage.getItem("id_configuracion");
+
+        const { data: dataResp } = await chatApi.post(
+          "/whatsapp_managment/enviar_template_masivo",
           {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          }
+            id_configuracion,
+            body,
+            id_cliente_chat_center: recipientId,
+          },
         );
 
-        if (!response.ok) {
-          throw new Error(
-            `Error al enviar template a ${recipientPhone}: ${response.statusText}`
-          );
+        // ✅ IMPORTANTE: si el backend devuelve success:false aunque sea 200, es fallo
+        if (!dataResp || dataResp.success !== true) {
+          const msg = dataResp?.message || "Meta rechazó el envío";
+          throw new Error(msg);
         }
 
-        const dataResp = await response.json();
-        const wamid = dataResp?.messages?.[0]?.id || null;
+        // wamid
+        const wamid =
+          dataResp?.wamid ||
+          dataResp?.messages?.[0]?.id ||
+          dataResp?.data?.messages?.[0]?.id ||
+          null;
 
         exitosos.push(`ID: ${recipientId}, Teléfono: ${recipientPhone}`);
 
-        let id_recibe = recipientId;
-        let mid_mensaje = dataAdmin.id_telefono;
-        let telefono_configuracion = dataAdmin.telefono;
-        let ruta_archivo = generarObjetoPlaceholders(
-          placeholders,
-          Object.keys(placeholderValues).reduce((acc, key) => {
-            acc[key] =
-              placeholderValues[key] === "{nombre}"
-                ? recipient.nombre || "{nombre}"
-                : placeholderValues[key] === "{direccion}"
-                ? recipient._raw.direccion || "{direccion}"
-                : placeholderValues[key] === "{productos}"
-                ? recipient._raw.productos || "{productos}"
-                : placeholderValues[key];
+        // ======== GUARDAR EN BD SOLO SI META OK ========
+        try {
+          let id_recibe = recipientId;
+          let mid_mensaje = dataAdmin.id_telefono;
+          let telefono_configuracion = dataAdmin.telefono;
 
-            return acc;
-          }, {})
-        );
+          let ruta_archivo = generarObjetoPlaceholders(
+            placeholders,
+            Object.keys(placeholderValues).reduce((acc, key) => {
+              acc[key] =
+                placeholderValues[key] === "{nombre}"
+                  ? recipient.nombre || "{nombre}"
+                  : placeholderValues[key] === "{direccion}"
+                    ? recipient?._raw?.direccion || "{direccion}"
+                    : placeholderValues[key] === "{productos}"
+                      ? recipient?._raw?.productos || "{productos}"
+                      : placeholderValues[key];
 
-        let id_configuracion = localStorage.getItem("id_configuracion");
+              return acc;
+            }, {}),
+          );
 
-        agregar_mensaje_enviado(
-          templateText,
-          "text",
-          JSON.stringify(ruta_archivo),
-          recipientPhone,
-          mid_mensaje,
-          id_recibe,
-          id_configuracion,
-          telefono_configuracion,
-          wamid,
-          templateName,
-          selectedLanguage
-        );
+          await agregar_mensaje_enviado(
+            templateText,
+            "text",
+            JSON.stringify(ruta_archivo),
+            recipientPhone,
+            mid_mensaje,
+            id_recibe,
+            id_configuracion,
+            telefono_configuracion,
+            wamid,
+            templateName,
+            selectedLanguage,
+          );
+        } catch (dbErr) {
+          // Si la BD falla, NO debe marcar el envío como fallido (Meta ya fue OK)
+          console.warn(
+            "Meta OK, pero falló guardar en BD:",
+            dbErr?.message || dbErr,
+          );
+        }
       } catch (error) {
-        console.error(
-          `Error al enviar el template a ${recipientPhone}:`,
-          error
-        );
+        const msg =
+          error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          "Error desconocido";
+
         fallidos.push(
-          `ID: ${recipientId}, Teléfono: ${recipientPhone} - Error: ${error.message}`
+          `ID: ${recipientId}, Teléfono: ${recipientPhone} - Error: ${msg}`,
         );
       }
 
@@ -972,7 +1190,7 @@ export default function Contactos() {
 
       const response = await chatApi.post(
         "/clientes_chat_center/agregarNumeroChat",
-        { telefono, nombre, apellido, id_configuracion }
+        { telefono, nombre, apellido, id_configuracion },
       );
 
       const data = response?.data;
@@ -994,7 +1212,7 @@ export default function Contactos() {
       swalClose();
       swalError(
         "No se pudo guardar",
-        data?.message || "Respuesta inesperada del servidor."
+        data?.message || "Respuesta inesperada del servidor.",
       );
       return;
     } catch (error) {
@@ -1015,6 +1233,14 @@ export default function Contactos() {
     setTemplateText("");
     setPlaceholders([]);
     setPlaceholderValues({});
+
+    // header
+    setHeaderRequired(false);
+    setHeaderFormat(null);
+    setHeaderPlaceholders([]);
+    setHeaderPlaceholderValues({});
+    setHeaderMediaUrl("");
+    setHeaderMediaFilename("");
   };
 
   const [cols, setCols] = useState({
@@ -1050,7 +1276,7 @@ export default function Contactos() {
   function matchesFullName(cliente, qRaw) {
     if (!qRaw) return true;
     const full = normalizeHumanText(
-      `${cliente.nombre || ""} ${cliente.apellido || ""}`
+      `${cliente.nombre || ""} ${cliente.apellido || ""}`,
     );
     const qn = normalizeHumanText(qRaw);
     if (!qn) return true;
@@ -1068,7 +1294,7 @@ export default function Contactos() {
           "/etiquetas_chat_center/obtenerEtiquetas",
           {
             id_configuracion: Number(cfgId),
-          }
+          },
         );
         const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
         nuevo[cfgId] = arr;
@@ -1087,14 +1313,14 @@ export default function Contactos() {
         "/etiquetas_chat_center/etiquetas_existentes",
         {
           id_configuracion: localStorage.getItem("id_configuracion"),
-        }
+        },
       );
       const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
       setOpcionesFiltroEtiquetas(arr);
     } catch (e) {
       console.warn(
         "No se pudieron cargar etiquetas existentes:",
-        e?.response?.data || e.message
+        e?.response?.data || e.message,
       );
       setOpcionesFiltroEtiquetas([]);
     }
@@ -1117,7 +1343,7 @@ export default function Contactos() {
         {
           ids,
           id_configuracion,
-        }
+        },
       );
       const mapa = data?.etiquetas || {};
 
@@ -1134,7 +1360,7 @@ export default function Contactos() {
     } catch (err) {
       console.warn(
         "Error obteniendo etiquetas múltiples:",
-        err?.response?.data || err.message
+        err?.response?.data || err.message,
       );
       return clientes.map((c) => ({ ...c, etiquetas: c.etiquetas || [] }));
     }
@@ -1178,7 +1404,7 @@ export default function Contactos() {
           "/clientes_chat_center/listar_por_etiqueta",
           {
             params: { ...paramsBase, ids: String(idEtiquetaFiltro) },
-          }
+          },
         );
         dataResp = data;
       } else {
@@ -1191,8 +1417,8 @@ export default function Contactos() {
       const rows = Array.isArray(dataResp?.data)
         ? dataResp.data
         : Array.isArray(dataResp)
-        ? dataResp
-        : [];
+          ? dataResp
+          : [];
       const mapped = rows.map(mapRow);
 
       let mappedFiltered = mapped;
@@ -1210,7 +1436,7 @@ export default function Contactos() {
       const tot = dataResp?.total ?? undefined;
 
       const cfgs = Array.from(
-        new Set(mappedFiltered.map((r) => r.id_configuracion).filter(Boolean))
+        new Set(mappedFiltered.map((r) => r.id_configuracion).filter(Boolean)),
       );
       if (!idConfigForTags && cfgs.length) setIdConfigForTags(cfgs[0]);
       await cargarCatalogosSiFaltan(cfgs);
@@ -1222,13 +1448,13 @@ export default function Contactos() {
 
       const effectiveTotalKnown = typeof tot === "number" && !phoneLike;
       setHasMore(
-        effectiveTotalKnown ? p * LIMIT < tot : withTags.length === LIMIT
+        effectiveTotalKnown ? p * LIMIT < tot : withTags.length === LIMIT,
       );
       setTotal(effectiveTotalKnown ? tot : undefined);
     } catch (e) {
       swalError(
         "No se pudo listar clientes",
-        e?.response?.data?.message || e.message
+        e?.response?.data?.message || e.message,
       );
     } finally {
       setLoading(false);
@@ -1309,7 +1535,7 @@ export default function Contactos() {
     if (!cfg) {
       await swalInfo(
         "No disponible",
-        "No hay id_configuracion para crear etiquetas."
+        "No hay id_configuracion para crear etiquetas.",
       );
       return;
     }
@@ -1325,14 +1551,14 @@ export default function Contactos() {
         "/etiquetas_chat_center/obtenerEtiquetas",
         {
           id_configuracion: Number(cfg),
-        }
+        },
       );
       const arr = Array.isArray(data?.etiquetas) ? data.etiquetas : [];
       setCatalogosPorCfg((prev) => ({ ...prev, [Number(cfg)]: arr }));
     } catch (e) {
       console.error(
         "REFRESH CATALOGO POST-CREAR:",
-        e?.response?.data || e.message
+        e?.response?.data || e.message,
       );
     }
     await apiList(1, true);
@@ -1344,7 +1570,7 @@ export default function Contactos() {
       await chatApi.delete(`/etiquetas_chat_center/eliminarEtiqueta/${idE}`);
     }
     const cfgs = Array.from(
-      new Set(items.map((r) => r.id_configuracion).filter(Boolean))
+      new Set(items.map((r) => r.id_configuracion).filter(Boolean)),
     );
     await cargarCatalogosSiFaltan(cfgs);
     await apiList(page, true);
@@ -1363,7 +1589,7 @@ export default function Contactos() {
         {
           ids: idsClientes,
           id_configuracion,
-        }
+        },
       );
       const mapa = data?.etiquetas || {};
 
@@ -1378,7 +1604,7 @@ export default function Contactos() {
             color: e.color || e.color_etiqueta,
           }));
           return { ...c, etiquetas: etiquetasLimpias };
-        })
+        }),
       );
     } catch (e) {
       console.warn("REFRESH TAGS múltiples:", e?.response?.data || e.message);
@@ -1395,7 +1621,7 @@ export default function Contactos() {
         if (!c?.id_configuracion) continue;
         counts.set(
           c.id_configuracion,
-          (counts.get(c.id_configuracion) || 0) + 1
+          (counts.get(c.id_configuracion) || 0) + 1,
         );
       }
       if (counts.size)
@@ -1405,7 +1631,7 @@ export default function Contactos() {
     if (!cfg) {
       await swalInfo(
         "Sin datos",
-        "No hay clientes para determinar id_configuracion."
+        "No hay clientes para determinar id_configuracion.",
       );
       return;
     }
@@ -1445,7 +1671,7 @@ export default function Contactos() {
     setSelected(v ? items.map(getId).filter(Boolean) : []);
   const toggleSelect = (id) =>
     setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
   /* ======= CRUD cliente ======= */
@@ -1468,7 +1694,7 @@ export default function Contactos() {
     };
     const { data } = await chatApi.post(
       "/clientes_chat_center/agregar",
-      payload
+      payload,
     );
     return mapRow(data?.data || data);
   }
@@ -1491,7 +1717,7 @@ export default function Contactos() {
     };
     const { data } = await chatApi.put(
       `/clientes_chat_center/actualizar/${id}`,
-      payload
+      payload,
     );
     return mapRow(data?.data || data);
   }
@@ -1504,7 +1730,7 @@ export default function Contactos() {
       if (!editing?.nombre && !editing?.telefono && !editing?.email) {
         await swalInfo(
           "Datos incompletos",
-          "Ingresa al menos nombre, teléfono o email"
+          "Ingresa al menos nombre, teléfono o email",
         );
         return;
       }
@@ -1534,7 +1760,7 @@ export default function Contactos() {
     if (!selected.length) return;
     const ok = await swalConfirm(
       "Eliminar clientes",
-      `¿Eliminar ${selected.length} cliente(s) seleccionados?`
+      `¿Eliminar ${selected.length} cliente(s) seleccionados?`,
     );
     if (!ok) return;
 
@@ -1680,18 +1906,103 @@ export default function Contactos() {
               </button>
             </div>
 
+            {/* ===== NUEVO: HEADER requerido por template ===== */}
+            {headerRequired && (
+              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                      <i className="bx bx-image-alt text-sm" />
+                    </span>
+                    Header requerido
+                  </h4>
+                  <span className="text-[11px] text-slate-500">
+                    Tipo: <b>{headerFormat}</b>
+                  </span>
+                </div>
+
+                {/* HEADER TEXT con placeholders */}
+                {headerFormat === "TEXT" && headerPlaceholders.length > 0 && (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {headerPlaceholders.map((ph) => (
+                      <div key={`h-${ph}`}>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
+                          Header valor para {"{{" + ph + "}}"}
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                          placeholder="Texto para el header"
+                          value={headerPlaceholderValues[ph] || ""}
+                          onChange={(e) =>
+                            setHeaderPlaceholderValues((prev) => ({
+                              ...prev,
+                              [ph]: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* HEADER MEDIA (IMAGE/VIDEO/DOCUMENT) */}
+                {["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat) && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-slate-700">
+                      URL pública del archivo ({headerFormat})
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      placeholder={
+                        headerFormat === "IMAGE"
+                          ? "https://.../imagen.jpg"
+                          : headerFormat === "VIDEO"
+                            ? "https://.../video.mp4"
+                            : "https://.../archivo.pdf"
+                      }
+                      value={headerMediaUrl}
+                      onChange={(e) => setHeaderMediaUrl(e.target.value)}
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      Debe ser un enlace accesible públicamente (HTTPS). Si no
+                      lo es, Meta lo rechazará.
+                    </p>
+
+                    {headerFormat === "DOCUMENT" && (
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
+                          Nombre de archivo (opcional)
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                          placeholder="Ej: catalogo.pdf"
+                          value={headerMediaFilename}
+                          onChange={(e) =>
+                            setHeaderMediaFilename(e.target.value)
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="p-5 space-y-4">
               <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <h4 className="font-semibold text-sm text-slate-900 flex items-center gap-2">
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                      <i className="bx bx-template text-sm" />
+                      <i className="bx bx-phone text-sm" />
                     </span>
                     Template de WhatsApp
                   </h4>
                   <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] text-slate-500 ring-1 ring-slate-200">
                     <i className="bx bx-check-shield text-xs" />
-                    Templates aprobados: {templates.length}
+                    Templates {templates.length}
                   </span>
                 </div>
 
@@ -2024,7 +2335,7 @@ export default function Contactos() {
                     dir={orden === "antiguos" ? "asc" : "desc"}
                     onClick={() =>
                       setOrden((o) =>
-                        o === "recientes" ? "antiguos" : "recientes"
+                        o === "recientes" ? "antiguos" : "recientes",
                       )
                     }
                   />
@@ -2058,7 +2369,7 @@ export default function Contactos() {
                     dir={orden === "antiguos" ? "asc" : "desc"}
                     onClick={() =>
                       setOrden((o) =>
-                        o === "recientes" ? "antiguos" : "recientes"
+                        o === "recientes" ? "antiguos" : "recientes",
                       )
                     }
                   />
@@ -2074,14 +2385,14 @@ export default function Contactos() {
                       setOrden((o) =>
                         o === "actividad_desc"
                           ? "actividad_asc"
-                          : "actividad_desc"
+                          : "actividad_desc",
                       )
                     }
                   />
                 </th>
               )}
               {cols.tags && <th className="w-48 text-left">Tags</th>}
-              <th className="w-10" />
+              <th className="w-24 text-right">Acciones</th>
             </tr>
           </thead>
 
@@ -2176,7 +2487,7 @@ export default function Contactos() {
                     <td className="min-w-0">
                       <div className="flex items-center gap-2 truncate text-sm text-slate-700">
                         <i className="bx bx-phone text-xs text-slate-400" />
-                        <span className="truncate">{c.telefono || "-"}</span>
+                        <span className="truncate">{getDisplayContact(c)}</span>
                       </div>
                     </td>
                   )}
@@ -2230,62 +2541,83 @@ export default function Contactos() {
                   )}
 
                   <td className="text-right">
-                    <div className="relative inline-block text-left">
-                      <details>
-                        <summary className="list-none inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">
-                          <span>⋯</span>
-                        </summary>
-                        <div className="absolute right-0 z-10 mt-2 w-48 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg">
-                          <button
-                            className="block w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
-                            onClick={() => {
-                              setEditing(c);
-                              setDrawerOpen(true);
-                            }}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            className="block w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
-                            onClick={async () => {
-                              if (!selected.includes(id))
-                                setSelected((prev) => [...prev, id]);
-                              setIdConfigForTags(
-                                c.id_configuracion || idConfigForTags
-                              );
-                              await ensureCatalogAndOpen("toggle");
-                            }}
-                            title="Etiquetas"
-                          >
-                            Etiquetas…
-                          </button>
-                          <button
-                            className="block w-full px-4 py-2 text-left text-xs text-red-600 hover:bg-red-50"
-                            onClick={async () => {
-                              const ok = await swalConfirm(
-                                "Eliminar cliente",
-                                "¿Seguro que deseas eliminarlo?"
-                              );
-                              if (!ok) return;
-                              try {
-                                swalLoading("Eliminando...");
-                                await apiDelete(id);
-                                setItems((prev) =>
-                                  prev.filter((x) => getId(x) !== id)
+                    <div className="flex items-center justify-end gap-2">
+                      {/* ✅ Botón directo Abrir chat */}
+                      <button
+                        onClick={() => openChatById(c)}
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                        title="Abrir chat"
+                      >
+                        <i className="bx bxs-chat text-sm" />
+                        Abrir Chat
+                      </button>
+
+                      {/* Menú secundario (opcional) */}
+                      <div className="relative inline-block text-left">
+                        <details>
+                          <summary className="list-none inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">
+                            <span>⋯</span>
+                          </summary>
+                          <div className="absolute right-0 z-10 mt-2 w-48 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                            <button
+                              className="block w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                              onClick={(e) => {
+                                closeRowMenu(e);
+                                setEditing(c);
+                                setDrawerOpen(true);
+                              }}
+                            >
+                              Editar
+                            </button>
+
+                            <button
+                              className="block w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                              onClick={async (e) => {
+                                closeRowMenu(e);
+                                if (!selected.includes(id))
+                                  setSelected((prev) => [...prev, id]);
+                                setIdConfigForTags(
+                                  c.id_configuracion || idConfigForTags,
                                 );
-                                swalClose();
-                                swalToast("Cliente eliminado");
-                                await cargarOpcionesFiltroEtiquetas();
-                              } catch (e) {
-                                swalClose();
-                                swalError("No se pudo eliminar", e?.message);
-                              }
-                            }}
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </details>
+                                await ensureCatalogAndOpen("toggle");
+                              }}
+                              title="Etiquetas"
+                            >
+                              Etiquetas…
+                            </button>
+
+                            <button
+                              className="block w-full px-4 py-2 text-left text-xs text-red-600 hover:bg-red-50"
+                              onClick={async (e) => {
+                                closeRowMenu(e);
+                                const ok = await swalConfirm(
+                                  "Eliminar cliente",
+                                  "¿Seguro que deseas eliminarlo?",
+                                );
+                                if (!ok) return;
+                                try {
+                                  swalLoading("Eliminando...");
+                                  await apiDelete(id);
+                                  setItems((prev) =>
+                                    prev.filter((x) => getId(x) !== id),
+                                  );
+                                  swalClose();
+                                  swalToast("Cliente eliminado");
+                                  await cargarOpcionesFiltroEtiquetas();
+                                } catch (err) {
+                                  swalClose();
+                                  swalError(
+                                    "No se pudo eliminar",
+                                    err?.message,
+                                  );
+                                }
+                              }}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </details>
+                      </div>
                     </div>
                   </td>
                 </tr>

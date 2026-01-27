@@ -297,10 +297,10 @@ const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
     tone === "primary"
       ? "text-indigo-700 bg-indigo-50 ring-indigo-200"
       : tone === "success"
-      ? "text-emerald-700 bg-emerald-50 ring-emerald-200"
-      : tone === "warning"
-      ? "text-amber-700 bg-amber-50 ring-amber-200"
-      : "text-slate-700 bg-slate-50 ring-slate-200";
+        ? "text-emerald-700 bg-emerald-50 ring-emerald-200"
+        : tone === "warning"
+          ? "text-amber-700 bg-amber-50 ring-amber-200"
+          : "text-slate-700 bg-slate-50 ring-slate-200";
 
   return (
     <div className="flex gap-3 items-start">
@@ -334,10 +334,10 @@ const HoverPopover = ({
     side === "right"
       ? "left-full top-0 ml-2"
       : side === "left"
-      ? "right-full top-0 mr-2"
-      : side === "top"
-      ? "left-1/2 -translate-x-1/2 bottom-full mb-2"
-      : "left-1/2 -translate-x-1/2 top-full mt-2";
+        ? "right-full top-0 mr-2"
+        : side === "top"
+          ? "left-1/2 -translate-x-1/2 bottom-full mb-2"
+          : "left-1/2 -translate-x-1/2 top-full mt-2";
 
   return (
     <div
@@ -355,10 +355,10 @@ const HoverPopover = ({
             side === "right"
               ? "-left-1 top-3"
               : side === "left"
-              ? "-right-1 top-3"
-              : side === "top"
-              ? "left-1/2 -translate-x-1/2 -bottom-1"
-              : "left-1/2 -translate-x-1/2 -top-1"
+                ? "-right-1 top-3"
+                : side === "top"
+                  ? "left-1/2 -translate-x-1/2 -bottom-1"
+                  : "left-1/2 -translate-x-1/2 -top-1"
           } w-3 h-3 rotate-45 bg-white ring-1 ring-slate-200`}
         />
         <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.20)] backdrop-blur w-[340px] max-h-[240px] overflow-auto">
@@ -375,7 +375,7 @@ const HoverPopover = ({
 
 const AdminConexiones = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
-    []
+    [],
   );
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
@@ -447,7 +447,7 @@ const AdminConexiones = () => {
           "usuarios_chat_center/tour-conexiones/get",
           {
             id_usuario: userData.id_usuario,
-          }
+          },
         );
         const dismissed = Number(data?.tour_conexiones_dismissed) === 1;
         setDontShowAgain(dismissed);
@@ -478,7 +478,7 @@ const AdminConexiones = () => {
         console.error("No se pudo guardar preferencia de tour:", e);
       }
     },
-    [userData?.id_usuario]
+    [userData?.id_usuario],
   );
 
   // Derivados/estadísticas
@@ -486,7 +486,8 @@ const AdminConexiones = () => {
     if (typeof c?.status_whatsapp === "string")
       return c.status_whatsapp.toUpperCase() === "CONNECTED";
     return Boolean(
-      String(c?.id_telefono || "").trim() && String(c?.id_whatsapp || "").trim()
+      String(c?.id_telefono || "").trim() &&
+      String(c?.id_whatsapp || "").trim(),
     );
   };
 
@@ -499,10 +500,10 @@ const AdminConexiones = () => {
     const total = configuracionAutomatizada.length;
     const conectados = configuracionAutomatizada.filter(isConectado).length;
     const pagosActivos = configuracionAutomatizada.filter(
-      (c) => Number(c.metodo_pago) === 1
+      (c) => Number(c.metodo_pago) === 1,
     ).length;
     const messengerCon = configuracionAutomatizada.filter(
-      (c) => Number(c.messenger_conectado) === 1
+      (c) => Number(c.messenger_conectado) === 1,
     ).length;
     return {
       total,
@@ -520,7 +521,7 @@ const AdminConexiones = () => {
       data = data.filter(
         (c) =>
           c?.nombre_configuracion?.toLowerCase().includes(q) ||
-          c?.telefono?.toLowerCase().includes(q)
+          c?.telefono?.toLowerCase().includes(q),
       );
     }
     if (filtroEstado) {
@@ -552,14 +553,14 @@ const AdminConexiones = () => {
         key: "header",
         ref: headerRef,
         title: "Panel de conexiones",
-        body: "Aquí gestionás todos tus canales. Esta guía te resalta las zonas clave y es 100% responsive.",
+        body: "Aquí gestionás todos tus canales.",
         placement: "auto",
       },
       {
         key: "new",
         ref: newBtnRef,
         title: "Crear nueva configuración",
-        body: "Usá este botón para iniciar el asistente y conectar un nuevo número o canal.",
+        body: "Usá este botón para iniciar el asistente y conectar un negocio con sus respectivos canales.",
         placement: "auto",
       },
       {
@@ -573,7 +574,7 @@ const AdminConexiones = () => {
         key: "filters",
         ref: filtersRef,
         title: "Filtros por estado y pagos",
-        body: "Acotás la vista por conexiones conectadas/pendientes y pagos activos/inactivos.",
+        body: "Filtra tus negocios por estado conectado/pendiente y con pagos activos/inactivos.",
         placement: "auto",
       },
       {
@@ -589,14 +590,14 @@ const AdminConexiones = () => {
         key: "card",
         ref: firstCardRef,
         title: "Tarjeta de conexión",
-        body: "Pasá el mouse por “Detalles” para ver un globo con todas las acciones explicadas, sin abrir la tarjeta.",
+        body: "Pasá el mouse por “Ver detalles” para conocer todas las acciones disponibles, sin abrir la tarjeta.",
         placement: "auto",
       });
       base.push({
         key: "menu",
         ref: menuRef,
         title: "Menú principal (☰)",
-        body: "Desde aquí puedes acceder a todo lo importante: tu Plan y facturación, gestión de Usuarios y Departamentos, y Cerrar sesión. Si te pierdes, abre este menú: es tu centro de control.",
+        body: "Este menú concentra las opciones de administración de la cuenta: Plan y facturación, gestión de Usuarios y Departamentos, y Cerrar sesión.",
         placement: "auto",
       });
     }
@@ -680,7 +681,7 @@ const AdminConexiones = () => {
         suspendido: true,
       });
       setConfiguracionAutomatizada((prev) =>
-        prev.filter((c) => c.id !== config.id)
+        prev.filter((c) => c.id !== config.id),
       );
       setStatusMessage({ type: "success", text: "Conexión eliminada." });
     } catch (err) {
@@ -742,7 +743,7 @@ const AdminConexiones = () => {
                 id_usuario: userData.id_usuario,
                 redirect_uri: redirectUri,
                 id_configuracion: config?.id,
-              }
+              },
             );
             if (data.success) {
               setStatusMessage({
@@ -777,7 +778,7 @@ const AdminConexiones = () => {
           setup: {},
           sessionInfoVersion: "3",
         },
-      }
+      },
     );
   };
 
@@ -799,7 +800,7 @@ const AdminConexiones = () => {
       Swal.fire(
         "Error",
         "No se pudo iniciar la conexión con Facebook.",
-        "error"
+        "error",
       );
     }
   };
@@ -850,7 +851,7 @@ const AdminConexiones = () => {
               code,
               state,
               redirect_uri: redirectUri,
-            }
+            },
           );
 
           Swal.fire("¡Listo!", "Cuenta de TikTok conectada ✅", "success");
@@ -875,11 +876,11 @@ const AdminConexiones = () => {
               code,
               id_configuracion,
               redirect_uri: window.location.origin + "/conexiones",
-            }
+            },
           );
           const { data: pagesRes } = await chatApi.get(
             "/instagram/facebook/pages",
-            { params: { oauth_session_id: ex.oauth_session_id } }
+            { params: { oauth_session_id: ex.oauth_session_id } },
           );
 
           if (
@@ -942,11 +943,11 @@ const AdminConexiones = () => {
               code,
               id_configuracion,
               redirect_uri: window.location.origin + "/conexiones",
-            }
+            },
           );
           const { data: pagesRes } = await chatApi.get(
             "/messenger/facebook/pages",
-            { params: { oauth_session_id: ex.oauth_session_id } }
+            { params: { oauth_session_id: ex.oauth_session_id } },
           );
           if (!pagesRes?.pages?.length)
             throw new Error("No se encontraron páginas.");
@@ -972,7 +973,7 @@ const AdminConexiones = () => {
         Swal.fire(
           "Error",
           e?.message || "No fue posible completar la conexión",
-          "error"
+          "error",
         );
       } finally {
         const cleanUrl = window.location.origin + window.location.pathname;
@@ -1004,7 +1005,7 @@ const AdminConexiones = () => {
       Swal.fire(
         "Error",
         "No se puede iniciar la conexión con Instagram",
-        "error"
+        "error",
       );
     }
   };
@@ -1036,7 +1037,7 @@ const AdminConexiones = () => {
       Swal.fire(
         "Error",
         err?.message || "No se pudo iniciar la conexión con TikTok.",
-        "error"
+        "error",
       );
     }
   };
@@ -1045,7 +1046,7 @@ const AdminConexiones = () => {
     try {
       setLoading(true);
       const response = await chatApi.post(
-        "configuraciones/listar_admin_conexiones"
+        "configuraciones/listar_admin_conexiones",
       );
       setConfiguracionAutomatizada(response.data.data || []);
       setMostrarErrorBot(false);

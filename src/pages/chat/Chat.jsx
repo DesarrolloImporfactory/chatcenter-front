@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { addNumberThunk } from "../../store/slices/number.slice";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { useDispatch } from "react-redux";
 import { jwtDecode } from "jwt-decode";
@@ -393,11 +393,9 @@ const Chat = () => {
     }
   }, []);
 
-  const getChatByPhone = async (phone, id_configuracion) => {
+  const getChatById = async (chatId, id_configuracion) => {
     return chatApi.get(
-      `/clientes_chat_center/findFullByPhone_desconect/${encodeURIComponent(
-        phone,
-      )}?id_configuracion=${id_configuracion}`,
+      `/clientes_chat_center/findFullByPhone/${encodeURIComponent(chatId)}?id_configuracion=${id_configuracion}`,
     );
   };
 
@@ -412,46 +410,40 @@ const Chat = () => {
   const igBootstrappedRef = useRef(false);
 
   /* 2️⃣  cuando ya hay chats */
+  const { chatId } = useParams();
+
   useEffect(() => {
-    if (!pendingOpen || !id_configuracion) return;
+    if (!chatId || !id_configuracion) return;
 
-    const { phone, name } = pendingOpen;
-
-    // 2.1  ¿Ya está en los chats cargados?
+    // 1) ¿Ya está cargado?
     const existente = mensajesAcumulados.find(
-      (c) => String(c.celular_cliente) === String(phone),
+      (c) => String(c.id_cliente_chat_center ?? c.id) === String(chatId),
     );
 
     if (existente) {
       handleSelectChat(existente);
-      setPendingOpen(null);
       return;
     }
 
-    // 2.2  Búsqueda directa en BD (NO crea chat)
+    // 2) Buscar en BD por ID (con su endpoint “universal”)
     (async () => {
       try {
-        const { data } = await getChatByPhone(phone, id_configuracion);
-        // 200 => lo encontró
+        const { data } = await getChatById(chatId, id_configuracion);
         setMensajesAcumulados((prev) => [data.data, ...prev]);
         handleSelectChat(data.data);
       } catch (err) {
         if (err.response?.status === 404) {
-          // 404 => no existe conversación. Decide qué hacer:
-          // mostrar alerta, crearla manualmente, etc.
           Swal.fire(
             "Sin conversación",
-            "Ese número aún no tiene historial de chat.",
+            "Ese chat no existe o no tiene historial.",
             "info",
           );
         } else {
           console.error(err);
         }
-      } finally {
-        setPendingOpen(null);
       }
     })();
-  }, [pendingOpen, id_configuracion]);
+  }, [chatId, id_configuracion]);
 
   const toggleCrearEtiquetaModal = () => {
     fetchTags();
@@ -779,11 +771,10 @@ const Chat = () => {
   };
 
   // Manejar la selección del número de teléfono y activar la sección de templates
-  const handleSelectPhoneNumber = async (phoneNumber, nombre_cliente) => {
+  const handleSelectPhoneNumber = async (phoneNumber) => {
     setSelectedPhoneNumber(phoneNumber); // Actualiza el número seleccionado
 
     setSelectedPhoneNumberNombre(nombre_cliente);
-
     setValue("numero", phoneNumber); // Actualiza el campo "numero" en el formulario
 
     // Llama manualmente a la función de búsqueda con el nuevo valor
@@ -1410,6 +1401,8 @@ const Chat = () => {
   /* fin seccion de carga de mensaje */
 
   const handleSelectChat = (chat) => {
+    navigate("/chat", { replace: true });
+
     setChatMessages([]);
     setMensajesMostrados(20);
     setScrollOffset(0);

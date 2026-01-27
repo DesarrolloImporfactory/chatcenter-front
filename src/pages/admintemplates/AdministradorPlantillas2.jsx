@@ -23,6 +23,7 @@ import io from "socket.io-client";
 
 import SectionHeader from "../../components/canales/SectionHeader";
 import { ThWithTooltip } from "../../components/canales/Tooltip";
+import { components } from "react-select";
 
 const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   { hideHeader = false },
@@ -718,6 +719,76 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     );
   };
 
+  // ===== HEADER helpers (WhatsApp Templates) =====
+  const getHeaderInfo = (components) => {
+    const comps = Array.isArray(components) ? components : [];
+    const header = comps.find(
+      (c) => (c?.type || "").toUpperCase() === "HEADER",
+    );
+    if (!header) return null;
+
+    const format = (header.format || "TEXT").toUpperCase(); // TEXT | IMAGE | VIDEO | DOCUMENT | ...
+    const text = header.text || "";
+
+    const ex = header.example || {};
+    const exampleUrl =
+      (Array.isArray(ex.header_handle) && ex.header_handle[0]) ||
+      (Array.isArray(ex.header_url) && ex.header_url[0]) ||
+      null;
+
+    const exampleText =
+      (Array.isArray(ex.header_text) && ex.header_text[0]) || null;
+
+    return { format, text, exampleUrl, exampleText };
+  };
+
+  const HeaderInlinePreview = ({ components }) => {
+    const h = getHeaderInfo(components);
+    if (!h) return null;
+
+    const isPublicUrl = (u) => /^https?:\/\//i.test(String(u || ""));
+
+    // TEXT: NO lo mostramos aquí (porque ya lo muestra su HEADER en negrillas)
+    if (h.format === "TEXT") return null;
+
+    // IMAGE con URL pública => miniatura
+    if (h.format === "IMAGE" && h.exampleUrl && isPublicUrl(h.exampleUrl)) {
+      return (
+        <div className="mt-2">
+          <img
+            src={h.exampleUrl}
+            alt="Header preview"
+            className="h-16 w-auto max-w-[220px] rounded-lg object-cover border"
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+        </div>
+      );
+    }
+
+    // VIDEO / DOCUMENT / otros con URL pública => link
+    if (h.exampleUrl && isPublicUrl(h.exampleUrl)) {
+      return (
+        <div className="mt-2">
+          <a
+            href={h.exampleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:underline"
+          >
+            Ver adjunto ({h.format})
+          </a>
+        </div>
+      );
+    }
+
+    // Si NO hay URL pública (ej: header_handle), no se puede previsualizar aquí
+    return (
+      <div className="mt-2 text-xs text-gray-500">
+        Adjunto ({h.format}) sin URL pública de ejemplo
+      </div>
+    );
+  };
+
   const renderTemplatesTable = () => (
     <div className="overflow-visible bg-white p-5 rounded-3xl shadow-xl border border-gray-100 relative z-0">
       <SectionHeader
@@ -809,10 +880,15 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
               <tr key={index} className="border-t hover:bg-gray-50">
                 <td className="py-2 px-4">
                   <div className="font-semibold">{plantilla.name}</div>
-                  <div className="text-gray-500">
-                    {getTemplacecode(plantilla.language) || plantilla.language}
+
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="text-gray-500">
+                      {getTemplacecode(plantilla.language) ||
+                        plantilla.language}
+                    </div>
                   </div>
                 </td>
+
                 <td className="py-2 px-4">
                   {plantilla.category === "MARKETING" ? (
                     <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
@@ -828,19 +904,67 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                     </span>
                   )}
                 </td>
+
                 <td className="py-2 px-4 text-sm">
-                  {plantilla.components.map((comp, i) => (
-                    <div key={i} className="mb-2">
-                      <strong>{comp.type}:</strong>{" "}
-                      {comp.text ||
-                        (comp.buttons
-                          ? comp.buttons.map((b, j) => (
-                              <div key={j}>• {b.text}</div>
-                            ))
-                          : "—")}
-                    </div>
-                  ))}
+                  {(Array.isArray(plantilla.components)
+                    ? plantilla.components
+                    : []
+                  ).map((comp, i) => {
+                    const type = (comp?.type || "").toUpperCase();
+
+                    if (type === "HEADER") {
+                      const fmt = (comp?.format || "TEXT").toUpperCase();
+
+                      return (
+                        <div key={i} className="mb-2">
+                          <strong>HEADER:</strong>{" "}
+                          {fmt === "TEXT" && (
+                            <span className="text-gray-700">
+                              {comp.text || "—"}
+                            </span>
+                          )}
+                          {/* Preview del adjunto (imagen/link) justo debajo del header */}
+                          {fmt !== "TEXT" && (
+                            <HeaderInlinePreview components={[comp]} />
+                          )}
+                        </div>
+                      );
+                    }
+
+                    // BODY / FOOTER / otros con texto
+                    if (comp?.text) {
+                      return (
+                        <div key={i} className="mb-2">
+                          <strong>{type}:</strong>{" "}
+                          <span className="text-gray-700 whitespace-pre-line">
+                            {comp.text}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    // BUTTONS
+                    if (Array.isArray(comp?.buttons) && comp.buttons.length) {
+                      return (
+                        <div key={i} className="mb-2">
+                          <strong>BUTTONS:</strong>
+                          <div className="mt-1 space-y-1">
+                            {comp.buttons.map((b, j) => (
+                              <div key={j}>• {b?.text || "—"}</div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={i} className="mb-2">
+                        <strong>{type || "COMP"}:</strong> —
+                      </div>
+                    );
+                  })}
                 </td>
+
                 <td className="py-2 px-4">
                   {plantilla.status === "APPROVED" ? (
                     <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">

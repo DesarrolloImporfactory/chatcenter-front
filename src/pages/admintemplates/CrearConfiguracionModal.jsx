@@ -43,28 +43,28 @@ const CrearConfiguracionModal = ({
     return countryCode === "EC"
       ? "593" + phoneWithoutLeadingZero
       : countryCode === "CO"
-      ? "57" + phoneWithoutLeadingZero
-      : countryCode === "MX"
-      ? "52" + phoneWithoutLeadingZero
-      : countryCode === "AR"
-      ? "54" + phoneWithoutLeadingZero
-      : countryCode === "BR"
-      ? "55" + phoneWithoutLeadingZero
-      : countryCode === "CL"
-      ? "56" + phoneWithoutLeadingZero
-      : countryCode === "CR"
-      ? "506" + phoneWithoutLeadingZero
-      : countryCode === "PA"
-      ? "507" + phoneWithoutLeadingZero
-      : countryCode === "PE"
-      ? "51" + phoneWithoutLeadingZero
-      : countryCode === "PR"
-      ? "1" + phoneWithoutLeadingZero
-      : countryCode === "VE"
-      ? "58" + phoneWithoutLeadingZero
-      : countryCode === "US"
-      ? "1" + phoneWithoutLeadingZero
-      : phoneWithoutLeadingZero;
+        ? "57" + phoneWithoutLeadingZero
+        : countryCode === "MX"
+          ? "52" + phoneWithoutLeadingZero
+          : countryCode === "AR"
+            ? "54" + phoneWithoutLeadingZero
+            : countryCode === "BR"
+              ? "55" + phoneWithoutLeadingZero
+              : countryCode === "CL"
+                ? "56" + phoneWithoutLeadingZero
+                : countryCode === "CR"
+                  ? "506" + phoneWithoutLeadingZero
+                  : countryCode === "PA"
+                    ? "507" + phoneWithoutLeadingZero
+                    : countryCode === "PE"
+                      ? "51" + phoneWithoutLeadingZero
+                      : countryCode === "PR"
+                        ? "1" + phoneWithoutLeadingZero
+                        : countryCode === "VE"
+                          ? "58" + phoneWithoutLeadingZero
+                          : countryCode === "US"
+                            ? "1" + phoneWithoutLeadingZero
+                            : phoneWithoutLeadingZero;
   };
 
   // CTA upgrade/cómprar adicional
@@ -106,7 +106,6 @@ const CrearConfiguracionModal = ({
     }
   };
 
-  
   const handleAgregarConfiguracion = async () => {
     if (!nombreConfiguracion || !telefono) {
       setStatusMessage?.({
@@ -128,7 +127,7 @@ const CrearConfiguracionModal = ({
       if (resp.data.status === 200) {
         setStatusMessage?.({
           type: "success",
-          text: "Configuración agregada correctamente. Podrá conectar con Meta desde la tarjeta cuando desee.",
+          text: "Negocio agregado correctamente. Podrá conectar con Meta desde la tarjeta cuando desee.",
         });
         // refrescar lista en el padre y cerrar
         await fetchConfiguraciones?.();
@@ -136,7 +135,7 @@ const CrearConfiguracionModal = ({
       } else {
         setStatusMessage?.({
           type: "error",
-          text: resp.data.message || "Error al agregar configuración.",
+          text: resp.data.message || "Error al agregar el negocio.",
         });
       }
     } catch (error) {
@@ -148,7 +147,7 @@ const CrearConfiguracionModal = ({
       ) {
         const backendMsg = error?.response?.data?.message;
         setLimitMessage(
-          backendMsg || "Ha alcanzado el límite de conexiones de su plan."
+          backendMsg || "Ha alcanzado el límite de conexiones de su plan.",
         );
         setShowUpgradeOptions(true);
         return;
@@ -207,9 +206,7 @@ const CrearConfiguracionModal = ({
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h5 className="text-xl font-semibold text-gray-800">
-            {showUpgradeOptions
-              ? "Límite de conexiones"
-              : "Agregar Configuración"}
+            {showUpgradeOptions ? "Límite de conexiones" : "Agregar Negocio"}
           </h5>
           <button
             onClick={handleClose}
@@ -249,7 +246,7 @@ const CrearConfiguracionModal = ({
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#f5f3ff] text-[#6d28d9]">
-                          <i class='bx bx-refresh'></i>
+                          <i class="bx bx-refresh"></i>
                         </span>
                         <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
                           Actualizar plan
@@ -286,7 +283,7 @@ const CrearConfiguracionModal = ({
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#eff6ff] text-[#1d4ed8]">
-                          <i class='bx bx-plug'></i>
+                          <i class="bx bx-plug"></i>
                         </span>
                         <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
                           Comprar conexión adicional
@@ -315,9 +312,6 @@ const CrearConfiguracionModal = ({
                       </svg>
                     </div>
                   </div>
-
-                  
-
                 </div>
 
                 <div className="mt-1 border-t border-slate-200 pt-4">
@@ -357,12 +351,12 @@ const CrearConfiguracionModal = ({
                 {/* Crear configuración (único paso) */}
                 <div className="mb-6">
                   <label className="block text-gray-900 text-sm font-medium mb-2 tracking-wide">
-                    Nombre Configuración
+                    Nombre del negocio
                   </label>
                   <input
                     type="text"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
-                    placeholder="Ingrese el nombre de la configuración"
+                    placeholder="Ingrese el nombre de su negocio."
                     value={nombreConfiguracion}
                     onChange={(e) => setNombreConfiguracion(e.target.value)}
                   />

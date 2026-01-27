@@ -547,14 +547,14 @@ const Conexiones = () => {
         key: "header",
         ref: headerRef,
         title: "Panel de conexiones",
-        body: "Aquí gestionás todos tus canales. Esta guía te resalta las zonas clave y es 100% responsive.",
+        body: "Aquí gestionás todos tus canales.",
         placement: "auto",
       },
       {
         key: "new",
         ref: newBtnRef,
         title: "Crear nueva configuración",
-        body: "Usá este botón para iniciar el asistente y conectar un nuevo número o canal.",
+        body: "Usá este botón para iniciar el asistente y conectar un negocio con sus respectivos canales.",
         placement: "auto",
       },
       {
@@ -568,7 +568,7 @@ const Conexiones = () => {
         key: "filters",
         ref: filtersRef,
         title: "Filtros por estado y pagos",
-        body: "Acotás la vista por conexiones conectadas/pendientes y pagos activos/inactivos.",
+        body: "Filtra tus negocios por estado conectado/pendiente y con pagos activos/inactivos.",
         placement: "auto",
       },
       {
@@ -584,14 +584,14 @@ const Conexiones = () => {
         key: "card",
         ref: firstCardRef,
         title: "Tarjeta de conexión",
-        body: "Pasá el mouse por “Detalles” para ver un globo con todas las acciones explicadas, sin abrir la tarjeta.",
+        body: "Pasá el mouse por “Ver detalles” para conocer todas las acciones disponibles, sin abrir la tarjeta.",
         placement: "auto",
       });
       base.push({
         key: "menu",
         ref: menuRef,
         title: "Menú principal (☰)",
-        body: "Desde aquí puedes acceder a todo lo importante: tu Plan y facturación, gestión de Usuarios y Departamentos, y Cerrar sesión. Si te pierdes, abre este menú: es tu centro de control.",
+        body: "Este menú concentra las opciones de administración de la cuenta: Plan y facturación, gestión de Usuarios y Departamentos, y Cerrar sesión.",
         placement: "auto",
       });
     }

@@ -134,6 +134,7 @@ function App() {
           />
 
           <Route path="/chat" element={<Chat />} />
+          <Route path="/chat/:chatId" element={<Chat />} />
 
           {/*administrador-pruebas se renombra y pasa a produccion*/}
           <Route
