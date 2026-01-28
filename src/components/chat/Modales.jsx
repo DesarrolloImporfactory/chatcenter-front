@@ -78,6 +78,15 @@ const Modales = ({
   const [contextLabel, setContextLabel] = useState("");
   const [clienteNombreCtx, setClienteNombreCtx] = useState("");
 
+  // HEADER (texto o media)
+  const [headerInfo, setHeaderInfo] = useState({
+    exists: false,
+    format: "", // "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT" ...
+    key: "", // ej: "header_1" si es texto con {{1}}
+    n: "", // "1"
+  });
+  const [headerMediaUrl, setHeaderMediaUrl] = useState(""); // si es media por URL (imagen/video/pdf)
+
   // 🧹 reset integral del modal de número
   const resetNumeroModalState = () => {
     setModalTab("nuevo");
@@ -106,6 +115,8 @@ const Modales = ({
     // deselecciona destinatario si quedó alguno
 
     handleInputChange_numeroCliente?.({ target: { value: "" } });
+    setHeaderInfo({ exists: false, format: "", key: "", n: "" });
+    setHeaderMediaUrl("");
   };
 
   useEffect(() => {
@@ -168,9 +179,24 @@ const Modales = ({
     (b) => (placeholderValues[b.key] || "").trim().length > 0,
   );
 
+  const headerReady = (() => {
+    if (!headerInfo.exists) return true;
+
+    if (headerInfo.format === "TEXT" && headerInfo.key) {
+      return (placeholderValues[headerInfo.key] || "").trim().length > 0;
+    }
+
+    if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerInfo.format)) {
+      return String(headerMediaUrl || "").trim().length > 0;
+    }
+
+    return true;
+  })();
+
   const templateReady =
     Boolean(templateName) &&
     Boolean(selectedPhoneNumber) &&
+    headerReady &&
     (bodyPlaceholders.length === 0 || allBodyFilled) &&
     (urlButtons.length === 0 || allUrlFilled);
 
@@ -999,6 +1025,65 @@ const Modales = ({
       setUrlButtons([]);
       setPlaceholderValues({});
 
+      // =========================
+      // 0) HEADER
+      // =========================
+      const headerComp = selectedTemplate.components?.find(
+        (c) => c.type === "HEADER",
+      );
+
+      // reset header siempre
+      setHeaderInfo({ exists: false, format: "", key: "", n: "" });
+      setHeaderMediaUrl("");
+
+      let headerNeedsInit = null; // { key: "header_1", n:"1" } si aplica
+
+      if (headerComp) {
+        const fmt = String(headerComp.format || "").toUpperCase(); // TEXT | IMAGE | VIDEO | DOCUMENT
+        if (fmt) {
+          // Caso HEADER texto
+          if (fmt === "TEXT") {
+            const headerText = String(headerComp.text || "");
+            const matches = [...headerText.matchAll(/{{(.*?)}}/g)].map((m) =>
+              String(m[1]).trim(),
+            );
+
+            if (matches.length > 0) {
+              const n = matches[0]; // normalmente solo {{1}}
+              const key = `header_${n}`;
+
+              setHeaderInfo({
+                exists: true,
+                format: "TEXT",
+                key,
+                n,
+              });
+
+              headerNeedsInit = { key, n };
+            } else {
+              // header text fijo (sin placeholders)
+              setHeaderInfo({
+                exists: true,
+                format: "TEXT",
+                key: "",
+                n: "",
+              });
+            }
+          }
+
+          // Caso HEADER media (URL)
+          if (["IMAGE", "VIDEO", "DOCUMENT"].includes(fmt)) {
+            setHeaderInfo({
+              exists: true,
+              format: fmt,
+              key: "",
+              n: "",
+            });
+            // headerMediaUrl se llena en la UI
+          }
+        }
+      }
+
       // 1) BODY
       const templateBodyComponent = selectedTemplate.components?.find(
         (comp) => comp.type === "BODY",
@@ -1070,6 +1155,11 @@ const Modales = ({
         initial[b.key] = "";
       });
 
+      // header placeholder init (si el header tiene {{1}})
+      if (headerNeedsInit?.key) {
+        initial[headerNeedsInit.key] = "";
+      }
+
       setPlaceholderValues(initial);
 
       // 4) Idioma
@@ -1125,126 +1215,188 @@ const Modales = ({
 
   // Función para enviar el template a WhatsApp
   const enviarTemplate = async () => {
-    const fromPhoneNumberId = dataAdmin.id_telefono;
-    const accessToken = dataAdmin.token;
     const recipientPhone = selectedPhoneNumber;
     const nombre_cliente = selectedPhoneNumberNombre;
 
     if (!recipientPhone) {
-      alert("Debes ingresar un número de destinatario.");
+      Toast.fire({
+        icon: "warning",
+        title: "Debes seleccionar un destinatario.",
+      });
       return;
     }
 
-    // Reemplazar los placeholders en el texto del template
-    let finalText = templateText;
-    placeholders.forEach((placeholder) => {
-      const value = placeholderValues[placeholder] || `{{${placeholder}}}`;
-      finalText = finalText.replace(`{{${placeholder}}}`, value);
+    if (!templateReady) {
+      Toast.fire({
+        icon: "warning",
+        title: "Complete los campos del template antes de enviar.",
+      });
+      return;
+    }
+
+    // ===== Construir COMPONENTS para Graph (HEADER opcional + BODY + URL buttons si aplica) =====
+    const components = [];
+
+    // HEADER
+    if (headerInfo?.exists) {
+      if (headerInfo.format === "TEXT") {
+        // Si es header fijo sin placeholder, no agregue parameters
+        if (headerInfo.key) {
+          const txt = String(placeholderValues?.[headerInfo.key] ?? "").trim();
+          components.push({
+            type: "header",
+            parameters: [{ type: "text", text: txt }],
+          });
+        } else {
+          components.push({ type: "header", parameters: [] });
+        }
+      }
+
+      if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerInfo.format)) {
+        const link = String(headerMediaUrl || "").trim();
+        const typeLower = headerInfo.format.toLowerCase();
+
+        // IMPORTANTE: DOCUMENT en Graph suele aceptar filename opcional (recomendado)
+        const mediaObj =
+          headerInfo.format === "DOCUMENT"
+            ? { link, filename: "archivo.pdf" }
+            : { link };
+
+        components.push({
+          type: "header",
+          parameters: [
+            {
+              type: typeLower,
+              [typeLower]: mediaObj,
+            },
+          ],
+        });
+      }
+    }
+
+    // BODY (placeholders del cuerpo)
+    components.push({
+      type: "body",
+      parameters: (bodyPlaceholders || []).map((p) => ({
+        type: "text",
+        text: String(placeholderValues?.[p.key] ?? "").trim(),
+      })),
     });
 
-    // Construir el cuerpo del mensaje para la API de WhatsApp
+    // BUTTONS (URL) => en Cloud API va como component type "button"
+    // Nota: si usted tiene botones URL con placeholders, cada botón se envía como:
+    // { type:'button', sub_type:'url', index:'0', parameters:[{type:'text', text:'valor'}] }
+    if (Array.isArray(urlButtons) && urlButtons.length) {
+      urlButtons.forEach((b) => {
+        components.push({
+          type: "button",
+          sub_type: "url",
+          index: String(b.index),
+          parameters: [
+            {
+              type: "text",
+              text: String(placeholderValues?.[b.key] ?? "").trim(),
+            },
+          ],
+        });
+      });
+    }
+
+    // BODY listo para su backend (graphBody)
     const body = {
       messaging_product: "whatsapp",
       to: recipientPhone,
       type: "template",
       template: {
         name: templateName,
-        language: {
-          code: selectedLanguage,
-        },
-        components: [
-          // BODY (si existe)
-          ...(bodyPlaceholders.length > 0
-            ? [
-                {
-                  type: "body",
-                  parameters: bodyPlaceholders.map((p) => ({
-                    type: "text",
-                    text: placeholderValues[p.key] || `{{${p.n}}}`,
-                  })),
-                },
-              ]
-            : []),
-
-          // BUTTON URL (si existe)
-          ...urlButtons.map((b) => ({
-            type: "button",
-            sub_type: "url",
-            index: b.index, // "0", "1", ...
-            parameters: [
-              {
-                type: "text",
-                text: placeholderValues[b.key] || `{{${b.ph}}}`,
-              },
-            ],
-          })),
-        ],
+        language: { code: selectedLanguage || "es" },
+        components,
       },
     };
 
     try {
-      const response = await fetch(
-        `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`,
+      const { data: dataResp } = await chatApi.post(
+        "/whatsapp_managment/enviar_template_masivo",
         {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
+          id_configuracion,
+          body, // ✅ aquí está la diferencia: ahora el backend sí construye bien el payload
+          id_cliente_chat_center: selectedChat?.id || null,
         },
       );
 
-      if (!response.ok) {
-        throw new Error(`Error al enviar template: ${response.statusText}`);
+      // ✅ CLAVE: si backend responde 200 con success:false => debe tratarse como fallo
+      if (!dataResp || dataResp.success !== true) {
+        const msg = dataResp?.message || "Meta rechazó el envío";
+        throw new Error(msg);
       }
 
-      const data = await response.json();
+      const wamid =
+        dataResp?.wamid ||
+        dataResp?.data?.messages?.[0]?.id ||
+        dataResp?.messages?.[0]?.id ||
+        null;
 
-      // Extraer el wamid de la respuesta
-      const wamid = data?.messages?.[0]?.id || null;
+      Toast.fire({ icon: "success", title: "Mensaje enviado correctamente" });
 
-      /* console.log("Template enviado exitosamente:", data); */
-      Toast.fire({
-        icon: "success",
-        title: "Mensaje enviado correctamente",
-      });
+      // ===== Guardar en BD SOLO si Meta OK =====
+      try {
+        const ruta_archivo = {
+          placeholders: generarObjetoPlaceholders(
+            bodyPlaceholders,
+            urlButtons,
+            placeholderValues,
+          ),
+          header: headerInfo?.exists
+            ? {
+                format: headerInfo.format,
+                value:
+                  headerInfo.format === "TEXT"
+                    ? headerInfo.key
+                      ? (placeholderValues?.[headerInfo.key] || "").trim()
+                      : "TEXT_FIXED"
+                    : String(headerMediaUrl || "").trim(),
+              }
+            : null,
+          template_name: templateName,
+          language: selectedLanguage,
+        };
 
-      let id_recibe = buscarIdRecibe;
-      let mid_mensaje = dataAdmin.id_telefono;
-      let telefono_configuracion = dataAdmin.telefono;
-      let ruta_archivo = generarObjetoPlaceholders(
-        bodyPlaceholders,
-        urlButtons,
-        placeholderValues,
-      );
+        let id_recibe = buscarIdRecibe;
+        let mid_mensaje = dataAdmin.id_telefono;
+        let telefono_configuracion = dataAdmin.telefono;
 
-      agregar_mensaje_enviado(
-        templateText,
-        "template",
-        JSON.stringify(ruta_archivo),
-        recipientPhone,
-        mid_mensaje,
-        id_recibe,
-        id_configuracion,
-        telefono_configuracion,
-        wamid,
-        templateName,
-        selectedLanguage,
-        nombre_cliente,
-      );
-
-      /* cargar socket */
-      /* cargar_socket(); */
+        agregar_mensaje_enviado(
+          templateText,
+          "template",
+          JSON.stringify(ruta_archivo),
+          recipientPhone,
+          mid_mensaje,
+          id_recibe,
+          id_configuracion,
+          telefono_configuracion,
+          wamid,
+          templateName,
+          selectedLanguage,
+          nombre_cliente,
+        );
+      } catch (dbErr) {
+        console.warn(
+          "Meta OK, pero falló guardar en BD:",
+          dbErr?.message || dbErr,
+        );
+      }
 
       resetNumeroModalState();
       handleNumeroModal();
     } catch (error) {
-      console.error("Error al enviar el template:", error);
-      Toast.fire({
-        icon: "error",
-        title: "Error al enviar mensaje",
-      });
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Error desconocido";
+
+      Toast.fire({ icon: "error", title: msg });
+      console.error("Error al enviar template:", error);
     }
   };
 
@@ -1420,11 +1572,11 @@ const Modales = ({
                     type="button"
                     onClick={() => setModalTab("nuevo")}
                     className={`px-3 py-1.5 text-sm font-semibold rounded-md transition
-        ${
-          modalTab === "nuevo"
-            ? "bg-white shadow-sm text-slate-900"
-            : "text-slate-600 hover:text-slate-800"
-        }`}
+          ${
+            modalTab === "nuevo"
+              ? "bg-white shadow-sm text-slate-900"
+              : "text-slate-600 hover:text-slate-800"
+          }`}
                   >
                     Añadir número
                   </button>
@@ -1432,11 +1584,11 @@ const Modales = ({
                     type="button"
                     onClick={() => setModalTab("buscar")}
                     className={`px-3 py-1.5 text-sm font-semibold rounded-md transition
-        ${
-          modalTab === "buscar"
-            ? "bg-white shadow-sm text-slate-900"
-            : "text-slate-600 hover:text-slate-800"
-        }`}
+          ${
+            modalTab === "buscar"
+              ? "bg-white shadow-sm text-slate-900"
+              : "text-slate-600 hover:text-slate-800"
+          }`}
                   >
                     Buscar contacto
                   </button>
@@ -1465,7 +1617,7 @@ const Modales = ({
                     <input
                       type="text"
                       className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm
-                           focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                            focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                       value={newContactName}
                       onChange={(e) => setNewContactName(e.target.value)}
                       placeholder="Nombre del contacto"
@@ -1485,7 +1637,7 @@ const Modales = ({
                         id="numeroAdd"
                         placeholder="Ej: 5939XXXXXXXX"
                         className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
-                             focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                              focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                         value={newContactPhone}
                         onChange={(e) => setNewContactPhone(e.target.value)}
                       />
@@ -1543,7 +1695,7 @@ const Modales = ({
                             registeredNumero.onChange(e);
                           }}
                           className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
-                       focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                         />
                       </div>
 
@@ -1639,6 +1791,67 @@ const Modales = ({
                     classNamePrefix="react-select"
                   />
 
+                  {/* ============ HEADER (si existe) ============ */}
+                  {headerInfo.exists && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                        Header del template ({headerInfo.format})
+                      </p>
+
+                      {/* Header TEXT con placeholder */}
+                      {headerInfo.format === "TEXT" && headerInfo.key && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            {`Valor para HEADER {{${headerInfo.n}}}`}
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
+          focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            value={placeholderValues[headerInfo.key] || ""}
+                            onChange={(e) =>
+                              handlePlaceholderChange(
+                                headerInfo.key,
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* Header TEXT fijo (sin placeholder) */}
+                      {headerInfo.format === "TEXT" && !headerInfo.key && (
+                        <p className="text-sm text-slate-600">
+                          Este template tiene header de texto fijo (no requiere
+                          valores).
+                        </p>
+                      )}
+
+                      {/* Header media por URL */}
+                      {["IMAGE", "VIDEO", "DOCUMENT"].includes(
+                        headerInfo.format,
+                      ) && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            URL pública HTTPS del archivo ({headerInfo.format})
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="https://... (debe ser pública y https)"
+                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
+          focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            value={headerMediaUrl}
+                            onChange={(e) => setHeaderMediaUrl(e.target.value)}
+                          />
+                          <p className="mt-1 text-xs text-slate-500">
+                            Recomendado: URL directa al archivo (sin login),
+                            accesible por Meta.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <label
                       htmlFor="template_textarea"
@@ -1653,7 +1866,7 @@ const Modales = ({
                       readOnly
                       onChange={handleTextareaChange}
                       className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-800 outline-none
-                           focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     />
                   </div>
 
@@ -1672,7 +1885,7 @@ const Modales = ({
                           <input
                             type="text"
                             className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
-                 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                             value={placeholderValues[p.key] || ""}
                             onChange={(e) =>
                               handlePlaceholderChange(p.key, e.target.value)
@@ -1698,7 +1911,7 @@ const Modales = ({
                           <input
                             type="text"
                             className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
-                 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                             value={placeholderValues[b.key] || ""}
                             onChange={(e) =>
                               handlePlaceholderChange(b.key, e.target.value)
@@ -1720,11 +1933,11 @@ const Modales = ({
                       onClick={enviarTemplate}
                       disabled={!templateReady}
                       className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4
-                      ${
-                        templateReady
-                          ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
-                          : "bg-slate-200 text-slate-500 cursor-not-allowed"
-                      }`}
+                        ${
+                          templateReady
+                            ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
+                            : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                        }`}
                     >
                       <i className="bx bx-send" />
                       Enviar template
@@ -2042,7 +2255,7 @@ const Modales = ({
           {/* Panel */}
           <div
             className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl
-                       ring-1 ring-black/5 border border-slate-200 overflow-hidden"
+                        ring-1 ring-black/5 border border-slate-200 overflow-hidden"
             role="document"
           >
             {/* Header */}
@@ -2061,8 +2274,8 @@ const Modales = ({
               <button
                 onClick={toggleCrearEtiquetaModal}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full
-                           text-slate-500 hover:text-slate-700 hover:bg-slate-100
-                           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                            text-slate-500 hover:text-slate-700 hover:bg-slate-100
+                            focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Cerrar"
                 title="Cerrar"
               >
@@ -2090,7 +2303,7 @@ const Modales = ({
                     id="tag-name"
                     type="text"
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2
-                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={tagName}
                     onChange={(e) => setTagName(e.target.value)}
                     placeholder="Ej. Ventas"
@@ -2102,7 +2315,7 @@ const Modales = ({
                     </span>
                     <span
                       className="inline-flex items-center gap-2 pl-2 pr-2 py-1 rounded-full
-                                     border border-slate-200 bg-white"
+                                      border border-slate-200 bg-white"
                     >
                       <span
                         className="h-2.5 w-2.5 rounded-full"
@@ -2136,7 +2349,7 @@ const Modales = ({
                     <input
                       type="text"
                       className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm
-                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       value={tagColor}
                       onChange={(e) => setTagColor(e.target.value)}
                       placeholder="#000000"
@@ -2158,8 +2371,8 @@ const Modales = ({
                             key={i}
                             onClick={() => setTagColor(c)}
                             className="h-6 w-6 rounded-full border border-white ring-1 ring-slate-300
-                                       hover:ring-blue-500 focus:outline-none focus-visible:ring-2
-                                       focus-visible:ring-blue-500"
+                                        hover:ring-blue-500 focus:outline-none focus-visible:ring-2
+                                        focus-visible:ring-blue-500"
                             style={{ backgroundColor: c }}
                             aria-label={`Usar color ${c}`}
                             title={c}
@@ -2196,8 +2409,8 @@ const Modales = ({
                             type="button"
                             onClick={() => eliminarProducto(tag.id_etiqueta)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full
-                                       text-red-600 hover:bg-red-50
-                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                                        text-red-600 hover:bg-red-50
+                                        focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                             aria-label={`Eliminar ${tag.nombre_etiqueta}`}
                             title="Eliminar"
                           >
@@ -2221,9 +2434,9 @@ const Modales = ({
                   type="button"
                   onClick={toggleCrearEtiquetaModal}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-md
-                             bg-white border border-slate-200 text-slate-700
-                             hover:bg-slate-100 focus:outline-none
-                             focus-visible:ring-2 focus-visible:ring-blue-500"
+                              bg-white border border-slate-200 text-slate-700
+                              hover:bg-slate-100 focus:outline-none
+                              focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
                   <i className="bx bx-x"></i>
                   Cerrar
@@ -2232,11 +2445,11 @@ const Modales = ({
                   type="submit"
                   disabled={!tagName?.trim()}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-white
-                    ${
-                      tagName?.trim()
-                        ? "bg-blue-600 hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
-                        : "bg-blue-400 cursor-not-allowed"
-                    }`}
+                      ${
+                        tagName?.trim()
+                          ? "bg-blue-600 hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
+                          : "bg-blue-400 cursor-not-allowed"
+                      }`}
                 >
                   <i className="bx bx-plus"></i>
                   Agregar etiqueta
@@ -2266,7 +2479,7 @@ const Modales = ({
           {/* Panel */}
           <div
             className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl
-                 ring-1 ring-black/5 border border-slate-200 overflow-hidden"
+                  ring-1 ring-black/5 border border-slate-200 overflow-hidden"
             role="document"
           >
             {/* Header */}
@@ -2275,7 +2488,7 @@ const Modales = ({
                 <span
                   aria-hidden="true"
                   className="inline-flex h-10 w-10 items-center justify-center rounded-xl
-                       bg-blue-50 text-blue-700 border border-blue-100"
+                        bg-blue-50 text-blue-700 border border-blue-100"
                 >
                   <i className="bx bxs-purchase-tag-alt text-xl"></i>
                 </span>
@@ -2314,8 +2527,8 @@ const Modales = ({
                   toggleAsignarEtiquetaModal();
                 }}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-xl
-                     text-slate-500 hover:text-slate-700 hover:bg-slate-100
-                     focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
+                      text-slate-500 hover:text-slate-700 hover:bg-slate-100
+                      focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
                 aria-label="Cerrar"
                 title="Cerrar"
               >
@@ -2333,14 +2546,14 @@ const Modales = ({
                   onChange={(e) => setTagSearch(e.target.value)}
                   placeholder="Buscar etiqueta (nombre o ID)…"
                   className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm
-                       focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                 />
                 {tagSearch?.trim() && (
                   <button
                     type="button"
                     onClick={() => setTagSearch("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg
-                         text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                          text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                     aria-label="Limpiar búsqueda"
                     title="Limpiar"
                   >
@@ -2371,13 +2584,13 @@ const Modales = ({
                               )
                             }
                             className={`group w-full flex items-center gap-3 rounded-2xl border p-3 text-left
-                                  transition-all duration-200 focus:outline-none
-                                  focus-visible:ring-4 focus-visible:ring-blue-200
-                                  ${
-                                    isAssigned
-                                      ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
-                                      : "border-slate-200 bg-white hover:bg-slate-50"
-                                  }`}
+                                    transition-all duration-200 focus:outline-none
+                                    focus-visible:ring-4 focus-visible:ring-blue-200
+                                    ${
+                                      isAssigned
+                                        ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
+                                        : "border-slate-200 bg-white hover:bg-slate-50"
+                                    }`}
                             aria-pressed={isAssigned}
                           >
                             {/* Punto de color */}
@@ -2410,11 +2623,11 @@ const Modales = ({
                             {/* Estado */}
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold
-                                    ${
-                                      isAssigned
-                                        ? "bg-blue-600 text-white"
-                                        : "bg-slate-100 text-slate-600"
-                                    }`}
+                                      ${
+                                        isAssigned
+                                          ? "bg-blue-600 text-white"
+                                          : "bg-slate-100 text-slate-600"
+                                      }`}
                             >
                               <i
                                 className={`bx ${isAssigned ? "bx-check" : "bx-plus"} text-base`}
@@ -2451,9 +2664,9 @@ const Modales = ({
                   toggleAsignarEtiquetaModal();
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                     bg-white border border-slate-200 text-slate-700 font-semibold
-                     hover:bg-slate-100 focus:outline-none
-                     focus-visible:ring-4 focus-visible:ring-blue-200"
+                      bg-white border border-slate-200 text-slate-700 font-semibold
+                      hover:bg-slate-100 focus:outline-none
+                      focus-visible:ring-4 focus-visible:ring-blue-200"
               >
                 <i className="bx bx-x"></i>
                 Cerrar
@@ -2482,7 +2695,7 @@ const Modales = ({
           {/* Panel */}
           <div
             className="relative w-full max-w-lg mx-4 bg-white rounded-2xl shadow-2xl
-                       ring-1 ring-black/5 border border-slate-200 overflow-hidden"
+                        ring-1 ring-black/5 border border-slate-200 overflow-hidden"
             role="document"
           >
             {/* Header */}
@@ -2491,7 +2704,7 @@ const Modales = ({
                 <span
                   aria-hidden="true"
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full
-                             bg-blue-50 text-blue-600"
+                              bg-blue-50 text-blue-600"
                 >
                   <i className="bx bx-transfer-alt text-xl"></i>
                 </span>
@@ -2511,8 +2724,8 @@ const Modales = ({
               <button
                 onClick={toggleTransferirChatModal}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full
-                           text-slate-500 hover:text-slate-700 hover:bg-slate-100
-                           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                            text-slate-500 hover:text-slate-700 hover:bg-slate-100
+                            focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Cerrar"
                 title="Cerrar"
               >
@@ -2609,8 +2822,8 @@ const Modales = ({
                 <textarea
                   id="motivo-transferencia"
                   className="w-full border border-slate-300 rounded-lg p-2 text-sm 
-               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-               bg-white"
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                bg-white"
                   rows={3}
                   placeholder="Escriba el motivo..."
                   value={motivoTransferencia}
@@ -2628,9 +2841,9 @@ const Modales = ({
               <button
                 onClick={toggleTransferirChatModal}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-md
-                           bg-white border border-slate-200 text-slate-700
-                           hover:bg-slate-100 focus:outline-none
-                           focus-visible:ring-2 focus-visible:ring-blue-500"
+                            bg-white border border-slate-200 text-slate-700
+                            hover:bg-slate-100 focus:outline-none
+                            focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 <i className="bx bx-x"></i>
                 Cancelar
@@ -2644,11 +2857,11 @@ const Modales = ({
                     : "Transferir chat"
                 }
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-white
-                  ${
-                    usuarioSeleccionado
-                      ? "bg-blue-600 hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
-                      : "bg-blue-400 cursor-not-allowed"
-                  }`}
+                    ${
+                      usuarioSeleccionado
+                        ? "bg-blue-600 hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500"
+                        : "bg-blue-400 cursor-not-allowed"
+                    }`}
               >
                 <i className="bx bx-send"></i>
                 Transferir

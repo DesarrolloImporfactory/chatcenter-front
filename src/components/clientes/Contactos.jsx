@@ -2539,39 +2539,62 @@ export default function Contactos() {
                       </div>
                     </td>
                   )}
-
                   <td className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {/* ✅ Botón directo Abrir chat */}
+                      {/* ✅ Acción primaria: Abrir chat (icon-only, pro) */}
                       <button
                         onClick={() => openChatById(c)}
-                        className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                        className="
+        inline-flex h-9 w-9 items-center justify-center
+        rounded-full bg-emerald-600 text-white shadow-sm
+        hover:bg-emerald-700
+        focus:outline-none focus:ring-4 focus:ring-emerald-200
+        transition
+      "
                         title="Abrir chat"
+                        aria-label="Abrir chat"
                       >
-                        <i className="bx bxs-chat text-sm" />
-                        Abrir Chat
+                        <i className="bx bxs-chat text-[18px]" />
                       </button>
 
-                      {/* Menú secundario (opcional) */}
-                      <div className="relative inline-block text-left">
-                        <details>
-                          <summary className="list-none inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">
-                            <span>⋯</span>
+                      {/* ✅ Menú secundario (sin mezclar con abrir chat) */}
+                      <div className="relative">
+                        <details className="group">
+                          <summary
+                            className="
+            list-none inline-flex h-9 w-9 cursor-pointer items-center justify-center
+            rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm
+            hover:bg-slate-50
+            focus:outline-none focus:ring-4 focus:ring-blue-200/60
+            transition
+          "
+                            title="Más acciones"
+                            aria-label="Más acciones"
+                          >
+                            <i className="bx bx-dots-vertical-rounded text-[18px]" />
                           </summary>
-                          <div className="absolute right-0 z-10 mt-2 w-48 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+
+                          {/* Dropdown */}
+                          <div
+                            className="
+            absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl
+            border border-slate-200 bg-white shadow-lg ring-1 ring-slate-900/5
+          "
+                          >
                             <button
-                              className="block w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50"
                               onClick={(e) => {
                                 closeRowMenu(e);
                                 setEditing(c);
                                 setDrawerOpen(true);
                               }}
                             >
+                              <i className="bx bx-edit-alt text-sm text-slate-500" />
                               Editar
                             </button>
 
                             <button
-                              className="block w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50"
                               onClick={async (e) => {
                                 closeRowMenu(e);
                                 if (!selected.includes(id))
@@ -2583,11 +2606,14 @@ export default function Contactos() {
                               }}
                               title="Etiquetas"
                             >
+                              <i className="bx bxs-purchase-tag-alt text-sm text-slate-500" />
                               Etiquetas…
                             </button>
 
+                            <div className="my-1 h-px bg-slate-100" />
+
                             <button
-                              className="block w-full px-4 py-2 text-left text-xs text-red-600 hover:bg-red-50"
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-red-600 hover:bg-red-50"
                               onClick={async (e) => {
                                 closeRowMenu(e);
                                 const ok = await swalConfirm(
@@ -2613,6 +2639,7 @@ export default function Contactos() {
                                 }
                               }}
                             >
+                              <i className="bx bxs-trash-alt text-sm" />
                               Eliminar
                             </button>
                           </div>
