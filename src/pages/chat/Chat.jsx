@@ -771,7 +771,7 @@ const Chat = () => {
   };
 
   // Manejar la selección del número de teléfono y activar la sección de templates
-  const handleSelectPhoneNumber = async (phoneNumber) => {
+  const handleSelectPhoneNumber = async (phoneNumber, nombre_cliente) => {
     setSelectedPhoneNumber(phoneNumber); // Actualiza el número seleccionado
 
     setSelectedPhoneNumberNombre(nombre_cliente);
