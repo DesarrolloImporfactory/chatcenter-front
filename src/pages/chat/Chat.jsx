@@ -2458,6 +2458,15 @@ const Chat = () => {
       const clienteWa = msg.clientePorCelular || null;
       const encargadoId = chat?.id_encargado ?? clienteWa?.id_encargado ?? null;
 
+      const isAdmin = rol_usuario_global === "administrador";
+      const encargadoStr =
+        encargadoId == null ? "" : String(encargadoId).trim();
+      const isUnassigned = !encargadoStr;
+      const canSeeChat =
+        isAdmin ||
+        isUnassigned ||
+        encargadoStr === String(id_sub_usuario_global);
+
       // 1) IZQUIERDA
       setMensajesAcumulados((prevChats) => {
         const actualizado = prevChats.map((c) => ({ ...c }));
@@ -2467,6 +2476,14 @@ const Chat = () => {
         );
 
         if (index !== -1) {
+          console.log("canSeeChat: " + canSeeChat);
+          // ✅ si ya existe en la izquierda pero ya NO le corresponde (y no es admin) => eliminarlo
+          if (!canSeeChat) {
+            console.log("entro");
+            actualizado.splice(index, 1);
+            return actualizado;
+          }
+
           actualizado[index].mensaje_created_at = msg.created_at;
           actualizado[index].texto_mensaje = msg.texto_mensaje;
           actualizado[index].tipo_mensaje = msg.tipo_mensaje;
@@ -2477,6 +2494,12 @@ const Chat = () => {
               (actualizado[index].mensajes_pendientes || 0) + 1;
             actualizado[index].visto = 0;
           }
+
+          actualizado[index].id_encargado = encargadoId;
+
+          // si en el payload viene el encargado (depende cómo lo mande su backend)
+          if (clienteWa?.nombre_encargado)
+            actualizado[index].nombre_encargado = clienteWa.nombre_encargado;
 
           const [moved] = actualizado.splice(index, 1);
           actualizado.unshift(moved);
@@ -2505,6 +2528,7 @@ const Chat = () => {
               visto: isIncoming ? 0 : 1,
               source: msg.source,
               id_encargado: encargadoId,
+              nombre_encargado: clienteWa.nombre_encargado ?? "",
               nombre_cliente: clienteWa?.nombre_cliente,
               celular_cliente: clienteWa?.celular_cliente,
               etiquetas: [{ id: null, nombre: null, color: null }],
@@ -2519,15 +2543,19 @@ const Chat = () => {
             };
 
         // ✅ CONDICIÓN EXACTA DEL ANTIGUO (pero con encargado unificado)
-        if (
-          String(encargadoId) === String(id_sub_usuario_global) ||
-          rol_usuario_global === "administrador"
-        ) {
+        if (canSeeChat) {
           actualizado.unshift(nuevoChat);
         }
 
         return actualizado;
       });
+
+      if (selectedChat && String(selectedChat.id) === String(chatId)) {
+        // opcional: cerrar chat actual o mostrar aviso
+        if (Swal.isVisible()) Swal.close();
+        setSelectedChat(null);
+        setChatMessages([]);
+      }
 
       // 1.1) CURSOR (igual antiguo)
       if (!cursorFecha || !cursorId) {
@@ -2537,6 +2565,7 @@ const Chat = () => {
 
       // 2) DERECHA (igual antiguo: refresca con GET_CHATS_BOX)
       if (selectedChat && String(selectedChat.id) === String(chatId)) {
+        console.log("entro 2");
         socketRef.current.emit("GET_CHATS_BOX", {
           chatId: selectedChat.id,
           id_configuracion: id_configuracion,
