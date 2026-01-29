@@ -1038,6 +1038,257 @@ const ChatPrincipal = ({
     );
   };
 
+  const getTemplatePlaceholders = (valores) => {
+    // En su nuevo formato vienen dentro de "placeholders"
+    // pero por compatibilidad dejamos fallback al objeto raíz
+    if (valores?.placeholders && typeof valores.placeholders === "object") {
+      return valores.placeholders;
+    }
+    return valores || {};
+  };
+
+  const renderTemplateHeader = (header) => {
+    if (!header || !header.format) return null;
+
+    const format = String(header.format || "").toUpperCase();
+    const value = header.value;
+
+    // Normaliza URL (si guardan relativas, aquí queda listo)
+    const normalizeUrl = (u) =>
+      !u
+        ? ""
+        : /^https?:\/\//.test(String(u))
+          ? String(u)
+          : `https://new.imporsuitpro.com/${String(u).replace(/^\//, "")}`;
+
+    if (format === "IMAGE") {
+      const src = normalizeUrl(value);
+      if (!src) return null;
+
+      return (
+        <div className="mb-2">
+          <img
+            src={src}
+            alt="Template header"
+            className="w-full max-w-[420px] rounded-2xl shadow ring-1 ring-black/10 cursor-pointer"
+            onClick={() => window.open(src, "_blank")}
+          />
+        </div>
+      );
+    }
+
+    if (format === "VIDEO") {
+      const src = normalizeUrl(value);
+      if (!src) return null;
+
+      return (
+        <div className="mb-2">
+          <PremiumVideoPlayer src={src} />
+        </div>
+      );
+    }
+
+    if (format === "DOCUMENT") {
+      // value puede ser {url,nombre,size,mimeType} o string url
+      let meta = { url: "", nombre: "Documento", size: 0, mimeType: "" };
+
+      if (typeof value === "string") {
+        meta.url = normalizeUrl(value);
+      } else if (value && typeof value === "object") {
+        meta.url = normalizeUrl(value.url || value.link || value.ruta);
+        meta.nombre = value.nombre || value.fileName || "Documento";
+        meta.size = Number(value.size || 0);
+        meta.mimeType = value.mimeType || "";
+      }
+
+      if (!meta.url) return null;
+
+      const ext = (
+        meta.url.split(".").pop() ||
+        meta.mimeType.split("/").pop() ||
+        ""
+      )
+        .toUpperCase()
+        .trim();
+
+      const iconInfo = getFileIcon((meta.url.split(".").pop() || "").trim());
+
+      return (
+        <div className="mb-2">
+          <a
+            href={meta.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl shadow hover:bg-gray-100 transition-colors"
+          >
+            <span className="text-2xl">
+              <i className={`${iconInfo.icon} ${iconInfo.color}`}></i>
+            </span>
+
+            <div className="flex flex-col min-w-0">
+              <span className="font-semibold text-sm text-gray-800 truncate">
+                {meta.nombre}
+              </span>
+              <div className="flex text-xs text-gray-500 space-x-1">
+                {meta.size ? (
+                  <>
+                    <span>
+                      {meta.size > 1024 * 1024
+                        ? `${(meta.size / 1024 / 1024).toFixed(2)} MB`
+                        : `${(meta.size / 1024).toFixed(2)} KB`}
+                    </span>
+                    <span>•</span>
+                  </>
+                ) : null}
+                <span>{ext || "DOC"}</span>
+              </div>
+            </div>
+
+            <span className="ml-auto text-2xl text-blue-500 hover:text-blue-700 transition-colors">
+              <i className="bx bx-download"></i>
+            </span>
+          </a>
+        </div>
+      );
+    }
+
+    if (format === "LOCATION") {
+      // value puede venir como {latitude,longitude} o string "lat,lng" o JSON string
+      let lat = null;
+      let lng = null;
+
+      try {
+        const obj =
+          typeof value === "string" ? JSON.parse(value) : (value ?? {});
+        lat = obj.latitude ?? obj.lat ?? null;
+        lng = obj.longitude ?? obj.lng ?? obj.longitud ?? null;
+      } catch {
+        if (typeof value === "string" && value.includes(",")) {
+          const [a, b] = value.split(",").map((x) => x.trim());
+          lat = a;
+          lng = b;
+        }
+      }
+
+      if (!lat || !lng) return null;
+
+      return (
+        <div className="mb-2">
+          <div className="w-full h-56 rounded-2xl overflow-hidden ring-1 ring-black/10 shadow bg-white">
+            <iframe
+              title="Mapa de ubicación"
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              style={{ border: 0 }}
+              src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDGulcdBtz_Mydtmu432GtzJz82J_yb-rs&q=${lat},${lng}&zoom=15`}
+              allowFullScreen
+            />
+          </div>
+
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-600 underline text-sm inline-block mt-2"
+          >
+            Ver ubicación en Google Maps
+          </a>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const getPostbackUI = (mensaje) => {
+    const meta = safeParseJSON(mensaje?.meta_unificado);
+    const raw = meta?.raw || meta || null;
+
+    const title = raw?.title || "";
+    const payload = raw?.payload || "";
+
+    return { title, payload };
+  };
+
+  const safeParseJSON = (val) => {
+    if (!val) return null;
+    if (typeof val === "object") return val;
+    try {
+      return JSON.parse(val);
+    } catch {
+      return null;
+    }
+  };
+
+  const extractUnifiedAttachmentCards = (mensaje) => {
+    // 1) Intenta meta_unificado
+    const meta = safeParseJSON(mensaje?.meta_unificado);
+    const raw1 = meta?.raw || meta || null;
+    const raw = raw1?.raw || raw1;
+
+    let attachments = Array.isArray(raw?.attachments) ? raw.attachments : [];
+
+    // 2) Fallback: attachments_unificado (a veces llega como string JSON)
+    if (!attachments.length && mensaje?.attachments_unificado) {
+      const au = safeParseJSON(mensaje.attachments_unificado);
+      if (Array.isArray(au)) attachments = au;
+    }
+
+    const cards = [];
+
+    for (const att of attachments) {
+      // -----------------------------
+      // A) Formato Instagram (generic)
+      // -----------------------------
+      const elements = att?.payload?.generic?.elements || [];
+      if (elements.length) {
+        for (const el of elements) {
+          cards.push({
+            title: el?.title || "",
+            subtitle: el?.subtitle || "",
+            buttons: Array.isArray(el?.buttons)
+              ? el.buttons.map((b) => ({
+                  type: b?.type || "",
+                  title: b?.title || "",
+                  payload: b?.payload || null,
+                  url: b?.url || null,
+                  phone_number: b?.phone_number || null,
+                }))
+              : [],
+          });
+        }
+        continue;
+      }
+
+      // -----------------------------------
+      // B) Formato Messenger (title + buttons)
+      // -----------------------------------
+      // Messenger: att.title y att.payload.buttons
+      const mTitle = att?.title || att?.payload?.title || "";
+      const mButtons = Array.isArray(att?.payload?.buttons)
+        ? att.payload.buttons
+        : [];
+
+      if (mTitle || mButtons.length) {
+        cards.push({
+          title: mTitle,
+          subtitle: "", // Messenger no siempre trae subtitle
+          buttons: mButtons.map((b) => ({
+            type: b?.type || "",
+            title: b?.title || "",
+            payload: b?.payload || null,
+            url: b?.url || null,
+            phone_number: b?.phone_number || null,
+          })),
+        });
+        continue;
+      }
+    }
+
+    return cards;
+  };
+
   const parseRutaArchivo = (ruta) => {
     try {
       return ruta ? JSON.parse(ruta) : {};
@@ -1270,9 +1521,49 @@ const ChatPrincipal = ({
                         {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
                         <span className="text-[15px] md:text-sm pb-2 inline-block w-full">
                           {/* Tipo: TEXT / TEMPLATE */}
-                          {mensaje.tipo_mensaje === "text" ||
-                          mensaje.tipo_mensaje === "edit" ? (
-                            // ✅ Si es edit: solo texto plano
+                          {mensaje.tipo_mensaje === "postback" ? (
+                            (() => {
+                              const pb = getPostbackUI(mensaje);
+
+                              // Si hay title en meta_unificado, úselo. Si no, fallback al texto_mensaje.
+                              const label =
+                                pb.title || mensaje.texto_mensaje || "Postback";
+
+                              return (
+                                <div className="flex items-start gap-2">
+                                  <span
+                                    className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-white ${
+                                      mensaje.rol_mensaje === 1
+                                        ? "bg-white/30"
+                                        : "bg-gray-400"
+                                    }`}
+                                    title="Postback"
+                                  >
+                                    <i className="bx bx-pointer text-sm" />
+                                  </span>
+
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold">
+                                      Interacción
+                                    </p>
+
+                                    <p className="text-xs opacity-90 whitespace-pre-wrap break-words">
+                                      {label}
+                                    </p>
+
+                                    {/* opcional: mostrar el payload en pequeño (o eliminarlo si no lo quiere) */}
+                                    {pb.payload ? (
+                                      <p className="text-[11px] mt-1 text-slate-500 break-words">
+                                        {pb.payload}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              );
+                            })()
+                          ) : mensaje.tipo_mensaje === "text" ||
+                            mensaje.tipo_mensaje === "edit" ? (
+                            //  Si es edit: solo texto plano
                             mensaje.tipo_mensaje === "edit" ? (
                               <p>
                                 {linkify(
@@ -1346,23 +1637,45 @@ const ChatPrincipal = ({
                             </div>
                           ) : mensaje.tipo_mensaje === "template" ? (
                             (() => {
-                              const valores = parseRutaArchivo(
+                              const valoresRaw = parseRutaArchivo(
                                 mensaje.ruta_archivo,
                               );
-                              const urlFullItems = getUrlFullItems(valores);
 
+                              const placeholders =
+                                getTemplatePlaceholders(valoresRaw);
+
+                              // Detecta header
+                              const header = valoresRaw?.header;
+
+                              //si hay header, lo muestra arriba
+                              const headerNode = renderTemplateHeader(header);
+
+                              // Texto con placeholders {{1}}, {{2}}...
                               const textoRender = (
                                 mensaje.texto_mensaje || ""
-                              ).replace(
-                                /\{\{(.*?)\}\}/g,
-                                (match, key) =>
-                                  valores[String(key).trim()] || match,
-                              );
+                              ).replace(/\{\{(.*?)\}\}/g, (match, key) => {
+                                const k = String(key).trim();
+                                return (
+                                  placeholders?.[k] ?? valoresRaw?.[k] ?? match
+                                );
+                              });
+
+                              const urlFullItems = getUrlFullItems({
+                                ...valoresRaw,
+                                ...(typeof placeholders === "object"
+                                  ? placeholders
+                                  : {}),
+                              });
 
                               return (
                                 <div className="space-y-2">
-                                  <p>{textoRender}</p>
+                                  {/* ✅ HEADER (imagen/video/document/location) */}
+                                  {headerNode}
 
+                                  {/* ✅ BODY */}
+                                  {textoRender ? <p>{textoRender}</p> : null}
+
+                                  {/* ✅ LINKS FULL */}
                                   {urlFullItems.length > 0 && (
                                     <div className="mt-2 flex flex-col gap-2">
                                       {urlFullItems.map((it) => (
@@ -1372,12 +1685,12 @@ const ChatPrincipal = ({
                                           target="_blank"
                                           rel="noreferrer"
                                           className="
-                                          inline-flex items-center justify-between gap-3
-                                          rounded-xl border border-slate-200 bg-white/70
-                                          px-3 py-2 text-sm
-                                          hover:bg-slate-50 transition
-                                          shadow-sm
-                                        "
+                                              inline-flex items-center justify-between gap-3
+                                              rounded-xl border border-slate-200 bg-white/70
+                                              px-3 py-2 text-sm
+                                              hover:bg-slate-50 transition
+                                              shadow-sm
+                                            "
                                         >
                                           <span className="inline-flex items-center gap-2 text-slate-700 font-semibold">
                                             <i className="bx bx-link-external text-lg text-blue-600" />
@@ -1525,6 +1838,132 @@ const ChatPrincipal = ({
                                 );
                                 return <p>Error al mostrar la ubicación.</p>;
                               }
+                            })()
+                          ) : mensaje.tipo_mensaje === "attachment" ? (
+                            (() => {
+                              const cards =
+                                extractUnifiedAttachmentCards(mensaje);
+
+                              // Si no hay cards, muestre algo decente (y no "no reconocido")
+                              if (!cards || cards.length === 0) {
+                                return (
+                                  <div className="text-sm opacity-80">
+                                    Adjuntos (Instagram/Messenger) no
+                                    disponibles para renderizar.
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="space-y-2">
+                                  {cards.map((c, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="rounded-2xl border border-black/10 bg-white/70 p-3 shadow-sm"
+                                    >
+                                      {c.title ? (
+                                        <div className="text-sm font-semibold text-slate-900 whitespace-pre-wrap">
+                                          {c.title}
+                                        </div>
+                                      ) : null}
+
+                                      {c.subtitle ? (
+                                        <div className="mt-1 text-xs text-slate-700 whitespace-pre-wrap">
+                                          {c.subtitle}
+                                        </div>
+                                      ) : null}
+
+                                      {c.buttons && c.buttons.length > 0 ? (
+                                        <div className="mt-2 flex flex-col gap-2">
+                                          {c.buttons.map((b, bi) => {
+                                            // URL button
+                                            if (b.type === "web_url" && b.url) {
+                                              return (
+                                                <a
+                                                  key={bi}
+                                                  href={b.url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  className="
+                                                    inline-flex items-center justify-between gap-3
+                                                    rounded-xl border border-slate-200 bg-white/80
+                                                    px-3 py-2 text-sm
+                                                    hover:bg-slate-50 transition
+                                                  "
+                                                >
+                                                  <span className="inline-flex items-center gap-2 text-slate-800 font-semibold">
+                                                    <i className="bx bx-link-external text-lg text-blue-600" />
+                                                    {b.title || "Abrir enlace"}
+                                                  </span>
+                                                  <span className="text-xs text-blue-600 font-semibold">
+                                                    Ver
+                                                    <i className="bx bx-chevron-right text-base align-middle ml-1" />
+                                                  </span>
+                                                </a>
+                                              );
+                                            }
+
+                                            // Call button
+                                            if (
+                                              b.type === "phone_number" &&
+                                              b.phone_number
+                                            ) {
+                                              const tel = String(
+                                                b.phone_number,
+                                              );
+                                              return (
+                                                <a
+                                                  key={bi}
+                                                  href={`tel:${tel}`}
+                                                  className="
+                                                    inline-flex items-center justify-between gap-3
+                                                    rounded-xl border border-slate-200 bg-white/80
+                                                    px-3 py-2 text-sm
+                                                    hover:bg-slate-50 transition
+                                                  "
+                                                >
+                                                  <span className="inline-flex items-center gap-2 text-slate-800 font-semibold">
+                                                    <i className="bx bx-phone text-lg text-green-600" />
+                                                    {b.title || "Llamar"}
+                                                  </span>
+                                                  <span className="text-xs text-slate-600 font-semibold">
+                                                    {tel}
+                                                  </span>
+                                                </a>
+                                              );
+                                            }
+
+                                            // Postback / quick_reply (no hay URL; mostramos “acción”)
+                                            return (
+                                              <div
+                                                key={bi}
+                                                className="
+                                                    inline-flex items-center justify-between gap-3
+                                                    rounded-xl border border-slate-200 bg-white/70
+                                                    px-3 py-2 text-sm
+                                                  "
+                                                title={
+                                                  b.payload
+                                                    ? String(b.payload)
+                                                    : "Acción"
+                                                }
+                                              >
+                                                <span className="inline-flex items-center gap-2 text-slate-800 font-semibold">
+                                                  <i className="bx bx-pointer text-lg text-purple-600" />
+                                                  {b.title || "Acción"}
+                                                </span>
+                                                <span className="text-[11px] text-slate-500 font-semibold">
+                                                  {b.type || "postback"}
+                                                </span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
                             })()
                           ) : mensaje.tipo_mensaje === "button" ? (
                             mensaje.texto_mensaje
