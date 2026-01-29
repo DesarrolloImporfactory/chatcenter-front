@@ -1192,6 +1192,7 @@ export const Sidebar = ({
   cargandoChats,
   scopeChats,
   setScopeChats,
+  onChangeChannelAndFetch,
 }) => {
   const [input_busqueda, setInput_busqueda] = useState(searchTerm ?? "");
 
@@ -1463,6 +1464,9 @@ export const Sidebar = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       setChannelFilter("all");
+                      if (typeof onChangeChannelAndFetch === "function") {
+                        onChangeChannelAndFetch("all");
+                      }
                       const d = e.currentTarget.closest("details");
                       if (d) d.open = false;
                     }}
@@ -1470,6 +1474,7 @@ export const Sidebar = ({
                     <i className="bx bx-layout text-base text-slate-500" />{" "}
                     Todos los canales
                   </button>
+
                   <button
                     className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
                       channelFilter === "wa"
@@ -1480,6 +1485,9 @@ export const Sidebar = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       setChannelFilter("wa");
+                      if (typeof onChangeChannelAndFetch === "function") {
+                        onChangeChannelAndFetch("wa");
+                      }
                       const d = e.currentTarget.closest("details");
                       if (d) d.open = false;
                     }}
@@ -1487,6 +1495,7 @@ export const Sidebar = ({
                     <i className="bx bxl-whatsapp text-base text-green-600" />{" "}
                     WhatsApp
                   </button>
+
                   <button
                     className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${
                       channelFilter === "ms"
@@ -1497,6 +1506,9 @@ export const Sidebar = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       setChannelFilter("ms");
+                      if (typeof onChangeChannelAndFetch === "function") {
+                        onChangeChannelAndFetch("ms");
+                      }
                       const d = e.currentTarget.closest("details");
                       if (d) d.open = false;
                     }}
@@ -1504,6 +1516,7 @@ export const Sidebar = ({
                     <i className="bx bxl-messenger text-base text-blue-600" />{" "}
                     Messenger
                   </button>
+
                   <button
                     className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm ${
                       channelFilter === "ig"
@@ -1514,6 +1527,9 @@ export const Sidebar = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       setChannelFilter("ig");
+                      if (typeof onChangeChannelAndFetch === "function") {
+                        onChangeChannelAndFetch("ig");
+                      }
                       const d = e.currentTarget.closest("details");
                       if (d) d.open = false;
                     }}
@@ -1816,17 +1832,10 @@ export const Sidebar = ({
                 </div>
               );
             }
-            const base =
-              channelFilter === "ms"
-                ? filteredChats.filter((c) => matchesFilter(c, "ms"))
-                : channelFilter === "wa"
-                  ? filteredChats.filter((c) => matchesFilter(c, "wa"))
-                  : channelFilter === "ig"
-                    ? filteredChats.filter((c) => matchesFilter(c, "ig"))
-                    : filteredChats;
+            const base = filteredChats;
 
             const list = [...base].sort(compareChats);
-            /* console.log("Lista de chats en sidebar:", list); */
+            console.log("Lista de chats en sidebar:", list);
             if (list.length === 0) {
               return (
                 <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">

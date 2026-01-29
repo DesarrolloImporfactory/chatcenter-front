@@ -1824,6 +1824,120 @@ const Chat = () => {
   }, [id_configuracion]);
   /* fin cosumir api de etiquetas */
 
+  // Fuente real para backend según activeChannel
+  const sourceForList = useMemo(() => {
+    if (activeChannel === "instagram") return "ig";
+    if (activeChannel === "messenger") return "ms";
+    if (activeChannel === "whatsapp") return "wa";
+    return "all"; // si su backend NO soporta "all", cambie a null
+  }, [activeChannel]);
+
+  // ===================== EMIT CENTRALIZADO GET_CHATS (PADRE) =====================
+  const emitGetChats = useCallback(
+    ({ reset = false, limit = 10, overrideSource = null } = {}) => {
+      if (!socketRef.current || !isSocketConnected) return;
+      if (!id_configuracion || !id_sub_usuario_global || !rol_usuario_global)
+        return;
+
+      // ✅ normalizar source
+      // Si su backend espera null en vez de "all", cambie aquí:
+      const sourceToSend =
+        (overrideSource ?? sourceForList) === "all"
+          ? "all"
+          : (overrideSource ?? sourceForList);
+
+      const payload = {
+        limit,
+        cursorFecha: reset ? null : cursorFecha,
+        cursorId: reset ? null : cursorId,
+        filtros: {
+          searchTerm,
+          selectedEtiquetas,
+          selectedEstado,
+          selectedTransportadora,
+          selectedNovedad,
+          selectedTab,
+          selectedPedidos_confirmados,
+          source: sourceToSend,
+        },
+        scopeChats,
+      };
+
+      if (reset) {
+        setMensajesAcumulados([]);
+        setMensajesVisibles(10);
+        setCursorFecha(null);
+        setCursorId(null);
+        setUltimo_cursorId("");
+      }
+
+      socketRef.current.emit(
+        "GET_CHATS",
+        id_configuracion,
+        id_sub_usuario_global,
+        rol_usuario_global,
+        payload,
+      );
+    },
+    [
+      isSocketConnected,
+      id_configuracion,
+      id_sub_usuario_global,
+      rol_usuario_global,
+      cursorFecha,
+      cursorId,
+      searchTerm,
+      selectedEtiquetas,
+      selectedEstado,
+      selectedTransportadora,
+      selectedNovedad,
+      selectedTab,
+      selectedPedidos_confirmados,
+      scopeChats,
+      sourceForList,
+    ],
+  );
+
+  // ===================== HANDLER QUE RECIBE EL CLICK DEL SIDEBAR =====================
+  const onChangeChannelAndFetch = useCallback(
+    (channelKey) => {
+      // channelKey: "wa" | "ms" | "ig" | "all"
+
+      // 1) setear activeChannel (para que el fallback quede coherente)
+      const nextActive =
+        channelKey === "ig"
+          ? "instagram"
+          : channelKey === "ms"
+            ? "messenger"
+            : channelKey === "wa"
+              ? "whatsapp"
+              : "all";
+
+      setActiveChannel(nextActive);
+
+      // 2) reset paginación (limpio)
+      setCursorFecha(null);
+      setCursorId(null);
+      setUltimo_cursorId("");
+      setMensajesAcumulados([]);
+      setMensajesVisibles(10);
+
+      // 3) pedir chats (overrideSource viene del click)
+      // Si su backend espera null para "all", cambie a:
+      // const override = channelKey === "all" ? null : channelKey;
+      emitGetChats({ reset: true, limit: 10, overrideSource: channelKey });
+    },
+    [
+      emitGetChats,
+      setActiveChannel,
+      setCursorFecha,
+      setCursorId,
+      setUltimo_cursorId,
+      setMensajesAcumulados,
+      setMensajesVisibles,
+    ],
+  );
+
   useEffect(() => {
     if (isSocketConnected && userData) {
       console.time("⏱ Tiempo hasta llegada de CHATS");
@@ -1837,26 +1951,28 @@ const Chat = () => {
       socketRef.current.off("DATA_NOVEDADES");
 
       // Emitir el evento con los filtros y la paginación
-      socketRef.current.emit(
-        "GET_CHATS",
-        id_configuracion,
-        id_sub_usuario_global,
-        rol_usuario_global,
-        {
-          cursorFecha: null,
-          cursorId: null,
-          filtros: {
-            searchTerm,
-            selectedEtiquetas,
-            selectedEstado,
-            selectedTransportadora,
-            selectedNovedad,
-            selectedTab,
-            selectedPedidos_confirmados,
-          },
-          scopeChats,
-        },
-      );
+      // socketRef.current.emit(
+      //   "GET_CHATS",
+      //   id_configuracion,
+      //   id_sub_usuario_global,
+      //   rol_usuario_global,
+      //   {
+      //     cursorFecha: null,
+      //     cursorId: null,
+      //     filtros: {
+      //       searchTerm,
+      //       selectedEtiquetas,
+      //       selectedEstado,
+      //       selectedTransportadora,
+      //       selectedNovedad,
+      //       selectedTab,
+      //       selectedPedidos_confirmados,
+      //     },
+      //     scopeChats,
+      //   },
+      // );
+
+      emitGetChats({ reset: true, limit: 10 });
 
       socketRef.current.once("CHATS", (data) => {
         if (data.length > 0) {
@@ -2044,7 +2160,7 @@ const Chat = () => {
         });
       }
     }
-  }, [isSocketConnected, userData, selectedChat]);
+  }, [isSocketConnected, userData]);
 
   const scrollRef = useRef(null);
   const [cargandoChats, setCargandoChats] = useState(false);
@@ -2940,6 +3056,7 @@ const Chat = () => {
         cargandoChats={cargandoChats}
         scopeChats={scopeChats}
         setScopeChats={setScopeChats}
+        onChangeChannelAndFetch={onChangeChannelAndFetch}
       />
       {/* todos los mensajes */}
       <ChatPrincipal
