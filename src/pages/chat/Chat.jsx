@@ -1473,64 +1473,20 @@ const Chat = () => {
 
   /* validador encargado selectedChat */
 
-  const asignarChat = async () => {
+  const asignarChat = () => {
     try {
-      const payload =
-        selectedChat.source === "ms"
-          ? {
-              source: "ms",
-              id_encargado: id_sub_usuario_global,
-              id_conversation: selectedChat.id,
-            }
-          : selectedChat.source === "ig"
-            ? {
-                source: "ig",
-                id_encargado: id_sub_usuario_global,
-                id_conversation: selectedChat.id,
-              }
-            : {
-                source: "wa",
-                id_encargado: id_sub_usuario_global,
-                id_cliente_chat_center: selectedChat.id,
-                id_configuracion: selectedChat.id_configuracion,
-              };
+      const payload = {
+        id_encargado: id_sub_usuario_global,
+        id_cliente_chat_center: selectedChat.id,
+        id_configuracion: selectedChat.id_configuracion,
+      };
 
-      const res = await chatApi.post(
-        "departamentos_chat_center/asignar_encargado",
-        payload,
-      );
-
-      if (res.data.status === "success") {
-        Toast.fire({ icon: "success", title: res.data.message });
-        setSelectedChat((prev) => ({
-          ...prev,
-          id_encargado: id_sub_usuario_global,
-        }));
-
-        // Actualizar id_encargado en mensajesAcumulados
-        const updatedMensajesAcumulados = mensajesAcumulados.map((mensaje) => {
-          if (mensaje.id === selectedChat.id) {
-            return {
-              ...mensaje,
-              id_encargado: id_sub_usuario_global, // Actualizar id_encargado
-            };
-          }
-          return mensaje;
-        });
-
-        // Actualizar mensajesAcumulados en el estado si es necesario
-        setMensajesAcumulados(updatedMensajesAcumulados);
-      } else {
-        Toast.fire({
-          icon: "error",
-          title: "Ocurrió un problema al transferir el chat.",
-        });
-      }
+      socketRef.current.emit("ASIGNAR_ENCARGADO", payload);
     } catch (error) {
-      const message =
-        error.response?.data?.message ||
-        "Error inesperado al transferir el chat.";
-      Toast.fire({ icon: "error", title: message });
+      Toast.fire({
+        icon: "error",
+        title: "Error inesperado al transferir el chat.",
+      });
       console.error("Error al transferir chat:", error);
     }
   };
@@ -2043,8 +1999,94 @@ const Chat = () => {
           setNovedades_noGestionadas(data.no_gestionadas);
         });
       }
+
+      /* socketRef.current.on("QUITAR_MENSAJE_RESPONSE", (data) => {
+        console.log(data);
+
+        const chat_existente = mensajesAcumulados.find(
+          (chat) => chat.id == data.celular_recibe,
+        );
+        console.log("chat_existente: " + chat_existente);
+        const encargadoId = data.clientePorCelular.id_encargado;
+        console.log("encargadoId: " + encargadoId);
+        console.log("id_sub_usuario_global: " + id_sub_usuario_global);
+        const isAdmin = rol_usuario_global === "administrador";
+        console.log("isAdmin: " + isAdmin);
+
+        if (!isAdmin && encargadoId != id_sub_usuario_global) {
+          setMensajesAcumulados((c) =>
+            c.filter((chat) => chat.id != data.celular_recibe),
+          );
+        }
+      }); */
+
+      socketRef.current.on("ENCARGADO_CHAT_ACTUALIZADO", (data) => {
+        const encargadoId = data?.clientePorCelular?.id_encargado;
+        const isAdmin = rol_usuario_global === "administrador";
+
+        const deboVerlo =
+          isAdmin || String(encargadoId) === String(id_sub_usuario_global);
+
+        console.log("MENSAJE_ACUMULADO", JSON.stringify(mensajesAcumulados));
+
+        setMensajesAcumulados((prev) => {
+          // si NO debo verlo, lo quito
+          if (prev.length != 0) {
+            if (!deboVerlo) {
+              return prev.filter((c) => c.id != data.celular_recibe);
+            }
+
+            console.log(
+              "MENSAJES_ACTUALIZADOS: ",
+              JSON.stringify([data, ...prev]),
+            );
+
+            /* if (idx === -1) return [data, ...prev];
+
+          const copia = [...prev];
+          copia[idx] = { ...copia[idx], ...data };
+          return copia; */
+          }
+        });
+
+        console.log("data.celular_recibe: " + data.celular_recibe);
+
+        // si tienes chat seleccionado abierto y coincide, lo actualizas también
+        if (
+          selectedChat &&
+          String(selectedChat.id) === String(data.celular_recibe)
+        ) {
+          // opcional: cerrar chat actual o mostrar aviso
+          if (Swal.isVisible()) Swal.close();
+          setSelectedChat(null);
+          setChatMessages([]);
+        }
+      });
     }
   }, [isSocketConnected, userData, selectedChat]);
+
+  /* sistema de notificacion cuando se asigne correctamente */
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const onAsignarResponse = (res) => {
+      if (res?.status === "success") {
+        Toast.fire({ icon: "success", title: res.message });
+      } else {
+        Toast.fire({
+          icon: "error",
+          title: res?.message || "Ocurrió un problema al transferir el chat.",
+        });
+      }
+    };
+
+    socketRef.current.on("ASIGNAR_ENCARGADO_RESPONSE", onAsignarResponse);
+
+    return () => {
+      socketRef.current.off("ASIGNAR_ENCARGADO_RESPONSE", onAsignarResponse);
+    };
+  }, [isSocketConnected]);
+  /* sistema de notificacion cuando se asigne correctamente */
 
   const scrollRef = useRef(null);
   const [cargandoChats, setCargandoChats] = useState(false);
