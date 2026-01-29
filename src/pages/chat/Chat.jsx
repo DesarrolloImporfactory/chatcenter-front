@@ -1871,17 +1871,6 @@ const Chat = () => {
 
       setActiveChannel(nextActive);
 
-      // 2) reset paginación (limpio)
-      setCursorFecha(null);
-      setCursorId(null);
-      setUltimo_cursorId("");
-      setMensajesAcumulados([]);
-      setMensajesVisibles(10);
-
-      // 3) pedir chats (overrideSource viene del click)
-      // Si su backend espera null para "all", cambie a:
-      // const override = channelKey === "all" ? null : channelKey;
-      emitGetChats({ reset: true, limit: 10, overrideSource: channelKey });
     },
     [
       emitGetChats,
@@ -2142,10 +2131,13 @@ const Chat = () => {
 
         const deboVerlo =
           isAdmin || String(encargadoId) === String(id_sub_usuario_global);
-
+        console.log(typeof mensajesAcumulados);
         console.log("MENSAJE_ACUMULADO", JSON.stringify(mensajesAcumulados));
-
+        
         setMensajesAcumulados((prev) => {
+          // Si prev no es un array válido, retornar array vacío
+          if (!Array.isArray(prev)) return [];
+          
           // si NO debo verlo, lo quito
           if (prev.length != 0) {
             if (!deboVerlo) {
@@ -2163,6 +2155,9 @@ const Chat = () => {
           copia[idx] = { ...copia[idx], ...data };
           return copia; */
           }
+          
+          // Siempre retornar el array anterior si no se cumple ninguna condición
+          return prev;
         });
 
         console.log("data.celular_recibe: " + data.celular_recibe);
@@ -2179,7 +2174,7 @@ const Chat = () => {
         }
       });
     }
-  }, [isSocketConnected, userData]);
+  }, [isSocketConnected, userData, activeChannel]);
 
   /* sistema de notificacion cuando se asigne correctamente */
   useEffect(() => {
