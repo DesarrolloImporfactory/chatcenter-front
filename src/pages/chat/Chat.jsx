@@ -1857,9 +1857,6 @@ const Chat = () => {
   // ===================== HANDLER QUE RECIBE EL CLICK DEL SIDEBAR =====================
   const onChangeChannelAndFetch = useCallback(
     (channelKey) => {
-      // channelKey: "wa" | "ms" | "ig" | "all"
-
-      // 1) setear activeChannel (para que el fallback quede coherente)
       const nextActive =
         channelKey === "ig"
           ? "instagram"
@@ -1870,16 +1867,11 @@ const Chat = () => {
               : "all";
 
       setActiveChannel(nextActive);
+
+      // ✅ pedir chats inmediatamente del canal seleccionado
+      emitGetChats({ reset: true, limit: 10, overrideSource: channelKey });
     },
-    [
-      emitGetChats,
-      setActiveChannel,
-      setCursorFecha,
-      setCursorId,
-      setUltimo_cursorId,
-      setMensajesAcumulados,
-      setMensajesVisibles,
-    ],
+    [emitGetChats],
   );
 
   useEffect(() => {
@@ -1980,12 +1972,12 @@ const Chat = () => {
         }
       }); */
     }
-  }, [isSocketConnected, userData, activeChannel]); //SE QUITO SELECTEDCHAT PORQUE RECARGABA A CADA RATO
+  }, [isSocketConnected, userData]); //SE QUITO SELECTEDCHAT PORQUE RECARGABA A CADA RATO
 
   useEffect(() => {
     if (!socketRef.current) return;
     if (!isSocketConnected) return;
-    
+
     socketRef.current.on("ENCARGADO_CHAT_ACTUALIZADO", (data) => {
       const msg = normalizeMsg(data, data.source);
       const encargadoId = msg?.clientePorCelular?.id_encargado;
@@ -2091,7 +2083,7 @@ const Chat = () => {
         setChatMessages([]);
       }
     });
-  }, [isSocketConnected, userData, activeChannel, scopeChats, selectedChat]);
+  }, [isSocketConnected, userData, scopeChats, selectedChat]);
 
   /* sistema de notificacion cuando se asigne correctamente */
   useEffect(() => {
