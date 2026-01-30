@@ -157,7 +157,7 @@ const Chat = () => {
   const [selectedImageId, setSelectedImageId] = useState(null);
 
   // Canal activo y conversación Messenger activa
-  const [activeChannel, setActiveChannel] = useState("whatsapp"); // 'whatsapp' | 'messenger' | 'all'
+  const [activeChannel, setActiveChannel] = useState("all"); //wa | ig | ms | all defaults
   const [msActiveConversationId, setMsActiveConversationId] = useState(null);
   const [msNextBeforeId, setMsNextBeforeId] = useState(null);
   const [msIsLoadingOlder, setMsIsLoadingOlder] = useState(false);
@@ -1870,7 +1870,6 @@ const Chat = () => {
               : "all";
 
       setActiveChannel(nextActive);
-
     },
     [
       emitGetChats,
@@ -1894,28 +1893,6 @@ const Chat = () => {
       // socketRef.current.off("RECEIVED_MESSAGE");
       socketRef.current.off("DATA_FACTURA_RESPONSE");
       socketRef.current.off("DATA_NOVEDADES");
-
-      // Emitir el evento con los filtros y la paginación
-      // socketRef.current.emit(
-      //   "GET_CHATS",
-      //   id_configuracion,
-      //   id_sub_usuario_global,
-      //   rol_usuario_global,
-      //   {
-      //     cursorFecha: null,
-      //     cursorId: null,
-      //     filtros: {
-      //       searchTerm,
-      //       selectedEtiquetas,
-      //       selectedEstado,
-      //       selectedTransportadora,
-      //       selectedNovedad,
-      //       selectedTab,
-      //       selectedPedidos_confirmados,
-      //     },
-      //     scopeChats,
-      //   },
-      // );
 
       emitGetChats({ reset: true, limit: 10 });
 
@@ -1971,128 +1948,6 @@ const Chat = () => {
         });
       }
 
-      // socketRef.current.on("RECEIVED_MESSAGE", (data) => {
-      //   /* console.log("XD:", JSON.stringify(data)); */
-
-      //   if (id_configuracion == data.id_configuracion) {
-      //     setMensajesAcumulados((prevChats) => {
-      //       const actualizado = prevChats.map((chat) => ({ ...chat }));
-
-      //       const idChat = data.celular_recibe;
-
-      //       const index = actualizado.findIndex((chat) => {
-      //         console.log(String(chat.id) === String(idChat));
-      //         return String(chat.id) === String(idChat);
-      //       });
-
-      //       if (index !== -1) {
-      //         actualizado[index].mensaje_created_at =
-      //           data.ultimoMensaje.created_at;
-      //         actualizado[index].texto_mensaje =
-      //           data.ultimoMensaje.texto_mensaje;
-      //         actualizado[index].mensajes_pendientes =
-      //           (actualizado[index].mensajes_pendientes || 0) + 1;
-      //         actualizado[index].visto = 0;
-
-      //         const [actualizadoChat] = actualizado.splice(index, 1);
-      //         actualizado.unshift(actualizadoChat);
-      //       } else {
-      //         // Si no está, crear uno nuevo con id = celular_recibe
-      //         const nuevoChat = {
-      //           id: idChat,
-      //           mensaje_created_at: data.ultimoMensaje.created_at,
-      //           texto_mensaje: data.ultimoMensaje.texto_mensaje,
-      //           celular_cliente:
-      //             data.ultimoMensaje.clientePorCelular?.celular_cliente,
-      //           mensajes_pendientes: 1,
-      //           visto: 0,
-      //           nombre_cliente:
-      //             data.ultimoMensaje.clientePorCelular?.nombre_cliente,
-      //           id_encargado:
-      //             data.ultimoMensaje.clientePorCelular?.id_encargado,
-      //           etiquetas: [
-      //             {
-      //               id: null,
-      //               nombre: null,
-      //               color: null,
-      //             },
-      //           ],
-      //           transporte: null,
-      //           estado_factura: null,
-      //           novedad_info: {
-      //             id_novedad: null,
-      //             novedad: null,
-      //             solucionada: null,
-      //             terminado: null,
-      //           },
-      //         };
-
-      //         /* console.log("nuevoChat: " + JSON.stringify(nuevoChat, null, 2)); */
-
-      //         if (
-      //           data.ultimoMensaje.clientePorCelular?.id_encargado ==
-      //             id_sub_usuario_global ||
-      //           rol_usuario_global == "administrador"
-      //         ) {
-      //           actualizado.unshift(nuevoChat);
-      //         }
-      //       }
-
-      //       return actualizado;
-      //     });
-
-      //     // Si el cursor era null, se debe actualizar
-      //     if (!cursorFecha || !cursorId) {
-      //       setCursorFecha(data.ultimoMensaje.created_at);
-      //       setCursorId(data.ultimoMensaje.id);
-      //     }
-
-      //     /* carga de la derecha */
-      //     if (
-      //       selectedChat &&
-      //       String(selectedChat.id) === String(data.celular_recibe)
-      //     ) {
-      //       console.log("entro en la consola");
-
-      //       socketRef.current.emit("GET_CHATS_BOX", {
-      //         chatId: selectedChat.id,
-      //         id_configuracion: id_configuracion,
-      //       });
-
-      //       socketRef.current.once("CHATS_BOX_RESPONSE", (data) => {
-      //         console.log(
-      //           "Mensajes actualizados tras recibir un nuevo mensaje:",
-      //           data,
-      //         );
-      //         setChatMessages(data);
-
-      //         setMensajesAcumulados((prev) =>
-      //           prev.map((chat) =>
-      //             chat.id === selectedChat.id
-      //               ? { ...chat, mensajes_pendientes: 0 }
-      //               : chat,
-      //           ),
-      //         );
-
-      //         const orderedMessages = getOrderedChats();
-      //         setMensajesOrdenados(orderedMessages.slice(-20));
-      //         setMensajesMostrados(20);
-
-      //         if (chatContainerRef.current) {
-      //           const chatContainer = chatContainerRef.current;
-      //           const isAtBottom =
-      //             chatContainer.scrollHeight - chatContainer.scrollTop <=
-      //             chatContainer.clientHeight + 5;
-
-      //           if (isAtBottom) {
-      //             chatContainer.scrollTop = chatContainer.scrollHeight;
-      //           }
-      //         }
-      //       });
-      //     }
-      //   }
-      // });
-
       if (id_plataforma_conf !== null) {
         socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
           setFacturasChatSeleccionado(data.facturas);
@@ -2133,11 +1988,11 @@ const Chat = () => {
           isAdmin || String(encargadoId) === String(id_sub_usuario_global);
         console.log(typeof mensajesAcumulados);
         console.log("MENSAJE_ACUMULADO", JSON.stringify(mensajesAcumulados));
-        
+
         setMensajesAcumulados((prev) => {
           // Si prev no es un array válido, retornar array vacío
           if (!Array.isArray(prev)) return [];
-          
+
           // si NO debo verlo, lo quito
           if (prev.length != 0) {
             if (!deboVerlo) {
@@ -2155,7 +2010,7 @@ const Chat = () => {
           copia[idx] = { ...copia[idx], ...data };
           return copia; */
           }
-          
+
           // Siempre retornar el array anterior si no se cumple ninguna condición
           return prev;
         });
@@ -2220,28 +2075,29 @@ const Chat = () => {
         if (ultimo_cursorId != cursorId) {
           console.log("cursorFecha: " + cursorFecha);
           console.log("cursorId: " + cursorId);
-          socketRef.current.emit(
-            "GET_CHATS",
-            id_configuracion,
-            id_sub_usuario_global,
-            rol_usuario_global,
-            {
-              limit: 10,
-              cursorFecha,
-              cursorId,
-              filtros: {
-                searchTerm,
-                selectedEtiquetas,
-                selectedEstado,
-                selectedTransportadora,
-                selectedNovedad,
-                selectedTab,
-                selectedPedidos_confirmados,
-              },
-              scopeChats,
-            },
-          );
+          // socketRef.current.emit(
+          //   "GET_CHATS",
+          //   id_configuracion,
+          //   id_sub_usuario_global,
+          //   rol_usuario_global,
+          //   {
+          //     limit: 10,
+          //     cursorFecha,
+          //     cursorId,
+          //     filtros: {
+          //       searchTerm,
+          //       selectedEtiquetas,
+          //       selectedEstado,
+          //       selectedTransportadora,
+          //       selectedNovedad,
+          //       selectedTab,
+          //       selectedPedidos_confirmados,
+          //     },
+          //     scopeChats,
+          //   },
+          // );
 
+          emitGetChats({ reset: false, limit: 10 });
           setUltimo_cursorId(cursorId);
 
           socketRef.current.once("CHATS", (data) => {
@@ -2276,40 +2132,18 @@ const Chat = () => {
         setScopeChats("mine");
       }
 
-      if (socketRef.current && isSocketConnected) {
-        socketRef.current.emit(
-          "GET_CHATS",
-          id_configuracion,
-          id_sub_usuario_global,
-          rol_usuario_global,
-          {
-            limit: 10,
-            cursorFecha: null,
-            cursorId: null,
-            filtros: {
-              searchTerm,
-              selectedEtiquetas,
-              selectedEstado,
-              selectedTransportadora,
-              selectedNovedad,
-              selectedTab,
-              selectedPedidos_confirmados,
-            },
-            scopeChats,
-          },
-        );
+      emitGetChats({ reset: true, limit: 10 });
 
-        socketRef.current.once("CHATS", (data) => {
-          if (data.length > 0) {
-            setMensajesAcumulados(data);
+      socketRef.current.once("CHATS", (data) => {
+        if (data.length > 0) {
+          setMensajesAcumulados(data);
 
-            const ultimo = data[data.length - 1];
-            setCursorFecha(ultimo.mensaje_created_at);
-            setCursorId(ultimo.id);
-          }
-          prefetchProfilesFromChats(data);
-        });
-      }
+          const ultimo = data[data.length - 1];
+          setCursorFecha(ultimo.mensaje_created_at);
+          setCursorId(ultimo.id);
+        }
+        prefetchProfilesFromChats(data);
+      });
     };
 
     cargarChatsFiltros();
@@ -2333,28 +2167,29 @@ const Chat = () => {
   useEffect(() => {
     if (seRecibioMensaje) {
       // Obtener los chats recientes (carga inicial con cursores nulos)
-      socketRef.current.emit(
-        "GET_CHATS",
-        id_configuracion,
-        id_sub_usuario_global,
-        rol_usuario_global,
-        {
-          limit: 10,
-          cursorFecha: null, // Cargar desde el más reciente
-          cursorId: null,
-          filtros: {
-            searchTerm,
-            selectedEtiquetas,
-            selectedEstado,
-            selectedTransportadora,
-            selectedNovedad,
-            selectedTab,
-            selectedPedidos_confirmados,
-          },
-          scopeChats,
-        },
-      );
+      // socketRef.current.emit(
+      //   "GET_CHATS",
+      //   id_configuracion,
+      //   id_sub_usuario_global,
+      //   rol_usuario_global,
+      //   {
+      //     limit: 10,
+      //     cursorFecha: null, // Cargar desde el más reciente
+      //     cursorId: null,
+      //     filtros: {
+      //       searchTerm,
+      //       selectedEtiquetas,
+      //       selectedEstado,
+      //       selectedTransportadora,
+      //       selectedNovedad,
+      //       selectedTab,
+      //       selectedPedidos_confirmados,
+      //     },
+      //     scopeChats,
+      //   },
+      // );
 
+      emitGetChats({ reset: true, limit: 10 });
       socketRef.current.once("CHATS", (data) => {
         if (data.length > 0) {
           setMensajesAcumulados((prevChats) => {
