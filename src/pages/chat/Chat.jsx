@@ -2041,7 +2041,6 @@ const Chat = () => {
               return actualizado;
             }
 
-
             /* si no se cumple crea uno nuevo */
             const nuevoChat = {
               id: msg.celular_recibe,
@@ -2088,7 +2087,7 @@ const Chat = () => {
         }
       });
     }
-  }, [isSocketConnected, userData, activeChannel, scopeChats,selectedChat]);
+  }, [isSocketConnected, userData, activeChannel, scopeChats]); //SE QUITO SELECTEDCHAT PORQUE RECARGABA A CADA RATO
 
   /* sistema de notificacion cuando se asigne correctamente */
   useEffect(() => {
@@ -2202,7 +2201,7 @@ const Chat = () => {
 
   useEffect(() => {
     if (!socketRef.current) return;
-    
+
     const cargarChatsFiltros = async () => {
       setMensajesAcumulados([]);
       setMensajesVisibles(10);
@@ -2618,8 +2617,17 @@ const Chat = () => {
         return actualizado;
       });
 
-      if (selectedChat && String(selectedChat.id) === String(chatId)) {
-        // opcional: cerrar chat actual o mostrar aviso
+      // if (selectedChat && String(selectedChat.id) === String(chatId)) {
+      //   // opcional: cerrar chat actual o mostrar aviso
+      //   if (Swal.isVisible()) Swal.close();
+      //   setSelectedChat(null);
+      //   setChatMessages([]);
+      // }
+      if (
+        selectedChat &&
+        String(selectedChat.id) === String(chatId) &&
+        !canSeeChat
+      ) {
         if (Swal.isVisible()) Swal.close();
         setSelectedChat(null);
         setChatMessages([]);
