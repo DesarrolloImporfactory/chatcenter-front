@@ -1979,115 +1979,119 @@ const Chat = () => {
           );
         }
       }); */
+    }
+  }, [isSocketConnected, userData, activeChannel]); //SE QUITO SELECTEDCHAT PORQUE RECARGABA A CADA RATO
 
-      socketRef.current.on("ENCARGADO_CHAT_ACTUALIZADO", (data) => {
-        const msg = normalizeMsg(data, data.source);
-        const encargadoId = msg?.clientePorCelular?.id_encargado;
-        const isAdmin = rol_usuario_global === "administrador";
+  useEffect(() => {
+    if (!socketRef.current) return;
+    if (!isSocketConnected) return;
+    
+    socketRef.current.on("ENCARGADO_CHAT_ACTUALIZADO", (data) => {
+      const msg = normalizeMsg(data, data.source);
+      const encargadoId = msg?.clientePorCelular?.id_encargado;
+      const isAdmin = rol_usuario_global === "administrador";
 
-        const deboVerlo = String(encargadoId) === String(id_sub_usuario_global);
+      const deboVerlo = String(encargadoId) === String(id_sub_usuario_global);
 
-        const isIncoming =
-          msg.direction === "in" ||
-          msg.rol_mensaje === 0 ||
-          msg.rol_mensaje === "0";
+      const isIncoming =
+        msg.direction === "in" ||
+        msg.rol_mensaje === 0 ||
+        msg.rol_mensaje === "0";
 
-        setMensajesAcumulados((prev) => {
-          // Si prev no es un array válido, retornar array vacío
-          if (!Array.isArray(prev)) return [];
+      setMensajesAcumulados((prev) => {
+        // Si prev no es un array válido, retornar array vacío
+        if (!Array.isArray(prev)) return [];
 
-          // si NO debo verlo, lo quito
-          if (prev.length != 0) {
-            /* validamos para saber si se quita o no */
+        // si NO debo verlo, lo quito
+        if (prev.length != 0) {
+          /* validamos para saber si se quita o no */
 
-            if (scopeChats == "waiting") {
-              if (!deboVerlo) {
-                return prev.filter((c) => c.id != msg.celular_recibe);
-              } else {
-                return prev;
-              }
+          if (scopeChats == "waiting") {
+            if (!deboVerlo) {
+              return prev.filter((c) => c.id != msg.celular_recibe);
+            } else {
+              return prev;
             }
-            /* validamos para saber si se quita o no */
+          }
+          /* validamos para saber si se quita o no */
 
-            const actualizado = prev.map((c) => ({ ...c }));
+          const actualizado = prev.map((c) => ({ ...c }));
 
-            const index = actualizado.findIndex(
-              (c) => String(c.id) === String(msg.celular_recibe),
-            );
+          const index = actualizado.findIndex(
+            (c) => String(c.id) === String(msg.celular_recibe),
+          );
 
-            /* si se cumple se actualiza */
-            if (index !== -1) {
-              actualizado[index].mensaje_created_at = msg.created_at;
-              actualizado[index].texto_mensaje = msg.texto_mensaje;
-              actualizado[index].tipo_mensaje = msg.tipo_mensaje;
-              actualizado[index].source =
-                msg.source || actualizado[index].source;
+          /* si se cumple se actualiza */
+          if (index !== -1) {
+            actualizado[index].mensaje_created_at = msg.created_at;
+            actualizado[index].texto_mensaje = msg.texto_mensaje;
+            actualizado[index].tipo_mensaje = msg.tipo_mensaje;
+            actualizado[index].source = msg.source || actualizado[index].source;
 
-              if (isIncoming) {
-                actualizado[index].mensajes_pendientes =
-                  (actualizado[index].mensajes_pendientes || 0) + 1;
-                actualizado[index].visto = 0;
-              }
-
-              actualizado[index].id_encargado = encargadoId;
-
-              // si en el payload viene el encargado (depende cómo lo mande su backend)
-              if (msg.clientePorCelular.nombre_encargado)
-                actualizado[index].nombre_encargado =
-                  msg.clientePorCelular.nombre_encargado;
-
-              const [moved] = actualizado.splice(index, 1);
-              actualizado.unshift(moved);
-              return actualizado;
+            if (isIncoming) {
+              actualizado[index].mensajes_pendientes =
+                (actualizado[index].mensajes_pendientes || 0) + 1;
+              actualizado[index].visto = 0;
             }
 
-            /* si no se cumple crea uno nuevo */
-            const nuevoChat = {
-              id: msg.celular_recibe,
-              id_configuracion: msg.id_configuracion,
-              mensaje_created_at: msg.created_at,
-              texto_mensaje: msg.texto_mensaje,
-              tipo_mensaje: msg.tipo_mensaje,
-              mensajes_pendientes: isIncoming ? 1 : 0,
-              visto: isIncoming ? 0 : 1,
-              source: msg.source,
-              id_encargado: encargadoId,
-              nombre_encargado: msg.clientePorCelular.nombre_encargado ?? "",
-              nombre_cliente: msg.clientePorCelular?.nombre_cliente,
-              celular_cliente: msg.clientePorCelular?.celular_cliente,
-              etiquetas: [{ id: null, nombre: null, color: null }],
-              transporte: null,
-              estado_factura: null,
-              novedad_info: {
-                id_novedad: null,
-                novedad: null,
-                solucionada: null,
-                terminado: null,
-              },
-            };
+            actualizado[index].id_encargado = encargadoId;
 
-            actualizado.unshift(nuevoChat);
+            // si en el payload viene el encargado (depende cómo lo mande su backend)
+            if (msg.clientePorCelular.nombre_encargado)
+              actualizado[index].nombre_encargado =
+                msg.clientePorCelular.nombre_encargado;
 
+            const [moved] = actualizado.splice(index, 1);
+            actualizado.unshift(moved);
             return actualizado;
           }
 
-          // Siempre retornar el array anterior si no se cumple ninguna condición
-          return prev;
-        });
+          /* si no se cumple crea uno nuevo */
+          const nuevoChat = {
+            id: msg.celular_recibe,
+            id_configuracion: msg.id_configuracion,
+            mensaje_created_at: msg.created_at,
+            texto_mensaje: msg.texto_mensaje,
+            tipo_mensaje: msg.tipo_mensaje,
+            mensajes_pendientes: isIncoming ? 1 : 0,
+            visto: isIncoming ? 0 : 1,
+            source: msg.source,
+            id_encargado: encargadoId,
+            nombre_encargado: msg.clientePorCelular.nombre_encargado ?? "",
+            nombre_cliente: msg.clientePorCelular?.nombre_cliente,
+            celular_cliente: msg.clientePorCelular?.celular_cliente,
+            etiquetas: [{ id: null, nombre: null, color: null }],
+            transporte: null,
+            estado_factura: null,
+            novedad_info: {
+              id_novedad: null,
+              novedad: null,
+              solucionada: null,
+              terminado: null,
+            },
+          };
 
-        // si tienes chat seleccionado abierto y coincide, lo actualizas también
-        if (
-          selectedChat &&
-          String(selectedChat.id) === String(msg.celular_recibe)
-        ) {
-          // opcional: cerrar chat actual o mostrar aviso
-          if (Swal.isVisible()) Swal.close();
-          setSelectedChat(null);
-          setChatMessages([]);
+          actualizado.unshift(nuevoChat);
+
+          return actualizado;
         }
+
+        // Siempre retornar el array anterior si no se cumple ninguna condición
+        return prev;
       });
-    }
-  }, [isSocketConnected, userData, activeChannel, scopeChats]); //SE QUITO SELECTEDCHAT PORQUE RECARGABA A CADA RATO
+
+      // si tienes chat seleccionado abierto y coincide, lo actualizas también
+      if (
+        selectedChat &&
+        String(selectedChat.id) === String(msg.celular_recibe)
+      ) {
+        // opcional: cerrar chat actual o mostrar aviso
+        if (Swal.isVisible()) Swal.close();
+        setSelectedChat(null);
+        setChatMessages([]);
+      }
+    });
+  }, [isSocketConnected, userData, activeChannel, scopeChats, selectedChat]);
 
   /* sistema de notificacion cuando se asigne correctamente */
   useEffect(() => {
