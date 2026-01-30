@@ -206,19 +206,31 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
 
   // Respuestas rápidas
   useEffect(() => {
-    if (currentTab === "answers-fast") fetchRespuestasRapidas();
-  }, [currentTab]);
+    if (currentTab !== "answers-fast") return;
+    if (!userData || id_configuracion == null) return;
+
+    fetchRespuestasRapidas();
+  }, [currentTab, userData, id_configuracion]);
 
   const fetchRespuestasRapidas = async () => {
     if (!userData || id_configuracion == null) return;
+
     try {
-      const response = await chatApi.post(
-        "/whatsapp_managment/obtenerPlantillasPlataforma",
+      const resp = await chatApi.post(
+        "/whatsapp_managment/obtenerRespuestasRapidas",
         { id_configuracion },
       );
-      setRespuestasRapidas(response.data || []);
+
+      const raw =
+        resp?.data?.data?.data ?? resp?.data?.data ?? resp?.data ?? [];
+
+      // Normalización: array | objeto | null
+      const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
+      setRespuestasRapidas(arr);
     } catch (error) {
       console.error("Error al cargar respuestas rápidas", error);
+      setRespuestasRapidas([]);
     }
   };
 
@@ -1055,6 +1067,85 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     </div>
   );
 
+  const QuickReplyPreview = ({ r }) => {
+    const tipo = String(r?.tipo_mensaje || "text").toLowerCase();
+    const url = (r?.ruta_archivo || "").trim();
+    const name = r?.file_name || "adjunto";
+
+    const normalizeUrl = (u) => {
+      if (!u) return null;
+      const s = String(u).trim();
+      if (!s) return null;
+      if (/^https?:\/\//i.test(s)) return s;
+      return `https://new.imporsuitpro.com/${s.replace(/^\//, "")}`;
+    };
+
+    const finalUrl = normalizeUrl(url);
+
+    if (tipo === "text" || !finalUrl) return null;
+
+    // Imagen
+    if (tipo === "image") {
+      return (
+        <div className="mt-2">
+          <img
+            src={finalUrl}
+            alt="preview"
+            className="h-16 w-auto max-w-[220px] rounded-lg object-cover border"
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+          <a
+            href={finalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-xs text-blue-600 hover:underline mt-1"
+          >
+            Abrir imagen
+          </a>
+        </div>
+      );
+    }
+
+    // Video
+    if (tipo === "video") {
+      return (
+        <div className="mt-2">
+          <a
+            href={finalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:underline"
+          >
+            Ver video ({name})
+          </a>
+        </div>
+      );
+    }
+
+    // Audio
+    if (tipo === "audio") {
+      return (
+        <div className="mt-2">
+          <audio controls src={finalUrl} className="w-full max-w-[260px]" />
+        </div>
+      );
+    }
+
+    // Documento
+    return (
+      <div className="mt-2">
+        <a
+          href={finalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-600 hover:underline"
+        >
+          Abrir documento ({name})
+        </a>
+      </div>
+    );
+  };
+
   const renderAnswersFastTable = () => (
     <div className="overflow-visible bg-white p-5 rounded-3xl shadow-xl border border-gray-100 relative z-0">
       <SectionHeader
@@ -1099,42 +1190,60 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
           </tr>
         </thead>
         <tbody>
-          {respuestasRapidas.map((respuesta, index) => (
-            <tr key={index} className="border-t hover:bg-gray-50">
-              <td className="py-2 px-4">{respuesta.atajo}</td>
-              <td className="py-2 px-4">{respuesta.mensaje}</td>
-              <td className="py-2 px-10">
-                <input
-                  type="checkbox"
-                  checked={parseInt(respuesta.principal) === 1}
-                  disabled={
-                    parseInt(respuesta.principal) === 1
-                      ? false
-                      : respuestasRapidas.some(
-                          (r) =>
-                            parseInt(r.principal) === 1 &&
-                            r.id_template !== respuesta.id_template,
-                        )
-                  }
-                  onChange={() => cambiarEstadoRespuesta(respuesta)}
-                />
-              </td>
-              <td className="py-2 px-4 flex gap-2">
-                <button
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded"
-                  onClick={() => handleAbrirEditarRespuesta(respuesta)}
-                >
-                  <i className="fa-solid fa-pencil"></i> Editar
-                </button>
-                <button
-                  className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
-                  onClick={() => eliminarRespuesta(respuesta.id_template)}
-                >
-                  <i className="fa-solid fa-trash-can"></i> Borrar
-                </button>
-              </td>
-            </tr>
-          ))}
+          {(Array.isArray(respuestasRapidas) ? respuestasRapidas : []).map(
+            (respuesta, index) => (
+              <tr key={index} className="border-t hover:bg-gray-50">
+                <td className="py-2 px-4">{respuesta.atajo}</td>
+                <td className="py-2 px-4 text-sm">
+                  <div className="whitespace-pre-line">{respuesta.mensaje}</div>
+
+                  {/* ✅ Preview si es media */}
+                  <QuickReplyPreview r={respuesta} />
+
+                  {/* etiqueta tipo */}
+                  {String(respuesta.tipo_mensaje || "text").toLowerCase() !==
+                    "text" && (
+                    <div className="mt-1">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border">
+                        {String(respuesta.tipo_mensaje).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </td>
+
+                <td className="py-2 px-10">
+                  <input
+                    type="checkbox"
+                    checked={parseInt(respuesta.principal) === 1}
+                    disabled={
+                      parseInt(respuesta.principal) === 1
+                        ? false
+                        : respuestasRapidas.some(
+                            (r) =>
+                              parseInt(r.principal) === 1 &&
+                              r.id_template !== respuesta.id_template,
+                          )
+                    }
+                    onChange={() => cambiarEstadoRespuesta(respuesta)}
+                  />
+                </td>
+                <td className="py-2 px-4 flex gap-2">
+                  <button
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded"
+                    onClick={() => handleAbrirEditarRespuesta(respuesta)}
+                  >
+                    <i className="fa-solid fa-pencil"></i> Editar
+                  </button>
+                  <button
+                    className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
+                    onClick={() => eliminarRespuesta(respuesta.id_template)}
+                  >
+                    <i className="fa-solid fa-trash-can"></i> Borrar
+                  </button>
+                </td>
+              </tr>
+            ),
+          )}
         </tbody>
       </table>
     </div>
