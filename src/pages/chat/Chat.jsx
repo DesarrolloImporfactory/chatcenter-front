@@ -2040,6 +2040,7 @@ const Chat = () => {
               actualizado.unshift(moved);
               return actualizado;
             }
+            
 
             /* si no se cumple crea uno nuevo */
             const nuevoChat = {
