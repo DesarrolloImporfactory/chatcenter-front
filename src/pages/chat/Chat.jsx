@@ -2040,7 +2040,7 @@ const Chat = () => {
               actualizado.unshift(moved);
               return actualizado;
             }
-            
+
 
             /* si no se cumple crea uno nuevo */
             const nuevoChat = {
@@ -2201,6 +2201,8 @@ const Chat = () => {
   }, [mensajesVisibles]);
 
   useEffect(() => {
+    if (!socketRef.current) return;
+    
     const cargarChatsFiltros = async () => {
       setMensajesAcumulados([]);
       setMensajesVisibles(10);
