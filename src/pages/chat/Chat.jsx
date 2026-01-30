@@ -1870,7 +1870,6 @@ const Chat = () => {
               : "all";
 
       setActiveChannel(nextActive);
-
     },
     [
       emitGetChats,
@@ -2126,46 +2125,104 @@ const Chat = () => {
       }); */
 
       socketRef.current.on("ENCARGADO_CHAT_ACTUALIZADO", (data) => {
-        const encargadoId = data?.clientePorCelular?.id_encargado;
+        const msg = normalizeMsg(data, data.source);
+        const encargadoId = msg?.clientePorCelular?.id_encargado;
         const isAdmin = rol_usuario_global === "administrador";
 
-        const deboVerlo =
-          isAdmin || String(encargadoId) === String(id_sub_usuario_global);
-        console.log(typeof mensajesAcumulados);
-        console.log("MENSAJE_ACUMULADO", JSON.stringify(mensajesAcumulados));
-        
+        const deboVerlo = String(encargadoId) === String(id_sub_usuario_global);
+
+        const isIncoming =
+          msg.direction === "in" ||
+          msg.rol_mensaje === 0 ||
+          msg.rol_mensaje === "0";
+
         setMensajesAcumulados((prev) => {
           // Si prev no es un array válido, retornar array vacío
           if (!Array.isArray(prev)) return [];
-          
+
           // si NO debo verlo, lo quito
           if (prev.length != 0) {
-            if (!deboVerlo) {
-              return prev.filter((c) => c.id != data.celular_recibe);
-            }
+            /* validamos para saber si se quita o no */
 
-            console.log(
-              "MENSAJES_ACTUALIZADOS: ",
-              JSON.stringify([data, ...prev]),
+            if (scopeChats == "waiting") {
+              if (!deboVerlo) {
+                return prev.filter((c) => c.id != msg.celular_recibe);
+              } else {
+                return prev;
+              }
+            }
+            /* validamos para saber si se quita o no */
+
+            const actualizado = prev.map((c) => ({ ...c }));
+
+            const index = actualizado.findIndex(
+              (c) => String(c.id) === String(msg.celular_recibe),
             );
 
-            /* if (idx === -1) return [data, ...prev];
+            /* si se cumple se actualiza */
+            if (index !== -1) {
+              actualizado[index].mensaje_created_at = msg.created_at;
+              actualizado[index].texto_mensaje = msg.texto_mensaje;
+              actualizado[index].tipo_mensaje = msg.tipo_mensaje;
+              actualizado[index].source =
+                msg.source || actualizado[index].source;
 
-          const copia = [...prev];
-          copia[idx] = { ...copia[idx], ...data };
-          return copia; */
+              if (isIncoming) {
+                actualizado[index].mensajes_pendientes =
+                  (actualizado[index].mensajes_pendientes || 0) + 1;
+                actualizado[index].visto = 0;
+              }
+
+              actualizado[index].id_encargado = encargadoId;
+
+              // si en el payload viene el encargado (depende cómo lo mande su backend)
+              if (msg.clientePorCelular.nombre_encargado)
+                actualizado[index].nombre_encargado =
+                  msg.clientePorCelular.nombre_encargado;
+
+              const [moved] = actualizado.splice(index, 1);
+              actualizado.unshift(moved);
+              return actualizado;
+            }
+
+            /* si no se cumple crea uno nuevo */
+            const nuevoChat = {
+              id: msg.celular_recibe,
+              id_configuracion: msg.id_configuracion,
+              mensaje_created_at: msg.created_at,
+              texto_mensaje: msg.texto_mensaje,
+              tipo_mensaje: msg.tipo_mensaje,
+              mensajes_pendientes: isIncoming ? 1 : 0,
+              visto: isIncoming ? 0 : 1,
+              source: msg.source,
+              id_encargado: encargadoId,
+              nombre_encargado: msg.clientePorCelular.nombre_encargado ?? "",
+              nombre_cliente: msg.clientePorCelular?.nombre_cliente,
+              celular_cliente: msg.clientePorCelular?.celular_cliente,
+              etiquetas: [{ id: null, nombre: null, color: null }],
+              transporte: null,
+              estado_factura: null,
+              novedad_info: {
+                id_novedad: null,
+                novedad: null,
+                solucionada: null,
+                terminado: null,
+              },
+            };
+
+            actualizado.unshift(nuevoChat);
+
+            return actualizado;
           }
-          
+
           // Siempre retornar el array anterior si no se cumple ninguna condición
           return prev;
         });
 
-        console.log("data.celular_recibe: " + data.celular_recibe);
-
         // si tienes chat seleccionado abierto y coincide, lo actualizas también
         if (
           selectedChat &&
-          String(selectedChat.id) === String(data.celular_recibe)
+          String(selectedChat.id) === String(msg.celular_recibe)
         ) {
           // opcional: cerrar chat actual o mostrar aviso
           if (Swal.isVisible()) Swal.close();
@@ -2174,7 +2231,7 @@ const Chat = () => {
         }
       });
     }
-  }, [isSocketConnected, userData, activeChannel]);
+  }, [isSocketConnected, userData, activeChannel, scopeChats,selectedChat]);
 
   /* sistema de notificacion cuando se asigne correctamente */
   useEffect(() => {
@@ -2183,6 +2240,25 @@ const Chat = () => {
     const onAsignarResponse = (res) => {
       if (res?.status === "success") {
         Toast.fire({ icon: "success", title: res.message });
+
+        setSelectedChat((prev) => ({
+          ...prev,
+          id_encargado: id_sub_usuario_global,
+        }));
+
+        // Actualizar id_encargado en mensajesAcumulados
+        const updatedMensajesAcumulados = mensajesAcumulados.map((mensaje) => {
+          if (mensaje.id === selectedChat.id) {
+            return {
+              ...mensaje,
+              id_encargado: id_sub_usuario_global, // Actualizar id_encargado
+            };
+          }
+          return mensaje;
+        });
+
+        // Actualizar mensajesAcumulados en el estado si es necesario
+        setMensajesAcumulados(updatedMensajesAcumulados);
       } else {
         Toast.fire({
           icon: "error",
@@ -2196,7 +2272,7 @@ const Chat = () => {
     return () => {
       socketRef.current.off("ASIGNAR_ENCARGADO_RESPONSE", onAsignarResponse);
     };
-  }, [isSocketConnected]);
+  }, [isSocketConnected, selectedChat, mensajesAcumulados]);
   /* sistema de notificacion cuando se asigne correctamente */
 
   const scrollRef = useRef(null);
@@ -2554,31 +2630,31 @@ const Chat = () => {
     }
   }, [menuSearchTermNumeroCliente]);
 
+  const normalizeMsg = (m = {}, fallbackSource) => {
+    const created =
+      m.created_at || m.createdAt || m.timestamp || new Date().toISOString();
+
+    const texto =
+      m.texto_mensaje ?? m.text ?? m.message ?? m.body ?? m.payload ?? "";
+
+    const tipo = m.tipo_mensaje || m.type || "text";
+
+    const direction =
+      m.direction ||
+      (m.rol_mensaje === 1 ? "out" : m.rol_mensaje === 0 ? "in" : undefined);
+
+    return {
+      ...m,
+      created_at: created,
+      texto_mensaje: texto,
+      tipo_mensaje: tipo,
+      direction,
+      source: m.source || fallbackSource,
+    };
+  };
+
   useEffect(() => {
     if (!isSocketConnected || !socketRef.current) return;
-
-    const normalizeMsg = (m = {}, fallbackSource) => {
-      const created =
-        m.created_at || m.createdAt || m.timestamp || new Date().toISOString();
-
-      const texto =
-        m.texto_mensaje ?? m.text ?? m.message ?? m.body ?? m.payload ?? "";
-
-      const tipo = m.tipo_mensaje || m.type || "text";
-
-      const direction =
-        m.direction ||
-        (m.rol_mensaje === 1 ? "out" : m.rol_mensaje === 0 ? "in" : undefined);
-
-      return {
-        ...m,
-        created_at: created,
-        texto_mensaje: texto,
-        tipo_mensaje: tipo,
-        direction,
-        source: m.source || fallbackSource,
-      };
-    };
 
     const scrollIfAtBottom = () => {
       if (!chatContainerRef.current) return;
