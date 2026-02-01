@@ -33,7 +33,7 @@ import Asistentes from "./pages/asistentes/Asistentes";
 import Estado_contactos_imporfactory from "./pages/contactos/Estado_contactos_imporfactory";
 import Estado_contactos_ventas from "./pages/contactos/Estado_contactos_ventas";
 import Estado_contactos_imporshop from "./pages/contactos/Estado_contactos_imporshop";
-import Vinculaciones from "./pages/vinculaciones/Vinculaciones";
+import OrdenesDropi from "./pages/dropi/OrdenesDropi";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
@@ -60,7 +60,7 @@ import MainLayout_conexiones from "./components/layout/MainLayout_conexiones";
 import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
 
 import Contactos from "./components/clientes/Contactos";
-import Integraciones from "./pages/vinculaciones/Integraciones";
+import IntegracionesDropi from "./pages/dropi/IntegracionesDropi";
 
 function App() {
   useEffect(() => {
@@ -192,10 +192,19 @@ function App() {
           />
 
           <Route
-            path="/integraciones"
+            path="/dropi"
             element={
               <MainLayout>
-                <Integraciones />
+                <IntegracionesDropi />
+              </MainLayout>
+            }
+          />
+
+          <Route
+            path="/dropi/pedidos"
+            element={
+              <MainLayout>
+                <OrdenesDropi />
               </MainLayout>
             }
           />

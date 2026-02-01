@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
@@ -34,9 +34,19 @@ const Cabecera = ({
   const [openTools, setOpenTools] = useState(false);
 
   const [openMenu, setOpenMenu] = useState(null);
+  const [openSubMenu, setOpenSubMenu] = useState(null);
 
   const toggleMenu = (key) => {
-    setOpenMenu((prev) => (prev === key ? null : key));
+    setOpenMenu((prev) => {
+      const next = prev === key ? null : key;
+      // si sale de integraciones, cierre submenú
+      if (next !== "integraciones") setOpenSubMenu(null);
+      return next;
+    });
+  };
+
+  const toggleSubMenu = (key) => {
+    setOpenSubMenu((prev) => (prev === key ? null : key));
   };
 
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -92,7 +102,7 @@ const Cabecera = ({
         "/estados_contactos_ventas",
       ].includes(location.pathname)
     ) {
-      setOpenMenu("contactos");
+      setOpenMenu("contacto");
     }
   }, [location.pathname]);
 
@@ -127,12 +137,50 @@ const Cabecera = ({
     }
   };
 
-  const handleReturnToImporsuit = () => {
-    localStorage.getItem("token");
-    window.location.href =
-      "https://new.imporsuitpro.com/acceso/jwt_home/" +
-      localStorage.getItem("token");
-  };
+  // =========================================================
+  // DROPi (estado global en layout)
+  // =========================================================
+  const [isDropiLinked, setIsDropiLinked] = useState(false);
+  const [loadingDropiLinked, setLoadingDropiLinked] = useState(false);
+
+  const fetchDropiLinked = useCallback(async () => {
+    if (!id_configuracion) return;
+
+    setLoadingDropiLinked(true);
+    try {
+      const res = await chatApi.get("dropi_integrations", {
+        params: { id_configuracion },
+      });
+
+      const list = res?.data?.data ?? [];
+      setIsDropiLinked(list.length > 0);
+    } catch (e) {
+      // Si falla la consulta, por seguridad marcamos desconectado
+      setIsDropiLinked(false);
+    } finally {
+      setLoadingDropiLinked(false);
+    }
+  }, [id_configuracion]);
+
+  // =========================================================
+  // Listener DROPi linked-changed => refetch
+  // =========================================================
+  useEffect(() => {
+    const handler = () => {
+      // cuando Integraciones.jsx crea/edita/elimina, esto actualiza el layout
+      fetchDropiLinked();
+    };
+
+    window.addEventListener("dropi:linked-changed", handler);
+    return () => window.removeEventListener("dropi:linked-changed", handler);
+  }, [fetchDropiLinked]);
+
+  // =========================================================
+  // Cargar Dropi linked cuando ya tengo id_configuracion
+  // =========================================================
+  useEffect(() => {
+    if (id_configuracion) fetchDropiLinked();
+  }, [id_configuracion, fetchDropiLinked]);
 
   useEffect(() => {
     const fetchEstadoNumero = async () => {
@@ -286,14 +334,6 @@ const Cabecera = ({
   };
 
   const navigate = useNavigate();
-  const irAPlantillas = () => {
-    navigate("/administrador-whatsapp");
-  };
-
-  const navigater = useNavigate();
-  const irAChatCenter = () => {
-    navigater("/chat");
-  };
 
   const isCalendarBlocked = userData && canAccessCalendar === false;
 
@@ -319,26 +359,6 @@ const Cabecera = ({
     };
   }, [opcionesMenuOpen]);
   /* fin menu de opciones */
-
-  /* useEffect(() => {
-      // Verificamos si ya está en localStorage
-      const alertaServi = localStorage.getItem("alerta_Servi");
-  
-      // Si el valor en localStorage es "true", ocultamos el banner
-      if (alertaServi != "true") {
-        localStorage.setItem("alerta_Servi", "true");
-  
-        Swal.fire({
-          icon: "warning",
-          title: "🚨 Aviso Importante 🚨",
-          html:
-            `El <strong>26 de octubre</strong> habrá mantenimiento programado en nuestros sistemas:<br><br>` +
-            `<strong>1. Servientrega:</strong> De 8:00 AM a 10:00 PM, se suspenderá temporalmente la generación de guías.<br>` +
-            `Agradecemos tu comprensión.`,
-          confirmButtonText: "OK",
-        });
-      }
-    }, []); */
 
   return (
     <>
@@ -387,7 +407,6 @@ const Cabecera = ({
         </div>
       </div>
 
-      {/* Slider lateral (Menú) */}
       <div
         ref={sliderRef}
         className={`fixed top-0 left-0 h-screen w-64 bg-white shadow-xl transform transition-transform duration-300 z-50 ${
@@ -405,18 +424,16 @@ const Cabecera = ({
             <i className="bx bx-x text-2xl"></i>
           </button>
         </div>
-
-        {/* Opciones dentro del slider */}
         <div className="mt-6">
-          {/* Volver a Imporsuit */}
+          {/* Conexiones */}
           <a
             onClick={(e) => {
               e.preventDefault();
               localStorage.removeItem("id_configuracion");
               localStorage.removeItem("tipo_configuracion");
               localStorage.removeItem("id_plataforma_conf");
-
               navigate("/conexiones");
+              setSliderOpen(false);
             }}
             className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 cursor-pointer"
           >
@@ -425,6 +442,7 @@ const Cabecera = ({
               Conexiones
             </span>
           </a>
+
           {/* Chat Center */}
           <a
             href="/chat"
@@ -433,7 +451,8 @@ const Cabecera = ({
             }`}
             onClick={(e) => {
               e.preventDefault();
-              navigate("/chat");
+              goTo("/chat");
+              setSliderOpen(false);
             }}
           >
             <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
@@ -441,84 +460,45 @@ const Cabecera = ({
               Chat Center
             </span>
           </a>
-          {/* WhatsApp */}
-          {/* <a
-            href="/administrador-whatsapp"
-            className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-              location.pathname === "/administrador-whatsapp"
-                ? "bg-gray-200 font-semibold"
-                : ""
-            }`}
-            onClick={(e) => {
-              e.preventDefault();
 
-              localStorage.setItem("id_configuracion", id_configuracion);
-              localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
-
-              navigate("/administrador-whatsapp");
-            }}
-          >
-            <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600">
-              WhatsApp
-            </span>
-          </a> */}
-
-          {/* Clientes contactos */}
-          {/* Botón principal */}
+          {/* ====== Contactos ====== */}
           <button
             className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-              location.pathname.startsWith("/contactos")
+              location.pathname.startsWith("/contactos") ||
+              ["/estados_contactos", "/estados_contactos_ventas"].includes(
+                location.pathname,
+              )
                 ? "bg-gray-200 font-semibold"
                 : ""
             }`}
             onClick={() => toggleMenu("contacto")}
           >
             <i className="bx bxs-contact text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-
             <span className="text-lg text-gray-700 group-hover:text-blue-600">
-              Contactos y Conexiones
+              Contactos
             </span>
-
             <i
               className={`bx ml-auto transition-transform duration-300 ${
-                openContacto ? "bx-chevron-up" : "bx-chevron-down"
+                openMenu === "contacto" ? "bx-chevron-up" : "bx-chevron-down"
               }`}
             />
           </button>
 
-          {/* Submenú animado */}
           <div
             className="overflow-hidden transition-all duration-[600ms] ease-out"
             style={{ maxHeight: openMenu === "contacto" ? "260px" : "0px" }}
           >
             <div className="ml-10 flex flex-col py-2">
               <button
-                className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
+                className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                  location.pathname === "/contactos"
+                    ? "font-semibold text-blue-600"
+                    : ""
+                }`}
                 onClick={(e) => {
                   e.preventDefault();
-                  localStorage.setItem("id_configuracion", id_configuracion);
-                  localStorage.setItem(
-                    "id_plataforma_conf",
-                    id_plataforma_conf,
-                  );
-                  navigate("/canal-conexiones");
-                }}
-              >
-                <i className="bx bx-network-chart text-xl text-gray-600 group-hover:text-blue-600"></i>
-                <span>Canal de Conexiones</span>
-              </button>
-
-              <button
-                className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
-                onClick={(e) => {
-                  e.preventDefault();
-                  localStorage.setItem("id_configuracion", id_configuracion);
-                  localStorage.setItem(
-                    "id_plataforma_conf",
-                    id_plataforma_conf,
-                  );
-                  navigate("/contactos");
+                  goTo("/contactos");
+                  setSliderOpen(false);
                 }}
               >
                 <i className="bx bx-book-content text-xl text-gray-600 group-hover:text-blue-600"></i>
@@ -526,39 +506,157 @@ const Cabecera = ({
               </button>
 
               <button
-                className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
+                className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                  (tipo_configuracion === "ventas" &&
+                    location.pathname === "/estados_contactos_ventas") ||
+                  (tipo_configuracion !== "ventas" &&
+                    location.pathname === "/estados_contactos")
+                    ? "font-semibold text-blue-600"
+                    : ""
+                }`}
                 onClick={(e) => {
                   e.preventDefault();
-                  localStorage.setItem("id_configuracion", id_configuracion);
-                  localStorage.setItem(
-                    "id_plataforma_conf",
-                    id_plataforma_conf,
-                  );
-
                   if (tipo_configuracion === "ventas") {
-                    navigate("/estados_contactos_ventas");
+                    goTo("/estados_contactos_ventas");
                   } else {
-                    navigate("/estados_contactos");
+                    goTo("/estados_contactos");
                   }
+                  setSliderOpen(false);
                 }}
               >
                 <i className="bx bx-check-shield text-xl text-gray-600 group-hover:text-blue-600"></i>
-                <span>Estados de contactos</span>
+                <span>Estado de contactos</span>
               </button>
             </div>
           </div>
 
-          {/* ====== Acordeón: Herramientas / Productividad ====== */}
+          {/* ====== Integraciones ====== */}
           <div>
-            {/* Header del acordeón */}
+            <button
+              type="button"
+              onClick={() => toggleMenu("integraciones")}
+              className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                ["/canal-conexiones", "/dropi"].some((p) =>
+                  location.pathname.startsWith(p),
+                )
+                  ? "bg-gray-200 font-semibold"
+                  : ""
+              }`}
+            >
+              <span className="flex items-center">
+                <i className="bx bx-plug text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                  Integraciones
+                </span>
+              </span>
+
+              <i
+                className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
+                  openMenu === "integraciones" ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            <div
+              className="overflow-hidden transition-all duration-[600ms] ease-out"
+              style={{
+                maxHeight: openMenu === "integraciones" ? "520px" : "0px",
+              }}
+            >
+              <div className="ml-10 flex flex-col py-2">
+                <button
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    location.pathname === "/canal-conexiones"
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goTo("/canal-conexiones");
+                    setSliderOpen(false);
+                  }}
+                >
+                  <i className="bx bx-network-chart text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Canal de Conexiones</span>
+                </button>
+
+                {/* ===== Dropi (submenu) ===== */}
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    className={`group flex items-center justify-between w-full text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/dropi")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                    onClick={() => toggleSubMenu("dropi")}
+                  >
+                    <span className="flex items-center gap-3">
+                      <i className="bx bx-store text-xl text-gray-600 group-hover:text-blue-600"></i>
+                      <span>Dropi</span>
+                    </span>
+
+                    <i
+                      className={`bx bx-chevron-down text-xl text-gray-500 transition-transform duration-300 ${
+                        openSubMenu === "dropi" ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  <div
+                    className="overflow-hidden transition-all duration-[600ms] ease-out"
+                    style={{
+                      maxHeight: openSubMenu === "dropi" ? "220px" : "0px",
+                    }}
+                  >
+                    <div className="ml-6 flex flex-col py-2">
+                      <button
+                        className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                          location.pathname === "/dropi"
+                            ? "font-semibold text-blue-600"
+                            : ""
+                        }`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          goTo("/dropi");
+                          setSliderOpen(false);
+                        }}
+                      >
+                        <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
+                        <span>Configuración</span>
+                      </button>
+
+                      {isDropiLinked && (
+                        <button
+                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                            location.pathname.startsWith("/dropi/pedidos")
+                              ? "font-semibold text-blue-600"
+                              : ""
+                          }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            goTo("/dropi/pedidos");
+                            setSliderOpen(false);
+                          }}
+                        >
+                          <i className="bx bx-package text-lg text-gray-600 group-hover:text-blue-600"></i>
+                          <span>Pedidos</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ====== Herramientas ====== */}
+          <div>
             <button
               type="button"
               onClick={() => toggleMenu("herramientas")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                // opcional: marcar activo si estás en alguna ruta de este grupo
-                ["/integraciones", "/calendario", "/asistentes"].includes(
-                  location.pathname,
-                )
+                ["/calendario", "/asistentes"].includes(location.pathname)
                   ? "bg-gray-200 font-semibold"
                   : ""
               }`}
@@ -572,12 +670,11 @@ const Cabecera = ({
 
               <i
                 className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
-                  openTools ? "rotate-180" : ""
+                  openMenu === "herramientas" ? "rotate-180" : ""
                 }`}
-              ></i>
+              />
             </button>
 
-            {/* Contenido del acordeón */}
             <div
               className="overflow-hidden transition-all duration-[600ms] ease-out"
               style={{
@@ -585,52 +682,20 @@ const Cabecera = ({
               }}
             >
               <div className="ml-10 flex flex-col py-2">
-                {/* Integraciones */}
-                <button
-                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                    location.pathname === "/integraciones"
-                      ? "font-semibold"
-                      : ""
-                  }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    goTo("/integraciones");
-                  }}
-                >
-                  <i className="bx bx-plug text-xl text-gray-600 group-hover:text-blue-600"></i>
-                  <span>Integraciones</span>
-                </button>
-
-                {/* Automatizador (externo) */}
-                <a
-                  className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
-                  href={`https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
-                    id_configuracion ?? ""
-                  }&id_plataforma_conf=${id_plataforma_conf ?? ""}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => {
-                    localStorage.setItem("id_configuracion", id_configuracion);
-                    localStorage.setItem(
-                      "id_plataforma_conf",
-                      id_plataforma_conf,
-                    );
-                  }}
-                >
-                  <i className="bx bxs-bot text-xl text-gray-600 group-hover:text-blue-600"></i>
-                  <span>Automatizador</span>
-                </a>
-
-                {/* Calendario (manteniendo tu lógica) */}
                 <button
                   className={`group flex items-center gap-3 text-left px-4 py-2 ${
-                    location.pathname === "/calendario" ? "font-semibold" : ""
+                    location.pathname === "/calendario"
+                      ? "font-semibold text-blue-600"
+                      : ""
                   } ${
                     isCalendarBlocked
                       ? "text-gray-700 hover:text-red-600"
                       : "hover:text-blue-600"
                   }`}
-                  onClick={handleCalendarioClick}
+                  onClick={(e) => {
+                    handleCalendarioClick(e);
+                    setSliderOpen(false);
+                  }}
                 >
                   <i
                     className={`bx text-xl ${
@@ -648,14 +713,16 @@ const Cabecera = ({
                   </span>
                 </button>
 
-                {/* Asistentes */}
                 <button
                   className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                    location.pathname === "/asistentes" ? "font-semibold" : ""
+                    location.pathname === "/asistentes"
+                      ? "font-semibold text-blue-600"
+                      : ""
                   }`}
                   onClick={(e) => {
                     e.preventDefault();
                     goTo("/asistentes");
+                    setSliderOpen(false);
                   }}
                 >
                   <i className="bx bx-support text-xl text-gray-600 group-hover:text-blue-600"></i>
@@ -665,11 +732,8 @@ const Cabecera = ({
             </div>
           </div>
 
-          {/* Productos y categorias */}
-          {/* Grupo de Productos */}
-          {/* Grupo de Productos sin flecha y con animación */}
+          {/* ====== Productos ====== */}
           <div>
-            {/* Header del acordeón */}
             <button
               type="button"
               onClick={() => toggleMenu("productos")}
@@ -683,30 +747,28 @@ const Cabecera = ({
               <span className="flex items-center">
                 <i className="bx bxs-store text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
                 <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                  Mis Productos
+                  Productos
                 </span>
               </span>
 
               <i
                 className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
-                  openProductos ? "rotate-180" : ""
+                  openMenu === "productos" ? "rotate-180" : ""
                 }`}
-              ></i>
+              />
             </button>
 
-            {/* Submenú */}
             <div
               className="overflow-hidden transition-all duration-[600ms] ease-out"
-              style={{
-                maxHeight: openMenu === "productos" ? "220px" : "0px",
-              }}
+              style={{ maxHeight: openMenu === "productos" ? "220px" : "0px" }}
             >
               <div className="ml-10 flex flex-col py-2">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate("/productos");
+                    goTo("/productos");
+                    setSliderOpen(false);
                   }}
                   className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                     location.pathname === "/productos"
@@ -722,7 +784,8 @@ const Cabecera = ({
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate("/categorias");
+                    goTo("/categorias");
+                    setSliderOpen(false);
                   }}
                   className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                     location.pathname === "/categorias"
@@ -858,8 +921,8 @@ const Cabecera = ({
                   aria-expanded={opcionesMenuOpen}
                   aria-controls="menu-opciones"
                   className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-b from-blue-500 to-blue-600
-                             text-white font-semibold rounded-md shadow-sm hover:shadow-md transition-all duration-200
-                             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                           text-white font-semibold rounded-md shadow-sm hover:shadow-md transition-all duration-200
+                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
                 >
                   <span>Opciones</span>
                   <i
@@ -877,13 +940,13 @@ const Cabecera = ({
                     role="menu"
                     aria-labelledby="menu-opciones-boton"
                     className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl border border-slate-200/60
-                               bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 p-2 z-50"
+                             bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 p-2 z-50"
                   >
                     {/* caret */}
                     <span
                       aria-hidden="true"
                       className="pointer-events-none absolute -top-1.5 right-6 h-3 w-3 rotate-45
-                                 bg-white border-t border-l border-slate-200/60"
+                               bg-white border-t border-l border-slate-200/60"
                     />
 
                     {/* Opción: Abrir/Cerrar chat */}
@@ -895,20 +958,20 @@ const Cabecera = ({
                         )
                       }
                       className={`flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm rounded-lg transition-colors
-                        focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                        ${
-                          selectedChat.chat_cerrado === 0
-                            ? "text-red-700 hover:bg-red-50"
-                            : "text-emerald-700 hover:bg-emerald-50"
-                        }`}
+                      focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                      ${
+                        selectedChat.chat_cerrado === 0
+                          ? "text-red-700 hover:bg-red-50"
+                          : "text-emerald-700 hover:bg-emerald-50"
+                      }`}
                     >
                       <span
                         className={`inline-flex h-8 w-8 items-center justify-center rounded-md
-                          ${
-                            selectedChat.chat_cerrado === 0
-                              ? "bg-red-100"
-                              : "bg-emerald-100"
-                          }`}
+                        ${
+                          selectedChat.chat_cerrado === 0
+                            ? "bg-red-100"
+                            : "bg-emerald-100"
+                        }`}
                         aria-hidden="true"
                       >
                         <i
@@ -932,8 +995,8 @@ const Cabecera = ({
                       role="menuitem"
                       onClick={toggleTransferirChatModal}
                       className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
-                                 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
-                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                               text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
                       <span
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100"
@@ -951,8 +1014,8 @@ const Cabecera = ({
                       role="menuitem"
                       onClick={toggleAsignarEtiquetaModal}
                       className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
-                                 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
-                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                               text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
                       <span
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100"
@@ -967,8 +1030,8 @@ const Cabecera = ({
                       role="menuitem"
                       onClick={toggleCrearEtiquetaModal}
                       className="mt-1 flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
-                                 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
-                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                               text-slate-700 hover:bg-slate-100 rounded-lg transition-colors
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
                       <span
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100"
@@ -1003,17 +1066,15 @@ const Cabecera = ({
                   ),
                 )
                 .map((tag) => {
-                  const color = tag.color_etiqueta || "#64748b"; // fallback slate
+                  const color = tag.color_etiqueta || "#64748b";
 
                   return (
                     <div
                       key={tag.id_etiqueta}
                       className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5
-                 shadow-sm transition hover:border-slate-300 hover:shadow
-                 max-w-full"
+                               shadow-sm transition hover:border-slate-300 hover:shadow max-w-full"
                       title={tag.nombre_etiqueta}
                     >
-                      {/* Circulito de color + aro (se ve pro) */}
                       <span className="relative flex h-3.5 w-3.5 items-center justify-center">
                         <span
                           className="absolute inset-0 rounded-full"
@@ -1030,22 +1091,20 @@ const Cabecera = ({
                         />
                       </span>
 
-                      {/* Texto */}
                       <span className="text-xs font-semibold text-slate-800 truncate max-w-[180px]">
                         {tag.nombre_etiqueta}
                       </span>
 
-                      {/* Botón quitar */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();
-                          e.stopPropagation(); // ✅ no dispara clicks del contenedor padre
-                          toggleTagAssignment(tag.id_etiqueta, selectedChat.id); // ✅ desasigna
+                          e.stopPropagation();
+                          toggleTagAssignment(tag.id_etiqueta, selectedChat.id);
                         }}
                         className="ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full
-                   text-slate-400 hover:text-slate-700 hover:bg-slate-100
-                   transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition
+                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                         aria-label={`Quitar etiqueta ${tag.nombre_etiqueta}`}
                         title="Quitar"
                       >

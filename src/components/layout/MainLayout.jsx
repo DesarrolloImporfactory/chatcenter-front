@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../shared/Header";
 import { Footer } from "../shared/Footer";
@@ -6,45 +6,96 @@ import chatApi from "../../api/chatcenter";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 import Swal from "sweetalert2";
+
 const PLANES_CALENDARIO = [1, 3, 4];
 
 function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
-
   const [openContacto, setOpenContacto] = useState(false);
-
   const [openTools, setOpenTools] = useState(false);
-
   const [openMenu, setOpenMenu] = useState(null);
+  const [openSubMenu, setOpenSubMenu] = useState(null);
+
+  const toggleSubMenu = (key) => {
+    setOpenSubMenu((prev) => (prev === key ? null : key));
+  };
 
   const toggleMenu = (key) => {
-    setOpenMenu((prev) => (prev === key ? null : key));
+    setOpenMenu((prev) => {
+      const next = prev === key ? null : key;
+      // si sale de integraciones, cierre submenú
+      if (next !== "integraciones") setOpenSubMenu(null);
+      return next;
+    });
   };
 
   const sliderRef = useRef(null);
-  const menuButtonRef = useRef(null); // Para el botón "hamburger"
+  const menuButtonRef = useRef(null);
 
   const tipo_configuracion = localStorage.getItem("tipo_configuracion");
 
-  //Aqui guardaremos las configuraciones automatizadas que vienen de tu API
+  // Estado base
   const [userData, setUserData] = useState(null);
   const [configuraciones, setConfiguraciones] = useState([]);
   const [estadoNumero, setEstadoNumero] = useState([]);
   const [id_configuracion, setId_configuracion] = useState(null);
   const [id_plataforma_conf, setId_plataforma_conf] = useState(null);
-
   const [canAccessCalendar, setCanAccessCalendar] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
 
+  // =========================================================
+  // DROPi (estado global en layout)
+  // =========================================================
+  const [isDropiLinked, setIsDropiLinked] = useState(false);
+  const [loadingDropiLinked, setLoadingDropiLinked] = useState(false);
+
+  const fetchDropiLinked = useCallback(async () => {
+    if (!id_configuracion) return;
+
+    setLoadingDropiLinked(true);
+    try {
+      const res = await chatApi.get("dropi_integrations", {
+        params: { id_configuracion },
+      });
+
+      const list = res?.data?.data ?? [];
+      setIsDropiLinked(list.length > 0);
+    } catch (e) {
+      // Si falla la consulta, por seguridad marcamos desconectado
+      setIsDropiLinked(false);
+    } finally {
+      setLoadingDropiLinked(false);
+    }
+  }, [id_configuracion]);
+
+  // =========================================================
+  // Listener IMPORSUIT linked
+  // =========================================================
   useEffect(() => {
-    const handler = (e) => setId_plataforma_conf(e.detail.id ?? null);
+    const handler = (e) => setId_plataforma_conf(e.detail?.id ?? null);
     window.addEventListener("imporsuit:linked", handler);
     return () => window.removeEventListener("imporsuit:linked", handler);
   }, []);
 
+  // =========================================================
+  // Listener DROPi linked-changed => refetch
+  // =========================================================
+  useEffect(() => {
+    const handler = () => {
+      // cuando Integraciones.jsx crea/edita/elimina, esto actualiza el layout
+      fetchDropiLinked();
+    };
+
+    window.addEventListener("dropi:linked-changed", handler);
+    return () => window.removeEventListener("dropi:linked-changed", handler);
+  }, [fetchDropiLinked]);
+
+  // =========================================================
+  // Bootstrap: leer id_configuracion / validar pertenencia
+  // =========================================================
   useEffect(() => {
     const idp = localStorage.getItem("id_plataforma_conf");
     const idc = localStorage.getItem("id_configuracion");
@@ -63,14 +114,14 @@ function MainLayout({ children }) {
       const decoded = jwtDecode(token);
       const usuario = decoded.id_usuario;
 
-      const validar_conexion_usuario = async (id_usuario, id_configuracion) => {
+      const validar_conexion_usuario = async (
+        id_usuario,
+        id_configuracion_,
+      ) => {
         try {
           const res = await chatApi.post(
             "configuraciones/validar_conexion_usuario",
-            {
-              id_usuario,
-              id_configuracion,
-            },
+            { id_usuario, id_configuracion: id_configuracion_ },
           );
 
           if (res.status === 200) {
@@ -97,6 +148,7 @@ function MainLayout({ children }) {
           }
         } catch (error) {
           console.error("Error en la validación:", error);
+
           await Swal.fire({
             icon: "error",
             title: "Sin permisos a la configuración",
@@ -123,71 +175,48 @@ function MainLayout({ children }) {
       return;
     }
 
-    if (idc) setId_configuracion(parseInt(idc));
+    if (idc) setId_configuracion(parseInt(idc, 10));
 
-    // Validación para el valor 'null' en id_plataforma_conf
-    if (idp === "null") {
-      setId_plataforma_conf(null);
-    } else {
-      setId_plataforma_conf(idp ? parseInt(idp) : null);
-    }
-  }, []);
+    if (idp === "null") setId_plataforma_conf(null);
+    else setId_plataforma_conf(idp ? parseInt(idp, 10) : null);
+  }, [navigate]);
 
+  // =========================================================
+  // Cargar Dropi linked cuando ya tengo id_configuracion
+  // =========================================================
   useEffect(() => {
-    //Verificamos si hay token en localStorage
+    if (id_configuracion) fetchDropiLinked();
+  }, [id_configuracion, fetchDropiLinked]);
+
+  // =========================================================
+  // Validar token y setUserData
+  // =========================================================
+  useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      //Si no hay token => ir alogin
       window.location.href = "/login";
       return;
     }
 
-    //Decodificamos el token
     const decoded = jwtDecode(token);
 
-    //Verificamos si aun no expira
     if (decoded.exp < Date.now() / 1000) {
-      //Expirado =?logout
-      localStorage.clear(); // elimina todo
+      localStorage.clear();
       window.location.href = "/login";
       return;
     }
 
-    //Guardamos userData
     setUserData(decoded);
   }, []);
 
-  // Cada vez que tengamos userData, cargamos las configuraciones
+  // =========================================================
+  // Cargar configuraciones del usuario
+  // =========================================================
   useEffect(() => {
-    if (userData) {
-      fetchConfiguracionAutomatizada();
-    }
+    if (userData) fetchConfiguracionAutomatizada();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
-  useEffect(() => {
-    const checkBannedStatus = () => {
-      const isBanned = estadoNumero.some((num) => num.status === "BANNED");
-      if (isBanned) {
-        Swal.fire({
-          icon: "error",
-          title: "Cuenta bloqueada",
-          text: "Tu número de WhatsApp ha sido bloqueado. Se cerrará tu sesión.",
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          allowEnterKey: true,
-          confirmButtonText: "OK",
-        }).then(() => {
-          handleLogout();
-        });
-      }
-    };
-
-    checkBannedStatus();
-  }, [estadoNumero]);
-
-  // -------------------------------------------------------
-  //  FUNC: Obtener configuraciones del endpoint
-  // -------------------------------------------------------
   const fetchConfiguracionAutomatizada = async () => {
     try {
       const response = await chatApi.post(
@@ -219,10 +248,27 @@ function MainLayout({ children }) {
     }
   };
 
-  // -------------------------------------------------------
-  // FUNC: Redirigir a la tabla de automatizadores
-  // -------------------------------------------------------
+  // =========================================================
+  // Banned status
+  // =========================================================
+  useEffect(() => {
+    const isBanned = estadoNumero.some((num) => num.status === "BANNED");
+    if (isBanned) {
+      Swal.fire({
+        icon: "error",
+        title: "Cuenta bloqueada",
+        text: "Tu número de WhatsApp ha sido bloqueado. Se cerrará tu sesión.",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        allowEnterKey: true,
+        confirmButtonText: "OK",
+      }).then(() => handleLogout());
+    }
+  }, [estadoNumero]);
 
+  // =========================================================
+  // Click outside / escape para cerrar slider
+  // =========================================================
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -237,12 +283,9 @@ function MainLayout({ children }) {
     }
 
     function handleEscape(event) {
-      if (event.key === "Escape") {
-        setSliderOpen(false);
-      }
+      if (event.key === "Escape") setSliderOpen(false);
     }
 
-    // En lugar de 'mousedown', usar 'click' (o 'touchstart')
     document.addEventListener("click", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
 
@@ -252,10 +295,11 @@ function MainLayout({ children }) {
     };
   }, [sliderOpen]);
 
-  const toggleSlider = () => {
-    setSliderOpen(!sliderOpen);
-  };
+  const toggleSlider = () => setSliderOpen((v) => !v);
 
+  // =========================================================
+  // Calendario (permisos)
+  // =========================================================
   useEffect(() => {
     if (userData) {
       const permitido = PLANES_CALENDARIO.includes(Number(userData.id_plan));
@@ -282,17 +326,18 @@ function MainLayout({ children }) {
         else navigate("/conexiones");
       });
     }
-  }, [userData, canAccessCalendar, location.pathname]);
+  }, [userData, canAccessCalendar, location.pathname, navigate]);
 
+  // =========================================================
+  // Auto abrir menús por ruta
+  // =========================================================
   useEffect(() => {
     if (["/productos", "/categorias"].includes(location.pathname)) {
       setOpenMenu("productos");
-    } else if (
-      ["/integraciones", "/calendario", "/asistentes"].includes(
-        location.pathname,
-      )
-    ) {
+    } else if (["/calendario", "/asistentes"].includes(location.pathname)) {
       setOpenMenu("herramientas");
+    } else if (["/canal-conexiones", "/dropi"].includes(location.pathname)) {
+      setOpenMenu("integraciones");
     } else if (
       [
         "/canal-conexiones",
@@ -301,11 +346,13 @@ function MainLayout({ children }) {
         "/estados_contactos_ventas",
       ].includes(location.pathname)
     ) {
-      setOpenMenu("contactos");
+      setOpenMenu("contacto");
     }
   }, [location.pathname]);
 
-  // helper (opcional) para no repetir localStorage + navigate
+  // =========================================================
+  // Navegación helper
+  // =========================================================
   const goTo = (path) => {
     localStorage.setItem("id_configuracion", id_configuracion);
     localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
@@ -315,7 +362,6 @@ function MainLayout({ children }) {
   const handleCalendarioClick = (e) => {
     e.preventDefault();
 
-    // Mantiene sus setItems actuales
     localStorage.setItem("id_configuracion", id_configuracion);
     localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
 
@@ -336,69 +382,38 @@ function MainLayout({ children }) {
     }
   };
 
-  // Funciones de navegación
-  const handleReturnToImporsuit = () => {
-    const token = localStorage.getItem("token");
-    window.location.href =
-      "https://new.imporsuitpro.com/acceso/jwt_home/" + token;
-  };
-
   const handleLogout = () => {
-    localStorage.clear(); // elimina todo
+    localStorage.clear();
     window.location.href = "/login";
-  };
-
-  const irAChatCenter = () => {
-    navigate("/chat");
-  };
-
-  const irAPlantillas = () => {
-    navigate("/administrador-whatsapp");
   };
 
   const isCalendarBlocked = userData && canAccessCalendar === false;
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* 
-        HEADER 
-        -> Le pasamos la referencia del botón y la función
-           para que el Header dispare toggleSlider 
-      */}
       <Header menuButtonRef={menuButtonRef} onToggleSlider={toggleSlider} />
 
-      {/* CONTENIDO PRINCIPAL: Menú lateral + Sección principal */}
       <div className="flex flex-1">
         {/* Menú Lateral (slider) */}
         <div
           ref={sliderRef}
           className={`
-            bg-white shadow-md
-            fixed top-16 left-0 z-40
-            h-[calc(100vh-4rem)]
-            transition-[width] duration-300
-            ${sliderOpen ? "w-64 overflow-y-auto" : "w-0 overflow-hidden"}
-          `}
+          bg-white shadow-md
+          fixed top-16 left-0 z-40
+          h-[calc(100vh-4rem)]
+          transition-[width] duration-300
+          ${sliderOpen ? "w-64 overflow-y-auto" : "w-0 overflow-hidden"}
+        `}
           aria-hidden={!sliderOpen}
         >
-          {/* Encabezado del slider */}
-          {/* <div className="h-[80px] px-5 flex items-center justify-between bg-[#171931] text-white">
-            <h2 className="font-bold text-lg">Menú</h2>
-            <button onClick={() => setSliderOpen(false)}>
-              <i className="bx bx-x text-2xl"></i>
-            </button>
-          </div> */}
-
-          {/* Opciones del slider */}
           <div className="mt-6">
-            {/* Volver a Imporsuit */}
+            {/* Conexiones */}
             <a
               onClick={(e) => {
                 e.preventDefault();
                 localStorage.removeItem("id_configuracion");
                 localStorage.removeItem("tipo_configuracion");
                 localStorage.removeItem("id_plataforma_conf");
-
                 navigate("/conexiones");
               }}
               className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 cursor-pointer"
@@ -417,11 +432,7 @@ function MainLayout({ children }) {
               }`}
               onClick={(e) => {
                 e.preventDefault();
-
-                localStorage.setItem("id_configuracion", id_configuracion);
-                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
-
-                navigate("/chat");
+                goTo("/chat");
               }}
             >
               <i className="bx bx-chat text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
@@ -430,31 +441,7 @@ function MainLayout({ children }) {
               </span>
             </a>
 
-            {/* WhatsApp */}
-            {/* <a
-              href="/administrador-whatsapp"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/administrador-whatsapp"
-                  ? "bg-gray-200 font-semibold"
-                  : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-
-                localStorage.setItem("id_configuracion", id_configuracion);
-                localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
-
-                navigate("/administrador-whatsapp");
-              }}
-            >
-              <i className="bx bxl-whatsapp text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                WhatsApp
-              </span> */}
-            {/* </a> */}
-
-            {/* Clientes contactos */}
-            {/* Botón principal */}
+            {/* ====== Contactos ====== */}
             <button
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
                 location.pathname.startsWith("/contactos")
@@ -464,50 +451,30 @@ function MainLayout({ children }) {
               onClick={() => toggleMenu("contacto")}
             >
               <i className="bx bxs-contact text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Contactos y Conexiones
+                Contactos
               </span>
-
               <i
                 className={`bx ml-auto transition-transform duration-300 ${
-                  openContacto ? "bx-chevron-up" : "bx-chevron-down"
+                  openMenu === "contacto" ? "bx-chevron-up" : "bx-chevron-down"
                 }`}
               />
             </button>
 
-            {/* Submenú animado */}
             <div
               className="overflow-hidden transition-all duration-[600ms] ease-out"
               style={{ maxHeight: openMenu === "contacto" ? "260px" : "0px" }}
             >
               <div className="ml-10 flex flex-col py-2">
                 <button
-                  className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    location.pathname === "/contactos"
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
                   onClick={(e) => {
                     e.preventDefault();
-                    localStorage.setItem("id_configuracion", id_configuracion);
-                    localStorage.setItem(
-                      "id_plataforma_conf",
-                      id_plataforma_conf,
-                    );
-                    navigate("/canal-conexiones");
-                  }}
-                >
-                  <i className="bx bx-network-chart text-xl text-gray-600 group-hover:text-blue-600"></i>
-                  <span>Canal de Conexiones</span>
-                </button>
-
-                <button
-                  className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    localStorage.setItem("id_configuracion", id_configuracion);
-                    localStorage.setItem(
-                      "id_plataforma_conf",
-                      id_plataforma_conf,
-                    );
-                    navigate("/contactos");
+                    goTo("/contactos");
                   }}
                 >
                   <i className="bx bx-book-content text-xl text-gray-600 group-hover:text-blue-600"></i>
@@ -515,39 +482,163 @@ function MainLayout({ children }) {
                 </button>
 
                 <button
-                  className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    (tipo_configuracion === "ventas" &&
+                      location.pathname === "/estados_contactos_ventas") ||
+                    (tipo_configuracion !== "ventas" &&
+                      location.pathname === "/estados_contactos")
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
                   onClick={(e) => {
                     e.preventDefault();
-                    localStorage.setItem("id_configuracion", id_configuracion);
-                    localStorage.setItem(
-                      "id_plataforma_conf",
-                      id_plataforma_conf,
-                    );
-
                     if (tipo_configuracion === "ventas") {
-                      navigate("/estados_contactos_ventas");
+                      goTo("/estados_contactos_ventas");
                     } else {
-                      navigate("/estados_contactos");
+                      goTo("/estados_contactos");
                     }
                   }}
                 >
                   <i className="bx bx-check-shield text-xl text-gray-600 group-hover:text-blue-600"></i>
-                  <span>Estados de contactos</span>
+                  <span>Estado de contactos</span>
                 </button>
               </div>
             </div>
 
-            {/* ====== Acordeón: Herramientas / Productividad ====== */}
+            {/* ====== Integraciones ====== */}
             <div>
-              {/* Header del acordeón */}
+              <button
+                type="button"
+                onClick={() => toggleMenu("integraciones")}
+                className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                  ["/canal-conexiones", "/dropi"].some((p) =>
+                    location.pathname.startsWith(p),
+                  )
+                    ? "bg-gray-200 font-semibold"
+                    : ""
+                }`}
+              >
+                <span className="flex items-center">
+                  <i className="bx bx-plug text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                  <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                    Integraciones
+                  </span>
+                </span>
+
+                <i
+                  className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
+                    openMenu === "integraciones" ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              <div
+                className="overflow-hidden transition-all duration-[600ms] ease-out"
+                style={{
+                  maxHeight: openMenu === "integraciones" ? "520px" : "0px",
+                }}
+              >
+                <div className="ml-10 flex flex-col py-2">
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname === "/canal-conexiones"
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      localStorage.setItem(
+                        "id_configuracion",
+                        id_configuracion,
+                      );
+                      localStorage.setItem(
+                        "id_plataforma_conf",
+                        id_plataforma_conf,
+                      );
+                      navigate("/canal-conexiones");
+                    }}
+                  >
+                    <i className="bx bx-network-chart text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Canal de Conexiones</span>
+                  </button>
+
+                  {/* ===== Dropi (submenu) ===== */}
+                  <div className="mt-1">
+                    {/* Padre Dropi */}
+                    <button
+                      type="button"
+                      className={`group flex items-center justify-between w-full text-left px-4 py-2 hover:text-blue-600 ${
+                        location.pathname.startsWith("/dropi")
+                          ? "font-semibold text-blue-600"
+                          : ""
+                      }`}
+                      onClick={() => toggleSubMenu("dropi")}
+                    >
+                      <span className="flex items-center gap-3">
+                        <i className="bx bx-store text-xl text-gray-600 group-hover:text-blue-600"></i>
+                        <span>Dropi</span>
+                      </span>
+
+                      <i
+                        className={`bx bx-chevron-down text-xl text-gray-500 transition-transform duration-300 ${
+                          openSubMenu === "dropi" ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {/* Submenú Dropi */}
+                    <div
+                      className="overflow-hidden transition-all duration-[600ms] ease-out"
+                      style={{
+                        maxHeight: openSubMenu === "dropi" ? "220px" : "0px",
+                      }}
+                    >
+                      <div className="ml-6 flex flex-col py-2">
+                        <button
+                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                            location.pathname === "/dropi"
+                              ? "font-semibold text-blue-600"
+                              : ""
+                          }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            goTo("/dropi");
+                          }}
+                        >
+                          <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
+                          <span>Configuración</span>
+                        </button>
+
+                        {isDropiLinked && (
+                          <button
+                            className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                              location.pathname.startsWith("/dropi/pedidos")
+                                ? "font-semibold text-blue-600"
+                                : ""
+                            }`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              goTo("/dropi/pedidos");
+                            }}
+                          >
+                            <i className="bx bx-package text-lg text-gray-600 group-hover:text-blue-600"></i>
+                            <span>Pedidos</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ====== Herramientas ====== */}
+            <div>
               <button
                 type="button"
                 onClick={() => toggleMenu("herramientas")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                  // opcional: marcar activo si estás en alguna ruta de este grupo
-                  ["/integraciones", "/calendario", "/asistentes"].includes(
-                    location.pathname,
-                  )
+                  ["/calendario", "/asistentes"].includes(location.pathname)
                     ? "bg-gray-200 font-semibold"
                     : ""
                 }`}
@@ -558,15 +649,13 @@ function MainLayout({ children }) {
                     Herramientas
                   </span>
                 </span>
-
                 <i
                   className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
-                    openTools ? "rotate-180" : ""
+                    openMenu === "herramientas" ? "rotate-180" : ""
                   }`}
-                ></i>
+                />
               </button>
 
-              {/* Contenido del acordeón */}
               <div
                 className="overflow-hidden transition-all duration-[600ms] ease-out"
                 style={{
@@ -574,49 +663,11 @@ function MainLayout({ children }) {
                 }}
               >
                 <div className="ml-10 flex flex-col py-2">
-                  {/* Integraciones */}
-                  <button
-                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                      location.pathname === "/integraciones"
-                        ? "font-semibold"
-                        : ""
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      goTo("/integraciones");
-                    }}
-                  >
-                    <i className="bx bx-plug text-xl text-gray-600 group-hover:text-blue-600"></i>
-                    <span>Integraciones</span>
-                  </button>
-
-                  {/* Automatizador (externo) */}
-                  <a
-                    className="group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600"
-                    href={`https://automatizador.imporsuitpro.com/tabla_automatizadores.php?id_configuracion=${
-                      id_configuracion ?? ""
-                    }&id_plataforma_conf=${id_plataforma_conf ?? ""}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() => {
-                      localStorage.setItem(
-                        "id_configuracion",
-                        id_configuracion,
-                      );
-                      localStorage.setItem(
-                        "id_plataforma_conf",
-                        id_plataforma_conf,
-                      );
-                    }}
-                  >
-                    <i className="bx bxs-bot text-xl text-gray-600 group-hover:text-blue-600"></i>
-                    <span>Automatizador</span>
-                  </a>
-
-                  {/* Calendario (manteniendo tu lógica) */}
                   <button
                     className={`group flex items-center gap-3 text-left px-4 py-2 ${
-                      location.pathname === "/calendario" ? "font-semibold" : ""
+                      location.pathname === "/calendario"
+                        ? "font-semibold text-blue-600"
+                        : ""
                     } ${
                       isCalendarBlocked
                         ? "text-gray-700 hover:text-red-600"
@@ -640,10 +691,11 @@ function MainLayout({ children }) {
                     </span>
                   </button>
 
-                  {/* Asistentes */}
                   <button
                     className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                      location.pathname === "/asistentes" ? "font-semibold" : ""
+                      location.pathname === "/asistentes"
+                        ? "font-semibold text-blue-600"
+                        : ""
                     }`}
                     onClick={(e) => {
                       e.preventDefault();
@@ -657,11 +709,8 @@ function MainLayout({ children }) {
               </div>
             </div>
 
-            {/* Productos y categorias */}
-            {/* Grupo de Productos */}
-            {/* Grupo de Productos sin flecha y con animación */}
+            {/* ====== Productos ====== */}
             <div>
-              {/* Header del acordeón */}
               <button
                 type="button"
                 onClick={() => toggleMenu("productos")}
@@ -675,18 +724,16 @@ function MainLayout({ children }) {
                 <span className="flex items-center">
                   <i className="bx bxs-store text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
                   <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                    Mis Productos
+                    Productos
                   </span>
                 </span>
-
                 <i
                   className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
-                    openProductos ? "rotate-180" : ""
+                    openMenu === "productos" ? "rotate-180" : ""
                   }`}
-                ></i>
+                />
               </button>
 
-              {/* Submenú */}
               <div
                 className="overflow-hidden transition-all duration-[600ms] ease-out"
                 style={{
@@ -742,10 +789,11 @@ function MainLayout({ children }) {
           </div>
         </div>
 
-        {/* Sección principal a la derecha */}
+        {/* Sección principal */}
         <div
-          className={`flex-1 min-h-screen transition-[margin] duration-300
-                      pt-16 ${sliderOpen ? "ml-64" : "ml-0"}`}
+          className={`flex-1 min-h-screen transition-[margin] duration-300 pt-16 ${
+            sliderOpen ? "ml-64" : "ml-0"
+          }`}
         >
           <div className="p-2 bg-gray-100 min-h-[calc(100vh-4rem)] overflow-auto">
             {children}
@@ -753,7 +801,6 @@ function MainLayout({ children }) {
         </div>
       </div>
 
-      {/* FOOTER */}
       {/* <Footer /> */}
     </div>
   );

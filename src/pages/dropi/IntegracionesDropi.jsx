@@ -40,7 +40,15 @@ const selectStyles = {
   menu: (base) => ({ ...base, borderRadius: "0.75rem", overflow: "hidden" }),
 };
 
-const Integraciones = () => {
+const emitDropiLinkedChanged = (payload = {}) => {
+  window.dispatchEvent(
+    new CustomEvent("dropi:linked-changed", {
+      detail: payload,
+    }),
+  );
+};
+
+const IntegracionesDropi = () => {
   const [id_configuracion, setId_configuracion] = useState(null);
 
   // data
@@ -59,7 +67,7 @@ const Integraciones = () => {
   // form
   const [storeName, setStoreName] = useState("");
   const [countryOpt, setCountryOpt] = useState(
-    COUNTRY_OPTIONS.find((x) => x.value === "CO") || COUNTRY_OPTIONS[0]
+    COUNTRY_OPTIONS.find((x) => x.value === "CO") || COUNTRY_OPTIONS[0],
   );
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(false);
@@ -102,7 +110,7 @@ const Integraciones = () => {
     setMode("create");
     setStoreName("");
     setCountryOpt(
-      COUNTRY_OPTIONS.find((x) => x.value === "CO") || COUNTRY_OPTIONS[0]
+      COUNTRY_OPTIONS.find((x) => x.value === "CO") || COUNTRY_OPTIONS[0],
     );
     setToken("");
     setShowToken(false);
@@ -115,7 +123,7 @@ const Integraciones = () => {
     setStoreName(activeIntegration.store_name ?? "");
     const cc = String(activeIntegration.country_code ?? "CO").toUpperCase();
     setCountryOpt(
-      COUNTRY_OPTIONS.find((x) => x.value === cc) || COUNTRY_OPTIONS[0]
+      COUNTRY_OPTIONS.find((x) => x.value === cc) || COUNTRY_OPTIONS[0],
     );
     setToken(""); // por seguridad no mostramos el token guardado
     setShowToken(false);
@@ -201,6 +209,10 @@ const Integraciones = () => {
           });
           closeModal();
           await fetchIntegraciones();
+          emitDropiLinkedChanged({
+            id_configuracion,
+            isLinked: true,
+          });
         }
       } else {
         const id = activeIntegration?.id;
@@ -224,6 +236,10 @@ const Integraciones = () => {
           });
           closeModal();
           await fetchIntegraciones();
+          emitDropiLinkedChanged({
+            id_configuracion,
+            isLinked: true,
+          });
         }
       }
     } catch (error) {
@@ -261,7 +277,7 @@ const Integraciones = () => {
     setSaving(true);
     try {
       const res = await chatApi.delete(
-        `dropi_integrations/${activeIntegration.id}`
+        `dropi_integrations/${activeIntegration.id}`,
       );
       if (res?.data?.isSuccess) {
         Swal.fire({
@@ -271,6 +287,10 @@ const Integraciones = () => {
           confirmButtonColor: "#171931",
         });
         await fetchIntegraciones();
+        emitDropiLinkedChanged({
+          id_configuracion,
+          isLinked: false,
+        });
       }
     } catch (error) {
       const msg =
@@ -294,7 +314,9 @@ const Integraciones = () => {
       <div className="mb-6 rounded-2xl bg-[#171931] text-white p-6 shadow-lg">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Integraciones</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">
+              Bienvenido al mundo e-commerce
+            </h1>
             <p className="opacity-90 mt-1">
               Conecta <strong>Dropi</strong> para gestionar tus tiendas de
               dropshipping y automatizar tu operación en minutos.
@@ -699,8 +721,8 @@ const Integraciones = () => {
                   {saving
                     ? "Guardando..."
                     : mode === "create"
-                    ? "Vincular"
-                    : "Guardar cambios"}
+                      ? "Vincular"
+                      : "Guardar cambios"}
                 </button>
               </div>
             </div>
@@ -711,4 +733,4 @@ const Integraciones = () => {
   );
 };
 
-export default Integraciones;
+export default IntegracionesDropi;
