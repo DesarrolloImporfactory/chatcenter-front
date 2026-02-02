@@ -1,4 +1,3 @@
-// src/components/MiniCalendario.jsx
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -22,7 +21,7 @@ function safeJwtDecode(token) {
       atob(base64)
         .split("")
         .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
+        .join(""),
     );
     return JSON.parse(json);
   } catch {
@@ -110,7 +109,7 @@ export default function MiniCalendario() {
       try {
         const { data } = await chatApi.post(
           "/usuarios_chat_center/listarUsuarios",
-          { id_usuario: ownerUserId }
+          { id_usuario: ownerUserId },
         );
         const rows = Array.isArray(data?.data) ? data.data : [];
         const mapped = rows.map((r, i) => {
@@ -143,7 +142,7 @@ export default function MiniCalendario() {
   // 4) modal compartido
   const openApptModal = useMemo(
     () => makeOpenApptModal({ usuarios, googleLinked, bookedTz }),
-    [usuarios, googleLinked, bookedTz]
+    [usuarios, googleLinked, bookedTz],
   );
 
   // 5) fetch eventos (mes visible)
@@ -179,7 +178,7 @@ export default function MiniCalendario() {
         })
         .catch(() => success([]));
     },
-    [calendarId, usuarios]
+    [calendarId, usuarios],
   );
 
   // 6) crear desde clic en día (09:00–09:30 por defecto)

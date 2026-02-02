@@ -14,6 +14,7 @@ import Cabecera from "../../components/chat/Cabecera";
 import { Sidebar } from "../../components/chat/Sidebar";
 import ChatPrincipal from "../../components/chat/ChatPrincipal";
 import DatosUsuario from "../../components/chat/DatosUsuario";
+import DatosUsuarioModerno from "../../components/chat/DatosUsuarioModerno";
 import Modales from "../../components/chat/Modales";
 import Loading from "../../components/chat/Loading";
 import ScrollToBottomButton from "../../components/chat/ScrollToBottomButton";
@@ -3060,8 +3061,55 @@ const Chat = () => {
         setMensajesOrdenados={setMensajesOrdenados}
         isSocketConnected={isSocketConnected}
       />
-      {/* Opciones adicionales con animación */}
-      <DatosUsuario
+      {/* Seccion de la derecha, datos de usuario, acciones */}
+      {/* <DatosUsuario
+        opciones={opciones}
+        animateOut={animateOut}
+        facturasChatSeleccionado={facturasChatSeleccionado}
+        provincias={provincias}
+        socketRef={socketRef}
+        userData={userData}
+        id_configuracion={id_configuracion}
+        setFacturasChatSeleccionado={setFacturasChatSeleccionado}
+        guiasChatSeleccionado={guiasChatSeleccionado}
+        setGuiasChatSeleccionado={setGuiasChatSeleccionado}
+        novedades_gestionadas={novedades_gestionadas}
+        novedades_noGestionadas={novedades_noGestionadas}
+        validar_estadoLaar={validar_estadoLaar}
+        validar_estadoServi={validar_estadoServi}
+        validar_estadoGintracom={validar_estadoGintracom}
+        validar_estadoSpeed={validar_estadoSpeed}
+        guiaSeleccionada={guiaSeleccionada}
+        setGuiaSeleccionada={setGuiaSeleccionada}
+        provinciaCiudad={provinciaCiudad}
+        setProvinciaCiudad={setProvinciaCiudad}
+        handleGuiaSeleccionada={handleGuiaSeleccionada}
+        selectedChat={selectedChat}
+        obtenerEstadoGuia={obtenerEstadoGuia}
+        disableAanular={disableAanular}
+        disableGestionar={disableGestionar}
+        recargarDatosFactura={recargarDatosFactura}
+        dataAdmin={dataAdmin}
+        buscar_id_recibe={buscar_id_recibe}
+        agregar_mensaje_enviado={agregar_mensaje_enviado}
+        id_plataforma_conf={id_plataforma_conf}
+        id_usuario_conf={id_usuario_conf}
+        monto_venta={monto_venta}
+        setMonto_venta={setMonto_venta}
+        costo={costo}
+        setCosto={setCosto}
+        precio_envio_directo={precio_envio_directo}
+        setPrecio_envio_directo={setPrecio_envio_directo}
+        fulfillment={fulfillment}
+        setFulfillment={setFulfillment}
+        total_directo={total_directo}
+        setTotal_directo={setTotal_directo}
+        validar_generar={validar_generar}
+        setValidar_generar={setValidar_generar}
+        selectedImageId={selectedImageId}
+        setSelectedImageId={setSelectedImageId}
+      /> */}
+      <DatosUsuarioModerno
         opciones={opciones}
         animateOut={animateOut}
         facturasChatSeleccionado={facturasChatSeleccionado}

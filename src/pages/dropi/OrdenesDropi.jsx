@@ -392,11 +392,6 @@ const OrdenesDropi = () => {
               chat con su cliente.
             </p>
           </div>
-
-          <div className="text-sm opacity-95">
-            <span className="font-semibold">{Number(totalResults) || 0}</span>{" "}
-            <span className="opacity-90">de resultados</span>
-          </div>
         </div>
       </div>
 
