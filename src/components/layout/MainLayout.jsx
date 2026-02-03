@@ -6,6 +6,7 @@ import chatApi from "../../api/chatcenter";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 import Swal from "sweetalert2";
+import { useDropi } from "../../context/DropiContext";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -45,53 +46,6 @@ function MainLayout({ children }) {
 
   const location = useLocation();
   const navigate = useNavigate();
-
-  // =========================================================
-  // DROPi (estado global en layout)
-  // =========================================================
-  const [isDropiLinked, setIsDropiLinked] = useState(false);
-  const [loadingDropiLinked, setLoadingDropiLinked] = useState(false);
-
-  const fetchDropiLinked = useCallback(async () => {
-    if (!id_configuracion) return;
-
-    setLoadingDropiLinked(true);
-    try {
-      const res = await chatApi.get("dropi_integrations", {
-        params: { id_configuracion },
-      });
-
-      const list = res?.data?.data ?? [];
-      setIsDropiLinked(list.length > 0);
-    } catch (e) {
-      // Si falla la consulta, por seguridad marcamos desconectado
-      setIsDropiLinked(false);
-    } finally {
-      setLoadingDropiLinked(false);
-    }
-  }, [id_configuracion]);
-
-  // =========================================================
-  // Listener IMPORSUIT linked
-  // =========================================================
-  useEffect(() => {
-    const handler = (e) => setId_plataforma_conf(e.detail?.id ?? null);
-    window.addEventListener("imporsuit:linked", handler);
-    return () => window.removeEventListener("imporsuit:linked", handler);
-  }, []);
-
-  // =========================================================
-  // Listener DROPi linked-changed => refetch
-  // =========================================================
-  useEffect(() => {
-    const handler = () => {
-      // cuando Integraciones.jsx crea/edita/elimina, esto actualiza el layout
-      fetchDropiLinked();
-    };
-
-    window.addEventListener("dropi:linked-changed", handler);
-    return () => window.removeEventListener("dropi:linked-changed", handler);
-  }, [fetchDropiLinked]);
 
   // =========================================================
   // Bootstrap: leer id_configuracion / validar pertenencia
@@ -180,13 +134,6 @@ function MainLayout({ children }) {
     if (idp === "null") setId_plataforma_conf(null);
     else setId_plataforma_conf(idp ? parseInt(idp, 10) : null);
   }, [navigate]);
-
-  // =========================================================
-  // Cargar Dropi linked cuando ya tengo id_configuracion
-  // =========================================================
-  useEffect(() => {
-    if (id_configuracion) fetchDropiLinked();
-  }, [id_configuracion, fetchDropiLinked]);
 
   // =========================================================
   // Validar token y setUserData
@@ -388,6 +335,8 @@ function MainLayout({ children }) {
   };
 
   const isCalendarBlocked = userData && canAccessCalendar === false;
+
+  const { isDropiLinked, loadingDropiLinked } = useDropi();
 
   return (
     <div className="flex flex-col min-h-screen">

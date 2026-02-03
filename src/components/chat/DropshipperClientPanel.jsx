@@ -140,16 +140,6 @@ export default function DropshipperClientPanel(props) {
             )}
           </div>
 
-          {/* ===== Aquí pega EXACTO sus secciones tal cual estaban ===== */}
-          {/* 1) isCotizacionesOpen -> <Cotizador .../> */}
-          {/* 2) isOpen -> tabla pedidos/guias */}
-          {/* 3) isOpenNovedades -> tabla novedades */}
-          {/* 4) isOpenMiniCal -> <MiniCalendario /> */}
-          {/* 5) showModalNovedad -> modal */}
-          {/* 6) guiaSeleccionada -> detalle */}
-          {/* 7) facturaSeleccionada -> overlay formulario */}
-          {/* OJO: solo cambie las variables por props.xxx o desestructure arriba */}
-
           <div
             className={`transition-all duration-300 ease-in-out transform origin-top ${
               isCotizacionesOpen
@@ -172,9 +162,6 @@ export default function DropshipperClientPanel(props) {
               </div>
             </div>
           )}
-
-          {/* El resto (órdenes/novedades/modales/guía/factura) lo pega aquí tal cual,
-              solo sustituyendo referencias por props. */}
         </div>
       </div>
     </>

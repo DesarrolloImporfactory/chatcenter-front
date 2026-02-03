@@ -1356,8 +1356,30 @@ const Conexiones = () => {
   };
 
   /* ===========================
-     UI
+    Helper que evita repetir localstorage al visitar diferentes rutas.
   =========================== */
+
+  const setActiveConfig = useCallback((config) => {
+    if (!config?.id) return;
+
+    localStorage.setItem("id_configuracion", String(config.id));
+    localStorage.setItem(
+      "id_plataforma_conf",
+      String(config.id_plataforma || ""),
+    );
+    localStorage.setItem(
+      "tipo_configuracion",
+      String(config.tipo_configuracion || ""),
+    );
+    localStorage.setItem(
+      "nombre_configuracion",
+      String(config.nombre_configuracion || ""),
+    );
+    localStorage.setItem("telefono", String(config.telefono || ""));
+
+    //clave: notifica al Provider que cambio el id_configuracion
+    window.dispatchEvent(new Event("dropi:config-changed"));
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
@@ -1619,31 +1641,15 @@ const Conexiones = () => {
                           <div
                             className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
                             onClick={() => {
-                              localStorage.setItem(
-                                "id_configuracion",
-                                config.id,
-                              );
-                              localStorage.setItem(
-                                "id_plataforma_conf",
-                                config.id_plataforma,
-                              );
-                              localStorage.setItem(
-                                "tipo_configuracion",
-                                config.tipo_configuracion,
-                              );
-                              localStorage.setItem(
-                                "nombre_configuracion",
-                                config.nombre_configuracion,
-                              );
-                              localStorage.setItem("telefono", config.telefono);
+                              setActiveConfig(config);
                               navigate("/canal-conexiones");
                             }}
-                            title="Ir a configuración"
+                            title="Ir al canal de conexiones"
                           >
                             <i className="bx bx-cog text-2xl text-blue-600"></i>
                             {/* Tooltip arriba para no tapar el teléfono */}
                             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                              Ir a configuración
+                              Ir al canal de conexiones
                             </span>
                           </div>
 
@@ -1966,23 +1972,7 @@ const Conexiones = () => {
                             text-white bg-gradient-to-b from-emerald-700 to-emerald-500 ring-1 ring-emerald-500/30
                             hover:brightness-110 transition"
                             onClick={() => {
-                              localStorage.setItem(
-                                "id_configuracion",
-                                config.id,
-                              );
-                              localStorage.setItem(
-                                "id_plataforma_conf",
-                                config.id_plataforma,
-                              );
-                              localStorage.setItem(
-                                "tipo_configuracion",
-                                config.tipo_configuracion,
-                              );
-                              localStorage.setItem(
-                                "nombre_configuracion",
-                                config.nombre_configuracion,
-                              );
-                              localStorage.setItem("telefono", config.telefono);
+                              setActiveConfig(config);
                               navigate("/chat");
                             }}
                             title="Ir al chat"

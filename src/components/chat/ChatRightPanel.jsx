@@ -1,260 +1,131 @@
 import React from "react";
 import DropshipperClientPanel from "./DropshipperClientPanel";
 import BasicClientPanel from "./BasicClientPanel";
+import { useDropi } from "../../context/DropiContext";
 
-export default function ChatRightPanel({
-  id_plataforma_conf,
-  // comunes
-  selectedChat,
-  DEFAULT_AVATAR,
+export default function ChatRightPanel(props) {
+  const { isDropiLinked } = useDropi();
 
-  // estados y setters (comunes)
-  isOpenMiniCal,
-  handleToggleCalendar,
-
-  // cotizaciones
-  activar_cotizacion,
-  isCotizacionesOpen,
-  handleToggleCotizaciones,
-  loadingCotizaciones,
-  cotizacionesData,
-  Cotizador,
-
-  // panel ImporSuite (Órdenes / Novedades / etc.)
-  isOpen,
-  setIsOpen,
-  isOpenNovedades,
-  setIsOpenNovedades,
-  setIsOpenMiniCal,
-  activeTab,
-  setActiveTab,
-  facturasChatSeleccionado,
-  guiasChatSeleccionado,
-  obtenerEstadoGuia,
-  handleFacturaSeleccionada,
-  handleGuiaSeleccionada,
-
-  // novedades
-  activeTabNovedad,
-  setActiveTabNovedad,
-  novedades_gestionadas,
-  novedades_noGestionadas,
-  handleDetalleNovedad,
-
-  // modal detalle novedad
-  showModalNovedad,
-  setShowModalNovedad,
-  novedadSeleccionada,
-  accion,
-  tipo_novedad,
-  // props específicos de formularios de novedad (laar/gintra/speed/servi)
-  datosNovedadExtra,
-  tipoLaar,
-  setTipoLaar,
-  observacionLaar,
-  setObservacionLaar,
-  solucionLaar,
-  setSolucionLaar,
-  enviarLaarNovedad,
-  enviando,
-
-  tipoGintra,
-  setTipoGintra,
-  solucionGintra,
-  setSolucionGintra,
-  fechaGintra,
-  setFechaGintra,
-  minDate,
-  valorRecaudar,
-  setValorRecaudar,
-  enviarGintracomNovedad,
-
-  observacionSpeed,
-  setObservacionSpeed,
-
-  observacionServi,
-  setObservacionServi,
-  enviarServiNovedad,
-
-  setAccion,
-  handleVolverOfrecer,
-  devolverRemitente,
-
-  // guía detalle
-  guiaSeleccionada,
-  tracking_guia,
-  imprimir_guia,
-  provinciaCiudad,
-  disableAanular,
-  anular_guia,
-  disableGestionar,
-
-  // factura overlay
-  facturaSeleccionada,
-  generandoGuia,
-  handleSubmit,
-  onSubmit,
-  register,
-  provincias,
-  ciudades,
-  setFacturaSeleccionada,
-  handleSetTarifas,
-  tarifas,
-  images,
-  selectedImageId,
-  handleImageClick,
-  modal_google_maps,
-  setModal_google_maps,
-
-  // accordion productos + resumen
-  isAccordionOpen,
-  facturaSeleccionadaProductos, // opcional si lo usa aparte
-  handleCantidadInputChange,
-  handleCantidadChange,
-  handlePrecioChange,
-  eliminar,
-  setIsModalOpen,
-  nombreBodega,
-  monto_venta,
-  costo,
-  precio_envio_directo,
-  fulfillment,
-  total_directo,
-  MetricCard,
-  TarjetaHistorial,
-  stats,
-  nivel,
-  mostrarAlerta,
-  Swal,
-  MiniCalendario,
-}) {
-  if (id_plataforma_conf !== null) {
+  if (isDropiLinked) {
     return (
       <DropshipperClientPanel
-        selectedChat={selectedChat}
-        DEFAULT_AVATAR={DEFAULT_AVATAR}
-        // botones arriba
-        isOpen={isOpen}
-        setIsOpen={setIsOpen}
-        isOpenNovedades={isOpenNovedades}
-        setIsOpenNovedades={setIsOpenNovedades}
-        isOpenMiniCal={isOpenMiniCal}
-        setIsOpenMiniCal={setIsOpenMiniCal}
-        handleToggleCalendar={handleToggleCalendar}
-        activar_cotizacion={activar_cotizacion}
-        isCotizacionesOpen={isCotizacionesOpen}
-        handleToggleCotizaciones={handleToggleCotizaciones}
-        loadingCotizaciones={loadingCotizaciones}
-        cotizacionesData={cotizacionesData}
-        Cotizador={Cotizador}
-        // órdenes
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        facturasChatSeleccionado={facturasChatSeleccionado}
-        guiasChatSeleccionado={guiasChatSeleccionado}
-        obtenerEstadoGuia={obtenerEstadoGuia}
-        handleFacturaSeleccionada={handleFacturaSeleccionada}
-        handleGuiaSeleccionada={handleGuiaSeleccionada}
-        // novedades
-        activeTabNovedad={activeTabNovedad}
-        setActiveTabNovedad={setActiveTabNovedad}
-        novedades_gestionadas={novedades_gestionadas}
-        novedades_noGestionadas={novedades_noGestionadas}
-        handleDetalleNovedad={handleDetalleNovedad}
-        // modal detalle novedad
-        showModalNovedad={showModalNovedad}
-        setShowModalNovedad={setShowModalNovedad}
-        novedadSeleccionada={novedadSeleccionada}
-        accion={accion}
-        tipo_novedad={tipo_novedad}
-        datosNovedadExtra={datosNovedadExtra}
-        tipoLaar={tipoLaar}
-        setTipoLaar={setTipoLaar}
-        observacionLaar={observacionLaar}
-        setObservacionLaar={setObservacionLaar}
-        solucionLaar={solucionLaar}
-        setSolucionLaar={setSolucionLaar}
-        enviarLaarNovedad={enviarLaarNovedad}
-        enviando={enviando}
-        tipoGintra={tipoGintra}
-        setTipoGintra={setTipoGintra}
-        solucionGintra={solucionGintra}
-        setSolucionGintra={setSolucionGintra}
-        fechaGintra={fechaGintra}
-        setFechaGintra={setFechaGintra}
-        minDate={minDate}
-        valorRecaudar={valorRecaudar}
-        setValorRecaudar={setValorRecaudar}
-        enviarGintracomNovedad={enviarGintracomNovedad}
-        observacionSpeed={observacionSpeed}
-        setObservacionSpeed={setObservacionSpeed}
-        observacionServi={observacionServi}
-        setObservacionServi={setObservacionServi}
-        enviarServiNovedad={enviarServiNovedad}
-        setAccion={setAccion}
-        handleVolverOfrecer={handleVolverOfrecer}
-        devolverRemitente={devolverRemitente}
-        // guía detalle
-        guiaSeleccionada={guiaSeleccionada}
-        tracking_guia={tracking_guia}
-        imprimir_guia={imprimir_guia}
-        provinciaCiudad={provinciaCiudad}
-        disableAanular={disableAanular}
-        anular_guia={anular_guia}
-        disableGestionar={disableGestionar}
-        Swal={Swal}
-        // factura overlay form
-        facturaSeleccionada={facturaSeleccionada}
-        generandoGuia={generandoGuia}
-        handleSubmit={handleSubmit}
-        onSubmit={onSubmit}
-        register={register}
-        provincias={provincias}
-        ciudades={ciudades}
-        setFacturaSeleccionada={setFacturaSeleccionada}
-        handleSetTarifas={handleSetTarifas}
-        tarifas={tarifas}
-        images={images}
-        selectedImageId={selectedImageId}
-        handleImageClick={handleImageClick}
-        modal_google_maps={modal_google_maps}
-        setModal_google_maps={setModal_google_maps}
-        // productos + resumen
-        isAccordionOpen={isAccordionOpen}
-        handleCantidadInputChange={handleCantidadInputChange}
-        handleCantidadChange={handleCantidadChange}
-        handlePrecioChange={handlePrecioChange}
-        eliminar={eliminar}
-        setIsModalOpen={setIsModalOpen}
-        nombreBodega={nombreBodega}
-        monto_venta={monto_venta}
-        costo={costo}
-        precio_envio_directo={precio_envio_directo}
-        fulfillment={fulfillment}
-        total_directo={total_directo}
-        MetricCard={MetricCard}
-        TarjetaHistorial={TarjetaHistorial}
-        stats={stats}
-        nivel={nivel}
-        mostrarAlerta={mostrarAlerta}
-        MiniCalendario={MiniCalendario}
+        selectedChat={props.selectedChat}
+        DEFAULT_AVATAR={props.DEFAULT_AVATAR}
+        isOpen={props.isOpen}
+        setIsOpen={props.setIsOpen}
+        isOpenNovedades={props.isOpenNovedades}
+        setIsOpenNovedades={props.setIsOpenNovedades}
+        isOpenMiniCal={props.isOpenMiniCal}
+        setIsOpenMiniCal={props.setIsOpenMiniCal}
+        handleToggleCalendar={props.handleToggleCalendar}
+        activar_cotizacion={props.activar_cotizacion}
+        isCotizacionesOpen={props.isCotizacionesOpen}
+        handleToggleCotizaciones={props.handleToggleCotizaciones}
+        loadingCotizaciones={props.loadingCotizaciones}
+        cotizacionesData={props.cotizacionesData}
+        Cotizador={props.Cotizador}
+        activeTab={props.activeTab}
+        setActiveTab={props.setActiveTab}
+        facturasChatSeleccionado={props.facturasChatSeleccionado}
+        guiasChatSeleccionado={props.guiasChatSeleccionado}
+        obtenerEstadoGuia={props.obtenerEstadoGuia}
+        handleFacturaSeleccionada={props.handleFacturaSeleccionada}
+        handleGuiaSeleccionada={props.handleGuiaSeleccionada}
+        activeTabNovedad={props.activeTabNovedad}
+        setActiveTabNovedad={props.setActiveTabNovedad}
+        novedades_gestionadas={props.novedades_gestionadas}
+        novedades_noGestionadas={props.novedades_noGestionadas}
+        handleDetalleNovedad={props.handleDetalleNovedad}
+        showModalNovedad={props.showModalNovedad}
+        setShowModalNovedad={props.setShowModalNovedad}
+        novedadSeleccionada={props.novedadSeleccionada}
+        accion={props.accion}
+        tipo_novedad={props.tipo_novedad}
+        datosNovedadExtra={props.datosNovedadExtra}
+        tipoLaar={props.tipoLaar}
+        setTipoLaar={props.setTipoLaar}
+        observacionLaar={props.observacionLaar}
+        setObservacionLaar={props.setObservacionLaar}
+        solucionLaar={props.solucionLaar}
+        setSolucionLaar={props.setSolucionLaar}
+        enviarLaarNovedad={props.enviarLaarNovedad}
+        enviando={props.enviando}
+        tipoGintra={props.tipoGintra}
+        setTipoGintra={props.setTipoGintra}
+        solucionGintra={props.solucionGintra}
+        setSolucionGintra={props.setSolucionGintra}
+        fechaGintra={props.fechaGintra}
+        setFechaGintra={props.setFechaGintra}
+        minDate={props.minDate}
+        valorRecaudar={props.valorRecaudar}
+        setValorRecaudar={props.setValorRecaudar}
+        enviarGintracomNovedad={props.enviarGintracomNovedad}
+        observacionSpeed={props.observacionSpeed}
+        setObservacionSpeed={props.setObservacionSpeed}
+        observacionServi={props.observacionServi}
+        setObservacionServi={props.setObservacionServi}
+        enviarServiNovedad={props.enviarServiNovedad}
+        setAccion={props.setAccion}
+        handleVolverOfrecer={props.handleVolverOfrecer}
+        devolverRemitente={props.devolverRemitente}
+        guiaSeleccionada={props.guiaSeleccionada}
+        tracking_guia={props.tracking_guia}
+        imprimir_guia={props.imprimir_guia}
+        provinciaCiudad={props.provinciaCiudad}
+        disableAanular={props.disableAanular}
+        anular_guia={props.anular_guia}
+        disableGestionar={props.disableGestionar}
+        Swal={props.Swal}
+        facturaSeleccionada={props.facturaSeleccionada}
+        generandoGuia={props.generandoGuia}
+        handleSubmit={props.handleSubmit}
+        onSubmit={props.onSubmit}
+        register={props.register}
+        provincias={props.provincias}
+        ciudades={props.ciudades}
+        setFacturaSeleccionada={props.setFacturaSeleccionada}
+        handleSetTarifas={props.handleSetTarifas}
+        tarifas={props.tarifas}
+        images={props.images}
+        selectedImageId={props.selectedImageId}
+        handleImageClick={props.handleImageClick}
+        modal_google_maps={props.modal_google_maps}
+        setModal_google_maps={props.setModal_google_maps}
+        isAccordionOpen={props.isAccordionOpen}
+        handleCantidadInputChange={props.handleCantidadInputChange}
+        handleCantidadChange={props.handleCantidadChange}
+        handlePrecioChange={props.handlePrecioChange}
+        eliminar={props.eliminar}
+        setIsModalOpen={props.setIsModalOpen}
+        nombreBodega={props.nombreBodega}
+        monto_venta={props.monto_venta}
+        costo={props.costo}
+        precio_envio_directo={props.precio_envio_directo}
+        fulfillment={props.fulfillment}
+        total_directo={props.total_directo}
+        MetricCard={props.MetricCard}
+        TarjetaHistorial={props.TarjetaHistorial}
+        stats={props.stats}
+        nivel={props.nivel}
+        mostrarAlerta={props.mostrarAlerta}
+        MiniCalendario={props.MiniCalendario}
       />
     );
   }
 
   return (
     <BasicClientPanel
-      selectedChat={selectedChat}
-      DEFAULT_AVATAR={DEFAULT_AVATAR}
-      isOpenMiniCal={isOpenMiniCal}
-      handleToggleCalendar={handleToggleCalendar}
-      activar_cotizacion={activar_cotizacion}
-      isCotizacionesOpen={isCotizacionesOpen}
-      handleToggleCotizaciones={handleToggleCotizaciones}
-      loadingCotizaciones={loadingCotizaciones}
-      cotizacionesData={cotizacionesData}
-      Cotizador={Cotizador}
-      MiniCalendario={MiniCalendario}
+      selectedChat={props.selectedChat}
+      DEFAULT_AVATAR={props.DEFAULT_AVATAR}
+      isOpenMiniCal={props.isOpenMiniCal}
+      handleToggleCalendar={props.handleToggleCalendar}
+      activar_cotizacion={props.activar_cotizacion}
+      isCotizacionesOpen={props.isCotizacionesOpen}
+      handleToggleCotizaciones={props.handleToggleCotizaciones}
+      loadingCotizaciones={props.loadingCotizaciones}
+      cotizacionesData={props.cotizacionesData}
+      Cotizador={props.Cotizador}
+      MiniCalendario={props.MiniCalendario}
     />
   );
 }

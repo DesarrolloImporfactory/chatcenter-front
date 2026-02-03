@@ -61,6 +61,7 @@ import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
 
 import Contactos from "./components/clientes/Contactos";
 import IntegracionesDropi from "./pages/dropi/IntegracionesDropi";
+import DropiProvider from "./context/DropiProvider";
 
 function App() {
   useEffect(() => {
@@ -76,287 +77,289 @@ function App() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
-      {/* Toaster para notificaciones globales */}
-      <Toaster
-        position="top-right"
-        reverseOrder={false}
-        gutter={8}
-        containerClassName=""
-        containerStyle={{}}
-        toastOptions={{
-          // Configuración por defecto para todos los toasts
-          duration: 4000,
-          style: {
-            background: "#363636",
-            color: "#fff",
-          },
-          // Configuración por tipo
-          success: {
-            duration: 3000,
-            theme: {
-              primary: "green",
-              secondary: "black",
+    <DropiProvider>
+      <div className="flex flex-col min-h-screen bg-gray-100 duration-500">
+        {/* Toaster para notificaciones globales */}
+        <Toaster
+          position="top-right"
+          reverseOrder={false}
+          gutter={8}
+          containerClassName=""
+          containerStyle={{}}
+          toastOptions={{
+            // Configuración por defecto para todos los toasts
+            duration: 4000,
+            style: {
+              background: "#363636",
+              color: "#fff",
             },
-          },
-          error: {
-            duration: 5000,
-          },
-        }}
-      />
-
-      <Routes>
-        <Route path="/politica-privacidad" element={<PoliticasView />} />
-        <Route path="/condiciones-servicio" element={<CondicionesView />} />
-        <Route path="/politicas-tiktok" element={<PoliticasTikTokIndex />} />
-        <Route
-          path="/politica-privacidad-tiktok"
-          element={<PoliticaPrivacidadTikTok />}
-        />
-        <Route
-          path="/terminos-servicio-tiktok"
-          element={<TerminosServicioTikTok />}
+            // Configuración por tipo
+            success: {
+              duration: 3000,
+              theme: {
+                primary: "green",
+                secondary: "black",
+              },
+            },
+            error: {
+              duration: 5000,
+            },
+          }}
         />
 
-        {/* Rutas de autenticación */}
-        <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
-
-        {/* Rutas protegidas */}
-        <Route element={<ProtectedRoutes />}>
-          {/* Home envuelto en MainLayout */}
+        <Routes>
+          <Route path="/politica-privacidad" element={<PoliticasView />} />
+          <Route path="/condiciones-servicio" element={<CondicionesView />} />
+          <Route path="/politicas-tiktok" element={<PoliticasTikTokIndex />} />
           <Route
-            path="/"
-            element={
-              <MainLayout>
-                <Home />
-              </MainLayout>
-            }
+            path="/politica-privacidad-tiktok"
+            element={<PoliticaPrivacidadTikTok />}
+          />
+          <Route
+            path="/terminos-servicio-tiktok"
+            element={<TerminosServicioTikTok />}
           />
 
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/chat/:chatId" element={<Chat />} />
+          {/* Rutas de autenticación */}
+          <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
 
-          {/*administrador-pruebas se renombra y pasa a produccion*/}
-          <Route
-            path="/administrador-whatsapp"
-            element={
-              <MainLayout>
-                <AdministradorPlantillas2 />
-              </MainLayout>
-            }
-          />
+          {/* Rutas protegidas */}
+          <Route element={<ProtectedRoutes />}>
+            {/* Home envuelto en MainLayout */}
+            <Route
+              path="/"
+              element={
+                <MainLayout>
+                  <Home />
+                </MainLayout>
+              }
+            />
 
-          {/*administrador-pruebas se renombra y pasa a produccion*/}
-          <Route
-            path="/canal-conexiones"
-            element={
-              <MainLayout>
-                <AdministradorCanales />
-              </MainLayout>
-            }
-          />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/chat/:chatId" element={<Chat />} />
 
-          <Route
-            path="/asistentes"
-            element={
-              <MainLayout>
-                <Asistentes />
-              </MainLayout>
-            }
-          />
+            {/*administrador-pruebas se renombra y pasa a produccion*/}
+            <Route
+              path="/administrador-whatsapp"
+              element={
+                <MainLayout>
+                  <AdministradorPlantillas2 />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/estados_contactos"
-            element={
-              <MainLayout>
-                <Estado_contactos_imporfactory />
-              </MainLayout>
-            }
-          />
+            {/*administrador-pruebas se renombra y pasa a produccion*/}
+            <Route
+              path="/canal-conexiones"
+              element={
+                <MainLayout>
+                  <AdministradorCanales />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/estados_contactos_ventas"
-            element={
-              <MainLayout>
-                <Estado_contactos_ventas />
-              </MainLayout>
-            }
-          />
-          <Route
-            path="/estados_contactos_imporshop"
-            element={
-              <MainLayout>
-                <Estado_contactos_imporshop />
-              </MainLayout>
-            }
-          />
+            <Route
+              path="/asistentes"
+              element={
+                <MainLayout>
+                  <Asistentes />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/dropi"
-            element={
-              <MainLayout>
-                <IntegracionesDropi />
-              </MainLayout>
-            }
-          />
+            <Route
+              path="/estados_contactos"
+              element={
+                <MainLayout>
+                  <Estado_contactos_imporfactory />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/dropi/pedidos"
-            element={
-              <MainLayout>
-                <OrdenesDropi />
-              </MainLayout>
-            }
-          />
+            <Route
+              path="/estados_contactos_ventas"
+              element={
+                <MainLayout>
+                  <Estado_contactos_ventas />
+                </MainLayout>
+              }
+            />
+            <Route
+              path="/estados_contactos_imporshop"
+              element={
+                <MainLayout>
+                  <Estado_contactos_imporshop />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/calendario"
-            element={
-              <MainLayout>
-                <Calendario />
-              </MainLayout>
-            }
-          />
+            <Route
+              path="/dropi"
+              element={
+                <MainLayout>
+                  <IntegracionesDropi />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/contactos"
-            element={
-              <MainLayout>
-                <Contactos />
-              </MainLayout>
-            }
-          />
+            <Route
+              path="/dropi/pedidos"
+              element={
+                <MainLayout>
+                  <OrdenesDropi />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/conexiones"
-            element={
-              <MainLayout_conexiones>
-                <Conexiones />
-              </MainLayout_conexiones>
-            }
-          />
+            <Route
+              path="/calendario"
+              element={
+                <MainLayout>
+                  <Calendario />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/conexionespruebas"
-            element={
-              <MainLayout_conexiones>
-                <Conexionespruebas />
-              </MainLayout_conexiones>
-            }
-          />
+            <Route
+              path="/contactos"
+              element={
+                <MainLayout>
+                  <Contactos />
+                </MainLayout>
+              }
+            />
 
-          <Route
-            path="/administrador-conexiones"
-            element={
-              <MainLayout_conexiones>
-                <AdminConexiones />
-              </MainLayout_conexiones>
-            }
-          />
+            <Route
+              path="/conexiones"
+              element={
+                <MainLayout_conexiones>
+                  <Conexiones />
+                </MainLayout_conexiones>
+              }
+            />
 
-          {/* vista de usuarios */}
-          <Route
-            path="/usuarios"
-            element={
-              <MainLayout_conexiones>
-                <Usuarios />
-              </MainLayout_conexiones>
-            }
-          />
-          {/* vista de departamentos */}
-          <Route
-            path="/departamentos"
-            element={
-              <MainLayout_conexiones>
-                <Departamentos />
-              </MainLayout_conexiones>
-            }
-          />
+            <Route
+              path="/conexionespruebas"
+              element={
+                <MainLayout_conexiones>
+                  <Conexionespruebas />
+                </MainLayout_conexiones>
+              }
+            />
 
-          {/* PlanesView */}
-          <Route
-            path="/planes_view"
-            element={
-              <MainLayoutPlanes>
-                <PlanesView />
-              </MainLayoutPlanes>
-            }
-          />
-          <Route
-            path="/planes_view_prueba"
-            element={
-              <MainLayoutPlanes>
-                <PlanesViewPrueba />
-              </MainLayoutPlanes>
-            }
-          />
+            <Route
+              path="/administrador-conexiones"
+              element={
+                <MainLayout_conexiones>
+                  <AdminConexiones />
+                </MainLayout_conexiones>
+              }
+            />
 
-          <Route
-            path="/lista_planes"
-            element={
-              <MainLayoutPlanes>
-                <ListaPlanes />
-              </MainLayoutPlanes>
-            }
-          />
-          {/* Miplan */}
-          <Route
-            path="/miplan"
-            element={
-              <MainLayout_conexiones>
-                <MiPlan />
-              </MainLayout_conexiones>
-            }
-          />
-          <Route
-            path="/miplan_prueba"
-            element={
-              <MainLayout_conexiones>
-                <MiPlanPrueba />
-              </MainLayout_conexiones>
-            }
-          />
+            {/* vista de usuarios */}
+            <Route
+              path="/usuarios"
+              element={
+                <MainLayout_conexiones>
+                  <Usuarios />
+                </MainLayout_conexiones>
+              }
+            />
+            {/* vista de departamentos */}
+            <Route
+              path="/departamentos"
+              element={
+                <MainLayout_conexiones>
+                  <Departamentos />
+                </MainLayout_conexiones>
+              }
+            />
 
-          <Route
-            path="/landing"
-            element={
-              <MainLayoutPlanes>
-                <LandingTrial />
-              </MainLayoutPlanes>
-            }
-          />
+            {/* PlanesView */}
+            <Route
+              path="/planes_view"
+              element={
+                <MainLayoutPlanes>
+                  <PlanesView />
+                </MainLayoutPlanes>
+              }
+            />
+            <Route
+              path="/planes_view_prueba"
+              element={
+                <MainLayoutPlanes>
+                  <PlanesViewPrueba />
+                </MainLayoutPlanes>
+              }
+            />
 
-          <Route
-            path="/productos"
-            element={
-              <MainLayout>
-                <Productos />
-              </MainLayout>
-            }
-          />
+            <Route
+              path="/lista_planes"
+              element={
+                <MainLayoutPlanes>
+                  <ListaPlanes />
+                </MainLayoutPlanes>
+              }
+            />
+            {/* Miplan */}
+            <Route
+              path="/miplan"
+              element={
+                <MainLayout_conexiones>
+                  <MiPlan />
+                </MainLayout_conexiones>
+              }
+            />
+            <Route
+              path="/miplan_prueba"
+              element={
+                <MainLayout_conexiones>
+                  <MiPlanPrueba />
+                </MainLayout_conexiones>
+              }
+            />
 
-          <Route
-            path="/categorias"
-            element={
-              <MainLayout>
-                <Categorias />
-              </MainLayout>
-            }
-          />
-        </Route>
+            <Route
+              path="/landing"
+              element={
+                <MainLayoutPlanes>
+                  <LandingTrial />
+                </MainLayoutPlanes>
+              }
+            />
 
-        <Route path="/access" element={<Access />} />
-        <Route path="/registro_guiado" element={<RegisterGuided />} />
+            <Route
+              path="/productos"
+              element={
+                <MainLayout>
+                  <Productos />
+                </MainLayout>
+              }
+            />
 
-        <Route path="/login" element={<Login />} />
-        <Route path="/registro" element={<Register />} />
+            <Route
+              path="/categorias"
+              element={
+                <MainLayout>
+                  <Categorias />
+                </MainLayout>
+              }
+            />
+          </Route>
 
-        {/* 
+          <Route path="/access" element={<Access />} />
+          <Route path="/registro_guiado" element={<RegisterGuided />} />
+
+          <Route path="/login" element={<Login />} />
+          <Route path="/registro" element={<Register />} />
+
+          {/* 
           /administrador-whatsapp, sin envolver MainLayout 
         */}
-        <Route path="*" element={<h1>Esta ruta no existe</h1>} />
-      </Routes>
-    </div>
+          <Route path="*" element={<h1>Esta ruta no existe</h1>} />
+        </Routes>
+      </div>
+    </DropiProvider>
   );
 }
 

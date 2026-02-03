@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import { useDropi } from "../../context/DropiContext";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
