@@ -1,7 +1,19 @@
-import React from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import Swal from "sweetalert2";
 
 export default function DropshipperClientPanel(props) {
   const {
+    // socket
+    socketRef,
+    id_configuracion,
+
+    // chat
     selectedChat,
     DEFAULT_AVATAR,
 
@@ -14,6 +26,7 @@ export default function DropshipperClientPanel(props) {
     setIsOpenMiniCal,
     handleToggleCalendar,
 
+    // cotizaciones
     activar_cotizacion,
     isCotizacionesOpen,
     handleToggleCotizaciones,
@@ -24,6 +37,256 @@ export default function DropshipperClientPanel(props) {
     // ... (todo lo demás)
     MiniCalendario,
   } = props;
+
+  // ========= phone normalizado =========
+  const phone = useMemo(() => {
+    const raw =
+      selectedChat?.celular_cliente ||
+      selectedChat?.celular ||
+      selectedChat?.phone ||
+      null;
+
+    if (!raw) return null;
+
+    // deja solo dígitos
+    const clean = String(raw).replace(/\D/g, "");
+
+    // si su sistema guarda con +593, esto lo deja igual (sin +)
+    // ajuste si necesita agregar prefijo.
+    return clean || null;
+  }, [selectedChat]);
+
+  // ========= estado de órdenes =========
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState(null);
+  const [orders, setOrders] = useState([]);
+
+  // filtros básicos (ajuste a su backend)
+  const [resultNumber, setResultNumber] = useState(20);
+  const [status, setStatus] = useState(""); // "" = todos
+
+  // ========= UI: vista única (solo una orden abierta) =========
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  // listeners refs para evitar duplicados
+  const onOkRef = useRef(null);
+  const onErrRef = useRef(null);
+
+  const emitGetOrders = useCallback(
+    (extra = {}) => {
+      const s = socketRef?.current;
+      if (!s) {
+        setOrdersError("Socket no está disponible");
+        return;
+      }
+      if (!id_configuracion) {
+        setOrdersError("Falta id_configuracion");
+        return;
+      }
+      if (!phone) {
+        setOrdersError("Falta teléfono del cliente");
+        return;
+      }
+
+      setOrdersLoading(true);
+      setOrdersError(null);
+
+      s.emit("GET_DROPI_ORDERS_BY_CLIENT", {
+        id_configuracion: Number(id_configuracion),
+        phone,
+        result_number: Number(resultNumber) || 20,
+        status: status || undefined, // si está vacío no lo mande
+        // puede agregar otros filtros si su backend los soporta:
+        // filter_date_by: "created_at",
+        // from: "2026-01-01",
+        // until: "2026-02-01",
+        ...extra,
+      });
+    },
+    [socketRef, id_configuracion, phone, resultNumber, status],
+  );
+
+  // listeners una sola vez por socketRef
+  useEffect(() => {
+    const s = socketRef?.current;
+    if (!s) return;
+
+    // limpiar anteriores si existían
+    if (onOkRef.current) s.off("DROPI_ORDERS_BY_CLIENT", onOkRef.current);
+    if (onErrRef.current)
+      s.off("DROPI_ORDERS_BY_CLIENT_ERROR", onErrRef.current);
+
+    const onOk = (resp) => {
+      setOrdersLoading(false);
+
+      // resp = { isSuccess: true, data: { isSuccess:true, status:200, objects:[...] } }
+      if (resp?.isSuccess && resp?.data?.isSuccess) {
+        const list = resp?.data?.objects || [];
+        setOrders(Array.isArray(list) ? list : []);
+        return;
+      }
+
+      setOrdersError(
+        resp?.data?.message || resp?.message || "Respuesta inválida",
+      );
+      setOrders([]);
+    };
+
+    const onErr = (resp) => {
+      setOrdersLoading(false);
+      setOrdersError(resp?.message || "Error consultando órdenes");
+      setOrders([]);
+    };
+
+    onOkRef.current = onOk;
+    onErrRef.current = onErr;
+
+    s.on("DROPI_ORDERS_BY_CLIENT", onOk);
+    s.on("DROPI_ORDERS_BY_CLIENT_ERROR", onErr);
+
+    return () => {
+      s.off("DROPI_ORDERS_BY_CLIENT", onOk);
+      s.off("DROPI_ORDERS_BY_CLIENT_ERROR", onErr);
+    };
+  }, [socketRef]);
+
+  // cuando ABRE “Órdenes”, consulta
+  useEffect(() => {
+    if (!isOpen) return;
+    emitGetOrders();
+  }, [isOpen, emitGetOrders]);
+
+  // si cambia el chat y el panel de órdenes está abierto, refresca
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setOrders([]);
+    setOrdersError(null);
+    setSelectedOrder(null); // <- clave: al cambiar de chat, vuelva a lista
+
+    // no spamear si todavía no hay phone
+    if (phone) emitGetOrders();
+  }, [selectedChat?.id, selectedChat?.psid, phone]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleToggleOrders = () => {
+    setIsOpen((prev) => !prev);
+    setIsOpenNovedades(false);
+    setIsOpenMiniCal(false);
+
+    // al cerrar el panel de órdenes, resetea modo detalle
+    if (isOpen) {
+      setSelectedOrder(null);
+    }
+  };
+
+  const handleRetryOrders = () => emitGetOrders();
+
+  // ========= UI helpers =========
+  const showOrderId = (o) =>
+    o?.id || o?.order_id || o?.pedido_id || o?.numero_orden || "—";
+  const showOrderStatus = (o) => o?.status || o?.estado || "Sin estado";
+  const showOrderDate = (o) => o?.created_at || o?.createdAt || o?.fecha || "";
+
+  // ===== Helpers de extracción (Dropi) =====
+  const money = (n) => {
+    const val = Number(n);
+    if (!Number.isFinite(val)) return "—";
+    return val.toLocaleString("es-CO");
+  };
+
+  const fmtDate = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("es-CO", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const statusStyle = (st = "") => {
+    const s = String(st).toUpperCase();
+    if (s === "ENTREGADO")
+      return "bg-emerald-500/20 text-emerald-200 border-emerald-400/30";
+    if (s === "PENDIENTE")
+      return "bg-amber-500/20 text-amber-200 border-amber-400/30";
+    if (s === "CONFIRMADO")
+      return "bg-sky-500/20 text-sky-200 border-sky-400/30";
+    if (s === "ENVIADO")
+      return "bg-indigo-500/20 text-indigo-200 border-indigo-400/30";
+    if (s === "CANCELADO")
+      return "bg-rose-500/20 text-rose-200 border-rose-400/30";
+    return "bg-white/10 text-white/80 border-white/10";
+  };
+
+  const getFirstDetail = (o) => o?.orderdetails?.[0] || null;
+  const getProduct = (o) => getFirstDetail(o)?.product || null;
+
+  const getProductName = (o) => getProduct(o)?.name || "—";
+  const getProductSku = (o) => getProduct(o)?.sku || "—";
+
+  const getWarehouseName = (o) => {
+    const w =
+      getFirstDetail(o)?.warehouse_product?.[0]?.warehouse?.[0]?.name ||
+      o?.warehouse?.name ||
+      "—";
+    return w;
+  };
+
+  const getQty = (o) => getFirstDetail(o)?.quantity ?? "—";
+
+  const getPhone = (o) =>
+    o?.phone || selectedChat?.celular_cliente || selectedChat?.celular || "—";
+
+  const getTransportadora = (o) =>
+    o?.shipping_company ||
+    o?.distribution_company?.name ||
+    o?.shippingCompany ||
+    "—";
+
+  const getShippingAmount = (o) => o?.shipping_amount ?? "—";
+
+  const getTotal = (o) =>
+    o?.total_order ?? o?.total ?? o?.monto ?? o?.valor ?? "—";
+
+  const getCityState = (o) => {
+    const city = o?.city || o?.city_name || "";
+    const st = o?.state || o?.state_name || "";
+    return [city, st].filter(Boolean).join(", ") || "—";
+  };
+
+  // ========= acciones UI =========
+  const openOrder = (order) => {
+    setSelectedOrder(order);
+  };
+
+  const closeOrder = () => {
+    setSelectedOrder(null);
+  };
+
+  // ========= placeholders (usted conecta la lógica luego) =========
+  const handleEditOrder = (order) => {
+    Swal.fire({
+      icon: "info",
+      title: "Editar (pendiente)",
+      text: `Aquí conectará la edición de la orden #${showOrderId(order)}`,
+      confirmButtonText: "OK",
+    });
+  };
+
+  const handleGenerateGuide = (order) => {
+    Swal.fire({
+      icon: "info",
+      title: "Generar guía (pendiente)",
+      text: `Aquí conectará la generación de guía para la orden #${showOrderId(
+        order,
+      )}`,
+      confirmButtonText: "OK",
+    });
+  };
 
   return (
     <>
@@ -54,16 +317,27 @@ export default function DropshipperClientPanel(props) {
                     </p>
                   </div>
                 </div>
+
                 <div className="flex items-center gap-3">
                   <i className="bx bx-phone-call text-2xl text-violet-300"></i>
                   <div>
                     <p className="text-xs text-white/60">Teléfono</p>
                     <p className="text-sm font-semibold">
-                      {selectedChat?.celular_cliente || "N/A"}
+                      {selectedChat?.celular_cliente ||
+                        selectedChat?.celular ||
+                        "N/A"}
                     </p>
                   </div>
                 </div>
               </div>
+
+              {/* aviso si falta phone */}
+              {!phone && (
+                <div className="text-xs text-amber-200 bg-amber-500/10 border border-amber-400/30 rounded-lg p-2">
+                  No se detectó un teléfono válido en este chat. No se podrán
+                  consultar órdenes.
+                </div>
+              )}
             </div>
           </div>
 
@@ -76,14 +350,12 @@ export default function DropshipperClientPanel(props) {
                   ? "bg-[#1e3a5f] border-blue-400"
                   : "bg-[#162c4a] border-transparent hover:border-blue-300"
               }`}
-              onClick={() => {
-                setIsOpen((prev) => !prev);
-                setIsOpenNovedades(false);
-                setIsOpenMiniCal(false);
-              }}
+              onClick={handleToggleOrders}
             >
               <i
-                className={`bx bx-package text-xl ${isOpen ? "glow-yellow" : "text-yellow-300"}`}
+                className={`bx bx-package text-xl ${
+                  isOpen ? "glow-yellow" : "text-yellow-300"
+                }`}
               />
               <span className="text-white">Órdenes</span>
             </button>
@@ -99,10 +371,13 @@ export default function DropshipperClientPanel(props) {
                 setIsOpenNovedades((prev) => !prev);
                 setIsOpen(false);
                 setIsOpenMiniCal(false);
+                setSelectedOrder(null);
               }}
             >
               <i
-                className={`bx bx-bell text-xl ${isOpenNovedades ? "glow-yellow" : "text-yellow-300"}`}
+                className={`bx bx-bell text-xl ${
+                  isOpenNovedades ? "glow-yellow" : "text-yellow-300"
+                }`}
               />
               <span className="text-white">Novedades</span>
             </button>
@@ -114,10 +389,15 @@ export default function DropshipperClientPanel(props) {
                   ? "bg-[#1e3a5f] border-blue-400"
                   : "bg-[#162c4a] border-transparent hover:border-blue-300"
               } ${props.isCotizacionesOpen ? "" : "col-span-2"}`}
-              onClick={handleToggleCalendar}
+              onClick={() => {
+                setSelectedOrder(null);
+                handleToggleCalendar();
+              }}
             >
               <i
-                className={`bx bx-calendar text-xl ${isOpenMiniCal ? "glow-yellow" : "text-yellow-300"}`}
+                className={`bx bx-calendar text-xl ${
+                  isOpenMiniCal ? "glow-yellow" : "text-yellow-300"
+                }`}
               />
               <span className="text-white">Calendario</span>
             </button>
@@ -130,16 +410,305 @@ export default function DropshipperClientPanel(props) {
                     ? "bg-[#1e3a5f] border-blue-400"
                     : "bg-[#162c4a] border-transparent hover:border-blue-300"
                 }`}
-                onClick={handleToggleCotizaciones}
+                onClick={() => {
+                  setSelectedOrder(null);
+                  handleToggleCotizaciones();
+                }}
               >
                 <i
-                  className={`bx bx-file-blank text-xl ${isCotizacionesOpen ? "glow-yellow" : "text-green-300"}`}
+                  className={`bx bx-file-blank text-xl ${
+                    isCotizacionesOpen ? "glow-yellow" : "text-green-300"
+                  }`}
                 />
                 <span className="text-white">Cotizaciones</span>
               </button>
             )}
           </div>
 
+          {/* ===== Panel Órdenes (Dropi) ===== */}
+          <div
+            className={`transition-all duration-300 ease-in-out transform origin-top ${
+              isOpen
+                ? "opacity-100 scale-100 max-h-[2000px] pointer-events-auto"
+                : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
+            } bg-[#12172e] rounded-lg shadow-md mb-4`}
+          >
+            <div className="p-4 text-white">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <i className="bx bx-package text-yellow-300 text-xl" />
+                  <h3 className="font-semibold">
+                    {selectedOrder
+                      ? "Orden seleccionada"
+                      : "Órdenes del cliente"}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Volver a lista (solo si hay una orden abierta) */}
+                  {selectedOrder && (
+                    <button
+                      className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15 border border-white/10 text-xs flex items-center gap-2"
+                      onClick={closeOrder}
+                      title="Cerrar orden"
+                    >
+                      <i className="bx bx-x" />
+                      Cerrar
+                    </button>
+                  )}
+
+                  {/* refrescar (solo en modo lista) */}
+                  {!selectedOrder && (
+                    <button
+                      className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15 border border-white/10 text-xs"
+                      onClick={handleRetryOrders}
+                      disabled={ordersLoading}
+                      title="Actualizar"
+                    >
+                      <i
+                        className={`bx bx-refresh ${
+                          ordersLoading ? "bx-spin" : ""
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {ordersError && (
+                <div className="text-sm text-red-300 bg-red-500/10 border border-red-400/20 rounded-lg p-3 mb-3">
+                  {ordersError}
+                </div>
+              )}
+
+              {ordersLoading && !selectedOrder && (
+                <div className="text-sm text-white/70">Cargando órdenes…</div>
+              )}
+
+              {/* ====== MODO LISTA ====== */}
+              {!selectedOrder &&
+                !ordersLoading &&
+                !ordersError &&
+                orders?.length === 0 && (
+                  <div className="text-sm text-white/70">
+                    No hay órdenes para este cliente.
+                  </div>
+                )}
+
+              {!selectedOrder &&
+                !ordersLoading &&
+                !ordersError &&
+                orders?.length > 0 && (
+                  <div className="space-y-3">
+                    {orders.map((o, idx) => (
+                      <div
+                        key={String(showOrderId(o)) + "_" + idx}
+                        className="p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
+                      >
+                        {/* Header: ID + Status + Fecha + Abrir */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">
+                              Orden #{showOrderId(o)}
+                            </p>
+                            <p className="text-xs text-white/60 truncate">
+                              {fmtDate(showOrderDate(o))} • {getCityState(o)}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className={`text-[11px] px-2 py-1 rounded-full border ${statusStyle(
+                                showOrderStatus(o),
+                              )}`}
+                            >
+                              {showOrderStatus(o)}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => openOrder(o)}
+                              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-xs flex items-center gap-2"
+                              title="Abrir orden"
+                            >
+                              <i className="bx bx-folder-open" />
+                              Abrir
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Mini resumen (solo en lista) */}
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
+                            <i className="bx bx-cube text-xl text-violet-300" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-white/60">Producto</p>
+                              <p className="text-sm font-semibold truncate">
+                                {getQty(o)} x {getProductName(o)}
+                              </p>
+                              <p className="text-xs text-white/60 truncate">
+                                SKU: {getProductSku(o)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
+                            <i className="bx bx-trip text-xl text-sky-300" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-white/60">
+                                Transportadora
+                              </p>
+                              <p className="text-sm font-semibold truncate">
+                                {getTransportadora(o)}
+                              </p>
+                              <p className="text-xs text-white/60 truncate">
+                                Total: ${money(getTotal(o))}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+              {/* ====== MODO DETALLE (solo la orden) ====== */}
+              {selectedOrder && (
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  {/* Header detalle */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold truncate">
+                        Orden #{showOrderId(selectedOrder)}
+                      </p>
+                      <p className="text-xs text-white/60 truncate">
+                        {fmtDate(showOrderDate(selectedOrder))} •{" "}
+                        {getCityState(selectedOrder)}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`text-[11px] px-2 py-1 rounded-full border ${statusStyle(
+                        showOrderStatus(selectedOrder),
+                      )}`}
+                    >
+                      {showOrderStatus(selectedOrder)}
+                    </span>
+                  </div>
+
+                  {/* Botones acción */}
+                  <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEditOrder(selectedOrder)}
+                      className="w-full sm:w-auto px-4 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-sm font-semibold flex items-center justify-center gap-2"
+                    >
+                      <i className="bx bx-edit" />
+                      Editar orden
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateGuide(selectedOrder)}
+                      className="w-full sm:w-auto px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
+                    >
+                      <i className="bx bx-receipt" />
+                      Generar guía
+                    </button>
+                  </div>
+
+                  {/* Datos clave (detalle) */}
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Producto */}
+                    <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
+                      <i className="bx bx-cube text-xl text-violet-300" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-white/60">Producto</p>
+                        <p className="text-sm font-semibold truncate">
+                          {getQty(selectedOrder)} x{" "}
+                          {getProductName(selectedOrder)}
+                        </p>
+                        <p className="text-xs text-white/60 truncate">
+                          SKU: {getProductSku(selectedOrder)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Bodega */}
+                    <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
+                      <i className="bx bx-store text-xl text-emerald-300" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-white/60">Bodega</p>
+                        <p className="text-sm font-semibold truncate">
+                          {getWarehouseName(selectedOrder)}
+                        </p>
+                        <p className="text-xs text-white/60 truncate">
+                          Dropshipper:{" "}
+                          {selectedOrder?.user?.role_user?.name || "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Teléfono */}
+                    <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
+                      <i className="bx bx-phone text-xl text-yellow-300" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-white/60">Teléfono</p>
+                        <p className="text-sm font-semibold truncate">
+                          {getPhone(selectedOrder)}
+                        </p>
+                        <p className="text-xs text-white/60 truncate">
+                          Cliente: {selectedOrder?.name || "—"}{" "}
+                          {selectedOrder?.surname
+                            ? `(${selectedOrder.surname})`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Transportadora */}
+                    <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
+                      <i className="bx bx-trip text-xl text-sky-300" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-white/60">Transportadora</p>
+                        <p className="text-sm font-semibold truncate">
+                          {getTransportadora(selectedOrder)}
+                        </p>
+                        <p className="text-xs text-white/60 truncate">
+                          Envío: ${money(getShippingAmount(selectedOrder))}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Totales */}
+                  <div className="mt-3 flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
+                    <p className="text-xs text-white/70">Total orden</p>
+                    <p className="text-sm font-semibold text-white">
+                      ${money(getTotal(selectedOrder))}
+                    </p>
+                  </div>
+
+                  {/* Dirección */}
+                  <div className="mt-2 text-xs text-white/60">
+                    <span className="font-semibold text-white/70">
+                      Dirección:
+                    </span>{" "}
+                    {selectedOrder?.dir || "—"}
+                  </div>
+
+                  {/* Placeholder para su formulario de edición */}
+                  <div className="mt-3 text-xs text-white/50">
+                    *Aquí puede montar su formulario de edición (inputs,
+                    selects, validaciones, etc.). Ya queda la vista “limpia”
+                    solo para una orden.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ===== Panel Cotizaciones ===== */}
           <div
             className={`transition-all duration-300 ease-in-out transform origin-top ${
               isCotizacionesOpen
@@ -153,6 +722,7 @@ export default function DropshipperClientPanel(props) {
             />
           </div>
 
+          {/* ===== Mini calendario ===== */}
           {isOpenMiniCal && (
             <div className="bg-transparent rounded-lg shadow-md">
               <div className="p-3">

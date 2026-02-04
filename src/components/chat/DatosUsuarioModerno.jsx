@@ -1309,6 +1309,146 @@ const DatosUsuarioModerno = ({
   const decoded = jwtDecode(token);
   decodedToken = decoded;
   const activar_cotizacion = decodedToken?.activar_cotizacion || 0;
+
+  const rightPanelCommonProps = {
+    socketRef,
+    id_configuracion,
+
+    selectedChat,
+    DEFAULT_AVATAR,
+
+    // Calendario
+    isOpenMiniCal,
+    setIsOpenMiniCal,
+    handleToggleCalendar,
+    MiniCalendario,
+
+    // Cotizaciones
+    activar_cotizacion,
+    isCotizacionesOpen,
+    handleToggleCotizaciones,
+    loadingCotizaciones,
+    cotizacionesData,
+    Cotizador,
+  };
+
+  const rightPanelDropiOnlyProps = {
+    // drawers / tabs
+    isOpen,
+    setIsOpen,
+    isOpenNovedades,
+    setIsOpenNovedades,
+    activeTab,
+    setActiveTab,
+    activeTabNovedad,
+    setActiveTabNovedad,
+
+    // facturas / guías
+    facturasChatSeleccionado,
+    guiasChatSeleccionado,
+    obtenerEstadoGuia,
+    handleFacturaSeleccionada,
+    handleGuiaSeleccionada,
+
+    // novedades
+    // novedades
+    novedades_gestionadas,
+    novedades_noGestionadas,
+    handleDetalleNovedad,
+    showModalNovedad,
+    closeModalNovedad,
+    novedadSeleccionada,
+    accion,
+    tipo_novedad,
+    datosNovedadExtra,
+    handleGestionSubmit,
+
+    // laar
+    tipoLaar,
+    setTipoLaar,
+    observacionLaar,
+    setObservacionLaar,
+    solucionLaar,
+    setSolucionLaar,
+    enviarLaarNovedad,
+    enviando,
+
+    // gintra
+    tipoGintra,
+    setTipoGintra,
+    solucionGintra,
+    setSolucionGintra,
+    fechaGintra,
+    setFechaGintra,
+    minDate,
+    valorRecaudar,
+    setValorRecaudar,
+    enviarGintracomNovedad,
+
+    // servi
+    observacionServi,
+    setObservacionServi,
+    enviarServiNovedad,
+
+    // acciones guía
+    handleVolverOfrecer,
+    devolverRemitente,
+    guiaSeleccionada,
+    tracking_guia,
+    imprimir_guia,
+    provinciaCiudad,
+    disableAanular,
+    anular_guia,
+    disableGestionar,
+
+    Swal,
+
+    // form
+    facturaSeleccionada,
+    setFacturaSeleccionada,
+    generandoGuia,
+    handleSubmit,
+    onSubmit,
+    register,
+    provincias,
+    ciudades,
+    handleSetTarifas,
+    tarifas,
+
+    // imágenes
+    images,
+    selectedImageId,
+    handleImageClick,
+    modal_google_maps,
+    setModal_google_maps,
+
+    // productos / ui
+    isAccordionOpen,
+    handleCantidadInputChange,
+    handleCantidadChange,
+    handlePrecioChange,
+    eliminar,
+    setIsModalOpen,
+
+    nombreBodega,
+    monto_venta,
+    costo,
+    precio_envio_directo,
+    fulfillment,
+    total_directo,
+
+    MetricCard,
+    TarjetaHistorial,
+    stats,
+    nivel,
+    mostrarAlerta,
+  };
+
+  const chatRightPanelProps = {
+    ...rightPanelCommonProps,
+    ...rightPanelDropiOnlyProps,
+  };
+
   return (
     <>
       {opciones && (
@@ -1317,161 +1457,7 @@ const DatosUsuarioModerno = ({
             animateOut ? "animate-slide-out" : "animate-slide-in"
           } ${facturaSeleccionada?.numero_factura ? "bg-white" : "bg-[#171931]"}`}
         >
-          <ChatRightPanel
-            // ====== Flags / UI ======
-            opciones={opciones}
-            animateOut={animateOut}
-            activar_cotizacion={activar_cotizacion}
-            // ====== Identidad / selección ======
-            selectedChat={selectedChat}
-            id_plataforma_conf={id_plataforma_conf}
-            id_usuario_conf={id_usuario_conf}
-            id_configuracion={id_configuracion}
-            // ====== Socket / data base ======
-            socketRef={socketRef}
-            provincias={provincias}
-            ciudades={ciudades}
-            setCiudades={setCiudades}
-            // ====== Listas (órdenes / guías / novedades) ======
-            facturasChatSeleccionado={facturasChatSeleccionado}
-            setFacturasChatSeleccionado={setFacturasChatSeleccionado}
-            guiasChatSeleccionado={guiasChatSeleccionado}
-            setGuiasChatSeleccionado={setGuiasChatSeleccionado}
-            novedades_gestionadas={novedades_gestionadas}
-            novedades_noGestionadas={novedades_noGestionadas}
-            // ====== Acordeones / tabs ======
-            isOpen={isOpen}
-            setIsOpen={setIsOpen}
-            isOpenNovedades={isOpenNovedades}
-            setIsOpenNovedades={setIsOpenNovedades}
-            isOpenMiniCal={isOpenMiniCal}
-            setIsOpenMiniCal={setIsOpenMiniCal}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            activeTabNovedad={activeTabNovedad}
-            setActiveTabNovedad={setActiveTabNovedad}
-            // ====== Cotizaciones ======
-            Cotizador={Cotizador}
-            isCotizacionesOpen={isCotizacionesOpen}
-            setIsCotizacionesOpen={setIsCotizacionesOpen}
-            loadingCotizaciones={loadingCotizaciones}
-            cotizacionesData={cotizacionesData}
-            handleToggleCotizaciones={handleToggleCotizaciones}
-            // ====== Calendario ======
-            canAccessCalendar={canAccessCalendar}
-            handleToggleCalendar={handleToggleCalendar}
-            MiniCalendario={MiniCalendario}
-            // ====== Factura/Guía seleccionada ======
-            facturaSeleccionada={facturaSeleccionada}
-            setFacturaSeleccionada={setFacturaSeleccionada}
-            guiaSeleccionada={guiaSeleccionada}
-            setGuiaSeleccionada={setGuiaSeleccionada}
-            provinciaCiudad={provinciaCiudad}
-            setProvinciaCiudad={setProvinciaCiudad}
-            // ====== Acciones (selección/ver) ======
-            handleFacturaSeleccionada={handleFacturaSeleccionada}
-            handleGuiaSeleccionada={handleGuiaSeleccionada}
-            obtenerEstadoGuia={obtenerEstadoGuia}
-            // ====== Tracking/Impresión/Anulación ======
-            tracking_guia={tracking_guia}
-            imprimir_guia={imprimir_guia}
-            anular_guia={anular_guia}
-            disableAanular={disableAanular}
-            disableGestionar={disableGestionar}
-            // ====== Form (react-hook-form) ======
-            register={register}
-            handleSubmit={handleSubmit}
-            setValue={setValue}
-            getValues={getValues}
-            watch={watch}
-            onSubmit={onSubmit}
-            // ====== Productos / tabla ======
-            isAccordionOpen={isAccordionOpen}
-            setIsAccordionOpen={setIsAccordionOpen}
-            total={total}
-            setTotal={setTotal}
-            eliminar={eliminar}
-            handleCantidadChange={handleCantidadChange}
-            handleCantidadInputChange={handleCantidadInputChange}
-            handlePrecioChange={handlePrecioChange}
-            // ====== Tarifas / transportadoras ======
-            images={images}
-            tarifas={tarifas}
-            selectedImageId={selectedImageId}
-            setSelectedImageId={setSelectedImageId}
-            handleImageClick={handleImageClick}
-            modal_google_maps={modal_google_maps}
-            setModal_google_maps={setModal_google_maps}
-            handleSetTarifas={handleSetTarifas}
-            // ====== Resumen / métricas ======
-            monto_venta={monto_venta}
-            setMonto_venta={setMonto_venta}
-            costo={costo}
-            setCosto={setCosto}
-            precio_envio_directo={precio_envio_directo}
-            setPrecio_envio_directo={setPrecio_envio_directo}
-            fulfillment={fulfillment}
-            setFulfillment={setFulfillment}
-            total_directo={total_directo}
-            setTotal_directo={setTotal_directo}
-            validar_generar={validar_generar}
-            setValidar_generar={setValidar_generar}
-            // ====== Historial / scoring ======
-            stats={stats}
-            nivel={nivel}
-            mostrarAlerta={mostrarAlerta}
-            setMostrarAlerta={setMostrarAlerta}
-            TarjetaHistorial={TarjetaHistorial}
-            MetricCard={MetricCard}
-            // ====== Generación de guía / loading ======
-            generandoGuia={generandoGuia}
-            setGenerandoGuia={setGenerandoGuia}
-            // ====== Novedades manager (hook) ======
-            showModalNovedad={showModalNovedad}
-            novedadSeleccionada={novedadSeleccionada}
-            tipo_novedad={tipo_novedad}
-            accion={accion}
-            datosNovedadExtra={datosNovedadExtra}
-            handleDetalleNovedad={handleDetalleNovedad}
-            closeModalNovedad={closeModalNovedad}
-            handleVolverOfrecer={handleVolverOfrecer}
-            devolverRemitente={devolverRemitente}
-            handleGestionSubmit={handleGestionSubmit}
-            tipoLaar={tipoLaar}
-            setTipoLaar={setTipoLaar}
-            observacionLaar={observacionLaar}
-            setObservacionLaar={setObservacionLaar}
-            solucionLaar={solucionLaar}
-            setSolucionLaar={setSolucionLaar}
-            enviando={enviando}
-            enviarLaarNovedad={enviarLaarNovedad}
-            tipoGintra={tipoGintra}
-            setTipoGintra={setTipoGintra}
-            solucionGintra={solucionGintra}
-            setSolucionGintra={setSolucionGintra}
-            fechaGintra={fechaGintra}
-            setFechaGintra={setFechaGintra}
-            valorRecaudar={valorRecaudar}
-            setValorRecaudar={setValorRecaudar}
-            enviarGintracomNovedad={enviarGintracomNovedad}
-            minDate={minDate}
-            observacionServi={observacionServi}
-            setObservacionServi={setObservacionServi}
-            enviarServiNovedad={enviarServiNovedad}
-            // ====== Otros ======
-            nombreBodega={nombreBodega}
-            isModalOpen={isModalOpen}
-            setIsModalOpen={setIsModalOpen}
-            cargarProductosAdicionales={cargarProductosAdicionales}
-            productosAdicionales={productosAdicionales}
-            agregarProducto={agregarProducto}
-            paginaActual={paginaActual}
-            totalPaginas={totalPaginas}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            Swal={Swal}
-            DEFAULT_AVATAR={DEFAULT_AVATAR}
-          />
+          <ChatRightPanel {...chatRightPanelProps} />
         </div>
       )}
     </>

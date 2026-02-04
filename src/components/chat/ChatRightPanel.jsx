@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import DropshipperClientPanel from "./DropshipperClientPanel";
 import BasicClientPanel from "./BasicClientPanel";
 import { useDropi } from "../../context/DropiContext";
@@ -6,126 +6,38 @@ import { useDropi } from "../../context/DropiContext";
 export default function ChatRightPanel(props) {
   const { isDropiLinked } = useDropi();
 
+  const basicProps = useMemo(
+    () => ({
+      selectedChat: props.selectedChat,
+      DEFAULT_AVATAR: props.DEFAULT_AVATAR,
+      isOpenMiniCal: props.isOpenMiniCal,
+      handleToggleCalendar: props.handleToggleCalendar,
+      activar_cotizacion: props.activar_cotizacion,
+      isCotizacionesOpen: props.isCotizacionesOpen,
+      handleToggleCotizaciones: props.handleToggleCotizaciones,
+      loadingCotizaciones: props.loadingCotizaciones,
+      cotizacionesData: props.cotizacionesData,
+      Cotizador: props.Cotizador,
+      MiniCalendario: props.MiniCalendario,
+    }),
+    [
+      props.selectedChat,
+      props.DEFAULT_AVATAR,
+      props.isOpenMiniCal,
+      props.handleToggleCalendar,
+      props.activar_cotizacion,
+      props.isCotizacionesOpen,
+      props.handleToggleCotizaciones,
+      props.loadingCotizaciones,
+      props.cotizacionesData,
+      props.Cotizador,
+      props.MiniCalendario,
+    ],
+  );
+
   if (isDropiLinked) {
-    return (
-      <DropshipperClientPanel
-        selectedChat={props.selectedChat}
-        DEFAULT_AVATAR={props.DEFAULT_AVATAR}
-        isOpen={props.isOpen}
-        setIsOpen={props.setIsOpen}
-        isOpenNovedades={props.isOpenNovedades}
-        setIsOpenNovedades={props.setIsOpenNovedades}
-        isOpenMiniCal={props.isOpenMiniCal}
-        setIsOpenMiniCal={props.setIsOpenMiniCal}
-        handleToggleCalendar={props.handleToggleCalendar}
-        activar_cotizacion={props.activar_cotizacion}
-        isCotizacionesOpen={props.isCotizacionesOpen}
-        handleToggleCotizaciones={props.handleToggleCotizaciones}
-        loadingCotizaciones={props.loadingCotizaciones}
-        cotizacionesData={props.cotizacionesData}
-        Cotizador={props.Cotizador}
-        activeTab={props.activeTab}
-        setActiveTab={props.setActiveTab}
-        facturasChatSeleccionado={props.facturasChatSeleccionado}
-        guiasChatSeleccionado={props.guiasChatSeleccionado}
-        obtenerEstadoGuia={props.obtenerEstadoGuia}
-        handleFacturaSeleccionada={props.handleFacturaSeleccionada}
-        handleGuiaSeleccionada={props.handleGuiaSeleccionada}
-        activeTabNovedad={props.activeTabNovedad}
-        setActiveTabNovedad={props.setActiveTabNovedad}
-        novedades_gestionadas={props.novedades_gestionadas}
-        novedades_noGestionadas={props.novedades_noGestionadas}
-        handleDetalleNovedad={props.handleDetalleNovedad}
-        showModalNovedad={props.showModalNovedad}
-        setShowModalNovedad={props.setShowModalNovedad}
-        novedadSeleccionada={props.novedadSeleccionada}
-        accion={props.accion}
-        tipo_novedad={props.tipo_novedad}
-        datosNovedadExtra={props.datosNovedadExtra}
-        tipoLaar={props.tipoLaar}
-        setTipoLaar={props.setTipoLaar}
-        observacionLaar={props.observacionLaar}
-        setObservacionLaar={props.setObservacionLaar}
-        solucionLaar={props.solucionLaar}
-        setSolucionLaar={props.setSolucionLaar}
-        enviarLaarNovedad={props.enviarLaarNovedad}
-        enviando={props.enviando}
-        tipoGintra={props.tipoGintra}
-        setTipoGintra={props.setTipoGintra}
-        solucionGintra={props.solucionGintra}
-        setSolucionGintra={props.setSolucionGintra}
-        fechaGintra={props.fechaGintra}
-        setFechaGintra={props.setFechaGintra}
-        minDate={props.minDate}
-        valorRecaudar={props.valorRecaudar}
-        setValorRecaudar={props.setValorRecaudar}
-        enviarGintracomNovedad={props.enviarGintracomNovedad}
-        observacionSpeed={props.observacionSpeed}
-        setObservacionSpeed={props.setObservacionSpeed}
-        observacionServi={props.observacionServi}
-        setObservacionServi={props.setObservacionServi}
-        enviarServiNovedad={props.enviarServiNovedad}
-        setAccion={props.setAccion}
-        handleVolverOfrecer={props.handleVolverOfrecer}
-        devolverRemitente={props.devolverRemitente}
-        guiaSeleccionada={props.guiaSeleccionada}
-        tracking_guia={props.tracking_guia}
-        imprimir_guia={props.imprimir_guia}
-        provinciaCiudad={props.provinciaCiudad}
-        disableAanular={props.disableAanular}
-        anular_guia={props.anular_guia}
-        disableGestionar={props.disableGestionar}
-        Swal={props.Swal}
-        facturaSeleccionada={props.facturaSeleccionada}
-        generandoGuia={props.generandoGuia}
-        handleSubmit={props.handleSubmit}
-        onSubmit={props.onSubmit}
-        register={props.register}
-        provincias={props.provincias}
-        ciudades={props.ciudades}
-        setFacturaSeleccionada={props.setFacturaSeleccionada}
-        handleSetTarifas={props.handleSetTarifas}
-        tarifas={props.tarifas}
-        images={props.images}
-        selectedImageId={props.selectedImageId}
-        handleImageClick={props.handleImageClick}
-        modal_google_maps={props.modal_google_maps}
-        setModal_google_maps={props.setModal_google_maps}
-        isAccordionOpen={props.isAccordionOpen}
-        handleCantidadInputChange={props.handleCantidadInputChange}
-        handleCantidadChange={props.handleCantidadChange}
-        handlePrecioChange={props.handlePrecioChange}
-        eliminar={props.eliminar}
-        setIsModalOpen={props.setIsModalOpen}
-        nombreBodega={props.nombreBodega}
-        monto_venta={props.monto_venta}
-        costo={props.costo}
-        precio_envio_directo={props.precio_envio_directo}
-        fulfillment={props.fulfillment}
-        total_directo={props.total_directo}
-        MetricCard={props.MetricCard}
-        TarjetaHistorial={props.TarjetaHistorial}
-        stats={props.stats}
-        nivel={props.nivel}
-        mostrarAlerta={props.mostrarAlerta}
-        MiniCalendario={props.MiniCalendario}
-      />
-    );
+    return <DropshipperClientPanel {...props} />;
   }
 
-  return (
-    <BasicClientPanel
-      selectedChat={props.selectedChat}
-      DEFAULT_AVATAR={props.DEFAULT_AVATAR}
-      isOpenMiniCal={props.isOpenMiniCal}
-      handleToggleCalendar={props.handleToggleCalendar}
-      activar_cotizacion={props.activar_cotizacion}
-      isCotizacionesOpen={props.isCotizacionesOpen}
-      handleToggleCotizaciones={props.handleToggleCotizaciones}
-      loadingCotizaciones={props.loadingCotizaciones}
-      cotizacionesData={props.cotizacionesData}
-      Cotizador={props.Cotizador}
-      MiniCalendario={props.MiniCalendario}
-    />
-  );
+  return <BasicClientPanel {...basicProps} />;
 }
