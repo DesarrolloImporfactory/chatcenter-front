@@ -2077,6 +2077,7 @@ const ChatPrincipal = ({
                               contextLabel:
                                 "Responderá con plantilla al chat actual",
                               clienteNombre: selectedChat?.nombre_cliente || "",
+                              idEncargado: selectedChat?.id_encargado || null,
                             });
 
                             setNumeroModal(true);
@@ -2181,6 +2182,7 @@ const ChatPrincipal = ({
                               contextLabel:
                                 "Responderá con plantilla al chat actual",
                               clienteNombre: selectedChat?.nombre_cliente || "",
+                              idEncargado: selectedChat?.id_encargado || null,
                             });
 
                             setNumeroModal(true);

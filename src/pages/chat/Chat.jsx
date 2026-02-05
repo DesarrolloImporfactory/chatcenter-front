@@ -142,6 +142,9 @@ const Chat = () => {
   const [selectedPhoneNumberNombre, setSelectedPhoneNumberNombre] =
     useState("");
 
+  const [selectedPhoneNumberIdEncargado, setSelectedPhoneNumberIdEncargado] =
+    useState("");
+
   const [buscarIdRecibe, setBuscarIdRecibe] = useState(null);
 
   const [novedades_gestionadas, setNovedades_gestionadas] = useState(null);
@@ -611,6 +614,7 @@ const Chat = () => {
     template_name,
     language_code,
     nombre_cliente = "",
+    id_encargado = null,
   ) => {
     try {
       const response = await chatApi.post(
@@ -641,83 +645,111 @@ const Chat = () => {
       if (respuesta.status != 200) {
         console.log("Error en la respuesta del servidor: " + respuesta);
       } else {
-        /* Mensajes seccion izquierda */
-        setMensajesAcumulados((prevChats) => {
-          const actualizado = prevChats.map((chat) => ({ ...chat }));
-
-          const idChat = id_recibe;
-
-          const index = actualizado.findIndex((chat) => {
-            console.log(String(chat.id) === String(idChat));
-            return String(chat.id) === String(idChat);
-          });
-
-          if (index !== -1) {
-            actualizado[index].mensaje_created_at = fechaMySQL;
-            actualizado[index].texto_mensaje = texto_mensaje;
-            actualizado[index].mensajes_pendientes =
-              (actualizado[index].mensajes_pendientes || 0) + 1;
-            actualizado[index].visto = 0;
-
-            const [actualizadoChat] = actualizado.splice(index, 1);
-            actualizado.unshift(actualizadoChat);
+        let agregar_izquierda = true;
+        if (!id_encargado) {
+          if (scopeChats == "waiting") {
+            agregar_izquierda = true;
           } else {
-            // Si no está, crear uno nuevo con id = celular_recibe
-            const nuevoChat = {
-              id: idChat,
-              mensaje_created_at: fechaMySQL,
-              texto_mensaje: texto_mensaje,
-              celular_cliente: telefono_recibe,
-              mensajes_pendientes: 1,
-              visto: 0,
-              nombre_cliente: nombre_cliente,
-              etiquetas: [
-                {
-                  id: null,
-                  nombre: null,
-                  color: null,
+            agregar_izquierda = false;
+          }
+        } else {
+          console.log("id_encargado: "+id_encargado);
+          if (
+            id_encargado == id_sub_usuario_global ||
+            rol_usuario_global === "administrador"
+          ) {
+            if (scopeChats == "mine") {
+              agregar_izquierda = true;
+            } else {
+              agregar_izquierda = false;
+            }
+          } else {
+            agregar_izquierda = false;
+          }
+        }
+        console.log("scopeChats: " + scopeChats);
+        console.log("agregar_izquierda: " + agregar_izquierda);
+        if (agregar_izquierda) {
+          /* Mensajes seccion izquierda */
+          setMensajesAcumulados((prevChats) => {
+            const actualizado = prevChats.map((chat) => ({ ...chat }));
+
+            const idChat = id_recibe;
+
+            const index = actualizado.findIndex((chat) => {
+              console.log(String(chat.id) === String(idChat));
+              return String(chat.id) === String(idChat);
+            });
+
+            if (index !== -1) {
+              actualizado[index].mensaje_created_at = fechaMySQL;
+              actualizado[index].texto_mensaje = texto_mensaje;
+              actualizado[index].mensajes_pendientes =
+                (actualizado[index].mensajes_pendientes || 0) + 1;
+              actualizado[index].visto = 0;
+
+              const [actualizadoChat] = actualizado.splice(index, 1);
+              actualizado.unshift(actualizadoChat);
+            } else {
+              // Si no está, crear uno nuevo con id = celular_recibe
+              const nuevoChat = {
+                id: idChat,
+                mensaje_created_at: fechaMySQL,
+                texto_mensaje: texto_mensaje,
+                celular_cliente: telefono_recibe,
+                mensajes_pendientes: 1,
+                visto: 0,
+                nombre_cliente: nombre_cliente,
+                etiquetas: [
+                  {
+                    id: null,
+                    nombre: null,
+                    color: null,
+                  },
+                ],
+                transporte: null,
+                estado_factura: null,
+                id_configuracion: id_configuracion,
+                novedad_info: {
+                  id_novedad: null,
+                  novedad: null,
+                  solucionada: null,
+                  terminado: null,
                 },
-              ],
-              transporte: null,
-              estado_factura: null,
-              id_configuracion: id_configuracion,
-              novedad_info: {
-                id_novedad: null,
-                novedad: null,
-                solucionada: null,
-                terminado: null,
-              },
+              };
+
+              actualizado.unshift(nuevoChat);
+            }
+
+            return actualizado;
+          });
+          /* Mensajes seccion izquierda */
+        }
+
+        if (selectedChat && id_recibe === selectedChat.id) {
+          /* Mensajes seccion derecha */
+          setMensajesOrdenados((prevMensajes) => {
+            const actualizado = prevMensajes.map((mensaje) => ({ ...mensaje }));
+
+            const nuevoMensaje = {
+              celular_recibe: id_recibe,
+              created_at: fechaMySQL,
+              id: `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              mid_mensaje: mid_mensaje,
+              rol_mensaje: 1,
+              ruta_archivo: ruta_archivo,
+              texto_mensaje: texto_mensaje,
+              tipo_mensaje: tipo_mensaje,
+              visto: 1,
+              responsable: nombre_encargado_global,
             };
 
-            actualizado.unshift(nuevoChat);
-          }
+            actualizado.push(nuevoMensaje);
 
-          return actualizado;
-        });
-        /* Mensajes seccion izquierda */
-
-        /* Mensajes seccion derecha */
-        setMensajesOrdenados((prevMensajes) => {
-          const actualizado = prevMensajes.map((mensaje) => ({ ...mensaje }));
-
-          const nuevoMensaje = {
-            celular_recibe: id_recibe,
-            created_at: fechaMySQL,
-            id: `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            mid_mensaje: mid_mensaje,
-            rol_mensaje: 1,
-            ruta_archivo: ruta_archivo,
-            texto_mensaje: texto_mensaje,
-            tipo_mensaje: tipo_mensaje,
-            visto: 1,
-            responsable: nombre_encargado_global,
-          };
-
-          actualizado.push(nuevoMensaje);
-
-          return actualizado;
-        });
-        /* Mensajes seccion derecha */
+            return actualizado;
+          });
+          /* Mensajes seccion derecha */
+        }
       }
     } catch (error) {
       console.error("Error al guardar el mensaje:", error);
@@ -772,10 +804,15 @@ const Chat = () => {
   };
 
   // Manejar la selección del número de teléfono y activar la sección de templates
-  const handleSelectPhoneNumber = async (phoneNumber, nombre_cliente) => {
+  const handleSelectPhoneNumber = async (
+    phoneNumber,
+    nombre_cliente,
+    id_encargado,
+  ) => {
     setSelectedPhoneNumber(phoneNumber); // Actualiza el número seleccionado
 
     setSelectedPhoneNumberNombre(nombre_cliente);
+    setSelectedPhoneNumberIdEncargado(id_encargado);
     setValue("numero", phoneNumber); // Actualiza el campo "numero" en el formulario
 
     // Llama manualmente a la función de búsqueda con el nuevo valor
@@ -1231,6 +1268,7 @@ const Chat = () => {
         wamid,
         "",
         "",
+        selectedChat.id_encargado,
       );
     } catch (error) {
       console.error("Error en la solicitud de WhatsApp:", error);
@@ -3184,6 +3222,8 @@ const Chat = () => {
         setSelectedPhoneNumber={setSelectedPhoneNumber}
         selectedPhoneNumberNombre={selectedPhoneNumberNombre}
         setSelectedPhoneNumberNombre={setSelectedPhoneNumberNombre}
+        selectedPhoneNumberIdEncargado={selectedPhoneNumberIdEncargado}
+        setSelectedPhoneNumberIdEncargado={setSelectedPhoneNumberIdEncargado}
         userData={userData}
         id_configuracion={id_configuracion}
         tipo_modalEnviarArchivo={tipo_modalEnviarArchivo}
