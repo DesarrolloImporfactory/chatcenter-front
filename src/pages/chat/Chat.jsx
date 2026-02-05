@@ -653,7 +653,6 @@ const Chat = () => {
             agregar_izquierda = false;
           }
         } else {
-          console.log("id_encargado: "+id_encargado);
           if (
             id_encargado == id_sub_usuario_global ||
             rol_usuario_global === "administrador"
@@ -667,8 +666,7 @@ const Chat = () => {
             agregar_izquierda = false;
           }
         }
-        console.log("scopeChats: " + scopeChats);
-        console.log("agregar_izquierda: " + agregar_izquierda);
+        
         if (agregar_izquierda) {
           /* Mensajes seccion izquierda */
           setMensajesAcumulados((prevChats) => {
