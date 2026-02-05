@@ -2008,6 +2008,10 @@ const Chat = () => {
                 return prev;
               }
             }
+
+            if (!deboVerlo && !isAdmin) {
+              return prev;
+            }
             /* validamos para saber si se quita o no */
 
             const actualizado = prev.map((c) => ({ ...c }));
