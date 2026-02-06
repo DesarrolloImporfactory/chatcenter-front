@@ -1111,45 +1111,6 @@ const Chat = () => {
     });
   };
 
-  // Sube el binario del audio a Meta y devuelve el media_id
-  const uploadAudioToMeta = async (audioBlob) => {
-    const fromPhoneNumberId = dataAdmin.id_telefono; // phone_number_id
-    const accessToken = dataAdmin.token;
-
-    const url = `https://graph.facebook.com/v21.0/${fromPhoneNumberId}/media`;
-
-    // OJO: WhatsApp suele aceptar OGG + OPUS. Use el mimetype correcto.
-    const mimeType = audioBlob?.type || "audio/ogg";
-    const fileName = "audio.ogg";
-
-    const form = new FormData();
-    form.append("messaging_product", "whatsapp");
-    form.append("type", mimeType);
-    form.append("file", audioBlob, fileName);
-
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        // NO ponga Content-Type aquí; fetch lo arma con boundary automáticamente.
-      },
-      body: form,
-    });
-
-    const json = await resp.json();
-
-    if (!resp.ok || json?.error) {
-      console.error("Error subiendo media a Meta:", json);
-      throw new Error(json?.error?.message || "Error subiendo media a Meta");
-    }
-
-    // Respuesta típica: { id: "MEDIA_ID" }
-    const mediaId = json?.id || null;
-    if (!mediaId) throw new Error("Meta no devolvió media_id");
-
-    return mediaId;
-  };
-
   const uploadAudio = (audioBlob) => {
     const formData = new FormData();
     formData.append("audio", audioBlob, "audio.ogg");
@@ -1171,7 +1132,7 @@ const Chat = () => {
           type: "audio/ogg",
         });
 
-        // Subir a S3 pero vía backend
+        // 1) Guardar en S3 vía backend
         const fdSave = new FormData();
         fdSave.append("audio", blobNew, `audio-${Date.now()}.ogg`);
 
@@ -1186,80 +1147,44 @@ const Chat = () => {
         const fileUrl =
           respGuardar.data?.fileUrl || respGuardar.data?.data?.url || "";
 
-        // subir a Meta
-        const mediaId = await uploadAudioToMeta(blobNew);
+        // 2) Enviar a WhatsApp via backend meta-management (NUEVO)
+        const fdMeta = new FormData();
+        fdMeta.append("audio", blobNew, `audio-${Date.now()}.ogg`);
+        fdMeta.append("id_configuracion", id_configuracion);
+        fdMeta.append("to", selectedChat.celular_cliente);
 
-        //  enviar y registrar (ruta_archivo=URL, meta_media_id=mediaId)
-        const { wamid } = await enviarAudioWhatsAppPorId(mediaId, fileUrl);
+        const respMeta = await chatApi.post(
+          "/whatsapp_managment/enviarAudio",
+          fdMeta,
+          { headers: { "Content-Type": "multipart/form-data" } },
+        );
+
+        if (!respMeta.data?.success) {
+          console.error("Meta error:", respMeta.data);
+          throw new Error(
+            respMeta.data?.message || "No se pudo enviar audio por backend",
+          );
+        }
+
+        const mediaId = respMeta.data.mediaId;
+        const wamid = respMeta.data.wamid;
+
+        agregar_mensaje_enviado(
+          `Archivo guardado en: ${fileUrl}`,
+          "audio",
+          fileUrl,
+          selectedChat.celular_cliente,
+          dataAdmin.id_telefono,
+          selectedChat.id,
+          id_configuracion,
+          dataAdmin.telefono,
+          wamid,
+          mediaId,
+          "",
+        );
 
         return { fileUrl, mediaId, wamid };
-      })
-      .catch((error) => {
-        console.error("Error en uploadAudio:", error);
-        console.error("Detalles axios:", error?.response?.data);
-        throw error;
       });
-  };
-
-  // Envía el audio a WhatsApp usando media_id (no link)
-  const enviarAudioWhatsAppPorId = async (mediaId, fileUrl) => {
-    const fromPhoneNumberId = dataAdmin.id_telefono;
-    const accessToken = dataAdmin.token;
-    const numeroDestino = selectedChat.celular_cliente;
-
-    const apiUrl = `https://graph.facebook.com/v21.0/${fromPhoneNumberId}/messages`;
-
-    const payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: numeroDestino,
-      type: "audio",
-      audio: {
-        id: mediaId, // ✅ aquí el cambio
-      },
-    };
-
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || result?.error) {
-      console.error("Error al enviar audio por id:", result);
-      throw new Error(result?.error?.message || "Error enviando audio por id");
-    }
-
-    const wamid = result?.messages?.[0]?.id || null;
-
-    // Aquí usted decide qué guarda en BD:
-    // - mediaId (recomendado guardarlo)
-    // - y si además guardó copia en su server, la url interna (opcional)
-    let id_recibe = selectedChat.id;
-    let mid_mensaje = dataAdmin.id_telefono;
-    let telefono_configuracion = dataAdmin.telefono;
-
-    agregar_mensaje_enviado(
-      `Archivo guardado en: ${fileUrl}`,
-      "audio",
-      fileUrl,
-      numeroDestino,
-      mid_mensaje,
-      id_recibe,
-      id_configuracion,
-      telefono_configuracion,
-      wamid,
-      "",
-      "",
-      mediaId,
-    );
-
-    return { wamid, mediaId, result };
   };
 
   const handleSendAudio = async (blob) => {
