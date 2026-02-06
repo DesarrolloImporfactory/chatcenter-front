@@ -1089,30 +1089,77 @@ const Chat = () => {
     });
   };
 
+  // Sube el binario del audio a Meta y devuelve el media_id
+  const uploadAudioToMeta = async (audioBlob) => {
+    const fromPhoneNumberId = dataAdmin.id_telefono; // phone_number_id
+    const accessToken = dataAdmin.token;
+
+    const url = `https://graph.facebook.com/v21.0/${fromPhoneNumberId}/media`;
+
+    // OJO: WhatsApp suele aceptar OGG + OPUS. Use el mimetype correcto.
+    const mimeType = audioBlob?.type || "audio/ogg";
+    const fileName = "audio.ogg";
+
+    const form = new FormData();
+    form.append("messaging_product", "whatsapp");
+    form.append("type", mimeType);
+    form.append("file", audioBlob, fileName);
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        // NO ponga Content-Type aquí; fetch lo arma con boundary automáticamente.
+      },
+      body: form,
+    });
+
+    const json = await resp.json();
+
+    if (!resp.ok || json?.error) {
+      console.error("Error subiendo media a Meta:", json);
+      throw new Error(json?.error?.message || "Error subiendo media a Meta");
+    }
+
+    // Respuesta típica: { id: "MEDIA_ID" }
+    const mediaId = json?.id || null;
+    if (!mediaId) throw new Error("Meta no devolvió media_id");
+
+    return mediaId;
+  };
+
+  // ✅ helper: subir a tu uploader S3
+  async function uploadToS3(file) {
+    const form = new FormData();
+    form.append("file", file);
+
+    const resp = await fetch(
+      "https://uploader.imporfactory.app/api/files/upload",
+      {
+        method: "POST",
+        body: form,
+      },
+    );
+
+    const json = await resp.json();
+    if (!json?.success)
+      throw new Error(json?.message || "Error subiendo archivo");
+    return json.data; // { url, fileName, size, mimeType, ... }
+  }
+
   const uploadAudio = (audioBlob) => {
-    // Primero, enviamos el archivo para su conversión
     const formData = new FormData();
     formData.append("audio", audioBlob, "audio.ogg");
 
-    // Verificar contenido del FormData
-    console.log("audioBlob:", audioBlob);
-    for (let pair of formData.entries()) {
-      console.log("FormData contenido:", pair[0], pair[1]);
-    }
-
-    chatApi
+    // mantiene su conversión backend (ffmpeg) y devuelve base64
+    return chatApi
       .post("whatsapp/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       })
-      .then((response) => {
-        console.log("Respuesta completa del servidor:", response.data);
+      .then(async (response) => {
         const base64Audio = response.data.file;
-        console.log("base64Audio: ");
-        console.log(base64Audio);
 
-        // Convertir el audio base64 a un Blob
+        // base64 -> Blob (ogg)
         const byteCharacters = atob(base64Audio);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -1121,57 +1168,172 @@ const Chat = () => {
         const byteArray = new Uint8Array(byteNumbers);
         const blobNew = new Blob([byteArray], { type: "audio/ogg" });
 
-        console.log("blobNew: " + blobNew);
+        // ✅ 1) Subir copia a S3 (uploader) -> fileUrl
+        const fileObj = new File([blobNew], `audio-${Date.now()}.ogg`, {
+          type: "audio/ogg",
+        });
 
-        // Crear un nuevo FormData para la segunda solicitud
-        const formData2 = new FormData();
-        formData2.append("audio", blobNew, "audio.ogg");
+        const s3 = await uploadToS3(fileObj);
+        const fileUrl = s3?.url || "";
 
-        // Enviar el audio convertido a WhatsApp usando chatApi.post
-        return chatApi
-          .post("whatsapp/guardar_audio", formData2, {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          })
-          .then(async (response) => {
-            console.log("Respuesta guardar_audio completa:", response.data);
+        // ✅ 2) Subir a Meta -> mediaId
+        const mediaId = await uploadAudioToMeta(blobNew);
 
-            if (response.status === 200) {
-              const fileUrl =
-                response.data.fileUrl ||
-                response.data.data?.fileUrl ||
-                response.data.url;
-              console.log("Audio guardado en el servidor:", fileUrl);
+        // ✅ 3) Enviar por id
+        const { wamid } = await enviarAudioWhatsAppPorId(mediaId);
 
-              if (fileUrl) {
-                await enviarAudioWhatsApp(fileUrl); // Enviar el audio a WhatsApp
-                return response.data; // Retorna la URL del audio subido
-              } else {
-                console.error(
-                  "No se recibió fileUrl en la respuesta:",
-                  response.data,
-                );
-                throw new Error("No se recibió la URL del archivo");
-              }
-            } else {
-              console.error(
-                "Error al subir el audio a WhatsApp:",
-                response.data.message,
-              );
-              throw new Error(response.data.message);
-            }
-          })
-          .catch((error) => {
-            console.error("Error en la solicitud a WhatsApp:", error);
-            console.error("Detalles del error:", error.response?.data);
-          });
+        return { fileUrl, mediaId, wamid };
       })
       .catch((error) => {
-        console.error("Error en la solicitud de conversión de audio:", error);
-        console.error("Detalles del error:", error.response?.data);
+        console.error("Error en uploadAudio:", error);
+        console.error("Detalles axios:", error?.response?.data);
+        throw error;
       });
   };
+
+  // Envía el audio a WhatsApp usando media_id (no link)
+  const enviarAudioWhatsAppPorId = async (mediaId) => {
+    const fromPhoneNumberId = dataAdmin.id_telefono;
+    const accessToken = dataAdmin.token;
+    const numeroDestino = selectedChat.celular_cliente;
+
+    const apiUrl = `https://graph.facebook.com/v21.0/${fromPhoneNumberId}/messages`;
+
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: numeroDestino,
+      type: "audio",
+      audio: {
+        id: mediaId, // ✅ aquí el cambio
+      },
+    };
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result?.error) {
+      console.error("Error al enviar audio por id:", result);
+      throw new Error(result?.error?.message || "Error enviando audio por id");
+    }
+
+    const wamid = result?.messages?.[0]?.id || null;
+
+    // Aquí usted decide qué guarda en BD:
+    // - mediaId (recomendado guardarlo)
+    // - y si además guardó copia en su server, la url interna (opcional)
+    let id_recibe = selectedChat.id;
+    let mid_mensaje = dataAdmin.id_telefono;
+    let telefono_configuracion = dataAdmin.telefono;
+
+    agregar_mensaje_enviado(
+      `Audio enviado`, // texto
+      "audio",
+      `meta:${mediaId}`,
+      numeroDestino,
+      mid_mensaje,
+      id_recibe,
+      id_configuracion,
+      telefono_configuracion,
+      wamid,
+      "",
+      "",
+    );
+
+    return { wamid, mediaId, result };
+  };
+
+  // const uploadAudio = (audioBlob) => {
+  //   // Primero, enviamos el archivo para su conversión
+  //   const formData = new FormData();
+  //   formData.append("audio", audioBlob, "audio.ogg");
+
+  //   // Verificar contenido del FormData
+  //   console.log("audioBlob:", audioBlob);
+  //   for (let pair of formData.entries()) {
+  //     console.log("FormData contenido:", pair[0], pair[1]);
+  //   }
+
+  //   chatApi
+  //     .post("whatsapp/upload", formData, {
+  //       headers: {
+  //         "Content-Type": "multipart/form-data",
+  //       },
+  //     })
+  //     .then((response) => {
+  //       console.log("Respuesta completa del servidor:", response.data);
+  //       const base64Audio = response.data.file;
+  //       console.log("base64Audio: ");
+  //       console.log(base64Audio);
+
+  //       // Convertir el audio base64 a un Blob
+  //       const byteCharacters = atob(base64Audio);
+  //       const byteNumbers = new Array(byteCharacters.length);
+  //       for (let i = 0; i < byteCharacters.length; i++) {
+  //         byteNumbers[i] = byteCharacters.charCodeAt(i);
+  //       }
+  //       const byteArray = new Uint8Array(byteNumbers);
+  //       const blobNew = new Blob([byteArray], { type: "audio/ogg" });
+
+  //       console.log("blobNew: " + blobNew);
+
+  //       // Crear un nuevo FormData para la segunda solicitud
+  //       const formData2 = new FormData();
+  //       formData2.append("audio", blobNew, "audio.ogg");
+
+  //       // Enviar el audio convertido a WhatsApp usando chatApi.post
+  //       return chatApi
+  //         .post("whatsapp/guardar_audio", formData2, {
+  //           headers: {
+  //             "Content-Type": "multipart/form-data",
+  //           },
+  //         })
+  //         .then(async (response) => {
+  //           console.log("Respuesta guardar_audio completa:", response.data);
+
+  //           if (response.status === 200) {
+  //             const fileUrl =
+  //               response.data.fileUrl ||
+  //               response.data.data?.fileUrl ||
+  //               response.data.url;
+  //             console.log("Audio guardado en el servidor:", fileUrl);
+
+  //             if (fileUrl) {
+  //               await enviarAudioWhatsApp(fileUrl); // Enviar el audio a WhatsApp
+  //               return response.data; // Retorna la URL del audio subido
+  //             } else {
+  //               console.error(
+  //                 "No se recibió fileUrl en la respuesta:",
+  //                 response.data,
+  //               );
+  //               throw new Error("No se recibió la URL del archivo");
+  //             }
+  //           } else {
+  //             console.error(
+  //               "Error al subir el audio a WhatsApp:",
+  //               response.data.message,
+  //             );
+  //             throw new Error(response.data.message);
+  //           }
+  //         })
+  //         .catch((error) => {
+  //           console.error("Error en la solicitud a WhatsApp:", error);
+  //           console.error("Detalles del error:", error.response?.data);
+  //         });
+  //     })
+  //     .catch((error) => {
+  //       console.error("Error en la solicitud de conversión de audio:", error);
+  //       console.error("Detalles del error:", error.response?.data);
+  //     });
+  // };
 
   // Función para enviar el audio a WhatsApp
   const enviarAudioWhatsApp = async (audioUrl) => {
@@ -1239,35 +1401,56 @@ const Chat = () => {
   };
 
   // Función que maneja la subida y el envío del audio
+  //   const handleSendAudio = async (blob) => {
+  //     if (blob) {
+  //       // Validación de tipo MIME
+  //       const isOggMime = blob.type.includes("audio/ogg");
+
+  //       // Validación de extensión (si tienes un nombre de archivo)
+  //       const isCorrectExtension = blob.name ? blob.name.endsWith(".ogg") : true;
+
+  //       if (!isOggMime || !isCorrectExtension) {
+  //         alert("El archivo de audio debe ser en formato .ogg");
+  //         return;
+  //       }
+
+  //       console.log(
+  //         "El archivo es un .ogg válido basado en el tipo MIME y extensión.",
+  //       );
+
+  //       try {
+  //         // Subir el audio y obtener la URL
+  //         let urlAudio = await uploadAudio(blob);
+  //         // Enviar el audio a WhatsApp
+  //         /*         if (urlAudio) {
+  //           await enviarAudioWhatsApp(urlAudio);
+  //         }
+  //  */
+  //         setAudioBlob(null); // Limpia el estado del blob de audio después de enviar
+  //       } catch (error) {
+  //         console.error("Error en el proceso de envío de audio:", error);
+  //       }
+  //     }
+  //   };
+
   const handleSendAudio = async (blob) => {
-    if (blob) {
-      // Validación de tipo MIME
-      const isOggMime = blob.type.includes("audio/ogg");
+    if (!blob) return;
 
-      // Validación de extensión (si tienes un nombre de archivo)
-      const isCorrectExtension = blob.name ? blob.name.endsWith(".ogg") : true;
+    const isOggMime = blob.type.includes("audio/ogg");
+    const isCorrectExtension = blob.name ? blob.name.endsWith(".ogg") : true;
 
-      if (!isOggMime || !isCorrectExtension) {
-        alert("El archivo de audio debe ser en formato .ogg");
-        return;
-      }
+    if (!isOggMime || !isCorrectExtension) {
+      alert("El archivo de audio debe ser en formato .ogg");
+      return;
+    }
 
-      console.log(
-        "El archivo es un .ogg válido basado en el tipo MIME y extensión.",
-      );
-
-      try {
-        // Subir el audio y obtener la URL
-        let urlAudio = await uploadAudio(blob);
-        // Enviar el audio a WhatsApp
-        /*         if (urlAudio) {
-          await enviarAudioWhatsApp(urlAudio);
-        }
- */
-        setAudioBlob(null); // Limpia el estado del blob de audio después de enviar
-      } catch (error) {
-        console.error("Error en el proceso de envío de audio:", error);
-      }
+    try {
+      const { fileUrl, mediaId } = await uploadAudio(blob);
+      console.log("Listo:", { fileUrl, mediaId });
+      setAudioBlob(null);
+    } catch (error) {
+      console.error("Error en el proceso de envío de audio:", error);
+      alert("No se pudo enviar el audio. Revise consola/logs.");
     }
   };
 
