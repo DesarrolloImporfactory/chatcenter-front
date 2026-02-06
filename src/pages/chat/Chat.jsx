@@ -1254,8 +1254,9 @@ const Chat = () => {
       id_configuracion,
       telefono_configuracion,
       wamid,
-      mediaId,
       "",
+      "",
+      mediaId,
     );
 
     return { wamid, mediaId, result };
