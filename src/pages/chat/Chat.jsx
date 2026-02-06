@@ -615,6 +615,7 @@ const Chat = () => {
     language_code,
     nombre_cliente = "",
     id_encargado = null,
+    meta_media_id = null,
   ) => {
     try {
       const response = await chatApi.post(
@@ -630,12 +631,13 @@ const Chat = () => {
           telefono_configuracion,
           responsable: nombre_encargado_global,
           id_wamid_mensaje: wamid,
-          template_name: template_name,
-          language_code: language_code,
+          template_name,
+          language_code,
+          meta_media_id,
         },
       );
 
-      let respuesta = response.data;
+      const respuesta = response.data;
 
       const fechaMySQL = new Date()
         .toISOString()
@@ -643,115 +645,100 @@ const Chat = () => {
         .replace("T", " ");
 
       if (respuesta.status != 200) {
-        console.log("Error en la respuesta del servidor: " + respuesta);
+        console.log("Error en la respuesta del servidor: ", respuesta);
+        return;
+      }
+
+      // ======== lógica para decidir si agrega/actualiza chat en izquierda ========
+      let agregar_izquierda = true;
+
+      if (!id_encargado) {
+        agregar_izquierda = scopeChats == "waiting";
       } else {
-        let agregar_izquierda = true;
-        if (!id_encargado) {
-          if (scopeChats == "waiting") {
-            agregar_izquierda = true;
-          } else {
-            agregar_izquierda = false;
-          }
+        if (
+          id_encargado == id_sub_usuario_global ||
+          rol_usuario_global === "administrador"
+        ) {
+          agregar_izquierda = scopeChats == "mine";
         } else {
-          if (
-            id_encargado == id_sub_usuario_global ||
-            rol_usuario_global === "administrador"
-          ) {
-            if (scopeChats == "mine") {
-              agregar_izquierda = true;
-            } else {
-              agregar_izquierda = false;
-            }
+          agregar_izquierda = false;
+        }
+      }
+
+      if (agregar_izquierda) {
+        setMensajesAcumulados((prevChats) => {
+          const actualizado = prevChats.map((chat) => ({ ...chat }));
+          const idChat = id_recibe;
+
+          const index = actualizado.findIndex(
+            (chat) => String(chat.id) === String(idChat),
+          );
+
+          if (index !== -1) {
+            actualizado[index].mensaje_created_at = fechaMySQL;
+            actualizado[index].texto_mensaje = texto_mensaje;
+            actualizado[index].mensajes_pendientes =
+              (actualizado[index].mensajes_pendientes || 0) + 1;
+            actualizado[index].visto = 0;
+
+            const [actualizadoChat] = actualizado.splice(index, 1);
+            actualizado.unshift(actualizadoChat);
           } else {
-            agregar_izquierda = false;
-          }
-        }
-        
-        if (agregar_izquierda) {
-          /* Mensajes seccion izquierda */
-          setMensajesAcumulados((prevChats) => {
-            const actualizado = prevChats.map((chat) => ({ ...chat }));
-
-            const idChat = id_recibe;
-
-            const index = actualizado.findIndex((chat) => {
-              console.log(String(chat.id) === String(idChat));
-              return String(chat.id) === String(idChat);
-            });
-
-            if (index !== -1) {
-              actualizado[index].mensaje_created_at = fechaMySQL;
-              actualizado[index].texto_mensaje = texto_mensaje;
-              actualizado[index].mensajes_pendientes =
-                (actualizado[index].mensajes_pendientes || 0) + 1;
-              actualizado[index].visto = 0;
-
-              const [actualizadoChat] = actualizado.splice(index, 1);
-              actualizado.unshift(actualizadoChat);
-            } else {
-              // Si no está, crear uno nuevo con id = celular_recibe
-              const nuevoChat = {
-                id: idChat,
-                mensaje_created_at: fechaMySQL,
-                texto_mensaje: texto_mensaje,
-                celular_cliente: telefono_recibe,
-                mensajes_pendientes: 1,
-                visto: 0,
-                nombre_cliente: nombre_cliente,
-                etiquetas: [
-                  {
-                    id: null,
-                    nombre: null,
-                    color: null,
-                  },
-                ],
-                transporte: null,
-                estado_factura: null,
-                id_configuracion: id_configuracion,
-                novedad_info: {
-                  id_novedad: null,
-                  novedad: null,
-                  solucionada: null,
-                  terminado: null,
-                },
-              };
-
-              actualizado.unshift(nuevoChat);
-            }
-
-            return actualizado;
-          });
-          /* Mensajes seccion izquierda */
-        }
-
-        if (selectedChat && id_recibe === selectedChat.id) {
-          /* Mensajes seccion derecha */
-          setMensajesOrdenados((prevMensajes) => {
-            const actualizado = prevMensajes.map((mensaje) => ({ ...mensaje }));
-
-            const nuevoMensaje = {
-              celular_recibe: id_recibe,
-              created_at: fechaMySQL,
-              id: `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-              mid_mensaje: mid_mensaje,
-              rol_mensaje: 1,
-              ruta_archivo: ruta_archivo,
-              texto_mensaje: texto_mensaje,
-              tipo_mensaje: tipo_mensaje,
-              visto: 1,
-              responsable: nombre_encargado_global,
+            const nuevoChat = {
+              id: idChat,
+              mensaje_created_at: fechaMySQL,
+              texto_mensaje,
+              celular_cliente: telefono_recibe,
+              mensajes_pendientes: 1,
+              visto: 0,
+              nombre_cliente,
+              etiquetas: [{ id: null, nombre: null, color: null }],
+              transporte: null,
+              estado_factura: null,
+              id_configuracion,
+              novedad_info: {
+                id_novedad: null,
+                novedad: null,
+                solucionada: null,
+                terminado: null,
+              },
             };
 
-            actualizado.push(nuevoMensaje);
+            actualizado.unshift(nuevoChat);
+          }
 
-            return actualizado;
-          });
-          /* Mensajes seccion derecha */
-        }
+          return actualizado;
+        });
+      }
+
+      // ======== mensaje en derecha (chat actual) ========
+      if (selectedChat && String(id_recibe) === String(selectedChat.id)) {
+        setMensajesOrdenados((prevMensajes) => {
+          const actualizado = prevMensajes.map((mensaje) => ({ ...mensaje }));
+
+          const nuevoMensaje = {
+            celular_recibe: id_recibe,
+            created_at: fechaMySQL,
+            id: `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            mid_mensaje,
+            rol_mensaje: 1,
+            ruta_archivo, //
+            meta_media_id, //
+            texto_mensaje,
+            tipo_mensaje,
+            visto: 1,
+            responsable: nombre_encargado_global,
+            id_wamid_mensaje: wamid,
+          };
+
+          actualizado.push(nuevoMensaje);
+          return actualizado;
+        });
       }
     } catch (error) {
       console.error("Error al guardar el mensaje:", error);
-      alert("Ocurrió un error al guardar el mensaje. Inténtalo de nuevo.");
+      console.error("Detalles:", error?.response?.data);
+      alert("Ocurrió un error al guardar el mensaje. Inténtelo de nuevo.");
     }
   };
 
@@ -1163,30 +1150,10 @@ const Chat = () => {
     return mediaId;
   };
 
-  // ✅ helper: subir a tu uploader S3
-  async function uploadToS3(file) {
-    const form = new FormData();
-    form.append("file", file);
-
-    const resp = await fetch(
-      "https://uploader.imporfactory.app/api/files/upload",
-      {
-        method: "POST",
-        body: form,
-      },
-    );
-
-    const json = await resp.json();
-    if (!json?.success)
-      throw new Error(json?.message || "Error subiendo archivo");
-    return json.data; // { url, fileName, size, mimeType, ... }
-  }
-
   const uploadAudio = (audioBlob) => {
     const formData = new FormData();
     formData.append("audio", audioBlob, "audio.ogg");
 
-    // mantiene su conversión backend (ffmpeg) y devuelve base64
     return chatApi
       .post("whatsapp/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -1200,22 +1167,30 @@ const Chat = () => {
         for (let i = 0; i < byteCharacters.length; i++) {
           byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blobNew = new Blob([byteArray], { type: "audio/ogg" });
-
-        // ✅ 1) Subir copia a S3 (uploader) -> fileUrl
-        const fileObj = new File([blobNew], `audio-${Date.now()}.ogg`, {
+        const blobNew = new Blob([new Uint8Array(byteNumbers)], {
           type: "audio/ogg",
         });
 
-        const s3 = await uploadToS3(fileObj);
-        const fileUrl = s3?.url || "";
+        // Subir a S3 pero vía backend
+        const fdSave = new FormData();
+        fdSave.append("audio", blobNew, `audio-${Date.now()}.ogg`);
 
-        // ✅ 2) Subir a Meta -> mediaId
+        const respGuardar = await chatApi.post(
+          "whatsapp/guardar_audio",
+          fdSave,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          },
+        );
+
+        const fileUrl =
+          respGuardar.data?.fileUrl || respGuardar.data?.data?.url || "";
+
+        // subir a Meta
         const mediaId = await uploadAudioToMeta(blobNew);
 
-        // ✅ 3) Enviar por id
-        const { wamid } = await enviarAudioWhatsAppPorId(mediaId);
+        //  enviar y registrar (ruta_archivo=URL, meta_media_id=mediaId)
+        const { wamid } = await enviarAudioWhatsAppPorId(mediaId, fileUrl);
 
         return { fileUrl, mediaId, wamid };
       })
@@ -1227,7 +1202,7 @@ const Chat = () => {
   };
 
   // Envía el audio a WhatsApp usando media_id (no link)
-  const enviarAudioWhatsAppPorId = async (mediaId) => {
+  const enviarAudioWhatsAppPorId = async (mediaId, fileUrl) => {
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
@@ -1270,204 +1245,21 @@ const Chat = () => {
     let telefono_configuracion = dataAdmin.telefono;
 
     agregar_mensaje_enviado(
-      `Audio enviado`, // texto
+      `Archivo guardado en: ${fileUrl}`,
       "audio",
-      `meta:${mediaId}`,
+      fileUrl,
       numeroDestino,
       mid_mensaje,
       id_recibe,
       id_configuracion,
       telefono_configuracion,
       wamid,
-      "",
+      mediaId,
       "",
     );
 
     return { wamid, mediaId, result };
   };
-
-  // const uploadAudio = (audioBlob) => {
-  //   // Primero, enviamos el archivo para su conversión
-  //   const formData = new FormData();
-  //   formData.append("audio", audioBlob, "audio.ogg");
-
-  //   // Verificar contenido del FormData
-  //   console.log("audioBlob:", audioBlob);
-  //   for (let pair of formData.entries()) {
-  //     console.log("FormData contenido:", pair[0], pair[1]);
-  //   }
-
-  //   chatApi
-  //     .post("whatsapp/upload", formData, {
-  //       headers: {
-  //         "Content-Type": "multipart/form-data",
-  //       },
-  //     })
-  //     .then((response) => {
-  //       console.log("Respuesta completa del servidor:", response.data);
-  //       const base64Audio = response.data.file;
-  //       console.log("base64Audio: ");
-  //       console.log(base64Audio);
-
-  //       // Convertir el audio base64 a un Blob
-  //       const byteCharacters = atob(base64Audio);
-  //       const byteNumbers = new Array(byteCharacters.length);
-  //       for (let i = 0; i < byteCharacters.length; i++) {
-  //         byteNumbers[i] = byteCharacters.charCodeAt(i);
-  //       }
-  //       const byteArray = new Uint8Array(byteNumbers);
-  //       const blobNew = new Blob([byteArray], { type: "audio/ogg" });
-
-  //       console.log("blobNew: " + blobNew);
-
-  //       // Crear un nuevo FormData para la segunda solicitud
-  //       const formData2 = new FormData();
-  //       formData2.append("audio", blobNew, "audio.ogg");
-
-  //       // Enviar el audio convertido a WhatsApp usando chatApi.post
-  //       return chatApi
-  //         .post("whatsapp/guardar_audio", formData2, {
-  //           headers: {
-  //             "Content-Type": "multipart/form-data",
-  //           },
-  //         })
-  //         .then(async (response) => {
-  //           console.log("Respuesta guardar_audio completa:", response.data);
-
-  //           if (response.status === 200) {
-  //             const fileUrl =
-  //               response.data.fileUrl ||
-  //               response.data.data?.fileUrl ||
-  //               response.data.url;
-  //             console.log("Audio guardado en el servidor:", fileUrl);
-
-  //             if (fileUrl) {
-  //               await enviarAudioWhatsApp(fileUrl); // Enviar el audio a WhatsApp
-  //               return response.data; // Retorna la URL del audio subido
-  //             } else {
-  //               console.error(
-  //                 "No se recibió fileUrl en la respuesta:",
-  //                 response.data,
-  //               );
-  //               throw new Error("No se recibió la URL del archivo");
-  //             }
-  //           } else {
-  //             console.error(
-  //               "Error al subir el audio a WhatsApp:",
-  //               response.data.message,
-  //             );
-  //             throw new Error(response.data.message);
-  //           }
-  //         })
-  //         .catch((error) => {
-  //           console.error("Error en la solicitud a WhatsApp:", error);
-  //           console.error("Detalles del error:", error.response?.data);
-  //         });
-  //     })
-  //     .catch((error) => {
-  //       console.error("Error en la solicitud de conversión de audio:", error);
-  //       console.error("Detalles del error:", error.response?.data);
-  //     });
-  // };
-
-  // Función para enviar el audio a WhatsApp
-  const enviarAudioWhatsApp = async (audioUrl) => {
-    console.log("Estableciendo conexión con WhatsApp...");
-    const fromPhoneNumberId = dataAdmin.id_telefono; // ID de WhatsApp
-    const accessToken = dataAdmin.token; // Token de acceso
-    const numeroDestino = selectedChat.celular_cliente; // Número de destino
-    const apiUrl = `https://graph.facebook.com/v21.0/${fromPhoneNumberId}/messages`;
-
-    const payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: numeroDestino,
-      type: "audio",
-      audio: {
-        link: "" + audioUrl, // URL completa del audio en el servidor
-      },
-    };
-
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
-
-    try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-
-      if (result.error) {
-        console.error("Error al enviar el audio a WhatsApp:", result.error);
-        alert(`Error: ${result.error.message}`);
-        return;
-      }
-
-      console.log("Audio enviado con éxito a WhatsApp:", result);
-
-      // Extraer el wamid del audio enviado
-      const wamid = result?.messages?.[0]?.id || null;
-
-      let id_recibe = selectedChat.id;
-      let mid_mensaje = dataAdmin.id_telefono;
-      let telefono_configuracion = dataAdmin.telefono;
-      agregar_mensaje_enviado(
-        "Archivo guardado en: " + audioUrl,
-        "audio",
-        audioUrl,
-        numeroDestino,
-        mid_mensaje,
-        id_recibe,
-        id_configuracion,
-        telefono_configuracion,
-        wamid,
-        "",
-        "",
-        selectedChat.id_encargado,
-      );
-    } catch (error) {
-      console.error("Error en la solicitud de WhatsApp:", error);
-      alert("Ocurrió un error al enviar el audio. Inténtalo más tarde.");
-    }
-  };
-
-  // Función que maneja la subida y el envío del audio
-  //   const handleSendAudio = async (blob) => {
-  //     if (blob) {
-  //       // Validación de tipo MIME
-  //       const isOggMime = blob.type.includes("audio/ogg");
-
-  //       // Validación de extensión (si tienes un nombre de archivo)
-  //       const isCorrectExtension = blob.name ? blob.name.endsWith(".ogg") : true;
-
-  //       if (!isOggMime || !isCorrectExtension) {
-  //         alert("El archivo de audio debe ser en formato .ogg");
-  //         return;
-  //       }
-
-  //       console.log(
-  //         "El archivo es un .ogg válido basado en el tipo MIME y extensión.",
-  //       );
-
-  //       try {
-  //         // Subir el audio y obtener la URL
-  //         let urlAudio = await uploadAudio(blob);
-  //         // Enviar el audio a WhatsApp
-  //         /*         if (urlAudio) {
-  //           await enviarAudioWhatsApp(urlAudio);
-  //         }
-  //  */
-  //         setAudioBlob(null); // Limpia el estado del blob de audio después de enviar
-  //       } catch (error) {
-  //         console.error("Error en el proceso de envío de audio:", error);
-  //       }
-  //     }
-  //   };
 
   const handleSendAudio = async (blob) => {
     if (!blob) return;

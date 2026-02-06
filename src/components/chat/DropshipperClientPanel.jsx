@@ -288,6 +288,49 @@ export default function DropshipperClientPanel(props) {
     });
   };
 
+  const [createOrderOpen, setCreateOrderOpen] = useState(false);
+
+  const [step, setStep] = useState(1);
+
+  // productos
+  const [prodLoading, setProdLoading] = useState(false);
+  const [prodError, setProdError] = useState(null);
+  const [prodList, setProdList] = useState([]);
+  const [keywords, setKeywords] = useState("");
+  const [startData, setStartData] = useState(0);
+  const pageSize = 50;
+
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+  const [price, setPrice] = useState(0);
+
+  // states/cities
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [selectedState, setSelectedState] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+
+  // datos cliente/dirección
+  const [name, setName] = useState(selectedChat?.nombre_cliente || "");
+  const [surname, setSurname] = useState(selectedChat?.apellido_cliente || "");
+  const [dir, setDir] = useState("");
+
+  const emitGetProducts = useCallback((reset = false) => {
+    const s = socketRef?.current;
+    if (!s) return setProdError("Socket no disponible");
+
+    setProdLoading(true);
+    setProdError(null);
+
+    const nextStart = reset ? 0 : startData;
+    s.emit("GET_DROPI_PRODUCTS", {
+      id_configuracion: Number(id_configuracion),
+      pageSize,
+    });
+  });
+
   return (
     <>
       <div className="flex items-start justify-center overflow-y-auto h-full pt-2 md:pt-4 custom-scrollbar">
@@ -490,8 +533,25 @@ export default function DropshipperClientPanel(props) {
                 !ordersLoading &&
                 !ordersError &&
                 orders?.length === 0 && (
-                  <div className="text-sm text-white/70">
-                    No hay órdenes para este cliente.
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                    <p className="text-sm text-white/80">
+                      No hay órdenes para este cliente.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => setCreateOrderOpen(true)}
+                      className="mt-3 w-full px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
+                      disabled={!phone}
+                      title={
+                        !phone
+                          ? "Falta teléfono para crear orden"
+                          : "Crear una nueva orden"
+                      }
+                    >
+                      <i className="bx bx-plus-circle" />
+                      Crear orden
+                    </button>
                   </div>
                 )}
 
