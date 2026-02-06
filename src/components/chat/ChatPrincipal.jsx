@@ -805,10 +805,36 @@ const ChatPrincipal = ({
     }
   }, [mensajesOrdenados]);
 
+  useEffect(() => {
+    const el = inputRef?.current;
+    if (!el) return;
+
+    // Reinicia altura para medir correctamente
+    el.style.height = "auto";
+
+    // Calcula altura máxima de 4 líneas
+    const computed = window.getComputedStyle(el);
+    const lineHeight = parseFloat(computed.lineHeight || "20");
+    const paddingTop = parseFloat(computed.paddingTop || "0");
+    const paddingBottom = parseFloat(computed.paddingBottom || "0");
+    const maxHeight = lineHeight * 4 + paddingTop + paddingBottom;
+
+    // Ajusta altura al contenido pero con tope
+    const newHeight = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${newHeight}px`;
+
+    // Scroll interno solo cuando excede 4 líneas
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [mensaje, inputRef]);
+
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !isChatBlocked && mensaje.trim()) {
-      e.preventDefault();
-      handleSendMessage();
+    if (e.key === "Enter" && !e.shiftKey) {
+      if (!isChatBlocked && mensaje.trim()) {
+        e.preventDefault();
+        handleSendMessage();
+      } else {
+        e.preventDefault();
+      }
     }
   };
 
@@ -2051,6 +2077,7 @@ const ChatPrincipal = ({
                               contextLabel:
                                 "Responderá con plantilla al chat actual",
                               clienteNombre: selectedChat?.nombre_cliente || "",
+                              idEncargado: selectedChat?.id_encargado || null,
                             });
 
                             setNumeroModal(true);
@@ -2155,6 +2182,7 @@ const ChatPrincipal = ({
                               contextLabel:
                                 "Responderá con plantilla al chat actual",
                               clienteNombre: selectedChat?.nombre_cliente || "",
+                              idEncargado: selectedChat?.id_encargado || null,
                             });
 
                             setNumeroModal(true);
@@ -2206,17 +2234,17 @@ const ChatPrincipal = ({
                   <i className="bx bx-plus text-2xl"></i>
                 </label>
 
-                <input
-                  type="text"
+                <textarea
                   value={mensaje}
                   onChange={onChangeWithTyping}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   placeholder="Escribe un mensaje..."
-                  className="flex-1 p-2 border rounded"
+                  className="flex-1 p-2 border rounded resize-none overflow-y-auto leading-5"
                   ref={inputRef}
                   id="mensaje"
                   disabled={isChatBlocked}
+                  rows={1}
                 />
 
                 {/* Menú de comandos */}

@@ -21,6 +21,8 @@ const Modales = ({
   setSelectedPhoneNumber,
   selectedPhoneNumberNombre,
   setSelectedPhoneNumberNombre,
+  selectedPhoneNumberIdEncargado,
+  setSelectedPhoneNumberIdEncargado,
   userData,
   id_configuracion,
   modal_enviarArchivos,
@@ -95,6 +97,7 @@ const Modales = ({
 
     setSelectedPhoneNumber("");
     setSelectedPhoneNumberNombre("");
+    setSelectedPhoneNumberIdEncargado("");
 
     setTemplateName("");
     setTemplateText("");
@@ -135,6 +138,7 @@ const Modales = ({
       handleSelectPhoneNumber(
         numeroModalPreset.phone,
         numeroModalPreset.clienteNombre,
+        numeroModalPreset.idEncargado
       );
 
       setSearchQuery(numeroModalPreset.phone);
@@ -203,6 +207,7 @@ const Modales = ({
   // 🔎 filtra por nombre o teléfono en cliente (fallback si el server solo busca por número)
   const filteredResults =
     (searchResultsNumeroCliente || []).filter((r) => {
+      console.log("r:" + JSON.stringify(r));
       const q = searchQuery.trim().toLowerCase();
       if (!q) return true;
       return (
@@ -210,6 +215,9 @@ const Modales = ({
           .toLowerCase()
           .includes(q) ||
         String(r.celular_cliente || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(r.id_encargado || "")
           .toLowerCase()
           .includes(q)
       );
@@ -554,6 +562,7 @@ const Modales = ({
         wamid,
         "",
         "",
+        selectedChat.id_encargado,
       );
 
       /* cargar socket */
@@ -742,6 +751,7 @@ const Modales = ({
         wamid,
         "",
         "",
+        selectedChat.id_encargado,
       );
 
       /* cargar socket */
@@ -930,6 +940,7 @@ const Modales = ({
         wamid,
         "",
         "",
+        selectedChat.id_encargado,
       );
 
       /* cargar socket */
@@ -981,7 +992,7 @@ const Modales = ({
       Toast.fire({ icon: "success", title: "Contacto añadido" });
 
       // Marca al nuevo contacto como destinatario
-      handleSelectPhoneNumber(newContactPhone, newContactName);
+      handleSelectPhoneNumber(newContactPhone, newContactName, null);
 
       // Cambia de pestaña: búsqueda + plantilla
       setModalTab("buscar");
@@ -1217,6 +1228,7 @@ const Modales = ({
   const enviarTemplate = async () => {
     const recipientPhone = selectedPhoneNumber;
     const nombre_cliente = selectedPhoneNumberNombre;
+    const id_encargado = selectedPhoneNumberIdEncargado;
 
     if (!recipientPhone) {
       Toast.fire({
@@ -1378,6 +1390,7 @@ const Modales = ({
           templateName,
           selectedLanguage,
           nombre_cliente,
+          id_encargado,
         );
       } catch (dbErr) {
         console.warn(
@@ -1705,6 +1718,7 @@ const Modales = ({
                             filteredResults.map((result, index) => {
                               const active =
                                 selectedPhoneNumber === result.celular_cliente;
+                              console.log("result:" + JSON.stringify(result));
                               return (
                                 <li
                                   key={index}
@@ -1712,6 +1726,7 @@ const Modales = ({
                                     handleSelectPhoneNumber(
                                       result.celular_cliente,
                                       result.nombre_cliente,
+                                      result.id_encargado,
                                     )
                                   }
                                   className={`cursor-pointer px-3 py-2 transition ${
