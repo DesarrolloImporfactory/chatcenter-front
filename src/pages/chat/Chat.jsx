@@ -615,7 +615,7 @@ const Chat = () => {
     language_code,
     nombre_cliente = "",
     id_encargado = null,
-    meta_media_id = null,
+    meta_media_id,
   ) => {
     try {
       const response = await chatApi.post(
