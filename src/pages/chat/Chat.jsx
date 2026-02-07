@@ -1181,6 +1181,7 @@ const Chat = () => {
           wamid,
           "",
           "",
+          "",
           selectedChat.id_encargado,
           mediaId,
         );
