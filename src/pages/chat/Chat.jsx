@@ -1179,8 +1179,10 @@ const Chat = () => {
           id_configuracion,
           dataAdmin.telefono,
           wamid,
-          mediaId,
           "",
+          "",
+          selectedChat.id_encargado,
+          mediaId,
         );
 
         return { fileUrl, mediaId, wamid };
