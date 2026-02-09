@@ -155,6 +155,137 @@ export default function DropshipperClientPanel(props) {
     if (!isOpen) return;
     emitGetOrders();
   }, [isOpen, emitGetOrders]);
+  useEffect(() => {
+    const s = socketRef?.current;
+    if (!s) return;
+
+    // ===== PRODUCTS =====
+    const onProdOk = (resp) => {
+      setProdLoading(false);
+
+      // soporte flexible: resp puede venir {isSuccess,data:{objects}} o {objects}
+      const list =
+        resp?.data?.objects ||
+        resp?.objects ||
+        resp?.data?.data?.objects ||
+        resp?.data?.products ||
+        resp?.products ||
+        [];
+
+      setProdList(Array.isArray(list) ? list : []);
+    };
+
+    const onProdErr = (resp) => {
+      setProdLoading(false);
+      setProdError(
+        resp?.message || resp?.data?.message || "Error obteniendo productos",
+      );
+      setProdList([]);
+    };
+
+    // ===== STATES (DEPARTMENTS) =====
+    const onStatesOk = (resp) => {
+      setStatesLoading(false);
+
+      const list =
+        resp?.data?.objects ||
+        resp?.objects ||
+        resp?.data?.data ||
+        resp?.data ||
+        resp?.departments ||
+        [];
+
+      setStates(Array.isArray(list) ? list : []);
+    };
+
+    const onStatesErr = (resp) => {
+      setStatesLoading(false);
+      Swal.fire({
+        icon: "error",
+        title: "Error cargando provincias/departamentos",
+        text: resp?.message || resp?.data?.message || "No se pudo cargar",
+      });
+      setStates([]);
+    };
+
+    // ===== CITIES =====
+    const onCitiesOk = (resp) => {
+      setCitiesLoading(false);
+
+      // ✅ Dropi: objects trae { cities: [...] }
+      const list =
+        resp?.data?.objects?.cities ||
+        resp?.objects?.cities ||
+        resp?.data?.data?.objects?.cities ||
+        resp?.data?.cities ||
+        resp?.cities ||
+        [];
+
+      setCities(Array.isArray(list) ? list : []);
+    };
+
+    const onCitiesErr = (resp) => {
+      setCitiesLoading(false);
+      Swal.fire({
+        icon: "error",
+        title: "Error cargando ciudades",
+        text: resp?.message || resp?.data?.message || "No se pudo cargar",
+      });
+      setCities([]);
+    };
+
+    // ===== CREATE ORDER =====
+    const onCreateOk = (resp) => {
+      // Opcional: cerrar modal, resetear y refrescar órdenes
+      Swal.fire({
+        icon: "success",
+        title: "Orden creada",
+        text: resp?.message || "La orden se creó correctamente",
+        timer: 1800,
+        showConfirmButton: false,
+      });
+
+      setCreateOrderOpen(false);
+      setStep(1);
+
+      // refrescar lista de órdenes
+      emitGetOrders();
+    };
+
+    const onCreateErr = (resp) => {
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo crear la orden",
+        text: resp?.message || resp?.data?.message || "Error creando orden",
+      });
+    };
+
+    s.on("DROPI_PRODUCTS_OK", onProdOk);
+    s.on("DROPI_PRODUCTS_ERROR", onProdErr);
+
+    s.on("DROPI_STATES_OK", onStatesOk);
+    s.on("DROPI_STATES_ERROR", onStatesErr);
+
+    s.on("DROPI_CITIES_OK", onCitiesOk);
+    s.on("DROPI_CITIES_ERROR", onCitiesErr);
+
+    s.on("CREATE_DROPI_ORDER_OK", onCreateOk);
+    s.on("CREATE_DROPI_ORDER_ERROR", onCreateErr);
+
+    return () => {
+      s.off("DROPI_PRODUCTS_OK", onProdOk);
+      s.off("DROPI_PRODUCTS_ERROR", onProdErr);
+
+      s.off("DROPI_STATES_OK", onStatesOk);
+      s.off("DROPI_STATES_ERROR", onStatesErr);
+
+      s.off("DROPI_CITIES_OK", onCitiesOk);
+      s.off("DROPI_CITIES_ERROR", onCitiesErr);
+
+      s.off("CREATE_DROPI_ORDER_OK", onCreateOk);
+      s.off("CREATE_DROPI_ORDER_ERROR", onCreateErr);
+    };
+  }, [socketRef, emitGetOrders]);
 
   // si cambia el chat y el panel de órdenes está abierto, refresca
   useEffect(() => {
@@ -166,7 +297,7 @@ export default function DropshipperClientPanel(props) {
 
     // no spamear si todavía no hay phone
     if (phone) emitGetOrders();
-  }, [selectedChat?.id, selectedChat?.psid, phone]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedChat?.id, selectedChat?.psid, phone]);
 
   const handleToggleOrders = () => {
     setIsOpen((prev) => !prev);
@@ -307,29 +438,522 @@ export default function DropshipperClientPanel(props) {
   // states/cities
   const [statesLoading, setStatesLoading] = useState(false);
   const [citiesLoading, setCitiesLoading] = useState(false);
+
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
-  const [selectedState, setSelectedState] = useState("");
-  const [selectedCity, setSelectedCity] = useState("");
+
+  // Guardamos el DEPARTMENT (id + nombre) y la CITY (id + nombre)
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(null);
+  const [selectedDepartmentName, setSelectedDepartmentName] = useState("");
+
+  const [selectedCityId, setSelectedCityId] = useState(null);
+  const [selectedCityName, setSelectedCityName] = useState("");
+
+  // rate_type se usa tanto para cities como para create order
+  const [rateType, setRateType] = useState("CON RECAUDO");
+
+  // por ahora default 1, luego se vuelve dinámico desde su integración por pais EC | CO |
+  const [countryId, setCountryId] = useState(1);
 
   // datos cliente/dirección
   const [name, setName] = useState(selectedChat?.nombre_cliente || "");
   const [surname, setSurname] = useState(selectedChat?.apellido_cliente || "");
   const [dir, setDir] = useState("");
+  const [colonia, setColonia] = useState("");
 
-  const emitGetProducts = useCallback((reset = false) => {
+  const emitGetProducts = useCallback(
+    (reset = false) => {
+      const s = socketRef?.current;
+      if (!s) return setProdError("Socket no disponible");
+
+      setProdLoading(true);
+      setProdError(null);
+
+      const nextStart = reset ? 0 : startData;
+
+      s.emit("GET_DROPI_PRODUCTS", {
+        id_configuracion: Number(id_configuracion),
+        pageSize,
+        startData: nextStart,
+        no_count: true,
+        order_by: "id",
+        order_type: "asc",
+        keywords: keywords || "",
+        favorite: false,
+        privated_product: false,
+      });
+    },
+    [socketRef, id_configuracion, pageSize, startData, keywords],
+  );
+
+  const emitGetStates = useCallback(() => {
     const s = socketRef?.current;
-    if (!s) return setProdError("Socket no disponible");
+    if (!s) return;
 
-    setProdLoading(true);
-    setProdError(null);
+    setStatesLoading(true);
 
-    const nextStart = reset ? 0 : startData;
-    s.emit("GET_DROPI_PRODUCTS", {
+    s.emit("GET_DROPI_STATES", {
       id_configuracion: Number(id_configuracion),
-      pageSize,
+      country_id: Number(countryId) || 1, // ✅ requerido por su backend
     });
-  });
+  }, [socketRef, id_configuracion, countryId]);
+
+  const emitGetCities = useCallback(() => {
+    const s = socketRef?.current;
+    if (!s) return;
+
+    if (!selectedDepartmentId) return;
+
+    setCitiesLoading(true);
+
+    s.emit("GET_DROPI_CITIES", {
+      id_configuracion: Number(id_configuracion),
+      department_id: Number(selectedDepartmentId),
+      rate_type: String(rateType || "CON RECAUDO"),
+    });
+  }, [socketRef, id_configuracion, selectedDepartmentId, rateType]);
+
+  const handleSelectDepartment = (e) => {
+    const depId = Number(e.target.value) || null;
+
+    setSelectedDepartmentId(depId);
+
+    // buscar el nombre (dependiendo cómo venga el objeto)
+    const dep =
+      states.find((x) => Number(x.id) === depId) ||
+      states.find((x) => Number(x.department_id) === depId) ||
+      null;
+
+    const depName = dep?.name || dep?.department || dep?.nombre || "";
+    setSelectedDepartmentName(depName);
+
+    // reset city
+    setSelectedCityId(null);
+    setSelectedCityName("");
+    setCities([]);
+
+    // cargar cities (usa department_id + rateType)
+    if (depId) {
+      // pequeño defer para asegurar state set
+      setTimeout(() => emitGetCities(), 0);
+    }
+  };
+
+  const handleSelectCity = (e) => {
+    const cityId = Number(e.target.value) || null;
+    setSelectedCityId(cityId);
+
+    const c =
+      cities.find((x) => Number(x.id) === cityId) ||
+      cities.find((x) => Number(x.city_id) === cityId) ||
+      null;
+
+    const cityName = c?.name || c?.city || c?.nombre || "";
+    setSelectedCityName(cityName);
+  };
+
+  const emitCreateOrder = useCallback(() => {
+    const s = socketRef?.current;
+    if (!s) return;
+
+    // body final estilo Postman (mínimo)
+    const body = {
+      id_configuracion: Number(id_configuracion),
+
+      type: "FINAL_ORDER",
+      type_service: "normal",
+      rate_type: String(rateType || "CON RECAUDO"),
+
+      total_order: Number(price) * Number(quantity),
+      shipping_amount: 11100, // por ahora manual/fijo o input
+      payment_method_id: 1,
+
+      notes: "",
+
+      supplier_id: selectedProduct?.user_id, // o el que corresponda
+      shop_id: selectedProduct?.shop_id, // ojo: puede venir en product o aparte
+      warehouses_selected_id: selectedProduct?.warehouse_id, // igual: depende de respuesta real
+
+      name,
+      surname,
+      phone, // su phone normalizado, pero ojo: Dropi a veces espera +57... como usted mostró
+
+      country: "COLOMBIA",
+      state: selectedDepartmentName,
+      city: selectedCityName,
+
+      dir,
+      zip_code: null,
+      colonia,
+
+      distributionCompany: { id: 3, name: "INTERRAPIDISIMO" }, // por ahora fijo o seleccionable
+
+      products: [
+        {
+          id: selectedProduct?.id,
+          name: selectedProduct?.name,
+          type: selectedProduct?.type || "SIMPLE",
+          variation_id: null,
+          variations: [],
+          quantity: Number(quantity),
+          price: Number(price),
+          sale_price: selectedProduct?.sale_price
+            ? String(selectedProduct.sale_price)
+            : null,
+          suggested_price: selectedProduct?.suggested_price
+            ? String(selectedProduct.suggested_price)
+            : null,
+        },
+      ],
+    };
+
+    s.emit("CREATE_DROPI_ORDER", body);
+  }, [
+    socketRef,
+    id_configuracion,
+    phone,
+    selectedProduct,
+    quantity,
+    price,
+    name,
+    surname,
+    selectedDepartmentName,
+    selectedCityName,
+    dir,
+    rateType,
+  ]);
+
+  useEffect(() => {
+    if (!createOrderOpen) return;
+    if (!selectedDepartmentId) return;
+    emitGetCities();
+  }, [rateType, createOrderOpen, selectedDepartmentId, emitGetCities]);
+
+  useEffect(() => {
+    setName(selectedChat?.nombre_cliente || "");
+    setSurname(selectedChat?.apellido_cliente || "");
+  }, [selectedChat?.id, selectedChat?.psid]);
+
+  function CreateOrderPanel(props) {
+    const {
+      phone,
+      name,
+      setName,
+      surname,
+      setSurname,
+      dir,
+      setDir,
+      colonia,
+      setColonia,
+
+      rateType,
+      setRateType,
+
+      states,
+      statesLoading,
+      selectedDepartmentId,
+      handleSelectDepartment,
+
+      cities,
+      citiesLoading,
+      selectedCityId,
+      handleSelectCity,
+
+      keywords,
+      setKeywords,
+      prodList,
+      prodLoading,
+      prodError,
+      selectedProduct,
+      setSelectedProduct,
+      emitGetProducts,
+
+      quantity,
+      setQuantity,
+      price,
+      setPrice,
+
+      onClose,
+      onSubmit,
+    } = props;
+
+    const canSubmit =
+      !!phone &&
+      !!name?.trim() &&
+      !!surname?.trim() &&
+      !!dir?.trim() &&
+      !!selectedDepartmentId &&
+      !!selectedCityId &&
+      !!selectedProduct &&
+      Number(quantity) > 0 &&
+      Number(price) >= 0;
+
+    return (
+      <div className="mt-2 rounded-2xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white">
+              Crear orden (formulario rápido)
+            </p>
+            <p className="text-xs text-white/60">
+              Complete los datos mínimos para registrar la orden en Dropi.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-xs flex items-center gap-2 shrink-0"
+            title="Cerrar"
+          >
+            <i className="bx bx-x" />
+            Cerrar
+          </button>
+        </div>
+
+        {/* Cliente */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+            <p className="text-[11px] text-white/60 mb-1">Nombre</p>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
+              placeholder="Nombre"
+            />
+          </div>
+
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+            <p className="text-[11px] text-white/60 mb-1">Apellido</p>
+            <input
+              value={surname}
+              onChange={(e) => setSurname(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
+              placeholder="Apellido"
+            />
+          </div>
+
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3 sm:col-span-2">
+            <p className="text-[11px] text-white/60 mb-1">
+              Teléfono (del chat)
+            </p>
+            <div className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80">
+              {phone || "—"}
+            </div>
+          </div>
+        </div>
+
+        {/* Recaudo + Ubicación */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+            <p className="text-[11px] text-white/60 mb-1">Tipo</p>
+            <select
+              value={rateType}
+              onChange={(e) => setRateType(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
+            >
+              <option value="CON RECAUDO">CON RECAUDO</option>
+              <option value="SIN RECAUDO">SIN RECAUDO</option>
+            </select>
+          </div>
+
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+            <p className="text-[11px] text-white/60 mb-1">
+              Provincia/Departamento
+            </p>
+            <select
+              value={selectedDepartmentId || ""}
+              onChange={handleSelectDepartment}
+              disabled={statesLoading}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60 disabled:opacity-60"
+            >
+              <option value="">
+                {statesLoading ? "Cargando..." : "Seleccione"}
+              </option>
+              {(states || []).map((d) => (
+                <option
+                  key={d.id || d.department_id}
+                  value={d.id || d.department_id}
+                >
+                  {d.name || d.department || d.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+            <p className="text-[11px] text-white/60 mb-1">Ciudad</p>
+            <select
+              value={selectedCityId || ""}
+              onChange={handleSelectCity}
+              disabled={!selectedDepartmentId || citiesLoading}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60 disabled:opacity-60"
+            >
+              <option value="">
+                {citiesLoading ? "Cargando..." : "Seleccione"}
+              </option>
+              {(cities || []).map((c) => (
+                <option key={c.id || c.city_id} value={c.id || c.city_id}>
+                  {c.name || c.city || c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Dirección */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3 sm:col-span-2">
+            <p className="text-[11px] text-white/60 mb-1">Dirección</p>
+            <input
+              value={dir}
+              onChange={(e) => setDir(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
+              placeholder="Ej: Calle 123 #45-67, apto 301"
+            />
+          </div>
+
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3 sm:col-span-2">
+            <p className="text-[11px] text-white/60 mb-1">Colonia / Barrio</p>
+            <input
+              value={colonia}
+              onChange={(e) => setColonia(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
+              placeholder="Ej: Laureles, Centro, etc."
+            />
+          </div>
+        </div>
+
+        {/* Producto */}
+        <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-white">Producto</p>
+            <button
+              type="button"
+              onClick={() => emitGetProducts(true)}
+              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-xs"
+              title="Actualizar productos"
+            >
+              <i className={`bx bx-refresh ${prodLoading ? "bx-spin" : ""}`} />
+            </button>
+          </div>
+
+          <div className="mt-2 flex gap-2">
+            <input
+              value={keywords}
+              onChange={(e) => setKeywords(e.target.value)}
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
+              placeholder="Buscar producto..."
+            />
+            <button
+              type="button"
+              onClick={() => emitGetProducts(true)}
+              className="px-4 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-sm font-semibold"
+            >
+              Buscar
+            </button>
+          </div>
+
+          {prodError && (
+            <div className="mt-2 text-xs text-red-300 bg-red-500/10 border border-red-400/20 rounded-lg p-2">
+              {prodError}
+            </div>
+          )}
+
+          <div className="mt-3 grid grid-cols-1 gap-2 max-h-56 overflow-auto custom-scrollbar pr-1">
+            {prodLoading ? (
+              <div className="text-sm text-white/70">Cargando productos…</div>
+            ) : (prodList || []).length === 0 ? (
+              <div className="text-sm text-white/70">No hay productos.</div>
+            ) : (
+              prodList.map((p) => {
+                const active = selectedProduct?.id === p?.id;
+                return (
+                  <button
+                    type="button"
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedProduct(p);
+                      // sugerencia: si viene suggested_price, ponerlo como price
+                      const sug =
+                        Number(p?.suggested_price) ||
+                        Number(p?.sale_price) ||
+                        Number(p?.price) ||
+                        0;
+                      setPrice(sug);
+                    }}
+                    className={`text-left w-full rounded-xl border p-3 transition ${
+                      active
+                        ? "bg-emerald-500/15 border-emerald-400/30"
+                        : "bg-white/5 border-white/10 hover:bg-white/10"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-white truncate">
+                      {p?.name || "Producto"}
+                    </p>
+                    <p className="text-xs text-white/60 truncate">
+                      SKU: {p?.sku || "—"} • Sugerido:{" "}
+                      {p?.suggested_price || p?.sale_price || "—"}
+                    </p>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Cantidad / Precio */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+            <p className="text-[11px] text-white/60 mb-1">Cantidad</p>
+            <input
+              type="number"
+              min={1}
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value) || 1)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
+            />
+          </div>
+
+          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+            <p className="text-[11px] text-white/60 mb-1">Precio</p>
+            <input
+              type="number"
+              min={0}
+              value={price}
+              onChange={(e) => setPrice(Number(e.target.value) || 0)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
+            />
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="mt-4 flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={!canSubmit}
+            className={`w-full px-4 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 border transition ${
+              canSubmit
+                ? "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-400/30"
+                : "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
+            }`}
+          >
+            <i className="bx bx-check-circle" />
+            Crear orden
+          </button>
+
+          {!canSubmit && (
+            <div className="text-xs text-white/50 sm:self-center">
+              Complete: provincia, ciudad, producto, dirección, cantidad y
+              precio.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -529,29 +1153,98 @@ export default function DropshipperClientPanel(props) {
               )}
 
               {/* ====== MODO LISTA ====== */}
+              {/* ====== NO HAY ÓRDENES ====== */}
               {!selectedOrder &&
                 !ordersLoading &&
                 !ordersError &&
                 orders?.length === 0 && (
                   <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                    <p className="text-sm text-white/80">
-                      No hay órdenes para este cliente.
-                    </p>
+                    {!createOrderOpen ? (
+                      <>
+                        <p className="text-sm text-white/80">
+                          No hay órdenes para este cliente.
+                        </p>
 
-                    <button
-                      type="button"
-                      onClick={() => setCreateOrderOpen(true)}
-                      className="mt-3 w-full px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
-                      disabled={!phone}
-                      title={
-                        !phone
-                          ? "Falta teléfono para crear orden"
-                          : "Crear una nueva orden"
-                      }
-                    >
-                      <i className="bx bx-plus-circle" />
-                      Crear orden
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreateOrderOpen(true);
+                            setStep(1);
+
+                            // limpiar selección
+                            setSelectedProduct(null);
+                            setSelectedDepartmentId(null);
+                            setSelectedDepartmentName("");
+                            setSelectedCityId(null);
+                            setSelectedCityName("");
+                            setCities([]);
+
+                            // valores iniciales sugeridos
+                            setQuantity(1);
+                            setPrice(0);
+                            setDir("");
+                            setColonia("");
+                            setRateType("CON RECAUDO");
+
+                            // cargar data inicial
+                            emitGetProducts(true);
+                            emitGetStates();
+                          }}
+                          className="mt-3 w-full px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
+                          disabled={!phone}
+                          title={
+                            !phone
+                              ? "Falta teléfono para crear orden"
+                              : "Crear una nueva orden"
+                          }
+                        >
+                          <i className="bx bx-plus-circle" />
+                          Crear orden
+                        </button>
+                      </>
+                    ) : (
+                      <CreateOrderPanel
+                        // estado
+                        phone={phone}
+                        name={name}
+                        setName={setName}
+                        surname={surname}
+                        setSurname={setSurname}
+                        dir={dir}
+                        setDir={setDir}
+                        colonia={colonia}
+                        setColonia={setColonia}
+                        // recaudo
+                        rateType={rateType}
+                        setRateType={setRateType}
+                        // departamentos / ciudades
+                        states={states}
+                        statesLoading={statesLoading}
+                        selectedDepartmentId={selectedDepartmentId}
+                        handleSelectDepartment={handleSelectDepartment}
+                        cities={cities}
+                        citiesLoading={citiesLoading}
+                        selectedCityId={selectedCityId}
+                        handleSelectCity={handleSelectCity}
+                        // productos
+                        keywords={keywords}
+                        setKeywords={setKeywords}
+                        prodList={prodList}
+                        prodLoading={prodLoading}
+                        prodError={prodError}
+                        selectedProduct={selectedProduct}
+                        setSelectedProduct={setSelectedProduct}
+                        emitGetProducts={emitGetProducts}
+                        // qty/price
+                        quantity={quantity}
+                        setQuantity={setQuantity}
+                        price={price}
+                        setPrice={setPrice}
+                        // acciones
+                        onClose={() => setCreateOrderOpen(false)}
+                        onSubmit={emitCreateOrder}
+                      />
+                    )}
                   </div>
                 )}
 
