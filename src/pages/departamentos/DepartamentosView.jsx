@@ -815,6 +815,7 @@ const DepartamentosView = () => {
                           isSearchable
                           isClearable
                           noOptionsMessage={() => "No hay conexiones"}
+                          maxMenuHeight={170}
                         />
                         {/* <label className="block text-sm font-medium text-slate-700 mb-1">
                           Mensaje de saludo
