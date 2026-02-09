@@ -61,7 +61,7 @@ const DepartamentosView = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
     nombre_departamento: "",
-    color: "",
+    color: "#000000",
     mensaje_saludo: "",
     id_configuracion: "",
   });
@@ -137,7 +137,7 @@ const DepartamentosView = () => {
       setModalOpen(false); // Cierra el modal
       setForm({
         nombre_departamento: "",
-        color: "",
+        color: "#000000",
         mensaje_saludo: "",
         id_configuracion: "",
       }); // Limpia el formulario
@@ -193,7 +193,7 @@ const DepartamentosView = () => {
       setModalOpen(false);
       setForm({
         nombre_departamento: "",
-        color: "",
+        color: "#000000",
         mensaje_saludo: "",
         id_configuracion: "",
       });
@@ -237,7 +237,7 @@ const DepartamentosView = () => {
     } else {
       setForm({
         nombre_departamento: "",
-        color: "",
+        color: "#000000",
         mensaje_saludo: "",
         id_configuracion: "",
       });
