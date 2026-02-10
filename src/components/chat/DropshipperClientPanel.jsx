@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import Swal from "sweetalert2";
+import CreateOrderPanel from "./CreateOrderPanel";
 
 export default function DropshipperClientPanel(props) {
   const {
@@ -72,6 +73,16 @@ export default function DropshipperClientPanel(props) {
   const onOkRef = useRef(null);
   const onErrRef = useRef(null);
 
+  // listeners refs (productos/estados/ciudades/crear orden) para evitar duplicados
+  const onProdOkRef = useRef(null);
+  const onProdErrRef = useRef(null);
+  const onStatesOkRef = useRef(null);
+  const onStatesErrRef = useRef(null);
+  const onCitiesOkRef = useRef(null);
+  const onCitiesErrRef = useRef(null);
+  const onCreateOkRef = useRef(null);
+  const onCreateErrRef = useRef(null);
+
   const emitGetOrders = useCallback(
     (extra = {}) => {
       const s = socketRef?.current;
@@ -106,7 +117,7 @@ export default function DropshipperClientPanel(props) {
     [socketRef, id_configuracion, phone, resultNumber, status],
   );
 
-  // listeners una sola vez por socketRef
+  // listeners de órdenes (una sola vez por socketRef)
   useEffect(() => {
     const s = socketRef?.current;
     if (!s) return;
@@ -155,9 +166,250 @@ export default function DropshipperClientPanel(props) {
     if (!isOpen) return;
     emitGetOrders();
   }, [isOpen, emitGetOrders]);
+
+  // ========= crear orden =========
+  const [createOrderOpen, setCreateOrderOpen] = useState(false);
+  const [step, setStep] = useState(1);
+
+  // productos
+  const [prodLoading, setProdLoading] = useState(false);
+  const [prodError, setProdError] = useState(null);
+  const [prodList, setProdList] = useState([]);
+  const [keywords, setKeywords] = useState("");
+  const [startData, setStartData] = useState(0);
+  const pageSize = 5;
+
+  const [phoneInput, setPhoneInput] = useState(phone || "");
+  useEffect(() => setPhoneInput(phone || ""), [phone]); // default del chat
+
+  const [productsCart, setProductsCart] = useState([]); // array final products[]
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+  const [price, setPrice] = useState(0);
+
+  // states/cities
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+
+  // Guardamos el DEPARTMENT (id + nombre) y la CITY (id + nombre)
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(null);
+  const [selectedDepartmentName, setSelectedDepartmentName] = useState("");
+
+  const [selectedCityId, setSelectedCityId] = useState(null);
+  const [selectedCityName, setSelectedCityName] = useState("");
+
+  // rate_type se usa tanto para cities como para create order
+  const [rateType, setRateType] = useState("CON RECAUDO");
+
+  // por ahora default 1, luego se vuelve dinámico desde su integración por pais EC | CO |
+  const [countryId, setCountryId] = useState(1);
+
+  // datos cliente/dirección
+  const [name, setName] = useState(selectedChat?.nombre_cliente || "");
+  const [surname, setSurname] = useState(selectedChat?.apellido_cliente || "");
+  const [dir, setDir] = useState("");
+
+  const emitGetProducts = useCallback(
+    (reset = false) => {
+      const s = socketRef?.current;
+      if (!s) return setProdError("Socket no disponible");
+
+      setProdLoading(true);
+      setProdError(null);
+
+      const nextStart = reset ? 0 : startData;
+
+      s.emit("GET_DROPI_PRODUCTS", {
+        id_configuracion: Number(id_configuracion),
+        pageSize,
+        startData: nextStart,
+        no_count: true,
+        order_by: "id",
+        order_type: "asc",
+        keywords: keywords || "",
+        favorite: false,
+        privated_product: false,
+      });
+    },
+    [socketRef, id_configuracion, pageSize, startData, keywords],
+  );
+
+  const emitGetStates = useCallback(() => {
+    const s = socketRef?.current;
+    if (!s) return;
+
+    setStatesLoading(true);
+
+    s.emit("GET_DROPI_STATES", {
+      id_configuracion: Number(id_configuracion),
+      country_id: Number(countryId) || 1, // ✅ requerido por su backend
+    });
+  }, [socketRef, id_configuracion, countryId]);
+
+  // ✅ CORREGIDO: recibe departmentId opcional para evitar setTimeout/stale state
+  const emitGetCities = useCallback(
+    (departmentIdParam = null) => {
+      const s = socketRef?.current;
+      if (!s) return;
+
+      const depId = Number(departmentIdParam ?? selectedDepartmentId) || null;
+      if (!depId) return;
+
+      setCitiesLoading(true);
+
+      s.emit("GET_DROPI_CITIES", {
+        id_configuracion: Number(id_configuracion),
+        department_id: depId,
+        rate_type: String(rateType || "CON RECAUDO"),
+      });
+    },
+    [socketRef, id_configuracion, selectedDepartmentId, rateType],
+  );
+
+  const handleSelectDepartment = (e) => {
+    const depId = Number(e.target.value) || null;
+
+    setSelectedDepartmentId(depId);
+
+    // buscar el nombre (dependiendo cómo venga el objeto)
+    const dep =
+      states.find((x) => Number(x.id) === depId) ||
+      states.find((x) => Number(x.department_id) === depId) ||
+      null;
+
+    const depName = dep?.name || dep?.department || dep?.nombre || "";
+    setSelectedDepartmentName(depName);
+
+    // reset city
+    setSelectedCityId(null);
+    setSelectedCityName("");
+    setCities([]);
+
+    // ✅ CORREGIDO: sin setTimeout, se llama directo con el depId
+    if (depId) emitGetCities(depId);
+  };
+
+  const handleSelectCity = (e) => {
+    const cityId = Number(e.target.value) || null;
+    setSelectedCityId(cityId);
+
+    const c =
+      cities.find((x) => Number(x.id) === cityId) ||
+      cities.find((x) => Number(x.city_id) === cityId) ||
+      null;
+
+    const cityName = c?.name || c?.city || c?.nombre || "";
+    setSelectedCityName(cityName);
+  };
+
+  const emitCreateOrder = useCallback(() => {
+    const s = socketRef?.current;
+    if (!s) return;
+
+    const cleanPhone = String(phoneInput || "").replace(/\D/g, "");
+
+    const products = productsCart.map((it) => ({
+      id: it.id,
+      name: it.name,
+      type: it.type || "SIMPLE",
+      variation_id: it.variation_id ?? null,
+      variations: it.variations || [],
+      quantity: Number(it.quantity) || 1,
+      price: Number(it.price) || 0,
+      sale_price: it.sale_price ?? null,
+      suggested_price: it.suggested_price ?? null,
+    }));
+
+    const total_order = products.reduce(
+      (acc, p) => acc + Number(p.quantity) * Number(p.price),
+      0,
+    );
+
+    // Si necesita supplier/shop/warehouse, tome del primer producto (o defina reglas)
+    const raw0 = productsCart?.[0]?.__raw;
+
+    const body = {
+      id_configuracion: Number(id_configuracion),
+      type: "FINAL_ORDER",
+      type_service: "normal",
+      rate_type: String(rateType || "CON RECAUDO"),
+
+      total_order,
+      shipping_amount: 11100,
+      payment_method_id: 1,
+      notes: "",
+
+      supplier_id: raw0?.user_id,
+      shop_id: raw0?.shop_id,
+      warehouses_selected_id: raw0?.warehouse_id,
+
+      name,
+      surname,
+      phone: cleanPhone,
+
+      country: "COLOMBIA",
+      state: selectedDepartmentName,
+      city: selectedCityName,
+
+      dir,
+      zip_code: null,
+
+      distributionCompany: { id: 3, name: "INTERRAPIDISIMO" },
+
+      products,
+    };
+
+    s.emit("CREATE_DROPI_ORDER", body);
+  }, [
+    socketRef,
+    id_configuracion,
+    phoneInput,
+    productsCart,
+    rateType,
+    name,
+    surname,
+    selectedDepartmentName,
+    selectedCityName,
+    dir,
+  ]);
+
+  // ✅ si cambia el rateType con el modal abierto y hay departamento seleccionado, recarga cities
+  useEffect(() => {
+    if (!createOrderOpen) return;
+    if (!selectedDepartmentId) return;
+    emitGetCities(selectedDepartmentId);
+  }, [rateType, createOrderOpen, selectedDepartmentId, emitGetCities]);
+
+  useEffect(() => {
+    setName(selectedChat?.nombre_cliente || "");
+    setSurname(selectedChat?.apellido_cliente || "");
+  }, [selectedChat?.id, selectedChat?.psid]);
+
+  // listeners (productos/estados/ciudades/crear orden) SIN duplicarse
   useEffect(() => {
     const s = socketRef?.current;
     if (!s) return;
+
+    // ===== limpiar anteriores si existían =====
+    if (onProdOkRef.current) s.off("DROPI_PRODUCTS_OK", onProdOkRef.current);
+    if (onProdErrRef.current)
+      s.off("DROPI_PRODUCTS_ERROR", onProdErrRef.current);
+
+    if (onStatesOkRef.current) s.off("DROPI_STATES_OK", onStatesOkRef.current);
+    if (onStatesErrRef.current)
+      s.off("DROPI_STATES_ERROR", onStatesErrRef.current);
+
+    if (onCitiesOkRef.current) s.off("DROPI_CITIES_OK", onCitiesOkRef.current);
+    if (onCitiesErrRef.current)
+      s.off("DROPI_CITIES_ERROR", onCitiesErrRef.current);
+
+    if (onCreateOkRef.current)
+      s.off("CREATE_DROPI_ORDER_OK", onCreateOkRef.current);
+    if (onCreateErrRef.current)
+      s.off("CREATE_DROPI_ORDER_ERROR", onCreateErrRef.current);
 
     // ===== PRODUCTS =====
     const onProdOk = (resp) => {
@@ -236,7 +488,6 @@ export default function DropshipperClientPanel(props) {
 
     // ===== CREATE ORDER =====
     const onCreateOk = (resp) => {
-      // Opcional: cerrar modal, resetear y refrescar órdenes
       Swal.fire({
         icon: "success",
         title: "Orden creada",
@@ -259,6 +510,16 @@ export default function DropshipperClientPanel(props) {
         text: resp?.message || resp?.data?.message || "Error creando orden",
       });
     };
+
+    // guardar refs y registrar listeners
+    onProdOkRef.current = onProdOk;
+    onProdErrRef.current = onProdErr;
+    onStatesOkRef.current = onStatesOk;
+    onStatesErrRef.current = onStatesErr;
+    onCitiesOkRef.current = onCitiesOk;
+    onCitiesErrRef.current = onCitiesErr;
+    onCreateOkRef.current = onCreateOk;
+    onCreateErrRef.current = onCreateErr;
 
     s.on("DROPI_PRODUCTS_OK", onProdOk);
     s.on("DROPI_PRODUCTS_ERROR", onProdErr);
@@ -297,7 +558,7 @@ export default function DropshipperClientPanel(props) {
 
     // no spamear si todavía no hay phone
     if (phone) emitGetOrders();
-  }, [selectedChat?.id, selectedChat?.psid, phone]);
+  }, [selectedChat?.id, selectedChat?.psid, phone, isOpen, emitGetOrders]);
 
   const handleToggleOrders = () => {
     setIsOpen((prev) => !prev);
@@ -318,11 +579,54 @@ export default function DropshipperClientPanel(props) {
   const showOrderStatus = (o) => o?.status || o?.estado || "Sin estado";
   const showOrderDate = (o) => o?.created_at || o?.createdAt || o?.fecha || "";
 
-  // ===== Helpers de extracción (Dropi) =====
-  const money = (n) => {
-    const val = Number(n);
-    if (!Number.isFinite(val)) return "—";
-    return val.toLocaleString("es-CO");
+  const NO_IMAGE = "https://app.dropi.ec/assets/utils/no-image.jpg";
+
+  const normalizeStatus = (st = "") =>
+    String(st || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/_/g, " "); // por si viene PENDIENTE_CONFIRMACION
+
+  const isCancelled = (o) =>
+    normalizeStatus(showOrderStatus(o)) === "CANCELADO";
+
+  //SOLO editable cuando está "PENDIENTE CONFIRMACION"
+  const isPendingConfirm = (o) =>
+    normalizeStatus(showOrderStatus(o)) === "PENDIENTE CONFIRMACION";
+
+  const canEditOrder = (o) => isPendingConfirm(o); // solo "PENDIENTE CONFIRMACION"
+
+  // Imagen del producto (con heurística)
+  // Como no sabemos el dominio final de urlS3, lo intentamos y el <img onError> resuelve.
+  const resolveProductImage = (p) => {
+    if (!p) return null;
+
+    // 1) si ya viene un url completo
+    const direct =
+      p?.imageUrl ||
+      p?.image_url ||
+      p?.image ||
+      p?.url ||
+      p?.photo ||
+      p?.main_image ||
+      null;
+
+    if (direct && /^https?:\/\//i.test(String(direct))) return String(direct);
+
+    // 2) si viene urlS3 como path (ej: colombia/products/...)
+    const urlS3 = p?.urlS3 || p?.url_s3 || null;
+    if (urlS3) {
+      // Intento común (si Dropi sirve archivos desde /storage)
+      return `https://app.dropi.ec/storage/${String(urlS3).replace(/^\/+/, "")}`;
+    }
+
+    return null;
+  };
+
+  const getProductImage = (o) => {
+    const p = getProduct(o);
+    return resolveProductImage(p) || NO_IMAGE;
   };
 
   const fmtDate = (iso) => {
@@ -392,11 +696,13 @@ export default function DropshipperClientPanel(props) {
   // ========= acciones UI =========
   const openOrder = (order) => {
     setSelectedOrder(order);
+
+    // si la orden ya trae teléfono, úselo; si no, el del chat
+    const orderPhone = String(order?.phone || phone || "").replace(/\D/g, "");
+    setPhoneInput(orderPhone);
   };
 
-  const closeOrder = () => {
-    setSelectedOrder(null);
-  };
+  const closeOrder = () => setSelectedOrder(null);
 
   // ========= placeholders (usted conecta la lógica luego) =========
   const handleEditOrder = (order) => {
@@ -419,541 +725,95 @@ export default function DropshipperClientPanel(props) {
     });
   };
 
-  const [createOrderOpen, setCreateOrderOpen] = useState(false);
+  const pickSupplierId = (p) => Number(p?.user?.id || p?.user_id || 0) || null;
 
-  const [step, setStep] = useState(1);
+  const pickWarehouseId = (p) =>
+    Number(
+      p?.warehouse_product?.[0]?.warehouse_id ||
+        p?.warehouse_product?.[0]?.warehouse?.id ||
+        0,
+    ) || null;
 
-  // productos
-  const [prodLoading, setProdLoading] = useState(false);
-  const [prodError, setProdError] = useState(null);
-  const [prodList, setProdList] = useState([]);
-  const [keywords, setKeywords] = useState("");
-  const [startData, setStartData] = useState(0);
-  const pageSize = 50;
+  const addProductToCart = (p) => {
+    if (!p?.id) return;
 
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [quantity, setQuantity] = useState(1);
-  const [price, setPrice] = useState(0);
+    const newSupplierId = pickSupplierId(p);
+    const newWarehouseId = pickWarehouseId(p);
 
-  // states/cities
-  const [statesLoading, setStatesLoading] = useState(false);
-  const [citiesLoading, setCitiesLoading] = useState(false);
+    setProductsCart((prev) => {
+      // si ya hay productos, validar que sea el mismo proveedor/bodega
+      if (prev.length > 0) {
+        const baseRaw = prev[0]?.__raw;
+        const baseSupplierId = pickSupplierId(baseRaw);
+        const baseWarehouseId = pickWarehouseId(baseRaw);
 
-  const [states, setStates] = useState([]);
-  const [cities, setCities] = useState([]);
+        const sameSupplier =
+          !baseSupplierId || !newSupplierId || baseSupplierId === newSupplierId;
+        const sameWarehouse =
+          !baseWarehouseId ||
+          !newWarehouseId ||
+          baseWarehouseId === newWarehouseId;
 
-  // Guardamos el DEPARTMENT (id + nombre) y la CITY (id + nombre)
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState(null);
-  const [selectedDepartmentName, setSelectedDepartmentName] = useState("");
+        if (!sameSupplier || !sameWarehouse) {
+          Swal.fire({
+            icon: "warning",
+            title: "No se puede mezclar proveedores/bodegas",
+            text: "Dropi no permite crear una orden con productos de distintos proveedores o bodegas. Por favor, verifique los productos seleccionados.",
+          });
+          return prev;
+        }
+      }
 
-  const [selectedCityId, setSelectedCityId] = useState(null);
-  const [selectedCityName, setSelectedCityName] = useState("");
+      const exists = prev.find((x) => Number(x.id) === Number(p.id));
+      if (exists) {
+        return prev.map((x) =>
+          Number(x.id) === Number(p.id)
+            ? { ...x, quantity: Number(x.quantity || 1) + 1 }
+            : x,
+        );
+      }
 
-  // rate_type se usa tanto para cities como para create order
-  const [rateType, setRateType] = useState("CON RECAUDO");
+      // Precio sugerido (editable) por defecto
+      const suggested =
+        Number(p?.suggested_price) ||
+        Number(p?.sale_price) ||
+        Number(p?.price) ||
+        0;
 
-  // por ahora default 1, luego se vuelve dinámico desde su integración por pais EC | CO |
-  const [countryId, setCountryId] = useState(1);
-
-  // datos cliente/dirección
-  const [name, setName] = useState(selectedChat?.nombre_cliente || "");
-  const [surname, setSurname] = useState(selectedChat?.apellido_cliente || "");
-  const [dir, setDir] = useState("");
-  const [colonia, setColonia] = useState("");
-
-  const emitGetProducts = useCallback(
-    (reset = false) => {
-      const s = socketRef?.current;
-      if (!s) return setProdError("Socket no disponible");
-
-      setProdLoading(true);
-      setProdError(null);
-
-      const nextStart = reset ? 0 : startData;
-
-      s.emit("GET_DROPI_PRODUCTS", {
-        id_configuracion: Number(id_configuracion),
-        pageSize,
-        startData: nextStart,
-        no_count: true,
-        order_by: "id",
-        order_type: "asc",
-        keywords: keywords || "",
-        favorite: false,
-        privated_product: false,
-      });
-    },
-    [socketRef, id_configuracion, pageSize, startData, keywords],
-  );
-
-  const emitGetStates = useCallback(() => {
-    const s = socketRef?.current;
-    if (!s) return;
-
-    setStatesLoading(true);
-
-    s.emit("GET_DROPI_STATES", {
-      id_configuracion: Number(id_configuracion),
-      country_id: Number(countryId) || 1, // ✅ requerido por su backend
-    });
-  }, [socketRef, id_configuracion, countryId]);
-
-  const emitGetCities = useCallback(() => {
-    const s = socketRef?.current;
-    if (!s) return;
-
-    if (!selectedDepartmentId) return;
-
-    setCitiesLoading(true);
-
-    s.emit("GET_DROPI_CITIES", {
-      id_configuracion: Number(id_configuracion),
-      department_id: Number(selectedDepartmentId),
-      rate_type: String(rateType || "CON RECAUDO"),
-    });
-  }, [socketRef, id_configuracion, selectedDepartmentId, rateType]);
-
-  const handleSelectDepartment = (e) => {
-    const depId = Number(e.target.value) || null;
-
-    setSelectedDepartmentId(depId);
-
-    // buscar el nombre (dependiendo cómo venga el objeto)
-    const dep =
-      states.find((x) => Number(x.id) === depId) ||
-      states.find((x) => Number(x.department_id) === depId) ||
-      null;
-
-    const depName = dep?.name || dep?.department || dep?.nombre || "";
-    setSelectedDepartmentName(depName);
-
-    // reset city
-    setSelectedCityId(null);
-    setSelectedCityName("");
-    setCities([]);
-
-    // cargar cities (usa department_id + rateType)
-    if (depId) {
-      // pequeño defer para asegurar state set
-      setTimeout(() => emitGetCities(), 0);
-    }
-  };
-
-  const handleSelectCity = (e) => {
-    const cityId = Number(e.target.value) || null;
-    setSelectedCityId(cityId);
-
-    const c =
-      cities.find((x) => Number(x.id) === cityId) ||
-      cities.find((x) => Number(x.city_id) === cityId) ||
-      null;
-
-    const cityName = c?.name || c?.city || c?.nombre || "";
-    setSelectedCityName(cityName);
-  };
-
-  const emitCreateOrder = useCallback(() => {
-    const s = socketRef?.current;
-    if (!s) return;
-
-    // body final estilo Postman (mínimo)
-    const body = {
-      id_configuracion: Number(id_configuracion),
-
-      type: "FINAL_ORDER",
-      type_service: "normal",
-      rate_type: String(rateType || "CON RECAUDO"),
-
-      total_order: Number(price) * Number(quantity),
-      shipping_amount: 11100, // por ahora manual/fijo o input
-      payment_method_id: 1,
-
-      notes: "",
-
-      supplier_id: selectedProduct?.user_id, // o el que corresponda
-      shop_id: selectedProduct?.shop_id, // ojo: puede venir en product o aparte
-      warehouses_selected_id: selectedProduct?.warehouse_id, // igual: depende de respuesta real
-
-      name,
-      surname,
-      phone, // su phone normalizado, pero ojo: Dropi a veces espera +57... como usted mostró
-
-      country: "COLOMBIA",
-      state: selectedDepartmentName,
-      city: selectedCityName,
-
-      dir,
-      zip_code: null,
-      colonia,
-
-      distributionCompany: { id: 3, name: "INTERRAPIDISIMO" }, // por ahora fijo o seleccionable
-
-      products: [
+      return [
+        ...prev,
         {
-          id: selectedProduct?.id,
-          name: selectedProduct?.name,
-          type: selectedProduct?.type || "SIMPLE",
+          id: p.id,
+          name: p.name,
+          type: p.type || "SIMPLE",
           variation_id: null,
           variations: [],
-          quantity: Number(quantity),
-          price: Number(price),
-          sale_price: selectedProduct?.sale_price
-            ? String(selectedProduct.sale_price)
+          quantity: 1,
+
+          // este es el precio que el dropshipper puede editar (ganancia)
+          price: suggested,
+
+          //  mostramos costo/proveedor como referencia
+          sale_price: p?.sale_price ? String(p.sale_price) : null,
+          suggested_price: p?.suggested_price
+            ? String(p.suggested_price)
             : null,
-          suggested_price: selectedProduct?.suggested_price
-            ? String(selectedProduct.suggested_price)
-            : null,
+
+          __raw: p,
         },
-      ],
-    };
+      ];
+    });
+  };
 
-    s.emit("CREATE_DROPI_ORDER", body);
-  }, [
-    socketRef,
-    id_configuracion,
-    phone,
-    selectedProduct,
-    quantity,
-    price,
-    name,
-    surname,
-    selectedDepartmentName,
-    selectedCityName,
-    dir,
-    rateType,
-  ]);
+  const removeProductFromCart = (id) => {
+    setProductsCart((prev) => prev.filter((x) => Number(x.id) !== Number(id)));
+  };
 
-  useEffect(() => {
-    if (!createOrderOpen) return;
-    if (!selectedDepartmentId) return;
-    emitGetCities();
-  }, [rateType, createOrderOpen, selectedDepartmentId, emitGetCities]);
-
-  useEffect(() => {
-    setName(selectedChat?.nombre_cliente || "");
-    setSurname(selectedChat?.apellido_cliente || "");
-  }, [selectedChat?.id, selectedChat?.psid]);
-
-  function CreateOrderPanel(props) {
-    const {
-      phone,
-      name,
-      setName,
-      surname,
-      setSurname,
-      dir,
-      setDir,
-      colonia,
-      setColonia,
-
-      rateType,
-      setRateType,
-
-      states,
-      statesLoading,
-      selectedDepartmentId,
-      handleSelectDepartment,
-
-      cities,
-      citiesLoading,
-      selectedCityId,
-      handleSelectCity,
-
-      keywords,
-      setKeywords,
-      prodList,
-      prodLoading,
-      prodError,
-      selectedProduct,
-      setSelectedProduct,
-      emitGetProducts,
-
-      quantity,
-      setQuantity,
-      price,
-      setPrice,
-
-      onClose,
-      onSubmit,
-    } = props;
-
-    const canSubmit =
-      !!phone &&
-      !!name?.trim() &&
-      !!surname?.trim() &&
-      !!dir?.trim() &&
-      !!selectedDepartmentId &&
-      !!selectedCityId &&
-      !!selectedProduct &&
-      Number(quantity) > 0 &&
-      Number(price) >= 0;
-
-    return (
-      <div className="mt-2 rounded-2xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 p-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white">
-              Crear orden (formulario rápido)
-            </p>
-            <p className="text-xs text-white/60">
-              Complete los datos mínimos para registrar la orden en Dropi.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-xs flex items-center gap-2 shrink-0"
-            title="Cerrar"
-          >
-            <i className="bx bx-x" />
-            Cerrar
-          </button>
-        </div>
-
-        {/* Cliente */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
-            <p className="text-[11px] text-white/60 mb-1">Nombre</p>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-              placeholder="Nombre"
-            />
-          </div>
-
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
-            <p className="text-[11px] text-white/60 mb-1">Apellido</p>
-            <input
-              value={surname}
-              onChange={(e) => setSurname(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-              placeholder="Apellido"
-            />
-          </div>
-
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3 sm:col-span-2">
-            <p className="text-[11px] text-white/60 mb-1">
-              Teléfono (del chat)
-            </p>
-            <div className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80">
-              {phone || "—"}
-            </div>
-          </div>
-        </div>
-
-        {/* Recaudo + Ubicación */}
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
-            <p className="text-[11px] text-white/60 mb-1">Tipo</p>
-            <select
-              value={rateType}
-              onChange={(e) => setRateType(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-            >
-              <option value="CON RECAUDO">CON RECAUDO</option>
-              <option value="SIN RECAUDO">SIN RECAUDO</option>
-            </select>
-          </div>
-
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
-            <p className="text-[11px] text-white/60 mb-1">
-              Provincia/Departamento
-            </p>
-            <select
-              value={selectedDepartmentId || ""}
-              onChange={handleSelectDepartment}
-              disabled={statesLoading}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60 disabled:opacity-60"
-            >
-              <option value="">
-                {statesLoading ? "Cargando..." : "Seleccione"}
-              </option>
-              {(states || []).map((d) => (
-                <option
-                  key={d.id || d.department_id}
-                  value={d.id || d.department_id}
-                >
-                  {d.name || d.department || d.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
-            <p className="text-[11px] text-white/60 mb-1">Ciudad</p>
-            <select
-              value={selectedCityId || ""}
-              onChange={handleSelectCity}
-              disabled={!selectedDepartmentId || citiesLoading}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60 disabled:opacity-60"
-            >
-              <option value="">
-                {citiesLoading ? "Cargando..." : "Seleccione"}
-              </option>
-              {(cities || []).map((c) => (
-                <option key={c.id || c.city_id} value={c.id || c.city_id}>
-                  {c.name || c.city || c.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Dirección */}
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3 sm:col-span-2">
-            <p className="text-[11px] text-white/60 mb-1">Dirección</p>
-            <input
-              value={dir}
-              onChange={(e) => setDir(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-              placeholder="Ej: Calle 123 #45-67, apto 301"
-            />
-          </div>
-
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3 sm:col-span-2">
-            <p className="text-[11px] text-white/60 mb-1">Colonia / Barrio</p>
-            <input
-              value={colonia}
-              onChange={(e) => setColonia(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-              placeholder="Ej: Laureles, Centro, etc."
-            />
-          </div>
-        </div>
-
-        {/* Producto */}
-        <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-white">Producto</p>
-            <button
-              type="button"
-              onClick={() => emitGetProducts(true)}
-              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-xs"
-              title="Actualizar productos"
-            >
-              <i className={`bx bx-refresh ${prodLoading ? "bx-spin" : ""}`} />
-            </button>
-          </div>
-
-          <div className="mt-2 flex gap-2">
-            <input
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-              placeholder="Buscar producto..."
-            />
-            <button
-              type="button"
-              onClick={() => emitGetProducts(true)}
-              className="px-4 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-sm font-semibold"
-            >
-              Buscar
-            </button>
-          </div>
-
-          {prodError && (
-            <div className="mt-2 text-xs text-red-300 bg-red-500/10 border border-red-400/20 rounded-lg p-2">
-              {prodError}
-            </div>
-          )}
-
-          <div className="mt-3 grid grid-cols-1 gap-2 max-h-56 overflow-auto custom-scrollbar pr-1">
-            {prodLoading ? (
-              <div className="text-sm text-white/70">Cargando productos…</div>
-            ) : (prodList || []).length === 0 ? (
-              <div className="text-sm text-white/70">No hay productos.</div>
-            ) : (
-              prodList.map((p) => {
-                const active = selectedProduct?.id === p?.id;
-                return (
-                  <button
-                    type="button"
-                    key={p.id}
-                    onClick={() => {
-                      setSelectedProduct(p);
-                      // sugerencia: si viene suggested_price, ponerlo como price
-                      const sug =
-                        Number(p?.suggested_price) ||
-                        Number(p?.sale_price) ||
-                        Number(p?.price) ||
-                        0;
-                      setPrice(sug);
-                    }}
-                    className={`text-left w-full rounded-xl border p-3 transition ${
-                      active
-                        ? "bg-emerald-500/15 border-emerald-400/30"
-                        : "bg-white/5 border-white/10 hover:bg-white/10"
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-white truncate">
-                      {p?.name || "Producto"}
-                    </p>
-                    <p className="text-xs text-white/60 truncate">
-                      SKU: {p?.sku || "—"} • Sugerido:{" "}
-                      {p?.suggested_price || p?.sale_price || "—"}
-                    </p>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Cantidad / Precio */}
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
-            <p className="text-[11px] text-white/60 mb-1">Cantidad</p>
-            <input
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value) || 1)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-            />
-          </div>
-
-          <div className="bg-black/20 border border-white/10 rounded-xl p-3">
-            <p className="text-[11px] text-white/60 mb-1">Precio</p>
-            <input
-              type="number"
-              min={0}
-              value={price}
-              onChange={(e) => setPrice(Number(e.target.value) || 0)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-            />
-          </div>
-        </div>
-
-        {/* Submit */}
-        <div className="mt-4 flex flex-col sm:flex-row gap-2">
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={!canSubmit}
-            className={`w-full px-4 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 border transition ${
-              canSubmit
-                ? "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-400/30"
-                : "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
-            }`}
-          >
-            <i className="bx bx-check-circle" />
-            Crear orden
-          </button>
-
-          {!canSubmit && (
-            <div className="text-xs text-white/50 sm:self-center">
-              Complete: provincia, ciudad, producto, dirección, cantidad y
-              precio.
-            </div>
-          )}
-        </div>
-      </div>
+  const updateCartItem = (id, patch) => {
+    setProductsCart((prev) =>
+      prev.map((x) => (Number(x.id) === Number(id) ? { ...x, ...patch } : x)),
     );
-  }
+  };
 
   return (
     <>
@@ -1183,7 +1043,6 @@ export default function DropshipperClientPanel(props) {
                             setQuantity(1);
                             setPrice(0);
                             setDir("");
-                            setColonia("");
                             setRateType("CON RECAUDO");
 
                             // cargar data inicial
@@ -1204,20 +1063,18 @@ export default function DropshipperClientPanel(props) {
                       </>
                     ) : (
                       <CreateOrderPanel
-                        // estado
-                        phone={phone}
+                        // cliente
+                        phoneInput={phoneInput}
+                        setPhoneInput={setPhoneInput}
                         name={name}
                         setName={setName}
                         surname={surname}
                         setSurname={setSurname}
                         dir={dir}
                         setDir={setDir}
-                        colonia={colonia}
-                        setColonia={setColonia}
-                        // recaudo
+                        // recaudo/ubicación
                         rateType={rateType}
                         setRateType={setRateType}
-                        // departamentos / ciudades
                         states={states}
                         statesLoading={statesLoading}
                         selectedDepartmentId={selectedDepartmentId}
@@ -1232,15 +1089,22 @@ export default function DropshipperClientPanel(props) {
                         prodList={prodList}
                         prodLoading={prodLoading}
                         prodError={prodError}
-                        selectedProduct={selectedProduct}
-                        setSelectedProduct={setSelectedProduct}
                         emitGetProducts={emitGetProducts}
-                        // qty/price
-                        quantity={quantity}
-                        setQuantity={setQuantity}
-                        price={price}
-                        setPrice={setPrice}
-                        // acciones
+                        addProductToCart={addProductToCart}
+                        // carrito
+                        productsCart={productsCart}
+                        updateCartItem={updateCartItem}
+                        removeProductFromCart={removeProductFromCart}
+                        // submit
+                        canSubmit={
+                          Boolean(name?.trim()) &&
+                          Boolean(surname?.trim()) &&
+                          Boolean(dir?.trim()) &&
+                          Boolean(selectedDepartmentId) &&
+                          Boolean(selectedCityId) &&
+                          Array.isArray(productsCart) &&
+                          productsCart.length > 0
+                        }
                         onClose={() => setCreateOrderOpen(false)}
                         onSubmit={emitCreateOrder}
                       />
@@ -1291,9 +1155,19 @@ export default function DropshipperClientPanel(props) {
                         </div>
 
                         {/* Mini resumen (solo en lista) */}
-                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
-                            <i className="bx bx-cube text-xl text-violet-300" />
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {/* Imagen + Producto */}
+                          <div className="flex items-center gap-3 bg-black/20 rounded-lg p-3 border border-white/10 sm:col-span-2">
+                            <img
+                              src={getProductImage(o)}
+                              alt="Producto"
+                              className="h-12 w-12 rounded-lg object-cover bg-white/5 border border-white/10 shrink-0"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = NO_IMAGE;
+                              }}
+                            />
                             <div className="min-w-0">
                               <p className="text-xs text-white/60">Producto</p>
                               <p className="text-sm font-semibold truncate">
@@ -1305,19 +1179,28 @@ export default function DropshipperClientPanel(props) {
                             </div>
                           </div>
 
-                          <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
-                            <i className="bx bx-trip text-xl text-sky-300" />
-                            <div className="min-w-0">
-                              <p className="text-xs text-white/60">
-                                Transportadora
-                              </p>
-                              <p className="text-sm font-semibold truncate">
-                                {getTransportadora(o)}
-                              </p>
-                              <p className="text-xs text-white/60 truncate">
-                                Total: ${money(getTotal(o))}
-                              </p>
-                            </div>
+                          {/* Totales + envío */}
+                          <div className="bg-black/20 rounded-lg p-3 border border-white/10">
+                            <p className="text-xs text-white/60">Total</p>
+                            <p className="text-sm font-semibold text-white">
+                              ${getTotal(o)}
+                            </p>
+                            <p className="text-xs text-white/60 mt-1">
+                              Envío: ${getShippingAmount(o)}
+                            </p>
+                          </div>
+
+                          {/* Transportadora + Dirección */}
+                          <div className="bg-black/20 rounded-lg p-3 border border-white/10 sm:col-span-3">
+                            <p className="text-xs text-white/60">
+                              Transportadora
+                            </p>
+                            <p className="text-sm font-semibold truncate">
+                              {getTransportadora(o)}
+                            </p>
+                            <p className="text-xs text-white/60 truncate mt-1">
+                              Dirección: {o?.dir || "—"}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1351,30 +1234,52 @@ export default function DropshipperClientPanel(props) {
 
                   {/* Botones acción */}
                   <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleEditOrder(selectedOrder)}
-                      className="w-full sm:w-auto px-4 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-sm font-semibold flex items-center justify-center gap-2"
-                    >
-                      <i className="bx bx-edit" />
-                      Editar orden
-                    </button>
+                    {/* ✅ Solo si está Pendiente Confirmación */}
+                    {isPendingConfirm(selectedOrder) && (
+                      <button
+                        type="button"
+                        onClick={() => handleEditOrder(selectedOrder)}
+                        className="w-full sm:w-auto px-4 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-sm font-semibold flex items-center justify-center gap-2"
+                      >
+                        <i className="bx bx-edit" />
+                        Editar
+                      </button>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateGuide(selectedOrder)}
-                      className="w-full sm:w-auto px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
-                    >
-                      <i className="bx bx-receipt" />
-                      Generar guía
-                    </button>
+                    {/* Botón principal: Confirmar pedido (solo si está Pendiente Confirmación) */}
+                    {isPendingConfirm(selectedOrder) && (
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateGuide(selectedOrder)} // aquí luego conectamos el socket real de "confirmar"
+                        className="w-full sm:w-auto px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
+                      >
+                        <i className="bx bx-check-circle" />
+                        Confirmar pedido
+                      </button>
+                    )}
+
+                    {/* Si está CANCELADO, no mostramos nada editable/confirmable */}
+                    {isCancelled(selectedOrder) && (
+                      <div className="text-xs text-rose-200 bg-rose-500/10 border border-rose-400/20 rounded-lg p-2">
+                        Esta orden está cancelada y no se puede modificar.
+                      </div>
+                    )}
                   </div>
 
                   {/* Datos clave (detalle) */}
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Producto */}
                     <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
-                      <i className="bx bx-cube text-xl text-violet-300" />
+                      <img
+                        src={getProductImage(selectedOrder)}
+                        alt="Producto"
+                        className="h-12 w-12 rounded-lg object-cover bg-white/5 border border-white/10 shrink-0"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = NO_IMAGE;
+                        }}
+                      />
                       <div className="min-w-0">
                         <p className="text-xs text-white/60">Producto</p>
                         <p className="text-sm font-semibold truncate">
@@ -1392,12 +1297,8 @@ export default function DropshipperClientPanel(props) {
                       <i className="bx bx-store text-xl text-emerald-300" />
                       <div className="min-w-0">
                         <p className="text-xs text-white/60">Bodega</p>
-                        <p className="text-sm font-semibold truncate">
+                        <p className="text-xs text-white truncate">
                           {getWarehouseName(selectedOrder)}
-                        </p>
-                        <p className="text-xs text-white/60 truncate">
-                          Dropshipper:{" "}
-                          {selectedOrder?.user?.role_user?.name || "—"}
                         </p>
                       </div>
                     </div>
@@ -1406,16 +1307,18 @@ export default function DropshipperClientPanel(props) {
                     <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
                       <i className="bx bx-phone text-xl text-yellow-300" />
                       <div className="min-w-0">
-                        <p className="text-xs text-white/60">Teléfono</p>
-                        <p className="text-sm font-semibold truncate">
-                          {getPhone(selectedOrder)}
+                        <p className="text-[11px] text-white/60 mb-1">
+                          Teléfono
                         </p>
-                        <p className="text-xs text-white/60 truncate">
-                          Cliente: {selectedOrder?.name || "—"}{" "}
-                          {selectedOrder?.surname
-                            ? `(${selectedOrder.surname})`
-                            : ""}
-                        </p>
+                        <input
+                          value={phoneInput}
+                          onChange={(e) => setPhoneInput(e.target.value)}
+                          disabled={!canEditOrder(selectedOrder)}
+                          className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-400/60
+                            ${canEditOrder(selectedOrder) ? "text-white" : "text-white/40 cursor-not-allowed opacity-70"}
+                          `}
+                          placeholder="Ej: 57XXXXXXXXXX"
+                        />
                       </div>
                     </div>
 
@@ -1428,17 +1331,17 @@ export default function DropshipperClientPanel(props) {
                           {getTransportadora(selectedOrder)}
                         </p>
                         <p className="text-xs text-white/60 truncate">
-                          Envío: ${money(getShippingAmount(selectedOrder))}
+                          Envío: ${getShippingAmount(selectedOrder)}
                         </p>
                       </div>
                     </div>
                   </div>
 
                   {/* Totales */}
-                  <div className="mt-3 flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
+                  <div className="mt-3 flex items-c enter justify-between bg-white/5 border border-white/10 rounded-lg p-3">
                     <p className="text-xs text-white/70">Total orden</p>
                     <p className="text-sm font-semibold text-white">
-                      ${money(getTotal(selectedOrder))}
+                      ${getTotal(selectedOrder)}
                     </p>
                   </div>
 
