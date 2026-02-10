@@ -23,6 +23,13 @@ export default function CreateOrderPanel(props) {
     citiesLoading,
     selectedCityId,
     handleSelectCity,
+    shippingQuotes,
+    shippingQuotesLoading,
+    shippingQuotesError,
+    selectedShipping,
+    setSelectedShipping,
+    canShowShipping,
+    onRecotizar,
 
     // productos
     keywords,
@@ -45,6 +52,34 @@ export default function CreateOrderPanel(props) {
   } = props;
 
   const topProducts = useMemo(() => (prodList || []).slice(0, 5), [prodList]);
+
+  const NO_IMAGE = "https://app.dropi.ec/assets/utils/no-image.jpg";
+
+  function resolveProductImage(p) {
+    if (!p) return null;
+
+    const direct =
+      p?.imageUrl ||
+      p?.image_url ||
+      p?.image ||
+      p?.url ||
+      p?.photo ||
+      p?.main_image ||
+      null;
+
+    if (direct && /^https?:\/\//i.test(String(direct))) return String(direct);
+
+    const urlS3 = p?.urlS3 || p?.url_s3 || null;
+    if (urlS3) {
+      return `https://app.dropi.ec/storage/${String(urlS3).replace(/^\/+/, "")}`;
+    }
+
+    return null;
+  }
+
+  function getImageOrFallback(p) {
+    return resolveProductImage(p) || NO_IMAGE;
+  }
 
   return (
     <div className="mt-2 rounded-2xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 p-4">
@@ -249,15 +284,28 @@ export default function CreateOrderPanel(props) {
                 key={p.id}
                 className="rounded-xl border border-white/10 bg-white/5 p-3 flex items-center justify-between gap-3"
               >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">
-                    {p?.name || "Producto"}
-                  </p>
-                  <p className="text-xs text-white/60 truncate">
-                    ID: {p?.id || "—"} • SKU: {p?.sku} • Precio proveedor: $
-                    {p?.sale_price || "—"} • Precio sugerido: $
-                    {p?.suggested_price || "—"}
-                  </p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={getImageOrFallback(p)}
+                    alt={p?.name || "Producto"}
+                    className="h-12 w-12 rounded-lg object-cover bg-white/5 border border-white/10 shrink-0"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = NO_IMAGE;
+                    }}
+                  />
+
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">
+                      {p?.name || "Producto"}
+                    </p>
+                    <p className="text-xs text-white/60 truncate">
+                      ID: {p?.id || "—"} • SKU: {p?.sku} • Precio proveedor: $
+                      {p?.sale_price || "—"} • Precio sugerido: $
+                      {p?.suggested_price || "—"}
+                    </p>
+                  </div>
                 </div>
 
                 <button
@@ -270,6 +318,136 @@ export default function CreateOrderPanel(props) {
               </div>
             ))
           )}
+        </div>
+
+        {/* Transportadoras (solo cuando hay destino + producto/remitente) */}
+        <div className="mt-3 rounded-xl bg-black/20 border border-white/10 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-white">Transportadora</p>
+
+            <button
+              type="button"
+              onClick={onRecotizar}
+              disabled={!canShowShipping || shippingQuotesLoading}
+              className={`px-3 py-2 rounded-lg border text-xs ${
+                canShowShipping
+                  ? "bg-white/10 hover:bg-white/15 border-white/10"
+                  : "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
+              }`}
+              title={
+                !canShowShipping ? "Seleccione ciudad y producto" : "Recotizar"
+              }
+            >
+              <i
+                className={`bx bx-refresh ${shippingQuotesLoading ? "bx-spin" : ""}`}
+              />
+            </button>
+          </div>
+
+          {!canShowShipping && (
+            <p className="mt-2 text-xs text-white/50">
+              Para ver transportadoras disponibles, primero seleccione{" "}
+              <b>Ciudad</b> y agregue al menos <b>1 producto</b>.
+            </p>
+          )}
+
+          {canShowShipping && shippingQuotesLoading && (
+            <p className="mt-2 text-sm text-white/70">
+              Cotizando transportadoras…
+            </p>
+          )}
+
+          {canShowShipping && shippingQuotesError && (
+            <div className="mt-2 text-xs text-rose-200 bg-rose-500/10 border border-rose-400/20 rounded-lg p-2">
+              {shippingQuotesError}
+            </div>
+          )}
+
+          {canShowShipping &&
+            !shippingQuotesLoading &&
+            !shippingQuotesError && (
+              <div className="mt-2">
+                {(shippingQuotes || []).length === 0 ? (
+                  <p className="text-sm text-white/60">
+                    No hay transportadoras disponibles.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {shippingQuotes.map((t, idx) => {
+                      const hasPrice = Number(t?.objects?.precioEnvio) > 0;
+                      const err = t?.error;
+
+                      const name =
+                        t?.transportadora ||
+                        t?.distributionCompany?.name ||
+                        "Transportadora";
+
+                      const price = hasPrice
+                        ? String(t?.objects?.precioEnvio)
+                        : null;
+
+                      const isSelected =
+                        selectedShipping?.transportadora_id ===
+                        t?.transportadora_id;
+
+                      return (
+                        <button
+                          type="button"
+                          key={(t?.transportadora_id || idx) + "_" + idx}
+                          onClick={() => hasPrice && setSelectedShipping(t)}
+                          disabled={!hasPrice}
+                          className={`text-left rounded-xl border p-3 transition min-h-[86px]
+                  ${
+                    isSelected
+                      ? "border-emerald-400/40 bg-emerald-500/10"
+                      : "border-white/10 bg-white/5 hover:bg-white/10"
+                  }
+                  ${!hasPrice ? "opacity-60 cursor-not-allowed" : ""}
+                `}
+                          title={!hasPrice ? "No disponible" : "Seleccionar"}
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {name}
+                            </p>
+
+                            <p className="mt-1 text-xs text-white/70">
+                              {price ? (
+                                <>
+                                  <span className="font-semibold text-white">
+                                    ${price}
+                                  </span>
+                                  {t?.objects?.overload_was_applied && (
+                                    <span className="ml-2 text-[10px] text-amber-200/90">
+                                      *Sobrecargo
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-rose-200">
+                                  No disponible
+                                </span>
+                              )}
+                            </p>
+
+                            <p className="mt-1 text-[10px] text-white/50 truncate">
+                              {t?.transportadora_service || "normal"} • ID:{" "}
+                              {t?.transportadora_id ?? "—"}
+                            </p>
+
+                            {err && (
+                              <p className="mt-2 text-[11px] text-rose-200 bg-rose-500/10 border border-rose-400/20 rounded-lg p-2">
+                                {err}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
         </div>
 
         {/* Carrito */}
@@ -288,15 +466,28 @@ export default function CreateOrderPanel(props) {
                   className="rounded-xl border border-white/10 bg-black/20 p-3"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">
-                        {it.name}
-                      </p>
-                      <p className="text-xs text-white/60 truncate">
-                        ID: {it?.id || "—"} • Precio proveedor:{" "}
-                        {it.sale_price || "—"} • Sugerido:{" "}
-                        {it.suggested_price || "—"}
-                      </p>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <img
+                        src={getImageOrFallback(it?.__raw || it)}
+                        alt={it?.name || "Producto"}
+                        className="h-12 w-12 rounded-lg object-cover bg-white/5 border border-white/10 shrink-0"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = NO_IMAGE;
+                        }}
+                      />
+
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {it.name}
+                        </p>
+                        <p className="text-xs text-white/60 truncate">
+                          ID: {it?.id || "—"} • Precio proveedor:{" "}
+                          {it.sale_price || "—"} • Sugerido:{" "}
+                          {it.suggested_price || "—"}
+                        </p>
+                      </div>
                     </div>
 
                     <button
@@ -348,6 +539,37 @@ export default function CreateOrderPanel(props) {
         </div>
       </div>
 
+      {productsCart.length > 0 && (
+        <div className="mt-3 rounded-xl bg-black/20 border border-white/10 p-3">
+          {(() => {
+            const subtotal = productsCart.reduce(
+              (acc, it) =>
+                acc + Number(it.quantity || 0) * Number(it.price || 0),
+              0,
+            );
+            const ship = Number(selectedShipping?.objects?.precioEnvio) || 0;
+            const total = subtotal + ship;
+
+            return (
+              <div className="text-sm text-white/80 space-y-1">
+                <div className="flex justify-between">
+                  <span>Subtotal productos</span>
+                  <span>${subtotal.toFixed(0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Envío</span>
+                  <span>${ship.toFixed(0)}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>${total.toFixed(0)}</span>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Submit */}
       <div className="mt-4 flex flex-col sm:flex-row gap-2">
         <button
@@ -366,8 +588,8 @@ export default function CreateOrderPanel(props) {
 
         {!canSubmit && (
           <div className="text-xs text-white/50 sm:self-center">
-            Complete: provincia, ciudad, producto(s), dirección, nombre y
-            apellido.
+            Complete: provincia, ciudad, producto(s), dirección, nombre,
+            apellido y seleccione una transportadora.
           </div>
         )}
       </div>

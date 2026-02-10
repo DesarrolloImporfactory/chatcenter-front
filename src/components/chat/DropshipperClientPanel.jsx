@@ -62,7 +62,15 @@ export default function DropshipperClientPanel(props) {
   const [ordersError, setOrdersError] = useState(null);
   const [orders, setOrders] = useState([]);
 
-  // filtros básicos (ajuste a su backend)
+  // ===== cotización transportadoras =====
+  const [shippingQuotesLoading, setShippingQuotesLoading] = useState(false);
+  const [shippingQuotesError, setShippingQuotesError] = useState(null);
+  const [shippingQuotes, setShippingQuotes] = useState([]);
+
+  // seleccionado
+  const [selectedShipping, setSelectedShipping] = useState(null);
+
+  // filtros básicos
   const [resultNumber, setResultNumber] = useState(20);
   const [status, setStatus] = useState(""); // "" = todos
 
@@ -72,6 +80,11 @@ export default function DropshipperClientPanel(props) {
   // listeners refs para evitar duplicados
   const onOkRef = useRef(null);
   const onErrRef = useRef(null);
+  const onUpdOkRef = useRef(null);
+  const onUpdErrRef = useRef(null);
+
+  const onSetStatusOkRef = useRef(null);
+  const onSetStatusErrRef = useRef(null);
 
   // listeners refs (productos/estados/ciudades/crear orden) para evitar duplicados
   const onProdOkRef = useRef(null);
@@ -82,6 +95,8 @@ export default function DropshipperClientPanel(props) {
   const onCitiesErrRef = useRef(null);
   const onCreateOkRef = useRef(null);
   const onCreateErrRef = useRef(null);
+  const onShipOkRef = useRef(null);
+  const onShipErrRef = useRef(null);
 
   const emitGetOrders = useCallback(
     (extra = {}) => {
@@ -117,6 +132,119 @@ export default function DropshipperClientPanel(props) {
     [socketRef, id_configuracion, phone, resultNumber, status],
   );
 
+  const emitUpdateOrder = useCallback(
+    (orderId, body) => {
+      const s = socketRef?.current;
+      if (!s) return;
+
+      if (!id_configuracion) {
+        Swal.fire({ icon: "warning", title: "Falta id_configuracion" });
+        return;
+      }
+      if (!orderId) {
+        Swal.fire({ icon: "warning", title: "Falta orderId" });
+        return;
+      }
+
+      s.emit("DROPI_UPDATE_ORDER", {
+        id_configuracion: Number(id_configuracion),
+        orderId: Number(orderId),
+        body,
+      });
+    },
+    [socketRef, id_configuracion],
+  );
+
+  const emitSetOrderStatus = useCallback(
+    (orderId, status) => {
+      const s = socketRef?.current;
+      if (!s) return;
+
+      if (!id_configuracion) {
+        Swal.fire({ icon: "warning", title: "Falta id_configuracion" });
+        return;
+      }
+      if (!orderId) {
+        Swal.fire({ icon: "warning", title: "Falta orderId" });
+        return;
+      }
+
+      s.emit("DROPI_SET_ORDER_STATUS", {
+        id_configuracion: Number(id_configuracion),
+        orderId: Number(orderId),
+        status, // "PENDIENTE" | "CANCELADO"
+      });
+    },
+    [socketRef, id_configuracion],
+  );
+
+  const onShipOk = (resp) => {
+    setShippingQuotesLoading(false);
+
+    const list =
+      resp?.data?.objects || resp?.data?.data?.objects || resp?.objects || [];
+
+    const arr = Array.isArray(list) ? list : [];
+    setShippingQuotes(arr);
+
+    //Si el usuario ya habia seleccionado una y al recotizar sigue disponible la transportadora, se mantiene seleccion
+    setSelectedShipping((prev) => {
+      if (!prev?.transportadora_id) return null;
+
+      const stillExists = arr.find(
+        (x) =>
+          Number(x?.transportadora_id) === Number(prev.transportadora_id) &&
+          Number(x?.objects?.precioEnvio) > 0,
+      );
+
+      return stillExists || null;
+    });
+  };
+
+  const onShipErr = (resp) => {
+    setShippingQuotesLoading(false);
+    setShippingQuotesError(resp?.message || "Error cotizando transportadoras");
+    setShippingQuotes([]);
+    setSelectedShipping(null);
+  };
+
+  const resetCreateOrderState = useCallback(() => {
+    // cerrar panel crear orden
+    setCreateOrderOpen(false);
+    setStep(1);
+
+    // productos + carrito
+    setProdList([]);
+    setProdError(null);
+    setProdLoading(false);
+    setKeywords("");
+    setStartData(0);
+    setSelectedProduct(null);
+    setProductsCart([]);
+
+    // ubicación
+    setSelectedDepartmentId(null);
+    setSelectedDepartmentName("");
+    setSelectedCityId(null);
+    setSelectedCityName("");
+    setSelectedCityCodDane("");
+    setCities([]);
+    setStates([]);
+    setRateType("CON RECAUDO");
+
+    // remitente/destino para cotización
+    setRemitCodDane("");
+
+    // transportadoras
+    setShippingQuotes([]);
+    setShippingQuotesError(null);
+    setShippingQuotesLoading(false);
+    setSelectedShipping(null);
+
+    // dirección ()
+    setDir("");
+  }, []);
+
   // listeners de órdenes (una sola vez por socketRef)
   useEffect(() => {
     const s = socketRef?.current;
@@ -126,6 +254,11 @@ export default function DropshipperClientPanel(props) {
     if (onOkRef.current) s.off("DROPI_ORDERS_BY_CLIENT", onOkRef.current);
     if (onErrRef.current)
       s.off("DROPI_ORDERS_BY_CLIENT_ERROR", onErrRef.current);
+
+    if (onShipOkRef.current)
+      s.off("DROPI_COTIZA_ENVIO_V2_OK", onShipOkRef.current);
+    if (onShipErrRef.current)
+      s.off("DROPI_COTIZA_ENVIO_V2_ERROR", onShipErrRef.current);
 
     const onOk = (resp) => {
       setOrdersLoading(false);
@@ -161,6 +294,49 @@ export default function DropshipperClientPanel(props) {
     };
   }, [socketRef]);
 
+  const onUpdOk = (resp) => {
+    Swal.fire({
+      icon: "success",
+      title: "Orden actualizada",
+      timer: 1300,
+      showConfirmButton: false,
+    });
+
+    // refrescar lista
+    emitGetOrders();
+
+    // opcional: cerrar detalle para evitar inconsistencias visuales
+    setSelectedOrder(null);
+  };
+
+  const onUpdErr = (resp) => {
+    Swal.fire({
+      icon: "error",
+      title: "No se pudo actualizar",
+      text: resp?.message || "Error actualizando orden",
+    });
+  };
+
+  const onSetStatusOk = (resp) => {
+    Swal.fire({
+      icon: "success",
+      title: "Estado actualizado",
+      timer: 1200,
+      showConfirmButton: false,
+    });
+
+    emitGetOrders();
+    setSelectedOrder(null);
+  };
+
+  const onSetStatusErr = (resp) => {
+    Swal.fire({
+      icon: "error",
+      title: "No se pudo cambiar el estado",
+      text: resp?.message || "Error cambiando estado",
+    });
+  };
+
   // cuando ABRE “Órdenes”, consulta
   useEffect(() => {
     if (!isOpen) return;
@@ -182,6 +358,10 @@ export default function DropshipperClientPanel(props) {
   const [phoneInput, setPhoneInput] = useState(phone || "");
   useEffect(() => setPhoneInput(phone || ""), [phone]); // default del chat
 
+  const [orderName, setOrderName] = useState("");
+  const [orderSurname, setOrderSurname] = useState("");
+  const [orderDir, setOrderDir] = useState("");
+
   const [productsCart, setProductsCart] = useState([]); // array final products[]
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -201,7 +381,11 @@ export default function DropshipperClientPanel(props) {
   const [selectedCityId, setSelectedCityId] = useState(null);
   const [selectedCityName, setSelectedCityName] = useState("");
 
-  // rate_type se usa tanto para cities como para create order
+  // Capturamos COD_DANE destino desde la ciudad seleccionada y remitente del producto
+  const [selectedCityCodDane, setSelectedCityCodDane] = useState("");
+  const [remitCodDane, setRemitCodDane] = useState("");
+
+  // rate_type se usa tanto para cities, flete y create order
   const [rateType, setRateType] = useState("CON RECAUDO");
 
   // por ahora default 1, luego se vuelve dinámico desde su integración por pais EC | CO |
@@ -249,7 +433,6 @@ export default function DropshipperClientPanel(props) {
     });
   }, [socketRef, id_configuracion, countryId]);
 
-  // ✅ CORREGIDO: recibe departmentId opcional para evitar setTimeout/stale state
   const emitGetCities = useCallback(
     (departmentIdParam = null) => {
       const s = socketRef?.current;
@@ -303,6 +486,37 @@ export default function DropshipperClientPanel(props) {
 
     const cityName = c?.name || c?.city || c?.nombre || "";
     setSelectedCityName(cityName);
+
+    //COD_DANE destino
+    const codDane =
+      c?.cod_dane || c?.codDane || c?.code_dane || c?.codigo_dane || "";
+    setSelectedCityCodDane(String(codDane || ""));
+  };
+
+  const pickDistributionCompanyFromQuote = (q) => {
+    if (!q) return null;
+
+    // Caso ideal (ya viene armado)
+    if (q?.distributionCompany?.id && q?.distributionCompany?.name) {
+      return {
+        id: Number(q.distributionCompany.id),
+        name: String(q.distributionCompany.name),
+      };
+    }
+
+    // Caso común en su UI: transportadora_id + transportadora
+    const id =
+      Number(q?.transportadora_id || q?.distribution_company_id || 0) || null;
+    const name =
+      q?.transportadora ||
+      q?.distribution_company?.name ||
+      q?.shipping_company ||
+      q?.name ||
+      "";
+
+    if (id && String(name).trim()) return { id, name: String(name).trim() };
+
+    return null;
   };
 
   const emitCreateOrder = useCallback(() => {
@@ -310,59 +524,121 @@ export default function DropshipperClientPanel(props) {
     if (!s) return;
 
     const cleanPhone = String(phoneInput || "").replace(/\D/g, "");
+    if (!cleanPhone) {
+      Swal.fire({ icon: "warning", title: "Teléfono inválido" });
+      return;
+    }
+
+    if (!productsCart?.length) {
+      Swal.fire({ icon: "warning", title: "Agregue al menos 1 producto" });
+      return;
+    }
+
+    const raw0 = productsCart[0]?.__raw || null;
+
+    // const supplier_id = pickSupplierId(raw0);
+    // const warehouses_selected_id = pickWarehouseId(raw0);
+
+    // // shop_id puede venir en varias rutas dependiendo la data de Dropi
+    // const shop_id =
+    //   Number(raw0?.shop_id || raw0?.shop?.id || raw0?.shop?.[0]?.id || 0) ||
+    //   null;
+
+    // if (!supplier_id || !warehouses_selected_id || !shop_id) {
+    //   Swal.fire({
+    //     icon: "warning",
+    //     title: "Producto incompleto",
+    //     text: "No se detectó supplier_id / shop_id / warehouse_id del producto. Revise la data que retorna Dropi.",
+    //   });
+    //   return;
+    // }
 
     const products = productsCart.map((it) => ({
-      id: it.id,
-      name: it.name,
+      id: Number(it.id),
+      name: String(it.name || ""),
       type: it.type || "SIMPLE",
       variation_id: it.variation_id ?? null,
-      variations: it.variations || [],
+      variations: Array.isArray(it.variations) ? it.variations : [],
       quantity: Number(it.quantity) || 1,
+
+      // precio al cliente (editable)
       price: Number(it.price) || 0,
+
+      // referencias
       sale_price: it.sale_price ?? null,
       suggested_price: it.suggested_price ?? null,
     }));
 
-    const total_order = products.reduce(
+    //  subtotal productos
+    const productsSubtotal = products.reduce(
       (acc, p) => acc + Number(p.quantity) * Number(p.price),
       0,
     );
 
-    // Si necesita supplier/shop/warehouse, tome del primer producto (o defina reglas)
-    const raw0 = productsCart?.[0]?.__raw;
+    //  envío
+    const shipping_amount = Number(selectedShipping?.objects?.precioEnvio) || 0;
+
+    // total final (producto + envío)
+    const total_order = productsSubtotal + shipping_amount;
+
+    //  validación mínima
+    if (productsSubtotal <= 0) {
+      Swal.fire({ icon: "warning", title: "Revise los precios de productos" });
+      return;
+    }
+
+    const distributionCompany =
+      pickDistributionCompanyFromQuote(selectedShipping);
+
+    if (!distributionCompany?.id) {
+      Swal.fire({
+        icon: "warning",
+        title: "Seleccione una transportadora",
+      });
+      return;
+    }
 
     const body = {
       id_configuracion: Number(id_configuracion),
+
       type: "FINAL_ORDER",
       type_service: "normal",
       rate_type: String(rateType || "CON RECAUDO"),
 
       total_order,
-      shipping_amount: 11100,
+      shipping_amount,
       payment_method_id: 1,
+
       notes: "",
 
-      supplier_id: raw0?.user_id,
-      shop_id: raw0?.shop_id,
-      warehouses_selected_id: raw0?.warehouse_id,
+      // supplier_id,
+      // shop_id,
+      // warehouses_selected_id,
 
-      name,
-      surname,
+      name: String(name || "").trim(),
+      surname: String(surname || "").trim(),
       phone: cleanPhone,
+      client_email: "",
 
-      country: "COLOMBIA",
-      state: selectedDepartmentName,
-      city: selectedCityName,
-
-      dir,
+      country: "Ecuador",
+      state: String(selectedDepartmentName || ""),
+      city: String(selectedCityName || ""),
+      dir: String(dir || "").trim(),
       zip_code: null,
+      colonia: "",
 
-      distributionCompany: { id: 3, name: "INTERRAPIDISIMO" },
+      dni: "",
+      dni_type: "",
+
+      insurance: null,
+      shalom_data: null,
+
+      distributionCompany,
 
       products,
     };
 
-    s.emit("CREATE_DROPI_ORDER", body);
+    s.emit("DROPI_CREATE_ORDER", body);
   }, [
     socketRef,
     id_configuracion,
@@ -374,9 +650,10 @@ export default function DropshipperClientPanel(props) {
     selectedDepartmentName,
     selectedCityName,
     dir,
+    selectedShipping,
   ]);
 
-  // ✅ si cambia el rateType con el modal abierto y hay departamento seleccionado, recarga cities
+  // si cambia el rateType con el modal abierto y hay departamento seleccionado, recarga cities
   useEffect(() => {
     if (!createOrderOpen) return;
     if (!selectedDepartmentId) return;
@@ -407,9 +684,18 @@ export default function DropshipperClientPanel(props) {
       s.off("DROPI_CITIES_ERROR", onCitiesErrRef.current);
 
     if (onCreateOkRef.current)
-      s.off("CREATE_DROPI_ORDER_OK", onCreateOkRef.current);
+      s.off("DROPI_CREATE_ORDER_OK", onCreateOkRef.current);
     if (onCreateErrRef.current)
-      s.off("CREATE_DROPI_ORDER_ERROR", onCreateErrRef.current);
+      s.off("DROPI_CREATE_ORDER_ERROR", onCreateErrRef.current);
+
+    if (onUpdOkRef.current) s.off("DROPI_UPDATE_ORDER_OK", onUpdOkRef.current);
+    if (onUpdErrRef.current)
+      s.off("DROPI_UPDATE_ORDER_ERROR", onUpdErrRef.current);
+
+    if (onSetStatusOkRef.current)
+      s.off("DROPI_SET_ORDER_STATUS_OK", onSetStatusOkRef.current);
+    if (onSetStatusErrRef.current)
+      s.off("DROPI_SET_ORDER_STATUS_ERROR", onSetStatusErrRef.current);
 
     // ===== PRODUCTS =====
     const onProdOk = (resp) => {
@@ -520,6 +806,15 @@ export default function DropshipperClientPanel(props) {
     onCitiesErrRef.current = onCitiesErr;
     onCreateOkRef.current = onCreateOk;
     onCreateErrRef.current = onCreateErr;
+    onShipOkRef.current = onShipOk;
+    onShipErrRef.current = onShipErr;
+    onUpdOkRef.current = onUpdOk;
+    onUpdErrRef.current = onUpdErr;
+    onSetStatusOkRef.current = onSetStatusOk;
+    onSetStatusErrRef.current = onSetStatusErr;
+
+    s.on("DROPI_COTIZA_ENVIO_V2_OK", onShipOk);
+    s.on("DROPI_COTIZA_ENVIO_V2_ERROR", onShipErr);
 
     s.on("DROPI_PRODUCTS_OK", onProdOk);
     s.on("DROPI_PRODUCTS_ERROR", onProdErr);
@@ -530,8 +825,14 @@ export default function DropshipperClientPanel(props) {
     s.on("DROPI_CITIES_OK", onCitiesOk);
     s.on("DROPI_CITIES_ERROR", onCitiesErr);
 
-    s.on("CREATE_DROPI_ORDER_OK", onCreateOk);
-    s.on("CREATE_DROPI_ORDER_ERROR", onCreateErr);
+    s.on("DROPI_CREATE_ORDER_OK", onCreateOk);
+    s.on("DROPI_CREATE_ORDER_ERROR", onCreateErr);
+
+    s.on("DROPI_UPDATE_ORDER_OK", onUpdOk);
+    s.on("DROPI_UPDATE_ORDER_ERROR", onUpdErr);
+
+    s.on("DROPI_SET_ORDER_STATUS_OK", onSetStatusOk);
+    s.on("DROPI_SET_ORDER_STATUS_ERROR", onSetStatusErr);
 
     return () => {
       s.off("DROPI_PRODUCTS_OK", onProdOk);
@@ -543,8 +844,17 @@ export default function DropshipperClientPanel(props) {
       s.off("DROPI_CITIES_OK", onCitiesOk);
       s.off("DROPI_CITIES_ERROR", onCitiesErr);
 
-      s.off("CREATE_DROPI_ORDER_OK", onCreateOk);
-      s.off("CREATE_DROPI_ORDER_ERROR", onCreateErr);
+      s.off("DROPI_CREATE_ORDER_OK", onCreateOk);
+      s.off("DROPI_CREATE_ORDER_ERROR", onCreateErr);
+
+      s.off("DROPI_COTIZA_ENVIO_V2_OK", onShipOk);
+      s.off("DROPI_COTIZA_ENVIO_V2_ERROR", onShipErr);
+
+      s.off("DROPI_UPDATE_ORDER_OK", onUpdOk);
+      s.off("DROPI_UPDATE_ORDER_ERROR", onUpdErr);
+
+      s.off("DROPI_SET_ORDER_STATUS_OK", onSetStatusOk);
+      s.off("DROPI_SET_ORDER_STATUS_ERROR", onSetStatusErr);
     };
   }, [socketRef, emitGetOrders]);
 
@@ -554,8 +864,9 @@ export default function DropshipperClientPanel(props) {
 
     setOrders([]);
     setOrdersError(null);
-    setSelectedOrder(null); // <- clave: al cambiar de chat, vuelva a lista
+    setSelectedOrder(null);
 
+    resetCreateOrderState();
     // no spamear si todavía no hay phone
     if (phone) emitGetOrders();
   }, [selectedChat?.id, selectedChat?.psid, phone, isOpen, emitGetOrders]);
@@ -697,35 +1008,56 @@ export default function DropshipperClientPanel(props) {
   const openOrder = (order) => {
     setSelectedOrder(order);
 
-    // si la orden ya trae teléfono, úselo; si no, el del chat
     const orderPhone = String(order?.phone || phone || "").replace(/\D/g, "");
     setPhoneInput(orderPhone);
+
+    setOrderName(order?.name || "");
+    setOrderSurname(order?.surname || "");
+    setOrderDir(order?.dir || "");
   };
 
   const closeOrder = () => setSelectedOrder(null);
 
-  // ========= placeholders (usted conecta la lógica luego) =========
   const handleEditOrder = (order) => {
-    Swal.fire({
-      icon: "info",
-      title: "Editar (pendiente)",
-      text: `Aquí conectará la edición de la orden #${showOrderId(order)}`,
-      confirmButtonText: "OK",
-    });
-  };
+    if (!canEditOrder(order)) return;
 
-  const handleGenerateGuide = (order) => {
+    const orderId = showOrderId(order);
+
+    const cleanPhone = String(phoneInput || "").replace(/\D/g, "");
+    if (!cleanPhone) {
+      Swal.fire({ icon: "warning", title: "Teléfono inválido" });
+      return;
+    }
+
     Swal.fire({
-      icon: "info",
-      title: "Generar guía (pendiente)",
-      text: `Aquí conectará la generación de guía para la orden #${showOrderId(
-        order,
-      )}`,
-      confirmButtonText: "OK",
+      icon: "question",
+      title: "Guardar cambios",
+      text: `¿Desea actualizar la orden #${orderId}?`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, guardar",
+      cancelButtonText: "Cancelar",
+    }).then((r) => {
+      if (!r.isConfirmed) return;
+
+      emitUpdateOrder(orderId, {
+        name: String(orderName || "").trim(),
+        surname: String(orderSurname || "").trim(),
+        phone: cleanPhone,
+        dir: String(orderDir || "").trim(),
+        // si luego quiere permitir city/state desde aquí, los agrega
+      });
     });
   };
 
   const pickSupplierId = (p) => Number(p?.user?.id || p?.user_id || 0) || null;
+
+  const pickRemitCodDaneFromProduct = (rawProduct) => {
+    if (!rawProduct) return "";
+
+    const cod = rawProduct?.warehouse_product?.[0]?.warehouse?.city?.cod_dane;
+
+    return String(cod || "").trim();
+  };
 
   const pickWarehouseId = (p) =>
     Number(
@@ -813,6 +1145,91 @@ export default function DropshipperClientPanel(props) {
     setProductsCart((prev) =>
       prev.map((x) => (Number(x.id) === Number(id) ? { ...x, ...patch } : x)),
     );
+  };
+
+  useEffect(() => {
+    const raw0 = productsCart?.[0]?.__raw || null;
+    const cod = pickRemitCodDaneFromProduct(raw0);
+    setRemitCodDane(cod);
+  }, [productsCart]);
+
+  const emitCotizaTransportadoras = useCallback(() => {
+    const s = socketRef?.current;
+    if (!s) return;
+
+    if (!id_configuracion) return;
+    if (!selectedCityCodDane) return;
+    if (!remitCodDane) return;
+
+    setShippingQuotesLoading(true);
+    setShippingQuotesError(null);
+    setShippingQuotes([]);
+    setSelectedShipping(null);
+
+    const EnvioConCobro = rateType === "CON RECAUDO"; // true si con recaudo
+
+    s.emit("GET_DROPI_COTIZA_ENVIO_V2", {
+      id_configuracion: Number(id_configuracion),
+      EnvioConCobro, // el backend lo vuelve "true"/"false"
+      ciudad_destino_cod_dane: String(selectedCityCodDane),
+      ciudad_remitente_cod_dane: String(remitCodDane),
+    });
+  }, [
+    socketRef,
+    id_configuracion,
+    selectedCityCodDane,
+    remitCodDane,
+    rateType,
+  ]);
+
+  useEffect(() => {
+    //  solo cotizar cuando ya:
+    // - hay ciudad destino
+    // - hay producto (para remitente)
+    // - y estamos en el panel de crear orden (si aplica)
+    if (!createOrderOpen) return;
+
+    if (!selectedCityCodDane) return;
+    if (!remitCodDane) return;
+
+    emitCotizaTransportadoras();
+  }, [
+    createOrderOpen,
+    selectedCityCodDane,
+    remitCodDane,
+    rateType,
+    emitCotizaTransportadoras,
+  ]);
+
+  useEffect(() => {
+    // si cambia remitente, invalidamos shipping actual
+    setShippingQuotes([]);
+    setSelectedShipping(null);
+    setShippingQuotesError(null);
+  }, [remitCodDane]);
+
+  useEffect(() => {
+    setShippingQuotes([]);
+    setSelectedShipping(null);
+    setShippingQuotesError(null);
+  }, [selectedCityCodDane]);
+
+  const handleConfirmOrder = (order) => {
+    if (!isPendingConfirm(order)) return;
+
+    const orderId = showOrderId(order);
+
+    Swal.fire({
+      icon: "question",
+      title: "Confirmar pedido",
+      text: `Esto cambiará el estado de la orden #${orderId} a PENDIENTE.`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, confirmar",
+      cancelButtonText: "Cancelar",
+    }).then((r) => {
+      if (!r.isConfirmed) return;
+      emitSetOrderStatus(orderId, "PENDIENTE");
+    });
   };
 
   return (
@@ -1028,6 +1445,7 @@ export default function DropshipperClientPanel(props) {
                         <button
                           type="button"
                           onClick={() => {
+                            resetCreateOrderState();
                             setCreateOrderOpen(true);
                             setStep(1);
 
@@ -1083,6 +1501,15 @@ export default function DropshipperClientPanel(props) {
                         citiesLoading={citiesLoading}
                         selectedCityId={selectedCityId}
                         handleSelectCity={handleSelectCity}
+                        shippingQuotes={shippingQuotes}
+                        shippingQuotesLoading={shippingQuotesLoading}
+                        shippingQuotesError={shippingQuotesError}
+                        selectedShipping={selectedShipping}
+                        setSelectedShipping={setSelectedShipping}
+                        canShowShipping={
+                          Boolean(selectedCityCodDane) && Boolean(remitCodDane)
+                        }
+                        onRecotizar={emitCotizaTransportadoras}
                         // productos
                         keywords={keywords}
                         setKeywords={setKeywords}
@@ -1103,7 +1530,11 @@ export default function DropshipperClientPanel(props) {
                           Boolean(selectedDepartmentId) &&
                           Boolean(selectedCityId) &&
                           Array.isArray(productsCart) &&
-                          productsCart.length > 0
+                          productsCart.length > 0 &&
+                          Boolean(
+                            pickDistributionCompanyFromQuote(selectedShipping)
+                              ?.id,
+                          )
                         }
                         onClose={() => setCreateOrderOpen(false)}
                         onSubmit={emitCreateOrder}
@@ -1234,23 +1665,45 @@ export default function DropshipperClientPanel(props) {
 
                   {/* Botones acción */}
                   <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                    {/* ✅ Solo si está Pendiente Confirmación */}
+                    {/* Solo si está Pendiente Confirmación */}
                     {isPendingConfirm(selectedOrder) && (
                       <button
                         type="button"
                         onClick={() => handleEditOrder(selectedOrder)}
                         className="w-full sm:w-auto px-4 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-sm font-semibold flex items-center justify-center gap-2"
                       >
-                        <i className="bx bx-edit" />
-                        Editar
+                        <i className="bx bx-save" />
+                        Guardar cambios
                       </button>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const orderId = showOrderId(selectedOrder);
+                        Swal.fire({
+                          icon: "warning",
+                          title: "Cancelar orden",
+                          text: `¿Desea cancelar la orden #${orderId}?`,
+                          showCancelButton: true,
+                          confirmButtonText: "Sí, cancelar",
+                          cancelButtonText: "No",
+                        }).then((r) => {
+                          if (!r.isConfirmed) return;
+                          emitSetOrderStatus(orderId, "CANCELADO");
+                        });
+                      }}
+                      className="w-full sm:w-auto px-4 py-2 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 text-sm font-semibold flex items-center justify-center gap-2"
+                    >
+                      <i className="bx bx-x-circle" />
+                      Cancelar orden
+                    </button>
 
                     {/* Botón principal: Confirmar pedido (solo si está Pendiente Confirmación) */}
                     {isPendingConfirm(selectedOrder) && (
                       <button
                         type="button"
-                        onClick={() => handleGenerateGuide(selectedOrder)} // aquí luego conectamos el socket real de "confirmar"
+                        onClick={() => handleConfirmOrder(selectedOrder)}
                         className="w-full sm:w-auto px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
                       >
                         <i className="bx bx-check-circle" />
@@ -1346,18 +1799,51 @@ export default function DropshipperClientPanel(props) {
                   </div>
 
                   {/* Dirección */}
-                  <div className="mt-2 text-xs text-white/60">
-                    <span className="font-semibold text-white/70">
-                      Dirección:
-                    </span>{" "}
-                    {selectedOrder?.dir || "—"}
+                  <div className="mt-3">
+                    <p className="text-[11px] text-white/60 mb-1">Dirección</p>
+                    <input
+                      value={orderDir}
+                      onChange={(e) => setOrderDir(e.target.value)}
+                      disabled={!canEditOrder(selectedOrder)}
+                      className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-400/60 ${
+                        canEditOrder(selectedOrder)
+                          ? "text-white"
+                          : "text-white/40 cursor-not-allowed opacity-70"
+                      }`}
+                      placeholder="Dirección de entrega"
+                    />
                   </div>
 
-                  {/* Placeholder para su formulario de edición */}
                   <div className="mt-3 text-xs text-white/50">
-                    *Aquí puede montar su formulario de edición (inputs,
-                    selects, validaciones, etc.). Ya queda la vista “limpia”
-                    solo para una orden.
+                    <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
+                      <i className="bx bx-id-card text-xl text-violet-300" />
+                      <div className="min-w-0 w-full">
+                        <p className="text-[11px] text-white/60 mb-1">Nombre</p>
+                        <input
+                          value={orderName}
+                          onChange={(e) => setOrderName(e.target.value)}
+                          disabled={!canEditOrder(selectedOrder)}
+                          className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-400/60 ${
+                            canEditOrder(selectedOrder)
+                              ? "text-white"
+                              : "text-white/40 cursor-not-allowed opacity-70"
+                          }`}
+                        />
+                        <p className="text-[11px] text-white/60 mt-2 mb-1">
+                          Apellido
+                        </p>
+                        <input
+                          value={orderSurname}
+                          onChange={(e) => setOrderSurname(e.target.value)}
+                          disabled={!canEditOrder(selectedOrder)}
+                          className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-400/60 ${
+                            canEditOrder(selectedOrder)
+                              ? "text-white"
+                              : "text-white/40 cursor-not-allowed opacity-70"
+                          }`}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
