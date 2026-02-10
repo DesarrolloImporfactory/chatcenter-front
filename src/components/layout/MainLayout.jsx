@@ -5,12 +5,28 @@ import { Footer } from "../shared/Footer";
 import chatApi from "../../api/chatcenter";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
+
 import Swal from "sweetalert2";
 import { useDropi } from "../../context/DropiContext";
+import usePresenceRegister from "../../hooks/usePresenceRegister";
+import { usePresence } from "../../context/PresenceProvider";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
 function MainLayout({ children }) {
+  usePresenceRegister();
+
+  const { getPresence } = usePresence();
+
+  const token = localStorage.getItem("token");
+  const decoded = token ? jwtDecode(token) : null;
+  const id_sub_usuario = decoded?.id_sub_usuario;
+
+  const p = getPresence(id_sub_usuario);
+
+  console.log("[MAINLAYOUT] id_sub_usuario:", id_sub_usuario);
+  console.log("[MAINLAYOUT] presence:", p);
+
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
   const [openContacto, setOpenContacto] = useState(false);
@@ -335,7 +351,7 @@ function MainLayout({ children }) {
   };
 
   const isCalendarBlocked = userData && canAccessCalendar === false;
-
+  
   const { isDropiLinked, loadingDropiLinked } = useDropi();
 
   return (
