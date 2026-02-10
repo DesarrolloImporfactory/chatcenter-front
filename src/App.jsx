@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Toaster } from "react-hot-toast";
 import "./App.css";
@@ -67,10 +67,11 @@ import SocketProvider from "./context/SocketProvider";
 import PresenceProvider from "./context/PresenceProvider";
 
 function App() {
+  const location = useLocation();
+
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    setToken(localStorage.getItem("token"));
 
     // Validar configuración al iniciar la app
     if (!validateConfig()) {
@@ -82,6 +83,16 @@ function App() {
       });
     }
   }, []);
+
+  // Actualizar token cuando cambie la ruta (después del login)
+  useEffect(() => {
+    const currentToken = localStorage.getItem("token");
+    if (currentToken && currentToken !== token) {
+      setToken(currentToken);
+    }
+      
+
+  }, [location, token]);
 
   return (
     <DropiProvider>
