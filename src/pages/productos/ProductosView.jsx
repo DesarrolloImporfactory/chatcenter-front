@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import { useDropi } from "../../context/DropiContext";
+import ImportarProductosDropi from "./modales/ImportarProductosDropi";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -124,7 +126,7 @@ const ProductosView = () => {
     formData.append("archivoExcel", archivoMasivo); // Agregar el archivo Excel
     formData.append(
       "id_configuracion",
-      localStorage.getItem("id_configuracion")
+      localStorage.getItem("id_configuracion"),
     ); // Agregar id_configuracion
 
     try {
@@ -136,7 +138,7 @@ const ProductosView = () => {
           headers: {
             "Content-Type": "multipart/form-data", // Aseguramos que se suba como archivo
           },
-        }
+        },
       );
 
       // Si la respuesta es exitosa, mostramos un mensaje
@@ -264,9 +266,9 @@ const ProductosView = () => {
   const catMap = useMemo(
     () =>
       Object.fromEntries(
-        (categorias || []).map((c) => [String(c.id), c.nombre])
+        (categorias || []).map((c) => [String(c.id), c.nombre]),
       ),
-    [categorias]
+    [categorias],
   );
 
   const normalizaTipo = (t) => {
@@ -282,7 +284,7 @@ const ProductosView = () => {
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: "asc" }
+        : { key, dir: "asc" },
     );
   };
 
@@ -295,13 +297,13 @@ const ProductosView = () => {
       data = data.filter(
         (p) =>
           p?.nombre?.toLowerCase().includes(q) ||
-          p?.descripcion?.toLowerCase().includes(q)
+          p?.descripcion?.toLowerCase().includes(q),
       );
     }
 
     if (filtroCategoria) {
       data = data.filter(
-        (p) => String(p.id_categoria) === String(filtroCategoria)
+        (p) => String(p.id_categoria) === String(filtroCategoria),
       );
     }
 
@@ -330,7 +332,7 @@ const ProductosView = () => {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(listaProcesada.length / itemsPerPage)
+    Math.ceil(listaProcesada.length / itemsPerPage),
   );
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -568,7 +570,7 @@ const ProductosView = () => {
     onVideoPicked(file);
     dropVideoRef.current?.classList.remove(
       "ring-indigo-300",
-      "bg-indigo-50/40"
+      "bg-indigo-50/40",
     );
   };
 
@@ -579,7 +581,7 @@ const ProductosView = () => {
   const onVideoDragLeave = () => {
     dropVideoRef.current?.classList.remove(
       "ring-indigo-300",
-      "bg-indigo-50/40"
+      "bg-indigo-50/40",
     );
   };
 
@@ -612,7 +614,7 @@ const ProductosView = () => {
 
     dropUpsellRef.current?.classList.remove(
       "ring-indigo-300",
-      "bg-indigo-50/40"
+      "bg-indigo-50/40",
     );
   };
 
@@ -624,7 +626,7 @@ const ProductosView = () => {
   const onUpsellDragLeave = () => {
     dropUpsellRef.current?.classList.remove(
       "ring-indigo-300",
-      "bg-indigo-50/40"
+      "bg-indigo-50/40",
     );
   };
 
@@ -687,6 +689,87 @@ const ProductosView = () => {
     }
   };
 
+  const { isDropiLinked, loadingDropiLinked } = useDropi();
+
+  const [dropiModalOpen, setDropiModalOpen] = useState(false);
+  const [dropiLoading, setDropiLoading] = useState(false);
+  const [dropiKeywords, setDropiKeywords] = useState("");
+  const [dropiStart, setDropiStart] = useState(0);
+  const [dropiPageSize] = useState(12);
+  const [dropiProducts, setDropiProducts] = useState([]);
+
+  const fetchDropiProducts = async (reset = false) => {
+    const idc = Number(localStorage.getItem("id_configuracion"));
+
+    setDropiLoading(true);
+    try {
+      const startData = reset ? 0 : dropiStart;
+
+      const { data } = await chatApi.post("/productos/listarProductosDropi", {
+        id_configuracion: idc,
+        pageSize: dropiPageSize,
+        startData,
+        keywords: dropiKeywords,
+        order_by: "id",
+        order_type: "desc",
+        no_count: true,
+      });
+
+      const objects = data?.data?.objects || [];
+      setDropiProducts(objects);
+      if (reset) setDropiStart(0);
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo listar productos Dropi.",
+      });
+    } finally {
+      setDropiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (dropiModalOpen) fetchDropiProducts(true);
+  }, [dropiModalOpen]);
+
+  const importarDropi = async (dropiId) => {
+    const idc = Number(localStorage.getItem("id_configuracion"));
+
+    try {
+      const result = await Swal.fire({
+        title: "¿Importar producto?",
+        text: `Producto Dropi #${dropiId}`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sí, importar",
+        cancelButtonText: "Cancelar",
+      });
+
+      if (!result.isConfirmed) return;
+
+      const { data } = await chatApi.post("/productos/importarProductoDropi", {
+        id_configuracion: idc,
+        dropi_product_id: dropiId,
+      });
+
+      if (data?.alreadyImported) {
+        Toast.fire({ icon: "info", title: "Ya estaba importado." });
+      } else {
+        Toast.fire({ icon: "success", title: "Producto importado." });
+      }
+
+      setDropiModalOpen(false);
+      fetchData();
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo importar el producto.",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100  px-3 md:px-6">
       {/* Card principal */}
@@ -706,6 +789,16 @@ const ProductosView = () => {
               </div>
 
               <div className="flex gap-2">
+                {isDropiLinked === true && (
+                  <button
+                    onClick={() => setDropiModalOpen(true)}
+                    className="inline-flex items-center gap-2 bg-[#0EA5E9] text-white hover:bg-[#0284C7] active:bg-[#0369A1] px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                  >
+                    <i className="bx bx-import text-lg"></i>
+                    Importar desde Dropi
+                  </button>
+                )}
+
                 {/* Botón de "Agregar" */}
                 <button
                   onClick={() => openModal()}
@@ -909,7 +1002,7 @@ const ProductosView = () => {
                         <td className="p-3">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-semibold ${badgeClase(
-                              p.tipo
+                              p.tipo,
                             )}`}
                           >
                             {normalizaTipo(p.tipo) === "servicio"
@@ -985,14 +1078,14 @@ const ProductosView = () => {
                   <span className="font-semibold text-slate-800">
                     {Math.min(
                       (currentPage - 1) * itemsPerPage + 1,
-                      listaProcesada.length
+                      listaProcesada.length,
                     )}
                   </span>{" "}
                   –{" "}
                   <span className="font-semibold text-slate-800">
                     {Math.min(
                       currentPage * itemsPerPage,
-                      listaProcesada.length
+                      listaProcesada.length,
                     )}
                   </span>{" "}
                   de{" "}
@@ -1767,6 +1860,17 @@ const ProductosView = () => {
           />
         </div>
       )}
+
+      <ImportarProductosDropi
+        open={dropiModalOpen}
+        onClose={() => setDropiModalOpen(false)}
+        dropiKeywords={dropiKeywords}
+        setDropiKeywords={setDropiKeywords}
+        onSearch={fetchDropiProducts}
+        loading={dropiLoading}
+        products={dropiProducts}
+        onImport={importarDropi}
+      />
     </div>
   );
 };
