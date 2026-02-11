@@ -79,9 +79,13 @@ const DepartamentosView = () => {
   const [isClosing, setIsClosing] = useState(false);
 
   const [usuarios, setUsuarios] = useState([]);
-  const [usuariosAsignados, setUsuariosAsignados] = useState([]); // IDs seleccionados
+  const [usuariosAsignados, setUsuariosAsignados] = useState([]); // [{ id_sub_usuario: number, asignacion_auto: 0|1 }]
   const [conexiones, setConexiones] = useState([]);
   const [activeTab, setActiveTab] = useState("departamento"); // 'departamento' o 'usuarios'
+
+  const getAsignacion = (id) =>
+    usuariosAsignados.find((x) => Number(x.id_sub_usuario) === Number(id)) ||
+    null;
 
   const fetchDepartamentos = async () => {
     const token = localStorage.getItem("token");
@@ -102,7 +106,7 @@ const DepartamentosView = () => {
         "/departamentos_chat_center/listarDepartamentos",
         {
           id_usuario,
-        }
+        },
       );
       setDepartamentos(res.data.data || []);
     } catch {
@@ -171,7 +175,7 @@ const DepartamentosView = () => {
             id_departamento: editingId,
             ...payload,
             usuarios_asignados: usuariosAsignados,
-          }
+          },
         );
         Swal.fire({
           icon: "success",
@@ -209,7 +213,7 @@ const DepartamentosView = () => {
       ) {
         const backendMsg = error?.response?.data?.message;
         setLimitMessage(
-          backendMsg || "Ha alcanzado el límite de departamentos de su plan."
+          backendMsg || "Ha alcanzado el límite de departamentos de su plan.",
         );
         setShowUpgradeOptions(true); // Muestra las opciones de upgrade
         return;
@@ -278,7 +282,7 @@ const DepartamentosView = () => {
 
   const selectedConexion =
     conexionesOptions.find(
-      (opt) => String(opt.value) === String(form.id_configuracion)
+      (opt) => String(opt.value) === String(form.id_configuracion),
     ) || null;
 
   const handleDelete = async (u) => {
@@ -296,7 +300,7 @@ const DepartamentosView = () => {
           "/departamentos_chat_center/eliminarDepartamento",
           {
             data: { id_departamento: u.id_departamento },
-          }
+          },
         );
         Swal.fire({
           icon: "success",
@@ -320,7 +324,7 @@ const DepartamentosView = () => {
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: "asc" }
+        : { key, dir: "asc" },
     );
   };
 
@@ -337,7 +341,7 @@ const DepartamentosView = () => {
     if (q) {
       data = data.filter(
         (d) => d?.nombre_departamento?.toLowerCase().includes(q) /* ||
-          d?.mensaje_saludo?.toLowerCase().includes(q) */
+          d?.mensaje_saludo?.toLowerCase().includes(q) */,
       );
     }
 
@@ -355,7 +359,7 @@ const DepartamentosView = () => {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(listaProcesada.length / itemsPerPage)
+    Math.ceil(listaProcesada.length / itemsPerPage),
   );
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -580,14 +584,14 @@ const DepartamentosView = () => {
                   <span className="font-semibold text-slate-800">
                     {Math.min(
                       (currentPage - 1) * itemsPerPage + 1,
-                      listaProcesada.length
+                      listaProcesada.length,
                     )}
                   </span>{" "}
                   –{" "}
                   <span className="font-semibold text-slate-800">
                     {Math.min(
                       currentPage * itemsPerPage,
-                      listaProcesada.length
+                      listaProcesada.length,
                     )}
                   </span>{" "}
                   de{" "}
@@ -841,14 +845,16 @@ const DepartamentosView = () => {
                           <th className="p-3 text-left">Usuario</th>
                           <th className="p-3 text-left">Nombre responsable</th>
                           <th className="p-3 text-left">Correo</th>
-                          <th className="p-3 text-center">Asignado</th>
+                          <th className="p-3 text-center">Asignar usuario al departamento</th>
+                          <th className="p-3 text-center">Asignar chats automaticamente</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {usuarios.map((usuario) => {
-                          const isChecked = usuariosAsignados.includes(
-                            usuario.id_sub_usuario
+                          const asignacion = getAsignacion(
+                            usuario.id_sub_usuario,
                           );
+                          const isChecked = !!asignacion;
                           return (
                             <tr key={usuario.id_sub_usuario}>
                               <td className="p-3">{usuario.usuario}</td>
@@ -863,19 +869,55 @@ const DepartamentosView = () => {
                                     className="sr-only peer"
                                     checked={isChecked}
                                     onChange={() => {
-                                      setUsuariosAsignados((prev) =>
-                                        prev.includes(usuario.id_sub_usuario)
-                                          ? prev.filter(
-                                              (id) =>
-                                                id !== usuario.id_sub_usuario
-                                            )
-                                          : [...prev, usuario.id_sub_usuario]
-                                      );
+                                      setUsuariosAsignados((prev) => {
+                                        const id = Number(
+                                          usuario.id_sub_usuario,
+                                        );
+                                        const exists = prev.some(
+                                          (x) =>
+                                            Number(x.id_sub_usuario) === id,
+                                        );
+
+                                        if (exists) {
+                                          // quitar
+                                          return prev.filter(
+                                            (x) =>
+                                              Number(x.id_sub_usuario) !== id,
+                                          );
+                                        }
+
+                                        // agregar con asignacion_auto por defecto 0
+                                        return [
+                                          ...prev,
+                                          {
+                                            id_sub_usuario: id,
+                                            asignacion_auto: 0,
+                                          },
+                                        ];
+                                      });
                                     }}
                                   />
                                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600 relative" />
                                 </label>
                               </td>
+                              <td className="p-3 text-center">
+  <input
+    type="checkbox"
+    disabled={!isChecked} // solo si está asignado
+    checked={isChecked ? asignacion.asignacion_auto === 1 : false}
+    onChange={(e) => {
+      const val = e.target.checked ? 1 : 0;
+      setUsuariosAsignados((prev) =>
+        prev.map((x) =>
+          Number(x.id_sub_usuario) === Number(usuario.id_sub_usuario)
+            ? { ...x, asignacion_auto: val }
+            : x
+        )
+      );
+    }}
+  />
+</td>
+
                             </tr>
                           );
                         })}
