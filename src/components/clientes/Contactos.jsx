@@ -8,6 +8,7 @@ import * as XLSX from "xlsx";
 import ImportarXlsxModal from "../clientes/modales/ImportarXlsxModal";
 import ClientForm from "../clientes/modales/ClientForm";
 import { useNavigate } from "react-router-dom";
+import PageHeader from "../../pages/Header/pageHeader";
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -1817,73 +1818,43 @@ export default function Contactos() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 shadow-sm">
+    <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 shadow-sm p-5">
       {/* ====== Header principal ====== */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white/80 px-5 py-3 backdrop-blur">
-        <div className="space-y-0.5">
-          <h1 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-              <i className="bx bx-user" />
-            </span>
-            Clientes
-          </h1>
-          <p className="text-xs text-slate-500">
-            Gestiona tus contactos, etiquetas y envíos masivos por WhatsApp.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 transition ${"bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"}`}
-            onClick={openModalNuevoContact}
-          >
-            <i className="bx bx-plus text-base" />
-            Nuevo contacto
-          </button>
-
-          {/* Contador seleccionado */}
-          <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-slate-700 shadow-sm">
-              {selected.length}
-            </span>
-            <span>seleccionados</span>
-          </div>
-
-          {/* Acciones principales: Envío masivo + Import / Export (sin tooltip preview) */}
-          <button
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 transition ${
-              selected.length
-                ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
-                : "bg-emerald-100 text-emerald-500 cursor-not-allowed"
-            }`}
-            onClick={openModalMasivos}
-            disabled={!selected.length}
-          >
-            <i className="bx bxs-message-alt-detail text-base" />
-            Envío masivo
-          </button>
-
-          <div className="h-6 w-px bg-slate-200" />
-
-          <button
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 transition"
-            aria-label="Importar XLSX"
-            onClick={() => setOpenImportXlsx(true)}
-          >
-            <i className="bx bx-upload text-sm" />
-            Importar XLSX
-          </button>
-
-          <button
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 transition"
-            aria-label="Exportar XLSX"
-            onClick={exportXLSX}
-          >
-            <i className="bx bx-download text-sm" />
-            Exportar XLSX
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Clientes"
+        subtitle="Gestiona tus contactos, etiquetas y envíos masivos por WhatsApp."
+        icon={<i className="bx bx-user" />}
+        actions={[
+          {
+            label: "Nuevo contacto",
+            icon: <i className="bx bx-plus text-base" />,
+            onClick: openModalNuevoContact,
+            variant: "primary",
+          },
+          {
+            label: "Envío masivo",
+            icon: <i className="bx bxs-message-alt-detail text-base" />,
+            onClick: openModalMasivos,
+            disabled: !selected.length,
+            variant: "success",
+          },
+          { type: "divider" },
+          {
+            label: "Importar XLSX",
+            icon: <i className="bx bx-upload text-sm" />,
+            onClick: () => setOpenImportXlsx(true),
+            variant: "ghost",
+            size: "sm",
+          },
+          {
+            label: "Exportar XLSX",
+            icon: <i className="bx bx-download text-sm" />,
+            onClick: exportXLSX,
+            variant: "ghost",
+            size: "sm",
+          },
+        ]}
+      />
 
       {/* Modal Masivo (UI más limpia) */}
       {isModalOpenMasivo && (

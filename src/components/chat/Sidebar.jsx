@@ -1171,7 +1171,6 @@ export const Sidebar = ({
   setSelectedTransportadora,
   setSelectedNovedad,
   selectedNovedad,
-  Loading,
   validar_estadoLaar,
   validar_estadoServi,
   validar_estadoGintracom,
@@ -1186,9 +1185,7 @@ export const Sidebar = ({
   id_plataforma_conf,
   setSelectedPedidos_confirmados,
   selectedPedidos_confirmados,
-  isLoadingWA = false,
-  isLoadingMS = false,
-  isLoadingIG = false,
+  isLoading = false,
   cargandoChats,
   scopeChats,
   setScopeChats,
@@ -1324,26 +1321,6 @@ export const Sidebar = ({
 
   // Pintado diferido
   const [channelFilter, setChannelFilter] = useState("all");
-  const [allowPaint, setAllowPaint] = useState(false);
-  const hasPaintedRef = useRef(false);
-
-  useEffect(() => {
-    if (
-      !hasPaintedRef.current &&
-      !isLoadingWA &&
-      !isLoadingMS &&
-      !isLoadingIG
-    ) {
-      hasPaintedRef.current = true;
-      setAllowPaint(true);
-    }
-  }, [isLoadingWA, isLoadingMS, isLoadingIG]);
-
-  useEffect(() => {
-    if (hasPaintedRef.current) return;
-    const t = setTimeout(() => setAllowPaint(true), 3000);
-    return () => clearTimeout(t);
-  }, []);
 
   // Ordenar chats
   const compareChats = (a, b) => {
@@ -1824,7 +1801,8 @@ export const Sidebar = ({
         {/* Lista de chats */}
         <ul className="divide-y divide-slate-100 flex-1">
           {(() => {
-            if (!allowPaint) {
+            // 1) Loader real mientras llega la data
+            if (isLoading) {
               return (
                 <div className="flex h-64 items-center justify-center gap-2 text-slate-500">
                   <i className="bx bx-loader-alt animate-spin text-xl" />
@@ -1832,10 +1810,11 @@ export const Sidebar = ({
                 </div>
               );
             }
-            const base = filteredChats;
 
+            // 2) Ya cargó, ahora sí render normal
+            const base = filteredChats;
             const list = [...base].sort(compareChats);
-            console.log("Lista de chats en sidebar:", list);
+
             if (list.length === 0) {
               return (
                 <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
@@ -1874,9 +1853,9 @@ export const Sidebar = ({
             });
           })()}
 
-          {/* Loader de paginación */}
+          {/* Loader de paginación (solo si ya cargó la primera vez) */}
           <div className="flex justify-center py-4">
-            {cargandoChats && (
+            {!isLoading && cargandoChats && (
               <span className="animate-pulse text-sm text-slate-500">
                 Cargando más chats…
               </span>

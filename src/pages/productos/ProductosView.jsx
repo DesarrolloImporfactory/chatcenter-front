@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { useDropi } from "../../context/DropiContext";
 import ImportarProductosDropi from "./modales/ImportarProductosDropi";
+import Header from "../Header/pageHeader";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -770,75 +771,58 @@ const ProductosView = () => {
     }
   };
 
+  const headerActions = (
+    <div className="flex gap-2">
+      {isDropiLinked === true && (
+        <button
+          onClick={() => setDropiModalOpen(true)}
+          className="inline-flex items-center gap-2 bg-[#eb6e1b] text-white hover:bg-[#d3661e] active:bg-[#eb6e1b] px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+        >
+          <i className="bx bx-import text-lg"></i>
+          Importar desde Dropi
+        </button>
+      )}
+
+      <button
+        onClick={() => openModal()}
+        className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
+        </svg>
+        Agregar
+      </button>
+
+      <button
+        onClick={() => openModalMasivo()}
+        className="inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 active:bg-green-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+      >
+        <i className="bx bx-upload text-lg"></i>
+        Importación masiva de productos
+      </button>
+    </div>
+  );
+
+  // ✅ Stats existentes (mismos valores)
+  const headerStats = [
+    { label: "Total productos", value: productos.length },
+    { label: "Categorías", value: categorias.length },
+    { label: "En esta vista", value: listaProcesada.length },
+    { label: "Página", value: `${currentPage}/${totalPages}` },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100  px-3 md:px-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 w-full">
       {/* Card principal */}
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header */}
-        <header className="relative isolate overflow-hidden">
-          <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                  Productos
-                </h1>
-                <p className="text-white/80 text-sm">
-                  Administra tu catálogo con una experiencia más fluida y
-                  elegante.
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                {isDropiLinked === true && (
-                  <button
-                    onClick={() => setDropiModalOpen(true)}
-                    className="inline-flex items-center gap-2 bg-[#0EA5E9] text-white hover:bg-[#0284C7] active:bg-[#0369A1] px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-                  >
-                    <i className="bx bx-import text-lg"></i>
-                    Importar desde Dropi
-                  </button>
-                )}
-
-                {/* Botón de "Agregar" */}
-                <button
-                  onClick={() => openModal()}
-                  className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-                  </svg>
-                  Agregar
-                </button>
-
-                {/* Botón de "Subida masiva de productos" */}
-                <button
-                  onClick={() => openModalMasivo()}
-                  className="inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 active:bg-green-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  {/* Icono de Boxicons */}
-                  <i className="bx bx-upload text-lg"></i>{" "}
-                  {/* Icono de carga/ subida */}
-                  Subida masiva de productos
-                </button>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <HeaderStat label="Total productos" value={productos.length} />
-              <HeaderStat label="Categorías" value={categorias.length} />
-              <HeaderStat label="En esta vista" value={listaProcesada.length} />
-              <HeaderStat
-                label="Página"
-                value={`${currentPage}/${totalPages}`}
-              />
-            </div>
-          </div>
-        </header>
+        <Header
+          title="Productos"
+          subtitle="Administra tu catálogo con una experiencia más fluida y elegante."
+          actions={headerActions}
+          stats={headerStats}
+          className="bg-[#171931]"
+        />
 
         {/* Controles */}
         <div className="p-6 border-b border-slate-100 bg-white">

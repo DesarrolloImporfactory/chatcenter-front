@@ -5,15 +5,16 @@ import chatApi from "../../api/chatcenter";
 
 const Toast = Swal.mixin({
   toast: true,
-  position: "top-end", // Puedes cambiar a 'bottom-end', 'top-start', etc.
+  position: "top-end",
   showConfirmButton: false,
-  timer: 3000, // Duración en ms
+  timer: 3000,
   timerProgressBar: true,
   didOpen: (toast) => {
     toast.addEventListener("mouseenter", Swal.stopTimer);
     toast.addEventListener("mouseleave", Swal.resumeTimer);
   },
 });
+
 /** —— Chips y opciones personalizados —— */
 const Option = (props) => {
   const { isSelected, label } = props;
@@ -79,7 +80,6 @@ const ChipRemove = (props) => (
 /** —— Página de Asistentes —— */
 const Asistentes = () => {
   const [id_configuracion, setId_configuracion] = useState(null);
-
   const [idPlataformaConf, setIdPlataformaConf] = useState(null);
 
   // Estado API Key / existencia
@@ -103,7 +103,6 @@ const Asistentes = () => {
     const idc = localStorage.getItem("id_configuracion");
     if (idc) setId_configuracion(parseInt(idc));
 
-    // lee y normaliza id_plataforma_conf
     const idp = localStorage.getItem("id_plataforma_conf");
     if (idp === "null" || idp === null) {
       setIdPlataformaConf(null);
@@ -135,15 +134,13 @@ const Asistentes = () => {
     if (asistenteVentas) {
       setNombreBotVenta(asistenteVentas.nombre_bot || "");
       setActivoVenta(!!asistenteVentas.activo);
-
-      // Sincronizar productos
       const productos = asistenteVentas.productos || [];
-      setProductosVenta(productos); // Mantenerlo como array de productos (["4225"])
+      setProductosVenta(productos);
 
       setTomar_productos(
         asistenteVentas.tomar_productos === "imporsuit"
           ? "imporsuit"
-          : "chat_center"
+          : "chat_center",
       );
       setTiempo_remarketing(String(asistenteVentas.tiempo_remarketing || "0"));
     }
@@ -161,7 +158,6 @@ const Asistentes = () => {
           id_plataforma: idPlataformaConf,
         });
       } else {
-        // 'chat_center' (su endpoint actual)
         prodRes = await chatApi.post("/productos/listarProductos", {
           id_configuracion,
         });
@@ -181,23 +177,16 @@ const Asistentes = () => {
 
   useEffect(() => {
     if (!id_configuracion) return;
-
-    // Resetear selección al cambiar la fuente
-    setProductosLista([]); // opcional: limpia opciones mientras llega la data
-
+    setProductosLista([]);
     fetchProductos(tomar_productos);
   }, [id_configuracion, tomar_productos]);
-
-  /* useEffect(() => {
-  console.log("✅ productosVenta actualizado:", productosVenta);
-}, [productosVenta]); */
 
   /** Sincroniza estados visuales con datos del backend */
   useEffect(() => {
     if (asistenteVentas) {
       setNombreBotVenta(asistenteVentas.nombre_bot || "");
       setActivoVenta(!!asistenteVentas.activo);
-      // --- Normalización de productos a array de strings ---
+
       (function normalizeProductos() {
         try {
           const raw = asistenteVentas.productos;
@@ -208,12 +197,10 @@ const Asistentes = () => {
           if (typeof raw === "string") {
             const t = raw.trim();
             if (t.startsWith("[")) {
-              // Viene como JSON stringificado
               const arr = JSON.parse(t);
               setProductosVenta((Array.isArray(arr) ? arr : [arr]).map(String));
               return;
             }
-            // Viene como CSV "10478,20511"
             const arr = t
               .split(",")
               .map((s) => s.trim())
@@ -228,13 +215,11 @@ const Asistentes = () => {
         }
       })();
 
-      // Fuente estándar
       setTomar_productos(
         asistenteVentas.tomar_productos === "imporsuit"
           ? "imporsuit"
-          : "chat_center"
+          : "chat_center",
       );
-      // Tiempo remarketing como string ("1","3","5","10","20")
       setTiempo_remarketing(String(asistenteVentas.tiempo_remarketing || "0"));
     }
   }, [asistenteVentas]);
@@ -246,7 +231,7 @@ const Asistentes = () => {
         value: String(p.id ?? p.id_producto),
         label: p.nombre,
       })),
-    [productosLista]
+    [productosLista],
   );
 
   const selectedProductos = useMemo(() => {
@@ -257,8 +242,9 @@ const Asistentes = () => {
 
   const handleProductosChange = (selected) => {
     const ids = (selected || []).map((s) => String(s.value));
-    setProductosVenta(ids); // ← array de strings
+    setProductosVenta(ids);
   };
+
   /** Acciones */
   const guardarApiKey = async (apiKeyInput) => {
     try {
@@ -268,7 +254,7 @@ const Asistentes = () => {
           id_configuracion: id_configuracion,
           api_key: apiKeyInput,
           tipo_configuracion: localStorage.getItem("tipo_configuracion"),
-        }
+        },
       );
       const data = response.data || {};
       if (data.status === "200") {
@@ -299,9 +285,21 @@ const Asistentes = () => {
   /** Helpers visuales */
   const estadoIA = (estado) => (estado ? "Conectado" : "Desconectado");
   const colorEstado = (estado) =>
-    estado ? "text-green-600 bg-green-100" : "text-red-600 bg-red-100";
+    estado ? "text-green-700 bg-green-100" : "text-red-700 bg-red-100";
 
-  const iaVentasConectada = !!asistenteVentas;
+  const hasApiKey = Boolean(
+    existeAsistente && String(existeAsistente).trim().length > 0,
+  );
+
+  // considere “configurado” si hay key y el asistente tiene algún dato real
+  const hasVentasConfig =
+    Boolean(asistenteVentas) &&
+    // use el que exista en su respuesta real
+    (Boolean(asistenteVentas?.id) ||
+      Boolean(asistenteVentas?.nombre_bot?.trim?.()) ||
+      Boolean(asistenteVentas?.activo !== undefined)); // opcional
+
+  const iaVentasConectada = hasApiKey && hasVentasConfig;
 
   /* seccion apra texarea */
   const [texto, setTexto] = useState("");
@@ -313,7 +311,7 @@ const Asistentes = () => {
     setCargandoTexto(true);
     setErrorTexto("");
 
-    const url = `/src/assets/template_promts/${tipoVenta}.txt`; // productos.txt | servicios.txt
+    const url = `/src/assets/template_promts/${tipoVenta}.txt`;
 
     fetch(url)
       .then((r) => {
@@ -339,27 +337,40 @@ const Asistentes = () => {
     };
   }, [tipoVenta]);
   /* seccion apra texarea */
+
+  const openAIKeyUrl = "https://platform.openai.com/api-keys";
+
   return (
     <div className="p-5">
       {/* —— HERO profesional —— */}
-      <div className="mb-6 rounded-2xl bg-[#171931] text-white p-6 shadow-lg">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="mb-6 rounded-2xl bg-[#171931] text-white p-6 shadow-lg relative overflow-hidden">
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-xs mb-3">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              Panel de configuración
+            </div>
+
             <h1 className="text-2xl md:text-3xl font-bold">Asistentes IA</h1>
-            <p className="opacity-90 mt-1">
-              Centraliza y personaliza tus asistentes para ventas.
+            <p className="opacity-90 mt-1 max-w-2xl">
+              Configure la conexión con{" "}
+              <span className="font-semibold">OpenAI</span> y administre su
+              asistente de ventas. Esta sección controla el acceso a la IA y el
+              comportamiento general del bot.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur text-sm">
-              API Key:{" "}
-              <strong>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="px-3 py-2 rounded-xl bg-white/10 border border-white/10 backdrop-blur">
+              <div className="text-xs opacity-80">API Key de OpenAI</div>
+              <div className="text-sm font-semibold">
                 {existeAsistente ? "Configurada" : "No configurada"}
-              </strong>
-            </span>
+              </div>
+            </div>
+
             <button
               onClick={() => setShowModalApiKey(true)}
-              className="ml-2 bg-white text-indigo-700 hover:bg-indigo-50 transition px-3 py-1.5 rounded-lg text-sm font-semibold shadow"
+              className="bg-white text-indigo-700 hover:bg-indigo-50 transition px-4 py-2 rounded-xl text-sm font-semibold shadow"
             >
               {existeAsistente ? "Editar API Key" : "Añadir API Key"}
             </button>
@@ -367,91 +378,454 @@ const Asistentes = () => {
         </div>
       </div>
 
-      {/* —— Tarjetas —— */}
-      <div className={`grid grid-cols-1 md:grid-cols-1 gap-4`}>
-        {/* IA Ventas */}
-        <div className="bg-white border rounded-lg shadow-md hover:shadow-lg p-6 relative">
-          <div className="flex justify-between items-start mb-3">
-            <div className="flex items-center gap-3">
-              <i className="bx bxs-cart text-3xl text-green-600"></i>
+      {/* —— Sección: Guía rápida / Información —— */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* Qué es */}
+        <div className="bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 grid place-items-center">
+              <i className="bx bx-brain text-xl text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">
+                ¿Qué se configura aquí?
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Esta vista conecta su sistema con la IA para automatizar
+                respuestas, recomendaciones y seguimiento de intención de
+                compra.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2 text-sm text-gray-700">
+            <div className="flex items-start gap-2">
+              <i className="bx bx-check text-lg text-emerald-600 -mt-1" />
+              <span>Conexión con OpenAI mediante API Key</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <i className="bx bx-check text-lg text-emerald-600 -mt-1" />
+              <span>Activación y configuración del bot de ventas</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <i className="bx bx-check text-lg text-emerald-600 -mt-1" />
+              <span>Parámetros como remarketing y tipo de venta</span>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+            <div className="flex items-start gap-2">
+              <i className="bx bx-wallet text-lg mt-0.5" />
               <div>
-                <h3 className="text-xl font-bold">
+                <div className="font-semibold">Recuerde recargar saldo</div>
+                <div className="text-sm">
+                  Si su cuenta de OpenAI no tiene saldo/crédito disponible, el
+                  bot no podrá responder aunque la API Key esté configurada
+                  correctamente.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Cómo obtener API key */}
+        <div className="bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 grid place-items-center">
+              <i className="bx bx-key text-xl text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">
+                Cómo generar su API Key
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Primero debe{" "}
+                <span className="font-semibold">iniciar sesión</span> o{" "}
+                <span className="font-semibold">registrarse</span> en OpenAI .
+                Recomendado: usar su cuenta principal del negocio.
+              </p>
+            </div>
+          </div>
+
+          <ol className="mt-4 space-y-2 text-sm text-gray-700 list-decimal pl-5">
+            <li>Abra el panel de API Keys en OpenAI.</li>
+            <li>Cree una nueva llave (Create new secret key).</li>
+            <li>Copie y pegue la llave en “Añadir API Key”.</li>
+          </ol>
+
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            <a
+              href={openAIKeyUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white hover:opacity-95 transition text-sm font-semibold"
+            >
+              <i className="bx bx-link-external" />
+              Ir a generar API Key
+            </a>
+
+            <button
+              onClick={() => setShowModalApiKey(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition text-sm font-semibold text-gray-800"
+            >
+              <i className="bx bx-plus" />
+              Pegar API Key aquí
+            </button>
+          </div>
+        </div>
+
+        {/* Buenas prácticas */}
+        <div className="bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 grid place-items-center">
+              <i className="bx bx-shield-quarter text-xl text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">Buenas prácticas</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Para evitar errores y riesgos de seguridad, siga estas
+                recomendaciones.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3 text-sm text-gray-700">
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 grid place-items-center text-xs font-bold">
+                1
+              </span>
+              <span>No comparta su API Key por WhatsApp o capturas.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 grid place-items-center text-xs font-bold">
+                2
+              </span>
+              <span>
+                Si sospecha filtración, regenere la llave y reemplace aquí.
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 grid place-items-center text-xs font-bold">
+                3
+              </span>
+              <span>Use una cuenta de OpenAI del negocio (recomendado).</span>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              <div className="flex items-start gap-2">
+                <i className="bx bx-error-circle text-lg mt-0.5" />
+                <div>
+                  <div className="font-semibold">Importante</div>
+                  <div className="text-sm">
+                    La API Key es una credencial privada. Pegue la llave
+                    completa, sin espacios.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* —— Tarjetas principales —— */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* IA Ventas (principal) */}
+        <div className="lg:col-span-2 bg-white border rounded-2xl shadow-sm hover:shadow-md transition p-6 relative">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-green-50 grid place-items-center">
+                <i className="bx bxs-cart text-2xl text-green-600"></i>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
                   {asistenteVentas?.nombre_bot || "IA de Ventas"}
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-600 mt-0.5">
                   Ofertas, catálogo y atención pre/postventa automatizada.
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setShowModalVentas(true)}
-              className="p-2 rounded-full hover:bg-green-50 transition"
-              title={asistenteVentas ? "Editar" : "Añadir"}
-            >
-              <i
-                className={`bx ${
-                  asistenteVentas ? "bx-edit" : "bx-plus"
-                } text-3xl text-green-600`}
-              ></i>
-            </button>
+
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${colorEstado(
+                  iaVentasConectada,
+                )}`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    iaVentasConectada ? "bg-emerald-600" : "bg-rose-600"
+                  }`}
+                />
+                {estadoIA(iaVentasConectada)}
+              </span>
+
+              <button
+                onClick={() => setShowModalVentas(true)}
+                className="px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition text-sm font-semibold text-gray-800 inline-flex items-center gap-2"
+                title={asistenteVentas ? "Editar" : "Añadir"}
+              >
+                <i
+                  className={`bx ${asistenteVentas ? "bx-edit" : "bx-plus"} text-lg`}
+                />
+                {asistenteVentas ? "Editar" : "Configurar"}
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
-            <span
-              className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${colorEstado(
-                iaVentasConectada
-              )}`}
-            >
-              {estadoIA(iaVentasConectada)}
-            </span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <div className="text-xs text-gray-500">Tipo de venta</div>
+              <div className="font-semibold text-gray-900 mt-1">
+                {tipoVenta === "servicios" ? "Servicios" : "Productos"}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <div className="text-xs text-gray-500">Remarketing</div>
+              <div className="font-semibold text-gray-900 mt-1">
+                {tiempo_remarketing === "0"
+                  ? "No definido"
+                  : `${tiempo_remarketing}h`}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <div className="text-xs text-gray-500">Estado</div>
+              <div className="font-semibold text-gray-900 mt-1">
+                {activoVenta ? "Activo" : "Inactivo"}
+              </div>
+            </div>
           </div>
 
-          <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
-            <li>Recomendación de productos y respuestas a FAQs.</li>
-            <li>Promociones y seguimiento de intención de compra.</li>
-            <li>Sincronización con tu catálogo actual.</li>
-          </ul>
+          <div className="mt-5">
+            <div className="text-sm font-semibold text-gray-900 mb-2">
+              Capacidades incluidas
+            </div>
+            <ul className="text-sm text-gray-700 grid grid-cols-1 md:grid-cols-2 gap-2">
+              <li className="flex items-start gap-2">
+                <i className="bx bx-check text-lg text-emerald-600 mt-0.5" />
+                Recomendación de productos y respuestas a FAQs.
+              </li>
+              <li className="flex items-start gap-2">
+                <i className="bx bx-check text-lg text-emerald-600 mt-0.5" />
+                Promociones y seguimiento de intención de compra.
+              </li>
+              <li className="flex items-start gap-2">
+                <i className="bx bx-check text-lg text-emerald-600 mt-0.5" />
+                Adaptación del prompt según tipo de venta (productos/servicios).
+              </li>
+              <li className="flex items-start gap-2">
+                <i className="bx bx-check text-lg text-emerald-600 mt-0.5" />
+                Compatible con su catálogo actual de productos.
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Panel lateral: Estado de la conexión */}
+        <div className="bg-white border rounded-2xl shadow-sm hover:shadow-md transition p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 grid place-items-center">
+              <i className="bx bx-chip text-2xl text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">Estado del sistema</h3>
+              <p className="text-sm text-gray-600 mt-0.5">
+                Verificación rápida de su configuración.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">API Key</div>
+                <span
+                  className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                    existeAsistente
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  {existeAsistente ? "OK" : "Pendiente"}
+                </span>
+              </div>
+              <div className="text-sm font-semibold text-gray-900 mt-2 truncate">
+                {existeAsistente
+                  ? "Configurada (oculta por seguridad)"
+                  : "Sin configurar"}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">IA Ventas</div>
+                <span
+                  className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                    iaVentasConectada
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  {iaVentasConectada ? "Lista" : "Sin configurar"}
+                </span>
+              </div>
+              <div className="text-sm font-semibold text-gray-900 mt-2">
+                {asistenteVentas?.nombre_bot || "Sin nombre"}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <div className="text-xs text-gray-500">Acciones rápidas</div>
+              <div className="mt-3 flex flex-col gap-2">
+                <button
+                  onClick={() => setShowModalApiKey(true)}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition text-sm font-semibold"
+                >
+                  <i className="bx bx-key" />
+                  {existeAsistente ? "Editar API Key" : "Añadir API Key"}
+                </button>
+                <a
+                  href={openAIKeyUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-gray-200 hover:bg-white transition text-sm font-semibold text-gray-800"
+                >
+                  <i className="bx bx-link-external" />
+                  Abrir panel de API Keys
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* —— Modales (SIN CAMBIOS) —— */}
+      {/* —— Modales (SIN CAMBIOS de lógica, solo se mejora estilo y textos) —— */}
       {showModalApiKey && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              {existeAsistente ? "Editar API Key" : "Añadir API Key"}
-            </h3>
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-100">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {existeAsistente ? "Editar API Key" : "Añadir API Key"}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Pegue su API Key de OpenAI. Si aún no la tiene, genere una
+                  desde el panel oficial. Recomendación: inicie sesión o
+                  regístrese con su cuenta principal del negocio.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowModalApiKey(false)}
+                className="w-9 h-9 rounded-xl hover:bg-gray-100 transition grid place-items-center"
+                title="Cerrar"
+              >
+                <i className="bx bx-x text-2xl text-gray-600" />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+              <div className="flex items-start gap-3">
+                <i className="bx bx-info-circle text-xl text-indigo-600 mt-0.5" />
+                <div className="text-sm text-indigo-900">
+                  <div className="font-semibold">
+                    Enlace para generar la llave
+                  </div>
+                  <div className="mt-1">
+                    <a
+                      href={openAIKeyUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline font-semibold"
+                    >
+                      {openAIKeyUrl}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <i className="bx bx-wallet text-xl text-amber-700 mt-0.5" />
+                <div className="text-sm text-amber-900">
+                  <div className="font-semibold">
+                    Importante: saldo en OpenAI
+                  </div>
+                  <div className="mt-1">
+                    Después de crear su API Key, verifique que su cuenta de
+                    OpenAI tenga saldo/crédito. Sin saldo, el asistente no
+                    responderá mensajes.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
+              API Key
+            </label>
             <input
               type="text"
               value={existeAsistente || ""}
               onChange={(e) => setExisteAsistente(e.target.value)}
-              className="w-full border px-3 py-2 rounded mb-4"
-              placeholder="Escriba su API Key"
+              className="w-full border px-3 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Pegue aquí su API Key (por ejemplo: sk-...)"
             />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowModalApiKey(false)}
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+
+            <div className="mt-4 flex flex-col sm:flex-row justify-between gap-2">
+              <a
+                href={openAIKeyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition text-sm font-semibold text-gray-800"
               >
-                Cancelar
-              </button>
-              <button
-                onClick={() => guardarApiKey(existeAsistente)}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >
-                Guardar
-              </button>
+                <i className="bx bx-link-external" />
+                Generar API Key
+              </a>
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowModalApiKey(false)}
+                  className="px-4 py-2 rounded-xl bg-gray-200 text-gray-800 hover:bg-gray-300 transition font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => guardarApiKey(existeAsistente)}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition font-semibold shadow"
+                >
+                  Guardar
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {showModalVentas && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 space-y-6">
-            <h3 className="text-xl font-semibold text-gray-800">
-              Configurar IA Ventas
-            </h3>
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 space-y-6 border border-gray-100">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Configurar IA Ventas
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Ajuste el comportamiento del bot y el tipo de venta. No afecta
+                  su lógica de pedidos, solo define cómo responderá y cuándo
+                  hará remarketing.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowModalVentas(false)}
+                className="w-9 h-9 rounded-xl hover:bg-gray-100 transition grid place-items-center"
+                title="Cerrar"
+              >
+                <i className="bx bx-x text-2xl text-gray-600" />
+              </button>
+            </div>
 
             {/* Layout dividido */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -468,7 +842,7 @@ const Asistentes = () => {
                       placeholder="Nombre del Bot"
                       value={nombreBotVenta}
                       onChange={(e) => setNombreBotVenta(e.target.value)}
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="w-full border rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
 
@@ -479,7 +853,7 @@ const Asistentes = () => {
                     <select
                       value={tiempo_remarketing}
                       onChange={(e) => setTiempo_remarketing(e.target.value)}
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="w-full border rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="0">Seleccione una hora</option>
                       <option value="1">1 hora</option>
@@ -491,35 +865,70 @@ const Asistentes = () => {
                   </div>
                 </div>
 
-                {/* Productos */}
-
-                <div className="space-y-4 border-t pt-4"></div>
-
-                {/* Estado activo */}
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={activoVenta}
-                    onChange={(e) => setActivoVenta(e.target.checked)}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                  <span>Activo</span>
-                </label>
+                {/* Separador visual */}
+                <div className="border-t pt-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={activoVenta}
+                      onChange={(e) => setActivoVenta(e.target.checked)}
+                      className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                    <span className="font-semibold text-gray-800">Activo</span>
+                    <span className="text-gray-500">
+                      (si está desactivado, no responderá automáticamente)
+                    </span>
+                  </label>
+                </div>
               </div>
 
               {/* Columna derecha */}
               <div className="space-y-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  IA para venta de:
-                </label>
-                <select
-                  value={tipoVenta}
-                  onChange={(e) => setTipoVenta(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="productos">Productos</option>
-                  <option value="servicios">Servicios</option>
-                </select>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="text-sm font-semibold text-gray-900">
+                    Parámetros del prompt
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    El prompt base se carga automáticamente según el tipo de
+                    venta seleccionado (
+                    <span className="font-semibold">
+                      {tipoVenta === "servicios" ? "Servicios" : "Productos"}
+                    </span>
+                    ) y se alimenta del catálogo de productos de su cuenta.
+                  </p>
+
+                  <a
+                    href="https://chatcenter.imporfactory.app/productos"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl
+                    bg-indigo-50 border border-indigo-100 text-indigo-700
+                    hover:bg-indigo-100 hover:border-indigo-200 transition
+                    text-sm font-semibold"
+                  >
+                    <i className="bx bx-package text-lg" />
+                    Ir a Productos
+                    <i className="bx bx-link-external text-lg" />
+                  </a>
+
+                  <p className="text-sm text-gray-600 mt-2">
+                    Puede revisarlo en la vista previa antes de guardar.
+                  </p>
+
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      IA para venta de:
+                    </label>
+                    <select
+                      value={tipoVenta}
+                      onChange={(e) => setTipoVenta(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="productos">Productos</option>
+                      <option value="servicios">Servicios</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -527,13 +936,13 @@ const Asistentes = () => {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowModalVentas(false)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+                className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 transition font-semibold"
               >
                 Cancelar
               </button>
               <button
                 onClick={guardarVentas}
-                className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow"
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow transition font-semibold"
               >
                 Guardar
               </button>

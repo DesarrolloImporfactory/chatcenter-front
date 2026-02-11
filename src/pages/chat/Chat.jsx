@@ -404,9 +404,7 @@ const Chat = () => {
   };
 
   // ——— Flags de carga para el gate del Sidebar ———
-  const [isLoadingWA, setIsLoadingWA] = useState(true);
-  const [isLoadingMS, setIsLoadingMS] = useState(true);
-  const [isLoadingIG, setIsLoadingIG] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Usamos refs para no volver a poner "loading=true" después del primer batch
   const waBootstrappedRef = useRef(false);
@@ -1820,7 +1818,7 @@ const Chat = () => {
       console.time("⏱ Tiempo hasta llegada de CHATS");
 
       // 👉 WhatsApp: si aún no hicimos el bootstrap, estamos cargando
-      if (!waBootstrappedRef.current) setIsLoadingWA(true);
+      if (!waBootstrappedRef.current) setIsLoading(true);
 
       // Limpiar listeners existentes antes de registrar nuevos
       // socketRef.current.off("RECEIVED_MESSAGE");
@@ -1842,7 +1840,7 @@ const Chat = () => {
         // 👉 Fin del primer batch de WA
         if (!waBootstrappedRef.current) {
           waBootstrappedRef.current = true;
-          setIsLoadingWA(false);
+          setIsLoading(false);
         }
 
         prefetchProfilesFromChats(data);
@@ -2955,9 +2953,7 @@ const Chat = () => {
         id_plataforma_conf={id_plataforma_conf}
         selectedPedidos_confirmados={selectedPedidos_confirmados}
         setSelectedPedidos_confirmados={setSelectedPedidos_confirmados}
-        isLoadingWA={isLoadingWA}
-        isLoadingMS={isLoadingMS}
-        isLoadingIG={isLoadingIG}
+        isLoading={isLoading}
         cargandoChats={cargandoChats}
         scopeChats={scopeChats}
         setScopeChats={setScopeChats}

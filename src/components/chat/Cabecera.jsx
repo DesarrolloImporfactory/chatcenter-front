@@ -89,12 +89,12 @@ const Cabecera = ({
   useEffect(() => {
     if (["/productos", "/categorias"].includes(location.pathname)) {
       setOpenMenu("productos");
-    } else if (
-      ["/integraciones", "/calendario", "/asistentes"].includes(
-        location.pathname,
-      )
-    ) {
+    } else if (["/calendario"].includes(location.pathname)) {
       setOpenMenu("herramientas");
+    } else if (
+      ["/canal-conexiones", "/dropi", "/asistentes"].includes(location.pathname)
+    ) {
+      setOpenMenu("integraciones");
     } else if (
       [
         "/canal-conexiones",
@@ -537,7 +537,7 @@ const Cabecera = ({
               type="button"
               onClick={() => toggleMenu("integraciones")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                ["/canal-conexiones", "/dropi"].some((p) =>
+                ["/canal-conexiones", "/dropi", "/asistentes"].some((p) =>
                   location.pathname.startsWith(p),
                 )
                   ? "bg-gray-200 font-semibold"
@@ -579,6 +579,22 @@ const Cabecera = ({
                 >
                   <i className="bx bx-network-chart text-xl text-gray-600 group-hover:text-blue-600"></i>
                   <span>Canal de Conexiones</span>
+                </button>
+
+                <button
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    location.pathname === "/asistentes"
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goTo("/asistentes");
+                    setSliderOpen(false);
+                  }}
+                >
+                  <i className="bx bx-support text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Asistentes</span>
                 </button>
 
                 {/* ===== Dropi (submenu) ===== */}
@@ -657,7 +673,7 @@ const Cabecera = ({
               type="button"
               onClick={() => toggleMenu("herramientas")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                ["/calendario", "/asistentes"].includes(location.pathname)
+                ["/calendario"].includes(location.pathname)
                   ? "bg-gray-200 font-semibold"
                   : ""
               }`}
@@ -712,22 +728,6 @@ const Cabecera = ({
                       {isCalendarBlocked ? "Bloqueado" : "Beta"}
                     </span>
                   </span>
-                </button>
-
-                <button
-                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                    location.pathname === "/asistentes"
-                      ? "font-semibold text-blue-600"
-                      : ""
-                  }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    goTo("/asistentes");
-                    setSliderOpen(false);
-                  }}
-                >
-                  <i className="bx bx-support text-xl text-gray-600 group-hover:text-blue-600"></i>
-                  <span>Asistentes</span>
                 </button>
               </div>
             </div>

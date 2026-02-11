@@ -24,9 +24,6 @@ function MainLayout({ children }) {
 
   const p = getPresence(id_sub_usuario);
 
-  console.log("[MAINLAYOUT] id_sub_usuario:", id_sub_usuario);
-  console.log("[MAINLAYOUT] presence:", p);
-
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
   const [openContacto, setOpenContacto] = useState(false);
@@ -297,9 +294,11 @@ function MainLayout({ children }) {
   useEffect(() => {
     if (["/productos", "/categorias"].includes(location.pathname)) {
       setOpenMenu("productos");
-    } else if (["/calendario", "/asistentes"].includes(location.pathname)) {
+    } else if (["/calendario"].includes(location.pathname)) {
       setOpenMenu("herramientas");
-    } else if (["/canal-conexiones", "/dropi"].includes(location.pathname)) {
+    } else if (
+      ["/canal-conexiones", "/dropi", "/asistentes"].includes(location.pathname)
+    ) {
       setOpenMenu("integraciones");
     } else if (
       [
@@ -351,7 +350,7 @@ function MainLayout({ children }) {
   };
 
   const isCalendarBlocked = userData && canAccessCalendar === false;
-  
+
   const { isDropiLinked, loadingDropiLinked } = useDropi();
 
   return (
@@ -476,7 +475,7 @@ function MainLayout({ children }) {
                 type="button"
                 onClick={() => toggleMenu("integraciones")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                  ["/canal-conexiones", "/dropi"].some((p) =>
+                  ["/canal-conexiones", "/dropi", "/asistentes"].some((p) =>
                     location.pathname.startsWith(p),
                   )
                     ? "bg-gray-200 font-semibold"
@@ -525,6 +524,21 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bx-network-chart text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Canal de Conexiones</span>
+                  </button>
+
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname === "/asistentes"
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      goTo("/asistentes");
+                    }}
+                  >
+                    <i className="bx bx-support text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Asistentes</span>
                   </button>
 
                   {/* ===== Dropi (submenu) ===== */}
@@ -603,7 +617,7 @@ function MainLayout({ children }) {
                 type="button"
                 onClick={() => toggleMenu("herramientas")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                  ["/calendario", "/asistentes"].includes(location.pathname)
+                  ["/calendario"].includes(location.pathname)
                     ? "bg-gray-200 font-semibold"
                     : ""
                 }`}
@@ -654,21 +668,6 @@ function MainLayout({ children }) {
                         {isCalendarBlocked ? "Bloqueado" : "Beta"}
                       </span>
                     </span>
-                  </button>
-
-                  <button
-                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                      location.pathname === "/asistentes"
-                        ? "font-semibold text-blue-600"
-                        : ""
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      goTo("/asistentes");
-                    }}
-                  >
-                    <i className="bx bx-support text-xl text-gray-600 group-hover:text-blue-600"></i>
-                    <span>Asistentes</span>
                   </button>
                 </div>
               </div>

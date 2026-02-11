@@ -8,6 +8,7 @@ import esLocale from "@fullcalendar/core/locales/es";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import "./Calendario.css";
+import PageHeader from "../Header/pageHeader";
 
 const WEEKDAYS = ["D", "L", "Ma", "Mi", "J", "V", "S"];
 const UNASSIGNED_COLOR = "#a78bfa"; // lila suave p/ sin asignar
@@ -22,7 +23,7 @@ function safeJwtDecode(token) {
       atob(base64)
         .split("")
         .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
+        .join(""),
     );
     return JSON.parse(json);
   } catch {
@@ -38,7 +39,7 @@ function toLocalOffsetISO(d) {
   const hh = pad(Math.floor(Math.abs(off) / 60));
   const mm = pad(Math.abs(off) % 60);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
+    d.getHours(),
   )}:${pad(d.getMinutes())}:00${sign}${hh}:${mm}`;
 }
 
@@ -104,7 +105,7 @@ export default function Calendario() {
   const [usuarios, setUsuarios] = useState([]); // { id, nombre, color, checked }
   const selectedUserIds = useMemo(
     () => usuarios.filter((u) => u.checked).map((u) => u.id),
-    [usuarios]
+    [usuarios],
   );
 
   // LISTA tipo CRM
@@ -132,7 +133,7 @@ export default function Calendario() {
           Swal.fire(
             "Sincronizado",
             "Se importaron cambios de Google.",
-            "success"
+            "success",
           );
         }
       } catch (e) {
@@ -144,7 +145,7 @@ export default function Calendario() {
         setSyncing(false);
       }
     },
-    [calendarId]
+    [calendarId],
   );
 
   const checkGoogleStatus = useCallback(async (calId) => {
@@ -205,7 +206,7 @@ export default function Calendario() {
             Swal.fire(
               "Listo",
               "Google Calendar vinculado y sincronizado.",
-              "success"
+              "success",
             );
           } else {
             Swal.fire("Cancelado", "No se completó la vinculación.", "info");
@@ -217,7 +218,7 @@ export default function Calendario() {
       Swal.fire(
         "Error",
         "No se pudo iniciar la vinculación con Google.",
-        "error"
+        "error",
       );
     }
   };
@@ -319,7 +320,7 @@ export default function Calendario() {
       try {
         const { data } = await chatApi.post(
           "/usuarios_chat_center/listarUsuarios",
-          { id_usuario: ownerUserId }
+          { id_usuario: ownerUserId },
         );
         const rows = Array.isArray(data?.data) ? data.data : [];
         const mapped = rows.map((r, i) => {
@@ -398,7 +399,7 @@ export default function Calendario() {
                 (st) =>
                   `<option value="${st}" ${
                     i.status === st ? "selected" : ""
-                  }>${st}</option>`
+                  }>${st}</option>`,
               )
               .join("")}
           </select>
@@ -428,7 +429,7 @@ export default function Calendario() {
                 (u) =>
                   `<option value="${u.id}" ${
                     Number(i.assigned_user_id) === u.id ? "selected" : ""
-                  }>${u.nombre}</option>`
+                  }>${u.nombre}</option>`,
               )
               .join("")}
           </select>
@@ -503,10 +504,10 @@ export default function Calendario() {
         const btnAdd = document.getElementById("btn-add-invitee");
         const rows = i.inviteesParsed.length ? i.inviteesParsed : [{}];
         rows.forEach((inv) =>
-          list.insertAdjacentHTML("beforeend", inviteeRowTpl(inv))
+          list.insertAdjacentHTML("beforeend", inviteeRowTpl(inv)),
         );
         btnAdd.addEventListener("click", () =>
-          list.insertAdjacentHTML("beforeend", inviteeRowTpl())
+          list.insertAdjacentHTML("beforeend", inviteeRowTpl()),
         );
         list.addEventListener("click", (e) => {
           if (e.target.matches(".btn-del-inv")) {
@@ -571,7 +572,7 @@ export default function Calendario() {
             Swal.fire(
               "Google no vinculado",
               "Conecta Google Calendar para generar un Meet.",
-              "info"
+              "info",
             );
             return;
           }
@@ -603,7 +604,7 @@ export default function Calendario() {
 
         // --- limpiar estados previos ---
         ["f-title", "f-date", "f-start", "f-end"].forEach((id) =>
-          $(id)?.classList.remove("invalid")
+          $(id)?.classList.remove("invalid"),
         );
         document
           .querySelectorAll("#invitees-list .swal2-input")
@@ -658,7 +659,7 @@ export default function Calendario() {
           if (e <= s)
             return fail(
               "La hora fin debe ser mayor que la hora inicio.",
-              "f-end"
+              "f-end",
             );
 
           startISO = toLocalOffsetISO(s);
@@ -667,7 +668,7 @@ export default function Calendario() {
 
         // Invitados: al menos 1 con correo válido
         const inviteeRows = Array.from(
-          document.querySelectorAll("#invitees-list .invitee-row")
+          document.querySelectorAll("#invitees-list .invitee-row"),
         );
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -692,7 +693,7 @@ export default function Calendario() {
           invitees[0]?._emailEl?.classList.add("invalid");
           return fail(
             "Agrega al menos un invitado con correo.",
-            invitees[0]?._emailEl?.id
+            invitees[0]?._emailEl?.id,
           );
         }
 
@@ -806,7 +807,7 @@ export default function Calendario() {
           Swal.fire("Error", "No se pudieron cargar los eventos.", "error");
         });
     },
-    [calendarId, selectedUserIds, usuarios, includeUnassigned]
+    [calendarId, selectedUserIds, usuarios, includeUnassigned],
   );
 
   // ------ Crear desde selección (fecha/hora bloqueadas) ------
@@ -908,7 +909,7 @@ export default function Calendario() {
       return Swal.fire(
         "Calendario",
         "Aún no está listo el calendario.",
-        "info"
+        "info",
       );
     }
     const base = new Date(currentDate);
@@ -1063,7 +1064,7 @@ export default function Calendario() {
       Swal.fire(
         "Actualizado",
         "La cita se actualizó, pero hubo un problema al refrescar la interfaz.",
-        "warning"
+        "warning",
       );
     }
   };
@@ -1091,12 +1092,12 @@ export default function Calendario() {
   const monthStart = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth(),
-    1
+    1,
   );
   const monthEnd = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth() + 1,
-    0
+    0,
   );
   const startWeekDay = monthStart.getDay();
   const days = [];
@@ -1171,7 +1172,7 @@ export default function Calendario() {
         setListLoading(false);
       }
     },
-    [calendarId, selectedUserIds, currentDate, listFilter, includeUnassigned]
+    [calendarId, selectedUserIds, currentDate, listFilter, includeUnassigned],
   );
 
   // Cargar lista cuando cambio a pestaña "list" o cambian filtros
@@ -1187,7 +1188,7 @@ export default function Calendario() {
         created_by_user_id: ownerUserId,
       });
       setListRows((rows) =>
-        rows.map((r) => (r.id === rowId ? { ...r, status: newStatus } : r))
+        rows.map((r) => (r.id === rowId ? { ...r, status: newStatus } : r)),
       );
       Swal.fire({
         toast: true,
@@ -1267,17 +1268,47 @@ export default function Calendario() {
     </svg>
   );
 
-  // ====== UI ======
+  const headerActions = useMemo(() => {
+    const actions = [];
+
+    actions.push({
+      label: "Hoy",
+      variant: "ghost",
+      onClick: gotoToday,
+    });
+
+    actions.push({
+      label: "+ Nueva cita",
+      variant: "primary",
+      onClick: handleNewClick,
+      disabled: !calendarId,
+    });
+
+    actions.push({ type: "divider" });
+
+    return actions;
+  }, [handleNewClick]);
+
   return (
     <div className="p-0">
-      {/* Título al estilo Admin */}
-      <h1 className="text-2xl font-bold mb-4 p-5">
-        Planifica y Controla tus Citas en un Solo Lugar
-      </h1>
+      <div className="px-5 pt-5">
+        <PageHeader
+          title="Calendario de Citas"
+          subtitle={
+            <>
+              Planifique y controle sus citas en un solo lugar. Organice
+              reuniones, asigne responsables y sincronice con{" "}
+              <span className="font-semibold">Google Calendar</span> para que su
+              equipo trabaje con claridad.
+            </>
+          }
+          actions={headerActions}
+          tone="dark"
+        />
+      </div>
 
-      {/* Tabs - MISMO estilo que AdministradorPlantillas2 */}
       <div className="overflow-x-auto">
-        <div className="flex gap-4 border-b border-gray-200 px-5 min-w-max">
+        <div className="flex gap-4 border-b border-gray-200 px-5 min-w-max mt-5">
           <button
             className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
               tab === "calendar"
@@ -1485,8 +1516,8 @@ export default function Calendario() {
                     datesSet={(arg) =>
                       setCurrentDate(
                         new Date(
-                          arg.start.getTime() + (arg.end - arg.start) / 2
-                        )
+                          arg.start.getTime() + (arg.end - arg.start) / 2,
+                        ),
                       )
                     }
                     views={{
@@ -1508,7 +1539,7 @@ export default function Calendario() {
                       if (info.view.type.startsWith("list")) return;
 
                       const href = normalizeMeetingHref(
-                        info.event.extendedProps.meeting_url
+                        info.event.extendedProps.meeting_url,
                       );
                       if (!href) return;
 
@@ -1599,8 +1630,8 @@ export default function Calendario() {
                           !d
                             ? ""
                             : isSelected
-                            ? "ring-2 ring-blue-600"
-                            : "hover:bg-gray-100"
+                              ? "ring-2 ring-blue-600"
+                              : "hover:bg-gray-100"
                         } ${!d ? "cursor-default" : "cursor-pointer"}`}
                         disabled={!d}
                       >
@@ -1775,7 +1806,7 @@ export default function Calendario() {
                       let rows = listRows.filter((r) =>
                         search
                           ? r.title.toLowerCase().includes(search.toLowerCase())
-                          : true
+                          : true,
                       );
 
                       // 2) Filtro: 'proximas' | 'cancelado' | 'todos'
@@ -1910,7 +1941,7 @@ export default function Calendario() {
                                         ? new Date(r.end)
                                         : new Date(
                                             new Date(r.start).getTime() +
-                                              30 * 60000
+                                              30 * 60000,
                                           ),
                                       startTime: new Date(r.start)
                                         .toTimeString()
@@ -1936,12 +1967,12 @@ export default function Calendario() {
                                       {
                                         ...form,
                                         created_by_user_id: ownerUserId,
-                                      }
+                                      },
                                     );
                                     Swal.fire(
                                       "Guardado",
                                       "Cita actualizada.",
-                                      "success"
+                                      "success",
                                     );
                                     loadListRows();
                                     api()?.refetchEvents();
@@ -1950,7 +1981,7 @@ export default function Calendario() {
                                     Swal.fire(
                                       "Error",
                                       "No se pudo actualizar.",
-                                      "error"
+                                      "error",
                                     );
                                   }
                                 }}

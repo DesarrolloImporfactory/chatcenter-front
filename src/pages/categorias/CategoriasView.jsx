@@ -180,7 +180,7 @@ const CategoriasView = () => {
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: "asc" }
+        : { key, dir: "asc" },
     );
   };
 
@@ -192,7 +192,7 @@ const CategoriasView = () => {
       data = data.filter(
         (c) =>
           c?.nombre?.toLowerCase().includes(q) ||
-          c?.descripcion?.toLowerCase().includes(q)
+          c?.descripcion?.toLowerCase().includes(q),
       );
     }
 
@@ -210,7 +210,7 @@ const CategoriasView = () => {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(listaProcesada.length / itemsPerPage)
+    Math.ceil(listaProcesada.length / itemsPerPage),
   );
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -222,7 +222,7 @@ const CategoriasView = () => {
   }, [search, itemsPerPage]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100  px-3 md:px-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100  w-full">
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header */}
         <header className="relative isolate overflow-hidden">
@@ -425,14 +425,14 @@ const CategoriasView = () => {
                   <span className="font-semibold text-slate-800">
                     {Math.min(
                       (currentPage - 1) * itemsPerPage + 1,
-                      listaProcesada.length
+                      listaProcesada.length,
                     )}
                   </span>{" "}
                   –{" "}
                   <span className="font-semibold text-slate-800">
                     {Math.min(
                       currentPage * itemsPerPage,
-                      listaProcesada.length
+                      listaProcesada.length,
                     )}
                   </span>{" "}
                   de{" "}
