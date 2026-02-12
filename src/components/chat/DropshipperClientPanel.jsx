@@ -1272,7 +1272,6 @@ export default function DropshipperClientPanel(props) {
                     <p className="text-xs text-white/55 truncate mt-0.5">
                       {selectedChat?.email_cliente || "Sin email registrado"}
                     </p>
-                    0
                   </div>
                 </div>
               </div>

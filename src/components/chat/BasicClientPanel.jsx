@@ -17,37 +17,95 @@ export default function BasicClientPanel({
     <div className="flex items-start justify-center overflow-y-auto h-full md:h-[750px] pt-2 md:pt-4 custom-scrollbar">
       <div className="w-full max-w-3xl mx-auto">
         {/* Info cliente */}
-        <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border opacity-0 animate-fadeInOnce delay-[100ms]">
-          <div className="w-full bg-[#162c4a] rounded-xl shadow-lg px-6 py-5 flex flex-col gap-4 animate-fadeInOnce">
-            <img
-              key={selectedChat?.psid || selectedChat?.id}
-              src={selectedChat?.imagePath || DEFAULT_AVATAR}
-              alt="Avatar"
-              className="h-12 w-12 rounded-full object-cover bg-white block mx-auto"
-              loading="lazy"
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = DEFAULT_AVATAR;
-              }}
-            />
+        <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border">
+          <div className="mb-6">
+            <div className="rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-hidden">
+              {/* Top strip */}
+              <div className="px-5 py-4 bg-[#162c4a]">
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
+                    <img
+                      src={selectedChat?.imagePath || DEFAULT_AVATAR}
+                      alt="Avatar"
+                      className="h-12 w-12 rounded-full object-cover bg-white/10 border border-white/10"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = DEFAULT_AVATAR;
+                      }}
+                    />
+                  </div>
 
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 text-white/90">
-              <div className="flex items-center gap-3">
-                <i className="bx bx-id-card text-2xl text-violet-300"></i>
-                <div>
-                  <p className="text-xs text-white/60">Nombre</p>
-                  <p className="text-sm font-semibold">
-                    {selectedChat?.nombre_cliente || "N/A"}
-                  </p>
+                  {/* Nombre + meta */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-white font-semibold text-base truncate">
+                        {selectedChat?.nombre_cliente || "Cliente sin nombre"}
+                      </p>
+                      <span className="text-[11px] text-white/40">
+                        {selectedChat?.psid
+                          ? `PSID ${selectedChat.psid}`
+                          : `ID ${selectedChat?.id ?? "N/A"}`}
+                      </span>
+                    </div>
+                    {/* Subline */}
+                    <p className="text-xs text-white/55 truncate mt-0.5">
+                      {selectedChat?.email_cliente || "Sin email registrado"}
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <i className="bx bx-phone-call text-2xl text-violet-300"></i>
-                <div>
-                  <p className="text-xs text-white/60">Teléfono</p>
-                  <p className="text-sm font-semibold">
-                    {selectedChat?.celular_cliente || "N/A"}
-                  </p>
+
+              {/* Bottom grid info (mismo estilo / misma familia de color) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/10 bg-[#0f1b33]">
+                {/* Teléfono */}
+                <div className="px-5 py-4">
+                  <p className="text-[11px] text-white/45">Teléfono</p>
+
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <p className="text-sm text-white/90 font-medium truncate">
+                      {selectedChat?.celular_cliente ||
+                        "Sin teléfono registrado"}
+                    </p>
+
+                    <button
+                      type="button"
+                      className="shrink-0 p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition"
+                      onClick={() => {
+                        const v = selectedChat?.celular_cliente || "";
+                        if (!v) return;
+                        navigator.clipboard?.writeText(String(v));
+                      }}
+                      title="Copiar teléfono"
+                    >
+                      <i className="bx bx-copy-alt text-base text-white/70" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div className="px-5 py-4">
+                  <p className="text-[11px] text-white/45">Email</p>
+
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <p className="text-sm text-white/90 font-medium truncate">
+                      {selectedChat?.email_cliente || "Sin email registrado"}
+                    </p>
+
+                    <button
+                      type="button"
+                      className="shrink-0 p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition"
+                      onClick={() => {
+                        const v = selectedChat?.email_cliente || "";
+                        if (!v) return;
+                        navigator.clipboard?.writeText(String(v));
+                      }}
+                      title="Copiar email"
+                    >
+                      <i className="bx bx-copy-alt text-base text-white/70" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
