@@ -159,6 +159,11 @@ const UsuariosView = () => {
 
     const payload = { ...form };
     try {
+      // ✅ si estoy editando y password está vacío/espacios, no lo mando
+      if (editingId && !payload.password?.trim()) {
+        delete payload.password;
+      }
+
       if (editingId) {
         await chatApi.post("/usuarios_chat_center/actualizarUsuario", {
           id_sub_usuario: editingId,
@@ -200,7 +205,7 @@ const UsuariosView = () => {
       ) {
         const backendMsg = error?.response?.data?.message;
         setLimitMessage(
-          backendMsg || "Ha alcanzado el límite de conexiones de su plan."
+          backendMsg || "Ha alcanzado el límite de conexiones de su plan.",
         );
         setShowUpgradeOptions(true);
         return;
@@ -275,7 +280,7 @@ const UsuariosView = () => {
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: "asc" }
+        : { key, dir: "asc" },
     );
   };
 
@@ -294,12 +299,12 @@ const UsuariosView = () => {
         (u) =>
           u?.usuario?.toLowerCase().includes(q) ||
           u?.email?.toLowerCase().includes(q) ||
-          u?.nombre_encargado?.toLowerCase().includes(q)
+          u?.nombre_encargado?.toLowerCase().includes(q),
       );
     }
     if (rolFiltro) {
       data = data.filter(
-        (u) => String(u.rol).toLowerCase() === rolFiltro.toLowerCase()
+        (u) => String(u.rol).toLowerCase() === rolFiltro.toLowerCase(),
       );
     }
 
@@ -317,7 +322,7 @@ const UsuariosView = () => {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(listaProcesada.length / itemsPerPage)
+    Math.ceil(listaProcesada.length / itemsPerPage),
   );
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -393,7 +398,7 @@ const UsuariosView = () => {
           id_usuario,
           success_url: `${base}/usuarios?addon_subusuario=ok`,
           cancel_url: `${base}/usuarios?addon_subusuario=cancel`,
-        }
+        },
       );
 
       if (res?.data?.url) {
@@ -579,7 +584,7 @@ const UsuariosView = () => {
                         <td className="p-3">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-semibold ${rolBadge(
-                              u.rol
+                              u.rol,
                             )}`}
                           >
                             {u.rol || "—"}
@@ -630,14 +635,14 @@ const UsuariosView = () => {
                   <span className="font-semibold text-slate-800">
                     {Math.min(
                       (currentPage - 1) * itemsPerPage + 1,
-                      listaProcesada.length
+                      listaProcesada.length,
                     )}
                   </span>{" "}
                   –{" "}
                   <span className="font-semibold text-slate-800">
                     {Math.min(
                       currentPage * itemsPerPage,
-                      listaProcesada.length
+                      listaProcesada.length,
                     )}
                   </span>{" "}
                   de{" "}
@@ -892,53 +897,66 @@ const UsuariosView = () => {
                         />
                       </div>
 
-                      {!editingId && (
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Contraseña
-                          </label>
-                          <div className="relative">
-                            <input
-                              required
-                              placeholder="••••••••"
-                              type={showPassword ? "text" : "password"}
-                              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                              value={form.password}
-                              onChange={(e) =>
-                                setForm({ ...form, password: e.target.value })
-                              }
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword((s) => !s)}
-                              className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-500 hover:text-slate-700"
-                              aria-label={
-                                showPassword
-                                  ? "Ocultar contraseña"
-                                  : "Mostrar contraseña"
-                              }
-                            >
-                              {showPassword ? (
-                                <svg
-                                  className="w-5 h-5"
-                                  viewBox="0 0 24 24"
-                                  fill="currentColor"
-                                >
-                                  <path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
-                                </svg>
-                              ) : (
-                                <svg
-                                  className="w-5 h-5"
-                                  viewBox="0 0 24 24"
-                                  fill="currentColor"
-                                >
-                                  <path d="M3.53 2.47 2.47 3.53 5.2 6.26C3.44 7.54 2.23 9.16 2 9.5c0 0 3 7 10 7 2.05 0 3.82-.5 5.33-1.3l2.14 2.14 1.06-1.06-17-17zM12 6c2.82 0 5.09 1.16 6.78 2.5.78.62 1.42 1.27 1.89 1.81-.29.37-1.42 1.75-3.26 2.86l-2.02-2.02A5 5 0 0 0 9.85 7.7L7.73 5.58C9.03 5.2 10.47 6 12 6z" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          {editingId ? "Nueva contraseña" : "Contraseña"}
+                        </label>
+
+                        <div className="relative">
+                          <input
+                            placeholder={
+                              editingId
+                                ? "Dejar en blanco para no cambiar"
+                                : "••••••••"
+                            }
+                            type={showPassword ? "text" : "password"}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                            value={form.password}
+                            onChange={(e) =>
+                              setForm({ ...form, password: e.target.value })
+                            }
+                            required={!editingId} // ✅ solo obligatorio al crear
+                            autoComplete={
+                              editingId ? "new-password" : "new-password"
+                            }
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((s) => !s)}
+                            className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                            aria-label={
+                              showPassword
+                                ? "Ocultar contraseña"
+                                : "Mostrar contraseña"
+                            }
+                          >
+                            {showPassword ? (
+                              <svg
+                                className="w-5 h-5"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
+                              </svg>
+                            ) : (
+                              <svg
+                                className="w-5 h-5"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M3.53 2.47 2.47 3.53 5.2 6.26C3.44 7.54 2.23 9.16 2 9.5c0 0 3 7 10 7 2.05 0 3.82-.5 5.33-1.3l2.14 2.14 1.06-1.06-17-17zM12 6c2.82 0 5.09 1.16 6.78 2.5.78.62 1.42 1.27 1.89 1.81-.29.37-1.42 1.75-3.26 2.86l-2.02-2.02A5 5 0 0 0 9.85 7.7L7.73 5.58C9.03 5.2 10.47 6 12 6z" />
+                              </svg>
+                            )}
+                          </button>
                         </div>
-                      )}
+
+                        {editingId && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Si no escribes nada, la contraseña no se cambia.
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-4">
