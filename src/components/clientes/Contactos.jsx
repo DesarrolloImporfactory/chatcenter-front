@@ -89,7 +89,7 @@ const timeAgo = (d) => {
   return rtf.format(-Math.round(y), "year");
 };
 
-// ✅ chat_id primero (id_cliente_chat_center)
+//chat_id primero (id_cliente_chat_center)
 const getId = (r) =>
   r?.id_cliente_chat_center ?? r?.id ?? r?._id ?? r?.id_cliente ?? null;
 
@@ -655,8 +655,11 @@ export default function Contactos() {
   const [headerFormat, setHeaderFormat] = useState(null); // 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | null
   const [headerPlaceholders, setHeaderPlaceholders] = useState([]);
   const [headerPlaceholderValues, setHeaderPlaceholderValues] = useState({});
-  const [headerMediaUrl, setHeaderMediaUrl] = useState("");
-  const [headerMediaFilename, setHeaderMediaFilename] = useState(""); // útil para DOCUMENT
+  const [headerFileMasivo, setHeaderFileMasivo] = useState(null);
+
+  // (opcional pero recomendado si quiere también soportar botones URL como el 1 a 1)
+  const [bodyPlaceholders, setBodyPlaceholders] = useState([]); // [{n,key}]
+  const [urlButtons, setUrlButtons] = useState([]); // [{index,ph,key,label,base}]
 
   const allPlaceholdersFilled = placeholders.every(
     (ph) => (placeholderValues[ph] || "").trim().length > 0,
@@ -675,10 +678,9 @@ export default function Contactos() {
   );
 
   const headerTextReady = !isHeaderText || allHeaderPlaceholdersFilled;
-  const headerMediaReady =
-    !isHeaderMedia || (headerMediaUrl || "").trim().length > 0;
+  const headerMediaReady = !isHeaderMedia || Boolean(headerFileMasivo);
 
-  // ✅ Listo si hay nombre + body placeholders (si existen) + header (si aplica)
+  //Listo si hay nombre + body placeholders (si existen) + header (si aplica)
   const templateReady =
     Boolean(templateName) &&
     (placeholders.length === 0 || allBodyPlaceholdersFilled) &&
@@ -733,85 +735,144 @@ export default function Contactos() {
     setTemplateName(selectedTemplateName);
 
     const selectedTemplate = templates.find(
-      (template) => template.name === selectedTemplateName,
+      (t) => t.name === selectedTemplateName,
     );
 
-    // Reset header cada vez que cambia template
+    // ===== Reset general =====
+    setTemplateText("");
+    setPlaceholders([]); // si aún lo usa en UI, se llena con ["1","2"...]
+    setBodyPlaceholders([]); // nuevo (para keys body_1...)
+    setUrlButtons([]); // nuevo
+    setPlaceholderValues({});
+
+    // Reset header cada vez
     setHeaderRequired(false);
     setHeaderFormat(null);
     setHeaderPlaceholders([]);
     setHeaderPlaceholderValues({});
-    setHeaderMediaUrl("");
-    setHeaderMediaFilename("");
+    setHeaderFileMasivo(null);
 
-    if (!selectedTemplate) {
-      setTemplateText("");
-      setPlaceholders([]);
-      setPlaceholderValues({});
-      return;
-    }
+    if (!selectedTemplate) return;
 
-    // ===== BODY =====
-    const templateBodyComponent = selectedTemplate.components?.find(
-      (comp) => String(comp.type || "").toUpperCase() === "BODY",
-    );
-
-    if (templateBodyComponent?.text) {
-      const bodyText = templateBodyComponent.text;
-      setTemplateText(bodyText);
-
-      const extractedPlaceholders = [...bodyText.matchAll(/{{(.*?)}}/g)].map(
-        (match) => match[1],
-      );
-
-      const initialPlaceholderValues = {};
-      extractedPlaceholders.forEach((placeholder) => {
-        initialPlaceholderValues[placeholder] = "";
-      });
-
-      setPlaceholders(extractedPlaceholders);
-      setPlaceholderValues(initialPlaceholderValues);
-    } else {
-      setTemplateText("Este template no tiene un cuerpo definido.");
-      setPlaceholders([]);
-      setPlaceholderValues({});
-    }
-
-    // ===== HEADER =====
+    // =========================
+    // 0) HEADER
+    // =========================
     const headerComp = selectedTemplate.components?.find(
-      (comp) => String(comp.type || "").toUpperCase() === "HEADER",
+      (c) => String(c.type || "").toUpperCase() === "HEADER",
     );
 
     if (headerComp) {
-      const fmt = String(headerComp.format || "").toUpperCase(); // TEXT/IMAGE/VIDEO/DOCUMENT
+      const fmt = String(headerComp.format || "").toUpperCase(); // TEXT | IMAGE | VIDEO | DOCUMENT
       if (fmt) {
         setHeaderRequired(true);
         setHeaderFormat(fmt);
 
-        if (fmt === "TEXT" && headerComp.text) {
-          const headerText = String(headerComp.text);
-
-          const extractedHeaderPH = [...headerText.matchAll(/{{(.*?)}}/g)].map(
-            (match) => match[1],
+        if (fmt === "TEXT") {
+          const headerText = String(headerComp.text || "");
+          const matches = [...headerText.matchAll(/{{(.*?)}}/g)].map((m) =>
+            String(m[1]).trim(),
           );
 
-          const initialHeaderValues = {};
-          extractedHeaderPH.forEach((placeholder) => {
-            initialHeaderValues[placeholder] = "";
-          });
-
-          setHeaderPlaceholders(extractedHeaderPH);
-          setHeaderPlaceholderValues(initialHeaderValues);
+          // Si header text tiene placeholders -> valores por placeholder "1","2"... (como su masivo actual)
+          if (matches.length > 0) {
+            const initialHeaderValues = {};
+            matches.forEach((ph) => (initialHeaderValues[ph] = ""));
+            setHeaderPlaceholders(matches);
+            setHeaderPlaceholderValues(initialHeaderValues);
+          } else {
+            // header text fijo sin placeholders
+            setHeaderPlaceholders([]);
+            setHeaderPlaceholderValues({});
+          }
         }
+
+        // Si es media (IMAGE/VIDEO/DOCUMENT) => solo marcar required + format
+        // El archivo se pide en UI y se manda en multipart.
       }
     }
 
-    // idioma
+    // =========================
+    // 1) BODY
+    // =========================
+    const bodyComp = selectedTemplate.components?.find(
+      (c) => String(c.type || "").toUpperCase() === "BODY",
+    );
+
+    let extractedBody = [];
+    if (bodyComp?.text) {
+      const bodyText = String(bodyComp.text);
+      setTemplateText(bodyText);
+
+      extractedBody = [...bodyText.matchAll(/{{(.*?)}}/g)].map((m) =>
+        String(m[1]).trim(),
+      );
+
+      // Para compatibilidad con su UI actual:
+      setPlaceholders(extractedBody);
+
+      // Nuevo formato como 1 a 1:
+      const bodyObjs = extractedBody.map((n) => ({ n, key: `body_${n}` }));
+      setBodyPlaceholders(bodyObjs);
+    } else {
+      setTemplateText("Este template no tiene un cuerpo definido.");
+    }
+
+    // =========================
+    // 2) BUTTONS (URL) - OPCIONAL (si su masivo no usa botones, puede omitir esto)
+    // =========================
+    const buttonsComp = selectedTemplate.components?.find(
+      (c) => String(c.type || "").toUpperCase() === "BUTTONS",
+    );
+
+    let urlBtns = [];
+    if (buttonsComp?.buttons?.length) {
+      buttonsComp.buttons.forEach((btn, idx) => {
+        const isUrl = String(btn.type || "").toUpperCase() === "URL";
+        if (!isUrl) return;
+
+        const urlText = String(btn.url || "");
+        const matches = [...urlText.matchAll(/{{(.*?)}}/g)].map((m) =>
+          String(m[1]).trim(),
+        );
+
+        matches.forEach((ph) => {
+          urlBtns.push({
+            index: String(idx),
+            ph,
+            key: `url_${idx}_${ph}`,
+            label: btn.text || "URL",
+            base: urlText,
+          });
+        });
+      });
+    }
+    setUrlButtons(urlBtns);
+
+    // =========================
+    // 3) Inicializar placeholderValues (body + url)
+    // =========================
+    const initial = {};
+
+    extractedBody.forEach((n) => {
+      initial[`body_${n}`] = "";
+    });
+
+    urlBtns.forEach((b) => {
+      initial[b.key] = "";
+    });
+
+    // Nota: header placeholders en masivo siguen en headerPlaceholderValues separado (como ya lo tiene)
+    setPlaceholderValues(initial);
+
+    // =========================
+    // 4) Idioma
+    // =========================
     const templateLanguage =
       selectedTemplate.language?.code ||
       selectedTemplate.language ||
       selectedTemplate?.languages?.[0]?.code ||
       "es";
+
     setSelectedLanguage(templateLanguage);
   };
 
@@ -849,6 +910,8 @@ export default function Contactos() {
     wamid,
     template_name,
     language_code,
+    meta_media_id,
+    fileUrl,
   ) => {
     try {
       const response = await chatApi.post(
@@ -866,6 +929,8 @@ export default function Contactos() {
           id_wamid_mensaje: wamid,
           template_name: template_name,
           language_code: language_code,
+          meta_media_id,
+          fileUrl,
         },
       );
 
@@ -897,6 +962,26 @@ export default function Contactos() {
     }
   };
 
+  function resolverVariableMasiva(raw, recipient, placeholderFallback) {
+    const v = String(raw || "").trim();
+
+    // Si está vacío, que Meta reciba el placeholder real {{1}} (evita enviar vacío)
+    if (!v) return `{{${placeholderFallback}}}`;
+
+    // Variables rápidas
+    if (v === "{nombre}")
+      return recipient?.nombre || `{{${placeholderFallback}}}`;
+    if (v === "{apellido}")
+      return recipient?.apellido || `{{${placeholderFallback}}}`;
+    if (v === "{direccion}")
+      return recipient?._raw?.direccion || `{{${placeholderFallback}}}`;
+    if (v === "{productos}")
+      return recipient?._raw?.productos || `{{${placeholderFallback}}}`;
+
+    // Texto fijo normal
+    return v;
+  }
+
   const enviarTemplateMasivo = async () => {
     if (!dataAdmin) {
       swalInfo(
@@ -915,6 +1000,17 @@ export default function Contactos() {
       swalInfo(
         "Template incompleto",
         "Complete los campos requeridos del template antes de enviar.",
+      );
+      return;
+    }
+
+    const headerIsMedia =
+      headerRequired && ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat);
+
+    if (headerIsMedia && !headerFileMasivo) {
+      swalInfo(
+        "Header requerido",
+        `Debe subir el archivo del header (${headerFormat}).`,
       );
       return;
     }
@@ -946,69 +1042,18 @@ export default function Contactos() {
         continue;
       }
 
-      // ===== Construir COMPONENTS (HEADER opcional + BODY) =====
-      const components = [];
-
-      // HEADER
-      if (headerRequired) {
-        if (headerFormat === "TEXT") {
-          // placeholders del header text
-          const params = (headerPlaceholders || []).map((ph) => ({
-            type: "text",
-            text: String(headerPlaceholderValues?.[ph] ?? "").trim(),
-          }));
-
-          components.push({
-            type: "header",
-            parameters: params,
-          });
-        } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat)) {
-          const link = String(headerMediaUrl || "").trim();
-          const typeLower = headerFormat.toLowerCase(); // image/video/document
-
-          const mediaObj =
-            headerFormat === "DOCUMENT"
-              ? {
-                  link,
-                  filename:
-                    String(headerMediaFilename || "").trim() ||
-                    guessFilenameFromUrl(link),
-                }
-              : { link };
-
-          components.push({
-            type: "header",
-            parameters: [
-              {
-                type: typeLower,
-                [typeLower]: mediaObj,
-              },
-            ],
-          });
-        }
-      }
-
-      // BODY
-      components.push({
-        type: "body",
-        parameters: (placeholders || []).map((placeholder) => {
-          let value = placeholderValues[placeholder] || `{{${placeholder}}}`;
-
-          if (placeholderValues[placeholder] === "{nombre}") {
-            value = recipient.nombre || `{{${placeholderValues[placeholder]}}}`;
-          } else if (placeholderValues[placeholder] === "{direccion}") {
-            value =
-              recipient?._raw?.direccion ||
-              `{{${placeholderValues[placeholder]}}}`;
-          } else if (placeholderValues[placeholder] === "{productos}") {
-            value =
-              recipient?._raw?.productos ||
-              `{{${placeholderValues[placeholder]}}}`;
-          }
-
-          return { type: "text", text: String(value) };
-        }),
-      });
+      // ===== Construir COMPONENTS (SOLO 1 BODY) =====
+      const components = [
+        {
+          type: "body",
+          parameters: (placeholders || []).map((ph) => {
+            const key = `body_${ph}`;
+            const raw = placeholderValues[key] || "";
+            const value = resolverVariableMasiva(raw, recipient, ph);
+            return { type: "text", text: String(value) };
+          }),
+        },
+      ];
 
       const body = {
         messaging_product: "whatsapp",
@@ -1024,22 +1069,53 @@ export default function Contactos() {
       try {
         const id_configuracion = localStorage.getItem("id_configuracion");
 
-        const { data: dataResp } = await chatApi.post(
-          "/whatsapp_managment/enviar_template_masivo",
-          {
-            id_configuracion,
-            body,
-            id_cliente_chat_center: recipientId,
-          },
-        );
+        let dataResp;
 
-        // ✅ IMPORTANTE: si el backend devuelve success:false aunque sea 200, es fallo
+        if (headerIsMedia) {
+          const fd = new FormData();
+
+          // ===== CAMPOS QUE SU BACKEND ESTÁ PIDIENDO =====
+          fd.append("id_configuracion", String(id_configuracion));
+          fd.append("id_cliente_chat_center", String(recipientId));
+          fd.append("to", String(recipientPhone)); // ✅ NUEVO
+          fd.append("template_name", String(templateName)); // ✅ NUEVO
+          fd.append("language_code", String(selectedLanguage)); // ✅ NUEVO (por si lo valida)
+          fd.append("body", JSON.stringify(body));
+
+          fd.append("header_format", headerFormat);
+          fd.append("header_file", headerFileMasivo);
+
+          const { data } = await chatApi.post(
+            "/whatsapp_managment/enviar_template_masivo",
+            fd,
+            { headers: { "Content-Type": "multipart/form-data" } },
+          );
+
+          dataResp = data;
+        } else {
+          // ===== TAMBIÉN EN JSON NORMAL (POR SI SU VALIDADOR ES PLANO) =====
+          const payload = {
+            id_configuracion,
+            id_cliente_chat_center: recipientId,
+            body,
+            to: recipientPhone, // ✅ NUEVO
+            template_name: templateName, // ✅ NUEVO
+            language_code: selectedLanguage, // ✅ NUEVO
+          };
+
+          const { data } = await chatApi.post(
+            "/whatsapp_managment/enviar_template_masivo",
+            payload,
+          );
+
+          dataResp = data;
+        }
+
         if (!dataResp || dataResp.success !== true) {
           const msg = dataResp?.message || "Meta rechazó el envío";
           throw new Error(msg);
         }
 
-        // wamid
         const wamid =
           dataResp?.wamid ||
           dataResp?.messages?.[0]?.id ||
@@ -1049,30 +1125,45 @@ export default function Contactos() {
         exitosos.push(`ID: ${recipientId}, Teléfono: ${recipientPhone}`);
 
         // ======== GUARDAR EN BD SOLO SI META OK ========
+        // ======== GUARDAR EN BD SOLO SI META OK ========
         try {
           let id_recibe = recipientId;
           let mid_mensaje = dataAdmin.id_telefono;
           let telefono_configuracion = dataAdmin.telefono;
 
-          let ruta_archivo = generarObjetoPlaceholders(
-            placeholders,
-            Object.keys(placeholderValues).reduce((acc, key) => {
-              acc[key] =
-                placeholderValues[key] === "{nombre}"
-                  ? recipient.nombre || "{nombre}"
-                  : placeholderValues[key] === "{direccion}"
-                    ? recipient?._raw?.direccion || "{direccion}"
-                    : placeholderValues[key] === "{productos}"
-                      ? recipient?._raw?.productos || "{productos}"
-                      : placeholderValues[key];
+          // placeholders para BD
+          const placeholdersObj = {};
+          (placeholders || []).forEach((ph) => {
+            const key = `body_${ph}`;
+            placeholdersObj[ph] = resolverVariableMasiva(
+              placeholderValues[key] || "",
+              recipient,
+              ph,
+            );
+          });
 
-              return acc;
-            }, {}),
-          );
+          const metaMediaId = dataResp?.meta_media_id || null;
+          const fileUrl = dataResp?.fileUrl || null;
+
+          const ruta_archivo = {
+            placeholders: placeholdersObj,
+            header: headerIsMedia
+              ? {
+                  format: headerFormat, // IMAGE|VIDEO|DOCUMENT
+                  value: String(headerFileMasivo?.name || "").trim(),
+                  fileUrl: fileUrl, // ✅
+                  meta_media_id: metaMediaId,
+                  mime: dataResp?.file_info?.mime || null,
+                  size: dataResp?.file_info?.size || null,
+                }
+              : null,
+            template_name: templateName,
+            language: selectedLanguage,
+          };
 
           await agregar_mensaje_enviado(
             templateText,
-            "text",
+            "template", // ✅ era "text"
             JSON.stringify(ruta_archivo),
             recipientPhone,
             mid_mensaje,
@@ -1082,9 +1173,10 @@ export default function Contactos() {
             wamid,
             templateName,
             selectedLanguage,
+            metaMediaId,
+            fileUrl,
           );
         } catch (dbErr) {
-          // Si la BD falla, NO debe marcar el envío como fallido (Meta ya fue OK)
           console.warn(
             "Meta OK, pero falló guardar en BD:",
             dbErr?.message || dbErr,
@@ -1113,6 +1205,7 @@ export default function Contactos() {
         title: "Mensajes enviados correctamente",
         text: `Enviados a: ${exitosos.join(", ")}`,
       });
+      setIsModalOpenMasivo(false);
     }
 
     if (fallidos.length > 0) {
@@ -1240,8 +1333,7 @@ export default function Contactos() {
     setHeaderFormat(null);
     setHeaderPlaceholders([]);
     setHeaderPlaceholderValues({});
-    setHeaderMediaUrl("");
-    setHeaderMediaFilename("");
+    setHeaderFileMasivo(null);
   };
 
   const [cols, setCols] = useState({
@@ -1817,6 +1909,25 @@ export default function Contactos() {
     swalToast("XLSX exportado");
   }
 
+  useEffect(() => {
+    if (isModalOpenMasivo) {
+      resetNumeroModalState();
+    }
+  }, [isModalOpenMasivo]);
+
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    if (!headerFileMasivo) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(headerFileMasivo);
+    setPreviewUrl(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [headerFileMasivo]);
+
   return (
     <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 shadow-sm p-5">
       {/* ====== Header principal ====== */}
@@ -1921,40 +2032,100 @@ export default function Contactos() {
                 {["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat) && (
                   <div className="space-y-2">
                     <label className="block text-xs font-medium text-slate-700">
-                      URL pública del archivo ({headerFormat})
+                      Subir archivo ({headerFormat})
                     </label>
-                    <input
-                      type="text"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                      placeholder={
-                        headerFormat === "IMAGE"
-                          ? "https://.../imagen.jpg"
-                          : headerFormat === "VIDEO"
-                            ? "https://.../video.mp4"
-                            : "https://.../archivo.pdf"
-                      }
-                      value={headerMediaUrl}
-                      onChange={(e) => setHeaderMediaUrl(e.target.value)}
-                    />
-                    <p className="text-[11px] text-slate-500">
-                      Debe ser un enlace accesible públicamente (HTTPS). Si no
-                      lo es, Meta lo rechazará.
-                    </p>
 
-                    {headerFormat === "DOCUMENT" && (
-                      <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Nombre de archivo (opcional)
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                          placeholder="Ej: catalogo.pdf"
-                          value={headerMediaFilename}
-                          onChange={(e) =>
-                            setHeaderMediaFilename(e.target.value)
-                          }
-                        />
+                    <input
+                      type="file"
+                      accept={
+                        headerFormat === "IMAGE"
+                          ? "image/*"
+                          : headerFormat === "VIDEO"
+                            ? "video/*"
+                            : "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*"
+                      }
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (!file) return setHeaderFileMasivo(null);
+
+                        const fmt = headerFormat;
+
+                        const ok =
+                          (fmt === "IMAGE" && file.type.startsWith("image/")) ||
+                          (fmt === "VIDEO" && file.type.startsWith("video/")) ||
+                          (fmt === "DOCUMENT" && file.type !== "");
+
+                        if (!ok) {
+                          Toast.fire({
+                            icon: "warning",
+                            title: `Archivo inválido para ${fmt}.`,
+                          });
+                          e.target.value = "";
+                          setHeaderFileMasivo(null);
+                          return;
+                        }
+
+                        const MAX_MB = 16;
+                        if (file.size / (1024 * 1024) > MAX_MB) {
+                          Toast.fire({
+                            icon: "error",
+                            title: `El archivo excede ${MAX_MB} MB.`,
+                          });
+                          e.target.value = "";
+                          setHeaderFileMasivo(null);
+                          return;
+                        }
+
+                        setHeaderFileMasivo(file);
+                      }}
+                      className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm"
+                    />
+
+                    {headerFileMasivo && (
+                      <p className="text-[11px] text-slate-500">
+                        Archivo seleccionado: {headerFileMasivo.name}
+                      </p>
+                    )}
+
+                    {headerFileMasivo && (
+                      <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="text-xs text-slate-600 mb-2">
+                          <b>Vista previa:</b> {headerFileMasivo.name} ·{" "}
+                          {(headerFileMasivo.size / (1024 * 1024)).toFixed(2)}{" "}
+                          MB
+                        </div>
+
+                        {headerFileMasivo.type.startsWith("image/") &&
+                          previewUrl && (
+                            <img
+                              src={previewUrl}
+                              alt="preview"
+                              className="max-h-48 rounded-lg border"
+                            />
+                          )}
+
+                        {headerFileMasivo.type.startsWith("video/") &&
+                          previewUrl && (
+                            <video
+                              src={previewUrl}
+                              controls
+                              className="w-full max-h-60 rounded-lg border"
+                            />
+                          )}
+
+                        {/* Para PDF u otros docs: */}
+                        {!headerFileMasivo.type.startsWith("image/") &&
+                          !headerFileMasivo.type.startsWith("video/") && (
+                            <a
+                              href={previewUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs hover:bg-slate-50"
+                            >
+                              <i className="bx bxs-file-pdf text-lg text-red-500" />
+                              Ver documento
+                            </a>
+                          )}
                       </div>
                     )}
                   </div>
@@ -2021,22 +2192,26 @@ export default function Contactos() {
 
                 {!!placeholders.length && (
                   <div className="grid gap-3 md:grid-cols-2">
-                    {placeholders.map((ph) => (
-                      <div key={ph}>
-                        <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Valor para {"{{" + ph + "}}"}
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                          placeholder={`Ej: {nombre}, {direccion}, texto fijo…`}
-                          value={placeholderValues[ph] || ""}
-                          onChange={(e) =>
-                            handlePlaceholderChange(ph, e.target.value)
-                          }
-                        />
-                      </div>
-                    ))}
+                    {placeholders.map((ph) => {
+                      const key = `body_${ph}`;
+                      return (
+                        <div key={ph}>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
+                            Valor para {"{{" + ph + "}}"}
+                          </label>
+
+                          <input
+                            type="text"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            placeholder="Ej: {nombre}, {direccion}, {productos} o texto fijo…"
+                            value={placeholderValues[key] || ""}
+                            onChange={(e) =>
+                              handlePlaceholderChange(key, e.target.value)
+                            }
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 

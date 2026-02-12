@@ -1566,6 +1566,25 @@ const Modales = ({
   const registeredNumero = register("numero", {
     required: "El número es obligatorio",
   });
+
+  const [headerPreviewUrl, setHeaderPreviewUrl] = useState("");
+
+  useEffect(() => {
+    if (!headerFile) {
+      setHeaderPreviewUrl("");
+      return;
+    }
+
+    // ✅ crea una URL temporal para previsualizar
+    const objectUrl = URL.createObjectURL(headerFile);
+    setHeaderPreviewUrl(objectUrl);
+
+    // ✅ cleanup: evita fugas de memoria
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [headerFile]);
+
   return (
     <>
       {numeroModal && (
@@ -1917,6 +1936,52 @@ const Modales = ({
                               Archivo seleccionado: {headerFile.name}
                             </p>
                           )}
+
+                          {/* ✅ Vista previa */}
+                          {!!headerPreviewUrl &&
+                            headerInfo.format === "IMAGE" && (
+                              <div className="mt-3">
+                                <p className="text-xs text-slate-500 mb-1">
+                                  Vista previa:
+                                </p>
+                                <img
+                                  src={headerPreviewUrl}
+                                  alt="preview"
+                                  className="max-h-48 rounded-xl border border-slate-200 object-contain bg-white"
+                                />
+                              </div>
+                            )}
+
+                          {!!headerPreviewUrl &&
+                            headerInfo.format === "VIDEO" && (
+                              <div className="mt-3">
+                                <p className="text-xs text-slate-500 mb-1">
+                                  Vista previa:
+                                </p>
+                                <video
+                                  src={headerPreviewUrl}
+                                  controls
+                                  className="w-full max-h-56 rounded-xl border border-slate-200 bg-black"
+                                />
+                              </div>
+                            )}
+
+                          {!!headerPreviewUrl &&
+                            headerInfo.format === "DOCUMENT" && (
+                              <div className="mt-3">
+                                <p className="text-xs text-slate-500 mb-1">
+                                  Vista previa:
+                                </p>
+                                <a
+                                  href={headerPreviewUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sm text-blue-600 underline"
+                                >
+                                  Abrir documento
+                                </a>
+                              </div>
+                            )}
                         </div>
                       )}
                     </div>
@@ -2003,11 +2068,11 @@ const Modales = ({
                       onClick={enviarTemplate}
                       disabled={!templateReady || isSendingTemplate}
                       className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4
-    ${
-      !templateReady || isSendingTemplate
-        ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-        : "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
-    }`}
+                      ${
+                        !templateReady || isSendingTemplate
+                          ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
+                      }`}
                     >
                       <i
                         className={`bx ${isSendingTemplate ? "bx-loader-alt animate-spin" : "bx-send"}`}
