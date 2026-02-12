@@ -339,6 +339,7 @@ const Asistentes = () => {
   /* seccion apra texarea */
 
   const openAIKeyUrl = "https://platform.openai.com/api-keys";
+  const openAIBillingUrl = "https://platform.openai.com/settings/organization/billing/overview"
 
   return (
     <div className="p-5">
@@ -425,6 +426,15 @@ const Asistentes = () => {
                 </div>
               </div>
             </div>
+            <a
+              href={openAIBillingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white hover:opacity-95 transition text-sm font-semibold"
+            >
+              <i className="bx bx-link-external" />
+              Ir a recargar saldo
+            </a>
           </div>
         </div>
 
