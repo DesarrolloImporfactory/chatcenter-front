@@ -972,8 +972,6 @@ const Chat = () => {
     const finalTextSocial = text;
 
     const isWA = (selectedChat?.source || "wa") === "wa";
-    const isIG = selectedChat?.source === "ig";
-    const isMS = selectedChat?.source === "ms";
 
     const tipo = file ? "document" : "text";
 

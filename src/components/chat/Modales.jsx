@@ -87,7 +87,7 @@ const Modales = ({
     key: "", // ej: "header_1" si es texto con {{1}}
     n: "", // "1"
   });
-  const [headerMediaUrl, setHeaderMediaUrl] = useState(""); // si es media por URL (imagen/video/pdf)
+  const [headerFile, setHeaderFile] = useState(null);
 
   // 🧹 reset integral del modal de número
   const resetNumeroModalState = () => {
@@ -119,7 +119,7 @@ const Modales = ({
 
     handleInputChange_numeroCliente?.({ target: { value: "" } });
     setHeaderInfo({ exists: false, format: "", key: "", n: "" });
-    setHeaderMediaUrl("");
+    setHeaderFile(null);
   };
 
   useEffect(() => {
@@ -138,7 +138,7 @@ const Modales = ({
       handleSelectPhoneNumber(
         numeroModalPreset.phone,
         numeroModalPreset.clienteNombre,
-        numeroModalPreset.idEncargado
+        numeroModalPreset.idEncargado,
       );
 
       setSearchQuery(numeroModalPreset.phone);
@@ -191,7 +191,7 @@ const Modales = ({
     }
 
     if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerInfo.format)) {
-      return String(headerMediaUrl || "").trim().length > 0;
+      return !!headerFile;
     }
 
     return true;
@@ -222,38 +222,6 @@ const Modales = ({
           .includes(q)
       );
     }) || [];
-
-  /* diseño selects */
-  /** Indicadores personalizados (usa tus Boxicons) */
-  const DropdownIndicator = (props) => (
-    <components.DropdownIndicator {...props}>
-      <i
-        className={`bx bx-chevron-down transition-transform duration-200 ${
-          props.selectProps.menuIsOpen ? "rotate-180" : ""
-        }`}
-      />
-    </components.DropdownIndicator>
-  );
-
-  const ClearIndicator = (props) => (
-    <components.ClearIndicator {...props}>
-      <i className="bx bx-x" />
-    </components.ClearIndicator>
-  );
-
-  /** Colores + radios del tema */
-  const customSelectTheme = (theme) => ({
-    ...theme,
-    borderRadius: 12,
-    colors: {
-      ...theme.colors,
-      primary: "#2563eb", // azul
-      primary25: "#EFF6FF", // hover opción
-      primary50: "#DBEAFE", // active opción
-      neutral20: "#cbd5e1", // borde
-      neutral30: "#94a3b8", // borde hover
-    },
-  });
 
   /** Estilos “glass/premium” + foco accesible */
   const customSelectStyles = {
@@ -1045,7 +1013,7 @@ const Modales = ({
 
       // reset header siempre
       setHeaderInfo({ exists: false, format: "", key: "", n: "" });
-      setHeaderMediaUrl("");
+      setHeaderFile(null);
 
       let headerNeedsInit = null; // { key: "header_1", n:"1" } si aplica
 
@@ -1090,7 +1058,6 @@ const Modales = ({
               key: "",
               n: "",
             });
-            // headerMediaUrl se llena en la UI
           }
         }
       }
@@ -1224,8 +1191,12 @@ const Modales = ({
     return resultado;
   };
 
+  const [isSendingTemplate, setIsSendingTemplate] = useState(false);
+
   // Función para enviar el template a WhatsApp
   const enviarTemplate = async () => {
+    if (isSendingTemplate) return;
+
     const recipientPhone = selectedPhoneNumber;
     const nombre_cliente = selectedPhoneNumberNombre;
     const id_encargado = selectedPhoneNumberIdEncargado;
@@ -1246,6 +1217,21 @@ const Modales = ({
       return;
     }
 
+    // Si el header es media, ahora se exige archivo (ya NO URL)
+    const headerIsMedia =
+      headerInfo?.exists &&
+      ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerInfo.format);
+
+    if (headerIsMedia) {
+      if (!headerFile) {
+        Toast.fire({
+          icon: "warning",
+          title: "Debe subir el archivo del header antes de enviar.",
+        });
+        return;
+      }
+    }
+
     // ===== Construir COMPONENTS para Graph (HEADER opcional + BODY + URL buttons si aplica) =====
     const components = [];
 
@@ -1264,25 +1250,10 @@ const Modales = ({
         }
       }
 
+      // El backend subirá el archivo a Meta y reemplazará/injectará el header con { id: mediaId }.
       if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerInfo.format)) {
-        const link = String(headerMediaUrl || "").trim();
-        const typeLower = headerInfo.format.toLowerCase();
-
-        // IMPORTANTE: DOCUMENT en Graph suele aceptar filename opcional (recomendado)
-        const mediaObj =
-          headerInfo.format === "DOCUMENT"
-            ? { link, filename: "archivo.pdf" }
-            : { link };
-
-        components.push({
-          type: "header",
-          parameters: [
-            {
-              type: typeLower,
-              [typeLower]: mediaObj,
-            },
-          ],
-        });
+        // NO HACER NADA AQUÍ
+        // (components de header media se inyecta en backend con media_id)
       }
     }
 
@@ -1296,8 +1267,6 @@ const Modales = ({
     });
 
     // BUTTONS (URL) => en Cloud API va como component type "button"
-    // Nota: si usted tiene botones URL con placeholders, cada botón se envía como:
-    // { type:'button', sub_type:'url', index:'0', parameters:[{type:'text', text:'valor'}] }
     if (Array.isArray(urlButtons) && urlButtons.length) {
       urlButtons.forEach((b) => {
         components.push({
@@ -1327,16 +1296,45 @@ const Modales = ({
     };
 
     try {
-      const { data: dataResp } = await chatApi.post(
-        "/whatsapp_managment/enviar_template_masivo",
-        {
-          id_configuracion,
-          body, // ✅ aquí está la diferencia: ahora el backend sí construye bien el payload
-          id_cliente_chat_center: selectedChat?.id || null,
-        },
-      );
+      setIsSendingTemplate(true);
+      // si hay header media, se manda multipart/form-data con archivo + body_json
+      //si NO hay header media, se mantiene el POST JSON como antes (sin romper nada)
+      let dataResp;
 
-      // ✅ CLAVE: si backend responde 200 con success:false => debe tratarse como fallo
+      if (headerIsMedia) {
+        const fd = new FormData();
+        fd.append("id_configuracion", id_configuracion);
+        fd.append("body_json", JSON.stringify(body)); // backend parsea JSON string
+        fd.append("header_format", headerInfo.format); // IMAGE|VIDEO|DOCUMENT
+        fd.append("header_file", headerFile); // archivo arrastrado/seleccionado
+        fd.append(
+          "id_cliente_chat_center",
+          selectedChat?.id ? String(selectedChat.id) : "",
+        );
+
+        const resp = await chatApi.post(
+          "/whatsapp_managment/enviar_template_masivo",
+          fd,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          },
+        );
+
+        dataResp = resp?.data;
+      } else {
+        const { data: respJson } = await chatApi.post(
+          "/whatsapp_managment/enviar_template_masivo",
+          {
+            id_configuracion,
+            body, // ✅ aquí está la diferencia: ahora el backend sí construye bien el payload
+            id_cliente_chat_center: selectedChat?.id || null,
+          },
+        );
+
+        dataResp = respJson;
+      }
+
+      // CLAVE: si backend responde 200 con success:false => debe tratarse como fallo
       if (!dataResp || dataResp.success !== true) {
         const msg = dataResp?.message || "Meta rechazó el envío";
         throw new Error(msg);
@@ -1359,15 +1357,21 @@ const Modales = ({
             placeholderValues,
           ),
           header: headerInfo?.exists
-            ? {
-                format: headerInfo.format,
-                value:
-                  headerInfo.format === "TEXT"
-                    ? headerInfo.key
-                      ? (placeholderValues?.[headerInfo.key] || "").trim()
-                      : "TEXT_FIXED"
-                    : String(headerMediaUrl || "").trim(),
-              }
+            ? headerInfo.format === "TEXT"
+              ? {
+                  format: "TEXT",
+                  value: headerInfo.key
+                    ? (placeholderValues?.[headerInfo.key] || "").trim()
+                    : "TEXT_FIXED",
+                }
+              : {
+                  format: headerInfo.format, // IMAGE|VIDEO|DOCUMENT
+                  value: String(headerFile?.name || "").trim(), // filename
+                  fileUrl: dataResp?.fileUrl || null, // ✅ URL S3 (histórico)
+                  meta_media_id: dataResp?.meta_media_id || null, // ✅ ID meta
+                  mime: dataResp?.file_info?.mime || null,
+                  size: dataResp?.file_info?.size || null,
+                }
             : null,
           template_name: templateName,
           language: selectedLanguage,
@@ -1376,6 +1380,8 @@ const Modales = ({
         let id_recibe = buscarIdRecibe;
         let mid_mensaje = dataAdmin.id_telefono;
         let telefono_configuracion = dataAdmin.telefono;
+        const metaMediaId = dataResp?.meta_media_id || null;
+        const fileUrl = dataResp?.fileUrl || null;
 
         agregar_mensaje_enviado(
           templateText,
@@ -1391,6 +1397,8 @@ const Modales = ({
           selectedLanguage,
           nombre_cliente,
           id_encargado,
+          metaMediaId,
+          fileUrl,
         );
       } catch (dbErr) {
         console.warn(
@@ -1410,6 +1418,8 @@ const Modales = ({
 
       Toast.fire({ icon: "error", title: msg });
       console.error("Error al enviar template:", error);
+    } finally {
+      setIsSendingTemplate(false);
     }
   };
 
@@ -1848,20 +1858,65 @@ const Modales = ({
                       ) && (
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">
-                            URL pública HTTPS del archivo ({headerInfo.format})
+                            Subir archivo ({headerInfo.format})
                           </label>
+
                           <input
-                            type="text"
-                            placeholder="https://... (debe ser pública y https)"
-                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
-          focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                            value={headerMediaUrl}
-                            onChange={(e) => setHeaderMediaUrl(e.target.value)}
+                            type="file"
+                            accept={
+                              headerInfo.format === "IMAGE"
+                                ? "image/*"
+                                : headerInfo.format === "VIDEO"
+                                  ? "video/*"
+                                  : headerInfo.format === "DOCUMENT"
+                                    ? "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*"
+                                    : "*/*"
+                            }
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              if (!file) return setHeaderFile(null);
+
+                              const fmt = headerInfo.format;
+
+                              const ok =
+                                (fmt === "IMAGE" &&
+                                  file.type.startsWith("image/")) ||
+                                (fmt === "VIDEO" &&
+                                  file.type.startsWith("video/")) ||
+                                (fmt === "DOCUMENT" && file.type !== "");
+
+                              if (!ok) {
+                                Toast.fire({
+                                  icon: "warning",
+                                  title: `Archivo inválido para ${fmt}.`,
+                                });
+                                e.target.value = "";
+                                setHeaderFile(null);
+                                return;
+                              }
+
+                              // 16MB (igual que los demás)
+                              const MAX_MB = 16;
+                              if (file.size / (1024 * 1024) > MAX_MB) {
+                                Toast.fire({
+                                  icon: "error",
+                                  title: `El archivo excede ${MAX_MB} MB.`,
+                                });
+                                e.target.value = "";
+                                setHeaderFile(null);
+                                return;
+                              }
+
+                              setHeaderFile(file);
+                            }}
+                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm"
                           />
-                          <p className="mt-1 text-xs text-slate-500">
-                            Recomendado: URL directa al archivo (sin login),
-                            accesible por Meta.
-                          </p>
+
+                          {headerFile && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              Archivo seleccionado: {headerFile.name}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1946,16 +2001,18 @@ const Modales = ({
                     <button
                       type="button"
                       onClick={enviarTemplate}
-                      disabled={!templateReady}
+                      disabled={!templateReady || isSendingTemplate}
                       className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4
-                        ${
-                          templateReady
-                            ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
-                            : "bg-slate-200 text-slate-500 cursor-not-allowed"
-                        }`}
+    ${
+      !templateReady || isSendingTemplate
+        ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+        : "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
+    }`}
                     >
-                      <i className="bx bx-send" />
-                      Enviar template
+                      <i
+                        className={`bx ${isSendingTemplate ? "bx-loader-alt animate-spin" : "bx-send"}`}
+                      />
+                      {isSendingTemplate ? "Enviando..." : "Enviar template"}
                     </button>
                   </div>
                 </form>

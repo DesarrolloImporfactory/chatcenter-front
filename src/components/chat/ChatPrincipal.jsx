@@ -1077,18 +1077,39 @@ const ChatPrincipal = ({
     if (!header || !header.format) return null;
 
     const format = String(header.format || "").toUpperCase();
-    const value = header.value;
 
     // Normaliza URL (si guardan relativas, aquí queda listo)
     const normalizeUrl = (u) =>
       !u
         ? ""
-        : /^https?:\/\//.test(String(u))
+        : /^https?:\/\//i.test(String(u))
           ? String(u)
           : `https://new.imporsuitpro.com/${String(u).replace(/^\//, "")}`;
 
+    // Resolver URL real del archivo (prioriza S3)
+    const resolveMediaUrl = () => {
+      // 1) Lo nuevo: S3
+      if (header.fileUrl) return normalizeUrl(header.fileUrl);
+
+      // 2) Si value es string (puede ser nombre o url)
+      if (typeof header.value === "string") return normalizeUrl(header.value);
+
+      // 3) Si value es objeto (por compatibilidad)
+      if (header.value && typeof header.value === "object") {
+        const maybe =
+          header.value.fileUrl ||
+          header.value.url ||
+          header.value.link ||
+          header.value.ruta;
+        return normalizeUrl(maybe);
+      }
+
+      return "";
+    };
+
+    const src = resolveMediaUrl();
+
     if (format === "IMAGE") {
-      const src = normalizeUrl(value);
       if (!src) return null;
 
       return (
@@ -1104,7 +1125,6 @@ const ChatPrincipal = ({
     }
 
     if (format === "VIDEO") {
-      const src = normalizeUrl(value);
       if (!src) return null;
 
       return (
@@ -1115,16 +1135,41 @@ const ChatPrincipal = ({
     }
 
     if (format === "DOCUMENT") {
-      // value puede ser {url,nombre,size,mimeType} o string url
-      let meta = { url: "", nombre: "Documento", size: 0, mimeType: "" };
+      // Normalizamos meta usando fileUrl + mime + size que usted ya guarda
+      let meta = {
+        url: src || "",
+        nombre: "Documento",
+        size: Number(header.size || 0),
+        mimeType: header.mime || header.mimeType || "",
+      };
 
-      if (typeof value === "string") {
-        meta.url = normalizeUrl(value);
-      } else if (value && typeof value === "object") {
-        meta.url = normalizeUrl(value.url || value.link || value.ruta);
-        meta.nombre = value.nombre || value.fileName || "Documento";
-        meta.size = Number(value.size || 0);
-        meta.mimeType = value.mimeType || "";
+      const value = header.value;
+
+      // Compatibilidad: si value llega como string u objeto
+      if (!meta.url) {
+        if (typeof value === "string") meta.url = normalizeUrl(value);
+        else if (value && typeof value === "object") {
+          meta.url = normalizeUrl(value.url || value.link || value.ruta);
+          meta.nombre = value.nombre || value.fileName || meta.nombre;
+          meta.size = Number(value.size || meta.size || 0);
+          meta.mimeType = value.mimeType || meta.mimeType || "";
+        }
+      }
+
+      // nombre fallback: si value es string y parece filename
+      if (typeof value === "string" && value && !/^https?:\/\//i.test(value)) {
+        meta.nombre = value;
+      }
+      if (
+        typeof header.value === "string" &&
+        header.value &&
+        meta.nombre === "Documento"
+      ) {
+        meta.nombre = header.value;
+      }
+      if (header.value && typeof header.value === "object") {
+        meta.nombre =
+          header.value.nombre || header.value.fileName || meta.nombre;
       }
 
       if (!meta.url) return null;
@@ -1179,7 +1224,8 @@ const ChatPrincipal = ({
     }
 
     if (format === "LOCATION") {
-      // value puede venir como {latitude,longitude} o string "lat,lng" o JSON string
+      const value = header.value;
+
       let lat = null;
       let lng = null;
 
