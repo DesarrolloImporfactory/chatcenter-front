@@ -246,6 +246,41 @@ const Cabecera = ({
   };
 
   const [isHovering, setIsHovering] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(null);
+
+  // Calcular tiempo restante hasta el vencimiento (1 año desde fecha_suscripcion)
+  useEffect(() => {
+    if (!dataPlanes?.fecha_suscripcion) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    const calculateTimeRemaining = () => {
+      const subscriptionDate = new Date(dataPlanes.fecha_suscripcion);
+      const expirationDate = new Date(subscriptionDate);
+      expirationDate.setFullYear(expirationDate.getFullYear() + 1); // 1 año de validez
+
+      const now = new Date();
+      const diff = expirationDate - now;
+
+      if (diff <= 0) {
+        setTimeRemaining({ expired: true });
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeRemaining({ days, hours, minutes, seconds, expired: false });
+    };
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 1000);
+
+    return () => clearInterval(interval);
+  }, [dataPlanes?.fecha_suscripcion]);
 
   const handleChangeChatStatus = async (newStatus) => {
     try {
@@ -864,7 +899,7 @@ const Cabecera = ({
                       typeof dataPlanes === "object" &&
                       Object.keys(dataPlanes).length > 0 &&
                       Object.entries(dataPlanes)
-                        .filter(([key, value]) => value === 1)
+                        .filter(([key, value]) => value === 1 && key !== 'fecha_suscripcion')
                         .map(([planName]) => (
                           <span
                             key={planName}
@@ -877,25 +912,51 @@ const Cabecera = ({
                         ))}
                   </div>
                 </div>
-                <span className="block text-sm text-gray-600 truncate">
-                  {selectedChat
-                    ? selectedChat.source === "wa"
-                      ? selectedChat.celular_cliente
-                        ? `+${selectedChat.celular_cliente}`
-                        : "—"
-                      : selectedChat.source === "ms"
-                        ? selectedChat.external_id
-                          ? `MS • ${selectedChat.external_id}`
-                          : "MS • —"
-                        : selectedChat.source === "ig"
+                
+                <div className="flex items-center gap-3">
+                  <span className="block text-sm text-gray-600 truncate">
+                    {selectedChat
+                      ? selectedChat.source === "wa"
+                        ? selectedChat.celular_cliente
+                          ? `+${selectedChat.celular_cliente}`
+                          : "—"
+                        : selectedChat.source === "ms"
                           ? selectedChat.external_id
-                            ? `IG • ${selectedChat.external_id}`
-                            : "IG • —"
-                          : selectedChat.external_id ||
-                            selectedChat.celular_cliente ||
-                            "—"
-                    : "—"}
-                </span>
+                            ? `MS • ${selectedChat.external_id}`
+                            : "MS • —"
+                          : selectedChat.source === "ig"
+                            ? selectedChat.external_id
+                              ? `IG • ${selectedChat.external_id}`
+                              : "IG • —"
+                            : selectedChat.external_id ||
+                              selectedChat.celular_cliente ||
+                              "—"
+                      : "—"}
+                  </span>
+                  
+                  {/* Contador de tiempo restante */}
+                  {timeRemaining && dataPlanes?.fecha_suscripcion && (
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold ${
+                      timeRemaining.expired 
+                        ? 'bg-red-100 text-red-700' 
+                        : timeRemaining.days === 0 
+                          ? 'bg-orange-100 text-orange-700'
+                          : timeRemaining.days <= 5
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-green-100 text-green-700'
+                    }`}>
+                      <i className={`bx ${timeRemaining.expired ? 'bx-x-circle' : 'bx-time-five'}`}></i>
+                      {timeRemaining.expired ? (
+                        'Suscripción vencida'
+
+                      ) : timeRemaining.days === 0 ? (
+                        'Vence hoy'
+                      ) : (
+                        `${timeRemaining.days} ${timeRemaining.days === 1 ? 'día' : 'días'}`
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
