@@ -839,23 +839,46 @@ const Chat = () => {
   }, [chatMessages]);
 
   const [commandAttachment, setCommandAttachment] = useState(null);
+  const [quickReplyPreset, setQuickReplyPreset] = useState(null);
 
   const handleOptionSelect = (option) => {
-    const text = typeof option === "string" ? option : option?.mensaje || "";
-    const attachment =
-      typeof option === "string" ? null : option?.ruta_archivo || null;
+    const isString = typeof option === "string";
 
-    setMensaje(text); // Pon el texto seleccionado en el campo de entrada
+    const text = isString ? option : option?.mensaje || "";
+    const attachment = isString ? null : option?.ruta_archivo || null;
+
+    // 1) Guardar preset COMPLETO (para luego poder limpiar bien)
+    setQuickReplyPreset({
+      mensaje: text,
+      ruta_archivo: attachment,
+    });
+
+    // 2) Cargar input y adjunto
+    setMensaje(text);
     setCommandAttachment(attachment);
 
-    setIsCommandActive(false); // Cierra el cuadro de opciones
-    setIsChatBlocked(false); // Desbloquea el chat
+    // 3) Cerrar menú / desbloquear
+    setIsCommandActive(false);
+    setIsChatBlocked(false);
 
     setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus(); // Enfoca el input de mensaje
-      }
-    }, 100); // Asegurarse de que el input esté montado
+      inputRef.current?.focus();
+    }, 100);
+  };
+
+  const clearQuickReplyPreset = () => {
+    // Quitar adjunto
+    setCommandAttachment(null);
+
+    // Quitar texto SOLO si coincide con el preset (evita borrar texto escrito manualmente)
+    setMensaje((prev) => {
+      const presetText = quickReplyPreset?.mensaje ?? "";
+      if (presetText && prev === presetText) return "";
+      return prev;
+    });
+
+    // Reset preset
+    setQuickReplyPreset(null);
   };
 
   const handleOptionSelectNumeroTelefono = (option) => {
@@ -1151,7 +1174,8 @@ const Chat = () => {
       id_configuracion,
       tipo_mensaje: tipo,
       file,
-      attachment_url: attachmentUrl, // ✅ nuevo
+      attachment_url: attachmentUrl,
+      ruta_archivo: attachmentUrl || null,
       dataAdmin,
       nombre_encargado: nombre_encargado_global,
       client_tmp_id: tmpId,
@@ -3077,7 +3101,7 @@ const Chat = () => {
         setMensajesOrdenados={setMensajesOrdenados}
         isSocketConnected={isSocketConnected}
         commandAttachment={commandAttachment}
-        setCommandAttachment={setCommandAttachment}
+        onClearQuickReplyPreset={clearQuickReplyPreset}
       />
       {/* Seccion de la derecha, datos de usuario, acciones */}
       {/* <DatosUsuario

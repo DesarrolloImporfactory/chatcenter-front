@@ -250,7 +250,7 @@ const ChatPrincipal = ({
   setNumeroModalPreset,
   isSocketConnected,
   commandAttachment,
-  setCommandAttachment,
+  onClearQuickReplyPreset,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -1393,10 +1393,23 @@ const ChatPrincipal = ({
   };
 
   const getFileTypeFromUrl = (url = "") => {
-    const clean = url.split("?")[0].toLowerCase();
+    const clean = String(url).split("?")[0].toLowerCase();
+
+    // ✅ Heurística por carpeta (WhatsApp normalmente guarda audio en /audio/)
+    if (clean.includes("/audio/")) return "audio";
+    if (clean.includes("/video/")) return "video";
+    if (clean.includes("/image/") || clean.includes("/images/")) return "image";
+
     if (clean.match(/\.(png|jpg|jpeg|gif|webp|svg)$/)) return "image";
-    if (clean.match(/\.(mp4|webm|ogg)$/)) return "video";
+
+    //  Video: OJO: no incluimos .ogg aquí
+    if (clean.match(/\.(mp4|webm|mov|mkv|ogv)$/)) return "video";
+
+    //  Audio: aquí sí entra .ogg
+    if (clean.match(/\.(mp3|wav|m4a|aac|opus|oga|ogg)$/)) return "audio";
+
     if (clean.match(/\.(pdf)$/)) return "pdf";
+
     return "file";
   };
 
@@ -1406,17 +1419,20 @@ const ChatPrincipal = ({
     const type = getFileTypeFromUrl(url);
     const stop = (e) => e.stopPropagation();
 
+    // ✅ Contenedor compacto para que NO se estire el item
+    const Wrap = ({ children }) => (
+      <div className="w-full max-w-[320px]">{children}</div>
+    );
+
     if (type === "image") {
       return (
-        <div className="mt-2">
+        <Wrap>
           <img
             src={url}
             alt="Vista previa"
-            className="w-full max-w-[260px] h-auto rounded-lg border border-gray-200"
+            className="w-full h-auto rounded-lg border border-gray-200"
             loading="lazy"
           />
-
-          {/* ✅ Solo este link NO debe seleccionar el item */}
           <a
             onClick={stop}
             href={url}
@@ -1426,17 +1442,17 @@ const ChatPrincipal = ({
           >
             Abrir imagen en nueva pestaña
           </a>
-        </div>
+        </Wrap>
       );
     }
 
     if (type === "video") {
       return (
-        <div className="mt-2">
+        <Wrap>
           <video
             src={url}
             controls
-            className="w-full max-w-[320px] rounded-lg border border-gray-200"
+            className="w-full rounded-lg border border-gray-200"
           />
           <a
             onClick={stop}
@@ -1447,12 +1463,46 @@ const ChatPrincipal = ({
           >
             Abrir video en nueva pestaña
           </a>
-        </div>
+        </Wrap>
+      );
+    }
+
+    // ✅ AQUÍ queda el fix real para WhatsApp .ogg
+    if (type === "audio") {
+      return (
+        <Wrap>
+          <audio src={url} controls className="w-full" />
+          <a
+            onClick={stop}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block mt-2 text-sm text-blue-600 hover:underline"
+          >
+            Abrir audio en nueva pestaña
+          </a>
+        </Wrap>
+      );
+    }
+
+    if (type === "pdf") {
+      return (
+        <Wrap>
+          <a
+            onClick={stop}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Abrir PDF
+          </a>
+        </Wrap>
       );
     }
 
     return (
-      <div className="mt-2">
+      <Wrap>
         <a
           onClick={stop}
           href={url}
@@ -1462,7 +1512,7 @@ const ChatPrincipal = ({
         >
           Abrir archivo
         </a>
-      </div>
+      </Wrap>
     );
   };
 
@@ -2427,32 +2477,47 @@ const ChatPrincipal = ({
                 </label>
 
                 {commandAttachment && (
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl border bg-white shadow-sm max-w-[260px]">
-                    {/* Thumbnail fijo (recorta lo que renderice PreviewFile) */}
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl border bg-white shadow-sm max-w-[380px]">
+                    {/* Thumbnail fijo */}
                     <div
                       className="
-                      h-10 w-10 rounded-lg overflow-hidden bg-gray-100 shrink-0
-                      [&_img]:h-full [&_img]:w-full [&_img]:object-cover
-                      [&_video]:h-full [&_video]:w-full [&_video]:object-cover
-                      [&_iframe]:h-full [&_iframe]:w-full
-                    "
+        h-10 w-10 rounded-lg overflow-hidden bg-gray-100 shrink-0
+        flex items-center justify-center
+        [&_img]:h-full [&_img]:w-full [&_img]:object-cover
+        [&_video]:h-full [&_video]:w-full [&_video]:object-cover
+        [&_iframe]:h-full [&_iframe]:w-full
+      "
                       title="Adjunto seleccionado desde atajo"
                     >
-                      <PreviewFile url={commandAttachment} />
+                      {getFileTypeFromUrl?.(commandAttachment) === "audio" ? (
+                        <i className="bx bxs-music text-xl text-slate-500" />
+                      ) : (
+                        <PreviewFile url={commandAttachment} />
+                      )}
                     </div>
 
-                    {/* Texto corto (no ocupa mucho) */}
-                    <div className="min-w-0">
+                    {/* Texto + audio inline */}
+                    <div className="min-w-0 flex-1">
                       <div className="text-[11px] text-gray-500 leading-none">
                         Adjunto desde atajo
                       </div>
+
+                      {/* ✅ AUDIO: reproductor real y cómodo */}
+                      {getFileTypeFromUrl?.(commandAttachment) === "audio" ? (
+                        <audio
+                          src={commandAttachment}
+                          controls
+                          className="mt-1 w-[220px] max-w-full h-8"
+                        />
+                      ) : null}
                     </div>
 
+                    {/* ✅ Quitar: limpia adjunto + texto preset */}
                     <button
                       type="button"
-                      onClick={() => setCommandAttachment(null)}
+                      onClick={onClearQuickReplyPreset}
                       className="ml-auto text-gray-500 hover:text-gray-800 px-2"
-                      title="Quitar adjunto"
+                      title="Quitar"
                     >
                       ✕
                     </button>
@@ -2474,36 +2539,69 @@ const ChatPrincipal = ({
 
                 {/* Menú de comandos */}
                 {isCommandActive && (
-                  <div className="absolute bottom-20 left-0 bg-white border rounded shadow-lg p-4 z-50 w-full max-w-md">
-                    <button
-                      onClick={handleCloseModal}
-                      className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-6 h-6"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
+                  <div
+                    className="
+                    absolute left-0 right-0 bottom-16
+                    z-50
+                    w-[96%] sm:w-full sm:max-w-md
+                    bg-white
+                    border border-black/10
+                    rounded-2xl
+                    shadow-2xl
+                    p-3
+                    max-h-[70vh]
+                    overflow-hidden
+                  "
+                  >
+                    {/* Header: título + cerrar */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-semibold text-slate-800">
+                        Respuestas rápidas
+                      </div>
 
+                      <button
+                        onClick={handleCloseModal}
+                        className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
+                        title="Cerrar"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Buscador */}
                     <input
                       type="text"
                       value={menuSearchTerm}
                       onChange={handleMenuSearchChange}
                       placeholder="Buscar opciones..."
-                      className="w-full p-2 mb-4 border rounded"
+                      className="
+                        w-full
+                        px-3 py-2
+                        text-sm
+                        border border-gray-200
+                        rounded-xl
+                        outline-none
+                        focus:ring-2 focus:ring-blue-200
+                        mb-2
+                      "
                       ref={inputSearchRef}
                     />
-                    <ul className="space-y-2">
+
+                    {/* Lista scrolleable */}
+                    <ul className="space-y-2 overflow-y-auto max-h-[52vh] pr-1">
                       {searchResults.length > 0 ? (
                         searchResults.map((result, index) => (
                           <li
@@ -2514,24 +2612,36 @@ const ChatPrincipal = ({
                                 ruta_archivo: result.ruta_archivo || null,
                               })
                             }
-                            className="cursor-pointer hover:bg-gray-200 p-2 rounded"
+                            className="
+                              cursor-pointer
+                              rounded-xl
+                              border border-gray-100
+                              bg-white
+                              hover:bg-gray-50
+                              active:bg-gray-100
+                              p-2
+                              transition
+                            "
                           >
-                            <div>
-                              <strong>Atajo:</strong> {result.atajo}
+                            <div className="text-sm font-semibold text-slate-800 truncate">
+                              {result.atajo ? `/${result.atajo}` : "Atajo"}
                             </div>
 
-                            <div>
-                              <strong>Mensaje:</strong> {result.mensaje}
+                            <div className="mt-1 text-xs text-slate-600 line-clamp-2">
+                              {result.mensaje || "Sin contenido"}
                             </div>
 
-                            {/* Vista previa del archivo si existe */}
-                            {result.ruta_archivo && (
-                              <PreviewFile url={result.ruta_archivo} />
-                            )}
+                            {result.ruta_archivo ? (
+                              <div className="mt-2">
+                                <PreviewFile url={result.ruta_archivo} />
+                              </div>
+                            ) : null}
                           </li>
                         ))
                       ) : (
-                        <li className="text-gray-500">No hay resultados</li>
+                        <li className="text-sm text-gray-500 py-3 text-center">
+                          No hay resultados
+                        </li>
                       )}
                     </ul>
                   </div>
