@@ -2093,10 +2093,12 @@ const Chat = () => {
           selectedChat &&
           String(selectedChat.id) === String(msg.celular_recibe)
         ) {
-          // opcional: cerrar chat actual o mostrar aviso
-          if (Swal.isVisible()) Swal.close();
-          setSelectedChat(null);
-          setChatMessages([]);
+          if (msg?.clientePorCelular?.id_encargado != id_sub_usuario_global) {
+            // opcional: cerrar chat actual o mostrar aviso
+            if (Swal.isVisible()) Swal.close();
+            setSelectedChat(null);
+            setChatMessages([]);
+          }
         }
       }
     });
