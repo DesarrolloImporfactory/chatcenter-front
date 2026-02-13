@@ -249,6 +249,8 @@ const ChatPrincipal = ({
   setMensajesOrdenados,
   setNumeroModalPreset,
   isSocketConnected,
+  commandAttachment,
+  setCommandAttachment,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -829,14 +831,16 @@ const ChatPrincipal = ({
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      if (!isChatBlocked && mensaje.trim()) {
-        e.preventDefault();
-        handleSendMessage();
-      } else {
-        e.preventDefault();
-      }
+      const canSend =
+        !isChatBlocked && (mensaje.trim() || file || commandAttachment);
+
+      e.preventDefault();
+      if (canSend) handleSendMessage();
     }
   };
+
+  const canSend =
+    !!(mensaje && mensaje.trim()) || !!file || !!commandAttachment;
 
   const handlePaste = async (e) => {
     const items = e.clipboardData?.items;
@@ -1388,6 +1392,135 @@ const ChatPrincipal = ({
     });
   };
 
+  const getFileTypeFromUrl = (url = "") => {
+    const clean = url.split("?")[0].toLowerCase();
+    if (clean.match(/\.(png|jpg|jpeg|gif|webp|svg)$/)) return "image";
+    if (clean.match(/\.(mp4|webm|ogg)$/)) return "video";
+    if (clean.match(/\.(pdf)$/)) return "pdf";
+    return "file";
+  };
+
+  const PreviewFile = ({ url }) => {
+    if (!url) return null;
+
+    const type = getFileTypeFromUrl(url);
+    const stop = (e) => e.stopPropagation();
+
+    if (type === "image") {
+      return (
+        <div className="mt-2">
+          <img
+            src={url}
+            alt="Vista previa"
+            className="w-full max-w-[260px] h-auto rounded-lg border border-gray-200"
+            loading="lazy"
+          />
+
+          {/* ✅ Solo este link NO debe seleccionar el item */}
+          <a
+            onClick={stop}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block mt-2 text-sm text-blue-600 hover:underline"
+          >
+            Abrir imagen en nueva pestaña
+          </a>
+        </div>
+      );
+    }
+
+    if (type === "video") {
+      return (
+        <div className="mt-2">
+          <video
+            src={url}
+            controls
+            className="w-full max-w-[320px] rounded-lg border border-gray-200"
+          />
+          <a
+            onClick={stop}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block mt-2 text-sm text-blue-600 hover:underline"
+          >
+            Abrir video en nueva pestaña
+          </a>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-2">
+        <a
+          onClick={stop}
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Abrir archivo
+        </a>
+      </div>
+    );
+  };
+
+  const safeParseDocMeta = (raw) => {
+    // raw puede ser: null, "", "null", objeto, JSON string, ruta string
+    if (raw == null) {
+      return { ruta: "", nombre: "Documento", size: 0, mimeType: "" };
+    }
+
+    // Si ya viene como objeto
+    if (typeof raw === "object") {
+      return {
+        ruta: raw.ruta || raw.path || "",
+        nombre: raw.nombre || raw.name || "Documento",
+        size: Number(raw.size || 0),
+        mimeType: raw.mimeType || raw.mimetype || "",
+      };
+    }
+
+    // Si viene como string
+    const s = String(raw).trim();
+
+    // casos típicos: "null", "undefined", ""
+    if (!s || s === "null" || s === "undefined") {
+      return { ruta: "", nombre: "Documento", size: 0, mimeType: "" };
+    }
+
+    // Intentar parsear JSON
+    try {
+      const parsed = JSON.parse(s);
+
+      // OJO: JSON.parse("null") => null
+      if (!parsed || typeof parsed !== "object") {
+        return { ruta: "", nombre: "Documento", size: 0, mimeType: "" };
+      }
+
+      return {
+        ruta: parsed.ruta || parsed.path || "",
+        nombre: parsed.nombre || parsed.name || "Documento",
+        size: Number(parsed.size || 0),
+        mimeType: parsed.mimeType || parsed.mimetype || "",
+      };
+    } catch {
+      // Si no es JSON, asumimos que es una ruta directa
+      return { ruta: s, nombre: "Documento", size: 0, mimeType: "" };
+    }
+  };
+
+  const buildFileUrl = (ruta = "") => {
+    if (!ruta) return "";
+    const clean = String(ruta).trim();
+    if (!clean) return "";
+    if (/^https?:\/\//i.test(clean)) return clean;
+
+    // normaliza slashes
+    return `https://new.imporsuitpro.com/${clean.replace(/^\//, "")}`;
+  };
+
   return (
     <>
       <div
@@ -1786,30 +1919,41 @@ const ChatPrincipal = ({
                             <ImageWithModal mensaje={mensaje} />
                           ) : mensaje.tipo_mensaje === "document" ? (
                             (() => {
-                              let meta = {
-                                ruta: "",
-                                nombre: "",
-                                size: 0,
-                                mimeType: "",
-                              };
-                              try {
-                                meta = JSON.parse(mensaje.ruta_archivo);
-                              } catch (e) {
-                                meta = {
-                                  ruta: mensaje.ruta_archivo,
-                                  nombre: "archivo",
-                                  size: 0,
-                                  mimeType: "",
-                                };
+                              const meta = safeParseDocMeta(
+                                mensaje.ruta_archivo,
+                              );
+
+                              // link final a abrir
+                              const link = buildFileUrl(meta.ruta);
+
+                              // Si NO hay ruta (su caso actual), muestre fallback elegante
+                              if (!link) {
+                                return (
+                                  <div className="p-2">
+                                    <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-xl border border-yellow-200">
+                                      <span className="text-2xl text-yellow-700">
+                                        <i className="bx bx-file-blank" />
+                                      </span>
+                                      <div className="text-sm text-yellow-800">
+                                        Documento no disponible (este mensaje
+                                        llegó sin <b>ruta_archivo</b>).
+                                      </div>
+                                    </div>
+
+                                    {mensaje.texto_mensaje ? (
+                                      <p className="pt-2">
+                                        {mensaje.texto_mensaje}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                );
                               }
-                              const link = /^https?:\/\//.test(meta.ruta)
-                                ? meta.ruta
-                                : `https://new.imporsuitpro.com/${meta.ruta}`;
+
                               const ext = (
                                 meta.ruta?.split(".").pop() ||
                                 meta.mimeType?.split("/").pop() ||
                                 ""
-                              )?.toUpperCase();
+                              ).toUpperCase();
 
                               const iconInfo = getFileIcon(
                                 meta.ruta?.split(".").pop() || "",
@@ -1817,6 +1961,10 @@ const ChatPrincipal = ({
 
                               return (
                                 <div className="p-2">
+                                  {/* ✅ Preview reutilizando su helper */}
+                                  <PreviewFile url={link} />
+
+                                  {/* ✅ Card de descarga como usted ya la tiene */}
                                   <a
                                     href={link}
                                     target="_blank"
@@ -1828,30 +1976,28 @@ const ChatPrincipal = ({
                                         className={`${iconInfo.icon} ${iconInfo.color}`}
                                       ></i>
                                     </span>
-                                    <div className="flex flex-col">
+
+                                    <div className="flex flex-col min-w-0">
                                       <span className="font-semibold text-sm text-gray-800 truncate">
                                         {meta.nombre || "Documento"}
                                       </span>
+
                                       <div className="flex text-xs text-gray-500 space-x-1">
                                         <span>
                                           {meta.size > 1024 * 1024
-                                            ? `${(
-                                                meta.size /
-                                                1024 /
-                                                1024
-                                              ).toFixed(2)} MB`
-                                            : `${(meta.size / 1024).toFixed(
-                                                2,
-                                              )} KB`}
+                                            ? `${(meta.size / 1024 / 1024).toFixed(2)} MB`
+                                            : `${(meta.size / 1024).toFixed(2)} KB`}
                                         </span>
                                         <span>•</span>
-                                        <span>{ext}</span>
+                                        <span>{ext || "FILE"}</span>
                                       </div>
                                     </div>
-                                    <span className="text-2xl text-blue-500 hover:text-blue-700 transition-colors">
+
+                                    <span className="ml-auto text-2xl text-blue-500 hover:text-blue-700 transition-colors">
                                       <i className="bx bx-download"></i>
                                     </span>
                                   </a>
+
                                   {mensaje.texto_mensaje ? (
                                     <p className="pt-2">
                                       {mensaje.texto_mensaje}
@@ -2280,6 +2426,39 @@ const ChatPrincipal = ({
                   <i className="bx bx-plus text-2xl"></i>
                 </label>
 
+                {commandAttachment && (
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl border bg-white shadow-sm max-w-[260px]">
+                    {/* Thumbnail fijo (recorta lo que renderice PreviewFile) */}
+                    <div
+                      className="
+                      h-10 w-10 rounded-lg overflow-hidden bg-gray-100 shrink-0
+                      [&_img]:h-full [&_img]:w-full [&_img]:object-cover
+                      [&_video]:h-full [&_video]:w-full [&_video]:object-cover
+                      [&_iframe]:h-full [&_iframe]:w-full
+                    "
+                      title="Adjunto seleccionado desde atajo"
+                    >
+                      <PreviewFile url={commandAttachment} />
+                    </div>
+
+                    {/* Texto corto (no ocupa mucho) */}
+                    <div className="min-w-0">
+                      <div className="text-[11px] text-gray-500 leading-none">
+                        Adjunto desde atajo
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setCommandAttachment(null)}
+                      className="ml-auto text-gray-500 hover:text-gray-800 px-2"
+                      title="Quitar adjunto"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
                 <textarea
                   value={mensaje}
                   onChange={onChangeWithTyping}
@@ -2328,16 +2507,27 @@ const ChatPrincipal = ({
                       {searchResults.length > 0 ? (
                         searchResults.map((result, index) => (
                           <li
-                            key={index}
-                            onClick={() => handleOptionSelect(result.mensaje)}
+                            key={result.id_template ?? index}
+                            onClick={() =>
+                              handleOptionSelect({
+                                mensaje: result.mensaje,
+                                ruta_archivo: result.ruta_archivo || null,
+                              })
+                            }
                             className="cursor-pointer hover:bg-gray-200 p-2 rounded"
                           >
                             <div>
                               <strong>Atajo:</strong> {result.atajo}
                             </div>
+
                             <div>
                               <strong>Mensaje:</strong> {result.mensaje}
                             </div>
+
+                            {/* Vista previa del archivo si existe */}
+                            {result.ruta_archivo && (
+                              <PreviewFile url={result.ruta_archivo} />
+                            )}
                           </li>
                         ))
                       ) : (
@@ -2348,8 +2538,9 @@ const ChatPrincipal = ({
                 )}
 
                 <button
+                  title="Enviar mensaje"
                   onClick={
-                    mensaje || file
+                    canSend
                       ? handleSendMessage
                       : grabando
                         ? stopRecording
@@ -2360,7 +2551,7 @@ const ChatPrincipal = ({
                   } text-white px-4 py-2 rounded`}
                   disabled={isChatBlocked}
                 >
-                  {mensaje || file ? (
+                  {canSend ? (
                     <i className="bx bx-send"></i>
                   ) : grabando ? (
                     <i className="bx bx-stop"></i>

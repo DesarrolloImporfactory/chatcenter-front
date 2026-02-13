@@ -838,8 +838,16 @@ const Chat = () => {
     });
   }, [chatMessages]);
 
+  const [commandAttachment, setCommandAttachment] = useState(null);
+
   const handleOptionSelect = (option) => {
-    setMensaje(option); // Pon el texto seleccionado en el campo de entrada
+    const text = typeof option === "string" ? option : option?.mensaje || "";
+    const attachment =
+      typeof option === "string" ? null : option?.ruta_archivo || null;
+
+    setMensaje(text); // Pon el texto seleccionado en el campo de entrada
+    setCommandAttachment(attachment);
+
     setIsCommandActive(false); // Cierra el cuadro de opciones
     setIsChatBlocked(false); // Desbloquea el chat
 
@@ -956,40 +964,109 @@ const Chat = () => {
     return texto.length > limite ? texto.substring(0, limite) + "..." : texto;
   };
 
+  const getExtFromUrl = (url = "") => {
+    try {
+      const clean = String(url).split("?")[0].split("#")[0];
+      return (clean.split(".").pop() || "").toLowerCase();
+    } catch {
+      return "";
+    }
+  };
+
+  const inferTipoFromUrl = (url = "") => {
+    const ext = getExtFromUrl(url);
+
+    const img = ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg", "heic"];
+    const vid = ["mp4", "mov", "webm", "mkv", "avi", "m4v"];
+    const doc = [
+      "pdf",
+      "doc",
+      "docx",
+      "xls",
+      "xlsx",
+      "ppt",
+      "pptx",
+      "txt",
+      "csv",
+      "zip",
+      "rar",
+      "7z",
+    ];
+
+    if (img.includes(ext)) return "image";
+    if (vid.includes(ext)) return "video";
+    if (doc.includes(ext)) return "document";
+    return "document"; // fallback
+  };
+
+  const fileNameFromUrl = (url = "") => {
+    try {
+      const clean = String(url).split("?")[0].split("#")[0];
+      return clean.split("/").pop() || "archivo";
+    } catch {
+      return "archivo";
+    }
+  };
+
   const handleSendMessage = () => {
     const text = (mensaje || "").trim();
-    if (!text || !selectedChat || !socketRef.current) return;
+
+    const attachmentUrl = commandAttachment || null; //  adjunto desde atajo (URL)
+    const hasAttachment = !!file || !!attachmentUrl;
+
+    // ahora permitimos enviar si hay texto O hay adjunto
+    if ((!text && !hasAttachment) || !selectedChat || !socketRef.current)
+      return;
 
     const nowISO = new Date().toISOString();
     const tmpId = `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     const safeName = (nombre_encargado_global || "").replace(/[*_~`]/g, "");
 
-    // ✅ Para WA usted quería el encabezado con nombre + 🎤
-    const finalTextWA = `*${safeName}* 🎤:\n${text}`;
-
-    // ✅ Para IG/MS (recomendado) NO meta ese encabezado, envíe solo texto.
-    const finalTextSocial = text;
+    // Para WA usted quería el encabezado con nombre + 🎤
+    const finalTextWA = text ? `*${safeName}* 🎤:\n${text}` : ""; // si no hay texto, vacío
+    const finalTextSocial = text; // IG/MS recomendado
 
     const isWA = (selectedChat?.source || "wa") === "wa";
 
-    const tipo = file ? "document" : "text";
+    // tipo: prioridad -> file local, si no -> adjunto url, si no -> text
+    const tipo = file
+      ? "document"
+      : attachmentUrl
+        ? inferTipoFromUrl(attachmentUrl)
+        : "text";
+
+    //  ruta_archivo: si es file local => meta, si es url => meta con url
+    const rutaArchivoOptimistic = file
+      ? JSON.stringify({
+          ruta: file?.name || "",
+          nombre: file?.name || "archivo",
+          size: file?.size || 0,
+          mimeType: file?.type || "",
+        })
+      : attachmentUrl
+        ? JSON.stringify({
+            ruta: attachmentUrl,
+            nombre: fileNameFromUrl(attachmentUrl),
+            size: 0,
+            mimeType: "",
+          })
+        : null;
 
     // =========================
-    // ✅ 1) OPTIMISTIC UI (Derecha) - siempre
+    // 1) OPTIMISTIC UI (Derecha)
     // =========================
     const optimisticMsg = {
       id: tmpId,
       created_at: nowISO,
-      texto_mensaje: isWA ? finalTextWA : finalTextSocial,
+      texto_mensaje: isWA ? finalTextWA || "" : finalTextSocial || "",
       tipo_mensaje: tipo,
-      ruta_archivo: file ? file?.name || "" : null,
-      rol_mensaje: 1, // 1 = nosotros
+      ruta_archivo: rutaArchivoOptimistic,
+      rol_mensaje: 1,
       visto: 1,
       direction: "out",
-      status_unificado: "sent", // o "pending"
+      status_unificado: "sent",
       responsable: nombre_encargado_global,
-      // opcional:
       source: selectedChat?.source || "wa",
     };
 
@@ -997,7 +1074,7 @@ const Chat = () => {
     scrollToBottomNow();
 
     // =========================
-    // ✅ 2) Actualiza lista izquierda (preview) - siempre
+    // ) Update lista izquierda (preview)
     // =========================
     const updateMensajesAcumulados = ({
       chatId,
@@ -1051,26 +1128,22 @@ const Chat = () => {
 
     updateMensajesAcumulados({
       chatId: selectedChat.id,
-      texto_mensaje: isWA ? finalTextWA : finalTextSocial,
+      texto_mensaje: isWA ? finalTextWA || "" : finalTextSocial || "",
       tipo_mensaje: tipo,
-      ruta_archivo: file
-        ? JSON.stringify({
-            name: file?.name || "",
-            size: file?.size || 0,
-            type: file?.type || "",
-          })
-        : "{}",
+      ruta_archivo: rutaArchivoOptimistic || "{}",
       source: selectedChat?.source || "wa",
     });
 
-    // limpiar input
+    // =========================
+    //  3) Limpieza inputs
+    // =========================
     setMensaje("");
     setFile(null);
+    setCommandAttachment(null);
 
     // =========================
-    // ✅ 3) Emit unificado (WA / IG / MS)
+    // ✅ 4) Emit unificado
     // =========================
-
     // 📌 IMPORTANTE:
     // - Para WA: mandamos to
     // - Para IG/MS: mandamos chatId + source + page_id + external_id (mínimo chatId)
@@ -1078,32 +1151,31 @@ const Chat = () => {
       id_configuracion,
       tipo_mensaje: tipo,
       file,
+      attachment_url: attachmentUrl, // ✅ nuevo
       dataAdmin,
       nombre_encargado: nombre_encargado_global,
-      client_tmp_id: tmpId, // ✅ para luego reconciliar si quiere
+      client_tmp_id: tmpId,
     };
 
     if (isWA) {
       socketRef.current.emit("SEND_MESSAGE", {
         ...basePayload,
-        mensaje: finalTextWA,
+        mensaje: finalTextWA || "", // puede ir vacío si es solo adjunto
         to: selectedChat.celular_cliente,
-        // opcional (por si quiere):
         chatId: selectedChat.id,
         source: "wa",
       });
       return;
     }
 
-    // IG/MS
     socketRef.current.emit("SEND_MESSAGE", {
       ...basePayload,
-      mensaje: finalTextSocial,
-      chatId: selectedChat.id, // ✅ clave
-      source: selectedChat.source, // 'ig' o 'ms'
-      page_id: selectedChat.page_id, // ✅
-      external_id: selectedChat.external_id, // ✅
-      to: null, // para que quede explícito
+      mensaje: finalTextSocial || "", // puede ir vacío si es solo adjunto
+      chatId: selectedChat.id,
+      source: selectedChat.source,
+      page_id: selectedChat.page_id,
+      external_id: selectedChat.external_id,
+      to: null,
     });
   };
 
@@ -3002,6 +3074,8 @@ const Chat = () => {
         dataAdmin={dataAdmin}
         setMensajesOrdenados={setMensajesOrdenados}
         isSocketConnected={isSocketConnected}
+        commandAttachment={commandAttachment}
+        setCommandAttachment={setCommandAttachment}
       />
       {/* Seccion de la derecha, datos de usuario, acciones */}
       {/* <DatosUsuario
