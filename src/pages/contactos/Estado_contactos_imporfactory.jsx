@@ -420,7 +420,81 @@ const Estado_contactos = () => {
         </div>
 
         {telefono && (
-          <div style={{ opacity: 0.85, marginBottom: 6 }}>📱 {telefono}</div>
+          <div
+            style={{
+              opacity: 0.9,
+              marginBottom: 6,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span>📱</span>
+              <span>{telefono}</span>
+            </div>
+
+            <button
+              type="button"
+              title="Copiar número"
+              aria-label="Copiar número"
+              onClick={(e) => {
+                e.stopPropagation(); // para que no dispare otros clicks del card
+                const value = String(telefono);
+
+                // Clipboard API (moderno)
+                if (navigator?.clipboard?.writeText) {
+                  navigator.clipboard
+                    .writeText(value)
+                    .then(() =>
+                      Toast.fire({ icon: "success", title: "Número copiado" }),
+                    )
+                    .catch(() =>
+                      Toast.fire({ icon: "error", title: "No se pudo copiar" }),
+                    );
+                  return;
+                }
+
+                // Fallback (por compatibilidad)
+                try {
+                  const ta = document.createElement("textarea");
+                  ta.value = value;
+                  ta.style.position = "fixed";
+                  ta.style.opacity = "0";
+                  document.body.appendChild(ta);
+                  ta.select();
+                  document.execCommand("copy");
+                  document.body.removeChild(ta);
+                  Toast.fire({ icon: "success", title: "Número copiado" });
+                } catch {
+                  Toast.fire({ icon: "error", title: "No se pudo copiar" });
+                }
+              }}
+              style={{
+                border: "none",
+                background: "transparent",
+                padding: "6px 8px",
+                borderRadius: "10px",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all .15s ease",
+                color: "#9CA3AF", // gris
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(0,0,0,0.06)";
+                e.currentTarget.style.color = "#4B5563"; // gris más fuerte
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "#9CA3AF";
+              }}
+            >
+              <i className="bx bx-copy" style={{ fontSize: "18px" }}></i>
+            </button>
+          </div>
         )}
 
         {contacto.estado_contacto && (
@@ -442,9 +516,13 @@ const Estado_contactos = () => {
         {/* Botón Abrir */}
         <button
           onClick={() =>
-            navigate(
-              `/chat?phone=${encodeURIComponent(contacto.telefono_limpio)}`
-            )
+            navigate(`/chat/${contacto.id}`, {
+              state: {
+                id_configuracion: Number(
+                  localStorage.getItem("id_configuracion"),
+                ),
+              },
+            })
           }
           style={{
             marginTop: 8,
