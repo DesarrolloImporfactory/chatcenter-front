@@ -35,8 +35,8 @@ export default function DropshipperClientPanel(props) {
     cotizacionesData,
     Cotizador,
 
-    // ... (todo lo demás)
     MiniCalendario,
+    openEditContact,
   } = props;
 
   // ========= phone normalizado =========
@@ -1238,7 +1238,17 @@ export default function DropshipperClientPanel(props) {
         <div className="w-full max-w-3xl mx-auto">
           {/* ===== Header cliente (avatar+datos) ===== */}
           <div className="mb-6">
-            <div className="rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-hidden">
+            <div className="relative rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-hidden">
+              {/* Botón lápiz pro (anclado a la card) */}
+              <button
+                type="button"
+                onClick={openEditContact}
+                className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/80 hover:bg-white/10 hover:text-white transition"
+                title="Editar contacto"
+              >
+                <i className="bx bx-pencil text-base" />
+              </button>
+
               {/* Top strip */}
               <div className="px-5 py-4 bg-[#162c4a]">
                 <div className="flex items-center gap-4">
@@ -1268,6 +1278,7 @@ export default function DropshipperClientPanel(props) {
                           : `ID ${selectedChat?.id ?? "N/A"}`}
                       </span>
                     </div>
+
                     {/* Subline */}
                     <p className="text-xs text-white/55 truncate mt-0.5">
                       {selectedChat?.email_cliente || "Sin email registrado"}
@@ -1276,12 +1287,11 @@ export default function DropshipperClientPanel(props) {
                 </div>
               </div>
 
-              {/* Bottom grid info (mismo estilo / misma familia de color) */}
+              {/* Bottom grid info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/10 bg-[#0f1b33]">
                 {/* Teléfono */}
                 <div className="px-5 py-4">
                   <p className="text-[11px] text-white/45">Teléfono</p>
-
                   <div className="mt-1 flex items-center justify-between gap-3">
                     <p className="text-sm text-white/90 font-medium truncate">
                       {selectedChat?.celular_cliente || "N/A"}
@@ -1305,7 +1315,6 @@ export default function DropshipperClientPanel(props) {
                 {/* Email */}
                 <div className="px-5 py-4">
                   <p className="text-[11px] text-white/45">Email</p>
-
                   <div className="mt-1 flex items-center justify-between gap-3">
                     <p className="text-sm text-white/90 font-medium truncate">
                       {selectedChat?.email_cliente || "Sin email registrado"}

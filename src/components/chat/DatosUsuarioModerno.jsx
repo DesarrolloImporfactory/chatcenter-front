@@ -10,6 +10,7 @@ import Cotizador from "../cotizador/Cotizador";
 import { jwtDecode } from "jwt-decode";
 import useNovedadesManager from "../../hooks/useNovedadesManager";
 import ChatRightPanel from "./ChatRightPanel";
+import EditarContactoDrawer from "./modales/EditarContactoDrawer";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -32,6 +33,7 @@ const DatosUsuarioModerno = ({
   setProvinciaCiudad,
   handleGuiaSeleccionada,
   selectedChat,
+  setSelectedChat,
   obtenerEstadoGuia,
   disableAanular,
   disableGestionar,
@@ -1330,6 +1332,7 @@ const DatosUsuarioModerno = ({
     loadingCotizaciones,
     cotizacionesData,
     Cotizador,
+    openEditContact: () => setEditContactOpen(true),
   };
 
   const rightPanelDropiOnlyProps = {
@@ -1449,6 +1452,8 @@ const DatosUsuarioModerno = ({
     ...rightPanelDropiOnlyProps,
   };
 
+  const [editContactOpen, setEditContactOpen] = useState(false);
+
   return (
     <>
       {opciones && (
@@ -1460,6 +1465,21 @@ const DatosUsuarioModerno = ({
           <ChatRightPanel {...chatRightPanelProps} />
         </div>
       )}
+
+      <EditarContactoDrawer
+        open={editContactOpen}
+        onClose={() => setEditContactOpen(false)}
+        selectedChat={selectedChat}
+        onSaved={(updated, editing) => {
+          setSelectedChat((prev) => ({
+            ...prev,
+            nombre_cliente: editing?.nombre ?? prev?.nombre_cliente,
+            apellido_cliente: editing?.apellido ?? prev?.apellido_cliente,
+            email_cliente: editing?.email ?? prev?.email_cliente,
+            celular_cliente: editing?.telefono ?? prev?.celular_cliente,
+          }));
+        }}
+      />
     </>
   );
 };

@@ -19,6 +19,7 @@ export default function ChatRightPanel(props) {
       cotizacionesData: props.cotizacionesData,
       Cotizador: props.Cotizador,
       MiniCalendario: props.MiniCalendario,
+      openEditContact: props.openEditContact,
     }),
     [
       props.selectedChat,
@@ -32,6 +33,7 @@ export default function ChatRightPanel(props) {
       props.cotizacionesData,
       props.Cotizador,
       props.MiniCalendario,
+      props.openEditContact,
     ],
   );
 

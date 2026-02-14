@@ -12,6 +12,7 @@ export default function BasicClientPanel({
   cotizacionesData,
   Cotizador,
   MiniCalendario,
+  openEditContact,
 }) {
   return (
     <div className="flex items-start justify-center overflow-y-auto h-full md:h-[750px] pt-2 md:pt-4 custom-scrollbar">
@@ -19,7 +20,7 @@ export default function BasicClientPanel({
         {/* Info cliente */}
         <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border">
           <div className="mb-6">
-            <div className="rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-hidden">
+            <div className="relative rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-hidden">
               {/* Top strip */}
               <div className="px-5 py-4 bg-[#162c4a]">
                 <div className="flex items-center gap-4">
@@ -49,10 +50,20 @@ export default function BasicClientPanel({
                           : `ID ${selectedChat?.id ?? "N/A"}`}
                       </span>
                     </div>
+
                     {/* Subline */}
                     <p className="text-xs text-white/55 truncate mt-0.5">
                       {selectedChat?.email_cliente || "Sin email registrado"}
                     </p>
+                    {/* Botón lápiz pro */}
+                    <button
+                      type="button"
+                      onClick={openEditContact}
+                      className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/80 hover:bg-white/10 hover:text-white transition"
+                      title="Editar contacto"
+                    >
+                      <i className="bx bx-pencil text-base" />
+                    </button>
                   </div>
                 </div>
               </div>

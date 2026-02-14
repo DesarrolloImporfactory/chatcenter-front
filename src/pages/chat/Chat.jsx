@@ -3174,6 +3174,7 @@ const Chat = () => {
         setProvinciaCiudad={setProvinciaCiudad}
         handleGuiaSeleccionada={handleGuiaSeleccionada}
         selectedChat={selectedChat}
+        setSelectedChat={setSelectedChat}
         obtenerEstadoGuia={obtenerEstadoGuia}
         disableAanular={disableAanular}
         disableGestionar={disableGestionar}

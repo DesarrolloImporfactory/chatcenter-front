@@ -1814,6 +1814,7 @@ export default function Contactos() {
     );
     return mapRow(data?.data || data);
   }
+
   async function apiDelete(id) {
     await chatApi.delete(`/clientes_chat_center/eliminar/${id}`);
   }
