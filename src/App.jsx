@@ -72,7 +72,6 @@ function App() {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-
     // Validar configuración al iniciar la app
     if (!validateConfig()) {
       logger.error("Configuración inválida detectada");
@@ -90,8 +89,6 @@ function App() {
     if (currentToken && currentToken !== token) {
       setToken(currentToken);
     }
-      
-
   }, [location, token]);
 
   return (
@@ -297,7 +294,7 @@ function App() {
 
                 {/* PlanesView */}
                 <Route
-                  path="/planes_view"
+                  path="/planes"
                   element={
                     <MainLayoutPlanes>
                       <PlanesView />
@@ -323,7 +320,7 @@ function App() {
                 />
                 {/* Miplan */}
                 <Route
-                  path="/miplan"
+                  path="/plan"
                   element={
                     <MainLayout_conexiones>
                       <MiPlan />

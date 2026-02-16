@@ -199,7 +199,7 @@ function MainLayout({ children }) {
           allowEnterKey: true,
           confirmButtonText: "OK",
         }).then(() => {
-          navigate("/planes_view");
+          navigate("/planes");
         });
       } else {
         console.error("Error al cargar la configuración automatizada.", error);
@@ -282,7 +282,7 @@ function MainLayout({ children }) {
         cancelButtonText: "Cerrar",
         allowOutsideClick: false,
       }).then((r) => {
-        if (r.isConfirmed) navigate("/Miplan");
+        if (r.isConfirmed) navigate("plan");
         else navigate("/conexiones");
       });
     }
@@ -339,7 +339,7 @@ function MainLayout({ children }) {
         cancelButtonText: "Cerrar",
         allowOutsideClick: false,
       }).then((r) => {
-        if (r.isConfirmed) navigate("/Miplan");
+        if (r.isConfirmed) navigate("plan");
       });
     }
   };

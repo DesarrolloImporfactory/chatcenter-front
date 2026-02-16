@@ -133,7 +133,7 @@ const Cabecera = ({
         cancelButtonText: "Cerrar",
         allowOutsideClick: false,
       }).then((r) => {
-        if (r.isConfirmed) navigate("/planes_view");
+        if (r.isConfirmed) navigate("/planes");
       });
     }
   };

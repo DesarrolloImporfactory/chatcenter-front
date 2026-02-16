@@ -2116,7 +2116,7 @@ const DatosUsuario = ({
         cancelButtonText: "Cerrar",
         allowOutsideClick: false,
       }).then((r) => {
-        if (r.isConfirmed) navigate("/Miplan");
+        if (r.isConfirmed) navigate("/plan");
       });
       return;
     }

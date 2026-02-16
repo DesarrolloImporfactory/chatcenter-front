@@ -329,13 +329,13 @@ const Chat = () => {
               icon: "error",
               title: error.response?.data?.message,
               confirmButtonText: "OK",
-            }).then(() => navigate("/planes_view"));
+            }).then(() => navigate("/planes"));
           } else if (error.response?.status === 402) {
             Swal.fire({
               icon: "error",
               title: error.response?.data?.message,
               confirmButtonText: "OK",
-            }).then(() => navigate("/miplan"));
+            }).then(() => navigate("plan"));
           } else {
             console.error("Error en la validación:", error);
             await Swal.fire({

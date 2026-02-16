@@ -18,9 +18,11 @@ export default function CardPlanPersonalizado({
 
   // ⬇️ NUEVO: fallback local si el prop addons no llega con precios
   const [addonsFetched, setAddonsFetched] = useState(null);
-  const addonsResolved = addons?.conexion?.unit_amount || addons?.personalizado?.conexion?.unit_amount
-    ? addons
-    : addonsFetched;
+  const addonsResolved =
+    addons?.conexion?.unit_amount ||
+    addons?.personalizado?.conexion?.unit_amount
+      ? addons
+      : addonsFetched;
 
   const MAX_CONEXIONES = 10;
   const MAX_SUBUSUARIOS = 10;
@@ -50,7 +52,9 @@ export default function CardPlanPersonalizado({
       if (!raw) return null;
       const row = Array.isArray(raw) ? raw[0] : raw;
       return {
-        id_plan_base: Number(row?.id_plan_base ?? row?.id_plan ?? row?.plan_base ?? NaN),
+        id_plan_base: Number(
+          row?.id_plan_base ?? row?.id_plan ?? row?.plan_base ?? NaN,
+        ),
         n_conexiones: Number(row?.n_conexiones ?? row?.conexiones ?? 0),
         max_subusuarios: Number(row?.max_subusuarios ?? row?.subusuarios ?? 0),
       };
@@ -67,7 +71,7 @@ export default function CardPlanPersonalizado({
         const resp = await chatApi.post(
           "stripe_plan/obtenerPlanPersonalizadoUsuario",
           { id_usuario },
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         // La respuesta puede venir en distintas formas
@@ -100,7 +104,10 @@ export default function CardPlanPersonalizado({
           setEsEstaCardActual(Number(currentPlanId) === Number(plan.id_plan));
         }
       } catch (e) {
-        console.error("❌ obtenerPlanPersonalizadoUsuario:", e?.response?.data || e.message);
+        console.error(
+          "❌ obtenerPlanPersonalizadoUsuario:",
+          e?.response?.data || e.message,
+        );
         // Fallback seguro
         setNConexiones(0);
         setMaxSubusuarios(0);
@@ -127,7 +134,10 @@ export default function CardPlanPersonalizado({
           setAddonsFetched(a);
         }
       } catch (e) {
-        console.warn("No se pudieron cargar los addons:", e?.response?.data || e.message);
+        console.warn(
+          "No se pudieron cargar los addons:",
+          e?.response?.data || e.message,
+        );
       }
     };
 
@@ -151,16 +161,16 @@ export default function CardPlanPersonalizado({
   const connCents = useMemo(() => {
     return Number(
       addons?.personalizado?.conexion?.unit_amount ??
-      addonsResolved?.conexion?.unit_amount ??
-      0
+        addonsResolved?.conexion?.unit_amount ??
+        0,
     );
   }, [addons, addonsResolved]);
 
   const subCents = useMemo(() => {
     return Number(
       addons?.personalizado?.subusuario?.unit_amount ??
-      addonsResolved?.subusuario?.unit_amount ??
-      0
+        addonsResolved?.subusuario?.unit_amount ??
+        0,
     );
   }, [addons, addonsResolved]);
 
@@ -207,7 +217,11 @@ export default function CardPlanPersonalizado({
   const handleCheckout = async () => {
     try {
       if (disabledPorCantidades) {
-        return Swal.fire("Ups", "Selecciona al menos 1 conexión o 1 subusuario.", "info");
+        return Swal.fire(
+          "Ups",
+          "Selecciona al menos 1 conexión o 1 subusuario.",
+          "info",
+        );
       }
       const token = localStorage.getItem("token");
       const decoded = JSON.parse(atob(token.split(".")[1]));
@@ -220,10 +234,10 @@ export default function CardPlanPersonalizado({
           id_usuario,
           n_conexiones: nConexiones,
           max_subusuarios: maxSubusuarios,
-          success_url: `${baseUrl}/miplan?addpm=1`,
-          cancel_url: `${baseUrl}/planes_view`,
+          success_url: `${baseUrl}plan?addpm=1`,
+          cancel_url: `${baseUrl}/planes`,
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (data?.url) window.location.href = data.url;
@@ -241,7 +255,9 @@ export default function CardPlanPersonalizado({
   const botonDeshabilitado = esEstaCardActual || disabledPorCantidades;
   const textoBoton = esEstaCardActual
     ? "Tienes este plan actualmente"
-    : (tieneConfigGuardada ? "Pagar configuración guardada" : "Seleccionar");
+    : tieneConfigGuardada
+      ? "Pagar configuración guardada"
+      : "Seleccionar";
 
   return (
     <div className="relative group rounded-2xl p-[1px] transition-all duration-300 ease-out hover:-translate-y-1 h-full">
@@ -277,7 +293,9 @@ export default function CardPlanPersonalizado({
           {/* Controles */}
           <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="rounded-lg border border-slate-200/60 bg-white px-3 py-3">
-              <div className="text-sm font-semibold mb-2 text-[#171931]">Conexiones</div>
+              <div className="text-sm font-semibold mb-2 text-[#171931]">
+                Conexiones
+              </div>
               <div className="flex items-center justify-between">
                 <button
                   className="px-2 py-1 border border-slate-300 rounded-md"
@@ -287,7 +305,9 @@ export default function CardPlanPersonalizado({
                 >
                   -
                 </button>
-                <div className="w-10 text-center font-semibold">{nConexiones}</div>
+                <div className="w-10 text-center font-semibold">
+                  {nConexiones}
+                </div>
                 <button
                   className="px-2 py-1 border border-slate-300 rounded-md"
                   onClick={incCon}
@@ -297,11 +317,15 @@ export default function CardPlanPersonalizado({
                   +
                 </button>
               </div>
-              <div className="text-[11px] text-slate-500 mt-2">0 – {MAX_CONEXIONES}</div>
+              <div className="text-[11px] text-slate-500 mt-2">
+                0 – {MAX_CONEXIONES}
+              </div>
             </div>
 
             <div className="rounded-lg border border-slate-200/60 bg-white px-3 py-3">
-              <div className="text-sm font-semibold mb-2 text-[#171931]">Subusuarios</div>
+              <div className="text-sm font-semibold mb-2 text-[#171931]">
+                Subusuarios
+              </div>
               <div className="flex items-center justify-between">
                 <button
                   className="px-2 py-1 border border-slate-300 rounded-md"
@@ -311,7 +335,9 @@ export default function CardPlanPersonalizado({
                 >
                   -
                 </button>
-                <div className="w-10 text-center font-semibold">{maxSubusuarios}</div>
+                <div className="w-10 text-center font-semibold">
+                  {maxSubusuarios}
+                </div>
                 <button
                   className="px-2 py-1 border border-slate-300 rounded-md"
                   onClick={incSub}
@@ -321,7 +347,9 @@ export default function CardPlanPersonalizado({
                   +
                 </button>
               </div>
-              <div className="text-[11px] text-slate-500 mt-2">0 – {MAX_SUBUSUARIOS}</div>
+              <div className="text-[11px] text-slate-500 mt-2">
+                0 – {MAX_SUBUSUARIOS}
+              </div>
             </div>
           </div>
 
@@ -361,8 +389,8 @@ export default function CardPlanPersonalizado({
                 esEstaCardActual
                   ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                   : disabledPorCantidades
-                  ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                  : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
+                    ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                    : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
               }`}
             >
               {textoBoton}

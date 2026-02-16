@@ -374,7 +374,7 @@ const UsuariosView = () => {
   }, []);
 
   const onUpgradeClick = () => {
-    window.location.href = "/planes_view"; // Redirige a la página de planes
+    window.location.href = "/planes"; // Redirige a la página de planes
   };
 
   // NUEVO: Crea la sesión de Stripe - Subusuario adicional

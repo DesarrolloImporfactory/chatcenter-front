@@ -251,7 +251,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
           text: "",
           confirmButtonText: "OK",
         }).then(() => {
-          navigate("/planes_view");
+          navigate("/planes");
         });
       } else {
         console.error("Error al cargar la configuración automatizada.", error);

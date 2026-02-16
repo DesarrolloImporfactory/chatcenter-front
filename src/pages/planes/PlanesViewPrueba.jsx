@@ -18,24 +18,23 @@ const Liston = ({ texto, color = "recomendado" }) => {
   const colorClase = colores[color] || "bg-gray-800 text-white";
 
   // Reemplaza el return del componente Liston por este:
-return (
-  <div className="pointer-events-none absolute top-2 right-2 w-28 h-28 overflow-hidden z-40">
-    <div
-      className={[
-        "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-        "rotate-45",
-        colorClase,
-        "shadow-md rounded-[2px] px-3 py-[5px]",
-        "text-[10px] md:text-[11px] font-extrabold uppercase leading-none",
-        "whitespace-nowrap text-center",
-        "min-w-[150px]",
-      ].join(" ")}
-    >
-      {texto}
+  return (
+    <div className="pointer-events-none absolute top-2 right-2 w-28 h-28 overflow-hidden z-40">
+      <div
+        className={[
+          "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+          "rotate-45",
+          colorClase,
+          "shadow-md rounded-[2px] px-3 py-[5px]",
+          "text-[10px] md:text-[11px] font-extrabold uppercase leading-none",
+          "whitespace-nowrap text-center",
+          "min-w-[150px]",
+        ].join(" ")}
+      >
+        {texto}
+      </div>
     </div>
-  </div>
-);
-
+  );
 };
 
 const PlanesView = () => {
@@ -55,32 +54,36 @@ const PlanesView = () => {
         const res = await chatApi.get("planes/listarPlanes");
         setPlanes(res.data.data);
       } catch {
-        Swal.fire({ icon: "error", title: "Error", text: "No se pudieron cargar los planes." });
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudieron cargar los planes.",
+        });
       }
     };
     obtenerPlanes();
   }, []);
 
   // Verifica elegibilidad del trial al cargar
-useEffect(() => {
-  (async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const decoded = JSON.parse(atob(token.split(".")[1]));
+        const id_usuario = decoded.id_usuario || decoded.id_users;
 
-      const { data } = await chatApi.post(
-        "stripe_plan/trialElegibilidad",
-        { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setTrialElegible(Boolean(data?.elegible));
-    } catch (e) {
-      console.warn("trialElegibilidad:", e?.response?.data || e.message);
-    }
-  })();
-}, []);
+        const { data } = await chatApi.post(
+          "stripe_plan/trialElegibilidad",
+          { id_usuario },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        setTrialElegible(Boolean(data?.elegible));
+      } catch (e) {
+        console.warn("trialElegibilidad:", e?.response?.data || e.message);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const syncStripePrices = async () => {
@@ -96,7 +99,10 @@ useEffect(() => {
         });
         setStripeMap(map);
       } catch (e) {
-        console.warn("No se pudo sincronizar precios desde Stripe:", e?.response?.data || e.message);
+        console.warn(
+          "No se pudo sincronizar precios desde Stripe:",
+          e?.response?.data || e.message,
+        );
       }
     };
     syncStripePrices();
@@ -113,12 +119,15 @@ useEffect(() => {
         const { data } = await chatApi.post(
           "stripe_plan/obtenerSuscripcionActiva",
           { id_usuario },
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         setCurrentPlanId(data?.plan?.id_plan ?? null);
       } catch (err) {
-        console.warn("No se pudo obtener el plan actual:", err?.response?.data || err.message);
+        console.warn(
+          "No se pudo obtener el plan actual:",
+          err?.response?.data || err.message,
+        );
       }
     })();
   }, []);
@@ -140,7 +149,7 @@ useEffect(() => {
         );
         if (res.data.status === "success") {
           Swal.fire("Listo", "Tu plan gratuito fue activado correctamente.", "success").then(() => {
-            window.location.href = "/miplan";
+            window.location.href = "plan";
           });
         } else {
           throw new Error(res.data.message || "No se pudo activar el plan gratuito.");
@@ -156,25 +165,24 @@ useEffect(() => {
           "stripe_plan/crearFreeTrial",
           {
             id_usuario,
-            success_url: `${baseUrl}/miplan?trial=ok`,
-            cancel_url: `${baseUrl}/planes_view?trial=cancel`,
+            success_url: `${baseUrl}plan?trial=ok`,
+            cancel_url: `${baseUrl}/planes?trial=cancel`,
           },
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         if (data?.url) window.location.href = data.url; // Redirige a Stripe Checkout (pide tarjeta)
         return;
       }
-
 
       const res = await chatApi.post(
         "stripe_plan/crearSesionPago",
         {
           id_plan: planSeleccionado,
           id_usuario,
-          success_url: `${baseUrl}/miplan?addpm=1`,
-          cancel_url: `${baseUrl}/planes_view`,
+          success_url: `${baseUrl}plan?addpm=1`,
+          cancel_url: `${baseUrl}/planes`,
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (res.data.url) {
@@ -182,17 +190,25 @@ useEffect(() => {
           "plan_activado",
           JSON.stringify({
             id_plan: planSeleccionado,
-            nombre: planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan || "",
-          })
+            nombre:
+              planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan ||
+              "",
+          }),
         );
         window.location.href = res.data.url;
       } else {
-        Swal.fire("Listo", "Tu plan fue actualizado correctamente.", "success").then(() => {
-          window.location.href = "/miplan";
+        Swal.fire(
+          "Listo",
+          "Tu plan fue actualizado correctamente.",
+          "success",
+        ).then(() => {
+          window.location.href = "plan";
         });
       }
     } catch (error) {
-      const msg = error?.response?.data?.message || "No se pudo procesar tu solicitud. Intenta nuevamente.";
+      const msg =
+        error?.response?.data?.message ||
+        "No se pudo procesar tu solicitud. Intenta nuevamente.";
       Swal.fire({ icon: "error", title: "Error", text: msg });
     } finally {
       setLoading(false);
@@ -208,7 +224,8 @@ useEffect(() => {
 
   const getPrecioMostrar = (plan) => {
     const s = stripeMap[plan.id_plan];
-    if (s && typeof s.stripe_price === "number") return (s.stripe_price / 100).toFixed(2);
+    if (s && typeof s.stripe_price === "number")
+      return (s.stripe_price / 100).toFixed(2);
     return parseFloat(plan.precio_plan).toFixed(2);
   };
 
@@ -220,13 +237,28 @@ useEffect(() => {
 
   /* ===== Iconos ===== */
   const IconoCheck = () => (
-    <svg className="w-4 h-4 shrink-0 mt-[2px]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <svg
+      className="w-4 h-4 shrink-0 mt-[2px]"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <path d="M7.629 13.233l-3.2-3.2 1.414-1.414 1.786 1.786 5.657-5.657 1.414 1.414-7.071 7.071z" />
     </svg>
   );
   const IconoX = () => (
-    <svg className="w-4 h-4 shrink-0 mt-[2px]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2" fill="none" />
+    <svg
+      className="w-4 h-4 shrink-0 mt-[2px]"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        d="M6 6l8 8M14 6l-8 8"
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="none"
+      />
     </svg>
   );
 
@@ -234,7 +266,8 @@ useEffect(() => {
   const buildFeatures = (plan) => {
     const nombre = (plan?.nombre_plan || "").toLowerCase();
     const esFree = nombre.includes("free") || nombre.includes("gratuito");
-    const esConexion = nombre.includes("conexión") || nombre.includes("conexion");
+    const esConexion =
+      nombre.includes("conexión") || nombre.includes("conexion");
     const desactivaCitas = esFree || esConexion;
 
     return [
@@ -249,7 +282,10 @@ useEffect(() => {
       { label: "Área de productos y servicios", enabled: true },
       { label: "Automatizador", enabled: true },
       { label: "IA de agendamiento de citas", enabled: !desactivaCitas },
-      { label: "Calendario de programación de citas", enabled: !desactivaCitas },
+      {
+        label: "Calendario de programación de citas",
+        enabled: !desactivaCitas,
+      },
     ];
   };
 
@@ -258,15 +294,18 @@ useEffect(() => {
       <div className="w-full max-w-8xl">
         {/* HEADER */}
         <div className="relative mb-10 mt-10">
-          <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">Elige tu plan ideal y potencia tu empresa</h2>
-          <p className="mt-3 text-sm text-center text-[#5a547a]">Planes claros, beneficios reales y un proceso de activación sencillo.</p>
+          <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">
+            Elige tu plan ideal y potencia tu empresa
+          </h2>
+          <p className="mt-3 text-sm text-center text-[#5a547a]">
+            Planes claros, beneficios reales y un proceso de activación
+            sencillo.
+          </p>
 
           {currentPlanId && (
             <div className="absolute -top-2 right-0">
               <div className="relative inline-block group">
-                <div className="inline-block p-[2px] rounded-full bg-gradient-to-r from-[#E9E4FF] via-[#CFC3FF] to-[#A792FF] shadow-lg shadow-purple-300/30">
-                  
-                </div>
+                <div className="inline-block p-[2px] rounded-full bg-gradient-to-r from-[#E9E4FF] via-[#CFC3FF] to-[#A792FF] shadow-lg shadow-purple-300/30"></div>
                 <div
                   id="tooltip-mi-plan"
                   role="tooltip"
@@ -287,7 +326,10 @@ useEffect(() => {
           {planes.length === 0 && (
             <>
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="rounded-3xl p-6 bg-[#f5f4fb] border border-[#c4bde4]/40 animate-pulse h-[520px]" />
+                <div
+                  key={i}
+                  className="rounded-3xl p-6 bg-[#f5f4fb] border border-[#c4bde4]/40 animate-pulse h-[520px]"
+                />
               ))}
             </>
           )}
@@ -296,10 +338,9 @@ useEffect(() => {
             const isSelected = planSeleccionado === plan.id_plan;
             const isCurrent = currentPlanId === plan.id_plan;
 
-            const ribbon =
-              plan.nombre_plan?.toLowerCase().includes("premium")
-                ? "Popular"
-                : plan.nombre_plan?.toLowerCase().includes("conexión") ||
+            const ribbon = plan.nombre_plan?.toLowerCase().includes("premium")
+              ? "Popular"
+              : plan.nombre_plan?.toLowerCase().includes("conexión") ||
                   plan.nombre_plan?.toLowerCase().includes("conexion")
                 ? "Recomendado"
                 : null;
@@ -325,15 +366,23 @@ useEffect(() => {
                 >
                   {/* Listones */}
                   {esBasico && <Liston texto="Más vendido" color="vendido" />}
-                  {!esBasico && ribbon === "Recomendado" && <Liston texto="Recomendado" color="recomendado" />}
-                  {!esBasico && ribbon === "Popular" && <Liston texto="Popular" color="popular" />}
+                  {!esBasico && ribbon === "Recomendado" && (
+                    <Liston texto="Recomendado" color="recomendado" />
+                  )}
+                  {!esBasico && ribbon === "Popular" && (
+                    <Liston texto="Popular" color="popular" />
+                  )}
 
                   {/* Contenido */}
                   <div className="px-6 pt-16 pb-6 md:px-7 md:pt-20 md:pb-7 flex flex-col h-full">
                     {/* Título y descripción (misma altura en todas) */}
                     <div className="text-center min-h-[92px]">
-                      <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">{plan.nombre_plan}</h3>
-                      <p className="text-sm leading-relaxed text-slate-600 mt-1">{plan.descripcion_plan}</p>
+                      <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">
+                        {plan.nombre_plan}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-slate-600 mt-1">
+                        {plan.descripcion_plan}
+                      </p>
                     </div>
 
                     {/* Precio (misma altura) */}
@@ -342,7 +391,9 @@ useEffect(() => {
                         <span className="text-3xl md:text-[34px] font-extrabold tracking-tight text-[#171931]">
                           ${getPrecioMostrar(plan)}
                         </span>
-                        <span className="text-sm text-slate-500 mb-1">/{getIntervalo(plan)}</span>
+                        <span className="text-sm text-slate-500 mb-1">
+                          /{getIntervalo(plan)}
+                        </span>
                       </div>
                     </div>
 
@@ -350,20 +401,24 @@ useEffect(() => {
                     {/* Beneficios (centrados en 2 columnas) */}
                     <ul className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-x-3 text-sm flex-1 md:w-[100%] mx-auto">
                       {features.map((f, idx) => (
-                        <li key={idx} className={f.enabled ? "text-slate-700" : "text-slate-400"}>
+                        <li
+                          key={idx}
+                          className={
+                            f.enabled ? "text-slate-700" : "text-slate-400"
+                          }
+                        >
                           {/* mini-grid: [icono | texto] para alinear perfecto */}
                           <div className="grid grid-cols-[12px_1fr] items-start gap-2">
                             <span className="inline-flex h-4 w-4 items-center justify-center mt-[2px]">
                               {f.enabled ? <IconoCheck /> : <IconoX />}
                             </span>
-                            <span className="leading-relaxed text-left">{f.label}</span>
+                            <span className="leading-relaxed text-left">
+                              {f.label}
+                            </span>
                           </div>
                         </li>
                       ))}
                     </ul>
-
-
-
 
                     {/* Botón siempre al mismo nivel */}
                     <div className="mt-6">
@@ -372,12 +427,20 @@ useEffect(() => {
                           if (isCurrent) return;
                           // Si es FREE (id 1) y no es elegible, avisar y NO seleccionar
                           if (plan.id_plan === 1 && !trialElegible) {
-                            Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
+                            Swal.fire(
+                              "No disponible",
+                              "Ya usaste tu plan gratuito.",
+                              "info",
+                            );
                             return;
                           }
                           setPlanSeleccionado(plan.id_plan);
                         }}
-                        disabled={isSelected || isCurrent || (plan.id_plan === 1 && !trialElegible)}
+                        disabled={
+                          isSelected ||
+                          isCurrent ||
+                          (plan.id_plan === 1 && !trialElegible)
+                        }
                         className={`
                           w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
                           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
@@ -385,26 +448,27 @@ useEffect(() => {
                             isCurrent
                               ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                               : isSelected
-                              ? "bg-emerald-600 text-white cursor-default"
-                              : (plan.id_plan === 1 && !trialElegible)
-                              ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                              : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
+                                ? "bg-emerald-600 text-white cursor-default"
+                                : plan.id_plan === 1 && !trialElegible
+                                  ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                                  : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
                           }
                         `}
                       >
                         {isCurrent
                           ? "Tienes este plan actualmente"
                           : isSelected
-                          ? "Seleccionado"
-                          : (plan.id_plan === 1 && !trialElegible)
-                          ? "No disponible"
-                          : "Seleccionar"}
+                            ? "Seleccionado"
+                            : plan.id_plan === 1 && !trialElegible
+                              ? "No disponible"
+                              : "Seleccionar"}
                       </button>
-                        
-                      {plan.id_plan === 1 && !trialElegible && (
-                        <p className="mt-2 text-xs text-red-600">Ya usaste tu plan gratuito.</p>
-                      )}
 
+                      {plan.id_plan === 1 && !trialElegible && (
+                        <p className="mt-2 text-xs text-red-600">
+                          Ya usaste tu plan gratuito.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -419,7 +483,10 @@ useEffect(() => {
             <div className="text-sm text-[#5a547a]">
               Plan seleccionado:{" "}
               <span className="font-semibold text-[#2f2b45]">
-                {planes.find((p) => p.id_plan === planSeleccionado)?.nombre_plan}
+                {
+                  planes.find((p) => p.id_plan === planSeleccionado)
+                    ?.nombre_plan
+                }
               </span>
             </div>
             <button
@@ -429,11 +496,12 @@ useEffect(() => {
             >
               {loading ? "Procesando..." : "Elegir este plan"}
             </button>
-                    
-            {planSeleccionado === 1 && !trialElegible && (
-              <div className="mt-2 text-xs text-red-600">Ya usaste tu plan gratuito.</div>
-            )}
 
+            {planSeleccionado === 1 && !trialElegible && (
+              <div className="mt-2 text-xs text-red-600">
+                Ya usaste tu plan gratuito.
+              </div>
+            )}
           </div>
         )}
       </div>

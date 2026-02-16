@@ -1132,7 +1132,7 @@ const Conexiones = () => {
             icon: "error",
             title: error.response?.data?.message,
             confirmButtonText: "OK",
-          }).then(() => navigate("/miplan"));
+          }).then(() => navigate("plan"));
         } else if (error.response?.status === 400) {
           setMostrarErrorBot(true);
         } else {

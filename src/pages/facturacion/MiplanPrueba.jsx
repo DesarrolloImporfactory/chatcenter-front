@@ -1,4 +1,4 @@
-// src/views/Miplan.jsx
+// src/viewsplan.jsx
 import React, { useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
@@ -103,7 +103,7 @@ const MiPlan = () => {
       const res = await chatApi.post(
         "/stripe_plan/facturasUsuario",
         { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       setFacturas(res.data.data || []);
@@ -124,7 +124,7 @@ const MiPlan = () => {
       const res = await chatApi.post(
         "/stripe_plan/obtenerSuscripcionActiva",
         { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (res.data && res.data.plan) {
@@ -160,7 +160,7 @@ const MiPlan = () => {
       const res = await chatApi.post(
         "/stripe_plan/cancelarSuscripcion",
         { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       Swal.fire("Cancelado", res.data.message, "success");
@@ -188,7 +188,7 @@ const MiPlan = () => {
         const { data } = await chatApi.post(
           "/stripe_plan/trialElegibilidad",
           { id_usuario: id_usuario || id_users },
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         setTrialElegible(Boolean(data?.elegible));
       } catch (e) {
@@ -247,7 +247,7 @@ const MiPlan = () => {
     } catch (e) {
       console.warn(
         "No se pudo sincronizar precios desde Stripe:",
-        e?.response?.data || e.message
+        e?.response?.data || e.message,
       );
     }
   };
@@ -290,7 +290,7 @@ const MiPlan = () => {
           await Swal.fire(
             "No disponible",
             "Ya usaste tu plan gratuito.",
-            "info"
+            "info",
           );
           return;
         }
@@ -298,10 +298,10 @@ const MiPlan = () => {
           "/stripe_plan/crearFreeTrial",
           {
             id_usuario,
-            success_url: `${baseUrl}/miplan?trial=ok`,
-            cancel_url: `${baseUrl}/miplan?trial=cancel`,
+            success_url: `${baseUrl}plan?trial=ok`,
+            cancel_url: `${baseUrl}plan?trial=cancel`,
           },
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         if (data?.url) window.location.href = data.url;
         return;
@@ -313,10 +313,10 @@ const MiPlan = () => {
         {
           id_plan: idPlan,
           id_usuario,
-          success_url: `${baseUrl}/miplan?addpm=1`,
-          cancel_url: `${baseUrl}/miplan`,
+          success_url: `${baseUrl}plan?addpm=1`,
+          cancel_url: `${baseUrl}plan`,
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (res.data?.url) {
@@ -325,14 +325,14 @@ const MiPlan = () => {
           JSON.stringify({
             id_plan: idPlan,
             nombre: planes.find((p) => p.id_plan === idPlan)?.nombre_plan || "",
-          })
+          }),
         );
         window.location.href = res.data.url; // redirección directa a Stripe
       } else {
         await Swal.fire(
           "Listo",
           "Tu plan fue actualizado correctamente.",
-          "success"
+          "success",
         );
         setMostrarPlanes(false);
         obtenerPlanActivo();
@@ -488,7 +488,7 @@ const MiPlan = () => {
                                 try {
                                   const token = localStorage.getItem("token");
                                   const { id_usuario, id_users } = JSON.parse(
-                                    atob(token.split(".")[1])
+                                    atob(token.split(".")[1]),
                                   );
                                   const res = await chatApi.post(
                                     "/stripe_plan/portalGestionMetodos",
@@ -497,7 +497,7 @@ const MiPlan = () => {
                                       headers: {
                                         Authorization: `Bearer ${token}`,
                                       },
-                                    }
+                                    },
                                   );
                                   window.location.href = res.data.url;
                                 } catch (e) {
@@ -505,7 +505,7 @@ const MiPlan = () => {
                                   Swal.fire(
                                     "Error",
                                     "No se pudo abrir el portal de métodos.",
-                                    "error"
+                                    "error",
                                   );
                                   setLoadingGestion(false);
                                 }
@@ -532,7 +532,7 @@ const MiPlan = () => {
                                 try {
                                   const token = localStorage.getItem("token");
                                   const { id_usuario, id_users } = JSON.parse(
-                                    atob(token.split(".")[1])
+                                    atob(token.split(".")[1]),
                                   );
                                   const res = await chatApi.post(
                                     "/stripe_plan/portalAddPaymentMethod",
@@ -541,7 +541,7 @@ const MiPlan = () => {
                                       headers: {
                                         Authorization: `Bearer ${token}`,
                                       },
-                                    }
+                                    },
                                   );
                                   window.location.href = res.data.url;
                                 } catch (e) {
@@ -549,7 +549,7 @@ const MiPlan = () => {
                                   Swal.fire(
                                     "Error",
                                     "No se pudo iniciar el flujo para agregar tarjeta.",
-                                    "error"
+                                    "error",
                                   );
                                   setLoadingAgregar(false);
                                 }
@@ -576,7 +576,7 @@ const MiPlan = () => {
                             const hoy = new Date();
                             const fin = new Date(plan.fecha_renovacion);
                             const diasRestantes = Math.ceil(
-                              (fin - hoy) / (1000 * 60 * 60 * 24)
+                              (fin - hoy) / (1000 * 60 * 60 * 24),
                             );
                             let color = "text-emerald-400";
                             if (diasRestantes <= 5) color = "text-red-400";
@@ -585,19 +585,19 @@ const MiPlan = () => {
 
                             const inicioPeriodo = new Date(fin);
                             inicioPeriodo.setMonth(
-                              inicioPeriodo.getMonth() - 1
+                              inicioPeriodo.getMonth() - 1,
                             );
                             const totalMs = fin - inicioPeriodo;
                             const transcurridoMs = Math.min(
                               Math.max(hoy - inicioPeriodo, 0),
-                              totalMs
+                              totalMs,
                             );
                             const porcentaje = Math.max(
                               0,
                               Math.min(
                                 100,
-                                Math.round((transcurridoMs / totalMs) * 100)
-                              )
+                                Math.round((transcurridoMs / totalMs) * 100),
+                              ),
                             );
 
                             return (
@@ -679,7 +679,7 @@ const MiPlan = () => {
                               <div className="min-w-0">
                                 <p className="text-sm text-white">
                                   {new Date(
-                                    f.created * 1000
+                                    f.created * 1000,
                                   ).toLocaleDateString()}
                                 </p>
                                 <p className="text-xs text-[#e0dcf3] truncate">
@@ -764,9 +764,9 @@ const MiPlan = () => {
                       .includes("premium")
                       ? "Popular"
                       : pl.nombre_plan?.toLowerCase().includes("conexión") ||
-                        pl.nombre_plan?.toLowerCase().includes("conexion")
-                      ? "Recomendado"
-                      : null;
+                          pl.nombre_plan?.toLowerCase().includes("conexion")
+                        ? "Recomendado"
+                        : null;
 
                     const esBasico =
                       (pl.nombre_plan || "").toLowerCase().includes("básico") ||
@@ -863,20 +863,20 @@ const MiPlan = () => {
                                     isCurrent
                                       ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                                       : loadingPlanId === pl.id_plan
-                                      ? "bg-emerald-600 text-white cursor-wait"
-                                      : pl.id_plan === 1 && !trialElegible
-                                      ? "bg-slate-200 text-slate-500 cursor-not-allowed" // estiliza card Free bloqueada
-                                      : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
+                                        ? "bg-emerald-600 text-white cursor-wait"
+                                        : pl.id_plan === 1 && !trialElegible
+                                          ? "bg-slate-200 text-slate-500 cursor-not-allowed" // estiliza card Free bloqueada
+                                          : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
                                   }
                                 `}
                               >
                                 {isCurrent
                                   ? "Tienes este plan actualmente"
                                   : loadingPlanId === pl.id_plan
-                                  ? "Procesando..."
-                                  : pl.id_plan === 1 && !trialElegible
-                                  ? "No disponible"
-                                  : "Seleccionar"}
+                                    ? "Procesando..."
+                                    : pl.id_plan === 1 && !trialElegible
+                                      ? "No disponible"
+                                      : "Seleccionar"}
                               </button>
 
                               {pl.id_plan === 1 && !trialElegible && (

@@ -1,339 +1,222 @@
-// src/views/Miplan.jsx
-import React, { useEffect, useState } from "react";
+// src/viewsplan.jsx
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import {
   FaFilePdf,
   FaSyncAlt,
-  FaArrowRight,
-  FaArrowLeft,
   FaExclamationCircle,
+  FaCreditCard,
+  FaExternalLinkAlt,
+  FaCalendarAlt,
+  FaCheckCircle,
+  FaTimesCircle,
 } from "react-icons/fa";
-import { BackExpandArrow } from "../../components/icons/PremiumBackIcons";
-// arriba del archivo, junto con los demás imports
-import CardPlanPersonalizado from "../../pages/planes/CardPlanPersonalizado";
-// o: import CardPlanPersonalizado from "../../components/CardPlanPersonalizado";
-
-// Imágenes usadas por las cards de planes (como en PlanesView.jsx)
-import basico from "../../assets/plan_basico_v2.png";
-import conexion from "../../assets/plan_conexion_v2.png";
-import premium from "../../assets/plan_premium_medal.png";
-
-/* ========= Listón diagonal (de PlanesView) ========= */
-const Liston = ({ texto, color = "recomendado" }) => {
-  const colores = {
-    popular: "bg-purple-600 text-white",
-    recomendado: "bg-blue-600 text-white",
-    vendido: "bg-yellow-400 text-black",
-  };
-  const colorClase = colores[color] || "bg-gray-800 text-white";
-  return (
-    <div className="pointer-events-none absolute top-2 right-2 w-28 h-28 overflow-hidden z-40">
-      <div
-        className={[
-          "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-          "rotate-45",
-          colorClase,
-          "shadow-md rounded-[2px] px-3 py-[5px]",
-          "text-[10px] md:text-[11px] font-extrabold uppercase leading-none",
-          "whitespace-nowrap text-center",
-          "min-w-[150px]",
-        ].join(" ")}
-      >
-        {texto}
-      </div>
-    </div>
-  );
-};
-
-/* ========= Iconos de features (de PlanesView) ========= */
-const IconoCheck = () => (
-  <svg
-    className="w-4 h-4 shrink-0 mt-[2px]"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    aria-hidden="true"
-  >
-    <path d="M7.629 13.233l-3.2-3.2 1.414-1.414 1.786 1.786 5.657-5.657 1.414 1.414-7.071 7.071z" />
-  </svg>
-);
-const IconoX = () => (
-  <svg
-    className="w-4 h-4 shrink-0 mt-[2px]"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    aria-hidden="true"
-  >
-    <path
-      d="M6 6l8 8M14 6l-8 8"
-      stroke="currentColor"
-      strokeWidth="2"
-      fill="none"
-    />
-  </svg>
-);
 
 const MiPlan = () => {
-  // ====== Estados originales de MiPlan ======
   const [plan, setPlan] = useState(null);
   const [facturas, setFacturas] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState(false);
   const [cargandoFacturas, setCargandoFacturas] = useState(false);
 
-  // Overlays SOLO para gestionar/agregar (original)
+  // overlay para portales
+  const [loadingPortal, setLoadingPortal] = useState(false);
   const [loadingGestion, setLoadingGestion] = useState(false);
   const [loadingAgregar, setLoadingAgregar] = useState(false);
 
-  // ====== Estados añadidos para integrar PlanesView SIN cambiar de ruta ======
-  const [mostrarPlanes, setMostrarPlanes] = useState(false); // controla el slide
-  const [planes, setPlanes] = useState([]);
-  const [stripeMap, setStripeMap] = useState({});
-  const [currentPlanId, setCurrentPlanId] = useState(null);
+  const token = useMemo(() => localStorage.getItem("token"), []);
 
-  // NUEVO: loading por plan al seleccionar (flujo 1 paso)
-  const [loadingPlanId, setLoadingPlanId] = useState(null);
-  // NUEVO: ¿todavía puede usar el free trial?
-  const [trialElegible, setTrialElegible] = useState(true);
-  const [addons, setAddons] = useState(null);
+  const getIdUsuarioFromToken = useCallback(() => {
+    if (!token) return null;
+    try {
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      return decoded.id_usuario || decoded.id_users || null;
+    } catch {
+      return null;
+    }
+  }, [token]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await chatApi.get("stripe_plan/addons");
-        setAddons(data?.data?.addons || null);
-      } catch (e) {
-        console.warn(
-          "No se pudieron cargar addons:",
-          e?.response?.data || e.message
-        );
+  const overlayTexto = loadingPortal
+    ? "Abriendo portal de suscripción..."
+    : loadingGestion
+      ? "Abriendo portal de métodos..."
+      : "Preparando flujo para agregar tarjeta...";
+
+  const fmtMoney = (cents) => `USD ${(Number(cents || 0) / 100).toFixed(2)}`;
+
+  const obtenerPlanActivo = useCallback(async () => {
+    try {
+      setLoadingPlan(true);
+      const id_usuario = getIdUsuarioFromToken();
+      if (!id_usuario) {
+        setPlan(null);
+        return;
       }
-    })();
-  }, []);
 
-  // ====== Funciones originales ======
-  const obtenerFacturas = async () => {
+      const res = await chatApi.post(
+        "/stripe_plan/obtenerSuscripcionActiva",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      setPlan(res.data?.plan || null);
+    } catch (error) {
+      console.error("Error al obtener plan activo:", error);
+      setPlan(null);
+    } finally {
+      setLoadingPlan(false);
+    }
+  }, [getIdUsuarioFromToken, token]);
+
+  const obtenerFacturas = useCallback(async () => {
     try {
       setCargandoFacturas(true);
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
+      const id_usuario = getIdUsuarioFromToken();
+      if (!id_usuario) {
+        setFacturas([]);
+        return;
+      }
 
       const res = await chatApi.post(
         "/stripe_plan/facturasUsuario",
         { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      setFacturas(res.data.data || []);
+      setFacturas(res.data?.data || []);
     } catch (error) {
       console.error("Error al cargar facturas:", error);
       Swal.fire("Error", "No se pudieron cargar las facturas", "error");
     } finally {
       setCargandoFacturas(false);
     }
-  };
+  }, [getIdUsuarioFromToken, token]);
 
-  const obtenerPlanActivo = async () => {
+  const abrirPortalCliente = async () => {
+    if (!token) {
+      Swal.fire("Sesión requerida", "Inicie sesión para continuar.", "info");
+      return;
+    }
     try {
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
+      setLoadingPortal(true);
+      const id_usuario = getIdUsuarioFromToken();
+      const return_url = `${window.location.origin}/plan`;
 
       const res = await chatApi.post(
-        "/stripe_plan/obtenerSuscripcionActiva",
-        { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
+        "/stripe_plan/portalCliente",
+        { id_usuario, return_url },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      if (res.data && res.data.plan) {
-        setPlan(res.data.plan);
-        setCurrentPlanId(res.data.plan.id_plan ?? null); // importante para la vista de planes
-      } else {
-        setPlan(null);
-        setCurrentPlanId(null);
-      }
-    } catch (error) {
-      console.error("Error al obtener plan activo:", error);
-      setPlan(null);
-      setCurrentPlanId(null);
-    }
-  };
-  const cambiarAPlanLiteCompleto = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
-      const baseUrl = window.location.origin;
-
-      const { data } = await chatApi.post(
-        "/stripe_plan/crearSesionCambioLiteCompleto",
-        {
-          id_usuario,
-          success_url: `${baseUrl}/miplan?lite_change=ok`,
-          cancel_url: `${baseUrl}/miplan`,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (data?.url) {
-        window.location.href = data.url;
+      if (res.data?.url) {
+        window.location.href = res.data.url;
         return;
       }
-
-      // fallback
-      Swal.fire("Listo", "Se procesó el cambio a LITE.", "success");
-      obtenerPlanActivo();
-    } catch (error) {
-      const msg =
-        error?.response?.data?.message || "No se pudo iniciar el cambio.";
-      Swal.fire({ icon: "error", title: "Error", text: msg });
-    } finally {
-      setLoading(false);
+      throw new Error("No se recibió URL del portal.");
+    } catch (e) {
+      console.error(e);
+      Swal.fire("Error", "No se pudo abrir el portal de suscripción.", "error");
+      setLoadingPortal(false);
     }
   };
 
   const cancelarSuscripcion = async () => {
-    // Buscar plan LITE por nombre (sin romper nada si no existe)
-    const planLite = Array.isArray(planes)
-      ? planes.find((p) =>
-          (p?.nombre_plan || "").toLowerCase().includes("lite")
-        )
-      : null;
+    const confirm = await Swal.fire({
+      title: "¿Cancelar suscripción?",
+      text: "Su plan seguirá activo hasta el final del periodo actual.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cancelar",
+      cancelButtonText: "Volver",
+      reverseButtons: true,
+    });
+    if (!confirm.isConfirmed) return;
 
-    if (planLite) {
-      // Card simple para el upsell
-      const cardHtml = `
-      <div style="margin-top:10px; text-align:left">
-        <div style="
-          border:1px solid #e2e8f0; border-radius:12px; padding:14px;
-          background:#fff; box-shadow:0 6px 18px rgba(23,25,49,.08);">
-          <div style="font-weight:800; font-size:16px; color:#171931; margin-bottom:6px;">
-            ${planLite?.nombre_plan || "Plan LITE"}
-          </div>
-          <div style="display:flex; align-items:flex-end; gap:6px;">
-            <div style="font-weight:900; font-size:28px; color:#171931;">$19.00</div>
-            <div style="color:#64748b; font-size:12px; margin-bottom:3px;">/mes</div>
-          </div>
-          ${
-            planLite?.descripcion_plan
-              ? `<p style="margin:8px 0 6px; color:#5a547a; font-size:13px;">
-                   ${planLite.descripcion_plan}
-                 </p>`
-              : ""
-          }
-          <ul style="margin:10px 0 0; padding-left:18px; color:#334155; font-size:13px;">
-            ${[
-              planLite?.n_conexiones
-                ? `${planLite.n_conexiones} conexiones`
-                : null,
-              planLite?.max_subusuarios
-                ? `${planLite.max_subusuarios} subusuarios`
-                : null,
-              "Funciones esenciales para tu día a día",
-            ]
-              .filter(Boolean)
-              .map((f) => `<li>• ${f}</li>`)
-              .join("")}
-          </ul>
-        </div>
-      </div>
-    `;
-
-      const resp = await Swal.fire({
-        title: "¿Desea cancelar suscripción?",
-        html: `
-        <p style="margin-bottom:8px;color:#334155;">
-          Te ofrecemos un plan más ajustado para tus gestiones:
-        </p>
-        ${cardHtml}
-      `,
-        icon: "question",
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: `Cambiar a ${planLite?.nombre_plan || "Plan LITE"}`,
-        denyButtonText: "No, cancelar",
-        cancelButtonText: "Volver",
-        reverseButtons: true,
-        focusDeny: true,
-      });
-
-      // Si acepta el LITE, usamos tu mismo flujo de selección/compra
-      if (resp.isConfirmed) {
-        await cambiarAPlanLiteCompleto(); // nuevo flujo especial
-        return;
-      }
-
-      // Si no confirma ni niega (cerró o "Volver"), no hacemos nada
-      if (!resp.isDenied) return;
-      // Si negó, continuamos con la cancelación normal (tal cual estaba)
-    } else {
-      // Fallback al confirm clásico si no existe el LITE
-      const confirm = await Swal.fire({
-        title: "¿Cancelar suscripción?",
-        text: "Tu plan seguirá activo hasta el final del periodo.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Sí, cancelar",
-      });
-      if (!confirm.isConfirmed) return;
-    }
-
-    // === Cancelación original (NO se toca la lógica) ===
     try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
+      const id_usuario = getIdUsuarioFromToken();
+      if (!id_usuario) return;
 
       const res = await chatApi.post(
         "/stripe_plan/cancelarSuscripcion",
         { id_usuario },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      Swal.fire("Cancelado", res.data.message, "success");
-      obtenerPlanActivo();
+      Swal.fire(
+        "Cancelado",
+        res.data?.message || "Suscripción cancelada.",
+        "success",
+      );
+      await obtenerPlanActivo();
+      await obtenerFacturas();
     } catch (error) {
       console.error("Error al cancelar:", error);
       Swal.fire("Error", "No se pudo cancelar la suscripción", "error");
-    } finally {
-      setLoading(false);
     }
   };
 
-  // ====== Efectos originales ======
-  useEffect(() => {
-    obtenerPlanActivo();
-    obtenerFacturas();
-  }, []);
+  const abrirPortalGestionMetodos = async () => {
+    if (!token) return;
+    if (loadingAgregar) return;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        const { id_usuario, id_users } = JSON.parse(atob(token.split(".")[1]));
-        const { data } = await chatApi.post(
-          "/stripe_plan/trialElegibilidad",
-          { id_usuario: id_usuario || id_users },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setTrialElegible(Boolean(data?.elegible));
-      } catch (e) {
-        console.warn("trialElegibilidad:", e?.response?.data || e.message);
+    try {
+      setLoadingGestion(true);
+      const id_usuario = getIdUsuarioFromToken();
+
+      const res = await chatApi.post(
+        "/stripe_plan/portalGestionMetodos",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+        return;
       }
-    })();
-  }, []);
+      throw new Error("No se recibió URL de gestión.");
+    } catch (e) {
+      console.error(e);
+      Swal.fire("Error", "No se pudo abrir el portal de métodos.", "error");
+      setLoadingGestion(false);
+    }
+  };
 
-  // === Manejo de parámetros de retorno desde Stripe (AÑADIMOS trial=ok) ===
+  const abrirPortalAddPaymentMethod = async () => {
+    if (!token) return;
+    if (loadingGestion) return;
+
+    try {
+      setLoadingAgregar(true);
+      const id_usuario = getIdUsuarioFromToken();
+
+      const res = await chatApi.post(
+        "/stripe_plan/portalAddPaymentMethod",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+        return;
+      }
+      throw new Error("No se recibió URL de agregar método.");
+    } catch (e) {
+      console.error(e);
+      Swal.fire(
+        "Error",
+        "No se pudo iniciar el flujo para agregar tarjeta.",
+        "error",
+      );
+      setLoadingAgregar(false);
+    }
+  };
+
+  // Manejo de retornos
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const addpm = params.get("addpm");
     const pmSaved = params.get("pm_saved");
     const setupOk = params.get("setup");
-    const addpm = params.get("addpm");
-    const trialOk = params.get("trial"); // NUEVO
-    const liteOk = params.get("lite_change");
 
     const limpiar = (keys) => {
       const url = new URL(window.location.href);
@@ -341,232 +224,92 @@ const MiPlan = () => {
       window.history.replaceState(
         {},
         document.title,
-        url.pathname + (url.search || "")
+        url.pathname + (url.search || ""),
       );
     };
 
     if (pmSaved === "1" || setupOk === "ok") {
       Swal.fire("Listo", "Tarjeta guardada correctamente.", "success");
       limpiar(["pm_saved", "setup"]);
-      obtenerFacturas();
-      obtenerPlanActivo();
     }
+
     if (addpm === "1") {
       Swal.fire(
         "Listo",
-        "Tu suscripción fue procesada. Estamos sincronizando tu plan.",
-        "success"
+        "Su suscripción fue procesada. Sincronizando datos…",
+        "success",
       );
       limpiar(["addpm"]);
-      obtenerFacturas();
-      obtenerPlanActivo();
-    }
-    if (trialOk === "ok") {
-      // El webhook ya debió activar FREE y setear fecha_renovacion=trial_end
-      Swal.fire(
-        "¡Listo!",
-        "Tu prueba gratuita de 15 días está activa.",
-        "success"
-      );
-      limpiar(["trial"]);
-      obtenerFacturas();
-      obtenerPlanActivo();
-    }
-    if (liteOk === "ok") {
-      Swal.fire("!Listo!", "Tu cambio al Plan LITE fue procesado.", "success");
-      limpiar(["lite_change"]);
-      obtenerFacturas();
-      obtenerPlanActivo();
     }
   }, []);
-
-  // Texto dinámico del overlay (solo gestionar/agregar) — original
-  const overlayTexto = loadingGestion
-    ? "Abriendo portal de métodos..."
-    : "Preparando flujo para agregar tarjeta...";
-
-  // ====== Funciones y efectos añadidos (de PlanesView) ======
-  const obtenerPlanes = async () => {
-    try {
-      const res = await chatApi.get("planes/listarPlanes");
-      setPlanes(res.data.data || []);
-    } catch {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "No se pudieron cargar los planes.",
-      });
-    }
-  };
-
-  const syncStripePrices = async () => {
-    try {
-      const res = await chatApi.get("stripe_plan/stripe");
-      const map = {};
-      (res.data?.data || []).forEach((p) => {
-        map[p.id_plan] = {
-          stripe_price: p.stripe_price,
-          stripe_interval: p.stripe_interval,
-          stripe_price_id: p.stripe_price_id,
-        };
-      });
-      setStripeMap(map);
-    } catch (e) {
-      console.warn(
-        "No se pudo sincronizar precios desde Stripe:",
-        e?.response?.data || e.message
-      );
-    }
-  };
 
   useEffect(() => {
-    // Traer catálogo de planes y precios Stripe (solo 1 vez)
-    obtenerPlanes();
-    syncStripePrices();
+    obtenerPlanActivo();
+    obtenerFacturas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ====== (ELIMINADO) efecto y función de activar plan FREE por ?setup=ok ======
-  // Ya NO activamos manualmente el FREE con setup=ok; ahora el flujo usa suscripción con trial y lo hace el webhook.
-  /*
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("setup") === "ok") {
-      activarPlanFree();
-    }
-  }, []);
-  const activarPlanFree = async () => { ... }
-  */
+  const estadoChip = useMemo(() => {
+    const est = (plan?.estado || "").toLowerCase();
+    if (!plan)
+      return {
+        text: "Sin plan",
+        dot: "bg-slate-600",
+        cls: "bg-slate-100 text-slate-700 border-slate-200",
+      };
+    if (est.includes("activo"))
+      return {
+        text: "Activo",
+        dot: "bg-emerald-600",
+        cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      };
+    if (est.includes("trial"))
+      return {
+        text: "Prueba activa",
+        dot: "bg-sky-600",
+        cls: "bg-sky-50 text-sky-700 border-sky-200",
+      };
+    if (est.includes("inactivo"))
+      return {
+        text: "Inactivo",
+        dot: "bg-red-600",
+        cls: "bg-red-50 text-red-700 border-red-200",
+      };
+    return {
+      text: plan.estado || "Estado",
+      dot: "bg-slate-600",
+      cls: "bg-slate-100 text-slate-700 border-slate-200",
+    };
+  }, [plan]);
 
-  // ====== NUEVO: selección directa (1 solo paso) ======
-  const handleSeleccionarPlan = async (idPlan) => {
-    if (currentPlanId === idPlan) return; // ya tienes este plan
-    setLoadingPlanId(idPlan);
-    try {
-      const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
-      const id_usuario = decoded.id_usuario || decoded.id_users;
-      const baseUrl = window.location.origin;
+  const infoPeriodo = useMemo(() => {
+    if (!plan?.fecha_renovacion) return null;
+    const hoy = new Date();
+    const fin = new Date(plan.fecha_renovacion);
+    const diasRestantes = Math.ceil((fin - hoy) / (1000 * 60 * 60 * 24));
 
-      // === FREE (id 1) → Checkout de suscripción con TRIAL (guarda tarjeta y crea sub en trial) ===
-      if (idPlan === 1) {
-        if (!trialElegible) {
-          Swal.fire("No disponible", "Ya usaste tu plan gratuito.", "info");
-          return;
-        }
-        const { data } = await chatApi.post(
-          "/stripe_plan/crearFreeTrial",
-          {
-            id_usuario,
-            success_url: `${baseUrl}/miplan?trial=ok`,
-            cancel_url: `${baseUrl}/miplan?trial=cancel`,
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (data?.url) {
-          window.location.href = data.url; // redirige a Stripe Checkout
-          return;
-        } else {
-          throw new Error("No se pudo crear la sesión de free trial.");
-        }
-      }
+    let tone = "text-emerald-700";
+    if (diasRestantes <= 5) tone = "text-red-700";
+    else if (diasRestantes <= 15) tone = "text-amber-700";
 
-      // Caso planes de pago -> crear sesión y redirigir
-      const res = await chatApi.post(
-        "stripe_plan/crearSesionPago",
-        {
-          id_plan: idPlan,
-          id_usuario,
-          success_url: `${baseUrl}/miplan?addpm=1`,
-          cancel_url: `${baseUrl}/miplan`,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    const inicioPeriodo = new Date(fin);
+    inicioPeriodo.setMonth(inicioPeriodo.getMonth() - 1);
+    const totalMs = fin - inicioPeriodo;
+    const transcurridoMs = Math.min(Math.max(hoy - inicioPeriodo, 0), totalMs);
+    const porcentaje = Math.max(
+      0,
+      Math.min(100, Math.round((transcurridoMs / totalMs) * 100)),
+    );
 
-      if (res.data?.url) {
-        localStorage.setItem(
-          "plan_activado",
-          JSON.stringify({
-            id_plan: idPlan,
-            nombre: planes.find((p) => p.id_plan === idPlan)?.nombre_plan || "",
-          })
-        );
-        window.location.href = res.data.url; // redirección directa a Stripe
-      } else {
-        await Swal.fire(
-          "Listo",
-          "Tu plan fue actualizado correctamente.",
-          "success"
-        );
-        setMostrarPlanes(false);
-        obtenerPlanActivo();
-      }
-    } catch (error) {
-      const msg =
-        error?.response?.data?.message ||
-        "No se pudo procesar tu solicitud. Intenta nuevamente.";
-      Swal.fire({ icon: "error", title: "Error", text: msg });
-    } finally {
-      setLoadingPlanId(null);
-    }
-  };
-
-  const getImagenPlan = (nombre = "") => {
-    const n = (nombre || "").toLowerCase();
-    if (n.includes("premium")) return premium;
-    if (n.includes("conexión") || n.includes("conexion")) return conexion;
-    return basico;
-  };
-
-  const getPrecioMostrar = (pl) => {
-    const s = stripeMap[pl.id_plan];
-    if (s && typeof s.stripe_price === "number")
-      return (s.stripe_price / 100).toFixed(2);
-    return parseFloat(pl.precio_plan).toFixed(2);
-  };
-
-  const getIntervalo = (pl) => {
-    const s = stripeMap[pl.id_plan];
-    if (s?.stripe_interval) return s.stripe_interval === "year" ? "año" : "mes";
-    return "mes";
-  };
-
-  const buildFeatures = (pl) => {
-    const nombre = (pl?.nombre_plan || "").toLowerCase();
-    const esFree = nombre.includes("free") || nombre.includes("gratuito");
-    const esConexion =
-      nombre.includes("conexión") || nombre.includes("conexion");
-    const desactivaCitas = esFree || esConexion;
-
-    return [
-      { label: `${pl.n_conexiones} Conexiones`, enabled: true },
-      { label: `${pl.max_subusuarios} subusuarios incluidos`, enabled: true },
-      { label: "Código QR personalizado", enabled: true },
-      { label: "Integración con Meta", enabled: true },
-      { label: "Contactos ilimitados", enabled: true },
-      { label: "Whatsapp coexistencia", enabled: true },
-      { label: "Inteligencia artificial", enabled: true },
-      { label: "Área de productos y servicios", enabled: true },
-      { label: "Automatizador", enabled: true },
-      { label: "IA de agendamiento de citas", enabled: !desactivaCitas },
-      {
-        label: "Calendario de programación de citas",
-        enabled: !desactivaCitas,
-      },
-    ];
-  };
+    return { fin, diasRestantes, tone, porcentaje };
+  }, [plan]);
 
   return (
-    <div className="min-h-screen w-full px-4 sm:px-6 lg:px-10 text-black bg-white [padding-bottom:env(safe-area-inset-bottom)]">
-      {/* Overlay SOLO para gestionar/agregar (original) */}
-      {(loadingGestion || loadingAgregar) && (
+    <div className="min-h-screen w-full bg-white text-[#171931]">
+      {/* Overlay */}
+      {(loadingPortal || loadingGestion || loadingAgregar) && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center">
-          <div
-            className="rounded-2xl px-6 py-5 text-white shadow-2xl border border-[#c4bde4]/30"
-            style={{
-              background:
-                "linear-gradient(180deg, #4b3f72 0%, #322b4f 60%, #1f1a33 100%)",
-            }}
-          >
+          <div className="rounded-2xl px-6 py-5 text-white shadow-2xl border border-white/10 bg-[#171931]">
             <div className="flex items-center gap-3">
               <FaSyncAlt className="animate-spin" />
               <span className="text-sm sm:text-base font-semibold">
@@ -577,524 +320,355 @@ const MiPlan = () => {
         </div>
       )}
 
-      {/* ====== CONTENEDOR DESLIZANTE (UNIFICACIÓN) ====== */}
-      <div className="relative overflow-hidden">
-        <div
-          className="flex transition-transform duration-500 ease-in-out w-[200%]"
-          style={{
-            transform: mostrarPlanes ? "translateX(-50%)" : "translateX(0%)",
-          }}
-        >
-          {/* ========= PANE 1: Tu plan actual (contenido original SIN cambios visuales) ========= */}
-          <section className="w-1/2">
-            <div className="mx-auto w-full mt-10">
-              {/* encabezado */}
-              <div className="mb-6 md:mb-8 px-1 mt-10">
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-[#3b3560]">
-                  Tu Plan Actual
-                </h2>
-                <p className="mt-2 text-[#5a547a] text-xs sm:text-sm">
-                  Administra tu suscripción y consulta tu historial de
-                  facturación.
-                </p>
-              </div>
+      {/* Contenido FULL WIDTH */}
+      <div className="relative z-10 w-full px-4 sm:px-6 lg:px-10 py-8">
+        {/* Header */}
+        <div className="w-full flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+                Planes y Facturación
+              </h1>
+              <p className="mt-2 text-[#171931]/70 text-xs sm:text-sm max-w-3xl">
+                Administre su suscripción, métodos de pago y consulte su
+                historial de facturación.
+              </p>
+            </div>
 
-              {/* grid */}
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
-                {/* card del plan */}
-                <div className="xl:col-span-2">
-                  <div className="relative rounded-3xl p-5 sm:p-7 md:p-9 bg-gradient-to-b from-[#4b3f72] via-[#322b4f] to-[#1f1a33] text-white backdrop-blur-xl border border-[#c4bde4]/30 shadow-lg shadow-[#c4bde4]/10 hover:shadow-[0_0_25px_rgba(196,189,228,0.25)] transition-shadow duration-300">
-                    {/* cinta de estado */}
-                    <div className="absolute -top-3 right-4 sm:right-6 mt-5">
-                      <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] sm:text-xs font-semibold text-emerald-200 bg-emerald-600/20 ring-1 ring-emerald-400/30">
-                        ● Activo
-                      </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={[
+                  "inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] sm:text-xs font-semibold border",
+                  estadoChip.cls,
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "inline-block w-2 h-2 rounded-full",
+                    estadoChip.dot,
+                  ].join(" ")}
+                />
+                {estadoChip.text}
+              </span>
+
+              <button
+                onClick={() => {
+                  obtenerPlanActivo();
+                  obtenerFacturas();
+                }}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold bg-[#171931] text-white hover:opacity-95 border border-[#171931]/10 transition"
+              >
+                <FaSyncAlt
+                  className={
+                    loadingPlan || cargandoFacturas ? "animate-spin" : ""
+                  }
+                />
+                Refrescar
+              </button>
+            </div>
+          </div>
+
+          {/* KPI row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-[#171931]/10 bg-white/70 backdrop-blur px-4 py-4">
+              <p className="text-[11px] text-[#171931]/60">Plan actual</p>
+              <p className="mt-1 text-sm sm:text-base font-bold">
+                {loadingPlan ? "Cargando…" : plan?.nombre_plan || "Sin plan"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[#171931]/10 bg-white/70 backdrop-blur px-4 py-4">
+              <p className="text-[11px] text-[#171931]/60">Renovación</p>
+              <p className="mt-1 text-sm sm:text-base font-bold">
+                {infoPeriodo?.fin ? infoPeriodo.fin.toLocaleDateString() : "—"}
+              </p>
+              {infoPeriodo?.fin && (
+                <p
+                  className={[
+                    "mt-1 text-xs font-semibold",
+                    infoPeriodo.tone,
+                  ].join(" ")}
+                >
+                  {infoPeriodo.diasRestantes} días restantes
+                </p>
+              )}
+            </div>
+            <div className="rounded-2xl border border-[#171931]/10 bg-white/70 backdrop-blur px-4 py-4">
+              <p className="text-[11px] text-[#171931]/60">Facturas</p>
+              <p className="mt-1 text-sm sm:text-base font-bold">
+                {cargandoFacturas
+                  ? "Actualizando…"
+                  : `${facturas?.length || 0} registradas`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Grid principal */}
+        <div className="grid grid-cols-1 2xl:grid-cols-[1.3fr_.7fr] gap-6 mt-6">
+          {/* Izquierda */}
+          <div className="space-y-6">
+            {/* Card Suscripción (AHORA AZUL) */}
+            <div className="rounded-3xl border border-[#171931]/15 bg-[#171931] text-white shadow-[0_20px_60px_-40px_rgba(23,25,49,0.55)] overflow-hidden">
+              <div className="px-6 sm:px-8 py-6 border-b border-white/10">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-white/80">
+                      <FaCalendarAlt />
+                      <span className="text-xs">Panel de suscripción</span>
                     </div>
 
-                    {plan ? (
-                      <>
-                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 sm:gap-6">
-                          <div className="min-w-0">
-                            <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white break-words">
-                              {plan.nombre_plan}
-                            </h3>
-                            <p className="mt-2 text-xs sm:text-sm text-[#e0dcf3] max-w-prose">
-                              {plan.descripcion_plan || "Plan premium activo"}
-                            </p>
-                          </div>
+                    <h2 className="mt-2 text-xl sm:text-2xl md:text-3xl font-black tracking-tight break-words">
+                      {loadingPlan
+                        ? "Cargando…"
+                        : plan?.nombre_plan || "Sin plan activo"}
+                    </h2>
 
-                          {/* botones */}
-                          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                            {/* Cambiar plan → abre el panel deslizante */}
-                            {/* <button
-                              onClick={() => setMostrarPlanes(true)}
-                              className="inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold bg-[#6d5cbf] hover:bg-[#5a4aa5] active:bg-[#4a3e88] transition focus:outline-none focus:ring-2 focus:ring-[#c4bde4]/50"
-                            >
-                              Cambiar plan <FaArrowRight />
-                            </button> */}
+                    <p className="mt-2 text-xs sm:text-sm text-white/70 max-w-3xl">
+                      {plan?.descripcion_plan ||
+                        "Seleccione un plan para activar su cuenta."}
+                    </p>
+                  </div>
 
-                            <button
-                              onClick={cancelarSuscripcion}
-                              disabled={loading}
-                              className="inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 disabled:opacity-60 transition focus:outline-none focus:ring-2 focus:ring-red-500/60"
-                            >
-                              <FaExclamationCircle />
-                              {loading ? "Cancelando..." : "Cancelar"}
-                            </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={abrirPortalCliente}
+                      disabled={loadingPortal || !plan}
+                      className={[
+                        "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition border",
+                        !plan
+                          ? "bg-white/10 text-white/60 border-white/10 cursor-not-allowed"
+                          : "bg-white text-[#171931] border-white/10 hover:opacity-95",
+                      ].join(" ")}
+                    >
+                      <FaExternalLinkAlt />
+                      Administrar suscripción
+                    </button>
 
-                            {/* GESTIONAR MÉTODOS - con overlay */}
-                            <button
-                              onClick={async () => {
-                                if (loadingAgregar) return;
-                                setLoadingGestion(true);
-                                try {
-                                  const token = localStorage.getItem("token");
-                                  const { id_usuario, id_users } = JSON.parse(
-                                    atob(token.split(".")[1])
-                                  );
-                                  const res = await chatApi.post(
-                                    "/stripe_plan/portalGestionMetodos",
-                                    { id_usuario: id_usuario || id_users },
-                                    {
-                                      headers: {
-                                        Authorization: `Bearer ${token}`,
-                                      },
-                                    }
-                                  );
-                                  window.location.href = res.data.url;
-                                } catch (e) {
-                                  console.error(e);
-                                  Swal.fire(
-                                    "Error",
-                                    "No se pudo abrir el portal de métodos.",
-                                    "error"
-                                  );
-                                  setLoadingGestion(false);
-                                }
-                              }}
-                              disabled={loadingGestion || loadingAgregar}
-                              className={`inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold border border-[#c4bde4]/40 text-white transition focus:outline-none focus:ring-2 focus:ring-[#c4bde4]/50
-                                ${
-                                  loadingGestion || loadingAgregar
-                                    ? "opacity-60 cursor-not-allowed"
-                                    : "hover:bg-[#c4bde4]/10"
-                                }`}
-                            >
-                              {loadingGestion ? (
-                                <FaSyncAlt className="animate-spin" />
-                              ) : null}
-                              Gestionar métodos de pago
-                            </button>
+                    <button
+                      onClick={cancelarSuscripcion}
+                      disabled={!plan}
+                      className={[
+                        "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition border",
+                        !plan
+                          ? "bg-white/10 text-white/60 border-white/10 cursor-not-allowed"
+                          : "bg-transparent text-white border-white/20 hover:bg-white/10",
+                      ].join(" ")}
+                    >
+                      <FaExclamationCircle />
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-                            {/* AGREGAR MÉTODO - con overlay */}
-                            <button
-                              onClick={async () => {
-                                if (loadingGestion) return;
-                                setLoadingAgregar(true);
-                                try {
-                                  const token = localStorage.getItem("token");
-                                  const { id_usuario, id_users } = JSON.parse(
-                                    atob(token.split(".")[1])
-                                  );
-                                  const res = await chatApi.post(
-                                    "/stripe_plan/portalAddPaymentMethod",
-                                    { id_usuario: id_usuario || id_users },
-                                    {
-                                      headers: {
-                                        Authorization: `Bearer ${token}`,
-                                      },
-                                    }
-                                  );
-                                  window.location.href = res.data.url;
-                                } catch (e) {
-                                  console.error(e);
-                                  Swal.fire(
-                                    "Error",
-                                    "No se pudo iniciar el flujo para agregar tarjeta.",
-                                    "error"
-                                  );
-                                  setLoadingAgregar(false);
-                                }
-                              }}
-                              disabled={loadingGestion || loadingAgregar}
-                              className={`inline-flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 text-sm font-semibold text-emerald-300 transition focus:outline-none focus:ring-2 focus:ring-emerald-400/40
-                                ${
-                                  loadingGestion || loadingAgregar
-                                    ? "opacity-60 cursor-not-allowed"
-                                    : "hover:text-emerald-200 hover:bg-emerald-600/10"
-                                }`}
-                            >
-                              {loadingAgregar ? (
-                                <FaSyncAlt className="animate-spin" />
-                              ) : null}
-                              Agregar método de pago
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* info fechas */}
-                        <div className="mt-6 sm:mt-8">
-                          {(() => {
-                            const hoy = new Date();
-                            const fin = new Date(plan.fecha_renovacion);
-                            const diasRestantes = Math.ceil(
-                              (fin - hoy) / (1000 * 60 * 60 * 24)
-                            );
-                            let color = "text-emerald-400";
-                            if (diasRestantes <= 5) color = "text-red-400";
-                            else if (diasRestantes <= 15)
-                              color = "text-orange-400";
-
-                            const inicioPeriodo = new Date(fin);
-                            inicioPeriodo.setMonth(
-                              inicioPeriodo.getMonth() - 1
-                            );
-                            const totalMs = fin - inicioPeriodo;
-                            const transcurridoMs = Math.min(
-                              Math.max(hoy - inicioPeriodo, 0),
-                              totalMs
-                            );
-                            const porcentaje = Math.max(
-                              0,
-                              Math.min(
-                                100,
-                                Math.round((transcurridoMs / totalMs) * 100)
-                              )
-                            );
-
-                            return (
-                              <>
-                                <p
-                                  className={`text-xs sm:text-sm font-medium ${color}`}
-                                >
-                                  El plan culmina: {fin.toLocaleDateString()} (
-                                  {diasRestantes} días restantes)
-                                </p>
-                                <p
-                                  className={`text-xs sm:text-sm font-medium mt-1 ${color}`}
-                                >
-                                  Renovación: {fin.toLocaleDateString()}
-                                </p>
-
-                                <div className="mt-3 sm:mt-4">
-                                  <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-gradient-to-r from-[#c4bde4] via-gray-400 to-emerald-400"
-                                      style={{ width: `${porcentaje}%` }}
-                                    />
-                                  </div>
-                                  <div className="mt-1 text-[10px] sm:text-xs text-[#e0dcf3]">
-                                    {porcentaje}% del periodo transcurrido
-                                  </div>
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </div>
-
-                        {plan.estado === "inactivo" && (
-                          <div className="mt-6 p-4 rounded-xl bg-red-500/15 text-red-300 font-semibold text-sm border border-red-400/30">
-                            Este plan ha caducado y ya no está activo.
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-[#e0dcf3]">
-                        No tienes un plan activo.
+              <div className="px-6 sm:px-8 py-6">
+                {/* Progreso (AHORA BLANCO) */}
+                <div className="rounded-2xl border border-white/10 bg-white text-[#171931] p-5">
+                  {infoPeriodo ? (
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                      <div>
+                        <p className="text-[11px] text-[#171931]/60">
+                          Renovación
+                        </p>
+                        <p className="mt-1 text-sm sm:text-base font-bold">
+                          {infoPeriodo.fin.toLocaleDateString()}
+                        </p>
+                        <p
+                          className={[
+                            "mt-1 text-xs sm:text-sm font-semibold",
+                            infoPeriodo.tone,
+                          ].join(" ")}
+                        >
+                          {infoPeriodo.diasRestantes} días restantes
+                        </p>
                       </div>
-                    )}
+
+                      <div className="w-full lg:w-[420px]">
+                        <div className="flex items-center justify-between text-[11px] text-[#171931]/60 mb-2">
+                          <span>Progreso del periodo</span>
+                          <span>{infoPeriodo.porcentaje}%</span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-[#171931]/10 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#171931]"
+                            style={{
+                              width: `${infoPeriodo.porcentaje}%`,
+                              opacity: 0.95,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#171931]/70">
+                      No hay información de renovación disponible todavía.
+                    </p>
+                  )}
+
+                  <div className="mt-4 text-xs text-[#171931]/60">
+                    Use{" "}
+                    <span className="text-[#171931] font-semibold">
+                      Administrar suscripción
+                    </span>{" "}
+                    para: cancelación, tarjetas, facturas y cambios de plan.
                   </div>
                 </div>
 
-                {/* panel facturas */}
-                <div className="xl:col-span-1">
-                  <div className="rounded-3xl p-5 sm:p-6 bg-gradient-to-b from-[#4b3f72] via-[#322b4f] to-[#1f1a33] text-white backdrop-blur-xl border border-[#c4bde4]/30 shadow-lg shadow-[#c4bde4]/10 hover:shadow-[0_0_25px_rgba(196,189,228,0.25)] transition-shadow duration-300 h-full min-h-[680px] md:min-h-[760px] xl:min-h-[820px] FLEX FLEX-COL xl:sticky xl:top-6">
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <h4 className="text-base sm:text-lg font-semibold text-white">
-                        Facturas
-                      </h4>
-                      <button
-                        onClick={obtenerFacturas}
-                        disabled={cargandoFacturas}
-                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#c4bde4]/50
-                          ${
-                            cargandoFacturas
-                              ? "bg-[#c4bde4]/40 cursor-not-allowed text-white"
-                              : "bg-[#6d5cbf] hover:bg-[#5a4aa5] text-white"
-                          }`}
-                      >
-                        <FaSyncAlt
-                          className={cargandoFacturas ? "animate-spin" : ""}
-                        />
-                        {cargandoFacturas ? "Actualizando" : "Actualizar"}
-                      </button>
-                    </div>
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <button
+                    onClick={abrirPortalGestionMetodos}
+                    disabled={!plan || loadingGestion || loadingAgregar}
+                    className={[
+                      "w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold border transition",
+                      !plan
+                        ? "bg-white/10 text-white/60 border-white/10 cursor-not-allowed"
+                        : "bg-white text-[#171931] border-white/10 hover:opacity-95",
+                    ].join(" ")}
+                  >
+                    <FaCreditCard />
+                    Gestionar métodos de pago
+                  </button>
 
-                    {facturas.length > 0 ? (
-                      <div className="max-h-[50vh] md:max-h-[60vh] xl:max-h-[700px] overflow-y-auto space-y-3 pr-1 custom-scrollbar">
-                        {facturas.map((f) => (
-                          <div
-                            key={f.id}
-                            className="group rounded-2xl p-4 bg-[#322b4f]/70 border border-[#c4bde4]/30 hover:border-[#c4bde4]/50 transition shadow-sm"
-                          >
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="min-w-0">
-                                <p className="text-sm text-white">
-                                  {new Date(
-                                    f.created * 1000
-                                  ).toLocaleDateString()}
-                                </p>
-                                <p className="text-xs text-[#e0dcf3] truncate">
-                                  USD {(f.amount_paid / 100).toFixed(2)}
-                                </p>
-                              </div>
-                              <a
-                                href={f.hosted_invoice_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="shrink-0 inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-gray-200"
-                              >
-                                <FaFilePdf /> Ver PDF
-                              </a>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex-1 min-h-[700px] grid place-items-center rounded-2xl bg-[#322b4f]/40 border border-[#c4bde4]/20">
-                        <p className="text-sm text-[#e0dcf3]">
-                          Aún no hay facturas para mostrar.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    onClick={abrirPortalAddPaymentMethod}
+                    disabled={!plan || loadingGestion || loadingAgregar}
+                    className={[
+                      "w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold border transition",
+                      !plan
+                        ? "bg-white/10 text-white/60 border-white/10 cursor-not-allowed"
+                        : "bg-white text-[#171931] border-white/10 hover:opacity-95",
+                    ].join(" ")}
+                  >
+                    <FaCreditCard />
+                    Agregar método de pago
+                  </button>
                 </div>
               </div>
             </div>
-          </section>
 
-          {/* ========= PANE 2: Cards de planes (lo que antes era PlanesView) ========= */}
-          <section className="w-1/2">
-            <div className="min-h-screen bg-white flex flex-col items-center px-6">
-              <div className="w-full max-w-8xl">
-                {/* HEADER de planes */}
-                <div className="relative mb-10 mt-10 pl-12 sm:pl-0">
-                  <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">
-                    Elige tu plan ideal y potencia tu empresa
-                  </h2>
-                  <p className="mt-3 text-sm text-center text-[#5a547a]">
-                    Planes claros, beneficios reales y un proceso de activación
-                    sencillo.
-                  </p>
+            <div className="rounded-2xl border border-[#171931]/10 bg-white/70 backdrop-blur px-5 py-4">
+              <p className="text-xs text-[#171931]/70">
+                Para mayor control (cancelación, tarjetas, facturas y cambios),
+                utilice{" "}
+                <span className="text-[#171931] font-semibold">
+                  Administrar suscripción
+                </span>
+                .
+              </p>
+            </div>
+          </div>
 
-                  {currentPlanId && (
-                    <div className="absolute top-2 left-3 sm:top-3 sm:left-6 md:-top-3 md:left-10 z-50">
-                      <div className="inline-flex items-center gap-2 [transform-origin:left_top] scale-90 sm:scale-100">
-                        <BackExpandArrow
-                          onClick={() => setMostrarPlanes(false)}
-                          diameter={48}
-                          expandedWidth={160}
-                          iconSize={45}
-                          labelSize={18}
-                          baseColor="#171931"
-                          hoverColor="#171931"
-                          /* en móvil solo ícono, desde sm aparece el texto */
-                          labelClassName="font-bold hidden sm:inline"
-                          aria-label="Volver"
-                          title="Volver"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+          {/* Derecha: Facturas (AHORA AZUL) */}
+          <div className="rounded-3xl border border-[#171931]/15 bg-[#171931] text-white shadow-[0_20px_60px_-40px_rgba(23,25,49,0.55)] overflow-hidden">
+            <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-extrabold">Facturación</h3>
+                <p className="text-xs text-white/70">Historial de invoices</p>
+              </div>
 
-                {/* GRID de cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
-                  {planes.length === 0 && (
-                    <>
-                      {[0, 1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="rounded-3xl p-6 bg-[#f5f4fb] border border-[#c4bde4]/40 animate-pulse h-[520px]"
-                        />
-                      ))}
-                    </>
-                  )}
+              <button
+                onClick={obtenerFacturas}
+                disabled={cargandoFacturas}
+                className={[
+                  "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold border transition",
+                  cargandoFacturas
+                    ? "bg-white/10 text-white/60 border-white/10 cursor-not-allowed"
+                    : "bg-white text-[#171931] border-white/10 hover:opacity-95",
+                ].join(" ")}
+              >
+                <FaSyncAlt className={cargandoFacturas ? "animate-spin" : ""} />
+                {cargandoFacturas ? "Actualizando" : "Actualizar"}
+              </button>
+            </div>
 
-                  {planes.map((pl) => {
-                    // si es el plan personalizado, usamos la card especial
-                    if (Number(pl.id_plan) === 5) {
-                      return (
-                        <CardPlanPersonalizado
-                          key={pl.id_plan}
-                          plan={pl}
-                          stripeMap={stripeMap}
-                          currentPlanId={currentPlanId}
-                          addons={addons}
-                        />
-                      );
-                    }
-
-                    const isCurrent = currentPlanId === pl.id_plan;
-                    const ribbon = pl.nombre_plan
-                      ?.toLowerCase()
-                      .includes("premium")
-                      ? "Popular"
-                      : pl.nombre_plan?.toLowerCase().includes("conexión") ||
-                        pl.nombre_plan?.toLowerCase().includes("conexion")
-                      ? "Recomendado"
-                      : null;
-
-                    const esBasico =
-                      (pl.nombre_plan || "").toLowerCase().includes("básico") ||
-                      (pl.nombre_plan || "").toLowerCase().includes("basico");
-
-                    const features = buildFeatures(pl);
-
+            <div className="p-6">
+              {facturas?.length ? (
+                <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 custom-scrollbar">
+                  {facturas.map((f) => {
+                    const paid = Boolean(f.paid);
                     return (
                       <div
-                        key={pl.id_plan}
-                        className="relative group rounded-2xl p-[1px] transition-all duration-300 ease-out hover:-translate-y-1 h-full"
+                        key={f.id}
+                        className="rounded-2xl border border-white/10 bg-white/10 p-4 hover:bg-white/15 transition"
                       >
-                        <div
-                          className="
-                            relative overflow-visible rounded-[calc(1rem-1px)]
-                            bg-white/90 backdrop-blur border border-slate-200/60
-                            shadow-md transition-shadow duration-300
-                            h-full flex flex-col
-                          "
-                        >
-                          {/* Listones */}
-                          {esBasico && (
-                            <Liston texto="Más vendido" color="vendido" />
-                          )}
-                          {!esBasico && ribbon === "Recomendado" && (
-                            <Liston texto="Recomendado" color="recomendado" />
-                          )}
-                          {!esBasico && ribbon === "Popular" && (
-                            <Liston texto="Popular" color="popular" />
-                          )}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold">
+                              {new Date(
+                                (f.created || 0) * 1000,
+                              ).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-white/70">
+                              {fmtMoney(f.amount_paid)}
+                            </p>
 
-                          {/* Contenido */}
-                          <div className="px-6 pt-16 pb-6 md:px-7 md:pt-20 md:pb-7 flex flex-col h-full">
-                            {/* Título y descripción */}
-                            <div className="text-center min-h-[92px]">
-                              <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">
-                                {pl.nombre_plan}
-                              </h3>
-                              <p className="text-sm leading-relaxed text-slate-600 mt-1">
-                                {pl.descripcion_plan}
-                              </p>
-                            </div>
-
-                            {/* Precio */}
-                            <div className="mt-5 text-center min-h-[52px] flex items-end justify-center">
-                              <div className="inline-flex items-end gap-1">
-                                <span className="text-3xl md:text-[34px] font-extrabold tracking-tight text-[#171931]">
-                                  ${getPrecioMostrar(pl)}
+                            <div className="mt-2 inline-flex items-center gap-2 text-xs font-semibold">
+                              {paid ? (
+                                <span className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-emerald-400/10 text-emerald-200 border border-emerald-400/20">
+                                  <FaCheckCircle />
+                                  Pagada
                                 </span>
-                                <span className="text-sm text-slate-500 mb-1">
-                                  /{getIntervalo(pl)}
+                              ) : (
+                                <span className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-red-400/10 text-red-200 border border-red-400/20">
+                                  <FaTimesCircle />
+                                  Pendiente
                                 </span>
-                              </div>
-                            </div>
-
-                            {/* Conversaciones incluidas */}
-                            <div className="mt-3 flex justify-center">
-                              <span
-                                className="
-                                  inline-flex items-center gap-2 px-4 py-1.5 rounded-xl 
-                                  bg-gradient-to-r from-emerald-500/20 to-emerald-400/10 
-                                  text-emerald-500 font-semibold text-sm
-                                  shadow-[0_0_12px_rgba(16,185,129,0.25)]
-                                  border border-emerald-400/30 backdrop-blur-md
-                                "
-                              >
-                                <svg
-                                  className="w-4 h-4 text-emerald-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth={2}
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="M7 8h10M7 12h6M5 20l2-4h10l2 4H5z" />
-                                </svg>
-                                {pl.n_conversaciones} conversaciones incluidas
-                              </span>
-                            </div>
-
-                            {/* Beneficios */}
-                            <ul className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-x-3 text-sm flex-1 md:w-[100%] mx-auto">
-                              {features.map((f, idx) => (
-                                <li
-                                  key={idx}
-                                  className={
-                                    f.enabled
-                                      ? "text-slate-700"
-                                      : "text-slate-400"
-                                  }
-                                >
-                                  <div className="grid grid-cols-[12px_1fr] items-start gap-2">
-                                    <span className="inline-flex h-4 w-4 items-center justify-center mt-[2px]">
-                                      {f.enabled ? <IconoCheck /> : <IconoX />}
-                                    </span>
-                                    <span className="leading-relaxed text-left">
-                                      {f.label}
-                                    </span>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-
-                            {/* Botón: flujo de 1 paso */}
-                            <div className="mt-6">
-                              <button
-                                onClick={() =>
-                                  handleSeleccionarPlan(pl.id_plan)
-                                }
-                                disabled={
-                                  loadingPlanId === pl.id_plan ||
-                                  isCurrent ||
-                                  (pl.id_plan === 1 && !trialElegible) // <-- bloquea Free si ya usó el trial
-                                }
-                                className={`
-                                  w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
-                                  transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-                                  ${
-                                    isCurrent
-                                      ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                                      : loadingPlanId === pl.id_plan
-                                      ? "bg-emerald-600 text-white cursor-wait"
-                                      : pl.id_plan === 1 && !trialElegible
-                                      ? "bg-slate-200 text-slate-500 cursor-not-allowed" // estiliza card Free bloqueada
-                                      : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
-                                  }
-                                `}
-                              >
-                                {isCurrent
-                                  ? "Tienes este plan actualmente"
-                                  : loadingPlanId === pl.id_plan
-                                  ? "Procesando..."
-                                  : pl.id_plan === 1 && !trialElegible
-                                  ? "No disponible"
-                                  : "Seleccionar"}
-                              </button>
-
-                              {pl.id_plan === 1 && !trialElegible && (
-                                <p className="mt-2 text-xs text-red-600">
-                                  Ya usaste tu plan gratuito.
-                                </p>
                               )}
                             </div>
                           </div>
+
+                          {f.hosted_invoice_url ? (
+                            <a
+                              href={f.hosted_invoice_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold bg-white text-[#171931] hover:opacity-95 transition"
+                            >
+                              <FaFilePdf />
+                              Ver factura
+                            </a>
+                          ) : (
+                            <span className="text-xs text-white/50">
+                              Sin enlace
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/10 p-6 grid place-items-center min-h-[260px]">
+                  <p className="text-sm text-white/85">
+                    Aún no hay facturas para mostrar.
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={abrirPortalCliente}
+                disabled={!plan}
+                className={[
+                  "mt-4 w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold border transition",
+                  !plan
+                    ? "bg-white/10 text-white/60 border-white/10 cursor-not-allowed"
+                    : "bg-white text-[#171931] border-white/10 hover:opacity-95",
+                ].join(" ")}
+              >
+                <FaExternalLinkAlt />
+                Ver todo en el portal
+              </button>
             </div>
-          </section>
+          </div>
+        </div>
+
+        <div className="mt-6 text-xs text-[#171931]/60">
+          Para mayor control (cancelación, tarjetas, facturas y cambios),
+          utilice{" "}
+          <span className="text-[#171931] font-semibold">
+            Administrar suscripción
+          </span>
+          .
         </div>
       </div>
     </div>

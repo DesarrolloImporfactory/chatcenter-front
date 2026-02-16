@@ -142,10 +142,10 @@ const MsgBubble = ({ side = "left", children, tone = "default" }) => {
     tone === "system"
       ? "bg-amber-50 text-amber-900 ring-1 ring-amber-200"
       : tone === "note"
-      ? "bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200"
-      : isRight
-      ? "text-white bg-gradient-to-b from-blue-600 to-blue-500"
-      : "text-slate-800 bg-white/95 ring-1 ring-slate-200";
+        ? "bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200"
+        : isRight
+          ? "text-white bg-gradient-to-b from-blue-600 to-blue-500"
+          : "text-slate-800 bg-white/95 ring-1 ring-slate-200";
 
   return (
     <div
@@ -547,7 +547,7 @@ const LandingTrial = () => {
       Swal.fire(
         "Inicia sesión",
         "Debes iniciar sesión para continuar.",
-        "info"
+        "info",
       );
       return;
     }
@@ -561,7 +561,7 @@ const LandingTrial = () => {
       const payload = {
         id_usuario,
         id_plataforma,
-        success_url: `${base}/miplan?trial=ok`,
+        success_url: `${base}plan?trial=ok`,
         cancel_url: `${base}${window.location.pathname}?trial=cancel`,
         trial_days: 30,
       };
@@ -594,7 +594,7 @@ const LandingTrial = () => {
         e?.response?.data?.message ||
           e.message ||
           "No se pudo iniciar la prueba.",
-        "error"
+        "error",
       );
       setLoading(false);
     }

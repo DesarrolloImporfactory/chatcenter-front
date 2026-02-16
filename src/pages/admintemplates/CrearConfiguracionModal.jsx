@@ -69,7 +69,7 @@ const CrearConfiguracionModal = ({
 
   // CTA upgrade/cómprar adicional
   const onUpgradeClick = () => {
-    window.location.href = "/planes_view";
+    window.location.href = "/planes";
   };
 
   const onBuyAddonClick = async () => {
