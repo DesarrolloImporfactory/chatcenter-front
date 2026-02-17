@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import { useNavigate } from "react-router-dom";
 import CardPlanPersonalizado from "../../pages/planes/CardPlanPersonalizado";
 
 import basico from "../../assets/plan_basico_v2.png";
@@ -37,9 +38,14 @@ const Liston = ({ texto, color = "recomendado" }) => {
 };
 
 const PlanesView = () => {
+  const navigate = useNavigate();
+
   const [planes, setPlanes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPlanId, setCurrentPlanId] = useState(null);
+
+  //  NUEVO: saber si tiene plan activo (para mostrar botón regresar)
+  const [hasActivePlan, setHasActivePlan] = useState(false);
 
   // ✅ Trial solo en Conexión
   const TRIAL_PLAN_ID = 2;
@@ -64,7 +70,12 @@ const PlanesView = () => {
           { headers: { Authorization: `Bearer ${token}` } },
         );
 
-        setCurrentPlanId(data?.plan?.id_plan ?? null);
+        const plan = data?.plan || null;
+        setCurrentPlanId(plan?.id_plan ?? null);
+
+        const estado = (plan?.estado || "").toLowerCase();
+        const isActive = estado.includes("activo") || estado.includes("trial");
+        setHasActivePlan(Boolean(plan?.id_plan) && isActive);
       } catch (e) {
         console.warn("PlanesView init:", e?.response?.data || e.message);
       }
@@ -169,6 +180,32 @@ const PlanesView = () => {
       <div className="w-full max-w-8xl">
         {/* HEADER */}
         <div className="relative mb-10 mt-10">
+          {/* BOTÓN REGRESAR (solo si tiene plan activo) */}
+          {hasActivePlan && (
+            <div className="absolute left-0 top-0">
+              <button
+                onClick={() => navigate(-1)}
+                className="group inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-[#171931] shadow-sm transition"
+              >
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#171931] text-white group-hover:opacity-95 transition">
+                  {/* Flecha profesional */}
+                  <svg
+                    className="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </span>
+                Regresar
+              </button>
+            </div>
+          )}
+
           <h2 className="text-4xl text-center font-extrabold text-[#2f2b45]">
             Elige tu plan ideal y potencia tu empresa
           </h2>
