@@ -1121,18 +1121,20 @@ const Conexiones = () => {
         setConfiguracionAutomatizada(response.data.data || []);
         setMostrarErrorBot(false);
       } catch (error) {
+        const redirectTo = error?.response?.data?.redirectTo;
+
         if (error.response?.status === 403) {
           Swal.fire({
             icon: "error",
             title: error.response?.data?.message,
             confirmButtonText: "OK",
-          }).then(() => navigate("/planes"));
+          }).then(() => navigate(redirectTo || "/planes"));
         } else if (error.response?.status === 402) {
           Swal.fire({
             icon: "error",
             title: error.response?.data?.message,
             confirmButtonText: "OK",
-          }).then(() => navigate("/plan"));
+          }).then(() => navigate(redirectTo || "/planes"));
         } else if (error.response?.status === 400) {
           setMostrarErrorBot(true);
         } else {
