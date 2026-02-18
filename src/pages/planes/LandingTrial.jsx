@@ -531,10 +531,13 @@ const HeroShowcase = () => {
 const LandingTrial = () => {
   const [loading, setLoading] = useState(false);
 
-  // ✅ estado de plan (replicado)
   const [hasActivePlan, setHasActivePlan] = useState(false);
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [checkingPlan, setCheckingPlan] = useState(true);
+
+  const [planActual, setPlanActual] = useState(null);
+  const [hasAnyPlan, setHasAnyPlan] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
 
   const PLAN_PROMO_ID = 2; // ✅ Plan Conexión (Plan 2)
   const TRIAL_DAYS = 15;
@@ -565,6 +568,9 @@ const LandingTrial = () => {
     const token = localStorage.getItem("token");
 
     if (!token) {
+      setPlanActual(null);
+      setHasAnyPlan(false);
+      setIsExpired(false);
       setHasActivePlan(false);
       setCurrentPlanId(null);
       setCheckingPlan(false);
@@ -576,6 +582,9 @@ const LandingTrial = () => {
       const decoded = JSON.parse(atob(token.split(".")[1]));
       id_usuario = decoded.id_usuario || decoded.id_users;
     } catch {
+      setPlanActual(null);
+      setHasAnyPlan(false);
+      setIsExpired(false);
       setHasActivePlan(false);
       setCurrentPlanId(null);
       setCheckingPlan(false);
@@ -590,12 +599,20 @@ const LandingTrial = () => {
       );
 
       const plan = data?.plan || null;
-
-      setCurrentPlanId(plan?.id_plan ?? null);
+      setPlanActual(plan);
 
       const estado = (plan?.estado || "").toLowerCase();
       const isActive = estado.includes("activo") || estado.includes("trial");
-      setHasActivePlan(Boolean(plan?.id_plan) && isActive);
+      const expired = estado.includes("vencido");
+
+      setCurrentPlanId(plan?.id_plan ?? null);
+
+      // si existe id_plan, entonces NO es cuenta nueva
+      const anyPlan = Boolean(plan?.id_plan);
+      setHasAnyPlan(anyPlan);
+
+      setHasActivePlan(anyPlan && isActive);
+      setIsExpired(anyPlan && expired);
 
       setCheckingPlan(false);
       return plan;
@@ -604,12 +621,18 @@ const LandingTrial = () => {
         "LandingTrial obtenerSuscripcionActiva:",
         e?.response?.data || e.message,
       );
+      setPlanActual(null);
+      setHasAnyPlan(false);
+      setIsExpired(false);
       setHasActivePlan(false);
       setCurrentPlanId(null);
       setCheckingPlan(false);
       return null;
     }
   };
+
+  const isNewAccount = !checkingPlan && !hasAnyPlan; // nunca tuvo plan
+  const canRenew = !checkingPlan && hasAnyPlan && !hasActivePlan; // tuvo plan pero no está activo (incluye vencido)
 
   // feedback Stripe cancel + verificar plan
   useEffect(() => {
@@ -737,16 +760,23 @@ const LandingTrial = () => {
               <button
                 onClick={() => {
                   if (checkingPlan) return;
+
                   if (hasActivePlan) return navigate("/planes");
+
+                  if (canRenew) {
+                    return navigate("/planes");
+                  }
+
+                  // solo si es cuenta nueva
                   activarPrimerPlanConPromo();
                 }}
                 disabled={loading || checkingPlan}
                 className={`w-full sm:w-auto rounded-xl px-5 py-3 text-center text-sm font-semibold tracking-wide text-white shadow-md transition ring-1 ring-blue-500/30
-                  ${
-                    loading || checkingPlan
-                      ? "bg-blue-500/60 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] active:translate-y-0"
-                  }`}
+                ${
+                  loading || checkingPlan
+                    ? "bg-blue-500/60 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] active:translate-y-0"
+                }`}
               >
                 {checkingPlan ? (
                   "Verificando su plan…"
@@ -756,6 +786,10 @@ const LandingTrial = () => {
                   <>
                     VER MIS PLANES{" "}
                     <FaArrowRight className="ml-2 inline-block" />
+                  </>
+                ) : canRenew ? (
+                  <>
+                    RENOVAR PLAN <FaArrowRight className="ml-2 inline-block" />
                   </>
                 ) : (
                   <>
@@ -769,13 +803,18 @@ const LandingTrial = () => {
               </button>
 
               {/* Texto inferior: cambia según si tiene plan o no */}
-              {!hasActivePlan ? (
+              {isNewAccount ? (
                 <p className="mt-2 text-[11px] text-slate-500 leading-relaxed max-w-xl">
                   Si su cuenta califica como nueva, se aplicará{" "}
                   <b>{TRIAL_DAYS} días gratis</b> y luego el{" "}
                   <b>primer mes a ${PROMO_PRICE}</b>. A partir del segundo mes
                   se cobrará <b>${NORMAL_PRICE}/mes</b>. Puede cancelar en
                   cualquier momento desde el portal del cliente.
+                </p>
+              ) : canRenew ? (
+                <p className="mt-2 text-[11px] text-slate-500 leading-relaxed max-w-xl">
+                  Su plan no está activo en este momento. Puede renovarlo o
+                  cambiar de plan desde la sección de planes.
                 </p>
               ) : (
                 <p className="mt-2 text-[11px] text-slate-500 leading-relaxed max-w-xl">
