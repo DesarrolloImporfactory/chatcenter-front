@@ -542,7 +542,12 @@ const LandingTrial = () => {
     try {
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
-      return { token, id_usuario };
+
+      const id_plataforma =
+        localStorage.getItem("id_plataforma_free") ||
+        localStorage.getItem("id_plataforma");
+
+      return { token, id_usuario, id_plataforma };
     } catch {
       return {};
     }
@@ -562,7 +567,8 @@ const LandingTrial = () => {
   const navigate = useNavigate();
 
   const activarPrimerPlanConPromo = async () => {
-    const { token, id_usuario } = getAuth();
+    const { token, id_usuario, id_plataforma } = getAuth();
+
     if (!token || !id_usuario) {
       Swal.fire("Inicie sesión", "Debe iniciar sesión para continuar.", "info");
       return;
@@ -571,9 +577,15 @@ const LandingTrial = () => {
     try {
       setLoading(true);
 
+      //payload base
+      const payload = { id_plan: PLAN_PROMO_ID, id_usuario };
+
+      //  mandar id_plataforma SOLO si existe
+      if (id_plataforma) payload.id_plataforma = Number(id_plataforma);
+
       const { data } = await chatApi.post(
         "stripe_plan/crearSesionPago",
-        { id_plan: PLAN_PROMO_ID, id_usuario },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
