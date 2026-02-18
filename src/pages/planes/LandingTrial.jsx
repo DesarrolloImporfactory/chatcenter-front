@@ -531,10 +531,17 @@ const HeroShowcase = () => {
 const LandingTrial = () => {
   const [loading, setLoading] = useState(false);
 
+  // ✅ estado de plan (replicado)
+  const [hasActivePlan, setHasActivePlan] = useState(false);
+  const [currentPlanId, setCurrentPlanId] = useState(null);
+  const [checkingPlan, setCheckingPlan] = useState(true);
+
   const PLAN_PROMO_ID = 2; // ✅ Plan Conexión (Plan 2)
   const TRIAL_DAYS = 15;
   const PROMO_PRICE = 5;
   const NORMAL_PRICE = 29;
+
+  const navigate = useNavigate();
 
   const getAuth = () => {
     const token = localStorage.getItem("token");
@@ -553,7 +560,58 @@ const LandingTrial = () => {
     }
   };
 
-  // feedback Stripe cancel
+  /* ===== replica de obtenerSuscripcionActiva ===== */
+  const refreshPlanActual = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setHasActivePlan(false);
+      setCurrentPlanId(null);
+      setCheckingPlan(false);
+      return null;
+    }
+
+    let id_usuario = null;
+    try {
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      id_usuario = decoded.id_usuario || decoded.id_users;
+    } catch {
+      setHasActivePlan(false);
+      setCurrentPlanId(null);
+      setCheckingPlan(false);
+      return null;
+    }
+
+    try {
+      const { data } = await chatApi.post(
+        "stripe_plan/obtenerSuscripcionActiva",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      const plan = data?.plan || null;
+
+      setCurrentPlanId(plan?.id_plan ?? null);
+
+      const estado = (plan?.estado || "").toLowerCase();
+      const isActive = estado.includes("activo") || estado.includes("trial");
+      setHasActivePlan(Boolean(plan?.id_plan) && isActive);
+
+      setCheckingPlan(false);
+      return plan;
+    } catch (e) {
+      console.warn(
+        "LandingTrial obtenerSuscripcionActiva:",
+        e?.response?.data || e.message,
+      );
+      setHasActivePlan(false);
+      setCurrentPlanId(null);
+      setCheckingPlan(false);
+      return null;
+    }
+  };
+
+  // feedback Stripe cancel + verificar plan
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("trial") === "cancel") {
@@ -562,9 +620,9 @@ const LandingTrial = () => {
       url.searchParams.delete("trial");
       window.history.replaceState({}, document.title, url.pathname);
     }
-  }, []);
 
-  const navigate = useNavigate();
+    refreshPlanActual();
+  }, []);
 
   const activarPrimerPlanConPromo = async () => {
     const { token, id_usuario, id_plataforma } = getAuth();
@@ -577,16 +635,18 @@ const LandingTrial = () => {
     try {
       setLoading(true);
 
-      //payload base
+      // payload base
       const payload = { id_plan: PLAN_PROMO_ID, id_usuario };
 
-      //  mandar id_plataforma SOLO si existe
+      // mandar id_plataforma SOLO si existe
       if (id_plataforma) payload.id_plataforma = Number(id_plataforma);
 
       const { data } = await chatApi.post(
         "stripe_plan/crearSesionPago",
         payload,
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
       );
 
       if (data?.url) {
@@ -673,38 +733,58 @@ const LandingTrial = () => {
             </div>
 
             <div className="mt-5 sm:mt-6">
+              {/*  Botón principal: si ya tiene plan => /planes, si no => checkout promo */}
               <button
-                onClick={activarPrimerPlanConPromo}
-                disabled={loading}
+                onClick={() => {
+                  if (checkingPlan) return;
+                  if (hasActivePlan) return navigate("/planes");
+                  activarPrimerPlanConPromo();
+                }}
+                disabled={loading || checkingPlan}
                 className={`w-full sm:w-auto rounded-xl px-5 py-3 text-center text-sm font-semibold tracking-wide text-white shadow-md transition ring-1 ring-blue-500/30
-                ${
-                  loading
-                    ? "bg-blue-500/60 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] active:translate-y-0"
-                }`}
+                  ${
+                    loading || checkingPlan
+                      ? "bg-blue-500/60 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] active:translate-y-0"
+                  }`}
               >
-                {loading ? (
+                {checkingPlan ? (
+                  "Verificando su plan…"
+                ) : loading ? (
                   "Redirigiendo…"
+                ) : hasActivePlan ? (
+                  <>
+                    VER MIS PLANES{" "}
+                    <FaArrowRight className="ml-2 inline-block" />
+                  </>
                 ) : (
                   <>
                     ACTIVAR MI PRIMER PLAN{" "}
                     <span className="ml-2 inline-flex items-center rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-black">
                       🎁 {TRIAL_DAYS} días + ${PROMO_PRICE} 1er mes
-                    </span>
+                    </span>{" "}
+                    <FaArrowRight className="ml-2 inline-block" />
                   </>
-                )}{" "}
-                <FaArrowRight className="ml-2 inline-block" />
+                )}
               </button>
 
-              <p className="mt-2 text-[11px] text-slate-500 leading-relaxed max-w-xl">
-                Si su cuenta califica como nueva, se aplicará{" "}
-                <b>{TRIAL_DAYS} días gratis</b> y luego el{" "}
-                <b>primer mes a ${PROMO_PRICE}</b>. A partir del segundo mes se
-                cobrará <b>${NORMAL_PRICE}/mes</b>. Puede cancelar en cualquier
-                momento desde el portal del cliente.
-              </p>
+              {/* Texto inferior: cambia según si tiene plan o no */}
+              {!hasActivePlan ? (
+                <p className="mt-2 text-[11px] text-slate-500 leading-relaxed max-w-xl">
+                  Si su cuenta califica como nueva, se aplicará{" "}
+                  <b>{TRIAL_DAYS} días gratis</b> y luego el{" "}
+                  <b>primer mes a ${PROMO_PRICE}</b>. A partir del segundo mes
+                  se cobrará <b>${NORMAL_PRICE}/mes</b>. Puede cancelar en
+                  cualquier momento desde el portal del cliente.
+                </p>
+              ) : (
+                <p className="mt-2 text-[11px] text-slate-500 leading-relaxed max-w-xl">
+                  Usted ya cuenta con una suscripción activa. Puede revisar,
+                  cambiar o administrar su plan desde la sección de planes.
+                </p>
+              )}
 
-              {/* ✅ Stripe panel mejorado + botón “Ver planes” visible */}
+              {/* ✅ Stripe panel: lo mantenemos (como pidió), con CTA secundario visible */}
               <StripeTrustPanel onSeePlans={() => navigate("/planes")} />
             </div>
           </div>
@@ -745,7 +825,7 @@ const LandingTrial = () => {
                   .
                 </div>
 
-                {/* ✅ Link secundario adicional, visible aquí también */}
+                {/* ✅ Link secundario adicional */}
                 <button
                   type="button"
                   onClick={() => navigate("/planes")}
