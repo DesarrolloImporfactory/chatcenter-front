@@ -22,6 +22,8 @@ import {
   FaSyncAlt,
   FaGlobe,
   FaUserShield,
+  FaTags,
+  FaStar,
 } from "react-icons/fa";
 
 /* ---------- Helpers ---------- */
@@ -38,7 +40,9 @@ const Chip = ({ children, tone = "default" }) => (
       "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1",
       tone === "brand"
         ? "bg-indigo-50 text-indigo-700 ring-indigo-200"
-        : "bg-slate-100 text-slate-700 ring-slate-200",
+        : tone === "ok"
+          ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+          : "bg-slate-100 text-slate-700 ring-slate-200",
     ].join(" ")}
   >
     {children}
@@ -170,7 +174,7 @@ const MsgBubble = ({ side = "left", children, tone = "default" }) => {
   );
 };
 
-/* ---------- STRIPE TRUST PANEL (mejorado: features 2×2) ---------- */
+/* ---------- STRIPE TRUST PANEL (mejorado: sin vacío, CTA secundario visible) ---------- */
 const TrustItem = ({ icon: Icon, label }) => (
   <span className="inline-flex items-center gap-2 rounded-full bg-white px-2.5 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200 shadow-sm">
     <Icon className="text-slate-700" />
@@ -192,10 +196,10 @@ const StripeFeature = ({ icon: Icon, title, desc }) => (
   </div>
 );
 
-const StripeTrustPanel = () => (
-  <div className="mt-6 rounded-2xl p-[1px] bg-gradient-to-br from-slate-200/70 via-white/40 to-slate-100/60">
+const StripeTrustPanel = ({ onSeePlans }) => (
+  <div className="mt-5 rounded-2xl p-[1px] bg-gradient-to-br from-slate-200/70 via-white/40 to-slate-100/60">
     <div className="rounded-2xl bg-white/80 p-4 ring-1 ring-slate-200">
-      {/* Header */}
+      {/* Header + botón secundario (visible) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white ring-1 ring-blue-500/30 shadow">
@@ -213,10 +217,23 @@ const StripeTrustPanel = () => (
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-slate-500">
-          <FaCcVisa className="text-2xl" />
-          <FaCcMastercard className="text-2xl" />
-          <FaCcAmex className="text-2xl" />
+
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <div className="flex items-center gap-2 text-slate-500">
+            <FaCcVisa className="text-2xl" />
+            <FaCcMastercard className="text-2xl" />
+            <FaCcAmex className="text-2xl" />
+          </div>
+
+          {/* ✅ Ahora SI se ve: botón secundario aquí */}
+          <button
+            type="button"
+            onClick={onSeePlans}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-[12px] font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+          >
+            Ver planes
+            <FaArrowRight className="text-slate-600" />
+          </button>
         </div>
       </div>
 
@@ -227,12 +244,49 @@ const StripeTrustPanel = () => (
         <TrustItem icon={FaClock} label="TLS 1.2+ en tránsito" />
       </div>
 
-      {/* Features 2×2 (aprovecha mejor el espacio) */}
+      {/* ✅ Sin vacío: mini-resumen “qué pasa después” */}
+      <div className="mt-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip tone="ok">
+            <span className="inline-flex items-center gap-2">
+              <FaTags /> Promoción de bienvenida
+            </span>
+          </Chip>
+          <Chip>
+            <span className="inline-flex items-center gap-2">
+              <FaStar /> Activación inmediata
+            </span>
+          </Chip>
+        </div>
+
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[12px] text-slate-700">
+          <div className="rounded-xl bg-white/90 p-3 ring-1 ring-slate-200">
+            <div className="font-bold text-slate-900">1) Prueba</div>
+            <div className="mt-1">15 días gratis (si aplica)</div>
+          </div>
+          <div className="rounded-xl bg-white/90 p-3 ring-1 ring-slate-200">
+            <div className="font-bold text-slate-900">2) Promo</div>
+            <div className="mt-1">Primer mes a $5 (si aplica)</div>
+          </div>
+          <div className="rounded-xl bg-white/90 p-3 ring-1 ring-slate-200">
+            <div className="font-bold text-slate-900">3) Normal</div>
+            <div className="mt-1">$29/mes desde el 2do mes</div>
+          </div>
+        </div>
+
+        <div className="mt-3 text-[11px] text-slate-600 leading-relaxed">
+          Podrá cancelar en cualquier momento desde el portal del cliente de
+          Stripe. Si su cuenta no califica como nueva, Stripe mostrará el cobro
+          estándar correspondiente antes de confirmar.
+        </div>
+      </div>
+
+      {/* Features 2×2 */}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StripeFeature
           icon={FaUserShield}
           title="Portal del cliente"
-          desc="Actualizá tarjeta, descargá facturas y gestioná la suscripción."
+          desc="Actualice tarjeta, descargue facturas y gestione la suscripción."
         />
         <StripeFeature
           icon={FaFileAlt}
@@ -251,13 +305,11 @@ const StripeTrustPanel = () => (
         />
       </div>
 
-      {/* Footer pequeño */}
+      {/* Footer */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[11px] text-slate-600">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span>
-            Prueba gratuita 100 conversaciones al mes • Cancelás cuando quieras
-          </span>
+          <span>Cancelación en cualquier momento • Control total</span>
         </div>
         <div className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] ring-1 ring-slate-200">
           <span className="font-semibold">Powered by</span>
@@ -382,13 +434,11 @@ const HeroShowcase = () => {
         />
       </svg>
 
-      {/* Card con borde “glass” y pantalla */}
+      {/* Card */}
       <div className="relative z-10 ml-0 sm:ml-8 md:ml-14 lg:ml-20 rounded-[30px] p-[1px] bg-gradient-to-br from-slate-200/70 via-white/40 to-slate-100/60 shadow-[0_40px_90px_rgba(2,6,23,.18)]">
         <div className="rounded-[29px] bg-white/90 ring-1 ring-slate-200 backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl p-4 sm:p-5 md:p-6">
-          {/* notch */}
           <div className="mx-auto mb-3 h-3 w-20 rounded-b-2xl bg-black/80 sm:h-4 sm:w-24" />
 
-          {/* header del chat */}
           <div className="mb-3 flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 ring-1 ring-slate-200">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 ring-1 ring-emerald-200">
@@ -405,10 +455,8 @@ const HeroShowcase = () => {
             <Chip tone="brand">Sesión segura</Chip>
           </div>
 
-          {/* pantalla */}
           <div className="rounded-2xl bg-slate-50 p-4 sm:p-5 md:p-6 ring-1 ring-slate-200">
             <div className="space-y-5 sm:space-y-6">
-              {/* Mensaje entrante */}
               <div className="flex items-start gap-2">
                 <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-gradient-to-b from-slate-200 to-slate-300 shadow-inner ring-1 ring-slate-300/70" />
                 <MsgBubble side="left">
@@ -418,7 +466,6 @@ const HeroShowcase = () => {
                 </MsgBubble>
               </div>
 
-              {/* Mensaje saliente */}
               <MsgBubble side="right">
                 <div className="h-3 w-36 sm:w-40 rounded bg-white/90" />
                 <div className="mt-2 h-3 w-24 sm:w-28 rounded bg-white/80" />
@@ -427,7 +474,6 @@ const HeroShowcase = () => {
                 </div>
               </MsgBubble>
 
-              {/* Indicador escribiendo */}
               <div className="flex items-center gap-2">
                 <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-gradient-to-b from-slate-200 to-slate-300 shadow-inner ring-1 ring-slate-300/70" />
                 <MsgBubble tone="system">
@@ -440,7 +486,6 @@ const HeroShowcase = () => {
                 </MsgBubble>
               </div>
 
-              {/* Tarjeta neutral */}
               <div className="flex items-start gap-2">
                 <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-gradient-to-b from-slate-200 to-slate-300 shadow-inner ring-1 ring-slate-300/70" />
                 <div className="rounded-2xl bg-white p-3 sm:p-4 shadow-sm ring-1 ring-slate-200">
@@ -449,7 +494,6 @@ const HeroShowcase = () => {
               </div>
             </div>
 
-            {/* input + enviar */}
             <div className="mt-4 sm:mt-5 flex items-center gap-3 sm:gap-4">
               <div className="flex-1 rounded-xl bg-white/95 px-3.5 py-2.5 sm:px-4 sm:py-3 text-[12px] text-slate-500 shadow-sm ring-1 ring-slate-200">
                 Escribe un mensaje…
@@ -465,12 +509,10 @@ const HeroShowcase = () => {
         </div>
       </div>
 
-      {/* Badge “+ IA” */}
       <div className="absolute right-2 top-1 z-20 select-none rounded-full bg-white px-3 py-1 text-[10px] sm:text-xs font-bold shadow-md ring-1 ring-slate-200">
         + IA
       </div>
 
-      {/* Globos apps */}
       <div className="absolute -left-1 sm:left-1 top-10 sm:top-16 z-20 flex flex-col gap-4 sm:gap-6">
         <BubbleIcon color="#22c55e" leadLength={140} stroke={3.5}>
           <FaWhatsapp className="text-green-600" />
@@ -487,9 +529,12 @@ const HeroShowcase = () => {
 };
 
 const LandingTrial = () => {
-  const [eligible, setEligible] = useState(null);
-  const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  const PLAN_PROMO_ID = 2; // ✅ Plan Conexión (Plan 2)
+  const TRIAL_DAYS = 15;
+  const PROMO_PRICE = 5;
+  const NORMAL_PRICE = 29;
 
   const getAuth = () => {
     const token = localStorage.getItem("token");
@@ -497,8 +542,7 @@ const LandingTrial = () => {
     try {
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
-      const id_plataforma = localStorage.getItem("id_plataforma_free");
-      return { token, id_usuario, id_plataforma };
+      return { token, id_usuario };
     } catch {
       return {};
     }
@@ -515,85 +559,36 @@ const LandingTrial = () => {
     }
   }, []);
 
-  /* // elegibilidad
-  useEffect(() => {
-    (async () => {
-      const { token, id_usuario } = getAuth();
-      if (!token || !id_usuario) {
-        setEligible(false);
-        setChecking(false);
-        return;
-      }
-      try {
-        const { data } = await chatApi.post(
-          "/stripe_plan/trialElegibilidad",
-          { id_usuario },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setEligible(Boolean(data?.elegible));
-      } catch {
-        setEligible(false);
-      } finally {
-        setChecking(false);
-      }
-    })();
-  }, []); */
-
   const navigate = useNavigate();
 
-  const startFreeTrial = async () => {
-    const { token, id_usuario, id_plataforma } = getAuth();
-    if (!token || !id_usuario || !id_plataforma) {
-      Swal.fire(
-        "Inicia sesión",
-        "Debes iniciar sesión para continuar.",
-        "info",
-      );
+  const activarPrimerPlanConPromo = async () => {
+    const { token, id_usuario } = getAuth();
+    if (!token || !id_usuario) {
+      Swal.fire("Inicie sesión", "Debe iniciar sesión para continuar.", "info");
       return;
     }
-    if (eligible === false) {
-      Swal.fire("No disponible", "Ya usaste tu prueba gratuita.", "info");
-      return;
-    }
+
     try {
       setLoading(true);
-      /* const base = window.location.origin;
-      const payload = {
-        id_usuario,
-        id_plataforma,
-        success_url: `${base}plan?trial=ok`,
-        cancel_url: `${base}${window.location.pathname}?trial=cancel`,
-        trial_days: 30,
-      };
+
       const { data } = await chatApi.post(
-        "/stripe_plan/crearSesionLiteFree",
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      ); */
+        "stripe_plan/crearSesionPago",
+        { id_plan: PLAN_PROMO_ID, id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
 
-      const response = await chatApi.post("/planes/seleccionarPlan", {
-        id_plan: 1,
-        id_usuario,
-        id_plataforma,
-      });
-
-      const data = response.data;
-
-      // Verifica si la respuesta fue correcta
-      if (response.status !== 200 || data.status !== "success") {
-        throw new Error(data.message || "Error al actualizar el chat");
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
       }
 
-      navigate("/conexiones");
-
-      /* if (data?.url) window.location.href = data.url;
-      else throw new Error("No se recibió URL de Stripe."); */
+      throw new Error("No se recibió URL de Stripe.");
     } catch (e) {
       Swal.fire(
         "Error",
         e?.response?.data?.message ||
           e.message ||
-          "No se pudo iniciar la prueba.",
+          "No se pudo iniciar el proceso.",
         "error",
       );
       setLoading(false);
@@ -604,19 +599,20 @@ const LandingTrial = () => {
     <div className="min-h-screen bg-white">
       {/* HERO */}
       <section className="relative">
-        <div className="mx-auto grid w-full grid-cols-1 items-start gap-10 sm:gap-12 md:gap-14 px-4 sm:px-6 lg:px-10 py-10 sm:py-12 md:py-16 md:grid-cols-[minmax(0,1.15fr)_640px]">
+        {/* ✅ QUITADO el margen/espacio “innecesario”: padding superior reducido */}
+        <div className="mx-auto grid w-full grid-cols-1 items-start gap-10 sm:gap-12 md:gap-14 px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 md:pt-10 pb-10 sm:pb-12 md:pb-16 md:grid-cols-[minmax(0,1.15fr)_640px]">
           {/* Texto */}
-          <div className="relative z-10 pt-1 sm:pt-2">
+          <div className="relative z-10 pt-0">
             {/* badge arriba */}
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
               <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] text-white">
-                100
+                🎁
               </span>
-              conversaciones gratis para alumnos al mes
+              Activación con promociones de bienvenida
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-6xl font-black leading-[1.08] md:leading-[1.02] tracking-tight text-slate-900">
-              Centraliza tus conversaciones
+              Centralice sus conversaciones
               <br className="hidden md:block" /> en un solo lugar
             </h1>
 
@@ -631,7 +627,7 @@ const LandingTrial = () => {
             </div>
 
             <p className="mt-4 sm:mt-5 max-w-xl text-[14px] sm:text-[15px] leading-7 text-slate-600">
-              Integra WhatsApp, Instagram y Facebook para comunicarte en tiempo
+              Integre WhatsApp, Instagram y Facebook para comunicarse en tiempo
               real con más de <b>3000 millones</b> de usuarios.
             </p>
 
@@ -640,45 +636,64 @@ const LandingTrial = () => {
                 <FaGraduationCap className="text-slate-800" />
                 <b>Beneficio exclusivo para alumnos</b>
               </p>
+
               <p className="mt-2 text-[14px] sm:text-[15px] leading-6 text-slate-700">
-                ¡Por ser alumno, accedés a{" "}
-                <b>100 conversaciones totalmente gratis al mes</b> desde el día
-                de tu inscripción! Solo debés activar tu cuenta registrando una
-                tarjeta de crédito o débito.{" "}
+                Active su cuenta con el <b>Plan Conexión</b> y acceda a la
+                promoción de bienvenida:
+                <br />
                 <span className="font-semibold">
-                  No se te cobrará absolutamente nada.
+                  {TRIAL_DAYS} días gratis
+                </span>{" "}
+                +{" "}
+                <span className="font-semibold">
+                  primer mes a ${PROMO_PRICE}
+                </span>{" "}
+                <span className="text-slate-600">
+                  (luego ${NORMAL_PRICE}/mes).
                 </span>
               </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Chip tone="brand">WhatsApp + Instagram + Messenger</Chip>
+                <Chip>Automatizaciones</Chip>
+                <Chip>IA integrada</Chip>
+              </div>
             </div>
 
             <div className="mt-5 sm:mt-6">
               <button
-                onClick={startFreeTrial}
-                disabled={loading || eligible === false}
+                onClick={activarPrimerPlanConPromo}
+                disabled={loading}
                 className={`w-full sm:w-auto rounded-xl px-5 py-3 text-center text-sm font-semibold tracking-wide text-white shadow-md transition ring-1 ring-blue-500/30
                 ${
-                  loading || eligible === false
+                  loading
                     ? "bg-blue-500/60 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] active:translate-y-0"
                 }`}
               >
-                {loading
-                  ? "Redirigiendo…"
-                  : "ACTIVA 100 CONVERSACIONES X MES GRATIS"}{" "}
-                <FaArrowRight className="ml-1 inline-block" />
+                {loading ? (
+                  "Redirigiendo…"
+                ) : (
+                  <>
+                    ACTIVAR MI PRIMER PLAN{" "}
+                    <span className="ml-2 inline-flex items-center rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-black">
+                      🎁 {TRIAL_DAYS} días + ${PROMO_PRICE} 1er mes
+                    </span>
+                  </>
+                )}{" "}
+                <FaArrowRight className="ml-2 inline-block" />
               </button>
-              {eligible === false && (
-                <p className="mt-2 text-xs text-rose-600">
-                  Ya usaste tu prueba gratuita.
-                </p>
-              )}
-              <p className="mt-2 text-[11px] text-slate-500">
-                Al finalizar el periodo de prueba se activará el plan y se
-                realizará el cobro automático, salvo cancelación previa.
+
+              <p className="mt-2 text-[11px] text-slate-500 leading-relaxed max-w-xl">
+                Si su cuenta califica como nueva, se aplicará{" "}
+                <b>{TRIAL_DAYS} días gratis</b> y luego el{" "}
+                <b>primer mes a ${PROMO_PRICE}</b>. A partir del segundo mes se
+                cobrará <b>${NORMAL_PRICE}/mes</b>. Puede cancelar en cualquier
+                momento desde el portal del cliente.
               </p>
 
-              {/* Panel de confianza Stripe (features 2×2) */}
-              <StripeTrustPanel />
+              {/* ✅ Stripe panel mejorado + botón “Ver planes” visible */}
+              <StripeTrustPanel onSeePlans={() => navigate("/planes")} />
             </div>
           </div>
 
@@ -688,22 +703,46 @@ const LandingTrial = () => {
 
             <div className="mt-8 sm:mt-10 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
               <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                ¿Qué ofrecemos?
+                ¿Qué obtiene con el Plan Conexión?
               </h3>
               <ul className="mt-4 sm:mt-5 space-y-3 text-sm">
                 <CheckItem>
-                  Sincronizá tu <b>WhatsApp Business</b> para gestionar chats en
+                  Sincronice su <b>WhatsApp Business</b> para gestionar chats en
                   tiempo real y aprovechar automatizaciones y plantillas.
                 </CheckItem>
                 <CheckItem>
-                  Automatizá respuestas con <b>IA</b> (conversation AI):
-                  responde al instante 24/7 y gestiona consultas.
+                  Automatice respuestas con <b>IA</b> (conversation AI):
+                  responda al instante 24/7 y gestione consultas.
                 </CheckItem>
                 <CheckItem>
-                  Centralizá todo: bandejas, etiquetas, estadísticos básicos y
+                  Centralice todo: bandejas, etiquetas, estadísticas básicas y
                   envíos masivos.
                 </CheckItem>
               </ul>
+
+              <div className="mt-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                <div className="text-sm font-semibold text-slate-900">
+                  Promoción de bienvenida (cuentas nuevas)
+                </div>
+                <div className="mt-1 text-[13px] text-slate-700 leading-relaxed">
+                  <b>{TRIAL_DAYS} días gratis</b> +{" "}
+                  <b>primer mes ${PROMO_PRICE}</b>{" "}
+                  <span className="text-slate-600">
+                    (luego ${NORMAL_PRICE}/mes)
+                  </span>
+                  .
+                </div>
+
+                {/* ✅ Link secundario adicional, visible aquí también */}
+                <button
+                  type="button"
+                  onClick={() => navigate("/planes")}
+                  className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition"
+                >
+                  Ver detalles de planes
+                  <FaArrowRight className="text-slate-600" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
