@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import { useNavigate } from "react-router-dom";
@@ -66,6 +66,9 @@ const PlanesView = () => {
 
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [hasActivePlan, setHasActivePlan] = useState(false);
+  const [currentPlanEstado, setCurrentPlanEstado] = useState(null);
+
+  const [hasPlan, setHasPlan] = useState(false); // tiene un plan asi sea vencido
 
   // ✅ bloquear múltiples clicks y mostrar estado por plan
   const [actionPlanId, setActionPlanId] = useState(null);
@@ -100,6 +103,10 @@ const PlanesView = () => {
 
     const plan = data?.plan || null;
 
+    // ✅ NUEVO: tiene plan asignado aunque esté vencido
+    const has_plan = Boolean(plan?.id_plan);
+    setHasPlan(has_plan);
+
     // ✅ flags (compatibles: dentro de plan o dentro de user_flags)
     const trial_eligible =
       plan?.trial_eligible ?? data?.user_flags?.trial_eligible ?? true;
@@ -111,6 +118,7 @@ const PlanesView = () => {
     setPromoPlan2Eligible(Number(promo_plan2_used) === 0);
 
     setCurrentPlanId(plan?.id_plan ?? null);
+    setCurrentPlanEstado(plan?.estado ?? null);
 
     const estado = (plan?.estado || "").toLowerCase();
     const isActive = estado.includes("activo") || estado.includes("trial");
@@ -132,6 +140,11 @@ const PlanesView = () => {
     }
     return false;
   };
+
+  const isPlanActualActivo = useMemo(() => {
+    const est = (currentPlanEstado || "").toLowerCase();
+    return est.includes("activo") || est.includes("trial");
+  }, [currentPlanEstado]);
 
   /* ===== Cargar planes + plan actual ===== */
   useEffect(() => {
@@ -176,8 +189,8 @@ const PlanesView = () => {
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
 
-      // Si ya es el plan actual, no hacer nada
-      if (Number(currentPlanId) === Number(idPlan)) {
+      // Si es el mismo plan y está activo/trial, no hacer nada
+      if (Number(currentPlanId) === Number(idPlan) && isPlanActualActivo) {
         await Swal.fire("Listo", "Ya tiene este plan actualmente.", "info");
         return;
       }
@@ -396,10 +409,10 @@ const PlanesView = () => {
       <div className="w-full max-w-8xl">
         {/* HEADER */}
         <div className="relative mb-10 mt-10">
-          {hasActivePlan && (
+          {hasPlan && (
             <div className="absolute left-0 top-0">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate("/plan")}
                 className="group inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-transparent hover:bg-slate-100/70 text-[#171931] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#171931]/20"
               >
                 <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#171931] text-white group-hover:opacity-95 transition">
@@ -446,6 +459,7 @@ const PlanesView = () => {
             .filter((p) => Number(p.id_plan) !== 1)
             .map((plan) => {
               const isCurrent = Number(currentPlanId) === Number(plan.id_plan);
+              const isCurrentVencido = isCurrent && !isPlanActualActivo;
 
               const isTrialPlan = Number(plan.id_plan) === TRIAL_PLAN_ID;
               const isTrialEligible = Boolean(trialEligible);
@@ -477,7 +491,11 @@ const PlanesView = () => {
               const features = buildFeatures(plan);
 
               const isAction = Number(actionPlanId) === Number(plan.id_plan);
-              const isDisabled = loading || isCurrent || !!actionPlanId;
+
+              const isDisabled =
+                loading ||
+                (isCurrent && isPlanActualActivo) || // solo deshabilita si está realmente activo
+                !!actionPlanId;
 
               if (Number(plan.id_plan) === 5) {
                 return (
@@ -650,8 +668,10 @@ const PlanesView = () => {
                             }
                           `}
                         >
-                          {isCurrent ? (
+                          {isCurrent && isPlanActualActivo ? (
                             "Tiene este plan actualmente"
+                          ) : isCurrentVencido ? (
+                            "Plan vencido — Renovar"
                           ) : isAction ? (
                             <span className="inline-flex items-center gap-2">
                               <svg

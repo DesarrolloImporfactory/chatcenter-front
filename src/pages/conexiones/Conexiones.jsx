@@ -1126,13 +1126,13 @@ const Conexiones = () => {
             icon: "error",
             title: error.response?.data?.message,
             confirmButtonText: "OK",
-          }).then(() => navigate("/planes_view"));
+          }).then(() => navigate("/planes"));
         } else if (error.response?.status === 402) {
           Swal.fire({
             icon: "error",
             title: error.response?.data?.message,
             confirmButtonText: "OK",
-          }).then(() => navigate("plan"));
+          }).then(() => navigate("/plan"));
         } else if (error.response?.status === 400) {
           setMostrarErrorBot(true);
         } else {

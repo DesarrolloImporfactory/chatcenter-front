@@ -318,22 +318,36 @@ const MiPlan = () => {
 
   const infoPeriodo = useMemo(() => {
     if (!plan?.fecha_renovacion) return null;
+
     const hoy = new Date();
     const fin = new Date(plan.fecha_renovacion);
-    const diasRestantes = Math.ceil((fin - hoy) / (1000 * 60 * 60 * 24));
+
+    const diasRestantesRaw = Math.ceil((fin - hoy) / (1000 * 60 * 60 * 24));
+    const diasRestantes = Math.max(0, diasRestantesRaw);
 
     let tone = "text-emerald-700";
-    if (diasRestantes <= 5) tone = "text-red-700";
+    if (diasRestantes === 0) tone = "text-red-700";
+    else if (diasRestantes <= 5) tone = "text-red-700";
     else if (diasRestantes <= 15) tone = "text-amber-700";
 
     const inicioPeriodo = new Date(fin);
     inicioPeriodo.setMonth(inicioPeriodo.getMonth() - 1);
+
     const totalMs = fin - inicioPeriodo;
+
+    // Si ya venció, mostramos 100%
+    if (fin <= hoy) {
+      return { fin, diasRestantes, tone, porcentaje: 100, vencido: true };
+    }
+
     const transcurridoMs = Math.min(Math.max(hoy - inicioPeriodo, 0), totalMs);
-    const porcentaje = Math.max(
-      0,
-      Math.min(100, Math.round((transcurridoMs / totalMs) * 100)),
-    );
+    const porcentaje =
+      fin <= hoy
+        ? 100
+        : Math.max(
+            0,
+            Math.min(100, Math.round((transcurridoMs / totalMs) * 100)),
+          );
 
     return { fin, diasRestantes, tone, porcentaje };
   }, [plan]);
@@ -361,6 +375,68 @@ const MiPlan = () => {
     if (est.includes("cancel")) return false;
     return true;
   }, [plan, cancelProgramada]);
+
+  const requierePago = useMemo(() => {
+    const est = (plan?.estado || "").toLowerCase();
+    return (
+      Boolean(plan?.id_plan) &&
+      (est.includes("vencido") || est.includes("inactivo"))
+    );
+  }, [plan]);
+
+  const renovarMismoPlan = async () => {
+    if (!token) {
+      Swal.fire("Sesión requerida", "Inicie sesión para continuar.", "info");
+      return;
+    }
+
+    try {
+      const id_usuario = getIdUsuarioFromToken();
+      const id_plan = plan?.id_plan;
+
+      if (!id_usuario || !id_plan) {
+        Swal.fire("Error", "No se pudo detectar su plan actual.", "error");
+        return;
+      }
+
+      const confirm = await Swal.fire({
+        title: "Renovar plan",
+        html: `
+                <div style="text-align:left; line-height:1.4;">
+                  <p style="margin:0 0 10px 0;">
+                    Para continuar, se abrirá una página segura de pago y podrá renovar su plan.
+                  </p>
+                  <p style="margin:0;">
+                    Si desea cambiarlo, vaya a <b>Administrar planes</b>.
+                  </p>
+                </div>
+              `,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Continuar",
+        cancelButtonText: "Cancelar",
+        focusCancel: true,
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      const res = await chatApi.post(
+        "/stripe_plan/crearSesionPago",
+        { id_usuario, id_plan },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+        return;
+      }
+
+      throw new Error("No se recibió URL de pago.");
+    } catch (e) {
+      console.error(e);
+      Swal.fire("Error", "No se pudo iniciar la renovación.", "error");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 md:px-6">
@@ -421,6 +497,16 @@ const MiPlan = () => {
                   <FaCogs />
                   Administrar planes
                 </button>
+
+                {requierePago && (
+                  <button
+                    onClick={renovarMismoPlan}
+                    className="inline-flex items-center gap-2 bg-emerald-700 text-white hover:bg-emerald-600 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-300"
+                  >
+                    <FaCreditCard />
+                    Renovar plan
+                  </button>
+                )}
 
                 <button
                   onClick={() => {
