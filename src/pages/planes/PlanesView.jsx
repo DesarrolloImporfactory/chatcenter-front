@@ -82,8 +82,9 @@ const PlanesView = () => {
   const TRIAL_PLAN_ID = 2;
   const TRIAL_DAYS = 15;
 
-  // Promo Plan 2 (primer mes $5)
-  const PROMO_PLAN2_PRICE = 5;
+  // Promo $5 el primer mes (planes 2,3,4) - solo en Checkout (no en cambiar plan)
+  const PROMO_FIRST_MONTH_PRICE = 5; // primer mes queda en $5 (por cupón en Stripe)
+  const PROMO_PLANS = new Set([2, 3, 4]);
 
   /* ===== Helpers ===== */
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -461,18 +462,20 @@ const PlanesView = () => {
               const isCurrent = Number(currentPlanId) === Number(plan.id_plan);
               const isCurrentVencido = isCurrent && !isPlanActualActivo;
 
-              const isTrialPlan = Number(plan.id_plan) === TRIAL_PLAN_ID;
-              const isTrialEligible = Boolean(trialEligible);
+              const planIdNum = Number(plan.id_plan);
 
-              // ✅ Promo solo para plan 2, solo si es “nuevo”: trialEligible + promoEligible
-              const showPromoPlan2 =
-                Number(plan.id_plan) === 2 &&
-                Boolean(promoPlan2Eligible) &&
-                Boolean(trialEligible);
+              // Trial solo plan 2 y solo si es elegible (y solo para Checkout)
+              const showTrial =
+                planIdNum === TRIAL_PLAN_ID &&
+                Boolean(trialEligible) &&
+                !hasActivePlan;
 
-              // ✅ FIX CLAVE: caso combinado (Trial + Promo)
-              const showTrial = isTrialPlan && isTrialEligible;
-              const showPromo = showPromoPlan2; // ya incluye plan2 + promoEligible + trialEligible
+              // Promo $5 OFF primer mes: planes 2/3/4, solo si el usuario aún no la ha usado (y solo Checkout)
+              const promoEligible =
+                Boolean(promoPlan2Eligible) && !hasActivePlan;
+              const showPromo = PROMO_PLANS.has(planIdNum) && promoEligible;
+
+              // Caso combinado: plan 2 con trial + descuento primer mes
               const showTrialAndPromo = showTrial && showPromo;
 
               const ribbon = (plan.nombre_plan || "")
@@ -507,8 +510,12 @@ const PlanesView = () => {
                 );
               }
 
-              const precioNormal = getPrecioMostrar(plan); // "29.00"
-              const promoPrice = PROMO_PLAN2_PRICE.toFixed(2); // "5.00"
+              const precioNormalNum = Number(plan?.precio_plan || 0);
+              const precioNormal = precioNormalNum.toFixed(2);
+
+              const firstMonthPrice = Number(PROMO_FIRST_MONTH_PRICE).toFixed(
+                2,
+              ); // "5.00"
 
               return (
                 <div
@@ -526,7 +533,12 @@ const PlanesView = () => {
                     )}
 
                     {/* Listón Promo si aplica */}
-                    {showPromo && <Liston texto="Promo $5" color="promo" />}
+                    {showPromo && (
+                      <Liston
+                        texto={`Primer mes $${PROMO_FIRST_MONTH_PRICE}`}
+                        color="promo"
+                      />
+                    )}
 
                     <div className="px-6 pt-16 pb-6 md:px-7 md:pt-20 md:pb-7 flex flex-col h-full">
                       <div className="text-center min-h-[92px]">
@@ -555,16 +567,18 @@ const PlanesView = () => {
                               <span className="text-sm md:text-base text-slate-500 line-through">
                                 ${precioNormal}
                               </span>
+
                               <span className="text-3xl md:text-[36px] font-extrabold tracking-tight text-emerald-600">
-                                ${promoPrice}
+                                ${firstMonthPrice}
                               </span>
+
                               <span className="text-sm text-slate-500 mb-1">
                                 /{getIntervalo()}
                               </span>
                             </div>
 
                             <div className="text-[11px] md:text-xs text-emerald-700 bg-emerald-600/10 border border-emerald-600/20 rounded-xl px-3 py-1">
-                              Primer mes con promoción
+                              Primer mes a ${firstMonthPrice}
                             </div>
                           </div>
                         )}
@@ -574,8 +588,8 @@ const PlanesView = () => {
                       {showTrialAndPromo ? (
                         <div className="mt-3 flex justify-center">
                           <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-indigo-600/10 text-indigo-700 font-semibold text-sm border border-indigo-600/20">
-                            🎁 {TRIAL_DAYS} días gratis + primer mes $
-                            {promoPrice}
+                            🎁 {TRIAL_DAYS} días gratis + primer mes a $
+                            {firstMonthPrice}
                           </span>
                         </div>
                       ) : (
@@ -587,13 +601,6 @@ const PlanesView = () => {
                               </span>
                             </div>
                           )}
-                          {showPromo && !showTrial && (
-                            <div className="mt-3 flex justify-center">
-                              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-600/10 text-emerald-700 font-semibold text-sm border border-emerald-600/20">
-                                Primer mes ${promoPrice}
-                              </span>
-                            </div>
-                          )}
                         </>
                       )}
 
@@ -602,7 +609,7 @@ const PlanesView = () => {
                         {showTrialAndPromo ? (
                           <span>
                             Al finalizar la prueba, el <b>primer mes</b> se
-                            cobrará <b>${promoPrice}</b>. Luego se cobrará{" "}
+                            cobrará <b>${firstMonthPrice}</b>. Luego se cobrará{" "}
                             <b>
                               ${precioNormal}/{getIntervalo()}
                             </b>
@@ -619,7 +626,7 @@ const PlanesView = () => {
                         ) : showPromo ? (
                           <span>
                             Promoción disponible:{" "}
-                            <b>primer mes ${promoPrice}</b>. A partir del
+                            <b>primer mes ${firstMonthPrice}</b>. A partir del
                             segundo mes se cobrará{" "}
                             <b>
                               ${precioNormal}/{getIntervalo()}
@@ -710,7 +717,7 @@ const PlanesView = () => {
                           <div className="mt-3 text-[11px] text-center text-slate-500 leading-relaxed break-words">
                             Oferta disponible solo para cuentas nuevas: incluye{" "}
                             <b>{TRIAL_DAYS} días gratis</b> y{" "}
-                            <b>primer mes a ${promoPrice}</b>.
+                            <b>primer mes a ${firstMonthPrice}</b>.
                           </div>
                         )}
                       </div>

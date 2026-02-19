@@ -128,12 +128,22 @@ function MainLayout({ children }) {
         !menuButtonRef.current.contains(event.target)
       ) {
         setSliderOpen(false);
+        window.dispatchEvent(new Event("layout:changed"));
+        setTimeout(
+          () => window.dispatchEvent(new Event("layout:changed")),
+          320,
+        );
       }
     }
 
     function handleEscape(event) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && sliderOpen) {
         setSliderOpen(false);
+        window.dispatchEvent(new Event("layout:changed"));
+        setTimeout(
+          () => window.dispatchEvent(new Event("layout:changed")),
+          320,
+        );
       }
     }
 
@@ -148,7 +158,19 @@ function MainLayout({ children }) {
   }, [sliderOpen]);
 
   const toggleSlider = () => {
-    setSliderOpen(!sliderOpen);
+    setSliderOpen((prev) => {
+      const next = !prev;
+
+      // 1) Dispara inmediatamente (antes de que termine la transición)
+      window.dispatchEvent(new Event("layout:changed"));
+
+      // 2) Dispara al final de la transición (300ms)
+      setTimeout(() => {
+        window.dispatchEvent(new Event("layout:changed"));
+      }, 320);
+
+      return next;
+    });
   };
 
   const handleLogout = () => {

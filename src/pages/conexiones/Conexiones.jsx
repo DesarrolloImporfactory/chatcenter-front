@@ -599,12 +599,27 @@ const Conexiones = () => {
   }, [hasCards]);
 
   const currentRef = tourSteps[step]?.ref || null;
-  const { rect } = useSpotlight(currentRef, [
+  const { rect, update } = useSpotlight(currentRef, [
     tourOpen,
     step,
     currentRef,
     listaFiltrada.length,
   ]);
+
+  useEffect(() => {
+    if (!tourOpen) return;
+
+    const onLayoutChanged = () => {
+      // 1) recalcula inmediato
+      update?.();
+
+      // 2) recalcula al final de la transición del sidebar (su layout usa ~320ms)
+      setTimeout(() => update?.(), 320);
+    };
+
+    window.addEventListener("layout:changed", onLayoutChanged);
+    return () => window.removeEventListener("layout:changed", onLayoutChanged);
+  }, [tourOpen, update]);
 
   // Scroll al objetivo
   useEffect(() => {
