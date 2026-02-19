@@ -2650,7 +2650,13 @@ const Chat = () => {
 
         // ✅ CONDICIÓN EXACTA DEL ANTIGUO (pero con encargado unificado)
         if (canSeeChat) {
-          actualizado.unshift(nuevoChat);
+          if (encargadoId == null) {
+            if (scopeChats == "waiting") {
+              actualizado.unshift(nuevoChat);
+            }
+          } else {
+            actualizado.unshift(nuevoChat);
+          }
         }
 
         return actualizado;
@@ -2716,6 +2722,7 @@ const Chat = () => {
     id_sub_usuario_global,
     cursorFecha,
     cursorId,
+    scopeChats
   ]);
 
   const recargarDatosFactura = () => {
