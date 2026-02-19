@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useRef, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import Select, { components } from "react-select";
 import { useNavigate, Link, useLocation } from "react-router-dom";
@@ -251,17 +251,28 @@ const Estado_contactos = () => {
   const [idPlataformaConf, setIdPlataformaConf] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [boardData, setBoardData] = useState({
-    IA_VENTAS_IMPORSHOP: [],
-    ATENCION_URGENTE: [],
-    ASESOR: [],
-  });
-
-  const [searchTerms, setSearchTerms] = useState({
-    IA_VENTAS_IMPORSHOP: "",
-    ATENCION_URGENTE: "",
-    ASESOR: "",
-  });
+  
+    const COLUMNS_KEYS = Object.keys(KANBAN_COLUMNS);
+  
+    const makeInitialBoard = () =>
+      COLUMNS_KEYS.reduce((acc, key) => {
+        acc[key] = {
+          items: [],
+          cursor: null,
+          hasMore: true,
+          loading: false,
+          search: "",
+        };
+        return acc;
+      }, {});
+  
+    const [boardData, setBoardData] = useState(makeInitialBoard);
+  
+    const boardRef = useRef(boardData);
+  
+    useEffect(() => {
+      boardRef.current = boardData;
+    }, [boardData]);
 
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
@@ -275,41 +286,101 @@ const Estado_contactos = () => {
       setIdPlataformaConf(parsed);
     }
   }, []);
+  
+  const LIMIT = 20;
+
+  const buildPayload = (keys) => {
+    const cursors = {};
+    const search = {};
+
+    keys.forEach((k) => {
+      cursors[k] = boardData[k]?.cursor || null;
+      search[k] = boardData[k]?.search || "";
+    });
+
+    return {
+      id_configuracion,
+      columnKeys: keys,
+      limit: LIMIT,
+      cursors,
+      search,
+    };
+  };
+
+  const mergeColumnsResponse = (respData, keys, { append = false } = {}) => {
+    setBoardData((prev) => {
+      const next = { ...prev };
+
+      keys.forEach((k) => {
+        const col = respData?.[k];
+        const items = col?.items || [];
+        const page = col?.page || {};
+
+        const prevItems = prev[k]?.items || [];
+
+        let merged = append ? [...prevItems, ...items] : items;
+
+        // ✅ dedupe por id (muy importante)
+        const seen = new Set();
+        merged = merged.filter((x) => {
+          const id = String(x?.id);
+          if (!id) return true;
+          if (seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        });
+
+        next[k] = {
+          ...prev[k],
+          items: merged,
+          cursor: page.next_cursor ?? null,
+          hasMore: !!page.has_more,
+          loading: false,
+        };
+      });
+
+      return next;
+    });
+  };
+
+  const setColumnsLoading = (keys, loading) => {
+    setBoardData((prev) => {
+      const next = { ...prev };
+      keys.forEach((k) => {
+        next[k] = { ...prev[k], loading };
+      });
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!id_configuracion) return;
 
     const fetchContactos = async () => {
       setIsLoading(true);
+      setColumnsLoading(COLUMNS_KEYS, true);
+
       try {
         const { data } = await chatApi.post(
           "/clientes_chat_center/listar_contactos_estado",
-          { id_configuracion }
+          {
+            id_configuracion,
+            columnKeys: COLUMNS_KEYS,
+            limit: LIMIT,
+            cursors: {}, // primera carga sin cursor
+            search: {}, // primera carga sin búsquedas
+          },
         );
 
-        if (!data || !data.success || !data.data) {
+        if (!data?.success || !data?.data) {
           Toast.fire({
             icon: "error",
             title: "No se pudieron cargar los contactos",
           });
-          setIsLoading(false);
           return;
         }
 
-        // data.data ya es un objeto con las columnas:
-        const boardFromApi = data.data;
-
-        const nextBoard = {
-          IA_VENTAS_IMPORSHOP: [
-            ...(boardFromApi.IA_VENTAS_IMPORSHOP || []),
-            ...(boardFromApi.CONTACTO_INICIAL || []),
-            ...(boardFromApi.SEGUIMIENTO || []),
-          ],
-          ATENCION_URGENTE: boardFromApi.ATENCION_URGENTE || [],
-          ASESOR: boardFromApi.ASESOR || [],
-        };
-
-        setBoardData(nextBoard);
+mergeColumnsResponse(data.data, COLUMNS_KEYS, { append: false });
       } catch (error) {
         console.error(error);
         Toast.fire({
@@ -318,16 +389,18 @@ const Estado_contactos = () => {
         });
       } finally {
         setIsLoading(false);
+        setColumnsLoading(COLUMNS_KEYS, false);
       }
     };
 
     fetchContactos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id_configuracion]);
 
   const totalContactos = useMemo(() => {
     return Object.values(boardData).reduce(
-      (acc, lista) => acc + (lista?.length || 0),
-      0
+      (acc, col) => acc + (col?.items?.length || 0),
+      0,
     );
   }, [boardData]);
 
@@ -600,23 +673,115 @@ const Estado_contactos = () => {
     );
   };
 
-  const filterContacts = (lista, search) => {
-    if (!search.trim()) return lista;
+  const searchTimersRef = React.useRef({});
 
-    const term = search.toLowerCase();
+  const onSearchChange = (colKey, value) => {
+    // guardar texto
+    setBoardData((prev) => ({
+      ...prev,
+      [colKey]: { ...prev[colKey], search: value },
+    }));
 
-    return lista.filter((c) => {
-      const nombre = c.nombre_cliente?.toLowerCase() || "";
-      const apellido = c.apellido_cliente?.toLowerCase() || "";
-      const telefono = c.telefono_limpio?.toLowerCase() || "";
+    // debounce
+    if (searchTimersRef.current[colKey])
+      clearTimeout(searchTimersRef.current[colKey]);
 
-      return (
-        nombre.includes(term) ||
-        apellido.includes(term) ||
-        telefono.includes(term)
-      );
-    });
+    searchTimersRef.current[colKey] = setTimeout(async () => {
+      try {
+        // reiniciar columna
+        setBoardData((prev) => ({
+          ...prev,
+          [colKey]: {
+            ...prev[colKey],
+            items: [],
+            cursor: null,
+            hasMore: true,
+            loading: true,
+          },
+        }));
+
+        const { data } = await chatApi.post(
+          "/clientes_chat_center/listar_contactos_estado",
+          {
+            id_configuracion,
+            columnKeys: [colKey],
+            limit: LIMIT,
+            cursors: { [colKey]: null },
+            search: { [colKey]: value },
+          },
+        );
+
+        if (!data?.success || !data?.data) return;
+
+        mergeColumnsResponse(data.data, [colKey], { append: false });
+      } catch (e) {
+        console.error(e);
+        Toast.fire({ icon: "error", title: "Error buscando" });
+        setBoardData((prev) => ({
+          ...prev,
+          [colKey]: { ...prev[colKey], loading: false },
+        }));
+      }
+    }, 350);
   };
+
+  /* scroll infinito */
+  const scrollLockRef = useRef({});
+
+  const loadMoreColumn = async (colKey) => {
+    const col = boardRef.current?.[colKey];
+    if (!col) return;
+
+    // ✅ guardas duras contra spam y duplicados
+    if (col.loading) return;
+    if (!col.hasMore) return;
+
+    // ✅ cursor real en el momento exacto
+    const cursor = col.cursor || null;
+    const search = col.search || "";
+
+    // marcar loading (con setState funcional)
+    setBoardData((prev) => ({
+      ...prev,
+      [colKey]: { ...prev[colKey], loading: true },
+    }));
+
+    console.log("LOAD MORE", colKey, { cursor, search });
+
+    try {
+      const { data } = await chatApi.post(
+        "/clientes_chat_center/listar_contactos_estado",
+        {
+          id_configuracion,
+          columnKeys: [colKey],
+          limit: LIMIT,
+          cursors: { [colKey]: cursor },
+          search: { [colKey]: search },
+        },
+      );
+
+      if (!data?.success || !data?.data) {
+        setBoardData((prev) => ({
+          ...prev,
+          [colKey]: { ...prev[colKey], loading: false },
+        }));
+        return;
+      }
+
+      // append real
+      mergeColumnsResponse(data.data, [colKey], { append: true });
+    } catch (e) {
+      console.error(e);
+      Toast.fire({ icon: "error", title: "Error cargando más" });
+
+      setBoardData((prev) => ({
+        ...prev,
+        [colKey]: { ...prev[colKey], loading: false },
+      }));
+    }
+  };
+
+  /* scroll infinito */
 
   /* preview */
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -683,18 +848,18 @@ const Estado_contactos = () => {
       return;
     }
 
-    const startList = Array.from(boardData[startCol]);
-    const endList = Array.from(boardData[endCol]);
+    const startList = Array.from(boardData[startCol]?.items || []);
+    const endList = Array.from(boardData[endCol]?.items || []);
 
     // Caso 1: 🟦 Mover dentro de la misma columna
     if (startCol === endCol) {
       const [movedItem] = startList.splice(source.index, 1);
       startList.splice(destination.index, 0, movedItem);
 
-      setBoardData({
-        ...boardData,
-        [startCol]: startList,
-      });
+      setBoardData((prev) => ({
+        ...prev,
+        [startCol]: { ...prev[startCol], items: startList },
+      }));
 
       return; // sin API porque no cambia el estado verdadero
     }
@@ -703,11 +868,11 @@ const Estado_contactos = () => {
     const [movedItem] = startList.splice(source.index, 1);
     endList.splice(destination.index, 0, movedItem);
 
-    setBoardData({
-      ...boardData,
-      [startCol]: startList,
-      [endCol]: endList,
-    });
+    setBoardData((prev) => ({
+      ...prev,
+      [startCol]: { ...prev[startCol], items: startList },
+      [endCol]: { ...prev[endCol], items: endList },
+    }));
 
     // API: actualizar estado del cliente
     try {
@@ -869,14 +1034,12 @@ const Estado_contactos = () => {
           }}
         >
           {Object.values(KANBAN_COLUMNS).map((column) => {
-            const listaOriginal = boardData[column.key] || [];
-            const listaFiltrada = filterContacts(
-              listaOriginal,
-              searchTerms[column.key]
-            );
+            const colKey = column.key;
+            const items = boardData[colKey]?.items || [];
+            const isColLoading = !!boardData[colKey]?.loading;
 
             return (
-              <Droppable droppableId={column.key} key={column.key}>
+              <Droppable droppableId={colKey} key={colKey}>
                 {(provided) => (
                   <div
                     ref={provided.innerRef}
@@ -913,21 +1076,16 @@ const Estado_contactos = () => {
                           boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
                         }}
                       >
-                        {listaFiltrada.length}
+                        {items.length}
                       </span>
                     </div>
 
-                    {/* Input de búsqueda */}
+                    {/* Input de búsqueda (server-side) */}
                     <input
                       type="text"
                       placeholder="Buscar..."
-                      value={searchTerms[column.key]}
-                      onChange={(e) =>
-                        setSearchTerms({
-                          ...searchTerms,
-                          [column.key]: e.target.value,
-                        })
-                      }
+                      value={boardData[colKey]?.search || ""}
+                      onChange={(e) => onSearchChange(colKey, e.target.value)}
                       style={{
                         padding: "6px 10px",
                         marginBottom: "8px",
@@ -950,17 +1108,33 @@ const Estado_contactos = () => {
                         backgroundColor: "rgba(0,0,0,0.06)",
                         marginBottom: "8px",
                       }}
-                    ></div>
+                    />
 
-                    {/* Lista filtrada */}
+                    {/* Lista (scroll infinito) */}
                     <div
-                      style={{
-                        overflowY: "auto",
-                        paddingRight: "4px",
+                      style={{ overflowY: "auto", paddingRight: "4px" }}
+                      onScroll={(e) => {
+                        const el = e.currentTarget;
+
+                        const nearBottom =
+                          el.scrollTop + el.clientHeight >=
+                          el.scrollHeight - 120;
+
+                        if (!nearBottom) return;
+
+                        // ✅ throttle por columna (400ms)
+                        if (scrollLockRef.current[column.key]) return;
+
+                        scrollLockRef.current[column.key] = true;
+                        loadMoreColumn(column.key).finally(() => {
+                          setTimeout(() => {
+                            scrollLockRef.current[column.key] = false;
+                          }, 400);
+                        });
                       }}
                     >
-                      {listaFiltrada.length > 0 ? (
-                        listaFiltrada.map((contacto, index) => (
+                      {items.length > 0 ? (
+                        items.map((contacto, index) => (
                           <Draggable
                             key={contacto.id}
                             draggableId={String(contacto.id)}
@@ -988,7 +1162,26 @@ const Estado_contactos = () => {
                           No se encontraron resultados.
                         </div>
                       )}
+
+                      {/* Loader al final */}
+                      {isColLoading && (
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: "10px 0",
+                            opacity: 0.7,
+                            fontSize: "12px",
+                          }}
+                        >
+                          <i
+                            className="bx bx-loader-alt bx-spin"
+                            style={{ fontSize: 16 }}
+                          />{" "}
+                          Cargando...
+                        </div>
+                      )}
                     </div>
+
                     {provided.placeholder}
                   </div>
                 )}
