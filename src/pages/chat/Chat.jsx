@@ -96,8 +96,15 @@ const Chat = () => {
   const [grabando, setGrabando] = useState(false); // Estado para grabación
 
   const [audioBlob, setAudioBlob] = useState(null); // Almacena la grabación
+  
+  const [audioPreviewModal, setAudioPreviewModal] = useState(false); // Modal de vista previa
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState(null); // URL del audio para reproducir
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false); // Estado de reproducción
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0); // Tiempo actual
+  const [audioDuration, setAudioDuration] = useState(0); // Duración total
 
   const mediaRecorderRef = useRef(null);
+  const audioPreviewRef = useRef(null); // Ref para el elemento de audio
 
   const [isSocketConnected, setIsSocketConnected] = useState(false);
 
@@ -1206,65 +1213,27 @@ const Chat = () => {
   const uploadAudio = (audioBlob) => {
     const formData = new FormData();
     formData.append("audio", audioBlob, "audio.ogg");
-
+    formData.append("id_configuracion", id_configuracion);
+    formData.append("to", selectedChat.celular_cliente);
+    
     return chatApi
-      .post("whatsapp/upload", formData, {
+      .post("whatsapp_managment/enviarAudioCompleto", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
       .then(async (response) => {
-        const base64Audio = response.data.file;
+        const respData = response.data;
 
-        // base64 -> Blob (ogg)
-        const byteCharacters = atob(base64Audio);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const blobNew = new Blob([new Uint8Array(byteNumbers)], {
-          type: "audio/ogg",
-        });
-
-        // 1) Guardar en S3 vía backend
-        const fdSave = new FormData();
-        fdSave.append("audio", blobNew, `audio-${Date.now()}.ogg`);
-
-        const respGuardar = await chatApi.post(
-          "whatsapp/guardar_audio",
-          fdSave,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          },
-        );
-
-        const fileUrl =
-          respGuardar.data?.fileUrl || respGuardar.data?.data?.url || "";
-
-        // 2) Enviar a WhatsApp via backend meta-management (NUEVO)
-        const fdMeta = new FormData();
-        fdMeta.append("audio", blobNew, `audio-${Date.now()}.ogg`);
-        fdMeta.append("id_configuracion", id_configuracion);
-        fdMeta.append("to", selectedChat.celular_cliente);
-
-        const respMeta = await chatApi.post(
-          "/whatsapp_managment/enviarAudio",
-          fdMeta,
-          { headers: { "Content-Type": "multipart/form-data" } },
-        );
-
-        if (!respMeta.data?.success) {
-          console.error("Meta error:", respMeta.data);
-          throw new Error(
-            respMeta.data?.message || "No se pudo enviar audio por backend",
-          );
+        // Validar respuesta exitosa
+        if (!respData.success) {
+          throw new Error(respData.message || 'Error al procesar el audio');
         }
 
-        const mediaId = respMeta.data.mediaId;
-        const wamid = respMeta.data.wamid;
+        const { mediaId, wamid, awsUrl } = respData.data;
 
         agregar_mensaje_enviado(
-          `Archivo guardado en: ${fileUrl}`,
+          "Audio enviado",
           "audio",
-          fileUrl,
+          awsUrl,
           selectedChat.celular_cliente,
           dataAdmin.id_telefono,
           selectedChat.id,
@@ -1278,48 +1247,196 @@ const Chat = () => {
           mediaId,
         );
 
-        return { fileUrl, mediaId, wamid };
+        return { fileUrl: awsUrl, mediaId, wamid };
+      })
+      .catch((error) => {
+        console.error("Error al enviar audio:", error);
+        throw error;
       });
+  };
+
+  // 🎵 Obtener duración del audio usando Web Audio API (más confiable que <audio> element)
+  const getAudioDuration = async (blob) => {
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      await audioContext.close(); // Liberar recursos
+      
+      console.log('✅ Duración calculada:', audioBuffer.duration, 'segundos');
+      return audioBuffer.duration;
+    } catch (error) {
+      console.error('Error al decodificar audio para obtener duración:', error);
+      return 0;
+    }
   };
 
   const handleSendAudio = async (blob) => {
     if (!blob) return;
 
-    const isOggMime = blob.type.includes("audio/ogg");
-    const isCorrectExtension = blob.name ? blob.name.endsWith(".ogg") : true;
+    // Validación flexible - el backend se encarga de la conversión
+    const isValidAudioFormat = 
+      blob.type.includes('audio/ogg') || 
+      blob.type.includes('audio/webm') ||
+      blob.type.includes('audio/opus');
 
-    if (!isOggMime || !isCorrectExtension) {
-      alert("El archivo de audio debe ser en formato .ogg");
-      return;
+    if (!isValidAudioFormat) {
+      console.warn('Formato de audio detectado:', blob.type);
+      // Continuar de todas formas - el backend convertirá
     }
 
     try {
+      console.log('Enviando audio:', {
+        size: `${(blob.size / 1024).toFixed(2)} KB`,
+        type: blob.type
+      });
+      
       const { fileUrl, mediaId } = await uploadAudio(blob);
-      console.log("Listo:", { fileUrl, mediaId });
+      console.log("Audio enviado exitosamente:", { fileUrl, mediaId });
       setAudioBlob(null);
     } catch (error) {
       console.error("Error en el proceso de envío de audio:", error);
-      alert("No se pudo enviar el audio. Revise consola/logs.");
+      Toast.fire({
+        icon: 'error',
+        title: 'No se pudo enviar el audio',
+        text: error?.message || 'Error desconocido'
+      });
     }
   };
 
   const startRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorderRef.current = new MediaRecorder(stream);
-    const chunks = [];
+    try {
+      // 🔇 PAUSAR Y MUTEAR TODOS LOS MEDIOS de la página actual
+      const allMediaElements = document.querySelectorAll('audio, video');
+      const pausedMedia = [];
+      
+      allMediaElements.forEach((media) => {
+        const wasPlaying = !media.paused;
+        const hadVolume = media.volume;
+        
+        if (wasPlaying) {
+          media.pause();
+          console.log(`⏸️ ${media.tagName} pausado`);
+        }
+        
+        // Mutear también (por si se reproduce durante la grabación)
+        media.muted = true;
+        
+        pausedMedia.push({
+          element: media,
+          wasPlaying,
+          originalVolume: hadVolume
+        });
+      });
 
-    mediaRecorderRef.current.ondataavailable = (e) => {
-      chunks.push(e.data);
-    };
+      console.log(`🔇 ${pausedMedia.length} elemento(s) de media pausado(s)/muteado(s)`);
 
-    mediaRecorderRef.current.onstop = () => {
-      const blob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
-      setAudioBlob(blob);
-      handleSendAudio(blob); // Enviar el audio inmediatamente después de detener
-    };
+      // ✅ Configurar constraints OPTIMIZADAS para capturar SOLO VOZ
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,        // ✅ Cancela eco y retroalimentación
+          noiseSuppression: true,        // ✅ ACTIVADO - filtra ruido ambiente/música de fondo
+          autoGainControl: true,         // ✅ Normaliza volumen de voz
+          sampleRate: 48000,             // Alta calidad
+          channelCount: 1,               // Mono
+          // ⚠️ IMPORTANTE: Asegurarse de capturar SOLO micrófono (no audio del sistema)
+          // Estas opciones ayudan a que el navegador priorice VOZ sobre ruido
+          latency: 0,
+          voiceIsolation: true           // Disponible en algunos navegadores (Chrome/Edge)
+        } 
+      });
 
-    mediaRecorderRef.current.start();
-    setGrabando(true);
+      // ✅ Detectar el mejor formato soportado por el navegador
+      let mimeType = 'audio/webm;codecs=opus'; // Preferido
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/ogg;codecs=opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/webm';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = ''; // Usar default del navegador
+          }
+        }
+      }
+
+      console.log('🎙️ Formato de grabación:', mimeType || 'default');
+
+      // ✅ Crear MediaRecorder con opciones de ALTA CALIDAD
+      const options = {
+        mimeType: mimeType || undefined,
+        audioBitsPerSecond: 128000 // 128 kbps - excelente calidad
+      };
+
+      mediaRecorderRef.current = new MediaRecorder(stream, options);
+      
+      // ✅ Guardar referencia de medios pausados DESPUÉS de crear MediaRecorder
+      mediaRecorderRef.current.pausedMedia = pausedMedia;
+      
+      const chunks = [];
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        // Usar el mimeType real del MediaRecorder para el Blob
+        const actualMimeType = mediaRecorderRef.current.mimeType;
+        const blob = new Blob(chunks, { type: actualMimeType });
+        
+        console.log('🎵 Audio grabado:', {
+          size: `${(blob.size / 1024).toFixed(2)} KB`,
+          type: blob.type
+        });
+        
+        // 🚀 CALCULAR DURACIÓN usando Web Audio API (más confiable)
+        const duration = await getAudioDuration(blob);
+        setAudioDuration(duration);
+        
+        // 💡 MOSTRAR MODAL DE VISTA PREVIA
+        setAudioBlob(blob);
+        const audioUrl = URL.createObjectURL(blob);
+        setAudioPreviewUrl(audioUrl);
+        setAudioPreviewModal(true);
+
+        // 🔊 RESTAURAR medios pausados/muteados
+        const mediaToPause = mediaRecorderRef.current.pausedMedia || [];
+        mediaToPause.forEach(({ element, wasPlaying, originalVolume }) => {
+          // Desmutar
+          element.muted = false;
+          // Restaurar volumen original
+          element.volume = originalVolume;
+          
+          // Opcional: Reanudar reproducción (comentado por defecto)
+          // if (wasPlaying) {
+          //   element.play().catch(() => {}); // Ignorar errores
+          // }
+        });
+        
+        console.log(`🔊 ${mediaToPause.length} medios restaurados`);
+      };
+
+      mediaRecorderRef.current.onerror = (error) => {
+        console.error('❌ Error en MediaRecorder:', error);
+        Toast.fire({
+          icon: 'error',
+          title: 'Error al grabar audio'
+        });
+      };
+
+      // ✅ Iniciar grabación con timeslice de 1000ms (mejora la estabilidad)
+      mediaRecorderRef.current.start(1000);
+      setGrabando(true);
+      
+      console.log('🔴 Grabación iniciada');
+    } catch (error) {
+      console.error('❌ Error al iniciar grabación:', error);
+      Toast.fire({
+        icon: 'error',
+        title: 'No se pudo acceder al micrófono',
+        text: 'Verifica los permisos del navegador'
+      });
+    }
   };
 
   const stopRecording = () => {
@@ -1333,6 +1450,180 @@ const Chat = () => {
         .forEach((track) => track.stop());
     }
   };
+
+  // 🎵 Funciones para el modal de vista previa de audio
+  const togglePlayPreview = () => {
+    const audio = audioPreviewRef.current;
+    if (!audio) return;
+
+    if (isPlayingPreview) {
+      audio.pause();
+      setIsPlayingPreview(false);
+    } else {
+      // Intentar reproducir directamente
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlayingPreview(true);
+            
+            // Si la duración no estaba establecida, hacerlo ahora
+            if (!audioDuration || audioDuration === 0) {
+              const duration = audio.duration;
+              if (isFinite(duration) && duration > 0) {
+                setAudioDuration(duration);
+                console.log('✅ Duración establecida al reproducir:', formatTime(duration));
+              }
+            }
+          })
+          .catch((error) => {
+            console.error('Error al reproducir audio:', error);
+            Toast.fire({
+              icon: 'error',
+              title: 'Error al reproducir',
+              timer: 1500
+            });
+          });
+      }
+    }
+  };
+
+  const handleConfirmSendAudio = async () => {
+    if (!audioBlob) return;
+    
+    setAudioPreviewModal(false);
+    setIsPlayingPreview(false);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+    
+    // Pausar audio si está reproduciéndose
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+    }
+    
+    await handleSendAudio(audioBlob);
+    
+    // Limpiar
+    if (audioPreviewUrl) {
+      URL.revokeObjectURL(audioPreviewUrl);
+      setAudioPreviewUrl(null);
+    }
+  };
+
+  const handleCancelAudio = () => {
+    setAudioPreviewModal(false);
+    setIsPlayingPreview(false);
+    setAudioBlob(null);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+    
+    // Pausar y limpiar
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+      audioPreviewRef.current.currentTime = 0;
+    }
+    
+    if (audioPreviewUrl) {
+      URL.revokeObjectURL(audioPreviewUrl);
+      setAudioPreviewUrl(null);
+    }
+  };
+
+  // 🎯 Formatear tiempo en mm:ss
+  const formatTime = (seconds) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // 📊 Actualizar tiempo actual mientras se reproduce
+  const handleTimeUpdate = () => {
+    if (audioPreviewRef.current) {
+      const currentTime = audioPreviewRef.current.currentTime;
+      // ✅ Solo actualizar si es un valor válido
+      if (isFinite(currentTime) && currentTime >= 0) {
+        setAudioCurrentTime(currentTime);
+      }
+    }
+  };
+
+  // 📏 Fallback: Actualizar duración desde metadata si no se calculó previamente
+  const handleLoadedMetadata = () => {
+    if (audioPreviewRef.current) {
+      const duration = audioPreviewRef.current.duration;
+      // Si por alguna razón no tenemos duración, intentar obtenerla del elemento
+      if (isFinite(duration) && duration > 0 && (!audioDuration || audioDuration === 0)) {
+        setAudioDuration(duration);
+        console.log('🎵 Duración obtenida desde metadata del elemento:', formatTime(duration));
+      }
+    }
+  };
+
+  // ⏩ Adelantar/Retroceder: Click en la barra de progreso
+  const handleSeek = (e) => {
+    if (!audioPreviewRef.current) return;
+    
+    const audio = audioPreviewRef.current;
+    let duration = audioDuration;
+    
+    // Si la duración aún no está establecida, intentar obtenerla del elemento directamente
+    if (!duration || !isFinite(duration) || duration <= 0) {
+      duration = audio.duration;
+      if (isFinite(duration) && duration > 0) {
+        setAudioDuration(duration);
+      } else {
+        console.warn('⚠️ No se puede hacer seek todavía, audio no cargado');
+        return;
+      }
+    }
+    
+    const progressBar = e.currentTarget;
+    const clickX = e.nativeEvent.offsetX;
+    const width = progressBar.offsetWidth;
+    
+    if (!width || width <= 0) return;
+    
+    const percentage = clickX / width;
+    const newTime = percentage * duration;
+    
+    // ✅ Validar que el nuevo tiempo sea válido
+    if (!isFinite(newTime) || newTime < 0) {
+      console.warn('⚠️ Tiempo calculado inválido:', newTime);
+      return;
+    }
+    
+    try {
+      audio.currentTime = Math.min(newTime, duration);
+      setAudioCurrentTime(newTime);
+    } catch (error) {
+      console.error('Error al establecer currentTime:', error);
+    }
+  };
+
+  // 🧹 Cleanup: Liberar URL del audio cuando se desmonte
+  useEffect(() => {
+    return () => {
+      if (audioPreviewUrl) {
+        URL.revokeObjectURL(audioPreviewUrl);
+      }
+    };
+  }, [audioPreviewUrl]);
+
+  // 🔄 Cargar audio en el elemento cuando el modal se abre
+  useEffect(() => {
+    if (audioPreviewModal && audioPreviewRef.current && audioPreviewUrl) {
+      console.log('🎵 Cargando audio en elemento:', {
+        url: audioPreviewUrl.substring(0, 50) + '...',
+        blob: audioBlob ? `${(audioBlob.size / 1024).toFixed(1)} KB` : 'null',
+        durationPrecalculada: audioDuration ? formatTime(audioDuration) : 'N/A'
+      });
+      
+      // Cargar el audio en el elemento (ya tenemos la duración calculada)
+      audioPreviewRef.current.load();
+    }
+  }, [audioPreviewModal, audioPreviewUrl]);
 
   /* seccion de carga de mensaje */
   const chatContainerRef = useRef(null);
@@ -3265,6 +3556,173 @@ const Chat = () => {
         setTemplateSearch={setTemplateSearch}
         templateResults={templateResults}
       />
+
+      {/* 🎵 Modal de Vista Previa de Audio */}
+      {audioPreviewModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl shadow-2xl w-[90%] max-w-md p-8 transform animate-slide-up">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-3 rounded-full">
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Vista Previa de Audio</h3>
+                  <p className="text-sm text-gray-400">
+                    {audioBlob ? `${(audioBlob.size / 1024).toFixed(1)} KB` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Reproductor de Audio */}
+            <div className="bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-700">
+              {/* Audio Element (oculto) */}
+              <audio 
+                ref={audioPreviewRef} 
+                src={audioPreviewUrl}
+                preload="metadata"
+                onEnded={() => {
+                  setIsPlayingPreview(false);
+                  // Resetear al inicio cuando termine
+                  if (audioPreviewRef.current) {
+                    audioPreviewRef.current.currentTime = 0;
+                    setAudioCurrentTime(0);
+                  }
+                }}
+                onPlay={() => setIsPlayingPreview(true)}
+                onPause={() => setIsPlayingPreview(false)}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onLoadedData={() => {
+                  console.log('✅ Audio data cargada');
+                  const audio = audioPreviewRef.current;
+                  if (audio && (!audioDuration || audioDuration === 0)) {
+                    const duration = audio.duration;
+                    if (isFinite(duration) && duration > 0) {
+                      setAudioDuration(duration);
+                      console.log('🎵 Duración establecida desde onLoadedData:', formatTime(duration));
+                    }
+                  }
+                }}
+                onCanPlay={() => {
+                  console.log('✅ Audio listo para reproducir');
+                }}
+                onError={(e) => {
+                  console.error('❌ Error al cargar audio:', e, audioPreviewRef.current?.error);
+                  Toast.fire({
+                    icon: 'error',
+                    title: 'Error al cargar el audio',
+                    timer: 2000
+                  });
+                }}
+              />
+
+              {/* Visualización de forma de onda animada */}
+              <div className="flex items-center justify-center gap-1 mb-4 h-20">
+                {[...Array(40)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-1 bg-gradient-to-t from-blue-500 to-purple-600 rounded-full transition-all duration-300 ${
+                      isPlayingPreview 
+                        ? 'animate-pulse' 
+                        : 'opacity-50'
+                    }`}
+                    style={{
+                      height: isPlayingPreview 
+                        ? `${Math.random() * 60 + 20}%` 
+                        : '30%',
+                      animationDelay: `${i * 0.05}s`
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* ⏩ Barra de Progreso Interactiva */}
+              <div className="mb-4">
+                {/* Indicadores de tiempo */}
+                <div className="flex justify-between text-xs text-gray-400 mb-2">
+                  <span className="font-mono">{formatTime(audioCurrentTime)}</span>
+                  <span className="font-mono">{formatTime(audioDuration)}</span>
+                </div>
+                
+                {/* Barra de progreso */}
+                <div 
+                  onClick={handleSeek}
+                  className="relative h-2 bg-gray-700 rounded-full cursor-pointer overflow-hidden group hover:h-3 transition-all"
+                >
+                  {/* Progreso actual */}
+                  <div 
+                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full transition-all"
+                    style={{ 
+                      width: (audioDuration && isFinite(audioDuration) && audioDuration > 0) 
+                        ? `${Math.min(100, Math.max(0, (audioCurrentTime / audioDuration) * 100))}%` 
+                        : '0%' 
+                    }}
+                  />
+                  
+                  {/* Indicador circular (thumb) */}
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all"
+                    style={{ 
+                      left: (audioDuration && isFinite(audioDuration) && audioDuration > 0)
+                        ? `calc(${Math.min(100, Math.max(0, (audioCurrentTime / audioDuration) * 100))}% - 8px)` 
+                        : '0%' 
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Botón de Play/Pause */}
+              <button
+                onClick={togglePlayPreview}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl flex items-center justify-center gap-3 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+              >
+                {isPlayingPreview ? (
+                  <>
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                    </svg>
+                    <span>Pausar</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <span>Reproducir Audio</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Botones de Acción */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelAudio}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transform transition-all hover:scale-105 active:scale-95"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Descartar
+              </button>
+              <button
+                onClick={handleConfirmSendAudio}
+                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                Enviar Audio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
