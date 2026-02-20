@@ -131,6 +131,66 @@ const DepartamentosView = () => {
     }
   };
 
+  const [savingToggle, setSavingToggle] = useState({});
+  // { [id_departamento]: true/false }
+
+  const toggleAutoasignacion = async (dep) => {
+    const token = localStorage.getItem("token");
+    const decoded = jwtDecode(token);
+    const id_usuario = decoded.id_usuario;
+
+    if (!dep?.id_configuracion) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Sin conexión asignada",
+        text: "Este departamento no tiene una conexión asignada para activar la autoasignación.",
+      });
+    }
+
+    const nextVal = Number(dep.permiso_round_robin) ? 0 : 1;
+
+    // UI optimista
+    setSavingToggle((p) => ({ ...p, [dep.id_departamento]: true }));
+    setDepartamentos((prev) =>
+      prev.map((d) =>
+        d.id_departamento === dep.id_departamento
+          ? { ...d, permiso_round_robin: nextVal }
+          : d,
+      ),
+    );
+
+    try {
+      await chatApi.post(
+        "/departamentos_chat_center/toggle_permiso_round_robin",
+        {
+          id_usuario,
+          id_configuracion: dep.id_configuracion,
+          permiso_round_robin: nextVal,
+        },
+      );
+    } catch (e) {
+      // Revertir si falla
+      setDepartamentos((prev) =>
+        prev.map((d) =>
+          d.id_departamento === dep.id_departamento
+            ? {
+                ...d,
+                permiso_round_robin: Number(dep.permiso_round_robin) ? 1 : 0,
+              }
+            : d,
+        ),
+      );
+
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo actualizar",
+        text: e?.response?.data?.message || "Intente nuevamente.",
+      });
+    } finally {
+      setSavingToggle((p) => ({ ...p, [dep.id_departamento]: false }));
+    }
+  };
+
   useEffect(() => {
     fetchDepartamentos();
   }, []);
@@ -516,6 +576,9 @@ const DepartamentosView = () => {
                         Mensaje Saludo
                       </SortHeader>
                       <th className="p-3 text-center font-semibold">
+                        Autoasignación
+                      </th>
+                      <th className="p-3 text-center font-semibold">
                         Acciones
                       </th>
                     </tr>
@@ -538,6 +601,47 @@ const DepartamentosView = () => {
                         </td>
                         <td className="p-3 text-slate-700">
                           {d.mensaje_saludo}
+                        </td>
+                        <td className="p-3 text-center">
+                          <label className="inline-flex items-center cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={Number(d.permiso_round_robin) === 1}
+                              disabled={!!savingToggle[d.id_departamento]}
+                              onChange={() => toggleAutoasignacion(d)}
+                            />
+
+                            {/* track */}
+                            <div
+                              className="
+        relative w-11 h-6 rounded-full
+        bg-slate-200
+        peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300
+        peer-checked:bg-indigo-600
+        transition-colors
+        disabled:opacity-60
+      "
+                            >
+                              {/* thumb */}
+                              <div
+                                className="
+          absolute top-[2px] left-[2px]
+          h-5 w-5 rounded-full bg-white
+          ring-1 ring-black/5
+          transition-transform duration-200 ease-in-out
+          peer-checked:translate-x-5
+        "
+                              />
+                            </div>
+                          </label>
+
+                          {/* opcional: texto activo/inactivo */}
+                          <div className="mt-1 text-[11px] text-slate-500">
+                            {Number(d.permiso_round_robin) === 1
+                              ? "Activo"
+                              : "Inactivo"}
+                          </div>
                         </td>
                         <td className="p-3">
                           <div className="flex items-center justify-center gap-2">
@@ -845,8 +949,12 @@ const DepartamentosView = () => {
                           <th className="p-3 text-left">Usuario</th>
                           <th className="p-3 text-left">Nombre responsable</th>
                           <th className="p-3 text-left">Correo</th>
-                          <th className="p-3 text-center">Asignar usuario al departamento</th>
-                          <th className="p-3 text-center">Asignar chats automaticamente</th>
+                          <th className="p-3 text-center">
+                            Asignar usuario al departamento
+                          </th>
+                          <th className="p-3 text-center">
+                            Asignar chats automaticamente
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -901,23 +1009,27 @@ const DepartamentosView = () => {
                                 </label>
                               </td>
                               <td className="p-3 text-center">
-  <input
-    type="checkbox"
-    disabled={!isChecked} // solo si está asignado
-    checked={isChecked ? asignacion.asignacion_auto === 1 : false}
-    onChange={(e) => {
-      const val = e.target.checked ? 1 : 0;
-      setUsuariosAsignados((prev) =>
-        prev.map((x) =>
-          Number(x.id_sub_usuario) === Number(usuario.id_sub_usuario)
-            ? { ...x, asignacion_auto: val }
-            : x
-        )
-      );
-    }}
-  />
-</td>
-
+                                <input
+                                  type="checkbox"
+                                  disabled={!isChecked} // solo si está asignado
+                                  checked={
+                                    isChecked
+                                      ? asignacion.asignacion_auto === 1
+                                      : false
+                                  }
+                                  onChange={(e) => {
+                                    const val = e.target.checked ? 1 : 0;
+                                    setUsuariosAsignados((prev) =>
+                                      prev.map((x) =>
+                                        Number(x.id_sub_usuario) ===
+                                        Number(usuario.id_sub_usuario)
+                                          ? { ...x, asignacion_auto: val }
+                                          : x,
+                                      ),
+                                    );
+                                  }}
+                                />
+                              </td>
                             </tr>
                           );
                         })}
