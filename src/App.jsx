@@ -302,7 +302,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/planes_view_prueba"
+                  path="/planes_test"
                   element={
                     <MainLayoutPlanes>
                       <PlanesViewPrueba />

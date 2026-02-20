@@ -86,6 +86,9 @@ const PlanesView = () => {
   const PROMO_FIRST_MONTH_PRICE = 5; // primer mes queda en $5 (por cupón en Stripe)
   const PROMO_PLANS = new Set([2, 3, 4]);
 
+  // Solo mostrar estos planes en esta vista (producción)
+  const PLANES_VISIBLES = new Set([2, 3, 4]);
+
   /* ===== Helpers ===== */
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -402,7 +405,10 @@ const PlanesView = () => {
     ];
   };
 
-  const visiblePlans = planes.filter((p) => Number(p.id_plan) !== 1);
+  const visiblePlans = useMemo(() => {
+    return (planes || []).filter((p) => PLANES_VISIBLES.has(Number(p.id_plan)));
+  }, [planes]);
+
   const skeletonCount = visiblePlans.length > 0 ? visiblePlans.length : 3;
 
   return (
@@ -456,216 +462,211 @@ const PlanesView = () => {
             </>
           )}
 
-          {planes
-            .filter((p) => Number(p.id_plan) !== 1)
-            .map((plan) => {
-              const isCurrent = Number(currentPlanId) === Number(plan.id_plan);
-              const isCurrentVencido = isCurrent && !isPlanActualActivo;
+          {visiblePlans.map((plan) => {
+            const isCurrent = Number(currentPlanId) === Number(plan.id_plan);
+            const isCurrentVencido = isCurrent && !isPlanActualActivo;
 
-              const planIdNum = Number(plan.id_plan);
+            const planIdNum = Number(plan.id_plan);
 
-              // Trial solo plan 2 y solo si es elegible (y solo para Checkout)
-              const showTrial =
-                planIdNum === TRIAL_PLAN_ID &&
-                Boolean(trialEligible) &&
-                !hasActivePlan;
+            // Trial solo plan 2 y solo si es elegible (y solo para Checkout)
+            const showTrial =
+              planIdNum === TRIAL_PLAN_ID &&
+              Boolean(trialEligible) &&
+              !hasActivePlan;
 
-              // Promo $5 OFF primer mes: planes 2/3/4, solo si el usuario aún no la ha usado (y solo Checkout)
-              const promoEligible =
-                Boolean(promoPlan2Eligible) && !hasActivePlan;
-              const showPromo = PROMO_PLANS.has(planIdNum) && promoEligible;
+            // Promo $5 OFF primer mes: planes 2/3/4, solo si el usuario aún no la ha usado (y solo Checkout)
+            const promoEligible = Boolean(promoPlan2Eligible) && !hasActivePlan;
+            const showPromo = PROMO_PLANS.has(planIdNum) && promoEligible;
 
-              // Caso combinado: plan 2 con trial + descuento primer mes
-              const showTrialAndPromo = showTrial && showPromo;
+            // Caso combinado: plan 2 con trial + descuento primer mes
+            const showTrialAndPromo = showTrial && showPromo;
 
-              const ribbon = (plan.nombre_plan || "")
-                .toLowerCase()
-                .includes("premium")
-                ? "Popular"
-                : (plan.nombre_plan || "").toLowerCase().includes("conexión") ||
-                    (plan.nombre_plan || "").toLowerCase().includes("conexion")
-                  ? "Recomendado"
-                  : null;
+            const ribbon = (plan.nombre_plan || "")
+              .toLowerCase()
+              .includes("premium")
+              ? "Popular"
+              : (plan.nombre_plan || "").toLowerCase().includes("conexión") ||
+                  (plan.nombre_plan || "").toLowerCase().includes("conexion")
+                ? "Recomendado"
+                : null;
 
-              const esBasico =
-                (plan.nombre_plan || "").toLowerCase().includes("básico") ||
-                (plan.nombre_plan || "").toLowerCase().includes("basico");
+            const esBasico =
+              (plan.nombre_plan || "").toLowerCase().includes("básico") ||
+              (plan.nombre_plan || "").toLowerCase().includes("basico");
 
-              const features = buildFeatures(plan);
+            const features = buildFeatures(plan);
 
-              const isAction = Number(actionPlanId) === Number(plan.id_plan);
+            const isAction = Number(actionPlanId) === Number(plan.id_plan);
 
-              const isDisabled =
-                loading ||
-                (isCurrent && isPlanActualActivo) || // solo deshabilita si está realmente activo
-                !!actionPlanId;
+            const isDisabled =
+              loading ||
+              (isCurrent && isPlanActualActivo) || // solo deshabilita si está realmente activo
+              !!actionPlanId;
 
-              if (Number(plan.id_plan) === 5) {
-                return (
-                  <CardPlanPersonalizado
-                    key={plan.id_plan}
-                    plan={plan}
-                    currentPlanId={currentPlanId}
-                  />
-                );
-              }
-
-              const precioNormalNum = Number(plan?.precio_plan || 0);
-              const precioNormal = precioNormalNum.toFixed(2);
-
-              const firstMonthPrice = Number(PROMO_FIRST_MONTH_PRICE).toFixed(
-                2,
-              ); // "5.00"
-
+            if (Number(plan.id_plan) === 5) {
               return (
-                <div
+                <CardPlanPersonalizado
                   key={plan.id_plan}
-                  className="relative group rounded-2xl p-[1px] transition-all duration-300 ease-out hover:-translate-y-1 h-full"
-                >
-                  <div className="relative overflow-visible rounded-[calc(1rem-1px)] bg-white/90 backdrop-blur border border-slate-200/60 shadow-md transition-shadow duration-300 h-full flex flex-col">
-                    {/* Listones */}
-                    {esBasico && <Liston texto="Más vendido" color="vendido" />}
-                    {!esBasico && ribbon === "Recomendado" && (
-                      <Liston texto="Recomendado" color="recomendado" />
-                    )}
-                    {!esBasico && ribbon === "Popular" && (
-                      <Liston texto="Popular" color="popular" />
-                    )}
+                  plan={plan}
+                  currentPlanId={currentPlanId}
+                />
+              );
+            }
 
-                    {/* Listón Promo si aplica */}
-                    {showPromo && (
-                      <Liston
-                        texto={`Primer mes $${PROMO_FIRST_MONTH_PRICE}`}
-                        color="promo"
-                      />
-                    )}
+            const precioNormalNum = Number(plan?.precio_plan || 0);
+            const precioNormal = precioNormalNum.toFixed(2);
 
-                    <div className="px-6 pt-16 pb-6 md:px-7 md:pt-20 md:pb-7 flex flex-col h-full">
-                      <div className="text-center min-h-[92px]">
-                        <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">
-                          {plan.nombre_plan}
-                        </h3>
-                        <p className="text-sm leading-relaxed text-slate-600 mt-1 break-words">
-                          {plan.descripcion_plan}
-                        </p>
-                      </div>
+            const firstMonthPrice = Number(PROMO_FIRST_MONTH_PRICE).toFixed(2); // "5.00"
 
-                      {/* ✅ Precio: si hay promo, tachar y mostrar $5 */}
-                      <div className="mt-5 text-center min-h-[60px] flex items-end justify-center">
-                        {!showPromo ? (
-                          <div className="inline-flex items-end gap-1">
-                            <span className="text-3xl md:text-[34px] font-extrabold tracking-tight text-[#171931]">
+            return (
+              <div
+                key={plan.id_plan}
+                className="relative group rounded-2xl p-[1px] transition-all duration-300 ease-out hover:-translate-y-1 h-full"
+              >
+                <div className="relative overflow-visible rounded-[calc(1rem-1px)] bg-white/90 backdrop-blur border border-slate-200/60 shadow-md transition-shadow duration-300 h-full flex flex-col">
+                  {/* Listones */}
+                  {esBasico && <Liston texto="Más vendido" color="vendido" />}
+                  {!esBasico && ribbon === "Recomendado" && (
+                    <Liston texto="Recomendado" color="recomendado" />
+                  )}
+                  {!esBasico && ribbon === "Popular" && (
+                    <Liston texto="Popular" color="popular" />
+                  )}
+
+                  {/* Listón Promo si aplica */}
+                  {showPromo && (
+                    <Liston
+                      texto={`Primer mes $${PROMO_FIRST_MONTH_PRICE}`}
+                      color="promo"
+                    />
+                  )}
+
+                  <div className="px-6 pt-16 pb-6 md:px-7 md:pt-20 md:pb-7 flex flex-col h-full">
+                    <div className="text-center min-h-[92px]">
+                      <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[#171931]">
+                        {plan.nombre_plan}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-slate-600 mt-1 break-words">
+                        {plan.descripcion_plan}
+                      </p>
+                    </div>
+
+                    {/* ✅ Precio: si hay promo, tachar y mostrar $5 */}
+                    <div className="mt-5 text-center min-h-[60px] flex items-end justify-center">
+                      {!showPromo ? (
+                        <div className="inline-flex items-end gap-1">
+                          <span className="text-3xl md:text-[34px] font-extrabold tracking-tight text-[#171931]">
+                            ${precioNormal}
+                          </span>
+                          <span className="text-sm text-slate-500 mb-1">
+                            /{getIntervalo()}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="inline-flex items-end gap-2">
+                            <span className="text-sm md:text-base text-slate-500 line-through">
                               ${precioNormal}
                             </span>
+
+                            <span className="text-3xl md:text-[36px] font-extrabold tracking-tight text-emerald-600">
+                              ${firstMonthPrice}
+                            </span>
+
                             <span className="text-sm text-slate-500 mb-1">
                               /{getIntervalo()}
                             </span>
                           </div>
-                        ) : (
-                          <div className="flex flex-col items-center gap-1">
-                            <div className="inline-flex items-end gap-2">
-                              <span className="text-sm md:text-base text-slate-500 line-through">
-                                ${precioNormal}
-                              </span>
 
-                              <span className="text-3xl md:text-[36px] font-extrabold tracking-tight text-emerald-600">
-                                ${firstMonthPrice}
-                              </span>
+                          <div className="text-[11px] md:text-xs text-emerald-700 bg-emerald-600/10 border border-emerald-600/20 rounded-xl px-3 py-1">
+                            Primer mes a ${firstMonthPrice}
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
-                              <span className="text-sm text-slate-500 mb-1">
-                                /{getIntervalo()}
-                              </span>
-                            </div>
-
-                            <div className="text-[11px] md:text-xs text-emerald-700 bg-emerald-600/10 border border-emerald-600/20 rounded-xl px-3 py-1">
-                              Primer mes a ${firstMonthPrice}
-                            </div>
+                    {/* ✅ Badge: Trial / Promo / Ambos */}
+                    {showTrialAndPromo ? (
+                      <div className="mt-3 flex justify-center">
+                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-indigo-600/10 text-indigo-700 font-semibold text-sm border border-indigo-600/20">
+                          🎁 {TRIAL_DAYS} días gratis + primer mes a $
+                          {firstMonthPrice}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        {showTrial && (
+                          <div className="mt-3 flex justify-center">
+                            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-blue-600/10 text-blue-700 font-semibold text-sm border border-blue-600/20">
+                              🎁 {TRIAL_DAYS} días gratis en este plan
+                            </span>
                           </div>
                         )}
-                      </div>
+                      </>
+                    )}
 
-                      {/* ✅ Badge: Trial / Promo / Ambos */}
+                    {/* ✅ Texto: FIX para que cuando hay Trial+Promo NO diga que cobra $29 al terminar trial */}
+                    <div className="mt-2 text-xs text-center text-slate-500 break-words leading-relaxed px-1">
                       {showTrialAndPromo ? (
-                        <div className="mt-3 flex justify-center">
-                          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-indigo-600/10 text-indigo-700 font-semibold text-sm border border-indigo-600/20">
-                            🎁 {TRIAL_DAYS} días gratis + primer mes a $
-                            {firstMonthPrice}
-                          </span>
-                        </div>
+                        <span>
+                          Al finalizar la prueba, el <b>primer mes</b> se
+                          cobrará <b>${firstMonthPrice}</b>. Luego se cobrará{" "}
+                          <b>
+                            ${precioNormal}/{getIntervalo()}
+                          </b>
+                          . Puede cancelar en cualquier momento.
+                        </span>
+                      ) : showTrial ? (
+                        <span>
+                          Al finalizar la prueba, se cobrará automáticamente{" "}
+                          <b>
+                            ${precioNormal}/{getIntervalo()}
+                          </b>
+                          . Puede cancelar en cualquier momento.
+                        </span>
+                      ) : showPromo ? (
+                        <span>
+                          Promoción disponible:{" "}
+                          <b>primer mes ${firstMonthPrice}</b>. A partir del
+                          segundo mes se cobrará{" "}
+                          <b>
+                            ${precioNormal}/{getIntervalo()}
+                          </b>
+                          . Puede cancelar en cualquier momento.
+                        </span>
                       ) : (
-                        <>
-                          {showTrial && (
-                            <div className="mt-3 flex justify-center">
-                              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-blue-600/10 text-blue-700 font-semibold text-sm border border-blue-600/20">
-                                🎁 {TRIAL_DAYS} días gratis en este plan
-                              </span>
-                            </div>
-                          )}
-                        </>
+                        <span>
+                          Facturación mensual. Puede cancelar en cualquier
+                          momento.
+                        </span>
                       )}
+                    </div>
 
-                      {/* ✅ Texto: FIX para que cuando hay Trial+Promo NO diga que cobra $29 al terminar trial */}
-                      <div className="mt-2 text-xs text-center text-slate-500 break-words leading-relaxed px-1">
-                        {showTrialAndPromo ? (
-                          <span>
-                            Al finalizar la prueba, el <b>primer mes</b> se
-                            cobrará <b>${firstMonthPrice}</b>. Luego se cobrará{" "}
-                            <b>
-                              ${precioNormal}/{getIntervalo()}
-                            </b>
-                            . Puede cancelar en cualquier momento.
-                          </span>
-                        ) : showTrial ? (
-                          <span>
-                            Al finalizar la prueba, se cobrará automáticamente{" "}
-                            <b>
-                              ${precioNormal}/{getIntervalo()}
-                            </b>
-                            . Puede cancelar en cualquier momento.
-                          </span>
-                        ) : showPromo ? (
-                          <span>
-                            Promoción disponible:{" "}
-                            <b>primer mes ${firstMonthPrice}</b>. A partir del
-                            segundo mes se cobrará{" "}
-                            <b>
-                              ${precioNormal}/{getIntervalo()}
-                            </b>
-                            . Puede cancelar en cualquier momento.
-                          </span>
-                        ) : (
-                          <span>
-                            Facturación mensual. Puede cancelar en cualquier
-                            momento.
-                          </span>
-                        )}
-                      </div>
+                    <ul className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-x-3 text-sm flex-1 md:w-[100%] mx-auto">
+                      {features.map((f, idx) => (
+                        <li
+                          key={idx}
+                          className={
+                            f.enabled ? "text-slate-700" : "text-slate-400"
+                          }
+                        >
+                          <div className="grid grid-cols-[12px_1fr] items-start gap-2">
+                            <span className="inline-flex h-4 w-4 items-center justify-center mt-[2px]">
+                              {f.enabled ? <IconoCheck /> : <IconoX />}
+                            </span>
+                            <span className="leading-relaxed text-left break-words">
+                              {f.label}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
 
-                      <ul className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-x-3 text-sm flex-1 md:w-[100%] mx-auto">
-                        {features.map((f, idx) => (
-                          <li
-                            key={idx}
-                            className={
-                              f.enabled ? "text-slate-700" : "text-slate-400"
-                            }
-                          >
-                            <div className="grid grid-cols-[12px_1fr] items-start gap-2">
-                              <span className="inline-flex h-4 w-4 items-center justify-center mt-[2px]">
-                                {f.enabled ? <IconoCheck /> : <IconoX />}
-                              </span>
-                              <span className="leading-relaxed text-left break-words">
-                                {f.label}
-                              </span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <div className="mt-6">
-                        <button
-                          onClick={() => seleccionarPlan(plan.id_plan)}
-                          disabled={isDisabled}
-                          className={`
+                    <div className="mt-6">
+                      <button
+                        onClick={() => seleccionarPlan(plan.id_plan)}
+                        disabled={isDisabled}
+                        className={`
                             w-full inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold
                             transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
                             ${
@@ -674,58 +675,58 @@ const PlanesView = () => {
                                 : "bg-[#171931] text-white hover:-translate-y-[2px] hover:shadow-lg active:translate-y-0"
                             }
                           `}
-                        >
-                          {isCurrent && isPlanActualActivo ? (
-                            "Tiene este plan actualmente"
-                          ) : isCurrentVencido ? (
-                            "Plan vencido — Renovar"
-                          ) : isAction ? (
-                            <span className="inline-flex items-center gap-2">
-                              <svg
-                                className="w-4 h-4 animate-spin"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                              >
-                                <circle
-                                  cx="12"
-                                  cy="12"
-                                  r="9"
-                                  stroke="currentColor"
-                                  strokeWidth="2.5"
-                                  opacity="0.25"
-                                />
-                                <path
-                                  d="M21 12a9 9 0 0 0-9-9"
-                                  stroke="currentColor"
-                                  strokeWidth="2.5"
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                              {actionText || "Procesando..."}
-                            </span>
-                          ) : hasActivePlan ? (
-                            "Cambiar a este plan"
-                          ) : showTrial ? (
-                            `Iniciar prueba de ${TRIAL_DAYS} días`
-                          ) : (
-                            "Seleccionar"
-                          )}
-                        </button>
-
-                        {/* ✅ Mensaje adicional (solo visual) si hay promo + trial */}
-                        {showTrialAndPromo && !hasActivePlan && (
-                          <div className="mt-3 text-[11px] text-center text-slate-500 leading-relaxed break-words">
-                            Oferta disponible solo para cuentas nuevas: incluye{" "}
-                            <b>{TRIAL_DAYS} días gratis</b> y{" "}
-                            <b>primer mes a ${firstMonthPrice}</b>.
-                          </div>
+                      >
+                        {isCurrent && isPlanActualActivo ? (
+                          "Tiene este plan actualmente"
+                        ) : isCurrentVencido ? (
+                          "Plan vencido — Renovar"
+                        ) : isAction ? (
+                          <span className="inline-flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4 animate-spin"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <circle
+                                cx="12"
+                                cy="12"
+                                r="9"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                opacity="0.25"
+                              />
+                              <path
+                                d="M21 12a9 9 0 0 0-9-9"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                            {actionText || "Procesando..."}
+                          </span>
+                        ) : hasActivePlan ? (
+                          "Cambiar a este plan"
+                        ) : showTrial ? (
+                          `Iniciar prueba de ${TRIAL_DAYS} días`
+                        ) : (
+                          "Seleccionar"
                         )}
-                      </div>
+                      </button>
+
+                      {/* ✅ Mensaje adicional (solo visual) si hay promo + trial */}
+                      {showTrialAndPromo && !hasActivePlan && (
+                        <div className="mt-3 text-[11px] text-center text-slate-500 leading-relaxed break-words">
+                          Oferta disponible solo para cuentas nuevas: incluye{" "}
+                          <b>{TRIAL_DAYS} días gratis</b> y{" "}
+                          <b>primer mes a ${firstMonthPrice}</b>.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
