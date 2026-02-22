@@ -251,6 +251,14 @@ const ChatPrincipal = ({
   isSocketConnected,
   commandAttachment,
   onClearQuickReplyPreset,
+
+  isMetaCommandActive,
+  metaTemplateSearchTerm,
+  setMetaTemplateSearchTerm,
+  metaTemplateSlashResults,
+  loadingTemplates,
+  handleMetaTemplateSlashSelect,
+  handleCloseMetaSlashMenu,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -2481,12 +2489,12 @@ const ChatPrincipal = ({
                     {/* Thumbnail fijo */}
                     <div
                       className="
-        h-10 w-10 rounded-lg overflow-hidden bg-gray-100 shrink-0
-        flex items-center justify-center
-        [&_img]:h-full [&_img]:w-full [&_img]:object-cover
-        [&_video]:h-full [&_video]:w-full [&_video]:object-cover
-        [&_iframe]:h-full [&_iframe]:w-full
-      "
+                      h-10 w-10 rounded-lg overflow-hidden bg-gray-100 shrink-0
+                      flex items-center justify-center
+                      [&_img]:h-full [&_img]:w-full [&_img]:object-cover
+                      [&_video]:h-full [&_video]:w-full [&_video]:object-cover
+                      [&_iframe]:h-full [&_iframe]:w-full
+                    "
                       title="Adjunto seleccionado desde atajo"
                     >
                       {getFileTypeFromUrl?.(commandAttachment) === "audio" ? (
@@ -2538,6 +2546,196 @@ const ChatPrincipal = ({
                 />
 
                 {/* Menú de comandos */}
+
+                {/* Menú de comandos META (//) */}
+                {isMetaCommandActive && selectedChat?.source === "wa" && (
+                  <div
+                    className="
+                    absolute left-0 right-0 bottom-16
+                    z-50
+                    w-[96%] sm:w-full sm:max-w-md
+                    bg-white
+                    border border-black/10
+                    rounded-2xl
+                    shadow-2xl
+                    p-3
+                    max-h-[70vh]
+                    overflow-hidden
+                  "
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-semibold text-slate-800">
+                        Templates de WhatsApp (Meta)
+                      </div>
+
+                      <button
+                        onClick={handleCloseMetaSlashMenu}
+                        className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
+                        title="Cerrar"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="mb-2 text-xs text-slate-500">
+                      Escriba <span className="font-semibold">//</span> para ver
+                      todos los templates o{" "}
+                      <span className="font-semibold">//nombre</span> para
+                      filtrar.
+                    </div>
+
+                    {/* Buscador visual del menú (opcional/local) */}
+                    <input
+                      type="text"
+                      value={metaTemplateSearchTerm}
+                      onChange={(e) =>
+                        setMetaTemplateSearchTerm(e.target.value)
+                      }
+                      placeholder="Buscar template..."
+                      className="
+                      w-full
+                      px-3 py-2
+                      text-sm
+                      border border-gray-200
+                      rounded-xl
+                      outline-none
+                      focus:ring-2 focus:ring-blue-200
+                      mb-2
+                    "
+                    />
+
+                    {/* Lista */}
+                    <ul className="space-y-2 overflow-y-auto max-h-[52vh] pr-1">
+                      {loadingTemplates ? (
+                        <li className="text-sm text-gray-500 py-3 text-center">
+                          Cargando templates...
+                        </li>
+                      ) : metaTemplateSlashResults?.length > 0 ? (
+                        metaTemplateSlashResults.map((tpl, index) => {
+                          const bodyComp = Array.isArray(tpl.components)
+                            ? tpl.components.find((c) => c?.type === "BODY")
+                            : null;
+
+                          const headerComp = Array.isArray(tpl.components)
+                            ? tpl.components.find((c) => c?.type === "HEADER")
+                            : null;
+
+                          const bodyText = bodyComp?.text || "";
+
+                          // ✅ Preview de texto (body)
+                          const previewText =
+                            bodyText?.trim() || "Sin vista previa";
+
+                          // ✅ URL de ejemplo del header (imagen/video/documento)
+                          const headerPreviewUrl =
+                            headerComp?.example?.header_handle?.[0] || null;
+
+                          const placeholdersCount = (
+                            bodyText.match(/\{\{\d+\}\}/g) || []
+                          ).length;
+
+                          return (
+                            <li
+                              key={tpl.id || tpl.name || index}
+                              onClick={() => handleMetaTemplateSlashSelect(tpl)}
+                              className="
+                                cursor-pointer
+                                rounded-xl
+                                border border-gray-100
+                                bg-white
+                                hover:bg-gray-50
+                                active:bg-gray-100
+                                p-2
+                                transition
+                              "
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="text-sm font-semibold text-slate-800 truncate">
+                                  {tpl.name || "Template"}
+                                </div>
+
+                                {tpl.category && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase">
+                                    {tpl.category}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* ✅ Texto preview del BODY */}
+                              <div className="mt-1 text-xs text-slate-600 line-clamp-2">
+                                {previewText}
+                              </div>
+
+                              {/* ✅ Preview visual del header (igual que respuestas rápidas) */}
+                              {headerPreviewUrl ? (
+                                <div className="mt-2">
+                                  <PreviewFile url={headerPreviewUrl} />
+                                </div>
+                              ) : null}
+
+                              {/* ✅ Si es LOCATION, muestre una pista amigable */}
+                              {String(
+                                headerComp?.format || "",
+                              ).toUpperCase() === "LOCATION" && (
+                                <div className="mt-2 text-xs text-slate-500 italic">
+                                  Incluye ubicación como header.
+                                </div>
+                              )}
+
+                              {/* ✅ Metadata visual (sin mostrar tipo de header) */}
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                                {tpl.language && <span>{tpl.language}</span>}
+
+                                {placeholdersCount > 0 && (
+                                  <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded">
+                                    {placeholdersCount} variable
+                                    {placeholdersCount > 1 ? "s" : ""}
+                                  </span>
+                                )}
+
+                                {tpl.status === "APPROVED" ? (
+                                  <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">
+                                    APROBADA
+                                  </span>
+                                ) : tpl.status === "PENDING" ? (
+                                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">
+                                    PENDIENTE
+                                  </span>
+                                ) : tpl.status === "REJECTED" ? (
+                                  <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">
+                                    RECHAZADA
+                                  </span>
+                                ) : (
+                                  <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">
+                                    {tpl.status || "DESCONOCIDO"}
+                                  </span>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })
+                      ) : (
+                        <li className="text-sm text-gray-500 py-3 text-center">
+                          No hay templates
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
                 {isCommandActive && (
                   <div
                     className="

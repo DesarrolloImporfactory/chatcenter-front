@@ -58,6 +58,8 @@ const Modales = ({
   templateSearch,
   setTemplateSearch,
   templateResults,
+  templateNamePreselect,
+  templatePreselectNonce,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -88,6 +90,32 @@ const Modales = ({
     n: "", // "1"
   });
   const [headerFile, setHeaderFile] = useState(null);
+  const [headerDefaultAsset, setHeaderDefaultAsset] = useState(null);
+  const [useDefaultHeaderAsset, setUseDefaultHeaderAsset] = useState(false);
+
+  const getTemplateHeaderDefaultUrl = (template) => {
+    try {
+      const headerComp = template?.components?.find((c) => c.type === "HEADER");
+      if (!headerComp) return null;
+
+      // Intentos comunes donde Meta/listados guardan ejemplos
+      const candidates = [
+        headerComp?.example?.header_handle?.[0],
+        headerComp?.example?.header_url?.[0],
+        headerComp?.example?.url?.[0],
+        headerComp?.url,
+        template?.header_url,
+        template?.example?.header_handle?.[0],
+      ].filter(Boolean);
+
+      const first = candidates[0];
+      if (!first) return null;
+
+      return String(first);
+    } catch {
+      return null;
+    }
+  };
 
   // 🧹 reset integral del modal de número
   const resetNumeroModalState = () => {
@@ -120,6 +148,10 @@ const Modales = ({
     handleInputChange_numeroCliente?.({ target: { value: "" } });
     setHeaderInfo({ exists: false, format: "", key: "", n: "" });
     setHeaderFile(null);
+
+    setSelectedTemplateOption(null);
+    setHeaderDefaultAsset(null);
+    setUseDefaultHeaderAsset(false);
   };
 
   useEffect(() => {
@@ -150,6 +182,42 @@ const Modales = ({
     }
   }, [numeroModal, numeroModalPreset]);
 
+  useEffect(() => {
+    if (!numeroModal) return;
+    if (!templateNamePreselect) return;
+
+    // Solo cuando ya está en la pestaña correcta
+    if (modalTab !== "buscar") return;
+
+    // Debe haber destinatario seleccionado
+    if (!selectedPhoneNumber) return;
+
+    // Deben existir templates cargados
+    if (!Array.isArray(templateResults) || templateResults.length === 0) return;
+
+    const match = templateResults.find(
+      (t) => String(t?.name || "") === String(templateNamePreselect),
+    );
+
+    if (!match) return;
+
+    const option = { value: match.name, label: match.name };
+
+    // ✅ 1) reflejar visualmente en react-select
+    setSelectedTemplateOption(option);
+
+    // ✅ 2) cargar toda la lógica del template (preview, placeholders, header...)
+    handleTemplateSelect({
+      target: { value: match.name },
+    });
+  }, [
+    numeroModal,
+    modalTab,
+    selectedPhoneNumber,
+    templateResults,
+    templateNamePreselect,
+    templatePreselectNonce, // <- clave para repetir misma plantilla
+  ]);
   // cerrar modal con limpieza
   const onCloseNumeroModal = () => {
     resetNumeroModalState();
@@ -191,7 +259,11 @@ const Modales = ({
     }
 
     if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerInfo.format)) {
-      return !!headerFile;
+      const hasUploadedFile = !!headerFile;
+      const hasDefaultAsset =
+        !!useDefaultHeaderAsset && !!headerDefaultAsset?.url;
+
+      return hasUploadedFile || hasDefaultAsset;
     }
 
     return true;
@@ -1003,6 +1075,8 @@ const Modales = ({
       setBodyPlaceholders([]);
       setUrlButtons([]);
       setPlaceholderValues({});
+      setHeaderDefaultAsset(null);
+      setUseDefaultHeaderAsset(false);
 
       // =========================
       // 0) HEADER
@@ -1058,6 +1132,18 @@ const Modales = ({
               key: "",
               n: "",
             });
+
+            //buscar URL/asset predeterminado del template
+            const defaultUrl = getTemplateHeaderDefaultUrl(selectedTemplate);
+
+            if (defaultUrl) {
+              setHeaderDefaultAsset({
+                url: defaultUrl,
+                source: "template_example",
+                name: "Adjunto predeterminado del template",
+              });
+              setUseDefaultHeaderAsset(true); // por defecto se usará este si no suben otro
+            }
           }
         }
       }
@@ -1222,14 +1308,15 @@ const Modales = ({
       headerInfo?.exists &&
       ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerInfo.format);
 
-    if (headerIsMedia) {
-      if (!headerFile) {
-        Toast.fire({
-          icon: "warning",
-          title: "Debe subir el archivo del header antes de enviar.",
-        });
-        return;
-      }
+    const hasDefaultHeaderAsset =
+      !!useDefaultHeaderAsset && !!headerDefaultAsset?.url;
+
+    if (headerIsMedia && !headerFile && !hasDefaultHeaderAsset) {
+      Toast.fire({
+        icon: "warning",
+        title: "Este template requiere un archivo de header.",
+      });
+      return;
     }
 
     // ===== Construir COMPONENTS para Graph (HEADER opcional + BODY + URL buttons si aplica) =====
@@ -1301,12 +1388,13 @@ const Modales = ({
       //si NO hay header media, se mantiene el POST JSON como antes (sin romper nada)
       let dataResp;
 
-      if (headerIsMedia) {
+      if (headerIsMedia && headerFile) {
+        //  usuario reemplazó el adjunto => multipart
         const fd = new FormData();
         fd.append("id_configuracion", id_configuracion);
-        fd.append("body_json", JSON.stringify(body)); // backend parsea JSON string
-        fd.append("header_format", headerInfo.format); // IMAGE|VIDEO|DOCUMENT
-        fd.append("header_file", headerFile); // archivo arrastrado/seleccionado
+        fd.append("body_json", JSON.stringify(body));
+        fd.append("header_format", headerInfo.format);
+        fd.append("header_file", headerFile);
         fd.append(
           "id_cliente_chat_center",
           selectedChat?.id ? String(selectedChat.id) : "",
@@ -1315,25 +1403,36 @@ const Modales = ({
         const resp = await chatApi.post(
           "/whatsapp_managment/enviar_template_masivo",
           fd,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          },
+          { headers: { "Content-Type": "multipart/form-data" } },
         );
 
         dataResp = resp?.data;
       } else {
+        //  no subió archivo nuevo: usar JSON
+        // si hay default asset, backend lo usa como predeterminado
         const { data: respJson } = await chatApi.post(
           "/whatsapp_managment/enviar_template_masivo",
           {
             id_configuracion,
-            body, // ✅ aquí está la diferencia: ahora el backend sí construye bien el payload
+            body,
             id_cliente_chat_center: selectedChat?.id || null,
+
+            //  NUEVO: indicar asset predeterminado del template
+            header_default_asset:
+              headerIsMedia && hasDefaultHeaderAsset
+                ? {
+                    enabled: true,
+                    format: headerInfo.format,
+                    url: headerDefaultAsset.url,
+                    source: headerDefaultAsset.source || "template_example",
+                    name: headerDefaultAsset.name || null,
+                  }
+                : null,
           },
         );
 
         dataResp = respJson;
       }
-
       // CLAVE: si backend responde 200 con success:false => debe tratarse como fallo
       if (!dataResp || dataResp.success !== true) {
         const msg = dataResp?.message || "Meta rechazó el envío";
@@ -1585,6 +1684,29 @@ const Modales = ({
     };
   }, [headerFile]);
 
+  const [selectedTemplateOption, setSelectedTemplateOption] = useState(null);
+
+  useEffect(() => {
+    // 1) Si el usuario subió archivo, ese preview tiene prioridad
+    if (headerFile) {
+      const objectUrl = URL.createObjectURL(headerFile);
+      setHeaderPreviewUrl(objectUrl);
+
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+      };
+    }
+
+    // 2) Si no subió archivo, usar adjunto predeterminado del template (si aplica)
+    if (useDefaultHeaderAsset && headerDefaultAsset?.url) {
+      setHeaderPreviewUrl(headerDefaultAsset.url);
+      return;
+    }
+
+    // 3) Si no hay nada, limpiar preview
+    setHeaderPreviewUrl("");
+  }, [headerFile, useDefaultHeaderAsset, headerDefaultAsset]);
+
   return (
     <>
       {numeroModal && (
@@ -1814,18 +1936,19 @@ const Modales = ({
                       value: t.name,
                       label: t.name,
                     }))}
+                    value={selectedTemplateOption}
                     placeholder="Seleccione un template"
                     onMenuOpen={() => {
-                      // ✅ aquí se hace la única consulta (desde el PADRE)
-                      // y como en el padre ya tiene cache, NO spamea
                       abrirModalTemplates?.();
                     }}
                     isLoading={loadingTemplates}
-                    onChange={(opcion) =>
+                    onChange={(opcion) => {
+                      setSelectedTemplateOption(opcion || null);
+
                       handleTemplateSelect({
                         target: { value: opcion ? opcion.value : "" },
-                      })
-                    }
+                      });
+                    }}
                     loadingMessage={() => "Cargando..."}
                     noOptionsMessage={() =>
                       loadingTemplates ? "Cargando..." : "No hay templates"
@@ -1875,72 +1998,147 @@ const Modales = ({
                       {["IMAGE", "VIDEO", "DOCUMENT"].includes(
                         headerInfo.format,
                       ) && (
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Subir archivo ({headerInfo.format})
-                          </label>
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <div>
+                              <p className="text-sm font-medium text-slate-800">
+                                Adjunto del header ({headerInfo.format})
+                              </p>
+                              <p className="text-xs text-slate-600 mt-1">
+                                {headerDefaultAsset?.url
+                                  ? "Este template incluye un adjunto predeterminado. Puede usarlo tal como está o reemplazarlo por otro archivo."
+                                  : "Suba el archivo que se enviará como header del template."}
+                              </p>
+                            </div>
 
-                          <input
-                            type="file"
-                            accept={
-                              headerInfo.format === "IMAGE"
-                                ? "image/*"
-                                : headerInfo.format === "VIDEO"
-                                  ? "video/*"
-                                  : headerInfo.format === "DOCUMENT"
-                                    ? "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*"
-                                    : "*/*"
-                            }
-                            onChange={(e) => {
-                              const file = e.target.files?.[0] || null;
-                              if (!file) return setHeaderFile(null);
+                            {headerDefaultAsset?.url && !headerFile && (
+                              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                Usando adjunto predeterminado
+                              </span>
+                            )}
 
-                              const fmt = headerInfo.format;
+                            {headerFile && (
+                              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                                Adjunto reemplazado
+                              </span>
+                            )}
+                          </div>
 
-                              const ok =
-                                (fmt === "IMAGE" &&
-                                  file.type.startsWith("image/")) ||
-                                (fmt === "VIDEO" &&
-                                  file.type.startsWith("video/")) ||
-                                (fmt === "DOCUMENT" && file.type !== "");
+                          {/* acciones */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label
+                              htmlFor="header_file_input"
+                              className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                              <i className="bx bx-upload" />
+                              {headerFile
+                                ? "Cambiar archivo"
+                                : "Subir / reemplazar archivo"}
+                            </label>
 
-                              if (!ok) {
-                                Toast.fire({
-                                  icon: "warning",
-                                  title: `Archivo inválido para ${fmt}.`,
-                                });
-                                e.target.value = "";
-                                setHeaderFile(null);
-                                return;
+                            <input
+                              id="header_file_input"
+                              type="file"
+                              accept={
+                                headerInfo.format === "IMAGE"
+                                  ? "image/*"
+                                  : headerInfo.format === "VIDEO"
+                                    ? "video/*"
+                                    : headerInfo.format === "DOCUMENT"
+                                      ? "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*"
+                                      : "*/*"
                               }
+                              onChange={(e) => {
+                                const file = e.target.files?.[0] || null;
+                                if (!file) return;
 
-                              // 16MB (igual que los demás)
-                              const MAX_MB = 16;
-                              if (file.size / (1024 * 1024) > MAX_MB) {
-                                Toast.fire({
-                                  icon: "error",
-                                  title: `El archivo excede ${MAX_MB} MB.`,
-                                });
-                                e.target.value = "";
-                                setHeaderFile(null);
-                                return;
-                              }
+                                const fmt = headerInfo.format;
 
-                              setHeaderFile(file);
-                            }}
-                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm"
-                          />
+                                const ok =
+                                  (fmt === "IMAGE" &&
+                                    file.type.startsWith("image/")) ||
+                                  (fmt === "VIDEO" &&
+                                    file.type.startsWith("video/")) ||
+                                  (fmt === "DOCUMENT" && file.type !== "");
 
-                          {headerFile && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              Archivo seleccionado: {headerFile.name}
-                            </p>
-                          )}
+                                if (!ok) {
+                                  Toast.fire({
+                                    icon: "warning",
+                                    title: `Archivo inválido para ${fmt}.`,
+                                  });
+                                  e.target.value = "";
+                                  setHeaderFile(null);
+                                  return;
+                                }
 
-                          {/* ✅ Vista previa */}
+                                const MAX_MB = 16;
+                                if (file.size / (1024 * 1024) > MAX_MB) {
+                                  Toast.fire({
+                                    icon: "error",
+                                    title: `El archivo excede ${MAX_MB} MB.`,
+                                  });
+                                  e.target.value = "";
+                                  setHeaderFile(null);
+                                  return;
+                                }
+
+                                setHeaderFile(file);
+                                setUseDefaultHeaderAsset(false); // ✅ al subir uno nuevo, deja de usar el default
+                              }}
+                              className="hidden"
+                            />
+
+                            {/* Botón para volver al default si existe y el usuario ya subió uno */}
+                            {!!headerDefaultAsset?.url && !!headerFile && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setHeaderFile(null);
+                                  setUseDefaultHeaderAsset(true);
+                                }}
+                                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                <i className="bx bx-reset" />
+                                Usar adjunto predeterminado
+                              </button>
+                            )}
+
+                            {/* Quitar adjunto (solo si no hay default) */}
+                            {!headerDefaultAsset?.url && !!headerFile && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setHeaderFile(null);
+                                }}
+                                className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                              >
+                                <i className="bx bx-trash" />
+                                Quitar archivo
+                              </button>
+                            )}
+                          </div>
+
+                          {/* estado actual */}
+                          <div className="text-xs text-slate-500">
+                            {headerFile ? (
+                              <span>
+                                Archivo seleccionado: {headerFile.name}
+                              </span>
+                            ) : headerDefaultAsset?.url &&
+                              useDefaultHeaderAsset ? (
+                              <span>
+                                Se enviará el adjunto predeterminado del
+                                template. Si desea, puede reemplazarlo.
+                              </span>
+                            ) : (
+                              <span>No hay archivo seleccionado.</span>
+                            )}
+                          </div>
+
+                          {/* ✅ Vista previa efectiva (archivo nuevo o default) */}
                           {!!headerPreviewUrl &&
                             headerInfo.format === "IMAGE" && (
-                              <div className="mt-3">
+                              <div className="mt-1">
                                 <p className="text-xs text-slate-500 mb-1">
                                   Vista previa:
                                 </p>
@@ -1954,7 +2152,7 @@ const Modales = ({
 
                           {!!headerPreviewUrl &&
                             headerInfo.format === "VIDEO" && (
-                              <div className="mt-3">
+                              <div className="mt-1">
                                 <p className="text-xs text-slate-500 mb-1">
                                   Vista previa:
                                 </p>
@@ -1968,7 +2166,7 @@ const Modales = ({
 
                           {!!headerPreviewUrl &&
                             headerInfo.format === "DOCUMENT" && (
-                              <div className="mt-3">
+                              <div className="mt-1">
                                 <p className="text-xs text-slate-500 mb-1">
                                   Vista previa:
                                 </p>

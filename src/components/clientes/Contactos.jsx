@@ -565,6 +565,10 @@ export default function Contactos() {
   const socketRef = useRef(null);
   const [nombre_encargado_global, setNombre_encargado_global] = useState(null);
   const [openImportXlsx, setOpenImportXlsx] = useState(false);
+  const [headerDefaultAssetMasivo, setHeaderDefaultAssetMasivo] =
+    useState(null);
+  const [useDefaultHeaderAssetMasivo, setUseDefaultHeaderAssetMasivo] =
+    useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -666,7 +670,7 @@ export default function Contactos() {
   );
 
   const allBodyPlaceholdersFilled = placeholders.every(
-    (ph) => (placeholderValues[ph] || "").trim().length > 0,
+    (ph) => (placeholderValues[`body_${ph}`] || "").trim().length > 0,
   );
 
   const isHeaderText = headerRequired && headerFormat === "TEXT";
@@ -678,12 +682,23 @@ export default function Contactos() {
   );
 
   const headerTextReady = !isHeaderText || allHeaderPlaceholdersFilled;
-  const headerMediaReady = !isHeaderMedia || Boolean(headerFileMasivo);
 
-  //Listo si hay nombre + body placeholders (si existen) + header (si aplica)
+  // ✅ Si hay header media, puede estar listo por archivo manual o por asset predeterminado
+  const hasDefaultHeaderAssetMasivo =
+    !!useDefaultHeaderAssetMasivo && !!headerDefaultAssetMasivo?.url;
+
+  const headerMediaReady =
+    !isHeaderMedia || Boolean(headerFileMasivo) || hasDefaultHeaderAssetMasivo;
+
+  // ✅ Validación URL buttons (si existen)
+  const allUrlButtonsFilled = urlButtons.every(
+    (b) => (placeholderValues[b.key] || "").trim().length > 0,
+  );
+
   const templateReady =
     Boolean(templateName) &&
     (placeholders.length === 0 || allBodyPlaceholdersFilled) &&
+    allUrlButtonsFilled &&
     headerTextReady &&
     headerMediaReady;
 
@@ -730,6 +745,56 @@ export default function Contactos() {
     }
   };
 
+  function PreviewFile({ url }) {
+    if (!url) return null;
+
+    const lower = String(url).toLowerCase();
+
+    const isImage =
+      lower.includes(".jpg") ||
+      lower.includes(".jpeg") ||
+      lower.includes(".png") ||
+      lower.includes(".webp") ||
+      lower.includes(".gif");
+
+    const isVideo =
+      lower.includes(".mp4") ||
+      lower.includes(".webm") ||
+      lower.includes(".mov");
+
+    if (isImage) {
+      return (
+        <img
+          src={url}
+          alt="Adjunto predeterminado"
+          className="max-h-48 rounded-lg border"
+        />
+      );
+    }
+
+    if (isVideo) {
+      return (
+        <video
+          src={url}
+          controls
+          className="w-full max-h-60 rounded-lg border"
+        />
+      );
+    }
+
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs hover:bg-slate-50"
+      >
+        <i className="bx bx-link-external text-base" />
+        Ver adjunto predeterminado
+      </a>
+    );
+  }
+
   const handleTemplateSelect = (event) => {
     const selectedTemplateName = event.target.value;
     setTemplateName(selectedTemplateName);
@@ -740,17 +805,21 @@ export default function Contactos() {
 
     // ===== Reset general =====
     setTemplateText("");
-    setPlaceholders([]); // si aún lo usa en UI, se llena con ["1","2"...]
-    setBodyPlaceholders([]); // nuevo (para keys body_1...)
-    setUrlButtons([]); // nuevo
+    setPlaceholders([]);
+    setBodyPlaceholders([]);
+    setUrlButtons([]);
     setPlaceholderValues({});
 
-    // Reset header cada vez
+    // Reset header
     setHeaderRequired(false);
     setHeaderFormat(null);
     setHeaderPlaceholders([]);
     setHeaderPlaceholderValues({});
     setHeaderFileMasivo(null);
+
+    //  Reset asset predeterminado
+    setHeaderDefaultAssetMasivo(null);
+    setUseDefaultHeaderAssetMasivo(true);
 
     if (!selectedTemplate) return;
 
@@ -767,27 +836,65 @@ export default function Contactos() {
         setHeaderRequired(true);
         setHeaderFormat(fmt);
 
+        // HEADER TEXT placeholders
         if (fmt === "TEXT") {
           const headerText = String(headerComp.text || "");
           const matches = [...headerText.matchAll(/{{(.*?)}}/g)].map((m) =>
             String(m[1]).trim(),
           );
 
-          // Si header text tiene placeholders -> valores por placeholder "1","2"... (como su masivo actual)
           if (matches.length > 0) {
             const initialHeaderValues = {};
             matches.forEach((ph) => (initialHeaderValues[ph] = ""));
             setHeaderPlaceholders(matches);
             setHeaderPlaceholderValues(initialHeaderValues);
           } else {
-            // header text fijo sin placeholders
             setHeaderPlaceholders([]);
             setHeaderPlaceholderValues({});
           }
         }
 
-        // Si es media (IMAGE/VIDEO/DOCUMENT) => solo marcar required + format
-        // El archivo se pide en UI y se manda en multipart.
+        // ✅ HEADER MEDIA: intentar detectar asset predeterminado (ejemplo de template)
+        if (["IMAGE", "VIDEO", "DOCUMENT"].includes(fmt)) {
+          // Ajustado para varias estructuras posibles del backend
+          const ex =
+            headerComp.example ||
+            selectedTemplate.example ||
+            selectedTemplate.examples ||
+            null;
+
+          // Intenta obtener URL desde distintas rutas comunes
+          const possibleUrl =
+            ex?.header_url ||
+            ex?.url ||
+            ex?.media_url ||
+            ex?.header_handle_url ||
+            ex?.header_example_url ||
+            (Array.isArray(ex?.header_urls) ? ex.header_urls[0] : null) ||
+            (Array.isArray(ex?.media_urls) ? ex.media_urls[0] : null) ||
+            (Array.isArray(headerComp?.example?.header_handle)
+              ? headerComp.example.header_handle[0]
+              : null) ||
+            (Array.isArray(headerComp?.example?.header_handles)
+              ? headerComp.example.header_handles[0]
+              : null) ||
+            null;
+
+          const possibleName =
+            ex?.file_name ||
+            ex?.name ||
+            headerComp?.example?.file_name ||
+            `Adjunto predeterminado (${fmt})`;
+
+          if (possibleUrl) {
+            setHeaderDefaultAssetMasivo({
+              url: possibleUrl,
+              name: possibleName,
+              source: "template_example",
+            });
+            setUseDefaultHeaderAssetMasivo(true);
+          }
+        }
       }
     }
 
@@ -807,10 +914,10 @@ export default function Contactos() {
         String(m[1]).trim(),
       );
 
-      // Para compatibilidad con su UI actual:
+      // Compatibilidad con UI actual
       setPlaceholders(extractedBody);
 
-      // Nuevo formato como 1 a 1:
+      // Nuevo formato (body_1, body_2...)
       const bodyObjs = extractedBody.map((n) => ({ n, key: `body_${n}` }));
       setBodyPlaceholders(bodyObjs);
     } else {
@@ -818,7 +925,7 @@ export default function Contactos() {
     }
 
     // =========================
-    // 2) BUTTONS (URL) - OPCIONAL (si su masivo no usa botones, puede omitir esto)
+    // 2) BUTTONS (URL)
     // =========================
     const buttonsComp = selectedTemplate.components?.find(
       (c) => String(c.type || "").toUpperCase() === "BUTTONS",
@@ -861,7 +968,6 @@ export default function Contactos() {
       initial[b.key] = "";
     });
 
-    // Nota: header placeholders en masivo siguen en headerPlaceholderValues separado (como ya lo tiene)
     setPlaceholderValues(initial);
 
     // =========================
@@ -1007,10 +1113,14 @@ export default function Contactos() {
     const headerIsMedia =
       headerRequired && ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat);
 
-    if (headerIsMedia && !headerFileMasivo) {
+    const hasDefaultHeaderAssetMasivo =
+      !!useDefaultHeaderAssetMasivo && !!headerDefaultAssetMasivo?.url;
+
+    // ✅ Header media puede ser archivo manual o asset predeterminado
+    if (headerIsMedia && !headerFileMasivo && !hasDefaultHeaderAssetMasivo) {
       swalInfo(
         "Header requerido",
-        `Debe subir el archivo del header (${headerFormat}).`,
+        `Este template requiere un archivo de header (${headerFormat}) o usar el adjunto predeterminado.`,
       );
       return;
     }
@@ -1025,6 +1135,7 @@ export default function Contactos() {
       title: "Enviando mensajes...",
       html: "Por favor espera mientras enviamos los mensajes.",
       didOpen: () => Swal.showLoading(),
+      allowOutsideClick: false,
     });
 
     for (let i = 0; i < selected.length; i++) {
@@ -1042,9 +1153,32 @@ export default function Contactos() {
         continue;
       }
 
-      // ===== Construir COMPONENTS (SOLO 1 BODY) =====
-      const components = [
-        {
+      try {
+        const id_configuracion = localStorage.getItem("id_configuracion");
+
+        // ===== Construir COMPONENTS =====
+        const components = [];
+
+        // 1) HEADER TEXT
+        if (headerRequired && headerFormat === "TEXT") {
+          const headerParams = (headerPlaceholders || []).map((ph) => {
+            const raw = headerPlaceholderValues[ph] || "";
+            const value = resolverVariableMasiva(raw, recipient, ph);
+            return { type: "text", text: String(value) };
+          });
+
+          // Si el template HEADER TEXT tiene placeholders, se envían
+          // Si no tiene placeholders, no hace falta enviar header component
+          if (headerParams.length > 0) {
+            components.push({
+              type: "header",
+              parameters: headerParams,
+            });
+          }
+        }
+
+        // 2) BODY
+        components.push({
           type: "body",
           parameters: (placeholders || []).map((ph) => {
             const key = `body_${ph}`;
@@ -1052,36 +1186,54 @@ export default function Contactos() {
             const value = resolverVariableMasiva(raw, recipient, ph);
             return { type: "text", text: String(value) };
           }),
-        },
-      ];
+        });
 
-      const body = {
-        messaging_product: "whatsapp",
-        to: recipientPhone,
-        type: "template",
-        template: {
-          name: templateName,
-          language: { code: selectedLanguage },
-          components,
-        },
-      };
+        // 3) BUTTONS URL
+        if (urlButtons.length > 0) {
+          // agrupar por index de botón
+          const byIndex = new Map();
 
-      try {
-        const id_configuracion = localStorage.getItem("id_configuracion");
+          urlButtons.forEach((b) => {
+            if (!byIndex.has(b.index)) byIndex.set(b.index, []);
+            byIndex.get(b.index).push(b);
+          });
+
+          for (const [index, btnPlaceholders] of byIndex.entries()) {
+            const params = btnPlaceholders.map((b) => {
+              const raw = placeholderValues[b.key] || "";
+              const value = resolverVariableMasiva(raw, recipient, b.ph);
+              return { type: "text", text: String(value) };
+            });
+
+            components.push({
+              type: "button",
+              sub_type: "url",
+              index: String(index),
+              parameters: params,
+            });
+          }
+        }
+
+        const body = {
+          messaging_product: "whatsapp",
+          to: recipientPhone,
+          type: "template",
+          template: {
+            name: templateName,
+            language: { code: selectedLanguage || "es" },
+            components,
+          },
+        };
 
         let dataResp;
 
-        if (headerIsMedia) {
+        // CASO 1: Usuario subió archivo manual => multipart
+        if (headerIsMedia && headerFileMasivo) {
           const fd = new FormData();
 
-          // ===== CAMPOS QUE SU BACKEND ESTÁ PIDIENDO =====
           fd.append("id_configuracion", String(id_configuracion));
           fd.append("id_cliente_chat_center", String(recipientId));
-          fd.append("to", String(recipientPhone)); // ✅ NUEVO
-          fd.append("template_name", String(templateName)); // ✅ NUEVO
-          fd.append("language_code", String(selectedLanguage)); // ✅ NUEVO (por si lo valida)
-          fd.append("body", JSON.stringify(body));
-
+          fd.append("body_json", JSON.stringify(body));
           fd.append("header_format", headerFormat);
           fd.append("header_file", headerFileMasivo);
 
@@ -1093,14 +1245,31 @@ export default function Contactos() {
 
           dataResp = data;
         } else {
-          // ===== TAMBIÉN EN JSON NORMAL (POR SI SU VALIDADOR ES PLANO) =====
+          // CASO 2: JSON (sin archivo manual; puede ir con asset predeterminado)
           const payload = {
             id_configuracion,
             id_cliente_chat_center: recipientId,
             body,
-            to: recipientPhone, // ✅ NUEVO
-            template_name: templateName, // ✅ NUEVO
-            language_code: selectedLanguage, // ✅ NUEVO
+
+            // Fallbacks planos
+            to: recipientPhone,
+            template_name: templateName,
+            language_code: selectedLanguage || "es",
+
+            // asset predeterminado para header media
+            header_default_asset:
+              headerIsMedia && hasDefaultHeaderAssetMasivo
+                ? {
+                    enabled: true,
+                    format: headerFormat, // IMAGE|VIDEO|DOCUMENT
+                    url: headerDefaultAssetMasivo.url,
+                    source:
+                      headerDefaultAssetMasivo.source || "template_example",
+                    name:
+                      headerDefaultAssetMasivo.name ||
+                      "Adjunto predeterminado del template",
+                  }
+                : null,
           };
 
           const { data } = await chatApi.post(
@@ -1125,13 +1294,12 @@ export default function Contactos() {
         exitosos.push(`ID: ${recipientId}, Teléfono: ${recipientPhone}`);
 
         // ======== GUARDAR EN BD SOLO SI META OK ========
-        // ======== GUARDAR EN BD SOLO SI META OK ========
         try {
           let id_recibe = recipientId;
           let mid_mensaje = dataAdmin.id_telefono;
           let telefono_configuracion = dataAdmin.telefono;
 
-          // placeholders para BD
+          // placeholders BODY para BD
           const placeholdersObj = {};
           (placeholders || []).forEach((ph) => {
             const key = `body_${ph}`;
@@ -1142,20 +1310,62 @@ export default function Contactos() {
             );
           });
 
+          // placeholders HEADER TEXT para BD (opcional)
+          const headerPlaceholdersObj = {};
+          (headerPlaceholders || []).forEach((ph) => {
+            headerPlaceholdersObj[ph] = resolverVariableMasiva(
+              headerPlaceholderValues[ph] || "",
+              recipient,
+              ph,
+            );
+          });
+
+          // placeholders URL BUTTONS para BD (opcional)
+          const urlButtonsObj = {};
+          (urlButtons || []).forEach((b) => {
+            urlButtonsObj[b.key] = resolverVariableMasiva(
+              placeholderValues[b.key] || "",
+              recipient,
+              b.ph,
+            );
+          });
+
           const metaMediaId = dataResp?.meta_media_id || null;
           const fileUrl = dataResp?.fileUrl || null;
 
+          const headerValueForDb = headerFileMasivo?.name
+            ? String(headerFileMasivo.name).trim()
+            : hasDefaultHeaderAssetMasivo
+              ? String(
+                  headerDefaultAssetMasivo?.name ||
+                    "Adjunto predeterminado del template",
+                ).trim()
+              : "";
+
           const ruta_archivo = {
             placeholders: placeholdersObj,
-            header: headerIsMedia
+            header: headerRequired
               ? {
-                  format: headerFormat, // IMAGE|VIDEO|DOCUMENT
-                  value: String(headerFileMasivo?.name || "").trim(),
-                  fileUrl: fileUrl, // ✅
+                  format: headerFormat, // TEXT | IMAGE | VIDEO | DOCUMENT
+                  placeholders:
+                    headerFormat === "TEXT" ? headerPlaceholdersObj : null,
+                  value: headerIsMedia ? headerValueForDb : null,
+                  source:
+                    headerIsMedia &&
+                    hasDefaultHeaderAssetMasivo &&
+                    !headerFileMasivo
+                      ? "template_default"
+                      : headerIsMedia && headerFileMasivo
+                        ? "uploaded"
+                        : "text",
+                  fileUrl: fileUrl,
                   meta_media_id: metaMediaId,
                   mime: dataResp?.file_info?.mime || null,
                   size: dataResp?.file_info?.size || null,
                 }
+              : null,
+            buttons_url: Object.keys(urlButtonsObj).length
+              ? urlButtonsObj
               : null,
             template_name: templateName,
             language: selectedLanguage,
@@ -1163,7 +1373,7 @@ export default function Contactos() {
 
           await agregar_mensaje_enviado(
             templateText,
-            "template", // ✅ era "text"
+            "template",
             JSON.stringify(ruta_archivo),
             recipientPhone,
             mid_mensaje,
@@ -1325,8 +1535,15 @@ export default function Contactos() {
   const resetNumeroModalState = () => {
     setTemplateName("");
     setTemplateText("");
+
+    // body
     setPlaceholders([]);
+    setBodyPlaceholders([]);
+    setUrlButtons([]);
     setPlaceholderValues({});
+
+    // idioma
+    setSelectedLanguage("es");
 
     // header
     setHeaderRequired(false);
@@ -1334,6 +1551,10 @@ export default function Contactos() {
     setHeaderPlaceholders([]);
     setHeaderPlaceholderValues({});
     setHeaderFileMasivo(null);
+
+    //  asset predeterminado
+    setHeaderDefaultAssetMasivo(null);
+    setUseDefaultHeaderAssetMasivo(true);
   };
 
   const [cols, setCols] = useState({
@@ -1970,9 +2191,10 @@ export default function Contactos() {
 
       {/* Modal Masivo (UI más limpia) */}
       {isModalOpenMasivo && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-h-[80vh] w-full max-w-2xl overflow-hidden ring-1 ring-slate-900/10">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-h-[80vh] w-full max-w-2xl overflow-hidden ring-1 ring-slate-900/10 flex flex-col min-h-0">
+            {/* Header fijo del modal */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3 shrink-0">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">
                   Enviar mensaje masivo
@@ -1989,105 +2211,203 @@ export default function Contactos() {
               </button>
             </div>
 
-            {/* ===== NUEVO: HEADER requerido por template ===== */}
-            {headerRequired && (
-              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
-                      <i className="bx bx-image-alt text-sm" />
+            {/* ✅ ÚNICO contenedor scrolleable: headerRequired + form */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+              {/* ===== NUEVO: HEADER requerido por template ===== */}
+              {headerRequired && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                        <i className="bx bx-image-alt text-sm" />
+                      </span>
+                      Header requerido
+                    </h4>
+                    <span className="text-[11px] text-slate-500">
+                      Tipo: <b>{headerFormat}</b>
                     </span>
-                    Header requerido
-                  </h4>
-                  <span className="text-[11px] text-slate-500">
-                    Tipo: <b>{headerFormat}</b>
-                  </span>
-                </div>
-
-                {/* HEADER TEXT con placeholders */}
-                {headerFormat === "TEXT" && headerPlaceholders.length > 0 && (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {headerPlaceholders.map((ph) => (
-                      <div key={`h-${ph}`}>
-                        <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Header valor para {"{{" + ph + "}}"}
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                          placeholder="Texto para el header"
-                          value={headerPlaceholderValues[ph] || ""}
-                          onChange={(e) =>
-                            setHeaderPlaceholderValues((prev) => ({
-                              ...prev,
-                              [ph]: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                    ))}
                   </div>
-                )}
 
-                {/* HEADER MEDIA (IMAGE/VIDEO/DOCUMENT) */}
-                {["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat) && (
-                  <div className="space-y-2">
+                  {/* HEADER TEXT con placeholders */}
+                  {headerFormat === "TEXT" && headerPlaceholders.length > 0 && (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {headerPlaceholders.map((ph) => (
+                        <div key={`h-${ph}`}>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
+                            Header valor para {"{{" + ph + "}}"}
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            placeholder="Texto para el header"
+                            value={headerPlaceholderValues[ph] || ""}
+                            onChange={(e) =>
+                              setHeaderPlaceholderValues((prev) => ({
+                                ...prev,
+                                [ph]: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* HEADER MEDIA (IMAGE/VIDEO/DOCUMENT) */}
+                  <div className="space-y-3">
                     <label className="block text-xs font-medium text-slate-700">
-                      Subir archivo ({headerFormat})
+                      {headerDefaultAssetMasivo?.url
+                        ? `Adjunto del header (${headerFormat})`
+                        : `Subir archivo (${headerFormat})`}
                     </label>
 
-                    <input
-                      type="file"
-                      accept={
-                        headerFormat === "IMAGE"
-                          ? "image/*"
-                          : headerFormat === "VIDEO"
-                            ? "video/*"
-                            : "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*"
-                      }
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        if (!file) return setHeaderFileMasivo(null);
+                    {/* Adjunto predeterminado del template (ejemplo Meta) */}
+                    {!!headerDefaultAssetMasivo?.url && !headerFileMasivo && (
+                      <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold text-indigo-900">
+                              Adjunto predeterminado del template detectado
+                            </p>
+                            <p className="text-[11px] text-indigo-700 mt-0.5">
+                              Se usará este archivo automáticamente si no sube
+                              uno manual. Puede reemplazarlo si desea.
+                            </p>
+                          </div>
 
-                        const fmt = headerFormat;
+                          {!headerFileMasivo &&
+                            !!useDefaultHeaderAssetMasivo && (
+                              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                Usando predeterminado
+                              </span>
+                            )}
+                        </div>
 
-                        const ok =
-                          (fmt === "IMAGE" && file.type.startsWith("image/")) ||
-                          (fmt === "VIDEO" && file.type.startsWith("video/")) ||
-                          (fmt === "DOCUMENT" && file.type !== "");
-
-                        if (!ok) {
-                          Toast.fire({
-                            icon: "warning",
-                            title: `Archivo inválido para ${fmt}.`,
-                          });
-                          e.target.value = "";
-                          setHeaderFileMasivo(null);
-                          return;
-                        }
-
-                        const MAX_MB = 16;
-                        if (file.size / (1024 * 1024) > MAX_MB) {
-                          Toast.fire({
-                            icon: "error",
-                            title: `El archivo excede ${MAX_MB} MB.`,
-                          });
-                          e.target.value = "";
-                          setHeaderFileMasivo(null);
-                          return;
-                        }
-
-                        setHeaderFileMasivo(file);
-                      }}
-                      className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm"
-                    />
-
-                    {headerFileMasivo && (
-                      <p className="text-[11px] text-slate-500">
-                        Archivo seleccionado: {headerFileMasivo.name}
-                      </p>
+                        <div className="mt-3 rounded-lg border border-white/80 bg-white p-2">
+                          <PreviewFile url={headerDefaultAssetMasivo.url} />
+                          <div className="mt-2 text-[11px] text-slate-500 break-all">
+                            {headerDefaultAssetMasivo.name ||
+                              "Adjunto predeterminado del template"}
+                          </div>
+                        </div>
+                      </div>
                     )}
 
+                    {/* Acciones (sin choose file visible) */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label
+                        htmlFor="header_file_input_masivo"
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <i className="bx bx-upload" />
+                        {headerFileMasivo
+                          ? "Cambiar archivo"
+                          : "Subir / reemplazar archivo"}
+                      </label>
+
+                      <input
+                        id="header_file_input_masivo"
+                        type="file"
+                        accept={
+                          headerFormat === "IMAGE"
+                            ? "image/*"
+                            : headerFormat === "VIDEO"
+                              ? "video/*"
+                              : "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*"
+                        }
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          if (!file) return;
+
+                          const fmt = headerFormat;
+
+                          const ok =
+                            (fmt === "IMAGE" &&
+                              file.type.startsWith("image/")) ||
+                            (fmt === "VIDEO" &&
+                              file.type.startsWith("video/")) ||
+                            (fmt === "DOCUMENT" && file.type !== "");
+
+                          if (!ok) {
+                            swalToast(
+                              `Archivo inválido para ${fmt}.`,
+                              "warning",
+                            );
+                            e.target.value = "";
+                            setHeaderFileMasivo(null);
+                            return;
+                          }
+
+                          const MAX_MB = 16;
+                          if (file.size / (1024 * 1024) > MAX_MB) {
+                            swalToast(
+                              `El archivo excede ${MAX_MB} MB.`,
+                              "error",
+                            );
+                            e.target.value = "";
+                            setHeaderFileMasivo(null);
+                            return;
+                          }
+
+                          setHeaderFileMasivo(file);
+                          setUseDefaultHeaderAssetMasivo(false); // ✅ al subir uno nuevo, deja de usar el default
+                        }}
+                        className="hidden"
+                      />
+
+                      {/* Volver a usar el predeterminado (si existe y ya subió uno) */}
+                      {!!headerDefaultAssetMasivo?.url &&
+                        !!headerFileMasivo && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHeaderFileMasivo(null);
+                              setUseDefaultHeaderAssetMasivo(true);
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            <i className="bx bx-reset" />
+                            Usar adjunto predeterminado
+                          </button>
+                        )}
+
+                      {/* Quitar archivo (solo si NO hay predeterminado) */}
+                      {!headerDefaultAssetMasivo?.url && !!headerFileMasivo && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHeaderFileMasivo(null);
+                            const input = document.getElementById(
+                              "header_file_input_masivo",
+                            );
+                            if (input) input.value = "";
+                          }}
+                          className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                        >
+                          <i className="bx bx-trash" />
+                          Quitar archivo
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Estado actual */}
+                    <div className="text-xs text-slate-500">
+                      {headerFileMasivo ? (
+                        <span>
+                          Archivo seleccionado: {headerFileMasivo.name}
+                        </span>
+                      ) : headerDefaultAssetMasivo?.url &&
+                        useDefaultHeaderAssetMasivo ? (
+                        <span>
+                          Se enviará el adjunto predeterminado del template. Si
+                          desea, puede reemplazarlo.
+                        </span>
+                      ) : (
+                        <span>No hay archivo seleccionado.</span>
+                      )}
+                    </div>
+
+                    {/* Vista previa archivo manual */}
                     {headerFileMasivo && (
                       <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
                         <div className="text-xs text-slate-600 mb-2">
@@ -2101,7 +2421,7 @@ export default function Contactos() {
                             <img
                               src={previewUrl}
                               alt="preview"
-                              className="max-h-48 rounded-lg border"
+                              className="max-h-48 rounded-lg border border-slate-200 object-contain bg-white"
                             />
                           )}
 
@@ -2110,11 +2430,10 @@ export default function Contactos() {
                             <video
                               src={previewUrl}
                               controls
-                              className="w-full max-h-60 rounded-lg border"
+                              className="w-full max-h-60 rounded-lg border border-slate-200 bg-black"
                             />
                           )}
 
-                        {/* Para PDF u otros docs: */}
                         {!headerFileMasivo.type.startsWith("image/") &&
                           !headerFileMasivo.type.startsWith("video/") && (
                             <a
@@ -2123,18 +2442,16 @@ export default function Contactos() {
                               rel="noreferrer"
                               className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs hover:bg-slate-50"
                             >
-                              <i className="bx bxs-file-pdf text-lg text-red-500" />
+                              <i className="bx bxs-file text-lg text-slate-500" />
                               Ver documento
                             </a>
                           )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            <div className="p-5 space-y-4">
               <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <h4 className="font-semibold text-sm text-slate-900 flex items-center gap-2">
@@ -2250,7 +2567,7 @@ export default function Contactos() {
 
       {/* Modal: Agregar nuevo contacto */}
       {isModalOpenNuevoContact && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-50">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-h-[80vh] w-full max-w-xl overflow-hidden ring-1 ring-slate-900/10">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
@@ -2272,7 +2589,7 @@ export default function Contactos() {
             </div>
 
             {/* Body */}
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
               <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
                 {/* Teléfono */}
                 <div>
@@ -2692,12 +3009,12 @@ export default function Contactos() {
                       <button
                         onClick={() => openChatById(c)}
                         className="
-        inline-flex h-9 w-9 items-center justify-center
-        rounded-full bg-emerald-600 text-white shadow-sm
-        hover:bg-emerald-700
-        focus:outline-none focus:ring-4 focus:ring-emerald-200
-        transition
-      "
+                        inline-flex h-9 w-9 items-center justify-center
+                        rounded-full bg-emerald-600 text-white shadow-sm
+                        hover:bg-emerald-700
+                        focus:outline-none focus:ring-4 focus:ring-emerald-200
+                        transition
+                      "
                         title="Abrir chat"
                         aria-label="Abrir chat"
                       >
@@ -2709,12 +3026,12 @@ export default function Contactos() {
                         <details className="group">
                           <summary
                             className="
-            list-none inline-flex h-9 w-9 cursor-pointer items-center justify-center
-            rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm
-            hover:bg-slate-50
-            focus:outline-none focus:ring-4 focus:ring-blue-200/60
-            transition
-          "
+                              list-none inline-flex h-9 w-9 cursor-pointer items-center justify-center
+                              rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm
+                              hover:bg-slate-50
+                              focus:outline-none focus:ring-4 focus:ring-blue-200/60
+                              transition
+                            "
                             title="Más acciones"
                             aria-label="Más acciones"
                           >
@@ -2724,9 +3041,9 @@ export default function Contactos() {
                           {/* Dropdown */}
                           <div
                             className="
-            absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl
-            border border-slate-200 bg-white shadow-lg ring-1 ring-slate-900/5
-          "
+          absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl
+          border border-slate-200 bg-white shadow-lg ring-1 ring-slate-900/5
+        "
                           >
                             <button
                               className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50"
@@ -2901,8 +3218,8 @@ export default function Contactos() {
             </div>
           </div>
           <style>{`
-            @keyframes drawerIn { to { transform: translateX(0); } }
-          `}</style>
+          @keyframes drawerIn { to { transform: translateX(0); } }
+        `}</style>
         </div>
       )}
 
