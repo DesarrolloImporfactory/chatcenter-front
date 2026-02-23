@@ -1035,8 +1035,11 @@ const ChatPrincipal = ({
     if (!raw) return "";
     if (raw === "IA_logistica") return "IA Logística";
     if (raw === "IA_ventas") return "IA Ventas";
+    if (raw === "cron_template_programado") return "Programación de Template";
+
     if (["webook", "automatizador", "automatizador_wait"].includes(raw))
       return "Automatizador";
+
     return String(raw)
       .replace(/[_\-]+/g, " ") // underscores y guiones → espacio
       .replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g, "$1 $2") // inserta espacio en camel/pascal
@@ -1077,12 +1080,56 @@ const ChatPrincipal = ({
   };
 
   const getTemplatePlaceholders = (valores) => {
-    // En su nuevo formato vienen dentro de "placeholders"
-    // pero por compatibilidad dejamos fallback al objeto raíz
+    // 1) Formato nuevo recomendado: { placeholders: { "1":"...", "2":"..." } }
     if (valores?.placeholders && typeof valores.placeholders === "object") {
       return valores.placeholders;
     }
-    return valores || {};
+
+    // 2) Compatibilidad con body_parameters (programado puede venir así)
+    // Soporta arrays tipo:
+    // [{ key:"1", value:"Daniel" }] o [{ n:1, text:"Daniel" }]
+    if (Array.isArray(valores?.body_parameters)) {
+      const mapped = {};
+      valores.body_parameters.forEach((it, idx) => {
+        if (!it || typeof it !== "object") return;
+
+        const k = String(it.key ?? it.n ?? idx + 1).trim();
+        const v = String(it.value ?? it.text ?? "").trim();
+
+        if (k) mapped[k] = v;
+      });
+
+      // Si logró mapear algo, devuélvalo
+      if (Object.keys(mapped).length > 0) return mapped;
+    }
+
+    // 3) Fallback clásico: objeto raíz (pero limpiando keys meta comunes)
+    if (valores && typeof valores === "object") {
+      const out = {};
+
+      Object.entries(valores).forEach(([k, v]) => {
+        if (
+          [
+            "header",
+            "source",
+            "template_name",
+            "language",
+            "body_parameters",
+          ].includes(k)
+        ) {
+          return;
+        }
+
+        // solo valores primitivos
+        if (v === null || ["string", "number", "boolean"].includes(typeof v)) {
+          out[String(k)] = String(v ?? "");
+        }
+      });
+
+      return out;
+    }
+
+    return {};
   };
 
   const renderTemplateHeader = (header) => {
@@ -1098,18 +1145,33 @@ const ChatPrincipal = ({
           ? String(u)
           : `https://new.imporsuitpro.com/${String(u).replace(/^\//, "")}`;
 
-    // Resolver URL real del archivo (prioriza S3)
+    // Resolver URL real del archivo (prioriza S3 y soporta programado)
     const resolveMediaUrl = () => {
-      // 1) Lo nuevo: S3
+      // 0) NUEVO programado: media_url
+      if (header.media_url) return normalizeUrl(header.media_url);
+
+      // 1) Lo que usted ya usa (inmediato): fileUrl
       if (header.fileUrl) return normalizeUrl(header.fileUrl);
 
-      // 2) Si value es string (puede ser nombre o url)
-      if (typeof header.value === "string") return normalizeUrl(header.value);
+      // 2) Compatibilidad extra
+      if (header.url) return normalizeUrl(header.url);
+      if (header.link) return normalizeUrl(header.link);
 
-      // 3) Si value es objeto (por compatibilidad)
+      // 3) Si value es string (puede ser nombre o url)
+      if (typeof header.value === "string") {
+        // Si es URL -> úsela
+        if (/^https?:\/\//i.test(header.value))
+          return normalizeUrl(header.value);
+
+        // Si NO es URL, es probablemente filename (no sirve como src)
+        return "";
+      }
+
+      // 4) Si value es objeto (por compatibilidad)
       if (header.value && typeof header.value === "object") {
         const maybe =
           header.value.fileUrl ||
+          header.value.media_url ||
           header.value.url ||
           header.value.link ||
           header.value.ruta;
@@ -1121,8 +1183,38 @@ const ChatPrincipal = ({
 
     const src = resolveMediaUrl();
 
+    // Nombre útil del archivo (nuevo programado + viejo)
+    const resolveMediaName = () => {
+      if (header.media_name) return String(header.media_name);
+      if (
+        typeof header.value === "string" &&
+        header.value &&
+        !/^https?:\/\//i.test(header.value)
+      ) {
+        return String(header.value);
+      }
+      if (header.value && typeof header.value === "object") {
+        return (
+          header.value.nombre ||
+          header.value.fileName ||
+          header.value.name ||
+          "Documento"
+        );
+      }
+      return "Documento";
+    };
+
     if (format === "IMAGE") {
-      if (!src) return null;
+      // ✅ Si viene programado con media_url, aquí ya saldrá
+      if (!src) {
+        return (
+          <div className="mb-2">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Imagen del template no disponible para vista previa.
+            </div>
+          </div>
+        );
+      }
 
       return (
         <div className="mb-2">
@@ -1137,7 +1229,15 @@ const ChatPrincipal = ({
     }
 
     if (format === "VIDEO") {
-      if (!src) return null;
+      if (!src) {
+        return (
+          <div className="mb-2">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Video del template no disponible para vista previa.
+            </div>
+          </div>
+        );
+      }
 
       return (
         <div className="mb-2">
@@ -1147,10 +1247,10 @@ const ChatPrincipal = ({
     }
 
     if (format === "DOCUMENT") {
-      // Normalizamos meta usando fileUrl + mime + size que usted ya guarda
+      // Normalizamos meta usando fileUrl/media_url + mime + size
       let meta = {
         url: src || "",
-        nombre: "Documento",
+        nombre: resolveMediaName(),
         size: Number(header.size || 0),
         mimeType: header.mime || header.mimeType || "",
       };
@@ -1159,12 +1259,16 @@ const ChatPrincipal = ({
 
       // Compatibilidad: si value llega como string u objeto
       if (!meta.url) {
-        if (typeof value === "string") meta.url = normalizeUrl(value);
-        else if (value && typeof value === "object") {
-          meta.url = normalizeUrl(value.url || value.link || value.ruta);
-          meta.nombre = value.nombre || value.fileName || meta.nombre;
+        if (typeof value === "string" && /^https?:\/\//i.test(value)) {
+          meta.url = normalizeUrl(value);
+        } else if (value && typeof value === "object") {
+          meta.url = normalizeUrl(
+            value.media_url || value.url || value.link || value.ruta,
+          );
+          meta.nombre =
+            value.nombre || value.fileName || value.name || meta.nombre;
           meta.size = Number(value.size || meta.size || 0);
-          meta.mimeType = value.mimeType || meta.mimeType || "";
+          meta.mimeType = value.mimeType || value.mime || meta.mimeType || "";
         }
       }
 
@@ -1172,19 +1276,21 @@ const ChatPrincipal = ({
       if (typeof value === "string" && value && !/^https?:\/\//i.test(value)) {
         meta.nombre = value;
       }
-      if (
-        typeof header.value === "string" &&
-        header.value &&
-        meta.nombre === "Documento"
-      ) {
-        meta.nombre = header.value;
-      }
-      if (header.value && typeof header.value === "object") {
-        meta.nombre =
-          header.value.nombre || header.value.fileName || meta.nombre;
+
+      // ✅ programado: media_name
+      if (header.media_name && (!meta.nombre || meta.nombre === "Documento")) {
+        meta.nombre = header.media_name;
       }
 
-      if (!meta.url) return null;
+      if (!meta.url) {
+        return (
+          <div className="mb-2">
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+              Documento del template no disponible (sin URL de archivo).
+            </div>
+          </div>
+        );
+      }
 
       const ext = (
         meta.url.split(".").pop() ||

@@ -2379,26 +2379,6 @@ const Chat = () => {
           setNovedades_noGestionadas(data.no_gestionadas);
         });
       }
-
-      /* socketRef.current.on("QUITAR_MENSAJE_RESPONSE", (data) => {
-        console.log(data);
-
-        const chat_existente = mensajesAcumulados.find(
-          (chat) => chat.id == data.celular_recibe,
-        );
-        console.log("chat_existente: " + chat_existente);
-        const encargadoId = data.clientePorCelular.id_encargado;
-        console.log("encargadoId: " + encargadoId);
-        console.log("id_sub_usuario_global: " + id_sub_usuario_global);
-        const isAdmin = rol_usuario_global === "administrador";
-        console.log("isAdmin: " + isAdmin);
-
-        if (!isAdmin && encargadoId != id_sub_usuario_global) {
-          setMensajesAcumulados((c) =>
-            c.filter((chat) => chat.id != data.celular_recibe),
-          );
-        }
-      }); */
     }
   }, [isSocketConnected, userData]); //SE QUITO SELECTEDCHAT PORQUE RECARGABA A CADA RATO
 
@@ -2586,27 +2566,6 @@ const Chat = () => {
         if (ultimo_cursorId != cursorId) {
           console.log("cursorFecha: " + cursorFecha);
           console.log("cursorId: " + cursorId);
-          // socketRef.current.emit(
-          //   "GET_CHATS",
-          //   id_configuracion,
-          //   id_sub_usuario_global,
-          //   rol_usuario_global,
-          //   {
-          //     limit: 10,
-          //     cursorFecha,
-          //     cursorId,
-          //     filtros: {
-          //       searchTerm,
-          //       selectedEtiquetas,
-          //       selectedEstado,
-          //       selectedTransportadora,
-          //       selectedNovedad,
-          //       selectedTab,
-          //       selectedPedidos_confirmados,
-          //     },
-          //     scopeChats,
-          //   },
-          // );
 
           emitGetChats({ reset: false, limit: 10 });
           setUltimo_cursorId(cursorId);
@@ -2679,29 +2638,6 @@ const Chat = () => {
 
   useEffect(() => {
     if (seRecibioMensaje) {
-      // Obtener los chats recientes (carga inicial con cursores nulos)
-      // socketRef.current.emit(
-      //   "GET_CHATS",
-      //   id_configuracion,
-      //   id_sub_usuario_global,
-      //   rol_usuario_global,
-      //   {
-      //     limit: 10,
-      //     cursorFecha: null, // Cargar desde el más reciente
-      //     cursorId: null,
-      //     filtros: {
-      //       searchTerm,
-      //       selectedEtiquetas,
-      //       selectedEstado,
-      //       selectedTransportadora,
-      //       selectedNovedad,
-      //       selectedTab,
-      //       selectedPedidos_confirmados,
-      //     },
-      //     scopeChats,
-      //   },
-      // );
-
       emitGetChats({ reset: true, limit: 10 });
       socketRef.current.once("CHATS", (data) => {
         if (data.length > 0) {
@@ -3654,6 +3590,7 @@ const Chat = () => {
         lista_usuarios={lista_usuarios}
         lista_departamentos={lista_departamentos}
         numeroModalPreset={numeroModalPreset}
+        setNumeroModalPreset={setNumeroModalPreset}
         inputRefNumeroTelefono={inputRefNumeroTelefono}
         setMensajesAcumulados={setMensajesAcumulados}
         setSelectedChat={setSelectedChat}

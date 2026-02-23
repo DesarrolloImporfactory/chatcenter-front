@@ -2947,7 +2947,7 @@ export default function Contactos() {
                             : "bx bx-calendar"
                         }
                       />
-                      {programarMasivo ? "Programado" : "Enviar ahora"}
+                      {programarMasivo ? "Programando envío" : "Enviar ahora"}
                     </button>
                   </div>
 
