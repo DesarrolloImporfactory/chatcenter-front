@@ -1459,12 +1459,24 @@ export default function Contactos() {
   const [isModalOpenNuevoContact, setIsModalOpenNuevoContact] = useState(false);
 
   const openModalMasivos = () => {
+    setTimezoneProgramada(
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Guayaquil",
+    );
     setIsModalOpenMasivo(true);
+  };
+
+  const resetProgramacionMasiva = () => {
+    setProgramarMasivo(false);
+    setFechaHoraProgramada("");
+    setTimezoneProgramada(
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Guayaquil",
+    );
   };
 
   const closeModal = () => {
     setIsModalOpenMasivo(false);
     resetNumeroModalState();
+    resetProgramacionMasiva();
   };
 
   const openModalNuevoContact = () => {
@@ -2150,6 +2162,374 @@ export default function Contactos() {
     return () => URL.revokeObjectURL(url);
   }, [headerFileMasivo]);
 
+  const [programarMasivo, setProgramarMasivo] = useState(false);
+  const [fechaHoraProgramada, setFechaHoraProgramada] = useState(""); // datetime-local
+  const [timezoneProgramada, setTimezoneProgramada] = useState(
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Guayaquil",
+  );
+
+  const formatearFechaProgramadaSQL = (value) => {
+    if (!value) return null; // value = "2026-02-22T22:03"
+    return `${value.replace("T", " ")}:00`;
+  };
+
+  const construirComponentsTemplateMasivo = (recipient) => {
+    const components = [];
+
+    // HEADER TEXT
+    if (headerRequired && headerFormat === "TEXT") {
+      const headerParams = (headerPlaceholders || []).map((ph) => {
+        const raw = headerPlaceholderValues[ph] || "";
+        const value = resolverVariableMasiva(raw, recipient, ph);
+        return { type: "text", text: String(value) };
+      });
+
+      if (headerParams.length > 0) {
+        components.push({
+          type: "header",
+          parameters: headerParams,
+        });
+      }
+    }
+
+    // BODY
+    components.push({
+      type: "body",
+      parameters: (placeholders || []).map((ph) => {
+        const key = `body_${ph}`;
+        const raw = placeholderValues[key] || "";
+        const value = resolverVariableMasiva(raw, recipient, ph);
+        return { type: "text", text: String(value) };
+      }),
+    });
+
+    // BUTTONS URL
+    if (urlButtons.length > 0) {
+      const byIndex = new Map();
+
+      urlButtons.forEach((b) => {
+        if (!byIndex.has(b.index)) byIndex.set(b.index, []);
+        byIndex.get(b.index).push(b);
+      });
+
+      for (const [index, btnPlaceholders] of byIndex.entries()) {
+        const params = btnPlaceholders.map((b) => {
+          const raw = placeholderValues[b.key] || "";
+          const value = resolverVariableMasiva(raw, recipient, b.ph);
+          return { type: "text", text: String(value) };
+        });
+
+        components.push({
+          type: "button",
+          sub_type: "url",
+          index: String(index),
+          parameters: params,
+        });
+      }
+    }
+
+    return components;
+  };
+
+  const validarHeaderMasivoAntesDeEnviarOProgramar = () => {
+    const headerIsMedia =
+      headerRequired && ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerFormat);
+
+    const hasDefaultHeaderAssetMasivo =
+      !!useDefaultHeaderAssetMasivo && !!headerDefaultAssetMasivo?.url;
+
+    if (headerIsMedia && !headerFileMasivo && !hasDefaultHeaderAssetMasivo) {
+      swalInfo(
+        "Header requerido",
+        `Este template requiere un archivo de header (${headerFormat}) o usar el adjunto predeterminado.`,
+      );
+      return { ok: false, headerIsMedia, hasDefaultHeaderAssetMasivo };
+    }
+
+    return { ok: true, headerIsMedia, hasDefaultHeaderAssetMasivo };
+  };
+
+  const programarTemplateMasivo = async () => {
+    try {
+      if (!dataAdmin) {
+        swalInfo(
+          "Config pendiente",
+          "No hay datos de configuración de WhatsApp cargados.",
+        );
+        return;
+      }
+
+      if (!selected || selected.length === 0) {
+        swalInfo("Sin seleccionados", "Seleccione al menos un destinatario.");
+        return;
+      }
+
+      if (!templateReady) {
+        swalInfo(
+          "Template incompleto",
+          "Complete los campos requeridos del template antes de programar.",
+        );
+        return;
+      }
+
+      if (!fechaHoraProgramada) {
+        swalInfo("Fecha y hora", "Seleccione fecha y hora para programar.");
+        return;
+      }
+
+      if (!programarMasivo) {
+        return enviarTemplateMasivo();
+      }
+
+      const fecha_programada = formatearFechaProgramadaSQL(fechaHoraProgramada);
+
+      const { ok, headerIsMedia, hasDefaultHeaderAssetMasivo } =
+        validarHeaderMasivoAntesDeEnviarOProgramar();
+
+      if (!ok) return;
+
+      // Validación básica frontend (evita programar vacío/fecha mala)
+      const testDate = new Date(fechaHoraProgramada);
+      if (Number.isNaN(testDate.getTime())) {
+        swalInfo("Fecha inválida", "La fecha u hora no es válida.");
+        return;
+      }
+
+      // (Opcional pero recomendado) evitar programar en pasado local
+      if (testDate.getTime() < Date.now() - 30 * 1000) {
+        const okPast = await Swal.fire({
+          icon: "question",
+          title: "Hora en el pasado",
+          text: "La fecha/hora seleccionada parece estar en el pasado. ¿Desea continuar?",
+          showCancelButton: true,
+          confirmButtonText: "Sí, continuar",
+          cancelButtonText: "Cancelar",
+        });
+        if (!okPast.isConfirmed) return;
+      }
+
+      const id_configuracion =
+        Number(localStorage.getItem("id_configuracion")) || null;
+
+      if (!id_configuracion) {
+        swalInfo("Configuración", "No se encontró id_configuracion.");
+        return;
+      }
+
+      Swal.fire({
+        title: "Programando envío...",
+        html: "Guardando lote para envío programado.",
+        didOpen: () => Swal.showLoading(),
+        allowOutsideClick: false,
+      });
+
+      // ========= Armar body_json base (igual que envío inmediato) =========
+      // El backend puede extraer placeholders desde graphBody/body_json
+      const recipientEjemplo =
+        items.find((item) => item.id === selected[0]) || null;
+
+      const componentsEjemplo = recipientEjemplo
+        ? construirComponentsTemplateMasivo(recipientEjemplo)
+        : [
+            {
+              type: "body",
+              parameters: (placeholders || []).map((ph) => ({
+                type: "text",
+                text: String(placeholderValues[`body_${ph}`] || ""),
+              })),
+            },
+          ];
+
+      const body_json = {
+        messaging_product: "whatsapp",
+        to: recipientEjemplo?.telefono_limpio || "0000000000", // solo referencia para parseo backend
+        type: "template",
+        template: {
+          name: templateName,
+          language: { code: selectedLanguage || "es" },
+          components: componentsEjemplo,
+        },
+      };
+
+      // ========= Caso con archivo manual => multipart =========
+      if (headerIsMedia && headerFileMasivo) {
+        const fd = new FormData();
+
+        fd.append("selected", JSON.stringify(selected));
+        fd.append("id_configuracion", String(id_configuracion));
+        if (userData?.id_usuario)
+          fd.append("id_usuario", String(userData.id_usuario));
+
+        // opcionales (backend igual revalida desde BD)
+        if (dataAdmin?.telefono)
+          fd.append("telefono_configuracion", String(dataAdmin.telefono));
+        if (dataAdmin?.id_telefono)
+          fd.append("business_phone_id", String(dataAdmin.id_telefono));
+        if (dataAdmin?.waba_id) fd.append("waba_id", String(dataAdmin.waba_id));
+
+        fd.append("nombre_template", String(templateName || ""));
+        fd.append("language_code", String(selectedLanguage || "es"));
+
+        fd.append("template_parameters", JSON.stringify([]));
+        // Deje [] para que backend use graphBody/body_json si quiere extraer;
+        // si prefiere enviar resuelto fijo para todos, aquí podría armar array simple.
+
+        if (headerFormat) fd.append("header_format", String(headerFormat));
+
+        // Si header TEXT, mandar valores base (no usualmente en media)
+        if (headerFormat === "TEXT") {
+          const hp = (headerPlaceholders || []).map(
+            (ph) => headerPlaceholderValues[ph] || "",
+          );
+          fd.append("header_parameters", JSON.stringify(hp));
+        }
+
+        fd.append("fecha_programada", fecha_programada);
+        fd.append("timezone", timezoneProgramada || "America/Guayaquil");
+
+        fd.append(
+          "meta",
+          JSON.stringify({
+            origen: "clientes_modal_masivo",
+            totalSeleccionados: selected.length,
+            modo: "programado",
+          }),
+        );
+
+        fd.append("body_json", JSON.stringify(body_json));
+
+        // archivo manual header
+        fd.append("header_file", headerFileMasivo);
+
+        const { data } = await chatApi.post(
+          "/whatsapp_managment/programar_template_masivo",
+          fd,
+          { headers: { "Content-Type": "multipart/form-data" } },
+        );
+
+        Swal.close();
+
+        if (!data?.ok) {
+          throw new Error(data?.msg || "No se pudo programar el envío");
+        }
+
+        await Swal.fire({
+          icon: "success",
+          title: "Envío programado",
+          html: `
+    <div style="text-align:left;font-size:13px;line-height:1.4">
+      <div><b>Lote:</b> ${data?.data?.uuid_lote || "-"}</div>
+      <div><b>Programados:</b> ${data?.data?.total_programados ?? 0}</div>
+      <div><b>Fecha:</b> ${data?.data?.fecha_programada || fecha_programada}</div>
+      <div><b>Zona horaria:</b> ${data?.data?.timezone || timezoneProgramada}</div>
+    </div>
+  `,
+          confirmButtonText: "OK",
+        });
+
+        closeModal(); // o setIsModalOpenMasivo(false)
+        return;
+      }
+
+      // ========= Caso JSON (sin archivo manual; puede usar asset predeterminado) =========
+      const payload = {
+        selected,
+        id_configuracion,
+        id_usuario: userData?.id_usuario || null,
+
+        // opcionales (backend prioriza DB)
+        telefono_configuracion: dataAdmin?.telefono || null,
+        business_phone_id: dataAdmin?.id_telefono || null,
+        waba_id: dataAdmin?.waba_id || null,
+
+        nombre_template: templateName,
+        language_code: selectedLanguage || "es",
+
+        // Si usted quiere que backend extraiga desde body_json, puede mandar []
+        // Si quiere control fino explícito, mande los del primer recipient o valores fijos.
+        template_parameters: [],
+
+        header_format: headerFormat || null,
+        header_parameters:
+          headerFormat === "TEXT"
+            ? (headerPlaceholders || []).map(
+                (ph) => headerPlaceholderValues[ph] || "",
+              )
+            : null,
+
+        // Si usa asset predeterminado en templates media
+        header_default_asset:
+          headerIsMedia && hasDefaultHeaderAssetMasivo
+            ? {
+                enabled: true,
+                format: headerFormat,
+                url: headerDefaultAssetMasivo.url,
+                source: headerDefaultAssetMasivo.source || "template_example",
+                name:
+                  headerDefaultAssetMasivo.name ||
+                  "Adjunto predeterminado del template",
+              }
+            : null,
+
+        // Compatibilidad directa si backend usa estos planos
+        header_media_url:
+          headerIsMedia && hasDefaultHeaderAssetMasivo
+            ? headerDefaultAssetMasivo.url
+            : null,
+        header_media_name:
+          headerIsMedia && hasDefaultHeaderAssetMasivo
+            ? headerDefaultAssetMasivo.name ||
+              "Adjunto predeterminado del template"
+            : null,
+
+        fecha_programada,
+        timezone: timezoneProgramada || "America/Guayaquil",
+
+        meta: {
+          origen: "clientes_modal_masivo",
+          totalSeleccionados: selected.length,
+          modo: "programado",
+        },
+
+        //Muy útil para que backend extraiga placeholders y header
+        body_json: JSON.stringify(body_json),
+      };
+
+      const { data } = await chatApi.post(
+        "/whatsapp_managment/programar_template_masivo",
+        payload,
+      );
+
+      Swal.close();
+
+      if (!data?.ok) {
+        throw new Error(data?.msg || "No se pudo programar el envío");
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "Envío programado",
+        html: `
+    <div style="text-align:left;font-size:13px;line-height:1.4">
+      <div><b>Lote:</b> ${data?.data?.uuid_lote || "-"}</div>
+      <div><b>Programados:</b> ${data?.data?.total_programados ?? 0}</div>
+      <div><b>Fecha:</b> ${data?.data?.fecha_programada || fecha_programada}</div>
+      <div><b>Zona horaria:</b> ${data?.data?.timezone || timezoneProgramada}</div>
+    </div>
+  `,
+        confirmButtonText: "OK",
+      });
+
+      closeModal(); // o setIsModalOpenMasivo(false)
+    } catch (err) {
+      Swal.close();
+      swalError(
+        "No se pudo programar el envío",
+        err?.response?.data?.msg || err?.response?.data?.error || err?.message,
+      );
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 shadow-sm p-5">
       {/* ====== Header principal ====== */}
@@ -2533,6 +2913,96 @@ export default function Contactos() {
                   </div>
                 )}
 
+                <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900">
+                        Modo de envío
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Por defecto se envía ahora. Active programación si desea
+                        enviarlo más tarde.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProgramarMasivo((prev) => {
+                          const next = !prev;
+                          if (!next) setFechaHoraProgramada(""); // si cancela programación, limpia fecha/hora
+                          return next;
+                        });
+                      }}
+                      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition ${
+                        programarMasivo
+                          ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                          : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <i
+                        className={
+                          programarMasivo
+                            ? "bx bx-calendar-check"
+                            : "bx bx-calendar"
+                        }
+                      />
+                      {programarMasivo ? "Programado" : "Enviar ahora"}
+                    </button>
+                  </div>
+
+                  {programarMasivo && (
+                    <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
+                            Fecha y hora
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={fechaHoraProgramada}
+                            onChange={(e) =>
+                              setFechaHoraProgramada(e.target.value)
+                            }
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                          />
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            Se interpretará según la zona horaria seleccionada.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
+                            Zona horaria
+                          </label>
+                          <input
+                            type="text"
+                            value={timezoneProgramada}
+                            onChange={(e) =>
+                              setTimezoneProgramada(e.target.value)
+                            }
+                            placeholder="Ej: America/Guayaquil"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setTimezoneProgramada(
+                                Intl.DateTimeFormat().resolvedOptions()
+                                  .timeZone || "America/Guayaquil",
+                              )
+                            }
+                            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                          >
+                            <i className="bx bx-reset" />
+                            Usar zona detectada
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between pt-2">
                   {!templateReady ? (
                     <p className="text-[11px] text-amber-600 flex items-center gap-1">
@@ -2545,18 +3015,35 @@ export default function Contactos() {
                       Template listo para enviar.
                     </p>
                   )}
+
                   <button
                     type="button"
-                    onClick={enviarTemplateMasivo}
-                    disabled={!templateReady || !selected.length}
+                    onClick={
+                      programarMasivo
+                        ? programarTemplateMasivo
+                        : enviarTemplateMasivo
+                    }
+                    disabled={
+                      !templateReady ||
+                      !selected.length ||
+                      (programarMasivo && !fechaHoraProgramada)
+                    }
                     className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 ${
-                      templateReady && selected.length
-                        ? "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
+                      templateReady &&
+                      selected.length &&
+                      (!programarMasivo || !!fechaHoraProgramada)
+                        ? programarMasivo
+                          ? "bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-indigo-200"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
                         : "bg-slate-200 text-slate-500 cursor-not-allowed"
                     }`}
                   >
-                    <i className="bx bx-send" />
-                    Enviar template
+                    <i
+                      className={
+                        programarMasivo ? "bx bx-calendar-check" : "bx bx-send"
+                      }
+                    />
+                    {programarMasivo ? "Programar template" : "Enviar template"}
                   </button>
                 </div>
               </form>

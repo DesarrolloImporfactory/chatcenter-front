@@ -34,6 +34,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   // WhatsApp profile / numbers
   const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [numbersLoading, setNumbersLoading] = useState(true);
+  const [portfolioOwner, setPortfolioOwner] = useState(null);
 
   // Templates / quick replies
   const [plantillas, setPlantillas] = useState([]);
@@ -194,9 +195,11 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         });
         const [resp] = await Promise.all([req, minHold]);
         setPhoneNumbers(resp?.data?.data || []);
+        setPortfolioOwner(resp?.data?.portfolio_owner || null);
       } catch (error) {
         console.error("Error al obtener phone_numbers:", error);
         setPhoneNumbers([]);
+        setPortfolioOwner(null);
       } finally {
         setNumbersLoading(false);
       }
@@ -267,7 +270,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       // fetchAsistenteAutomatizado(); // si aplica
     } else if (currentTab === "templates" && id_configuracion !== null) {
       setPageCursors({
-        beforee: null,
+        before: null,
         after: null,
         hasPrev: false,
         hasNext: false,
@@ -517,7 +520,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
           </div>
         )}
 
-        {/* 3) Conectado → perfil completo (tu UI actual) */}
+        {/* 3) Conectado → perfil completo */}
         {!numbersLoading && waConnected && (
           <div className="grid gap-6 p-5 md:grid-cols-2 xl:grid-cols-3">
             {phoneNumbers.slice(0, 1).map((num, index) => {
@@ -700,12 +703,25 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                           {tierLabel}
                         </div>
                       </div>
+
                       <div className="rounded-xl border border-gray-100 bg-white p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-500">
                           Categoría
                         </div>
                         <div className="mt-1 text-sm text-gray-800">
                           {translateVertical(p?.vertical)}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-100 bg-white p-4 sm:col-span-2">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                          Identificador de Portafolio Comercial:
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-gray-800 truncate">
+                          {portfolioOwner?.name || "No disponible"}
+                        </div>
+                        <div className="text-[11px] text-gray-500 font-mono truncate">
+                          {portfolioOwner?.id || "—"}
                         </div>
                       </div>
                     </div>
@@ -730,7 +746,6 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       </div>
     );
   };
-
   // ===== HEADER helpers (WhatsApp Templates) =====
   const getHeaderInfo = (components) => {
     const comps = Array.isArray(components) ? components : [];
