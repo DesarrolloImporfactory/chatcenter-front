@@ -1,0 +1,1 @@
+export { usePlantillas } from "./usePlantillas";
