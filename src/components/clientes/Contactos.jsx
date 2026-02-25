@@ -6,9 +6,12 @@ import { jwtDecode } from "jwt-decode";
 import Select from "react-select";
 import * as XLSX from "xlsx";
 import ImportarXlsxModal from "../clientes/modales/ImportarXlsxModal";
-import ClientForm from "../clientes/modales/ClientForm";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../../pages/Header/pageHeader";
+import Programados from "./Programados";
+import NuevoContacto from "./modales/NuevoContacto";
+import EnviarTemplateMasivo from "./modales/EnviarTemplateMasivo";
+import TablaContactos from "./TablaContactos";
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -270,7 +273,7 @@ function BaseModal({ open, title, onClose, children, footer }) {
         onClick={onClose}
       />
       {/* Card */}
-      <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-slate-900/10 opacity-0 translate-y-1 animate-[modalPop_180ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
+      <div className="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-slate-900/10 opacity-0 translate-y-1 animate-[modalPop_180ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
           <button
@@ -465,6 +468,8 @@ export default function Contactos() {
       },
     });
   };
+
+  const [view, setView] = useState("contactos");
 
   const closeRowMenu = (ev) => {
     const details = ev.currentTarget.closest("details");
@@ -993,17 +998,6 @@ export default function Contactos() {
     }));
   };
 
-  const generarObjetoPlaceholders = (placeholders, placeholderValues) => {
-    const resultado = {};
-
-    placeholders.forEach((placeholder) => {
-      resultado[placeholder] =
-        placeholderValues[placeholder] || `{{${placeholder}}}`;
-    });
-
-    return resultado;
-  };
-
   const agregar_mensaje_enviado = async (
     texto_mensaje,
     tipo_mensaje,
@@ -1056,16 +1050,6 @@ export default function Contactos() {
     if (cantidad <= 200) return 6000;
     if (cantidad <= 500) return 10000;
     return 20000;
-  };
-
-  const guessFilenameFromUrl = (url = "") => {
-    try {
-      const clean = String(url).split("?")[0];
-      const name = clean.split("/").pop() || "";
-      return name || "archivo";
-    } catch {
-      return "archivo";
-    }
   };
 
   function resolverVariableMasiva(raw, recipient, placeholderFallback) {
@@ -1448,8 +1432,6 @@ export default function Contactos() {
   const [orden, setOrden] = useState("recientes");
 
   const [selected, setSelected] = useState([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
 
   const [modalToggleOpen, setModalToggleOpen] = useState(false);
   const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
@@ -2000,87 +1982,8 @@ export default function Contactos() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
-  /* ======= CRUD cliente ======= */
-  async function apiCreate(c) {
-    const payload = {
-      id_plataforma: c.id_plataforma || null,
-      id_configuracion: c.id_configuracion || null,
-      id_etiqueta: c.id_etiqueta || null,
-      uid_cliente: c.uid_cliente || "",
-      nombre_cliente: c.nombre,
-      apellido_cliente: c.apellido,
-      email_cliente: c.email,
-      celular_cliente: c.telefono,
-      imagePath: c.imagePath || "",
-      mensajes_por_dia_cliente: c.mensajes_por_dia_cliente ?? 0,
-      estado_cliente: c.estado ?? 1,
-      chat_cerrado: c.chat_cerrado ?? 0,
-      bot_openia: c.bot_openia ?? 1,
-      pedido_confirmado: c.pedido_confirmado ?? 0,
-    };
-    const { data } = await chatApi.post(
-      "/clientes_chat_center/agregar",
-      payload,
-    );
-    return mapRow(data?.data || data);
-  }
-  async function apiUpdate(id, c) {
-    const payload = {
-      id_plataforma: c.id_plataforma || null,
-      id_configuracion: c.id_configuracion || null,
-      id_etiqueta: c.id_etiqueta || null,
-      uid_cliente: c.uid_cliente || "",
-      nombre_cliente: c.nombre,
-      apellido_cliente: c.apellido,
-      email_cliente: c.email,
-      celular_cliente: c.telefono,
-      imagePath: c.imagePath || "",
-      mensajes_por_dia_cliente: c.mensajes_por_dia_cliente ?? 0,
-      estado_cliente: c.estado ?? 1,
-      chat_cerrado: c.chat_cerrado ?? 0,
-      bot_openia: c.bot_openia ?? 1,
-      pedido_confirmado: c.pedido_confirmado ?? 0,
-    };
-    const { data } = await chatApi.put(
-      `/clientes_chat_center/actualizar/${id}`,
-      payload,
-    );
-    return mapRow(data?.data || data);
-  }
-
   async function apiDelete(id) {
     await chatApi.delete(`/clientes_chat_center/eliminar/${id}`);
-  }
-
-  async function onSave() {
-    try {
-      if (!editing?.nombre && !editing?.telefono && !editing?.email) {
-        await swalInfo(
-          "Datos incompletos",
-          "Ingresa al menos nombre, teléfono o email",
-        );
-        return;
-      }
-      const id = getId(editing);
-      swalLoading(id ? "Actualizando cliente..." : "Creando cliente...");
-      if (id) {
-        const updated = await apiUpdate(id, editing);
-        setItems((prev) => prev.map((x) => (getId(x) === id ? updated : x)));
-      } else {
-        const created = await apiCreate(editing);
-        setItems((prev) => [created, ...prev]);
-      }
-      setDrawerOpen(false);
-      setEditing(null);
-      await apiList(page, true);
-      swalClose();
-      swalToast("Guardado correctamente");
-      await cargarOpcionesFiltroEtiquetas();
-    } catch (e) {
-      console.error("SAVE:", e?.response?.data || e.message);
-      swalClose();
-      swalError("No se pudo guardar", e?.response?.data?.message || e.message);
-    }
   }
 
   async function onDeleteSelected() {
@@ -2530,11 +2433,13 @@ export default function Contactos() {
     }
   };
 
+  const [activeTab, setActiveTab] = useState("contactos");
+
   return (
     <div className="flex h-[calc(100vh-48px)] flex-col rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 shadow-sm p-5">
       {/* ====== Header principal ====== */}
       <PageHeader
-        title="Clientes"
+        title="Contactos y programación de envíos"
         subtitle="Gestiona tus contactos, etiquetas y envíos masivos por WhatsApp."
         icon={<i className="bx bx-user" />}
         actions={[
@@ -2569,1146 +2474,234 @@ export default function Contactos() {
         ]}
       />
 
-      {/* Modal Masivo (UI más limpia) */}
-      {isModalOpenMasivo && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-h-[80vh] w-full max-w-2xl overflow-hidden ring-1 ring-slate-900/10 flex flex-col min-h-0">
-            {/* Header fijo del modal */}
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3 shrink-0">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Enviar mensaje masivo
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Seleccionados: {selected.length} cliente(s)
-                </p>
-              </div>
-              <button
-                onClick={closeModal}
-                className="rounded p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              >
-                <i className="bx bx-x text-xl text-slate-600" />
-              </button>
-            </div>
+      <div className="flex items-center gap-6 border-b border-slate-200 px-4 mt-4">
+        <button
+          onClick={() => setActiveTab("contactos")}
+          className={`pb-3 text-sm font-medium transition ${
+            activeTab === "contactos"
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Contactos
+        </button>
 
-            {/* ✅ ÚNICO contenedor scrolleable: headerRequired + form */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
-              {/* ===== NUEVO: HEADER requerido por template ===== */}
-              {headerRequired && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
-                        <i className="bx bx-image-alt text-sm" />
-                      </span>
-                      Header requerido
-                    </h4>
-                    <span className="text-[11px] text-slate-500">
-                      Tipo: <b>{headerFormat}</b>
-                    </span>
-                  </div>
-
-                  {/* HEADER TEXT con placeholders */}
-                  {headerFormat === "TEXT" && headerPlaceholders.length > 0 && (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {headerPlaceholders.map((ph) => (
-                        <div key={`h-${ph}`}>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">
-                            Header valor para {"{{" + ph + "}}"}
-                          </label>
-                          <input
-                            type="text"
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                            placeholder="Texto para el header"
-                            value={headerPlaceholderValues[ph] || ""}
-                            onChange={(e) =>
-                              setHeaderPlaceholderValues((prev) => ({
-                                ...prev,
-                                [ph]: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* HEADER MEDIA (IMAGE/VIDEO/DOCUMENT) */}
-                  <div className="space-y-3">
-                    <label className="block text-xs font-medium text-slate-700">
-                      {headerDefaultAssetMasivo?.url
-                        ? `Adjunto del header (${headerFormat})`
-                        : `Subir archivo (${headerFormat})`}
-                    </label>
-
-                    {/* Adjunto predeterminado del template (ejemplo Meta) */}
-                    {!!headerDefaultAssetMasivo?.url && !headerFileMasivo && (
-                      <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold text-indigo-900">
-                              Adjunto predeterminado del template detectado
-                            </p>
-                            <p className="text-[11px] text-indigo-700 mt-0.5">
-                              Se usará este archivo automáticamente si no sube
-                              uno manual. Puede reemplazarlo si desea.
-                            </p>
-                          </div>
-
-                          {!headerFileMasivo &&
-                            !!useDefaultHeaderAssetMasivo && (
-                              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                                Usando predeterminado
-                              </span>
-                            )}
-                        </div>
-
-                        <div className="mt-3 rounded-lg border border-white/80 bg-white p-2">
-                          <PreviewFile url={headerDefaultAssetMasivo.url} />
-                          <div className="mt-2 text-[11px] text-slate-500 break-all">
-                            {headerDefaultAssetMasivo.name ||
-                              "Adjunto predeterminado del template"}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Acciones (sin choose file visible) */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label
-                        htmlFor="header_file_input_masivo"
-                        className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        <i className="bx bx-upload" />
-                        {headerFileMasivo
-                          ? "Cambiar archivo"
-                          : "Subir / reemplazar archivo"}
-                      </label>
-
-                      <input
-                        id="header_file_input_masivo"
-                        type="file"
-                        accept={
-                          headerFormat === "IMAGE"
-                            ? "image/*"
-                            : headerFormat === "VIDEO"
-                              ? "video/*"
-                              : "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*"
-                        }
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          if (!file) return;
-
-                          const fmt = headerFormat;
-
-                          const ok =
-                            (fmt === "IMAGE" &&
-                              file.type.startsWith("image/")) ||
-                            (fmt === "VIDEO" &&
-                              file.type.startsWith("video/")) ||
-                            (fmt === "DOCUMENT" && file.type !== "");
-
-                          if (!ok) {
-                            swalToast(
-                              `Archivo inválido para ${fmt}.`,
-                              "warning",
-                            );
-                            e.target.value = "";
-                            setHeaderFileMasivo(null);
-                            return;
-                          }
-
-                          const MAX_MB = 16;
-                          if (file.size / (1024 * 1024) > MAX_MB) {
-                            swalToast(
-                              `El archivo excede ${MAX_MB} MB.`,
-                              "error",
-                            );
-                            e.target.value = "";
-                            setHeaderFileMasivo(null);
-                            return;
-                          }
-
-                          setHeaderFileMasivo(file);
-                          setUseDefaultHeaderAssetMasivo(false); // ✅ al subir uno nuevo, deja de usar el default
-                        }}
-                        className="hidden"
-                      />
-
-                      {/* Volver a usar el predeterminado (si existe y ya subió uno) */}
-                      {!!headerDefaultAssetMasivo?.url &&
-                        !!headerFileMasivo && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setHeaderFileMasivo(null);
-                              setUseDefaultHeaderAssetMasivo(true);
-                            }}
-                            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            <i className="bx bx-reset" />
-                            Usar adjunto predeterminado
-                          </button>
-                        )}
-
-                      {/* Quitar archivo (solo si NO hay predeterminado) */}
-                      {!headerDefaultAssetMasivo?.url && !!headerFileMasivo && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setHeaderFileMasivo(null);
-                            const input = document.getElementById(
-                              "header_file_input_masivo",
-                            );
-                            if (input) input.value = "";
-                          }}
-                          className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-                        >
-                          <i className="bx bx-trash" />
-                          Quitar archivo
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Estado actual */}
-                    <div className="text-xs text-slate-500">
-                      {headerFileMasivo ? (
-                        <span>
-                          Archivo seleccionado: {headerFileMasivo.name}
-                        </span>
-                      ) : headerDefaultAssetMasivo?.url &&
-                        useDefaultHeaderAssetMasivo ? (
-                        <span>
-                          Se enviará el adjunto predeterminado del template. Si
-                          desea, puede reemplazarlo.
-                        </span>
-                      ) : (
-                        <span>No hay archivo seleccionado.</span>
-                      )}
-                    </div>
-
-                    {/* Vista previa archivo manual */}
-                    {headerFileMasivo && (
-                      <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="text-xs text-slate-600 mb-2">
-                          <b>Vista previa:</b> {headerFileMasivo.name} ·{" "}
-                          {(headerFileMasivo.size / (1024 * 1024)).toFixed(2)}{" "}
-                          MB
-                        </div>
-
-                        {headerFileMasivo.type.startsWith("image/") &&
-                          previewUrl && (
-                            <img
-                              src={previewUrl}
-                              alt="preview"
-                              className="max-h-48 rounded-lg border border-slate-200 object-contain bg-white"
-                            />
-                          )}
-
-                        {headerFileMasivo.type.startsWith("video/") &&
-                          previewUrl && (
-                            <video
-                              src={previewUrl}
-                              controls
-                              className="w-full max-h-60 rounded-lg border border-slate-200 bg-black"
-                            />
-                          )}
-
-                        {!headerFileMasivo.type.startsWith("image/") &&
-                          !headerFileMasivo.type.startsWith("video/") && (
-                            <a
-                              href={previewUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs hover:bg-slate-50"
-                            >
-                              <i className="bx bxs-file text-lg text-slate-500" />
-                              Ver documento
-                            </a>
-                          )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h4 className="font-semibold text-sm text-slate-900 flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                      <i className="bx bx-phone text-sm" />
-                    </span>
-                    Template de WhatsApp
-                  </h4>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] text-slate-500 ring-1 ring-slate-200">
-                    <i className="bx bx-check-shield text-xs" />
-                    Templates {templates.length}
-                  </span>
-                </div>
-
-                <Select
-                  id="lista_templates"
-                  options={templates.map((t) => ({
-                    value: t.name,
-                    label: t.name,
-                  }))}
-                  placeholder="Selecciona un template aprobado"
-                  onMenuOpen={() => {
-                    // ✅ solo consulta cuando el usuario abre el dropdown
-                    if (selected.length) abrirModalTemplates();
-                  }}
-                  isLoading={loadingTemplates}
-                  loadingMessage={() => "Cargando..."}
-                  noOptionsMessage={() =>
-                    loadingTemplates ? "Cargando..." : "No hay templates"
-                  }
-                  onChange={(opcion) =>
-                    handleTemplateSelect({
-                      target: { value: opcion ? opcion.value : "" },
-                    })
-                  }
-                  isClearable
-                  styles={customSelectStyles}
-                  classNamePrefix="react-select"
-                />
-
-                <div>
-                  <label
-                    htmlFor="template_textarea"
-                    className="block text-xs font-medium text-slate-700 mb-1"
-                  >
-                    Vista previa del mensaje
-                  </label>
-                  <textarea
-                    id="template_textarea"
-                    rows="6"
-                    value={templateText}
-                    onChange={handleTextareaChange}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </div>
-
-                {!!placeholders.length && (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {placeholders.map((ph) => {
-                      const key = `body_${ph}`;
-                      return (
-                        <div key={ph}>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">
-                            Valor para {"{{" + ph + "}}"}
-                          </label>
-
-                          <input
-                            type="text"
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                            placeholder="Ej: {nombre}, {direccion}, {productos} o texto fijo…"
-                            value={placeholderValues[key] || ""}
-                            onChange={(e) =>
-                              handlePlaceholderChange(key, e.target.value)
-                            }
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold text-slate-900">
-                        Modo de envío
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        Por defecto se envía ahora. Active programación si desea
-                        enviarlo más tarde.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProgramarMasivo((prev) => {
-                          const next = !prev;
-                          if (!next) setFechaHoraProgramada(""); // si cancela programación, limpia fecha/hora
-                          return next;
-                        });
-                      }}
-                      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition ${
-                        programarMasivo
-                          ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                          : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      <i
-                        className={
-                          programarMasivo
-                            ? "bx bx-calendar-check"
-                            : "bx bx-calendar"
-                        }
-                      />
-                      {programarMasivo ? "Programando envío" : "Enviar ahora"}
-                    </button>
-                  </div>
-
-                  {programarMasivo && (
-                    <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">
-                            Fecha y hora
-                          </label>
-                          <input
-                            type="datetime-local"
-                            value={fechaHoraProgramada}
-                            onChange={(e) =>
-                              setFechaHoraProgramada(e.target.value)
-                            }
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
-                          />
-                          <p className="mt-1 text-[11px] text-slate-500">
-                            Se interpretará según la zona horaria seleccionada.
-                          </p>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">
-                            Zona horaria
-                          </label>
-                          <input
-                            type="text"
-                            value={timezoneProgramada}
-                            onChange={(e) =>
-                              setTimezoneProgramada(e.target.value)
-                            }
-                            placeholder="Ej: America/Guayaquil"
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setTimezoneProgramada(
-                                Intl.DateTimeFormat().resolvedOptions()
-                                  .timeZone || "America/Guayaquil",
-                              )
-                            }
-                            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                          >
-                            <i className="bx bx-reset" />
-                            Usar zona detectada
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  {!templateReady ? (
-                    <p className="text-[11px] text-amber-600 flex items-center gap-1">
-                      <i className="bx bx-error-circle text-sm" />
-                      Completa todos los campos del template para enviar.
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-emerald-600 flex items-center gap-1">
-                      <i className="bx bx-check-circle text-sm" />
-                      Template listo para enviar.
-                    </p>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={
-                      programarMasivo
-                        ? programarTemplateMasivo
-                        : enviarTemplateMasivo
-                    }
-                    disabled={
-                      !templateReady ||
-                      !selected.length ||
-                      (programarMasivo && !fechaHoraProgramada)
-                    }
-                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 ${
-                      templateReady &&
-                      selected.length &&
-                      (!programarMasivo || !!fechaHoraProgramada)
-                        ? programarMasivo
-                          ? "bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-indigo-200"
-                          : "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200"
-                        : "bg-slate-200 text-slate-500 cursor-not-allowed"
-                    }`}
-                  >
-                    <i
-                      className={
-                        programarMasivo ? "bx bx-calendar-check" : "bx bx-send"
-                      }
-                    />
-                    {programarMasivo ? "Programar template" : "Enviar template"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Agregar nuevo contacto */}
-      {isModalOpenNuevoContact && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-h-[80vh] w-full max-w-xl overflow-hidden ring-1 ring-slate-900/10">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Agregar nuevo contacto
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Completa los datos del nuevo contacto
-                </p>
-              </div>
-
-              <button
-                onClick={closeModalNuevoContact}
-                className="rounded p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              >
-                <i className="bx bx-x text-xl text-slate-600" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-5 space-y-4 overflow-y-auto flex-1">
-              <form className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
-                {/* Teléfono */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    value={nuevoTelefonoContacto}
-                    onChange={(e) => setNuevoTelefonoContacto(e.target.value)}
-                    placeholder="Ej: 593 99 999 9999"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </div>
-
-                {/* Nombre */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={nuevoNombreContacto}
-                    onChange={(e) => setNuevoNombreContacto(e.target.value)}
-                    placeholder="Ej: Juan"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </div>
-
-                {/* Apellido */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Apellido
-                  </label>
-                  <input
-                    type="text"
-                    value={nuevoApellidoContacto}
-                    onChange={(e) => setNuevoApellidoContacto(e.target.value)}
-                    placeholder="Ej: Pérez"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={closeModalNuevoContact}
-                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-                  >
-                    Cancelar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={guardarNuevoContacto}
-                    disabled={
-                      !nuevoTelefonoContacto.trim() ||
-                      !nuevoNombreContacto.trim() ||
-                      !nuevoApellidoContacto.trim()
-                    }
-                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 ${
-                      nuevoTelefonoContacto.trim() &&
-                      nuevoNombreContacto.trim() &&
-                      nuevoApellidoContacto.trim()
-                        ? "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-200"
-                        : "bg-slate-200 text-slate-500 cursor-not-allowed"
-                    }`}
-                  >
-                    <i className="bx bx-user-plus" />
-                    Guardar contacto
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ====== Subtoolbar (buscador + columnas) ====== */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white/70 px-4 py-3 backdrop-blur-sm">
-        <div className="relative flex-1 min-w-[240px] max-w-[520px]">
-          <i className="bx bx-search absolute left-3 top-2.5 text-slate-500" />
-          <input
-            className="w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800 outline-none ring-1 ring-transparent transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60"
-            placeholder="Buscar por nombre, apellido o teléfono…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
+        <button
+          onClick={() => setActiveTab("programados")}
+          className={`pb-3 text-sm font-medium transition ${
+            activeTab === "programados"
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Mensajes Programados
+        </button>
       </div>
 
-      {/* ====== Filtros ====== */}
-      <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-2 text-xs">
-        <div className="flex items-center gap-2">
-          {["todos", "1", "0"].map((e) => (
-            <button
-              key={e}
-              onClick={() => setEstado(e)}
-              className={`rounded-full border px-3 py-1 transition text-xs ${
-                estado === e
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                  : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
-              }`}
-            >
-              {e === "todos" ? "Todos" : e === "1" ? "Activos" : "Inactivos"}
-            </button>
-          ))}
-        </div>
-
-        <div className="ml-3 flex items-center gap-2">
-          <TagSelect
-            options={opcionesFiltroEtiquetas}
-            value={idEtiquetaFiltro}
-            onChange={setIdEtiquetaFiltro}
-            disabled={false}
-            unavailable={false}
-          />
-
-          <select
-            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
-            value={orden}
-            onChange={(e) => setOrden(e.target.value)}
-            title="Orden"
-          >
-            <option value="recientes">Más recientes</option>
-            <option value="antiguos">Más antiguos</option>
-            <option value="actividad_desc">Actividad (desc)</option>
-            <option value="actividad_asc">Actividad (asc)</option>
-          </select>
-
-          <button
-            onClick={() => {
-              setQ("");
-              setEstado("todos");
-              setIdEtiquetaFiltro("");
-              setOrden("recientes");
-            }}
-            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 transition"
-          >
-            <i className="bx bx-reset text-sm" />
-            Limpiar
-          </button>
-
-          {/* TAGS acciones rápidas */}
-          <div className="ml-4 flex items-center gap-1">
-            <Tooltip label="Asignar etiquetas a seleccionados">
-              <button
-                className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-                onClick={() => ensureCatalogAndOpen("asignar")}
-                disabled={!selected.length}
-              >
-                <i className="bx bxs-purchase-tag-alt text-[16px]" />
-              </button>
-            </Tooltip>
-            <Tooltip label="Quitar etiquetas a seleccionados">
-              <button
-                className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-                onClick={() => ensureCatalogAndOpen("quitar")}
-                disabled={!selected.length}
-              >
-                <i className="bx bxs-minus-circle text-[16px]" />
-              </button>
-            </Tooltip>
-            <Tooltip label="Crear nueva etiqueta">
-              <button
-                className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                onClick={() => ensureCatalogAndOpen("crear")}
-              >
-                <i className="bx bxs-plus-circle text-[16px]" />
-              </button>
-            </Tooltip>
+      {activeTab === "contactos" && (
+        <>
+          {/* ====== Subtoolbar (buscador + columnas) ====== */}
+          <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white/70 px-4 py-3 backdrop-blur-sm">
+            <div className="relative flex-1 min-w-[240px] max-w-[520px]">
+              <i className="bx bx-search absolute left-3 top-2.5 text-slate-500" />
+              <input
+                className="w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800 outline-none ring-1 ring-transparent transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60"
+                placeholder="Buscar por nombre, apellido o teléfono…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
           </div>
 
-          {/* Eliminar */}
-          <Tooltip label="Eliminar clientes seleccionados">
-            <button
-              disabled={!selected.length}
-              onClick={onDeleteSelected}
-              className="ml-2 inline-flex items-center justify-center h-8 w-8 rounded-full border border-red-100 bg-red-50 text-red-500 hover:bg-red-100 disabled:opacity-40"
-            >
-              <i className="bx bxs-trash-alt text-[16px]" />
-            </button>
-          </Tooltip>
-        </div>
-      </div>
-
-      {/* ====== Tabla ====== */}
-      <div className="flex-1 overflow-auto">
-        <table className="min-w-full table-fixed border-separate border-spacing-0">
-          <thead>
-            <tr className="[&>th]:border-b [&>th]:px-3 [&>th]:text-slate-600 text-xs">
-              <th className="w-10">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-1 focus:ring-blue-500/60"
-                  checked={allSelected}
-                  onChange={(e) => toggleSelectAll(e.target.checked)}
-                />
-              </th>
-
-              {cols.name && (
-                <th className="text-left">
-                  <SortButton
-                    label="Nombre"
-                    active={/recientes|antiguos/.test(orden)}
-                    dir={orden === "antiguos" ? "asc" : "desc"}
-                    onClick={() =>
-                      setOrden((o) =>
-                        o === "recientes" ? "antiguos" : "recientes",
-                      )
-                    }
-                  />
-                </th>
-              )}
-              {cols.phone && (
-                <th className="w-56 text-left">
-                  <SortButton
-                    label="Teléfono"
-                    active={false}
-                    onClick={() => {}}
-                    className="text-slate-500"
-                  />
-                </th>
-              )}
-              {cols.email && (
-                <th className="w-72 text-left">
-                  <SortButton
-                    label="Email"
-                    active={false}
-                    onClick={() => {}}
-                    className="text-slate-500"
-                  />
-                </th>
-              )}
-              {cols.created && (
-                <th className="w-40 text-left">
-                  <SortButton
-                    label="Creado"
-                    active={/recientes|antiguos/.test(orden)}
-                    dir={orden === "antiguos" ? "asc" : "desc"}
-                    onClick={() =>
-                      setOrden((o) =>
-                        o === "recientes" ? "antiguos" : "recientes",
-                      )
-                    }
-                  />
-                </th>
-              )}
-              {cols.last_activity && (
-                <th className="w-48 text-left">
-                  <SortButton
-                    label="Última actividad"
-                    active={/actividad_/.test(orden)}
-                    dir={orden === "actividad_asc" ? "asc" : "desc"}
-                    onClick={() =>
-                      setOrden((o) =>
-                        o === "actividad_desc"
-                          ? "actividad_asc"
-                          : "actividad_desc",
-                      )
-                    }
-                  />
-                </th>
-              )}
-              {cols.tags && <th className="w-48 text-left">Tags</th>}
-              <th className="w-24 text-right">Acciones</th>
-            </tr>
-          </thead>
-
-          <tbody className="[&>tr:nth-child(even)]:bg-slate-50/40 text-xs">
-            {!loading && items.length === 0 && (
-              <tr>
-                <td colSpan={9} className="py-16">
-                  <div className="mx-auto max-w-md text-center">
-                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
-                      <i className="bx bx-user-circle text-2xl text-slate-500" />
-                    </div>
-                    <h4 className="text-sm font-semibold text-slate-800">
-                      Sin clientes
-                    </h4>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Aún no hay registros que coincidan con tu
-                      búsqueda/filtros.
-                    </p>
-                    <button
-                      className="mt-4 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
-                      onClick={() => {
-                        setEditing({});
-                        setDrawerOpen(true);
-                      }}
-                    >
-                      Crear cliente
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )}
-
-            {loading &&
-              items.length === 0 &&
-              Array.from({ length: 6 }).map((_, i) => (
-                <tr key={`sk-${i}`}>
-                  <td>
-                    <div className="h-4 w-4 rounded bg-slate-200 animate-pulse" />
-                  </td>
-                  <td colSpan={5}>
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
-                      <div className="h-3 w-1/3 rounded bg-slate-200 animate-pulse" />
-                    </div>
-                  </td>
-                  <td>
-                    <div className="h-3 w-24 rounded bg-slate-200 animate-pulse" />
-                  </td>
-                </tr>
-              ))}
-
-            {items.map((c, idx) => {
-              const id = getId(c) ?? idx;
-              const nombre =
-                `${c.nombre || ""} ${c.apellido || ""}`.trim() || "Sin nombre";
-              return (
-                <tr
-                  key={id}
-                  className={`hover:bg-slate-50/90 [&>td]:border-b [&>td]:px-3 transition-colors`}
+          {/* ====== Filtros ====== */}
+          <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-2 text-xs">
+            <div className="flex items-center gap-2">
+              {["todos", "1", "0"].map((e) => (
+                <button
+                  key={e}
+                  onClick={() => setEstado(e)}
+                  className={`rounded-full border px-3 py-1 transition text-xs ${
+                    estado === e
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                  }`}
                 >
-                  <td>
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-1 focus:ring-blue-500/60"
-                      checked={selected.includes(id)}
-                      onChange={() => toggleSelect(id)}
-                    />
-                  </td>
-
-                  {cols.name && (
-                    <td className="min-w-0">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
-                          {initials(c.nombre, c.apellido)}
-                        </div>
-                        <div className="min-w-0">
-                          <button
-                            className="block truncate font-medium text-slate-900 hover:underline"
-                            onClick={() => {
-                              setEditing(c);
-                              setDrawerOpen(true);
-                            }}
-                          >
-                            {nombre}
-                          </button>
-                        </div>
-                      </div>
-                    </td>
-                  )}
-
-                  {cols.phone && (
-                    <td className="min-w-0">
-                      <div className="flex items-center gap-2 truncate text-sm text-slate-700">
-                        <i className="bx bx-phone text-xs text-slate-400" />
-                        <span className="truncate">{getDisplayContact(c)}</span>
-                      </div>
-                    </td>
-                  )}
-
-                  {cols.email && (
-                    <td className="min-w-0">
-                      <div className="flex items-center gap-2 truncate text-sm text-slate-700">
-                        <i className="bx bx-envelope text-xs text-slate-400" />
-                        <span className="truncate">{c.email || "-"}</span>
-                      </div>
-                    </td>
-                  )}
-
-                  {cols.created && (
-                    <td className="text-sm text-slate-700">
-                      <div>{fmtDate(c.createdAt)}</div>
-                      <div className="text-[11px] text-slate-500">
-                        {fmtTime(c.createdAt)}
-                      </div>
-                    </td>
-                  )}
-
-                  {cols.last_activity && (
-                    <td className="text-sm text-slate-700">
-                      <div className="flex items-center gap-2">
-                        <i className="bx bx-time-five text-slate-500 text-xs" />
-                        <span>{timeAgo(c.ultima_actividad)}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        {fmtDateTime(c.ultima_actividad)}
-                      </div>
-                    </td>
-                  )}
-
-                  {cols.tags && (
-                    <td className="min-w-0">
-                      <div className="flex flex-wrap gap-1">
-                        {Array.isArray(c.etiquetas) && c.etiquetas.length ? (
-                          c.etiquetas.map((t, i) => (
-                            <Chip key={i} color={t.color}>
-                              {t.nombre}
-                            </Chip>
-                          ))
-                        ) : (
-                          <span className="text-slate-400 italic">
-                            Sin etiquetas
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                  <td className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {/* ✅ Acción primaria: Abrir chat (icon-only, pro) */}
-                      <button
-                        onClick={() => openChatById(c)}
-                        className="
-                        inline-flex h-9 w-9 items-center justify-center
-                        rounded-full bg-emerald-600 text-white shadow-sm
-                        hover:bg-emerald-700
-                        focus:outline-none focus:ring-4 focus:ring-emerald-200
-                        transition
-                      "
-                        title="Abrir chat"
-                        aria-label="Abrir chat"
-                      >
-                        <i className="bx bxs-chat text-[18px]" />
-                      </button>
-
-                      {/* ✅ Menú secundario (sin mezclar con abrir chat) */}
-                      <div className="relative">
-                        <details className="group">
-                          <summary
-                            className="
-                              list-none inline-flex h-9 w-9 cursor-pointer items-center justify-center
-                              rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm
-                              hover:bg-slate-50
-                              focus:outline-none focus:ring-4 focus:ring-blue-200/60
-                              transition
-                            "
-                            title="Más acciones"
-                            aria-label="Más acciones"
-                          >
-                            <i className="bx bx-dots-vertical-rounded text-[18px]" />
-                          </summary>
-
-                          {/* Dropdown */}
-                          <div
-                            className="
-          absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl
-          border border-slate-200 bg-white shadow-lg ring-1 ring-slate-900/5
-        "
-                          >
-                            <button
-                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50"
-                              onClick={(e) => {
-                                closeRowMenu(e);
-                                setEditing(c);
-                                setDrawerOpen(true);
-                              }}
-                            >
-                              <i className="bx bx-edit-alt text-sm text-slate-500" />
-                              Editar
-                            </button>
-
-                            <button
-                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50"
-                              onClick={async (e) => {
-                                closeRowMenu(e);
-                                if (!selected.includes(id))
-                                  setSelected((prev) => [...prev, id]);
-                                setIdConfigForTags(
-                                  c.id_configuracion || idConfigForTags,
-                                );
-                                await ensureCatalogAndOpen("toggle");
-                              }}
-                              title="Etiquetas"
-                            >
-                              <i className="bx bxs-purchase-tag-alt text-sm text-slate-500" />
-                              Etiquetas…
-                            </button>
-
-                            <div className="my-1 h-px bg-slate-100" />
-
-                            <button
-                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-red-600 hover:bg-red-50"
-                              onClick={async (e) => {
-                                closeRowMenu(e);
-                                const ok = await swalConfirm(
-                                  "Eliminar cliente",
-                                  "¿Seguro que deseas eliminarlo?",
-                                );
-                                if (!ok) return;
-                                try {
-                                  swalLoading("Eliminando...");
-                                  await apiDelete(id);
-                                  setItems((prev) =>
-                                    prev.filter((x) => getId(x) !== id),
-                                  );
-                                  swalClose();
-                                  swalToast("Cliente eliminado");
-                                  await cargarOpcionesFiltroEtiquetas();
-                                } catch (err) {
-                                  swalClose();
-                                  swalError(
-                                    "No se pudo eliminar",
-                                    err?.message,
-                                  );
-                                }
-                              }}
-                            >
-                              <i className="bx bxs-trash-alt text-sm" />
-                              Eliminar
-                            </button>
-                          </div>
-                        </details>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {loading && items.length > 0 && (
-          <div className="flex items-center justify-center py-4 text-sm text-slate-500">
-            Cargando…
-          </div>
-        )}
-        {!hasMore && items.length > 0 && (
-          <div className="flex items-center justify-center py-4 text-[11px] text-slate-400">
-            No hay más resultados
-          </div>
-        )}
-      </div>
-
-      {/* ===== Footer de paginación (MOVIDO ABAJO) ===== */}
-      <div className="flex items-center justify-between border-t border-slate-200 bg-white/80 px-4 py-2 text-xs">
-        <span className="text-slate-600">
-          {typeof total === "number"
-            ? `Total ${total} clientes`
-            : `Mostrando ${items.length}`}
-          {items.length > 0 &&
-            ` · Página ${page} de ${
-              typeof total === "number"
-                ? Math.max(1, Math.ceil(total / LIMIT))
-                : "—"
-            }`}
-        </span>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <span className="text-slate-500">Tamaño</span>
-            <select
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-            >
-              {[10, 20, 25, 50, 100, 200, 500].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
+                  {e === "todos"
+                    ? "Todos"
+                    : e === "1"
+                      ? "Activos"
+                      : "Inactivos"}
+                </button>
               ))}
-            </select>
-          </div>
-          <div className="flex items-center">
-            <button
-              className="rounded-l-md border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40"
-              disabled={page <= 1 || loading}
-              onClick={() => apiList(page - 1, true)}
-              title="Anterior"
-            >
-              <i className="bx bx-chevron-left" />
-            </button>
-            <button
-              className="rounded-r-md border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40"
-              disabled={!hasMore || loading}
-              onClick={() => apiList(page + 1, true)}
-              title="Siguiente"
-            >
-              <i className="bx bx-chevron-right" />
-            </button>
-          </div>
-        </div>
-      </div>
+            </div>
 
-      {/* ===== Drawer crear/editar ===== */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] animate-[backdropIn_180ms_ease-out_forwards]"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-xl ring-1 ring-slate-900/5 translate-x-full animate-[drawerIn_200ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-              <h3 className="text-sm font-semibold text-slate-900">
-                {editing && getId(editing) ? "Editar cliente" : "Nuevo cliente"}
-              </h3>
-              <button
-                className="rounded p-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                onClick={() => setDrawerOpen(false)}
-                aria-label="Cerrar panel"
+            <div className="ml-3 flex items-center gap-2">
+              <TagSelect
+                options={opcionesFiltroEtiquetas}
+                value={idEtiquetaFiltro}
+                onChange={setIdEtiquetaFiltro}
+                disabled={false}
+                unavailable={false}
+              />
+
+              <select
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+                value={orden}
+                onChange={(e) => setOrden(e.target.value)}
+                title="Orden"
               >
-                <i className="bx bx-x text-xl text-slate-600" />
-              </button>
-            </div>
-            <div className="h-[calc(100%-108px)] overflow-y-auto px-5 py-3">
-              <ClientForm value={editing} onChange={setEditing} />
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
+                <option value="recientes">Más recientes</option>
+                <option value="antiguos">Más antiguos</option>
+                <option value="actividad_desc">Actividad (desc)</option>
+                <option value="actividad_asc">Actividad (asc)</option>
+              </select>
+
               <button
-                onClick={() => setDrawerOpen(false)}
-                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+                onClick={() => {
+                  setQ("");
+                  setEstado("todos");
+                  setIdEtiquetaFiltro("");
+                  setOrden("recientes");
+                }}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 transition"
               >
-                Cancelar
+                <i className="bx bx-reset text-sm" />
+                Limpiar
               </button>
-              <button
-                onClick={onSave}
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
-              >
-                Guardar
-              </button>
+
+              {/* TAGS acciones rápidas */}
+              <div className="ml-4 flex items-center gap-1">
+                <Tooltip label="Asignar etiquetas a seleccionados">
+                  <button
+                    className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                    onClick={() => ensureCatalogAndOpen("asignar")}
+                    disabled={!selected.length}
+                  >
+                    <i className="bx bxs-purchase-tag-alt text-[16px]" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Quitar etiquetas a seleccionados">
+                  <button
+                    className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                    onClick={() => ensureCatalogAndOpen("quitar")}
+                    disabled={!selected.length}
+                  >
+                    <i className="bx bxs-minus-circle text-[16px]" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Crear nueva etiqueta">
+                  <button
+                    className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    onClick={() => ensureCatalogAndOpen("crear")}
+                  >
+                    <i className="bx bxs-plus-circle text-[16px]" />
+                  </button>
+                </Tooltip>
+              </div>
+
+              {/* Eliminar */}
+              <Tooltip label="Eliminar clientes seleccionados">
+                <button
+                  disabled={!selected.length}
+                  onClick={onDeleteSelected}
+                  className="ml-2 inline-flex items-center justify-center h-8 w-8 rounded-full border border-red-100 bg-red-50 text-red-500 hover:bg-red-100 disabled:opacity-40"
+                >
+                  <i className="bx bxs-trash-alt text-[16px]" />
+                </button>
+              </Tooltip>
             </div>
           </div>
-          <style>{`
-          @keyframes drawerIn { to { transform: translateX(0); } }
-        `}</style>
-        </div>
+
+          <TablaContactos
+            items={items}
+            selected={selected}
+            toggleSelect={toggleSelect}
+            allSelected={allSelected}
+            toggleSelectAll={toggleSelectAll}
+            cols={cols}
+            SortButton={SortButton}
+            orden={orden}
+            loading={loading}
+            hasMore={hasMore}
+            getId={getId}
+            initials={initials}
+            getDisplayContact={getDisplayContact}
+            fmtDate={fmtDate}
+            fmtTime={fmtTime}
+            timeAgo={timeAgo}
+            fmtDateTime={fmtDateTime}
+            openChatById={openChatById}
+            closeRowMenu={closeRowMenu}
+            setSelected={setSelected}
+            setIdConfigForTags={setIdConfigForTags}
+            ensureCatalogAndOpen={ensureCatalogAndOpen}
+            Chip={Chip}
+            swalToast={swalToast}
+            swalConfirm={swalConfirm}
+            swalClose={swalClose}
+            swalError={swalError}
+            swalLoading={swalLoading}
+            idConfigForTags={idConfigForTags}
+            setOrden={setOrden}
+            cargarOpcionesFiltroEtiquetas={cargarOpcionesFiltroEtiquetas}
+            apiDelete={apiDelete}
+            mapRow={mapRow}
+            setItems={setItems}
+          />
+
+          {/* ===== Footer de paginación (MOVIDO ABAJO) ===== */}
+          <div className="flex items-center justify-between border-t border-slate-200 bg-white/80 px-4 py-2 text-xs">
+            <span className="text-slate-600">
+              {typeof total === "number"
+                ? `Total ${total} clientes`
+                : `Mostrando ${items.length}`}
+              {items.length > 0 &&
+                ` · Página ${page} de ${
+                  typeof total === "number"
+                    ? Math.max(1, Math.ceil(total / LIMIT))
+                    : "—"
+                }`}
+            </span>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">Tamaño</span>
+                <select
+                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                >
+                  {[10, 20, 25, 50, 100, 200, 500].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center">
+                <button
+                  className="rounded-l-md border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40"
+                  disabled={page <= 1 || loading}
+                  onClick={() => apiList(page - 1, true)}
+                  title="Anterior"
+                >
+                  <i className="bx bx-chevron-left" />
+                </button>
+                <button
+                  className="rounded-r-md border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40"
+                  disabled={!hasMore || loading}
+                  onClick={() => apiList(page + 1, true)}
+                  title="Siguiente"
+                >
+                  <i className="bx bx-chevron-right" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
+
+      {activeTab === "programados" && <Programados />}
 
       {/* ===== Modales de etiquetas ===== */}
       <ModalTags
@@ -3755,6 +2748,54 @@ export default function Contactos() {
         chatApi={chatApi}
         apiList={apiList}
         cargarOpcionesFiltroEtiquetas={cargarOpcionesFiltroEtiquetas}
+      />
+      <NuevoContacto
+        isOpen={isModalOpenNuevoContact}
+        closeModal={closeModalNuevoContact}
+        nuevoTelefonoContacto={nuevoTelefonoContacto}
+        setNuevoTelefonoContacto={setNuevoTelefonoContacto}
+        nuevoNombreContacto={nuevoNombreContacto}
+        setNuevoNombreContacto={setNuevoNombreContacto}
+        nuevoApellidoContacto={nuevoApellidoContacto}
+        setNuevoApellidoContacto={setNuevoApellidoContacto}
+        guardarNuevoContacto={guardarNuevoContacto}
+      />
+      <EnviarTemplateMasivo
+        isOpen={isModalOpenMasivo}
+        closeModal={closeModal}
+        selected={selected}
+        templates={templates}
+        headerRequired={headerRequired}
+        headerFormat={headerFormat}
+        headerPlaceholders={headerPlaceholders}
+        headerPlaceholderValues={headerPlaceholderValues}
+        setHeaderPlaceholderValues={setHeaderPlaceholderValues}
+        headerDefaultAssetMasivo={headerDefaultAssetMasivo}
+        headerFileMasivo={headerFileMasivo}
+        setHeaderFileMasivo={setHeaderFileMasivo}
+        useDefaultHeaderAssetMasivo={useDefaultHeaderAssetMasivo}
+        setUseDefaultHeaderAssetMasivo={setUseDefaultHeaderAssetMasivo}
+        previewUrl={previewUrl}
+        programarMasivo={programarMasivo}
+        fechaHoraProgramada={fechaHoraProgramada}
+        timezoneProgramada={timezoneProgramada}
+        setProgramarMasivo={setProgramarMasivo}
+        setFechaHoraProgramada={setFechaHoraProgramada}
+        setTimezoneProgramada={setTimezoneProgramada}
+        loadingTemplates={loadingTemplates}
+        customSelectStyles={customSelectStyles}
+        templateText={templateText}
+        handleTextareaChange={handleTextareaChange}
+        handlePlaceholderChange={handlePlaceholderChange}
+        placeholders={placeholders}
+        placeholderValues={placeholderValues}
+        templateReady={templateReady}
+        enviarTemplateMasivo={enviarTemplateMasivo}
+        programarTemplateMasivo={programarTemplateMasivo}
+        abrirModalTemplates={abrirModalTemplates}
+        handleTemplateSelect={handleTemplateSelect}
+        PreviewFile={PreviewFile}
+        swalToast={swalToast}
       />
     </div>
   );

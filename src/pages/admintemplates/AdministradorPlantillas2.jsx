@@ -1613,7 +1613,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
               {r.mensaje ||
                 (r.error
                   ? traducirErrorMeta(r.error)
-                  : "Plantilla creada exitósamente.")}
+                  : "Plantilla creada exitosamente.")}
             </div>
           </div>
         ))}

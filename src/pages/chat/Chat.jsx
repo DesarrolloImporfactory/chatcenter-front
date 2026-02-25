@@ -13,7 +13,6 @@ import { es } from "date-fns/locale"; // Importa el locale para español
 import Cabecera from "../../components/chat/Cabecera";
 import { Sidebar } from "../../components/chat/Sidebar";
 import ChatPrincipal from "../../components/chat/ChatPrincipal";
-import DatosUsuario from "../../components/chat/DatosUsuario";
 import DatosUsuarioModerno from "../../components/chat/DatosUsuarioModerno";
 import Modales from "../../components/chat/Modales";
 import Loading from "../../components/chat/Loading";
