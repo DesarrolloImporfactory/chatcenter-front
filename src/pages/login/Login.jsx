@@ -23,14 +23,61 @@ export default function Login() {
   const onSubmit = (data) => {
     return dispatch(loginThunk(data))
       .unwrap()
-      .then(() => {
+      .then((userData) => {
         reset();
+
         const role = localStorage.getItem("user_role");
+
+        // Super admin → siempre a su panel
         if (role === "super_administrador") {
           navigate("/administrador-conexiones");
-        } else {
-          navigate("/conexiones");
+          return;
         }
+
+        // ── Lógica de redirección según estado del plan ──────────────────────
+        const { estado, trial_end, id_plan, fecha_renovacion, permanente } =
+          userData;
+
+        const ahora = new Date();
+
+        // 1. Plan permanente → acceso directo
+        if (Number(permanente) === 1) {
+          navigate("/conexiones");
+          return;
+        }
+
+        // 2. Bloqueado duro → a planes
+        if (estado === "suspendido" || estado === "cancelado") {
+          navigate("/planes");
+          return;
+        }
+
+        // 3. Trial activo y vigente → acceso directo
+        if (estado === "activo" && trial_end && ahora <= new Date(trial_end)) {
+          navigate("/conexiones");
+          return;
+        }
+
+        // 4. Sin plan → a planes
+        if (!id_plan) {
+          navigate("/planes");
+          return;
+        }
+
+        // 5. Plan vencido por fecha → a planes
+        if (fecha_renovacion && ahora > new Date(fecha_renovacion)) {
+          navigate("/planes");
+          return;
+        }
+
+        // 6. Estado no activo → a planes
+        if (estado !== "activo") {
+          navigate("/planes");
+          return;
+        }
+
+        // 7. Todo OK → conexiones
+        navigate("/conexiones");
       })
       .catch((e) => {
         setError("root", {

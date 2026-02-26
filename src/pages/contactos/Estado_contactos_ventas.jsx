@@ -17,16 +17,7 @@ const Toast = Swal.mixin({
   },
 });
 
-function PreviewContent({
-  tipo,
-  texto,
-  ruta,
-  rutaRaw,
-  replyRef,
-  replyAuthor,
-  isOpen,
-}) {
-  // ---- helpers ----
+function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor }) {
   const parseDocMeta = (raw) => {
     try {
       return JSON.parse(raw);
@@ -53,14 +44,12 @@ function PreviewContent({
       </div>
     ) : null;
 
-  // ---- UBICACIÓN ----
   const renderLocation = () => {
     try {
       const json = JSON.parse(texto || "{}");
       let { latitude, longitude, longitud } = json;
-      if (longitude === undefined && longitud !== undefined) {
+      if (longitude === undefined && longitud !== undefined)
         longitude = longitud;
-      }
       if (
         !Number.isFinite(Number(latitude)) ||
         !Number.isFinite(Number(longitude))
@@ -71,10 +60,8 @@ function PreviewContent({
           </div>
         );
       }
-
       const src = `https://www.google.com/maps/embed/v1/place?key=AIzaSyDGulcdBtz_Mydtmu432GtzJz82J_yb-rs&q=${latitude},${longitude}&zoom=15`;
       const link = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-
       return (
         <div className="w-full">
           <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
@@ -100,8 +87,7 @@ function PreviewContent({
           </a>
         </div>
       );
-    } catch (error) {
-      console.error("Error al parsear la ubicación:", error);
+    } catch {
       return (
         <div className="text-[13px] text-slate-600">
           Error al mostrar la ubicación.
@@ -110,20 +96,15 @@ function PreviewContent({
     }
   };
 
-  // ---- RAMAS ----
-
-  // AUDIO
   if (tipo === "audio") {
     const src = rutaRaw || ruta;
     return (
       <div>
         <Quote />
-        <PreviewAudioPlayer src={src} />
+        <audio controls src={src} className="w-full" />
       </div>
     );
   }
-
-  // IMAGEN / STICKER
   if (tipo === "image" || tipo === "sticker") {
     return (
       <div>
@@ -136,8 +117,6 @@ function PreviewContent({
       </div>
     );
   }
-
-  // VIDEO
   if (tipo === "video") {
     return (
       <div>
@@ -150,8 +129,6 @@ function PreviewContent({
       </div>
     );
   }
-
-  // DOCUMENTO
   if (tipo === "document") {
     const meta = parseDocMeta(ruta);
     const href = /^https?:\/\//.test(meta.ruta)
@@ -167,7 +144,6 @@ function PreviewContent({
       meta.mimeType?.split("/").pop() ||
       ""
     ).toUpperCase();
-
     return (
       <div>
         <Quote />
@@ -191,8 +167,6 @@ function PreviewContent({
       </div>
     );
   }
-
-  // UBICACIÓN
   if (tipo === "location") {
     return (
       <div>
@@ -201,12 +175,9 @@ function PreviewContent({
       </div>
     );
   }
-
-  // TEXTO / TEMPLATE (render simple; si quieres expansión de {{}} hazlo fuera)
   return (
     <div>
       <Quote />
-
       <div
         style={{
           backdropFilter: "blur(14px)",
@@ -233,33 +204,16 @@ const KANBAN_COLUMNS = {
     label: "CONTACTO INICIAL",
     bg: "#e3f2fd",
   },
-  IA_VENTAS: {
-    key: "IA_VENTAS",
-    label: "IA VENTAS",
-    bg: "#e8f5e9",
-  },
-  GENERAR_GUIA: {
-    key: "GENERAR_GUIA",
-    label: "GENERAR GUIA",
-    bg: "#fff8e1",
-  },
-  SEGUIMIENTO: {
-    key: "SEGUIMIENTO",
-    label: "SEGUIMIENTO",
-    bg: "#ede7f6",
-  },
-  CANCELADO: {
-    key: "CANCELADO",
-    label: "CANCELADO",
-    bg: "#fce4ec",
-  },
+  IA_VENTAS: { key: "IA_VENTAS", label: "IA VENTAS", bg: "#e8f5e9" },
+  GENERAR_GUIA: { key: "GENERAR_GUIA", label: "GENERAR GUIA", bg: "#fff8e1" },
+  SEGUIMIENTO: { key: "SEGUIMIENTO", label: "SEGUIMIENTO", bg: "#ede7f6" },
+  CANCELADO: { key: "CANCELADO", label: "CANCELADO", bg: "#fce4ec" },
 };
 
 const Estado_contactos = () => {
   const navigate = useNavigate();
   const [id_configuracion, setId_configuracion] = useState(null);
   const [idPlataformaConf, setIdPlataformaConf] = useState(null);
-
   const [isLoading, setIsLoading] = useState(false);
 
   const COLUMNS_KEYS = Object.keys(KANBAN_COLUMNS);
@@ -277,17 +231,80 @@ const Estado_contactos = () => {
     }, {});
 
   const [boardData, setBoardData] = useState(makeInitialBoard);
-
   const boardRef = useRef(boardData);
 
   useEffect(() => {
     boardRef.current = boardData;
   }, [boardData]);
 
+  // —— Estado del modal de remarketing ——
+  const [showModalRemarketing, setShowModalRemarketing] = useState(false);
+  const [plantillas, setPlantillas] = useState([]);
+  const [plantillaSeleccionada, setPlantillaSeleccionada] = useState("");
+  const [tiempoRemarketing, setTiempoRemarketing] = useState("0");
+  const [loadingPlantillas, setLoadingPlantillas] = useState(false);
+  const [guardandoRemarketing, setGuardandoRemarketing] = useState(false);
+
+  const fetchPlantillas = async () => {
+    if (!id_configuracion) return;
+    setLoadingPlantillas(true);
+    try {
+      const res = await chatApi.post(
+        "whatsapp_managment/obtenerTemplatesWhatsapp",
+        { id_configuracion },
+      );
+      const data = res.data?.data || [];
+      const unicas = data.filter(
+        (tpl, index, self) => index === self.findIndex((t) => t.id === tpl.id),
+      );
+      setPlantillas(unicas);
+    } catch (error) {
+      console.error("Error cargando plantillas:", error);
+      setPlantillas([]);
+    } finally {
+      setLoadingPlantillas(false);
+    }
+  };
+
+  const handleAbrirRemarketing = () => {
+    setShowModalRemarketing(true);
+    fetchPlantillas();
+  };
+
+  const guardarRemarketing = async () => {
+    if (!plantillaSeleccionada || tiempoRemarketing === "0") {
+      Toast.fire({
+        icon: "warning",
+        title: "Seleccione una plantilla y un tiempo",
+      });
+      return;
+    }
+    setGuardandoRemarketing(true);
+    try {
+      await chatApi.post("openai_assistants/configurar_remarketing", {
+        id_configuracion,
+        estado_contacto: "ia_ventas",
+        tiempo_espera_horas: Number(tiempoRemarketing),
+        nombre_template: plantillaSeleccionada,
+        language_code: "es",
+      });
+      Toast.fire({
+        icon: "success",
+        title: "Remarketing configurado correctamente",
+      });
+      setShowModalRemarketing(false);
+    } catch (error) {
+      console.error(error);
+      Toast.fire({ icon: "error", title: "Error al guardar la configuración" });
+    } finally {
+      setGuardandoRemarketing(false);
+    }
+  };
+  // —— fin remarketing ——
+
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
     if (idc) setId_configuracion(parseInt(idc, 10));
-
     const idp = localStorage.getItem("id_plataforma_conf");
     if (idp === "null" || idp === null) {
       setIdPlataformaConf(null);
@@ -299,38 +316,15 @@ const Estado_contactos = () => {
 
   const LIMIT = 20;
 
-  const buildPayload = (keys) => {
-    const cursors = {};
-    const search = {};
-
-    keys.forEach((k) => {
-      cursors[k] = boardData[k]?.cursor || null;
-      search[k] = boardData[k]?.search || "";
-    });
-
-    return {
-      id_configuracion,
-      columnKeys: keys,
-      limit: LIMIT,
-      cursors,
-      search,
-    };
-  };
-
   const mergeColumnsResponse = (respData, keys, { append = false } = {}) => {
     setBoardData((prev) => {
       const next = { ...prev };
-
       keys.forEach((k) => {
         const col = respData?.[k];
         const items = col?.items || [];
         const page = col?.page || {};
-
         const prevItems = prev[k]?.items || [];
-
         let merged = append ? [...prevItems, ...items] : items;
-
-        // ✅ dedupe por id (muy importante)
         const seen = new Set();
         merged = merged.filter((x) => {
           const id = String(x?.id);
@@ -339,7 +333,6 @@ const Estado_contactos = () => {
           seen.add(id);
           return true;
         });
-
         next[k] = {
           ...prev[k],
           items: merged,
@@ -348,7 +341,6 @@ const Estado_contactos = () => {
           loading: false,
         };
       });
-
       return next;
     });
   };
@@ -365,11 +357,9 @@ const Estado_contactos = () => {
 
   useEffect(() => {
     if (!id_configuracion) return;
-
     const fetchContactos = async () => {
       setIsLoading(true);
       setColumnsLoading(COLUMNS_KEYS, true);
-
       try {
         const { data } = await chatApi.post(
           "/clientes_chat_center/listar_contactos_estado",
@@ -377,11 +367,10 @@ const Estado_contactos = () => {
             id_configuracion,
             columnKeys: COLUMNS_KEYS,
             limit: LIMIT,
-            cursors: {}, // primera carga sin cursor
-            search: {}, // primera carga sin búsquedas
+            cursors: {},
+            search: {},
           },
         );
-
         if (!data?.success || !data?.data) {
           Toast.fire({
             icon: "error",
@@ -389,7 +378,6 @@ const Estado_contactos = () => {
           });
           return;
         }
-
         mergeColumnsResponse(data.data, COLUMNS_KEYS, { append: false });
       } catch (error) {
         console.error(error);
@@ -402,7 +390,6 @@ const Estado_contactos = () => {
         setColumnsLoading(COLUMNS_KEYS, false);
       }
     };
-
     fetchContactos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id_configuracion]);
@@ -414,15 +401,57 @@ const Estado_contactos = () => {
     );
   }, [boardData]);
 
+  /* preview */
+  const [previewData, setPreviewData] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const handlePreview = async (contacto) => {
+    try {
+      setPreviewLoading(true);
+      setPreviewData(null);
+      const { data } = await chatApi.post(
+        "/clientes_chat_center/listar_ultimo_mensaje",
+        {
+          id_cliente: contacto.id,
+          id_configuracion,
+        },
+      );
+      if (
+        !data ||
+        !data.success ||
+        !Array.isArray(data.data) ||
+        data.data.length === 0
+      ) {
+        Toast.fire({ icon: "error", title: "No hay mensajes aún" });
+        setPreviewLoading(false);
+        return;
+      }
+      const msg = data.data[0];
+      setPreviewData({
+        tipo: msg.tipo_mensaje,
+        texto: msg.texto_mensaje,
+        ruta: msg.ruta_archivo,
+        rutaRaw: msg.ruta_archivo,
+        replyRef: null,
+        replyAuthor: null,
+      });
+      setExpandedId(contacto.id);
+    } catch (error) {
+      console.error(error);
+      Toast.fire({ icon: "error", title: "Error API" });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const renderContactCard = (contacto) => {
     const nombreCompleto =
       [contacto.nombre_cliente, contacto.apellido_cliente]
         .filter(Boolean)
         .join(" ") || "Sin nombre";
-
     const telefono = contacto.telefono_limpio || null;
-
-    const botColor = contacto.bot_openia === 1 ? "#2ECC71" : "#E74C3C"; // verde / rojo
+    const botColor = contacto.bot_openia === 1 ? "#2ECC71" : "#E74C3C";
 
     return (
       <div
@@ -439,7 +468,6 @@ const Estado_contactos = () => {
         }}
         className="kanban-contact-card"
       >
-        {/* fila nombre + BOT */}
         <div
           style={{
             display: "flex",
@@ -449,18 +477,11 @@ const Estado_contactos = () => {
           }}
         >
           <span style={{ fontWeight: 600 }}>{nombreCompleto}</span>
-
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {/* BOT */}
             <i
               className="bx bx-bot"
-              style={{
-                fontSize: "1.25rem",
-                color: botColor,
-              }}
-            ></i>
-
-            {/* OJO */}
+              style={{ fontSize: "1.25rem", color: botColor }}
+            />
             <i
               className="bx bx-show"
               title="Último mensaje recibido"
@@ -477,7 +498,7 @@ const Estado_contactos = () => {
               }}
               onMouseEnter={(e) => (e.target.style.color = "#111")}
               onMouseLeave={(e) => (e.target.style.color = "#555")}
-            ></i>
+            />
           </div>
         </div>
 
@@ -493,19 +514,15 @@ const Estado_contactos = () => {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span>📱</span>
+              <i className="bx bx-mobile" style={{ fontSize: "14px" }} />
               <span>{telefono}</span>
             </div>
-
             <button
               type="button"
               title="Copiar número"
-              aria-label="Copiar número"
               onClick={(e) => {
-                e.stopPropagation(); // para que no dispare otros clicks del card
+                e.stopPropagation();
                 const value = String(telefono);
-
-                // Clipboard API (moderno)
                 if (navigator?.clipboard?.writeText) {
                   navigator.clipboard
                     .writeText(value)
@@ -517,8 +534,6 @@ const Estado_contactos = () => {
                     );
                   return;
                 }
-
-                // Fallback (por compatibilidad)
                 try {
                   const ta = document.createElement("textarea");
                   ta.value = value;
@@ -543,18 +558,18 @@ const Estado_contactos = () => {
                 alignItems: "center",
                 justifyContent: "center",
                 transition: "all .15s ease",
-                color: "#9CA3AF", // gris
+                color: "#9CA3AF",
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "rgba(0,0,0,0.06)";
-                e.currentTarget.style.color = "#4B5563"; // gris más fuerte
+                e.currentTarget.style.color = "#4B5563";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "transparent";
                 e.currentTarget.style.color = "#9CA3AF";
               }}
             >
-              <i className="bx bx-copy" style={{ fontSize: "18px" }}></i>
+              <i className="bx bx-copy" style={{ fontSize: "18px" }} />
             </button>
           </div>
         )}
@@ -575,7 +590,6 @@ const Estado_contactos = () => {
           </div>
         )}
 
-        {/* Botón Abrir */}
         <button
           onClick={() =>
             navigate(`/chat/${contacto.id}`, {
@@ -605,16 +619,6 @@ const Estado_contactos = () => {
           Abrir
         </button>
 
-        <style>{`
-        .kanban-btn-abrir:hover {
-          transform: translateY(-2px) scale(1.03);
-          box-shadow: 0 6px 14px rgba(46,139,255,0.45);
-        }
-        .kanban-btn-abrir:active {
-          transform: scale(0.97);
-        }
-      `}</style>
-
         {expandedId === contacto.id && (
           <div
             style={{
@@ -639,11 +643,10 @@ const Estado_contactos = () => {
                 <i
                   className="bx bx-loader-alt bx-spin"
                   style={{ fontSize: "20px" }}
-                ></i>
+                />
                 <div>Cargando mensaje...</div>
               </div>
             )}
-
             {!previewLoading && previewData && (
               <>
                 <PreviewContent
@@ -654,13 +657,7 @@ const Estado_contactos = () => {
                   replyRef={previewData.replyRef}
                   replyAuthor={previewData.replyAuthor}
                 />
-
-                <div
-                  style={{
-                    textAlign: "right",
-                    marginTop: "6px",
-                  }}
-                >
+                <div style={{ textAlign: "right", marginTop: "6px" }}>
                   <span
                     style={{
                       fontSize: "12px",
@@ -686,19 +683,14 @@ const Estado_contactos = () => {
   const searchTimersRef = React.useRef({});
 
   const onSearchChange = (colKey, value) => {
-    // guardar texto
     setBoardData((prev) => ({
       ...prev,
       [colKey]: { ...prev[colKey], search: value },
     }));
-
-    // debounce
     if (searchTimersRef.current[colKey])
       clearTimeout(searchTimersRef.current[colKey]);
-
     searchTimersRef.current[colKey] = setTimeout(async () => {
       try {
-        // reiniciar columna
         setBoardData((prev) => ({
           ...prev,
           [colKey]: {
@@ -709,7 +701,6 @@ const Estado_contactos = () => {
             loading: true,
           },
         }));
-
         const { data } = await chatApi.post(
           "/clientes_chat_center/listar_contactos_estado",
           {
@@ -720,9 +711,7 @@ const Estado_contactos = () => {
             search: { [colKey]: value },
           },
         );
-
         if (!data?.success || !data?.data) return;
-
         mergeColumnsResponse(data.data, [colKey], { append: false });
       } catch (e) {
         console.error(e);
@@ -735,29 +724,17 @@ const Estado_contactos = () => {
     }, 350);
   };
 
-  /* scroll infinito */
   const scrollLockRef = useRef({});
 
   const loadMoreColumn = async (colKey) => {
     const col = boardRef.current?.[colKey];
-    if (!col) return;
-
-    // ✅ guardas duras contra spam y duplicados
-    if (col.loading) return;
-    if (!col.hasMore) return;
-
-    // ✅ cursor real en el momento exacto
+    if (!col || col.loading || !col.hasMore) return;
     const cursor = col.cursor || null;
     const search = col.search || "";
-
-    // marcar loading (con setState funcional)
     setBoardData((prev) => ({
       ...prev,
       [colKey]: { ...prev[colKey], loading: true },
     }));
-
-    console.log("LOAD MORE", colKey, { cursor, search });
-
     try {
       const { data } = await chatApi.post(
         "/clientes_chat_center/listar_contactos_estado",
@@ -769,7 +746,6 @@ const Estado_contactos = () => {
           search: { [colKey]: search },
         },
       );
-
       if (!data?.success || !data?.data) {
         setBoardData((prev) => ({
           ...prev,
@@ -777,13 +753,10 @@ const Estado_contactos = () => {
         }));
         return;
       }
-
-      // append real
       mergeColumnsResponse(data.data, [colKey], { append: true });
     } catch (e) {
       console.error(e);
       Toast.fire({ icon: "error", title: "Error cargando más" });
-
       setBoardData((prev) => ({
         ...prev,
         [colKey]: { ...prev[colKey], loading: false },
@@ -791,123 +764,50 @@ const Estado_contactos = () => {
     }
   };
 
-  /* scroll infinito */
-
-  /* preview */
-  const [previewVisible, setPreviewVisible] = useState(false);
-  const [previewData, setPreviewData] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
-  const handlePreview = async (contacto) => {
-    try {
-      setPreviewLoading(true);
-      setPreviewData(null);
-
-      const { data } = await chatApi.post(
-        "/clientes_chat_center/listar_ultimo_mensaje",
-        {
-          id_cliente: contacto.id,
-          id_configuracion,
-        },
-      );
-
-      if (
-        !data ||
-        !data.success ||
-        !Array.isArray(data.data) ||
-        data.data.length === 0
-      ) {
-        Toast.fire({ icon: "error", title: "No hay mensajes aún" });
-        setPreviewLoading(false);
-        return;
-      }
-
-      const msg = data.data[0];
-
-      setPreviewData({
-        tipo: msg.tipo_mensaje,
-        texto: msg.texto_mensaje,
-        ruta: msg.ruta_archivo,
-        rutaRaw: msg.ruta_archivo,
-        replyRef: null,
-        replyAuthor: null,
-      });
-
-      setExpandedId(contacto.id);
-    } catch (error) {
-      console.error(error);
-      Toast.fire({ icon: "error", title: "Error API" });
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  /* preview */
-
   const onDragEnd = async (result) => {
     const { source, destination } = result;
-
     if (!destination) return;
-
     const startCol = source.droppableId;
     const endCol = destination.droppableId;
-
-    // 🛑 Mismo índice y misma columna → NO HACER NADA
-    if (startCol === endCol && source.index === destination.index) {
-      return;
-    }
+    if (startCol === endCol && source.index === destination.index) return;
 
     const startList = Array.from(boardData[startCol]?.items || []);
     const endList = Array.from(boardData[endCol]?.items || []);
 
-    // Caso 1: 🟦 Mover dentro de la misma columna
     if (startCol === endCol) {
       const [movedItem] = startList.splice(source.index, 1);
       startList.splice(destination.index, 0, movedItem);
-
       setBoardData((prev) => ({
         ...prev,
         [startCol]: { ...prev[startCol], items: startList },
       }));
-
-      return; // sin API porque no cambia el estado verdadero
+      return;
     }
 
-    // Caso 2: 🟩 Mover a otra columna
     const [movedItem] = startList.splice(source.index, 1);
     endList.splice(destination.index, 0, movedItem);
-
     setBoardData((prev) => ({
       ...prev,
       [startCol]: { ...prev[startCol], items: startList },
       [endCol]: { ...prev[endCol], items: endList },
     }));
 
-    // API: actualizar estado del cliente
     try {
       await chatApi.post("/clientes_chat_center/actualizar_estado", {
         id_cliente: movedItem.id,
         nuevo_estado: endCol,
         id_configuracion,
       });
-
-      Toast.fire({
-        icon: "success",
-        title: "Estado actualizado",
-      });
+      Toast.fire({ icon: "success", title: "Estado actualizado" });
     } catch (error) {
       console.error(error);
-      Toast.fire({
-        icon: "error",
-        title: "Error al actualizar estado",
-      });
+      Toast.fire({ icon: "error", title: "Error al actualizar estado" });
     }
   };
 
   return (
     <div className="p-5">
-      {/* Encabezado estilizado */}
+      {/* Encabezado */}
       <div
         style={{
           background: "#171931",
@@ -922,7 +822,6 @@ const Estado_contactos = () => {
           gap: "1.5rem",
         }}
       >
-        {/* ICONO + TÍTULO */}
         <div style={{ display: "flex", alignItems: "center", gap: "1.2rem" }}>
           <div
             style={{
@@ -938,9 +837,8 @@ const Estado_contactos = () => {
               boxShadow: "0 6px 20px rgba(46,139,255,0.45)",
             }}
           >
-            📊
+            <i className="bx bx-bar-chart-alt-2" />
           </div>
-
           <div>
             <h1
               style={{
@@ -953,7 +851,6 @@ const Estado_contactos = () => {
             >
               Distribución de estados contactos
             </h1>
-
             <p
               style={{
                 color: "#d3d3d3",
@@ -962,13 +859,11 @@ const Estado_contactos = () => {
                 letterSpacing: "0.01em",
               }}
             >
-              Visualiza de forma clara en qué etapa del proceso se encuentra
-              cada contacto y prioriza tus seguimientos.
+              Visualiza en qué etapa del proceso se encuentra cada contacto y
+              prioriza tus seguimientos.
             </p>
           </div>
         </div>
-
-        {/* TOTAL CONTACTOS */}
         <div
           style={{
             textAlign: "right",
@@ -995,17 +890,15 @@ const Estado_contactos = () => {
                 borderRadius: "999px",
                 backgroundColor: "#4caf50",
               }}
-            ></span>
+            />
             <span style={{ fontWeight: 600 }}>Contactos activos</span>
           </div>
-
           <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>
             {totalContactos}
           </div>
         </div>
       </div>
 
-      {/* Estado de carga */}
       {isLoading && (
         <div
           style={{
@@ -1029,12 +922,11 @@ const Estado_contactos = () => {
               backgroundColor: "#0d47a1",
               animation: "pulseDot 1s infinite ease-in-out",
             }}
-          ></span>
-          Cargando contactos…
+          />
+          Cargando contactos...
         </div>
       )}
 
-      {/* Contenedor Kanban */}
       <DragDropContext onDragEnd={onDragEnd}>
         <div
           style={{
@@ -1047,6 +939,7 @@ const Estado_contactos = () => {
             const colKey = column.key;
             const items = boardData[colKey]?.items || [];
             const isColLoading = !!boardData[colKey]?.loading;
+            const isIaVentas = colKey === "IA_VENTAS";
 
             return (
               <Droppable droppableId={colKey} key={colKey}>
@@ -1065,7 +958,7 @@ const Estado_contactos = () => {
                       border: "1px solid rgba(0,0,0,0.04)",
                     }}
                   >
-                    {/* Header */}
+                    {/* Header de columna */}
                     <div
                       style={{
                         fontWeight: 700,
@@ -1077,20 +970,69 @@ const Estado_contactos = () => {
                       }}
                     >
                       <span>{column.label}</span>
-                      <span
+                      <div
                         style={{
-                          fontSize: "0.8rem",
-                          backgroundColor: "rgba(255,255,255,0.9)",
-                          borderRadius: "999px",
-                          padding: "3px 9px",
-                          boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
                         }}
                       >
-                        {items.length}
-                      </span>
+                        <span
+                          style={{
+                            fontSize: "0.8rem",
+                            backgroundColor: "rgba(255,255,255,0.9)",
+                            borderRadius: "999px",
+                            padding: "3px 9px",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+                          }}
+                        >
+                          {items.length}
+                        </span>
+
+                        {/* Botón de remarketing — solo en columna IA_VENTAS */}
+                        {isIaVentas && (
+                          <button
+                            title="Configurar reenvío automático de mensaje"
+                            onClick={handleAbrirRemarketing}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              padding: "4px 10px",
+                              borderRadius: "999px",
+                              border: "1px solid rgba(99,102,241,0.3)",
+                              background: "rgba(99,102,241,0.08)",
+                              color: "#4338ca",
+                              fontSize: "0.75rem",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                              whiteSpace: "nowrap",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background =
+                                "rgba(99,102,241,0.18)";
+                              e.currentTarget.style.borderColor =
+                                "rgba(99,102,241,0.5)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background =
+                                "rgba(99,102,241,0.08)";
+                              e.currentTarget.style.borderColor =
+                                "rgba(99,102,241,0.3)";
+                            }}
+                          >
+                            <i
+                              className="bx bx-time-five"
+                              style={{ fontSize: "13px" }}
+                            />
+                            Remarketing
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Input de búsqueda (server-side) */}
+                    {/* Búsqueda */}
                     <input
                       type="text"
                       placeholder="Buscar..."
@@ -1111,7 +1053,6 @@ const Estado_contactos = () => {
                       onBlur={(e) => (e.target.style.boxShadow = "none")}
                     />
 
-                    {/* Divider */}
                     <div
                       style={{
                         height: 1,
@@ -1120,21 +1061,17 @@ const Estado_contactos = () => {
                       }}
                     />
 
-                    {/* Lista (scroll infinito) */}
+                    {/* Lista */}
                     <div
                       style={{ overflowY: "auto", paddingRight: "4px" }}
                       onScroll={(e) => {
                         const el = e.currentTarget;
-
-                        const nearBottom =
-                          el.scrollTop + el.clientHeight >=
-                          el.scrollHeight - 120;
-
-                        if (!nearBottom) return;
-
-                        // ✅ throttle por columna (400ms)
+                        if (
+                          el.scrollTop + el.clientHeight <
+                          el.scrollHeight - 120
+                        )
+                          return;
                         if (scrollLockRef.current[column.key]) return;
-
                         scrollLockRef.current[column.key] = true;
                         loadMoreColumn(column.key).finally(() => {
                           setTimeout(() => {
@@ -1172,8 +1109,6 @@ const Estado_contactos = () => {
                           No se encontraron resultados.
                         </div>
                       )}
-
-                      {/* Loader al final */}
                       {isColLoading && (
                         <div
                           style={{
@@ -1201,27 +1136,143 @@ const Estado_contactos = () => {
         </div>
       </DragDropContext>
 
-      {/* Pequeño estilo inline para animar el puntito (sin tocar CSS global) */}
+      {/* ——— Modal de Remarketing ——— */}
+      {showModalRemarketing && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 border border-gray-100">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 grid place-items-center shrink-0">
+                  <i className="bx bx-time-five text-xl text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Reenvío automático de mensaje
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Configure cuándo y con qué plantilla se contactará
+                    nuevamente a los clientes en etapa de IA Ventas que no han
+                    respondido.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowModalRemarketing(false)}
+                className="w-9 h-9 rounded-xl hover:bg-gray-100 transition grid place-items-center shrink-0"
+              >
+                <i className="bx bx-x text-2xl text-gray-600" />
+              </button>
+            </div>
+
+            {/* Aviso informativo */}
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+              <div className="flex items-start gap-2 text-sm text-indigo-800">
+                <i className="bx bx-info-circle text-base mt-0.5 shrink-0" />
+                <span>
+                  Transcurrido el tiempo indicado, el sistema enviará
+                  automáticamente la plantilla seleccionada al cliente si no ha
+                  vuelto a escribir. Solo se procesarán plantillas aprobadas por
+                  Meta.
+                </span>
+              </div>
+            </div>
+
+            {/* Tiempo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tiempo de espera antes del reenvío
+              </label>
+              <select
+                value={tiempoRemarketing}
+                onChange={(e) => setTiempoRemarketing(e.target.value)}
+                className="w-full border rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="0">Seleccione un tiempo</option>
+                <option value="1">1 hora sin respuesta</option>
+                <option value="3">3 horas sin respuesta</option>
+                <option value="5">5 horas sin respuesta</option>
+                <option value="10">10 horas sin respuesta</option>
+                <option value="20">20 horas sin respuesta</option>
+              </select>
+            </div>
+
+            {/* Plantilla */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Plantilla de mensaje a enviar
+              </label>
+              {loadingPlantillas ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+                  <i className="bx bx-loader-alt bx-spin text-base" />
+                  Cargando plantillas...
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={plantillaSeleccionada}
+                    onChange={(e) => setPlantillaSeleccionada(e.target.value)}
+                    className="w-full border rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="">Seleccione una plantilla</option>
+                    {plantillas.map((tpl) => (
+                      <option key={tpl.id} value={tpl.name}>
+                        {tpl.name}
+                        {tpl.status !== "APPROVED" ? " — No aprobada" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                    <i className="bx bx-error-circle text-sm" />
+                    Solo se enviará si la plantilla está aprobada por Meta.
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Acciones */}
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                onClick={() => setShowModalRemarketing(false)}
+                className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 transition font-semibold text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardarRemarketing}
+                disabled={guardandoRemarketing}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow transition font-semibold text-sm disabled:opacity-60 inline-flex items-center gap-2"
+              >
+                {guardandoRemarketing && (
+                  <i className="bx bx-loader-alt bx-spin text-base" />
+                )}
+                Guardar configuración
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes pulseDot {
           0% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.6); opacity: 0.4; }
           100% { transform: scale(1); opacity: 1; }
         }
+        @keyframes expand {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         .kanban-contact-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 8px 16px rgba(0,0,0,0.12);
         }
+        .kanban-btn-abrir:hover {
+          transform: translateY(-2px) scale(1.03);
+          box-shadow: 0 6px 14px rgba(46,139,255,0.45);
+        }
+        .kanban-btn-abrir:active { transform: scale(0.97); }
       `}</style>
-
-      <style>
-        {`
-@keyframes expand {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-`}
-      </style>
     </div>
   );
 };
