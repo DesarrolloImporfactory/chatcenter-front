@@ -33,6 +33,7 @@ import Asistentes from "./pages/asistentes/Asistentes";
 import Estado_contactos_imporfactory from "./pages/contactos/Estado_contactos_imporfactory";
 import Estado_contactos_ventas from "./pages/contactos/Estado_contactos_ventas";
 import Estado_contactos_imporshop from "./pages/contactos/Estado_contactos_imporshop";
+import Estado_contactos_eventos from "./pages/contactos/Estado_contactos_eventos";
 import OrdenesDropi from "./pages/dropi/OrdenesDropi";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
@@ -201,6 +202,16 @@ function App() {
                     </MainLayout>
                   }
                 />
+                
+                <Route
+                  path="/estados_contactos_eventos"
+                  element={
+                    <MainLayout>
+                      <Estado_contactos_eventos />
+                    </MainLayout>
+                  }
+                />
+                
                 <Route
                   path="/estados_contactos_imporshop"
                   element={

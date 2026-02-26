@@ -40,7 +40,7 @@ export default function Login() {
   };
 
   /* ===== Login por URL (mantiene tu flujo) ===== */
-  useEffect(() => {
+  /* useEffect(() => {
     const query = new URLSearchParams(location.search);
     const token = query.get("token");
     const tienda = query.get("tienda");
@@ -71,10 +71,9 @@ export default function Login() {
           }
         })
         .catch(() => {
-          // silencioso como tu código original
         });
     }
-  }, [location.search, dispatch, navigate]);
+  }, [location.search, dispatch, navigate]); */
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-white overflow-hidden p-4">
