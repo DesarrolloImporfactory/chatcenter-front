@@ -306,6 +306,8 @@ function MainLayout({ children }) {
         "/contactos",
         "/estados_contactos",
         "/estados_contactos_ventas",
+        "/estados_contactos_imporshop",
+        "/estados_contactos_eventos",
       ].includes(location.pathname)
     ) {
       setOpenMenu("contacto");
@@ -320,6 +322,15 @@ function MainLayout({ children }) {
     localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
     navigate(path);
   };
+
+  const rutaEstados =
+    tipo_configuracion === "ventas"
+      ? "/estados_contactos_ventas"
+      : tipo_configuracion === "eventos"
+        ? "/estados_contactos_eventos"
+        : tipo_configuracion === "imporshop"
+          ? "/estados_contactos_imporshop"
+          : "/estados_contactos";
 
   const handleCalendarioClick = (e) => {
     e.preventDefault();
@@ -447,20 +458,14 @@ function MainLayout({ children }) {
 
                 <button
                   className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                    (tipo_configuracion === "ventas" &&
-                      location.pathname === "/estados_contactos_ventas") ||
-                    (tipo_configuracion !== "ventas" &&
-                      location.pathname === "/estados_contactos")
+                    location.pathname === rutaEstados
                       ? "font-semibold text-blue-600"
                       : ""
                   }`}
                   onClick={(e) => {
                     e.preventDefault();
-                    if (tipo_configuracion === "ventas") {
-                      goTo("/estados_contactos_ventas");
-                    } else {
-                      goTo("/estados_contactos");
-                    }
+                    goTo(rutaEstados);
+                    setSliderOpen(false);
                   }}
                 >
                   <i className="bx bx-check-shield text-xl text-gray-600 group-hover:text-blue-600"></i>

@@ -114,6 +114,15 @@ const Cabecera = ({
     navigate(path);
   };
 
+  const rutaEstados =
+    tipo_configuracion === "ventas"
+      ? "/estados_contactos_ventas"
+      : tipo_configuracion === "eventos"
+        ? "/estados_contactos_eventos"
+        : tipo_configuracion === "imporshop"
+          ? "/estados_contactos_imporshop"
+          : "/estados_contactos";
+
   const handleCalendarioClick = (e) => {
     e.preventDefault();
 
@@ -526,9 +535,12 @@ const Cabecera = ({
           <button
             className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
               location.pathname.startsWith("/contactos") ||
-              ["/estados_contactos", "/estados_contactos_ventas"].includes(
-                location.pathname,
-              )
+              [
+                "/estados_contactos",
+                "/estados_contactos_ventas",
+                "/estados_contactos_eventos",
+                "/estados_contactos_imporshop",
+              ].includes(location.pathname)
                 ? "bg-gray-200 font-semibold"
                 : ""
             }`}
@@ -568,20 +580,13 @@ const Cabecera = ({
 
               <button
                 className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                  (tipo_configuracion === "ventas" &&
-                    location.pathname === "/estados_contactos_ventas") ||
-                  (tipo_configuracion !== "ventas" &&
-                    location.pathname === "/estados_contactos")
+                  location.pathname === rutaEstados
                     ? "font-semibold text-blue-600"
                     : ""
                 }`}
                 onClick={(e) => {
                   e.preventDefault();
-                  if (tipo_configuracion === "ventas") {
-                    goTo("/estados_contactos_ventas");
-                  } else {
-                    goTo("/estados_contactos");
-                  }
+                  goTo(rutaEstados);
                   setSliderOpen(false);
                 }}
               >
