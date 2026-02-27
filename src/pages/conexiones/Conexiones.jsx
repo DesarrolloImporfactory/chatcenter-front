@@ -12,9 +12,11 @@ import chatApi from "../../api/chatcenter";
 import botImage from "../../assets/bot.png";
 import "./conexiones.css";
 
-/* === MODALES (sin cambios) === */
+// MODALES
 import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
 import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConfiguracionModalWhatsappBusiness";
+import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
+import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 
 /* ===========================
    Utilidades de la guía
@@ -413,6 +415,7 @@ const Conexiones = () => {
   };
 
   const [syncingId, setSyncingId] = useState(null);
+  const [guideModal, setGuideModal] = useState(null); // 'coexistencia' | 'api'
 
   // ==== REFS para guía ====
   const headerRef = useRef(null);
@@ -1489,6 +1492,42 @@ const Conexiones = () => {
               </select>
             </div>
           </div>
+          {/* Fila 2: guías de integración */}
+          <div className="flex items-center gap-2 flex-wrap mt-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1">
+              ¿Cómo conectar?
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setGuideModal("coexistencia")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold
+      text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200
+      hover:bg-indigo-100 hover:ring-indigo-300 transition-all"
+            >
+              <i className="bx bx-mobile-alt text-sm" />
+              Coexistencia
+              <span className="text-[10px] text-indigo-400 font-medium">
+                celular + web
+              </span>
+              <i className="bx bx-play-circle text-sm text-indigo-400" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setGuideModal("api")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold
+      text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200
+      hover:bg-emerald-100 hover:ring-emerald-300 transition-all"
+            >
+              <i className="bx bx-code-alt text-sm" />
+              Solo WhatsApp API
+              <span className="text-[10px] text-emerald-400 font-medium">
+                sin celular
+              </span>
+              <i className="bx bx-play-circle text-sm text-emerald-400" />
+            </button>
+          </div>
         </div>
 
         {/* Toast de estado */}
@@ -2159,6 +2198,13 @@ const Conexiones = () => {
             </div>
           </div>
         </>
+      )}
+
+      {guideModal === "coexistencia" && (
+        <GuiaCoexistenciaModal onClose={() => setGuideModal(null)} />
+      )}
+      {guideModal === "api" && (
+        <GuiaWhatsappApiModal onClose={() => setGuideModal(null)} />
       )}
     </div>
   );

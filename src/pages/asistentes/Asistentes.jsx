@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import Select, { components } from "react-select";
 import chatApi from "../../api/chatcenter";
+import GuiaOpenAIModal from "./modales/OpenAiModal";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -93,7 +94,7 @@ const Asistentes = () => {
   const [tipoVenta, setTipoVenta] = useState("productos");
 
   const [showModalVentas, setShowModalVentas] = useState(false);
-
+  const [showGuiaOpenAI, setShowGuiaOpenAI] = useState(false);
   const [productosLista, setProductosLista] = useState([]);
 
   useEffect(() => {
@@ -366,6 +367,25 @@ const Asistentes = () => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Fila: Tutorial API Key (ligero, no intrusivo) */}
+      <div className="flex items-center gap-2 flex-wrap -mt-3 mb-6">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1">
+          ¿Cómo configurar?
+        </span>
+
+        <button
+          type="button"
+          onClick={() => setShowGuiaOpenAI(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold
+      text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200
+      hover:bg-indigo-100 hover:ring-indigo-300 transition-all"
+        >
+          <i className="bx bx-key text-sm" />
+          API Key OpenAI
+          <i className="bx bx-play-circle text-sm text-indigo-400" />
+        </button>
       </div>
 
       {/* Guía rápida */}
@@ -646,7 +666,7 @@ const Asistentes = () => {
               <div className="mt-3 flex flex-col gap-2">
                 <button
                   onClick={() => setShowModalApiKey(true)}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition text-sm font-semibold"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white transition text-sm font-semibold"
                 >
                   <i className="bx bx-key" />
                   {existeAsistente ? "Editar API Key" : "Añadir API Key"}
@@ -879,6 +899,9 @@ const Asistentes = () => {
             </div>
           </div>
         </div>
+      )}
+      {showGuiaOpenAI && (
+        <GuiaOpenAIModal onClose={() => setShowGuiaOpenAI(false)} />
       )}
     </div>
   );
