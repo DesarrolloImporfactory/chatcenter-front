@@ -4,6 +4,7 @@ import Select, { components } from "react-select";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import RemarketingIaVentas from "./modales/RemarketingIaVentas";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -244,63 +245,6 @@ const Estado_contactos = () => {
   const [tiempoRemarketing, setTiempoRemarketing] = useState("0");
   const [loadingPlantillas, setLoadingPlantillas] = useState(false);
   const [guardandoRemarketing, setGuardandoRemarketing] = useState(false);
-
-  const fetchPlantillas = async () => {
-    if (!id_configuracion) return;
-    setLoadingPlantillas(true);
-    try {
-      const res = await chatApi.post(
-        "whatsapp_managment/obtenerTemplatesWhatsapp",
-        { id_configuracion },
-      );
-      const data = res.data?.data || [];
-      const unicas = data.filter(
-        (tpl, index, self) => index === self.findIndex((t) => t.id === tpl.id),
-      );
-      setPlantillas(unicas);
-    } catch (error) {
-      console.error("Error cargando plantillas:", error);
-      setPlantillas([]);
-    } finally {
-      setLoadingPlantillas(false);
-    }
-  };
-
-  const handleAbrirRemarketing = () => {
-    setShowModalRemarketing(true);
-    fetchPlantillas();
-  };
-
-  const guardarRemarketing = async () => {
-    if (!plantillaSeleccionada || tiempoRemarketing === "0") {
-      Toast.fire({
-        icon: "warning",
-        title: "Seleccione una plantilla y un tiempo",
-      });
-      return;
-    }
-    setGuardandoRemarketing(true);
-    try {
-      await chatApi.post("openai_assistants/configurar_remarketing", {
-        id_configuracion,
-        estado_contacto: "ia_ventas",
-        tiempo_espera_horas: Number(tiempoRemarketing),
-        nombre_template: plantillaSeleccionada,
-        language_code: "es",
-      });
-      Toast.fire({
-        icon: "success",
-        title: "Remarketing configurado correctamente",
-      });
-      setShowModalRemarketing(false);
-    } catch (error) {
-      console.error(error);
-      Toast.fire({ icon: "error", title: "Error al guardar la configuración" });
-    } finally {
-      setGuardandoRemarketing(false);
-    }
-  };
-  // —— fin remarketing ——
 
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
@@ -991,43 +935,9 @@ const Estado_contactos = () => {
 
                         {/* Botón de remarketing — solo en columna IA_VENTAS */}
                         {isIaVentas && (
-                          <button
-                            title="Configurar reenvío automático de mensaje"
-                            onClick={handleAbrirRemarketing}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "5px",
-                              padding: "4px 10px",
-                              borderRadius: "999px",
-                              border: "1px solid rgba(99,102,241,0.3)",
-                              background: "rgba(99,102,241,0.08)",
-                              color: "#4338ca",
-                              fontSize: "0.75rem",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              transition: "all 0.15s ease",
-                              whiteSpace: "nowrap",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background =
-                                "rgba(99,102,241,0.18)";
-                              e.currentTarget.style.borderColor =
-                                "rgba(99,102,241,0.5)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background =
-                                "rgba(99,102,241,0.08)";
-                              e.currentTarget.style.borderColor =
-                                "rgba(99,102,241,0.3)";
-                            }}
-                          >
-                            <i
-                              className="bx bx-time-five"
-                              style={{ fontSize: "13px" }}
-                            />
-                            Remarketing
-                          </button>
+                          <RemarketingIaVentas
+                            id_configuracion={id_configuracion}
+                          />
                         )}
                       </div>
                     </div>
@@ -1135,123 +1045,6 @@ const Estado_contactos = () => {
           })}
         </div>
       </DragDropContext>
-
-      {/* ——— Modal de Remarketing ——— */}
-      {showModalRemarketing && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 border border-gray-100">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 grid place-items-center shrink-0">
-                  <i className="bx bx-time-five text-xl text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Reenvío automático de mensaje
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    Configure cuándo y con qué plantilla se contactará
-                    nuevamente a los clientes en etapa de IA Ventas que no han
-                    respondido.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowModalRemarketing(false)}
-                className="w-9 h-9 rounded-xl hover:bg-gray-100 transition grid place-items-center shrink-0"
-              >
-                <i className="bx bx-x text-2xl text-gray-600" />
-              </button>
-            </div>
-
-            {/* Aviso informativo */}
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3">
-              <div className="flex items-start gap-2 text-sm text-indigo-800">
-                <i className="bx bx-info-circle text-base mt-0.5 shrink-0" />
-                <span>
-                  Transcurrido el tiempo indicado, el sistema enviará
-                  automáticamente la plantilla seleccionada al cliente si no ha
-                  vuelto a escribir. Solo se procesarán plantillas aprobadas por
-                  Meta.
-                </span>
-              </div>
-            </div>
-
-            {/* Tiempo */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tiempo de espera antes del reenvío
-              </label>
-              <select
-                value={tiempoRemarketing}
-                onChange={(e) => setTiempoRemarketing(e.target.value)}
-                className="w-full border rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="0">Seleccione un tiempo</option>
-                <option value="1">1 hora sin respuesta</option>
-                <option value="3">3 horas sin respuesta</option>
-                <option value="5">5 horas sin respuesta</option>
-                <option value="10">10 horas sin respuesta</option>
-                <option value="20">20 horas sin respuesta</option>
-              </select>
-            </div>
-
-            {/* Plantilla */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Plantilla de mensaje a enviar
-              </label>
-              {loadingPlantillas ? (
-                <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
-                  <i className="bx bx-loader-alt bx-spin text-base" />
-                  Cargando plantillas...
-                </div>
-              ) : (
-                <>
-                  <select
-                    value={plantillaSeleccionada}
-                    onChange={(e) => setPlantillaSeleccionada(e.target.value)}
-                    className="w-full border rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  >
-                    <option value="">Seleccione una plantilla</option>
-                    {plantillas.map((tpl) => (
-                      <option key={tpl.id} value={tpl.name}>
-                        {tpl.name}
-                        {tpl.status !== "APPROVED" ? " — No aprobada" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                    <i className="bx bx-error-circle text-sm" />
-                    Solo se enviará si la plantilla está aprobada por Meta.
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Acciones */}
-            <div className="flex justify-end gap-3 pt-1">
-              <button
-                onClick={() => setShowModalRemarketing(false)}
-                className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 transition font-semibold text-sm"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={guardarRemarketing}
-                disabled={guardandoRemarketing}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow transition font-semibold text-sm disabled:opacity-60 inline-flex items-center gap-2"
-              >
-                {guardandoRemarketing && (
-                  <i className="bx bx-loader-alt bx-spin text-base" />
-                )}
-                Guardar configuración
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`
         @keyframes pulseDot {
