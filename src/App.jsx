@@ -67,6 +67,8 @@ import DropiProvider from "./context/DropiProvider";
 import SocketProvider from "./context/SocketProvider";
 import PresenceProvider from "./context/PresenceProvider";
 
+import Dashboard from "./components/dashboard/Dashboard";
+
 function App() {
   const location = useLocation();
 
@@ -153,6 +155,15 @@ function App() {
                   }
                 />
 
+                <Route
+                  path="/dashboard"
+                  element={
+                    <MainLayout_conexiones>
+                      <Dashboard />
+                    </MainLayout_conexiones>
+                  }
+                />
+
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/chat/:chatId" element={<Chat />} />
 
@@ -202,7 +213,7 @@ function App() {
                     </MainLayout>
                   }
                 />
-                
+
                 <Route
                   path="/estados_contactos_eventos"
                   element={
@@ -211,7 +222,7 @@ function App() {
                     </MainLayout>
                   }
                 />
-                
+
                 <Route
                   path="/estados_contactos_imporshop"
                   element={
