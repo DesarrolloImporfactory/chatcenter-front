@@ -30,7 +30,7 @@ chatApi.interceptors.request.use(
         {
           headers: config.headers,
           data: config.data,
-        }
+        },
       );
     }
 
@@ -39,7 +39,7 @@ chatApi.interceptors.request.use(
   (error) => {
     console.error("❌ Request Error:", error);
     return Promise.reject(error);
-  }
+  },
 );
 
 // Interceptor de response - manejar errores globalmente
@@ -54,7 +54,7 @@ chatApi.interceptors.response.use(
         {
           status: response.status,
           data: response.data,
-        }
+        },
       );
     }
 
@@ -73,6 +73,16 @@ chatApi.interceptors.response.use(
 
     console.log("Error details:", error.toJSON());
 
+    const silent = Boolean(originalRequest?.silentError);
+
+    //ejemplo de uso: const res = await chatApi.post("gemini/generar", fd, {
+    //headers: { "Content-Type": "multipart/form-data" },
+    //silentError: true, // evita toast global
+    //});
+    if (silent) {
+      return Promise.reject(error); // no muestra toast global
+    }
+
     // Manejar diferentes tipos de error
     switch (error.response?.status) {
       case 401:
@@ -89,7 +99,7 @@ chatApi.interceptors.response.use(
             authService.logout();
             window.location.href = "/login";
             toast.error(
-              "Sesión expirada. Por favor, inicia sesión nuevamente."
+              "Sesión expirada. Por favor, inicia sesión nuevamente.",
             );
           } else {
             // Token válido pero error 401 - probablemente es de una API externa
@@ -104,7 +114,7 @@ chatApi.interceptors.response.use(
               {
                 url: originalRequest?.url,
                 error: errorMsg,
-              }
+              },
             );
           }
         }
@@ -136,13 +146,13 @@ chatApi.interceptors.response.use(
 
       case 429:
         toast.error(
-          "Demasiadas solicitudes. Intenta nuevamente en unos minutos."
+          "Demasiadas solicitudes. Intenta nuevamente en unos minutos.",
         );
         break;
 
       case 500:
         toast.error(
-          "Error interno del servidor. Intenta nuevamente más tarde."
+          "Error interno del servidor. Intenta nuevamente más tarde.",
         );
         break;
 
@@ -151,13 +161,13 @@ chatApi.interceptors.response.use(
           toast.error("Error de conexión. Verifica tu internet.");
         } else {
           toast.error(
-            error.response?.data?.message || "Ha ocurrido un error inesperado."
+            error.response?.data?.message || "Ha ocurrido un error inesperado.",
           );
         }
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 // Helper functions para requests comunes
@@ -215,7 +225,7 @@ export const apiHelpers = {
         onUploadProgress: (progressEvent) => {
           if (onProgress) {
             const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
+              (progressEvent.loaded * 100) / progressEvent.total,
             );
             onProgress(percentCompleted);
           }

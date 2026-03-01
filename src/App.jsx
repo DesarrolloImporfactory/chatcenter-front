@@ -39,7 +39,7 @@ import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
 import Calendario from "./pages/calendario/Calendario";
-
+import LandingAi from "./pages/landingai/LandingAi";
 // Páginas de acceso y registro
 import Access from "./pages/landing/AccessGuided";
 import RegisterGuided from "./pages/landing/RegisterGuided";
@@ -183,6 +183,16 @@ function App() {
                   element={
                     <MainLayout>
                       <AdministradorCanales />
+                    </MainLayout>
+                  }
+                />
+
+                {/*generador de imagenes*/}
+                <Route
+                  path="/landing_ai"
+                  element={
+                    <MainLayout>
+                      <LandingAi />
                     </MainLayout>
                   }
                 />
