@@ -3,7 +3,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import io from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
-import Select from "react-select";
+import Select, { components as rsComponents } from "react-select";
 import * as XLSX from "xlsx";
 import ImportarXlsxModal from "../clientes/modales/ImportarXlsxModal";
 import { useNavigate } from "react-router-dom";
@@ -239,26 +239,187 @@ function Tooltip({ label, children }) {
 }
 
 /* Select simple para filtro de Tags */
-function TagSelect({ options, value, onChange, disabled, unavailable }) {
+/* Select avanzado para filtro de Tags (react-select) */
+function TagSelect({
+  options,
+  value,
+  onChange,
+  disabled,
+  unavailable,
+  onDelete,
+  onCreateNew,
+}) {
+  const selectOptions = options.map((o) => ({
+    value: String(o.id_etiqueta),
+    label: o.nombre_etiqueta,
+    color: o.color_etiqueta || "#94a3b8",
+    id_etiqueta: o.id_etiqueta,
+  }));
+
+  const selectedOption =
+    selectOptions.find((o) => o.value === String(value)) || null;
+
+  /* Formato visual de cada opción */
+  const formatOptionLabel = (opt, { context }) => (
+    <div className="flex items-center justify-between w-full gap-2">
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Círculo de color */}
+        <span
+          className="h-2.5 w-2.5 rounded-full shrink-0 ring-1 ring-black/10"
+          style={{ backgroundColor: opt.color || "#94a3b8" }}
+        />
+        <span className="text-sm text-slate-700 truncate">{opt.label}</span>
+      </div>
+
+      {/* Botón eliminar (solo en el menú, no en el valor seleccionado) */}
+      {context === "menu" && onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete(opt.id_etiqueta, opt.label);
+          }}
+          className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 transition"
+          title={`Eliminar "${opt.label}"`}
+        >
+          <i className="bx bxs-trash text-sm" />
+        </button>
+      )}
+    </div>
+  );
+
+  /* Estilos del select */
+  const customStyles = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: 32,
+      maxHeight: 34,
+      borderRadius: 8,
+      fontSize: 13,
+      backgroundColor: "white",
+      borderColor: state.isFocused ? "#3b82f6" : "#e2e8f0",
+      boxShadow: state.isFocused ? "0 0 0 2px rgba(59,130,246,.2)" : "none",
+      cursor: "pointer",
+      "&:hover": { borderColor: "#94a3b8" },
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: "0 6px",
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: "#94a3b8",
+      fontSize: 13,
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: "#334155",
+      fontSize: 13,
+    }),
+    input: (base) => ({
+      ...base,
+      color: "#0f172a",
+      fontSize: 13,
+      margin: 0,
+      padding: 0,
+    }),
+    indicatorSeparator: () => ({ display: "none" }),
+    dropdownIndicator: (base) => ({
+      ...base,
+      padding: "0 4px",
+      color: "#94a3b8",
+    }),
+    clearIndicator: (base) => ({
+      ...base,
+      padding: "0 2px",
+      color: "#94a3b8",
+      cursor: "pointer",
+      "&:hover": { color: "#ef4444" },
+    }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: 12,
+      marginTop: 4,
+      padding: 4,
+      backgroundColor: "white",
+      border: "1px solid #e2e8f0",
+      boxShadow: "0 12px 28px rgba(0,0,0,.12)",
+      zIndex: 50,
+      minWidth: 220,
+    }),
+    menuList: (base) => ({
+      ...base,
+      maxHeight: 220,
+      padding: 2,
+    }),
+    option: (base, state) => ({
+      ...base,
+      borderRadius: 8,
+      padding: "6px 8px",
+      cursor: "pointer",
+      backgroundColor: state.isSelected
+        ? "#eff6ff"
+        : state.isFocused
+          ? "#f8fafc"
+          : "transparent",
+      "&:active": { backgroundColor: "#e2e8f0" },
+    }),
+    noOptionsMessage: (base) => ({
+      ...base,
+      fontSize: 13,
+      color: "#94a3b8",
+    }),
+  };
+
+  /* Texto footer dentro del menú (opcional: botón "Crear nueva") */
+  /* MenuList que conserva el scroll de react-select + botón crear */
+  const MenuList = (props) => {
+    return (
+      <div>
+        <rsComponents.MenuList {...props}>
+          {props.children}
+        </rsComponents.MenuList>
+        {onCreateNew && (
+          <div className="border-t border-slate-100 px-2 py-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCreateNew();
+              }}
+              className="flex items-center gap-2 w-full rounded-lg px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50 transition"
+            >
+              <i className="bx bx-plus text-sm" />
+              Crear nueva etiqueta
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <select
-      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      title={
-        unavailable
-          ? "Catálogo de etiquetas no disponible"
-          : "Filtrar por etiqueta"
-      }
-    >
-      <option value="">Etiquetas (todas)</option>
-      {options.map((o) => (
-        <option key={o.id_etiqueta} value={o.id_etiqueta}>
-          {o.nombre_etiqueta}
-        </option>
-      ))}
-    </select>
+    <div style={{ minWidth: 180 }}>
+      <Select
+        options={selectOptions}
+        value={selectedOption}
+        onChange={(opt) => onChange(opt ? opt.value : "")}
+        isClearable
+        isSearchable
+        isDisabled={disabled}
+        placeholder="Etiquetas (todas)"
+        noOptionsMessage={() => "Sin etiquetas"}
+        formatOptionLabel={formatOptionLabel}
+        styles={customStyles}
+        components={{ MenuList }}
+        menuPortalTarget={document.body}
+        menuPosition="fixed"
+        menuPlacement="auto"
+        maxMenuHeight={200}
+      />
+    </div>
   );
 }
 
@@ -374,9 +535,51 @@ function ModalTags({ open, title, onClose, catalogo, onApply, disabled }) {
 }
 
 /* Modal crear etiquetas */
-function ModalCrearEtiqueta({ open, onClose, onCreate }) {
+function ModalCrearEtiqueta({ open, onClose, onCreate, catalogoExistente }) {
   const [nombres, setNombres] = useState("");
-  const [color, setColor] = useState("");
+  const [color, setColor] = useState("#3b82f6");
+
+  useEffect(() => {
+    if (open) {
+      setNombres("");
+      setColor("#3b82f6");
+    }
+  }, [open]);
+
+  // Colores rápidos predefinidos
+  const quickColors = [
+    "#3b82f6", // blue
+    "#ef4444", // red
+    "#22c55e", // green
+    "#f59e0b", // amber
+    "#8b5cf6", // violet
+    "#ec4899", // pink
+    "#14b8a6", // teal
+    "#f97316", // orange
+    "#6366f1", // indigo
+    "#64748b", // slate
+  ];
+
+  // Colores extra desde catálogo existente (si hay)
+  const catalogColors = useMemo(() => {
+    if (!Array.isArray(catalogoExistente)) return [];
+    return [
+      ...new Set(
+        catalogoExistente
+          .map((t) => t.color_etiqueta || t.color)
+          .filter(Boolean),
+      ),
+    ]
+      .filter((c) => !quickColors.includes(c))
+      .slice(0, 6);
+  }, [catalogoExistente]);
+
+  // Preview de las etiquetas que se van a crear
+  const nombresPreview = nombres
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return (
     <BaseModal
       open={open}
@@ -391,6 +594,7 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
             Cancelar
           </button>
           <button
+            disabled={!nombres.trim()}
             onClick={async () => {
               const lista = nombres
                 .split(",")
@@ -411,39 +615,143 @@ function ModalCrearEtiqueta({ open, onClose, onCreate }) {
                 swalError("No se pudo crear", e?.message);
               }
             }}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
           >
-            Crear
+            <span className="inline-flex items-center gap-1.5">
+              <i className="bx bx-plus text-base" />
+              {nombresPreview.length > 1
+                ? `Crear ${nombresPreview.length} etiquetas`
+                : "Crear etiqueta"}
+            </span>
           </button>
         </>
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-4">
+        {/* Nombre(s) */}
         <div>
-          <label className="text-xs font-medium text-slate-700">
+          <label className="block text-xs font-medium text-slate-700 mb-1">
             Nombre(s)
           </label>
           <input
-            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
             placeholder="vip, follow-up, clientes-2025"
             value={nombres}
             onChange={(e) => setNombres(e.target.value)}
           />
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-400">
             Separa por comas para crear varias.
           </p>
         </div>
+
+        {/* Color */}
         <div>
-          <label className="text-xs font-medium text-slate-700">
-            Color (opcional)
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+            Color
           </label>
-          <input
-            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
-            placeholder="#1677FF"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-          />
+
+          <div className="flex items-center gap-3">
+            {/* Selector nativo de color */}
+            <div className="relative">
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="h-10 w-12 cursor-pointer rounded-lg border border-slate-200 p-0.5 bg-white"
+                title="Seleccionar color"
+              />
+            </div>
+
+            {/* Campo HEX editable */}
+            <input
+              type="text"
+              value={color}
+              onChange={(e) => {
+                const v = e.target.value;
+                setColor(v);
+              }}
+              placeholder="#3b82f6"
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60 outline-none transition"
+              maxLength={7}
+            />
+          </div>
+
+          {/* Colores rápidos */}
+          <div className="mt-3">
+            <span className="text-[11px] text-slate-400 font-medium">
+              Colores rápidos
+            </span>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {quickColors.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className={`h-7 w-7 rounded-full border-2 transition-all duration-150 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                    color === c
+                      ? "border-slate-800 ring-2 ring-slate-300 scale-110"
+                      : "border-white ring-1 ring-slate-200"
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Colores del catálogo existente */}
+          {catalogColors.length > 0 && (
+            <div className="mt-2.5">
+              <span className="text-[11px] text-slate-400 font-medium">
+                Colores de tus etiquetas
+              </span>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {catalogColors.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    className={`h-7 w-7 rounded-full border-2 transition-all duration-150 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      color === c
+                        ? "border-slate-800 ring-2 ring-slate-300 scale-110"
+                        : "border-white ring-1 ring-slate-200"
+                    }`}
+                    style={{ backgroundColor: c }}
+                    title={c}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Vista previa */}
+        {nombresPreview.length > 0 && (
+          <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+            <span className="text-[11px] font-medium text-slate-500">
+              Vista previa
+            </span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {nombresPreview.map((name, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium"
+                  style={{
+                    backgroundColor: `${color}14`,
+                    color: color,
+                    borderColor: `${color}30`,
+                  }}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </BaseModal>
   );
@@ -2542,6 +2850,26 @@ export default function Contactos() {
                 onChange={setIdEtiquetaFiltro}
                 disabled={false}
                 unavailable={false}
+                onDelete={async (idEtiqueta, nombre) => {
+                  const ok = await swalConfirm(
+                    "Eliminar etiqueta",
+                    `¿Eliminar la etiqueta "${nombre}"? Se quitará de todos los clientes.`,
+                  );
+                  if (!ok) return;
+                  try {
+                    swalLoading("Eliminando...");
+                    await eliminarEtiquetasCatalogo([idEtiqueta]);
+                    if (String(idEtiquetaFiltro) === String(idEtiqueta)) {
+                      setIdEtiquetaFiltro("");
+                    }
+                    swalClose();
+                    swalToast("Etiqueta eliminada");
+                  } catch (e) {
+                    swalClose();
+                    swalError("No se pudo eliminar", e?.message);
+                  }
+                }}
+                onCreateNew={() => ensureCatalogAndOpen("crear")}
               />
 
               <select
@@ -2741,6 +3069,7 @@ export default function Contactos() {
         open={modalCrearEtiquetaOpen}
         onClose={() => setModalCrearEtiquetaOpen(false)}
         onCreate={crearEtiquetas}
+        catalogoExistente={catalogosPorCfg[idConfigForTags]}
       />
       <ImportarXlsxModal
         open={openImportXlsx}
