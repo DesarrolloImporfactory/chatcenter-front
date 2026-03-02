@@ -1,196 +1,91 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// src/components/productos/ProductosView.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router-dom";
+import Header from "../Header/pageHeader";
 import { useDropi } from "../../context/DropiContext";
 import ImportarProductosDropi from "./modales/ImportarProductosDropi";
-import Header from "../Header/pageHeader";
+import ProductoModal from "./modales/ProductoModal"; // ← modal extraído
 
-const Toast = Swal.mixin({
-  toast: true,
-  position: "top-end",
-  showConfirmButton: false,
-  timer: 3000,
-  timerProgressBar: true,
-  didOpen: (toast) => {
-    toast.addEventListener("mouseenter", Swal.stopTimer);
-    toast.addEventListener("mouseleave", Swal.resumeTimer);
-  },
-});
-
+/* ─────────────────────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────────────────────── */
 const currency = new Intl.NumberFormat("es-EC", {
   style: "currency",
   currency: "USD",
   minimumFractionDigits: 2,
 });
 
-const badgeClase = (tipo) =>
-  tipo?.toString().toLowerCase().startsWith("ser")
-    ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-    : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+const normalizaTipo = (t) => {
+  const s = String(t || "")
+    .toLowerCase()
+    .trim();
+  if (!s) return "";
+  return s.startsWith("ser") ? "servicio" : "producto";
+};
 
+/*
+ * FIX: Verificar visibilidad.
+ * Backend guarda `es_privado`. Respuestas legacy pueden traer `is_private`.
+ * Esta función es la fuente de verdad para mostrar la columna de visibilidad.
+ */
+const esPrivado = (p) =>
+  p.es_privado === 1 ||
+  p.es_privado === true ||
+  p.is_private === 1 ||
+  p.is_private === true;
+
+/* ─────────────────────────────────────────────────────────────
+   Main
+───────────────────────────────────────────────────────────── */
 const ProductosView = () => {
+  const navigate = useNavigate();
+  const { isDropiLinked } = useDropi();
+
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [combosOpen, setCombosOpen] = useState(false);
-
+  /* Modal producto */
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+
+  /* Modal imagen zoom */
   const [modalImagen, setModalImagen] = useState({ abierta: false, url: "" });
 
-  const [form, setForm] = useState({
-    nombre: "",
-    descripcion: "",
-    tipo: "",
-    precio: "",
-    duracion: "",
-    id_categoria: "",
-    imagen: null,
-    video: null,
-    nombre_upsell: "",
-    descripcion_upsell: "",
-    precio_upsell: "",
-    imagen_upsell: null,
+  /* Carga masiva */
+  const [isOpenMasivo, setIsOpenMasivo] = useState(false);
+  const [archivoMasivo, setArchivoMasivo] = useState(null);
+  const [archivoMasivoNombre, setArchivoMasivoNombre] = useState(null);
 
-    combos_producto: [
-      { cantidad: "", precio: "" },
-      { cantidad: "", precio: "" },
-      { cantidad: "", precio: "" },
-    ],
-  });
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [previewVideo, setPreviewVideo] = useState(null);
-  const [previewUpsell, setPreviewUpsell] = useState(null);
-  const [editingId, setEditingId] = useState(null);
+  /* Dropi */
+  const [dropiModalOpen, setDropiModalOpen] = useState(false);
+  const [dropiLoading, setDropiLoading] = useState(false);
+  const [dropiKeywords, setDropiKeywords] = useState("");
+  const [dropiStart, setDropiStart] = useState(0);
+  const [dropiProducts, setDropiProducts] = useState([]);
+  const dropiPageSize = 12;
 
+  /* Filtros + paginación */
   const [search, setSearch] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [sort, setSort] = useState({ key: "nombre", dir: "asc" });
-
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 8;
 
-  const dropRef = useRef(null);
-  const dropVideoRef = useRef(null);
-  const dropUpsellRef = useRef(null);
-
-  const navigate = useNavigate();
-
-  /* seccion subida masiva de productos */
-
-  const [isOpenMasivo, setIsOpenMasivo] = useState(false);
-
-  // Función para abrir el modal
-  const openModalMasivo = () => setIsOpenMasivo(true);
-
-  // Función para cerrar el modal
-  const closeModalMasivo = () => setIsOpenMasivo(false);
-
-  const [archivoMasivo, setArchivoMasivo] = useState(null); // Estado para el archivo
-  const [archivoMasivoNombre, setArchivoMasivoNombre] = useState(null); // Nombre del archivo
-
-  // Función cuando el archivo es seleccionado (por drag-and-drop o input de archivo)
-  const onArchivoMasivoPicked = (file) => {
-    if (file) {
-      setArchivoMasivo(file);
-      setArchivoMasivoNombre(file.name); // Guarda el nombre del archivo
-    }
-  };
-
-  // Función de manejo para el evento de drag and drop (cuando el archivo se arrastra)
-  const onArchivoMasivoDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0]; // Obtiene el archivo arrastrado
-    onArchivoMasivoPicked(file); // Llama a la función que maneja el archivo
-  };
-
-  // Función para prevenir el comportamiento por defecto cuando el archivo es arrastrado
-  const onArchivoMasivoDragOver = (e) => e.preventDefault(); // Prevenir la acción por defecto
-
-  // Función para manejar cuando el archivo deja de ser arrastrado
-  const onArchivoMasivoDragLeave = (e) => e.preventDefault(); // Prevenir la acción por defecto
-
-  // Función para manejar el envío del archivo al backend
-  const handleSubirMasivo = async (e) => {
-    e.preventDefault();
-
-    // Verificar si se ha seleccionado un archivo Excel
-    if (!archivoMasivo) {
-      alert("Por favor, selecciona un archivo Excel para subir.");
-      return;
-    }
-
-    // Crear un objeto FormData para enviar el archivo
-    const formData = new FormData();
-    formData.append("archivoExcel", archivoMasivo); // Agregar el archivo Excel
-    formData.append(
-      "id_configuracion",
-      localStorage.getItem("id_configuracion"),
-    ); // Agregar id_configuracion
-
-    try {
-      // Enviar la solicitud POST a la API
-      const { data } = await chatApi.post(
-        "/productos/cargaMasivaProductos",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data", // Aseguramos que se suba como archivo
-          },
-        },
-      );
-
-      // Si la respuesta es exitosa, mostramos un mensaje
-      Swal.fire({
-        icon: "success",
-        title: "Archivo subido exitosamente",
-        text: "Los productos fueron cargados correctamente.",
-      });
-
-      // Cerrar el modal
-      closeModalMasivo();
-
-      // Limpiar los valores de los estados relacionados
-      setArchivoMasivo(null);
-      setArchivoMasivoNombre(null);
-      setPreviewUrl(null);
-      setPreviewVideo(null);
-      setPreviewUpsell(null);
-
-      // Si necesitas volver a obtener los datos, ejecuta una función fetchData
-      fetchData();
-    } catch (error) {
-      // En caso de error, mostramos un mensaje de error
-      console.error("Error al subir el archivo:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Hubo un error al subir el archivo.",
-      });
-    }
-  };
-
-  /* seccion subida masiva de productos */
-
+  /* ── Fetch ── */
   const fetchData = async () => {
     const idc = localStorage.getItem("id_configuracion");
     if (!idc) {
-      setLoading(false);
-      Swal.fire({
-        icon: "error",
-        title: "Falta configuración",
-        text: "No se encontró el ID de configuración",
-      });
-
-      localStorage.removeItem("id_configuracion");
-      localStorage.removeItem("tipo_configuracion");
-      localStorage.removeItem("id_plataforma_conf");
+      Swal.fire({ icon: "error", title: "Falta configuración" });
+      ["id_configuracion", "tipo_configuracion", "id_plataforma_conf"].forEach(
+        (k) => localStorage.removeItem(k),
+      );
       navigate("/conexiones");
       return;
     }
-
     try {
       setLoading(true);
       const [prodRes, catRes] = await Promise.all([
@@ -204,11 +99,7 @@ const ProductosView = () => {
       setProductos(prodRes.data.data || []);
       setCategorias(catRes.data.data || []);
     } catch {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "No se pudo cargar la información",
-      });
+      Swal.fire({ icon: "error", title: "Error al cargar productos" });
     } finally {
       setLoading(false);
     }
@@ -216,54 +107,9 @@ const ProductosView = () => {
 
   useEffect(() => {
     fetchData();
-    return () => {
-      if (previewUrl && previewUrl.startsWith("blob:"))
-        URL.revokeObjectURL(previewUrl);
-      if (previewVideo && previewVideo.startsWith("blob:"))
-        URL.revokeObjectURL(previewVideo);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // eslint-disable-line
 
-  const normalizeCombos = (value) => {
-    // 1. Si viene NULL → devolver array por defecto
-    if (!value) {
-      return [
-        { cantidad: "", precio: "" },
-        { cantidad: "", precio: "" },
-        { cantidad: "", precio: "" },
-      ];
-    }
-
-    // 2. Si viene en string JSON
-    if (typeof value === "string") {
-      try {
-        const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.warn("Error al parsear combos_producto:", e);
-      }
-    }
-
-    // 3. Si viene como otra cosa → proteger
-    if (!Array.isArray(value)) {
-      return [
-        { cantidad: "", precio: "" },
-        { cantidad: "", precio: "" },
-        { cantidad: "", precio: "" },
-      ];
-    }
-
-    // 4. Si viene array, completar a 3 posiciones si faltan
-    const filled = [...value];
-    while (filled.length < 3) {
-      filled.push({ cantidad: "", precio: "" });
-    }
-
-    return filled;
-  };
-
-  // ------- helpers -------
+  /* ── catMap ── */
   const catMap = useMemo(
     () =>
       Object.fromEntries(
@@ -272,45 +118,30 @@ const ProductosView = () => {
     [categorias],
   );
 
-  const normalizaTipo = (t) => {
-    const s = String(t || "")
-      .toLowerCase()
-      .trim();
-    if (!s) return "";
-    if (s.startsWith("ser")) return "servicio";
-    return "producto";
-  };
-
-  const handleSort = (key) => {
+  /* ── Sort toggle ── */
+  const handleSort = (key) =>
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
         : { key, dir: "asc" },
     );
-  };
 
-  // ------- filtros + sort + paginación -------
+  /* ── Lista filtrada y ordenada ── */
   const listaProcesada = useMemo(() => {
     const q = search.trim().toLowerCase();
     let data = [...productos];
-
-    if (q) {
+    if (q)
       data = data.filter(
         (p) =>
-          p?.nombre?.toLowerCase().includes(q) ||
-          p?.descripcion?.toLowerCase().includes(q),
+          (p?.nombre || "").toLowerCase().includes(q) ||
+          (p?.descripcion || "").toLowerCase().includes(q),
       );
-    }
-
-    if (filtroCategoria) {
+    if (filtroCategoria)
       data = data.filter(
         (p) => String(p.id_categoria) === String(filtroCategoria),
       );
-    }
-
-    if (filtroTipo) {
+    if (filtroTipo)
       data = data.filter((p) => normalizaTipo(p.tipo) === filtroTipo);
-    }
 
     data.sort((a, b) => {
       const dir = sort.dir === "asc" ? 1 : -1;
@@ -322,12 +153,10 @@ const ProductosView = () => {
         sort.key === "precio"
           ? Number(b.precio || 0)
           : (b[sort.key] ?? "").toString().toLowerCase();
-
       if (va < vb) return -1 * dir;
       if (va > vb) return 1 * dir;
       return 0;
     });
-
     return data;
   }, [productos, search, filtroCategoria, filtroTipo, sort]);
 
@@ -336,324 +165,137 @@ const ProductosView = () => {
     Math.ceil(listaProcesada.length / itemsPerPage),
   );
   const paginated = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return listaProcesada.slice(start, start + itemsPerPage);
+    const s = (currentPage - 1) * itemsPerPage;
+    return listaProcesada.slice(s, s + itemsPerPage);
   }, [listaProcesada, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filtroCategoria, filtroTipo, itemsPerPage]);
+  }, [search, filtroCategoria, filtroTipo]);
 
-  // ------- CRUD -------
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const idc = parseInt(localStorage.getItem("id_configuracion"));
-    const data = new FormData();
-    Object.entries(form).forEach(([k, v]) => {
-      if (k === "combos_producto") {
-        data.append(k, JSON.stringify(v)); // <-- JSON real
-      } else if (v !== null && v !== "") {
-        data.append(k, v);
-      }
-    });
-
-    if (editingId) data.append("id_producto", editingId);
-    else data.append("id_configuracion", idc);
-
-    try {
-      const url = editingId
-        ? "/productos/actualizarProducto"
-        : "/productos/agregarProducto";
-
-      await chatApi.post(url, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      Swal.fire({
-        icon: "success",
-        title: `Producto ${editingId ? "actualizado" : "agregado"}`,
-        text: "La operación fue exitosa",
-      });
-
-      setModalOpen(false);
-      setForm({
-        nombre: "",
-        descripcion: "",
-        tipo: "",
-        precio: "",
-        duracion: "",
-        id_categoria: "",
-        imagen: null,
-        video: null,
-
-        // Upsell
-        nombre_upsell: "",
-        descripcion_upsell: "",
-        precio_upsell: "",
-        imagen_upsell: null,
-
-        combos_producto: [
-          { cantidad: "", precio: "" },
-          { cantidad: "", precio: "" },
-          { cantidad: "", precio: "" },
-        ],
-      });
-
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-      setPreviewVideo(null);
-      setPreviewUpsell(null);
-      setEditingId(null);
-      fetchData();
-    } catch {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "No se pudo guardar el producto",
-      });
-    }
-  };
-
-  const openModal = (p = null) => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    if (p) {
-      setForm({
-        nombre: p.nombre || "",
-        descripcion: p.descripcion || "",
-        tipo: normalizaTipo(p.tipo),
-        precio: p.precio ?? "",
-        duracion: p.duracion ?? "",
-        id_categoria: p.id_categoria ?? "",
-        imagen: null, // se sube solo si cambia
-        video: null,
-
-        // Upsell
-        nombre_upsell: p.nombre_upsell ?? "",
-        descripcion_upsell: p.descripcion_upsell ?? "",
-        precio_upsell: p.precio_upsell ?? "",
-        imagen_upsell: null,
-        combos_producto: normalizeCombos(p.combos_producto),
-      });
-      setEditingId(p.id);
-      // si tiene imagen actual, la mostramos aparte
-      setPreviewUrl(p.imagen_url || null);
-      setPreviewVideo(p.video_url || null);
-      setPreviewUpsell(p.imagen_upsell_url || null);
-    } else {
-      setForm({
-        nombre: "",
-        descripcion: "",
-        tipo: "",
-        precio: "",
-        duracion: "",
-        id_categoria: "",
-        imagen: null,
-        video: null,
-
-        // Upsell
-        nombre_upsell: "",
-        descripcion_upsell: "",
-        precio_upsell: "",
-        imagen_upsell: null,
-        combos_producto: [
-          { cantidad: "", precio: "" },
-          { cantidad: "", precio: "" },
-          { cantidad: "", precio: "" },
-        ],
-      });
-      setEditingId(null);
-      setPreviewUrl(null);
-      setPreviewVideo(null);
-      setPreviewUpsell(null);
-    }
-    setModalOpen(true);
-  };
-
+  /* ── Delete ── */
   const handleDelete = async (p) => {
-    const result = await Swal.fire({
+    const { isConfirmed } = await Swal.fire({
       title: "¿Eliminar producto?",
       text: p.nombre,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
+      confirmButtonColor: "#ef4444",
     });
-
-    if (result.isConfirmed) {
-      try {
-        await chatApi.delete("/productos/eliminarProducto", {
-          data: { id_producto: p.id },
-        });
-        Swal.fire({
-          icon: "success",
-          title: "Producto eliminado",
-          text: p.nombre,
-          timer: 1500,
-          showConfirmButton: false,
-        });
-        fetchData();
-      } catch {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "No se pudo eliminar el producto",
-        });
-      }
-    }
-  };
-
-  // ------- dropzone imagen -------
-  const onFilePicked = (file) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      return Swal.fire({
-        icon: "error",
-        title: "Archivo no válido",
-        text: "Debe ser una imagen.",
+    if (!isConfirmed) return;
+    try {
+      await chatApi.delete("/productos/eliminarProducto", {
+        data: { id_producto: p.id },
       });
-    }
-    setForm((prev) => ({ ...prev, imagen: file }));
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-  };
-
-  const onDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const file = e.dataTransfer.files?.[0];
-    onFilePicked(file);
-    dropRef.current?.classList.remove("ring-indigo-300", "bg-indigo-50/40");
-  };
-
-  const onDragOver = (e) => {
-    e.preventDefault();
-    dropRef.current?.classList.add("ring-indigo-300", "bg-indigo-50/40");
-  };
-  const onDragLeave = () => {
-    dropRef.current?.classList.remove("ring-indigo-300", "bg-indigo-50/40");
-  };
-
-  // ------- dropzone video (nuevo) -------
-  const MAX_VIDEO_MB = 50;
-
-  const onVideoPicked = (file) => {
-    if (!file) return;
-    if (!file.type.startsWith("video/")) {
-      return Swal.fire({
-        icon: "error",
-        title: "Archivo no válido",
-        text: "Debe ser un video.",
+      Swal.fire({
+        icon: "success",
+        title: "Producto eliminado",
+        timer: 1500,
+        showConfirmButton: false,
       });
+      fetchData();
+    } catch {
+      Swal.fire({ icon: "error", title: "No se pudo eliminar" });
     }
-    const sizeMB = file.size / (1024 * 1024);
-    if (sizeMB > MAX_VIDEO_MB) {
-      return Swal.fire({
-        icon: "error",
-        title: "Video demasiado grande",
-        text: `El tamaño máximo permitido es ${MAX_VIDEO_MB} MB.`,
+  };
+
+  /* ── Carga masiva ── */
+  const handleSubirMasivo = async (e) => {
+    e.preventDefault();
+    if (!archivoMasivo) {
+      Swal.fire({ icon: "warning", title: "Selecciona un archivo Excel" });
+      return;
+    }
+    const fd = new FormData();
+    fd.append("archivoExcel", archivoMasivo);
+    fd.append("id_configuracion", localStorage.getItem("id_configuracion"));
+    try {
+      await chatApi.post("/productos/cargaMasivaProductos", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
+      Swal.fire({ icon: "success", title: "Productos cargados correctamente" });
+      setIsOpenMasivo(false);
+      setArchivoMasivo(null);
+      setArchivoMasivoNombre(null);
+      fetchData();
+    } catch {
+      Swal.fire({ icon: "error", title: "Error al subir el archivo" });
     }
-    setForm((prev) => ({ ...prev, video: file }));
-    if (previewVideo && previewVideo.startsWith("blob:"))
-      URL.revokeObjectURL(previewVideo);
-    const url = URL.createObjectURL(file);
-    setPreviewVideo(url);
   };
 
-  const onVideoDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const file = e.dataTransfer.files?.[0];
-    onVideoPicked(file);
-    dropVideoRef.current?.classList.remove(
-      "ring-indigo-300",
-      "bg-indigo-50/40",
-    );
-  };
-
-  const onVideoDragOver = (e) => {
-    e.preventDefault();
-    dropVideoRef.current?.classList.add("ring-indigo-300", "bg-indigo-50/40");
-  };
-  const onVideoDragLeave = () => {
-    dropVideoRef.current?.classList.remove(
-      "ring-indigo-300",
-      "bg-indigo-50/40",
-    );
-  };
-
-  // ------- dropzone imagen upsell -------
-  const onUpsellPicked = (file) => {
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      return Swal.fire({
-        icon: "error",
-        title: "Archivo no válido",
-        text: "Debe ser una imagen.",
+  /* ── Dropi ── */
+  const fetchDropiProducts = async (reset = false) => {
+    setDropiLoading(true);
+    try {
+      const idc = Number(localStorage.getItem("id_configuracion"));
+      const { data } = await chatApi.post("/productos/listarProductosDropi", {
+        id_configuracion: idc,
+        pageSize: dropiPageSize,
+        startData: reset ? 0 : dropiStart,
+        keywords: dropiKeywords,
+        order_by: "id",
+        order_type: "desc",
+        no_count: true,
       });
+      setDropiProducts(data?.data?.objects || []);
+      if (reset) setDropiStart(0);
+    } catch {
+      Swal.fire({ icon: "error", title: "Error al listar Dropi" });
+    } finally {
+      setDropiLoading(false);
     }
-
-    setForm((prev) => ({ ...prev, imagen_upsell: file }));
-
-    if (previewUpsell && previewUpsell.startsWith("blob:"))
-      URL.revokeObjectURL(previewUpsell);
-
-    const url = URL.createObjectURL(file);
-    setPreviewUpsell(url);
   };
 
-  const onUpsellDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const file = e.dataTransfer.files?.[0];
-    onUpsellPicked(file);
+  useEffect(() => {
+    if (dropiModalOpen) fetchDropiProducts(true);
+  }, [dropiModalOpen]); // eslint-disable-line
 
-    dropUpsellRef.current?.classList.remove(
-      "ring-indigo-300",
-      "bg-indigo-50/40",
-    );
+  const importarDropi = async (dropiId) => {
+    const idc = Number(localStorage.getItem("id_configuracion"));
+    const { isConfirmed } = await Swal.fire({
+      title: "¿Importar producto?",
+      text: `Dropi #${dropiId}`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, importar",
+    });
+    if (!isConfirmed) return;
+    try {
+      const { data } = await chatApi.post("/productos/importarProductoDropi", {
+        id_configuracion: idc,
+        dropi_product_id: dropiId,
+      });
+      Swal.fire({
+        icon: data?.alreadyImported ? "info" : "success",
+        title: data?.alreadyImported
+          ? "Ya estaba importado"
+          : "Producto importado",
+        timer: 1400,
+        showConfirmButton: false,
+      });
+      setDropiModalOpen(false);
+      fetchData();
+    } catch {
+      Swal.fire({ icon: "error", title: "Error al importar" });
+    }
   };
 
-  const onUpsellDragOver = (e) => {
-    e.preventDefault();
-    dropUpsellRef.current?.classList.add("ring-indigo-300", "bg-indigo-50/40");
-  };
-
-  const onUpsellDragLeave = () => {
-    dropUpsellRef.current?.classList.remove(
-      "ring-indigo-300",
-      "bg-indigo-50/40",
-    );
-  };
-
-  // ------- UI -------
-  const SortHeader = ({ k, children, align = "left" }) => (
+  /* ── Sort header component ── */
+  const SortTh = ({ k, children, center }) => (
     <th
       onClick={() => handleSort(k)}
-      className={`p-3 select-none cursor-pointer text-${align} font-semibold`}
-      title="Ordenar"
-      aria-sort={
-        sort.key === k
-          ? sort.dir === "asc"
-            ? "ascending"
-            : "descending"
-          : "none"
-      }
+      className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500
+        cursor-pointer select-none hover:text-slate-700 transition-colors
+        ${center ? "text-center" : "text-left"}`}
     >
       <span className="inline-flex items-center gap-1">
         {children}
         <svg
-          className={`h-3 w-3 transition ${
-            sort.key === k ? "opacity-100" : "opacity-30"
-          }`}
+          className={`w-3 h-3 ${sort.key === k ? "opacity-100 text-indigo-500" : "opacity-25"}`}
           viewBox="0 0 20 20"
           fill="currentColor"
-          aria-hidden="true"
         >
           {sort.key === k && sort.dir === "desc" ? (
             <path d="M14 12l-4 4-4-4h8z" />
@@ -665,178 +307,78 @@ const ProductosView = () => {
     </th>
   );
 
-  const HeaderStat = ({ label, value }) => (
-    <div className="px-4 py-3 rounded-xl bg-white/30 backdrop-blur ring-1 ring-white/50 shadow-sm">
-      <div className="text-xs uppercase tracking-wide text-white/80">
-        {label}
-      </div>
-      <div className="text-lg font-semibold text-white">{value}</div>
-    </div>
-  );
-
-  const handleDescriptionChange = (e) => {
-    const newText = e.target.value;
-    const words = newText.trim().split(/\s+/);
-
-    // Limitar el texto a 200 palabras
-    if (words.length <= 200) {
-      setForm({ ...form, descripcion: newText });
-    } else {
-      Toast.fire({
-        icon: "error",
-        title: "La descipcion esta a limitada a 200 palabras maximo",
-        position: "bottom",
-      });
-    }
-  };
-
-  const { isDropiLinked, loadingDropiLinked } = useDropi();
-
-  const [dropiModalOpen, setDropiModalOpen] = useState(false);
-  const [dropiLoading, setDropiLoading] = useState(false);
-  const [dropiKeywords, setDropiKeywords] = useState("");
-  const [dropiStart, setDropiStart] = useState(0);
-  const [dropiPageSize] = useState(12);
-  const [dropiProducts, setDropiProducts] = useState([]);
-
-  const fetchDropiProducts = async (reset = false) => {
-    const idc = Number(localStorage.getItem("id_configuracion"));
-
-    setDropiLoading(true);
-    try {
-      const startData = reset ? 0 : dropiStart;
-
-      const { data } = await chatApi.post("/productos/listarProductosDropi", {
-        id_configuracion: idc,
-        pageSize: dropiPageSize,
-        startData,
-        keywords: dropiKeywords,
-        order_by: "id",
-        order_type: "desc",
-        no_count: true,
-      });
-
-      const objects = data?.data?.objects || [];
-      setDropiProducts(objects);
-      if (reset) setDropiStart(0);
-    } catch (e) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "No se pudo listar productos Dropi.",
-      });
-    } finally {
-      setDropiLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (dropiModalOpen) fetchDropiProducts(true);
-  }, [dropiModalOpen]);
-
-  const importarDropi = async (dropiId) => {
-    const idc = Number(localStorage.getItem("id_configuracion"));
-
-    try {
-      const result = await Swal.fire({
-        title: "¿Importar producto?",
-        text: `Producto Dropi #${dropiId}`,
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonText: "Sí, importar",
-        cancelButtonText: "Cancelar",
-      });
-
-      if (!result.isConfirmed) return;
-
-      const { data } = await chatApi.post("/productos/importarProductoDropi", {
-        id_configuracion: idc,
-        dropi_product_id: dropiId,
-      });
-
-      if (data?.alreadyImported) {
-        Toast.fire({ icon: "info", title: "Ya estaba importado." });
-      } else {
-        Toast.fire({ icon: "success", title: "Producto importado." });
-      }
-
-      setDropiModalOpen(false);
-      fetchData();
-    } catch (e) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "No se pudo importar el producto.",
-      });
-    }
-  };
-
+  /* ── Header actions ── */
   const headerActions = (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {isDropiLinked === true && (
         <button
           onClick={() => setDropiModalOpen(true)}
-          className="inline-flex items-center gap-2 bg-[#eb6e1b] text-white hover:bg-[#d3661e] active:bg-[#eb6e1b] px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+          className="inline-flex items-center gap-2 bg-[#eb6e1b] hover:bg-[#d3661e]
+            text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
         >
-          <i className="bx bx-import text-lg"></i>
-          Importar desde Dropi
+          <i className="bx bx-import text-base" />
+          Importar Dropi
         </button>
       )}
-
       <button
-        onClick={() => openModal()}
-        className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+        onClick={() => navigate("/catalogos")}
+        className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20
+          border border-white/20 text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
       >
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-        </svg>
-        Agregar
+        <i className="bx bx-layout text-base" />
+        Catálogos
       </button>
-
       <button
-        onClick={() => openModalMasivo()}
-        className="inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 active:bg-green-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        onClick={() => setIsOpenMasivo(true)}
+        className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400
+          text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
       >
-        <i className="bx bx-upload text-lg"></i>
-        Importación masiva de productos
+        <i className="bx bx-upload text-base" />
+        Carga masiva
+      </button>
+      <button
+        onClick={() => {
+          setEditingProduct(null);
+          setModalOpen(true);
+        }}
+        className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50
+          px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+      >
+        <i className="bx bx-plus text-base" />
+        Agregar
       </button>
     </div>
   );
 
-  // ✅ Stats existentes (mismos valores)
   const headerStats = [
     { label: "Total productos", value: productos.length },
     { label: "Categorías", value: categorias.length },
-    { label: "En esta vista", value: listaProcesada.length },
+    { label: "Filtrados", value: listaProcesada.length },
     { label: "Página", value: `${currentPage}/${totalPages}` },
   ];
 
+  /* ═════════════════════════════════════════
+     RENDER
+  ═════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 w-full">
-      {/* Card principal */}
-      <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
-        {/* Header */}
+    <div className="min-h-screen bg-slate-50 w-full">
+      <div
+        className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl
+        ring-1 ring-slate-200 flex flex-col min-h-[82vh] overflow-hidden"
+      >
         <Header
           title="Productos"
-          subtitle="Administra tu catálogo con una experiencia más fluida y elegante."
+          subtitle="Administra tu catálogo de productos y servicios disponibles."
           actions={headerActions}
           stats={headerStats}
           className="bg-[#171931]"
         />
 
-        {/* Controles */}
-        <div className="p-6 border-b border-slate-100 bg-white">
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-            <div className="relative w-full lg:w-1/2">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path d="M12.9 14.32a8 8 0 1 1 1.41-1.41l3.39 3.38a1 1 0 0 1-1.42 1.42l-3.38-3.39zM14 8a6 6 0 1 0-12 0 6 6 0 0 0 12 0z" />
-                </svg>
-              </span>
+        {/* Filters */}
+        <div className="px-5 py-3.5 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
               <input
                 type="text"
                 placeholder="Buscar por nombre o descripción…"
@@ -845,15 +387,16 @@ const ProductosView = () => {
                   setSearch(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg
+                  focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none transition"
               />
             </div>
-
-            <div className="flex gap-3 w-full lg:w-auto">
+            <div className="flex gap-2">
               <select
-                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                 value={filtroCategoria}
                 onChange={(e) => setFiltroCategoria(e.target.value)}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm
+                  focus:ring-2 focus:ring-indigo-200 outline-none min-w-[150px]"
               >
                 <option value="">Todas las categorías</option>
                 {categorias.map((c) => (
@@ -862,116 +405,138 @@ const ProductosView = () => {
                   </option>
                 ))}
               </select>
-
               <select
-                className="w-full lg:w-48 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                 value={filtroTipo}
                 onChange={(e) => setFiltroTipo(e.target.value)}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm
+                  focus:ring-2 focus:ring-indigo-200 outline-none"
               >
                 <option value="">Todos los tipos</option>
                 <option value="producto">Producto</option>
                 <option value="servicio">Servicio</option>
               </select>
             </div>
+            <div className="ml-auto text-xs text-slate-400 hidden sm:block">
+              {listaProcesada.length} resultado
+              {listaProcesada.length !== 1 ? "s" : ""}
+            </div>
           </div>
         </div>
 
-        {/* Tabla / contenido */}
+        {/* Content */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {loading ? (
-            <div className="p-6 space-y-2 animate-pulse">
+          {/* Loading skeleton */}
+          {loading && (
+            <div className="p-5 space-y-2">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-12 bg-slate-100 rounded-md" />
+                <div
+                  key={i}
+                  className="h-14 bg-slate-100 animate-pulse rounded-xl"
+                />
               ))}
             </div>
-          ) : listaProcesada.length === 0 ? (
-            <div className="flex-1 p-10 text-center flex flex-col items-center justify-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg
-                  className="w-10 h-10 text-slate-400"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M21 19l-5.6-5.6a7 7 0 1 0-2 2L19 21l2-2zM5 10a5 5 0 1 1 10 0A5 5 0 0 1 5 10z" />
-                </svg>
+          )}
+
+          {/* Empty state */}
+          {!loading && listaProcesada.length === 0 && (
+            <div className="flex-1 flex flex-col items-center justify-center py-20 gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                <i className="bx bx-package text-3xl text-indigo-300" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-slate-800">
+              <div className="text-center">
+                <p className="font-semibold text-slate-700 text-sm">
                   Sin resultados
-                </h3>
-                <p className="text-slate-500">
-                  Ajusta los filtros o agrega tu primer producto.
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {search || filtroCategoria || filtroTipo
+                    ? "Ajusta los filtros para ver más resultados."
+                    : "Crea tu primer producto para empezar."}
                 </p>
               </div>
-              <button
-                onClick={() => openModal()}
-                className="inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition"
-              >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
+              {!search && !filtroCategoria && !filtroTipo && (
+                <button
+                  onClick={() => {
+                    setEditingProduct(null);
+                    setModalOpen(true);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-5 py-2.5
+                    rounded-xl font-semibold transition-colors"
                 >
-                  <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-                </svg>
-                Agregar producto
-              </button>
+                  Agregar primer producto
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="flex-1 min-h-0 overflow-auto">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 sticky top-0 z-10">
-                    <tr className="text-slate-600">
-                      <SortHeader k="id" align="left">
-                        ID
-                      </SortHeader>
-                      <SortHeader k="nombre" align="left">
-                        Producto
-                      </SortHeader>
-                      <SortHeader k="precio" align="right">
-                        Precio
-                      </SortHeader>
-                      <th className="p-3 text-left font-semibold">Tipo</th>
-                      <th className="p-3 text-left font-semibold">Categoría</th>
-                      <th className="p-3 text-center font-semibold">Imagen</th>
-                      <th className="p-3 text-center font-semibold">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {paginated.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50/60">
-                        <td className="p-3 text-slate-500">{p.id}</td>
+          )}
 
-                        {/* Producto + nombre */}
-                        <td className="p-3">
+          {/* Table */}
+          {!loading && listaProcesada.length > 0 && (
+            <div className="flex-1 min-h-0 overflow-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/80">
+                    <SortTh k="id">#</SortTh>
+                    <SortTh k="nombre">Producto</SortTh>
+                    <SortTh k="precio" center>
+                      Precio
+                    </SortTh>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-left">
+                      Tipo
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-left">
+                      Categoría
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center">
+                      Imagen
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-left">
+                      Visibilidad
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-left">
+                      Stock / Dropi
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((p, idx) => {
+                    const priv = esPrivado(p); // ← FIX usa es_privado + fallback is_private
+                    return (
+                      <tr
+                        key={p.id}
+                        className={`border-b border-slate-50 hover:bg-indigo-50/25 transition-colors
+                          ${idx % 2 !== 0 ? "bg-slate-50/30" : ""}`}
+                      >
+                        {/* ID */}
+                        <td className="px-4 py-3.5 text-xs text-slate-400 font-mono w-12">
+                          {p.id}
+                        </td>
+
+                        {/* Producto */}
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center ring-1 ring-slate-200">
+                            <div
+                              className="w-9 h-9 rounded-xl overflow-hidden bg-slate-100 flex items-center
+                              justify-center flex-shrink-0 ring-1 ring-slate-200"
+                            >
                               {p.imagen_url ? (
                                 <img
                                   src={p.imagen_url}
                                   alt=""
-                                  className="h-10 w-10 object-cover"
+                                  className="w-9 h-9 object-cover"
                                   crossOrigin="anonymous"
                                 />
                               ) : (
-                                <svg
-                                  className="w-5 h-5 text-slate-400"
-                                  viewBox="0 0 24 24"
-                                  fill="currentColor"
-                                >
-                                  <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6zm3 10h10l-3.5-4.5-2.5 3L9 12l-2 4z" />
-                                </svg>
+                                <i className="bx bx-package text-slate-300 text-lg" />
                               )}
                             </div>
-                            <div>
-                              <div className="font-medium text-slate-800">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-slate-800 text-sm truncate max-w-[240px]">
                                 {p.nombre}
                               </div>
                               {p.descripcion && (
-                                <div className="text-slate-500 line-clamp-1 max-w-[420px]">
+                                <div className="text-xs text-slate-400 line-clamp-1 max-w-[280px] mt-0.5">
                                   {p.descripcion}
                                 </div>
                               )}
@@ -979,15 +544,19 @@ const ProductosView = () => {
                           </div>
                         </td>
 
-                        <td className="p-3 text-right tabular-nums font-semibold text-slate-800">
+                        {/* Precio */}
+                        <td className="px-4 py-3.5 text-center tabular-nums font-bold text-slate-800">
                           {currency.format(Number(p.precio || 0))}
                         </td>
 
-                        <td className="p-3">
+                        {/* Tipo */}
+                        <td className="px-4 py-3.5">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-semibold ${badgeClase(
-                              p.tipo,
-                            )}`}
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ${
+                              normalizaTipo(p.tipo) === "servicio"
+                                ? "bg-amber-50 text-amber-700 ring-amber-200"
+                                : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            }`}
                           >
                             {normalizaTipo(p.tipo) === "servicio"
                               ? "Servicio"
@@ -995,127 +564,170 @@ const ProductosView = () => {
                           </span>
                         </td>
 
-                        <td className="p-3 text-slate-700">
+                        {/* Categoría */}
+                        <td className="px-4 py-3.5 text-sm text-slate-600">
                           {catMap[String(p.id_categoria)] || "—"}
                         </td>
 
-                        <td className="p-3 text-center">
+                        {/* Imagen zoom */}
+                        <td className="px-4 py-3.5 text-center">
                           {p.imagen_url ? (
                             <img
                               src={p.imagen_url}
                               alt=""
-                              className="h-12 w-12 object-cover rounded-md cursor-zoom-in ring-1 ring-slate-200 hover:opacity-90 mx-auto"
+                              crossOrigin="anonymous"
                               onClick={() =>
                                 setModalImagen({
                                   abierta: true,
                                   url: p.imagen_url,
                                 })
                               }
+                              className="h-10 w-10 object-cover rounded-lg ring-1 ring-slate-200
+                                cursor-zoom-in hover:opacity-80 transition-opacity mx-auto"
                             />
                           ) : (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-slate-300 text-xs">—</span>
                           )}
                         </td>
 
-                        <td className="p-3">
+                        {/* Visibilidad — FIX: usa esPrivado() */}
+                        <td className="px-4 py-3.5">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                            text-xs font-semibold ring-1 ${
+                              priv
+                                ? "bg-rose-50 text-rose-700 ring-rose-200"
+                                : "bg-sky-50 text-sky-700 ring-sky-200"
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${priv ? "bg-rose-400" : "bg-sky-400"}`}
+                            />
+                            {priv ? "Privado" : "Público"}
+                          </span>
+                        </td>
+
+                        {/* Stock / Dropi ID */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex flex-col gap-1.5">
+                            {p.stock != null && (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${
+                                  Number(p.stock) > 0
+                                    ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200"
+                                    : "bg-slate-100 text-slate-400 ring-1 ring-slate-200"
+                                }`}
+                              >
+                                <i
+                                  className="bx bx-box"
+                                  style={{ fontSize: 10 }}
+                                />
+                                {Number(p.stock) > 0
+                                  ? `${p.stock} uds`
+                                  : "Sin stock"}
+                              </span>
+                            )}
+                            {p.external_id != null && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit bg-orange-50 text-orange-500 ring-1 ring-orange-200">
+                                <i
+                                  className="bx bx-barcode"
+                                  style={{ fontSize: 10 }}
+                                />
+                                Dropi #{p.external_id}
+                              </span>
+                            )}
+                            {p.stock == null && p.external_id == null && (
+                              <span className="text-slate-300 text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Acciones */}
+                        <td className="px-4 py-3.5">
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => openModal(p)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700"
-                              title="Editar"
+                              onClick={() => {
+                                setEditingProduct(p);
+                                setModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg
+                                border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50
+                                hover:text-indigo-700 text-slate-600 font-medium transition-colors"
                             >
-                              <svg
-                                className="w-4 h-4"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                              >
-                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
-                              </svg>
+                              <i className="bx bx-edit-alt text-sm" />
                               Editar
                             </button>
                             <button
                               onClick={() => handleDelete(p)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
-                              title="Eliminar"
+                              className="inline-flex items-center text-xs px-2 py-1.5 rounded-lg
+                                border border-transparent hover:border-red-200 hover:bg-red-50
+                                text-slate-300 hover:text-red-500 transition-colors"
                             >
-                              <svg
-                                className="w-4 h-4"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                              >
-                                <path d="M9 3a1 1 0 0 0-1 1v1H4a1 1 0 1 0 0 2h1v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7h1a1 1 0 1 0 0-2h-4V4a1 1 0 0 0-1-1H9zm2 4a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7zm6 0a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7z" />
-                              </svg>
-                              Eliminar
+                              <i className="bx bx-trash text-sm" />
                             </button>
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-              {/* Paginación */}
-              <div className="border-t border-slate-100 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-sm text-slate-600">
+              {/* Pagination */}
+              <div className="border-t border-slate-100 px-5 py-3.5 flex items-center justify-between gap-3">
+                <p className="text-xs text-slate-500">
                   Mostrando{" "}
-                  <span className="font-semibold text-slate-800">
+                  <strong>
                     {Math.min(
                       (currentPage - 1) * itemsPerPage + 1,
                       listaProcesada.length,
                     )}
-                  </span>{" "}
-                  –{" "}
-                  <span className="font-semibold text-slate-800">
+                  </strong>
+                  –
+                  <strong>
                     {Math.min(
                       currentPage * itemsPerPage,
                       listaProcesada.length,
                     )}
-                  </span>{" "}
-                  de{" "}
-                  <span className="font-semibold text-slate-800">
-                    {listaProcesada.length}
+                  </strong>{" "}
+                  de <strong>{listaProcesada.length}</strong>
+                </p>
+                <div className="flex items-center gap-1.5">
+                  {[
+                    {
+                      lbl: "«",
+                      action: () => setCurrentPage(1),
+                      disabled: currentPage === 1,
+                    },
+                    {
+                      lbl: "‹",
+                      action: () => setCurrentPage((p) => p - 1),
+                      disabled: currentPage === 1,
+                    },
+                    {
+                      lbl: "›",
+                      action: () => setCurrentPage((p) => p + 1),
+                      disabled: currentPage === totalPages,
+                    },
+                    {
+                      lbl: "»",
+                      action: () => setCurrentPage(totalPages),
+                      disabled: currentPage === totalPages,
+                    },
+                  ].map((btn, i) => (
+                    <button
+                      key={i}
+                      onClick={btn.action}
+                      disabled={btn.disabled}
+                      className="w-8 h-8 rounded-lg border border-slate-200 text-sm flex items-center
+                        justify-center disabled:opacity-40 hover:bg-slate-50 transition-colors"
+                    >
+                      {btn.lbl}
+                    </button>
+                  ))}
+                  <span className="text-xs text-slate-500 ml-1 font-medium">
+                    {currentPage}/{totalPages}
                   </span>
-                </div>
-                <div className="inline-flex items-center gap-2">
-                  <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    aria-label="Primera página"
-                  >
-                    «
-                  </button>
-                  <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    aria-label="Anterior"
-                  >
-                    ‹
-                  </button>
-                  <span className="text-sm px-2">
-                    Página <strong>{currentPage}</strong> de{" "}
-                    <strong>{totalPages}</strong>
-                  </span>
-                  <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                    aria-label="Siguiente"
-                  >
-                    ›
-                  </button>
-                  <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    aria-label="Última página"
-                  >
-                    »
-                  </button>
                 </div>
               </div>
             </div>
@@ -1123,728 +735,219 @@ const ProductosView = () => {
         </div>
       </div>
 
-      {/* FAB en mobile */}
+      {/* FAB mobile */}
       <button
-        onClick={() => openModal()}
-        className="fixed bottom-5 right-5 md:hidden inline-flex items-center justify-center h-12 w-12 rounded-full shadow-lg bg-indigo-600 text-white hover:bg-indigo-700"
+        onClick={() => {
+          setEditingProduct(null);
+          setModalOpen(true);
+        }}
+        className="fixed bottom-5 right-5 md:hidden w-12 h-12 rounded-full bg-indigo-600
+          text-white flex items-center justify-center shadow-lg hover:bg-indigo-700"
         aria-label="Agregar producto"
       >
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-        </svg>
+        <i className="bx bx-plus text-2xl" />
       </button>
 
-      {/* MODAL agregar/editar */}
-      {modalOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
-          onKeyDown={(e) => e.key === "Escape" && setModalOpen(false)}
-        >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-3 overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-semibold">
-                {editingId ? "Editar producto" : "Agregar producto"}
-              </h2>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="p-2 rounded-lg hover:bg-slate-100"
-                aria-label="Cerrar"
-              >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z" />
-                </svg>
-              </button>
-            </div>
+      {/* ══ ProductoModal — extraído a ./modales/ProductoModal.jsx ══ */}
+      <ProductoModal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingProduct(null);
+        }}
+        editingProduct={editingProduct}
+        categorias={categorias}
+        onSaved={fetchData}
+      />
 
-            <form
-              onSubmit={handleSubmit}
-              className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-10"
-            >
-              {/* ---------------------------------------------------------------- */}
-              {/*                          COLUMNA IZQUIERDA                      */}
-              {/* ---------------------------------------------------------------- */}
-              <div className="space-y-5">
-                <h2 className="text-lg font-semibold text-slate-700">
-                  Producto
-                </h2>
-
-                {/* Nombre */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Nombre
-                  </label>
-                  <input
-                    required
-                    placeholder="Ej. Plan Premium"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
-                   focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                    value={form.nombre}
-                    onChange={(e) =>
-                      setForm({ ...form, nombre: e.target.value })
-                    }
-                  />
-                </div>
-
-                {/* Descripción */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Descripción
-                  </label>
-                  <textarea
-                    placeholder="Detalle del producto o servicio"
-                    rows={4}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
-                   focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none resize-y"
-                    value={form.descripcion}
-                    onChange={handleDescriptionChange}
-                  />
-                </div>
-
-                {/* Tipo + Precio */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Tipo */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Tipo
-                    </label>
-                    <select
-                      required
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
-                     focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                      value={form.tipo}
-                      onChange={(e) =>
-                        setForm({ ...form, tipo: e.target.value })
-                      }
-                    >
-                      <option value="">Seleccione tipo</option>
-                      <option value="producto">Producto</option>
-                      <option value="servicio">Servicio</option>
-                    </select>
-                  </div>
-
-                  {/* Precio */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Precio
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none">
-                        $
-                      </span>
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        className="w-full pl-7 border border-slate-200 rounded-lg px-3 py-2.5 
-                       focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                        value={form.precio}
-                        onChange={(e) =>
-                          setForm({ ...form, precio: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-                {/* ------------------------------------------------------------- */}
-                {/*                       ACORDEÓN DE COMBOS                     */}
-                {/* ------------------------------------------------------------- */}
-                <div className="border border-slate-200 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setCombosOpen((prev) => !prev)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left"
-                  >
-                    <span className="text-slate-700 font-semibold text-sm">
-                      Combos (Opcional)
-                    </span>
-
-                    <svg
-                      className={`w-5 h-5 text-slate-500 transition-transform ${
-                        combosOpen ? "rotate-180" : ""
-                      }`}
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M12 15.375l-8.25-8.25 1.5-1.5L12 12.375l6.75-6.75 1.5 1.5z" />
-                    </svg>
-                  </button>
-
-                  {combosOpen && (
-                    <div className="px-4 pb-4 space-y-5 animate-[fadeIn_0.2s_ease]">
-                      {[0, 1, 2].map((i) => (
-                        <div
-                          key={i}
-                          className="border border-slate-100 rounded-lg p-4"
-                        >
-                          <h3 className="font-medium text-slate-700 mb-3">
-                            {`Combo ${i + 1}`}
-                          </h3>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            {/* Cantidad */}
-                            <div>
-                              <label className="text-sm text-slate-600">
-                                Cantidad
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 mt-1
-                                  focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                                value={
-                                  form.combos_producto?.[i]?.cantidad || ""
-                                }
-                                onChange={(e) => {
-                                  const updated = [...form.combos_producto];
-                                  updated[i].cantidad = e.target.value;
-                                  setForm({
-                                    ...form,
-                                    combos_producto: updated,
-                                  });
-                                }}
-                              />
-                            </div>
-
-                            {/* Precio */}
-                            <div>
-                              <label className="text-sm text-slate-600">
-                                Precio
-                              </label>
-
-                              <div className="relative mt-1">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                  $
-                                </span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="w-full pl-7 border border-slate-200 rounded-lg px-3 py-2.5 
-                                    focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                                  value={
-                                    form.combos_producto?.[i]?.precio || ""
-                                  }
-                                  onChange={(e) => {
-                                    const updated = [...form.combos_producto];
-                                    updated[i].precio = e.target.value;
-                                    setForm({
-                                      ...form,
-                                      combos_producto: updated,
-                                    });
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Duración */}
-                {form.tipo === "servicio" && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Duración (horas)
-                    </label>
-                    <select
-                      required
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
-                     focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                      value={form.duracion}
-                      onChange={(e) =>
-                        setForm({ ...form, duracion: e.target.value })
-                      }
-                    >
-                      <option value="0">Seleccione duración</option>
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Categoría */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Categoría
-                  </label>
-                  <select
-                    required
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
-                   focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                    value={form.id_categoria}
-                    onChange={(e) =>
-                      setForm({ ...form, id_categoria: e.target.value })
-                    }
-                  >
-                    <option value="">Seleccione categoría</option>
-                    {categorias.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Imagen */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    Imagen
-                  </label>
-
-                  <div
-                    ref={dropRef}
-                    onDrop={onDrop}
-                    onDragOver={onDragOver}
-                    onDragLeave={onDragLeave}
-                    className="border-2 border-dashed border-slate-200 rounded-xl p-4 
-                   text-center transition ring-0"
-                  >
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                        <svg
-                          className="w-6 h-6 text-slate-500"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path d="M19 15v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l5 5h-3v6h-4V8H7l5-5z" />
-                        </svg>
-                      </div>
-
-                      <p className="text-sm text-slate-600">
-                        Arrastra una imagen aquí o{" "}
-                        <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
-                          selecciona un archivo
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => onFilePicked(e.target.files?.[0])}
-                          />
-                        </label>
-                      </p>
-
-                      <p className="text-xs text-slate-400">
-                        PNG, JPG, WEBP (máx. ~5MB)
-                      </p>
-                    </div>
-                  </div>
-
-                  {previewUrl && (
-                    <div className="relative mt-2">
-                      <img
-                        src={previewUrl}
-                        alt="Vista previa"
-                        className="w-full max-h-48 object-cover rounded-lg ring-1 ring-slate-200"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (previewUrl.startsWith("blob:"))
-                            URL.revokeObjectURL(previewUrl);
-                          setPreviewUrl(null);
-                          setForm((prev) => ({ ...prev, imagen: null }));
-                        }}
-                        className="absolute top-2 right-2 bg-white/90 hover:bg-white 
-                       text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ---------------------------------------------------------------- */}
-              {/*                          COLUMNA DERECHA                        */}
-              {/* ---------------------------------------------------------------- */}
-              <div className="space-y-10">
-                {/* VIDEO */}
-                <div className="space-y-3">
-                  <h2 className="text-lg font-semibold text-slate-700">
-                    Video (opcional)
-                  </h2>
-
-                  <div
-                    ref={dropVideoRef}
-                    onDrop={onVideoDrop}
-                    onDragOver={onVideoDragOver}
-                    onDragLeave={onVideoDragLeave}
-                    className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center transition"
-                  >
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                        <svg
-                          className="w-6 h-6 text-slate-500"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      </div>
-
-                      <p className="text-sm text-slate-600">
-                        Arrastra un video aquí o{" "}
-                        <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
-                          selecciona un archivo
-                          <input
-                            type="file"
-                            accept="video/*"
-                            className="hidden"
-                            onChange={(e) => onVideoPicked(e.target.files?.[0])}
-                          />
-                        </label>
-                      </p>
-
-                      <p className="text-xs text-slate-400">
-                        MP4, WEBM, etc. (máx. ~50MB)
-                      </p>
-                    </div>
-                  </div>
-
-                  {previewVideo && (
-                    <div className="relative">
-                      <video
-                        controls
-                        className="w-full max-h-48 rounded-lg ring-1 ring-slate-200"
-                        src={previewVideo}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          URL.revokeObjectURL(previewVideo);
-                          setPreviewVideo(null);
-                          setForm((prev) => ({ ...prev, video: null }));
-                        }}
-                        className="absolute top-2 right-2 bg-white/90 hover:bg-white 
-                       text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Línea separadora */}
-                <div className="md:col-span-2 border-t border-slate-200 my-4"></div>
-
-                {/* UPSell */}
-                <div className="space-y-4">
-                  <h2 className="text-lg font-semibold text-slate-700">
-                    Upsell (Opcional)
-                  </h2>
-
-                  {/* Nombre Upsell */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Nombre Upsell
-                    </label>
-                    <input
-                      placeholder="Ej. Soporte premium"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 
-                     focus:ring-indigo-200 focus:border-indigo-300"
-                      value={form.nombre_upsell || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, nombre_upsell: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  {/* Descripción Upsell */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Descripción Upsell
-                    </label>
-                    <textarea
-                      rows={3}
-                      placeholder="Detalle del upsell"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 
-                     focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 resize-y"
-                      value={form.descripcion_upsell || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, descripcion_upsell: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  {/* Precio Upsell */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Precio Upsell
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none">
-                        $
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        className="w-full pl-7 border border-slate-200 rounded-lg px-3 py-2.5 
-                       focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300"
-                        value={form.precio_upsell || ""}
-                        onChange={(e) =>
-                          setForm({ ...form, precio_upsell: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Imagen Upsell */}
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Imagen Upsell (opcional)
-                    </label>
-
-                    <div
-                      ref={dropUpsellRef}
-                      onDrop={onUpsellDrop}
-                      onDragOver={onUpsellDragOver}
-                      onDragLeave={onUpsellDragLeave}
-                      className="border-2 border-dashed border-slate-200 rounded-xl p-4 
-                     text-center transition"
-                    >
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                          <svg
-                            className="w-6 h-6 text-slate-500"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M19 15v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4h2v4h10v-4h2zM12 3l5 5h-3v6h-4V8H7l5-5z" />
-                          </svg>
-                        </div>
-
-                        <p className="text-sm text-slate-600">
-                          Arrastra una imagen aquí o{" "}
-                          <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
-                            selecciona un archivo
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) =>
-                                onUpsellPicked(e.target.files?.[0])
-                              }
-                            />
-                          </label>
-                        </p>
-
-                        <p className="text-xs text-slate-400">
-                          PNG, JPG, WEBP (máx. ~5MB)
-                        </p>
-                      </div>
-                    </div>
-
-                    {previewUpsell && (
-                      <div className="relative mt-3">
-                        <img
-                          src={previewUpsell}
-                          alt="Vista previa upsell"
-                          className="w-full max-h-48 object-cover rounded-lg ring-1 ring-slate-200"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (previewUpsell.startsWith("blob:"))
-                              URL.revokeObjectURL(previewUpsell);
-                            setPreviewUpsell(null);
-                            setForm((p) => ({ ...p, imagen_upsell: null }));
-                          }}
-                          className="absolute top-2 right-2 bg-white/90 hover:bg-white 
-                         text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
-                        >
-                          Quitar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Botones */}
-              <div className="md:col-span-2 flex justify-end gap-3 pt-6">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="border border-slate-200 px-4 py-2.5 rounded-lg hover:bg-slate-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-sm"
-                >
-                  {editingId ? "Actualizar" : "Agregar"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Masivos*/}
+      {/* ══ Modal carga masiva ══ */}
       {isOpenMasivo && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
-          onKeyDown={(e) => e.key === "Escape" && closeModalMasivo()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{
+            background: "rgba(5,7,20,.72)",
+            backdropFilter: "blur(12px)",
+          }}
+          onKeyDown={(e) => e.key === "Escape" && setIsOpenMasivo(false)}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-3 overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-semibold">
-                Subida masiva de productos
-              </h2>
-              <button
-                onClick={closeModalMasivo}
-                className="p-2 rounded-lg hover:bg-slate-100"
-                aria-label="Cerrar"
-              >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
+          <div
+            className="w-full max-w-xl rounded-2xl overflow-hidden flex flex-col"
+            style={{
+              boxShadow: "0 24px 80px rgba(0,0,0,.5)",
+              animation: "pmIn .22s ease",
+            }}
+          >
+            {/* header */}
+            <div
+              className="flex items-center justify-between px-6 py-5 flex-shrink-0"
+              style={{
+                background:
+                  "linear-gradient(135deg,#171931 0%,#1e2550 60%,#2c3a8c 100%)",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{
+                    background: "rgba(255,255,255,.12)",
+                    border: "1px solid rgba(255,255,255,.18)",
+                  }}
                 >
-                  <path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z" />
-                </svg>
+                  <i className="bx bx-upload text-white text-lg" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-sm">
+                    Carga masiva de productos
+                  </h2>
+                  <p className="text-indigo-300 text-xs mt-0.5">
+                    Sube un archivo Excel con el formato correcto
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpenMasivo(false)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white/60 hover:text-white hover:bg-white/12"
+              >
+                <i className="bx bx-x text-xl" />
               </button>
             </div>
 
-            <form className="flex-1 overflow-y-auto p-6 grid grid-cols-1 gap-6">
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Selecciona el archivo Excel con los productos que deseas
-                  subir.
-                </label>
+            {/* body */}
+            <div className="p-6 space-y-4 bg-white">
+              <p className="text-sm text-slate-600">
+                Sube un Excel siguiendo la plantilla para importar múltiples
+                productos de una vez.
+              </p>
 
-                {/* Contenedor drag-and-drop para el archivo */}
-                <div
-                  ref={dropRef}
-                  onDrop={onArchivoMasivoDrop}
-                  onDragOver={onArchivoMasivoDragOver}
-                  onDragLeave={onArchivoMasivoDragLeave}
-                  className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center transition ring-0"
-                >
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    {/* Icono de archivo */}
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-slate-500"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M18 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 1.99-.9 1.99-2L20 4c0-1.1-.89-2-1.99-2zm-2 2v16H8V4h8zm-1 4h-6v2h6V8z" />
-                      </svg>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      Arrastra un archivo Excel aquí o{" "}
-                      <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
-                        selecciona un archivo
-                        <input
-                          type="file"
-                          accept=".xlsx,.xls"
-                          className="hidden"
-                          onChange={(e) =>
-                            onArchivoMasivoPicked(e.target.files?.[0])
-                          }
-                        />
-                      </label>
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      Archivos aceptados: .xlsx, .xls (máx. ~10MB)
-                    </p>
-                  </div>
-                </div>
-
-                {/* Vista previa del archivo seleccionado */}
-                {archivoMasivoNombre && (
-                  <div className="relative">
-                    <div className="flex items-center justify-between text-sm text-slate-700">
-                      <span>Archivo seleccionado: {archivoMasivoNombre}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setArchivoMasivo(null); // Limpiar el archivo seleccionado
-                          setArchivoMasivoNombre(null); // Limpiar el nombre
-                        }}
-                        className="bg-white/90 hover:bg-white text-slate-700 border border-slate-200 rounded-md px-2 py-1 text-xs"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {!archivoMasivoNombre && editingId && (
-                  <div className="text-xs text-slate-500">
-                    * Si no seleccionas un archivo, se conserva el archivo
-                    actual.
-                  </div>
-                )}
+              <div
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) {
+                    setArchivoMasivo(f);
+                    setArchivoMasivoNombre(f.name);
+                  }
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center
+                  hover:border-indigo-300 hover:bg-slate-50 transition-colors"
+              >
+                <i className="bx bx-cloud-upload text-4xl text-slate-300 mb-2 block" />
+                <p className="text-sm text-slate-600">
+                  Arrastra tu Excel aquí o{" "}
+                  <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
+                    selecciona
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          setArchivoMasivo(f);
+                          setArchivoMasivoNombre(f.name);
+                        }
+                      }}
+                    />
+                  </label>
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  .xlsx, .xls — máx. 10 MB
+                </p>
               </div>
 
-              {/* Botón para descargar el archivo Excel */}
-              <div className="flex justify-start gap-4 mb-4">
-                <button className="inline-flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                  <a
-                    href="https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx"
-                    target="_blank"
-                    download="plantilla_subida_masiva.xlsx"
-                    className="flex items-center gap-2"
+              {archivoMasivoNombre && (
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2 text-sm text-emerald-700">
+                    <i className="bx bx-check-circle text-lg" />
+                    {archivoMasivoNombre}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setArchivoMasivo(null);
+                      setArchivoMasivoNombre(null);
+                    }}
+                    className="text-xs text-slate-500 hover:text-red-500 transition-colors"
                   >
-                    <i className="bx bx-cloud-download text-lg"></i> Descargar
-                    formato de plantilla
-                  </a>
-                </button>
-              </div>
+                    Quitar
+                  </button>
+                </div>
+              )}
+            </div>
 
-              {/* Botones para cancelar o subir */}
-              <div className="flex justify-end gap-4">
+            {/* footer */}
+            <div
+              className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+              style={{
+                background:
+                  "linear-gradient(135deg,#171931 0%,#1e2550 60%,#2c3a8c 100%)",
+              }}
+            >
+              <a
+                href="https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx"
+                target="_blank"
+                download
+                className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-lg font-medium transition-colors text-white/80 hover:text-white"
+                style={{ border: "1px solid rgba(255,255,255,.2)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "rgba(255,255,255,.1)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                <i className="bx bx-cloud-download" />
+                Descargar plantilla
+              </a>
+              <div className="flex gap-3">
                 <button
-                  onClick={closeModalMasivo}
-                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  onClick={() => setIsOpenMasivo(false)}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors text-white/80 hover:text-white"
+                  style={{ border: "1.5px solid rgba(255,255,255,.25)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "rgba(255,255,255,.1)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleSubirMasivo}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
+                  style={{ background: "#4f46e5" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#4338ca")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "#4f46e5")
+                  }
                 >
-                  Subir
+                  <i className="bx bx-upload" />
+                  Subir archivo
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* MODAL visor de imagen */}
+      {/* ══ Imagen zoom modal ══ */}
       {modalImagen.abierta && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-50"
           onClick={() => setModalImagen({ abierta: false, url: "" })}
-          onKeyDown={(e) =>
-            e.key === "Escape" && setModalImagen({ abierta: false, url: "" })
-          }
         >
           <img
             src={modalImagen.url}
             alt="Vista previa"
-            className="max-h-[90vh] max-w-[90vw] rounded-xl shadow-2xl"
+            className="max-h-[90vh] max-w-[90vw] rounded-2xl shadow-2xl"
           />
         </div>
       )}
 
+      {/* ══ Importar Dropi ══ */}
       <ImportarProductosDropi
         open={dropiModalOpen}
         onClose={() => setDropiModalOpen(false)}
@@ -1855,6 +958,13 @@ const ProductosView = () => {
         products={dropiProducts}
         onImport={importarDropi}
       />
+
+      <style>{`
+        @keyframes pmIn {
+          from { opacity:0; transform:scale(.96) translateY(14px); }
+          to   { opacity:1; transform:scale(1)   translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };

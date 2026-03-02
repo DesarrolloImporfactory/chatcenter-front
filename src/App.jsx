@@ -24,6 +24,8 @@ import ListaPlanes from "./pages/planes/listaPlanes";
 
 // Páginas de gestión
 import Productos from "./pages/productos/ProductosView";
+import CatalogosView from "./pages/productos/CatalogosView";
+import CatalogoPublicoView from "./pages/productos/CatalogoPublicoView";
 import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
@@ -141,6 +143,8 @@ function App() {
           {/* Rutas de autenticación */}
           <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
 
+          <Route path="/catalogo/:slug" element={<CatalogoPublicoView />} />
+
           {/* Rutas protegidas */}
           <Route element={<ProtectedRoutes />}>
             <Route element={<SocketProvider token={token} />}>
@@ -189,11 +193,11 @@ function App() {
 
                 {/*generador de imagenes*/}
                 <Route
-                  path="/landing_ai"
+                  path="/insta_landing"
                   element={
-                    <MainLayout>
+                    <MainLayout_conexiones>
                       <LandingAi />
-                    </MainLayout>
+                    </MainLayout_conexiones>
                   }
                 />
 
@@ -382,6 +386,15 @@ function App() {
                   element={
                     <MainLayout>
                       <Productos />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/catalogos"
+                  element={
+                    <MainLayout>
+                      <CatalogosView />
                     </MainLayout>
                   }
                 />

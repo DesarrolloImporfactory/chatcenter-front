@@ -685,7 +685,8 @@ function MainLayout({ children }) {
                 onClick={() => toggleMenu("productos")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   location.pathname === "/productos" ||
-                  location.pathname === "/categorias"
+                  location.pathname === "/categorias" ||
+                  location.pathname === "/catalogos"
                     ? "bg-gray-200 font-semibold"
                     : ""
                 }`}
@@ -740,6 +741,22 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bx-grid-alt text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Categorías</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate("/catalogos");
+                    }}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname === "/catalogos"
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-collection text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Catálogos</span>
                   </button>
                 </div>
               </div>

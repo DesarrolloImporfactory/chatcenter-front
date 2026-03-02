@@ -11,9 +11,8 @@ function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
 
   const sliderRef = useRef(null);
-  const menuButtonRef = useRef(null); // Para el botón "hamburger"
+  const menuButtonRef = useRef(null);
 
-  //Aqui guardaremos las configuraciones automatizadas que vienen de tu API
   const [userData, setUserData] = useState(null);
   const [configuraciones, setConfiguraciones] = useState([]);
   const [estadoNumero, setEstadoNumero] = useState([]);
@@ -22,66 +21,46 @@ function MainLayout({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    //Verificamos si hay token en localStorage
     const token = localStorage.getItem("token");
     if (!token) {
-      //Si no hay token => ir alogin
       window.location.href = "/login";
       return;
     }
 
-    //Decodificamos el token
     const decoded = jwtDecode(token);
-
-    //Verificamos si aun no expira
     if (decoded.exp < Date.now() / 1000) {
-      //Expirado =?logout
-      localStorage.clear(); // elimina todo
+      localStorage.clear();
       window.location.href = "/login";
       return;
     }
 
-    //Guardamos userData
     setUserData({
       ...decoded,
       role: decoded.rol || localStorage.getItem("user_role"),
     });
   }, []);
 
-  // Cada vez que tengamos userData, cargamos las configuraciones
   useEffect(() => {
-    if (userData) {
-      fetchConfiguracionAutomatizada();
-    }
+    if (userData) fetchConfiguracionAutomatizada();
   }, [userData]);
 
   useEffect(() => {
-    const checkBannedStatus = () => {
-      const isBanned = estadoNumero.some((num) => num.status === "BANNED");
-      if (isBanned) {
-        Swal.fire({
-          icon: "error",
-          title: "Cuenta bloqueada",
-          text: "Tu número de WhatsApp ha sido bloqueado. Se cerrará tu sesión.",
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          allowEnterKey: true,
-          confirmButtonText: "OK",
-        }).then(() => {
-          handleLogout();
-        });
-      }
-    };
-
-    checkBannedStatus();
+    const isBanned = estadoNumero.some((num) => num.status === "BANNED");
+    if (isBanned) {
+      Swal.fire({
+        icon: "error",
+        title: "Cuenta bloqueada",
+        text: "Tu número de WhatsApp ha sido bloqueado. Se cerrará tu sesión.",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        allowEnterKey: true,
+        confirmButtonText: "OK",
+      }).then(() => handleLogout());
+    }
   }, [estadoNumero]);
 
-  // -------------------------------------------------------
-  //  FUNC: Obtener configuraciones del endpoint
-  // -------------------------------------------------------
   const fetchConfiguracionAutomatizada = async () => {
     if (!userData) return;
-
     try {
       const isSuperAdmin =
         userData.role === "super_administrador" ||
@@ -92,14 +71,13 @@ function MainLayout({ children }) {
         : "configuraciones/listar_conexiones_sub_user";
 
       const body = isSuperAdmin
-        ? {} // no requiere id_usuario
+        ? {}
         : {
             id_usuario: userData.id_usuario,
             id_sub_usuario: userData.id_sub_usuario,
           };
 
       const response = await chatApi.post(endpoint, body);
-
       setConfiguraciones(response.data || []);
     } catch (error) {
       if (error.response?.status === 403) {
@@ -108,9 +86,7 @@ function MainLayout({ children }) {
           title: error.response?.data?.message,
           allowOutsideClick: false,
           confirmButtonText: "OK",
-        }).then(() => {
-          navigate("/planes");
-        });
+        }).then(() => navigate("/planes"));
       } else {
         console.error("Error al cargar la configuración automatizada.", error);
         setConfiguraciones([]);
@@ -147,10 +123,8 @@ function MainLayout({ children }) {
       }
     }
 
-    // En lugar de 'mousedown', usar 'click' (o 'touchstart')
     document.addEventListener("click", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
-
     return () => {
       document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
@@ -159,154 +133,120 @@ function MainLayout({ children }) {
 
   const toggleSlider = () => {
     setSliderOpen((prev) => {
-      const next = !prev;
-
-      // 1) Dispara inmediatamente (antes de que termine la transición)
       window.dispatchEvent(new Event("layout:changed"));
-
-      // 2) Dispara al final de la transición (300ms)
-      setTimeout(() => {
-        window.dispatchEvent(new Event("layout:changed"));
-      }, 320);
-
-      return next;
+      setTimeout(() => window.dispatchEvent(new Event("layout:changed")), 320);
+      return !prev;
     });
   };
 
   const handleLogout = () => {
-    localStorage.clear(); // elimina todo
+    localStorage.clear();
     window.location.href = "/login";
+  };
+
+  /* ── Role helpers ── */
+  const role = userData?.role || localStorage.getItem("user_role");
+  const isSuperAdmin = role === "super_administrador";
+
+  /* ── Nav item config ── */
+  const conexionPath = isSuperAdmin
+    ? "/administrador-conexiones"
+    : "/conexiones";
+  const instaLandingPath = isSuperAdmin
+    ? "/insta_landing_admin"
+    : "/insta_landing";
+  const instaLandingLabel = isSuperAdmin
+    ? "Insta Landing Admin"
+    : "Insta Landing";
+
+  /* ── Active check helper ── */
+  const isActive = (path) => location.pathname === path;
+
+  /* ── Reusable nav button ── */
+  const NavBtn = ({ path, icon, label, onClick }) => {
+    const active = isActive(path);
+    return (
+      <button
+        onClick={onClick ?? (() => navigate(path))}
+        className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded ${
+          active
+            ? "bg-gray-100 font-semibold"
+            : "hover:bg-gray-100 text-gray-700"
+        }`}
+      >
+        <i
+          className={`bx ${icon} text-2xl mr-3 transition-colors ${
+            active ? "text-blue-600" : "text-gray-600 group-hover:text-blue-600"
+          }`}
+        />
+        <span
+          className={`text-lg transition-colors group-hover:text-blue-600 ${active ? "text-blue-600" : ""}`}
+        >
+          {label}
+        </span>
+      </button>
+    );
   };
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* 
-        HEADER 
-        -> Le pasamos la referencia del botón y la función
-           para que el Header dispare toggleSlider 
-      */}
       <Header menuButtonRef={menuButtonRef} onToggleSlider={toggleSlider} />
 
-      {/* CONTENIDO PRINCIPAL: Menú lateral + Sección principal */}
       <div className="flex flex-1">
-        {/* Menú Lateral (slider) */}
+        {/* Menú lateral */}
         <div
           ref={sliderRef}
-          className={`
-            bg-white shadow-md
-            fixed top-16 left-0 z-40
-            h-[calc(100vh-4rem)]
+          className={`bg-white shadow-md fixed top-16 left-0 z-40 h-[calc(100vh-4rem)]
             transition-[width] duration-300
-            ${sliderOpen ? "w-64 overflow-y-auto" : "w-0 overflow-hidden"}
-          `}
+            ${sliderOpen ? "w-64 overflow-y-auto" : "w-0 overflow-hidden"}`}
           aria-hidden={!sliderOpen}
         >
-          {/* Opciones del slider */}
           <div className="mt-6">
             {/* Conexiones */}
-            {/* Conexiones */}
-            <button
+            <NavBtn
+              path={conexionPath}
+              icon="bx-network-chart"
+              label={isSuperAdmin ? "Conexiones Admin" : "Conexiones"}
               onClick={() => {
                 localStorage.removeItem("id_configuracion");
                 localStorage.removeItem("tipo_configuracion");
                 localStorage.removeItem("id_plataforma_conf");
-
-                const role = localStorage.getItem("user_role");
-
-                if (role === "super_administrador") {
-                  navigate("/administrador-conexiones");
-                } else {
-                  navigate("/conexiones");
-                }
+                navigate(conexionPath);
               }}
-              className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded ${
-                location.pathname === "/conexiones" ||
-                location.pathname === "/administrador-conexiones"
-                  ? "bg-gray-100 font-semibold"
-                  : "hover:bg-gray-100 text-gray-700"
-              }`}
-            >
-              <i
-                className={`bx bx-network-chart text-2xl mr-3 transition-colors ${
-                  location.pathname === "/conexiones" ||
-                  location.pathname === "/administrador-conexiones"
-                    ? ""
-                    : "text-gray-600 group-hover:text-blue-600"
-                }`}
-              ></i>
+            />
 
-              <span className="text-lg group-hover:text-blue-600">
-                {(userData?.role || localStorage.getItem("user_role")) ===
-                "super_administrador"
-                  ? "Conexiones Admin"
-                  : "Conexiones"}
-              </span>
-            </button>
+            {/* Insta Landing */}
+            <NavBtn
+              path={instaLandingPath}
+              icon="bx-image-add"
+              label={instaLandingLabel}
+            />
 
             {/* Usuarios */}
-            <button
-              onClick={() => navigate("/usuarios")}
-              className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded ${
-                location.pathname === "/usuarios"
-                  ? "bg-gray-100 font-semibold"
-                  : "hover:bg-gray-100 text-gray-700"
-              }`}
-            >
-              <i
-                className={`bx bx-user text-2xl mr-3 transition-colors ${
-                  location.pathname === "/usuarios"
-                    ? ""
-                    : "text-gray-600 group-hover:text-blue-600"
-                }`}
-              ></i>
-              <span className="text-lg group-hover:text-blue-600">
-                Usuarios
-              </span>
-            </button>
+            <NavBtn path="/usuarios" icon="bx-user" label="Usuarios" />
 
             {/* Departamentos */}
-            <button
-              onClick={() => navigate("/departamentos")}
-              className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded ${
-                location.pathname === "/departamentos"
-                  ? "bg-gray-100 font-semibold"
-                  : "hover:bg-gray-100 text-gray-700"
-              }`}
-            >
-              <i
-                className={`bx bx-user text-2xl mr-3 transition-colors ${
-                  location.pathname === "/departamentos"
-                    ? ""
-                    : "text-gray-600 group-hover:text-blue-600"
-                }`}
-              ></i>
-              <span className="text-lg group-hover:text-blue-600">
-                Departamentos
-              </span>
-            </button>
+            <NavBtn
+              path="/departamentos"
+              icon="bx-buildings"
+              label="Departamentos"
+            />
 
-            {/* Ver datos de facturacion de Plan */}
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/plan");
-              }}
-              className={`cursor group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/plan" ? "bg-gray-200 font-semibold" : ""
-              }`}
-            >
-              <i className="bx bxs-credit-card text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Planes y Facturación
-              </span>
-            </button>
+            {/* Planes y Facturación — solo usuarios normales */}
+            {!isSuperAdmin && (
+              <NavBtn
+                path="/plan"
+                icon="bxs-credit-card"
+                label="Planes y Facturación"
+              />
+            )}
 
             {/* Cerrar sesión */}
             <button
               onClick={handleLogout}
               className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
             >
-              <i className="bx bx-door-open text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+              <i className="bx bx-door-open text-2xl mr-3 text-gray-600 group-hover:text-blue-600 transition-colors" />
               <span className="text-lg text-gray-700 group-hover:text-blue-600 transition-colors">
                 Cerrar sesión
               </span>
@@ -314,10 +254,9 @@ function MainLayout({ children }) {
           </div>
         </div>
 
-        {/* Sección principal a la derecha */}
+        {/* Contenido principal */}
         <div
-          className={`flex-1 min-h-screen transition-[margin] duration-300
-                      pt-16 ${sliderOpen ? "ml-64" : "ml-0"}`}
+          className={`flex-1 min-h-screen transition-[margin] duration-300 pt-16 ${sliderOpen ? "ml-64" : "ml-0"}`}
         >
           <div className="p-2 bg-gray-100 min-h-[calc(100vh-4rem)] overflow-auto">
             {children}
@@ -325,7 +264,6 @@ function MainLayout({ children }) {
         </div>
       </div>
 
-      {/* FOOTER */}
       {/* <Footer /> */}
     </div>
   );
