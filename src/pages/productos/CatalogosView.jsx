@@ -1,4 +1,3 @@
-// src/components/catalogos/CatalogosView.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";

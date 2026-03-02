@@ -1,4 +1,3 @@
-// src/components/catalogos/modales/CatalogoModal.jsx
 import React, { useEffect, useState } from "react";
 import chatApi from "../../../api/chatcenter";
 import Swal from "sweetalert2";

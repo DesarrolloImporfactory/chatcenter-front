@@ -42,6 +42,7 @@ import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
 import Calendario from "./pages/calendario/Calendario";
 import LandingAi from "./pages/landingai/LandingAi";
+import LandingAiAdmin from "./pages/landingai/LandingAiAdmin";
 // Páginas de acceso y registro
 import Access from "./pages/landing/AccessGuided";
 import RegisterGuided from "./pages/landing/RegisterGuided";
@@ -197,6 +198,15 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <LandingAi />
+                    </MainLayout_conexiones>
+                  }
+                />
+                {/*generador de imagenes - administrador*/}
+                <Route
+                  path="/insta_landing_admin"
+                  element={
+                    <MainLayout_conexiones>
+                      <LandingAiAdmin />
                     </MainLayout_conexiones>
                   }
                 />
