@@ -347,26 +347,37 @@ export default function ImportarXlsxModal({
               <div className="text-xs font-extrabold text-slate-900">
                 Reglas importantes
               </div>
-              <ul className="mt-2 list-disc pl-5 space-y-1 text-xs text-slate-700">
+              <ul className="mt-2 list-disc pl-5 space-y-1.5 text-xs text-slate-700">
                 <li>
                   <b>Límite:</b> hasta <b>3,000 contactos por carga</b>. Si
                   tiene más, importe por lotes.
                 </li>
                 <li>
-                  <b>Etiquetas múltiples:</b> sepárelas con <b>coma</b>. Ej:{" "}
-                  <b>pendiente, potencial, clientes vip</b>
-                </li>
-                <li>
-                  <b>Email:</b> la columna email puede ir vacía.
-                </li>
-                <li>
-                  <b>Teléfono:</b> obligatoriamente se debe incluir el{" "}
-                  <b>código de país</b> en la columna teléfono (sin <b>+</b> y
-                  sin espacios).
-                  <div className="mt-1">
-                    <b>Ejemplo Ecuador:</b> <b>593962803007</b> ✅ (no{" "}
-                    <b>0962803007</b> ❌)
+                  <b>Teléfono:</b> obligatorio con <b>código de país</b>, sin{" "}
+                  <b>+</b> ni espacios.
+                  <div className="mt-0.5 text-[11px] text-slate-500">
+                    Ej: <b>593962803007</b> ✅ &nbsp;|&nbsp; <b>0962803007</b>{" "}
+                    ❌
                   </div>
+                </li>
+                <li>
+                  <b>Email:</b> opcional, puede dejarse vacía.
+                </li>
+                <li>
+                  <b>Etiquetas:</b> opcional. Para asignar varias etiquetas al
+                  mismo contacto, sepárelas con <b>coma</b>.
+                  <div className="mt-0.5 text-[11px] text-slate-500">
+                    Ej: <b>pendiente, potencial, clientes vip</b>
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-slate-500">
+                    Si una etiqueta no existe, se creará automáticamente y se
+                    asignará al contacto.
+                  </div>
+                </li>
+                <li>
+                  <b>Asesor / Ciclo:</b> columnas opcionales. Si se incluyen,
+                  las opciones que no existan se crearán automáticamente y se
+                  asignarán al contacto.
                 </li>
               </ul>
 

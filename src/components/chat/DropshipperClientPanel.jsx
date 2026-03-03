@@ -8,6 +8,7 @@ import React, {
 import Swal from "sweetalert2";
 import CreateOrderPanel from "./CreateOrderPanel";
 import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
+import HistorialEncargados from "./HistorialEncargados";
 
 export default function DropshipperClientPanel(props) {
   const {
@@ -1339,6 +1340,9 @@ export default function DropshipperClientPanel(props) {
 
               {/* ETIQUETAS ADICIONALES (Asesor + Ciclo)  */}
               <EtiquetasCustomSelect clienteId={selectedChat?.id} />
+
+              {/* HISTORIAL DE ENCARGADOS */}
+              <HistorialEncargados clienteId={selectedChat?.id} />
 
               {/* Aviso si falta phone */}
               {!phone && (
