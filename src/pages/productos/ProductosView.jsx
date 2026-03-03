@@ -525,7 +525,6 @@ const ProductosView = () => {
                                   src={p.imagen_url}
                                   alt=""
                                   className="w-9 h-9 object-cover"
-                                  crossOrigin="anonymous"
                                 />
                               ) : (
                                 <i className="bx bx-package text-slate-300 text-lg" />
@@ -575,7 +574,6 @@ const ProductosView = () => {
                             <img
                               src={p.imagen_url}
                               alt=""
-                              crossOrigin="anonymous"
                               onClick={() =>
                                 setModalImagen({
                                   abierta: true,

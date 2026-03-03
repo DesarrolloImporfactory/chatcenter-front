@@ -21,7 +21,7 @@ const HistorialModal = ({ open, onClose, usage }) => {
   const fetchHistory = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      const res = await chatApi.get(`gemini/historial?page=${page}&limit=12`);
+      const res = await chatApi.get(`gemini/historial?page=${page}&limit=15`);
       if (res.data?.isSuccess) {
         setHistory(res.data.data || []);
         setPagination(res.data.pagination || { page: 1, pages: 1, total: 0 });

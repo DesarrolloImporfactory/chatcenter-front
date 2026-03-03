@@ -174,6 +174,7 @@ const LandingAi = () => {
 
         const res = await chatApi.post("gemini/generar-etapa", fd, {
           headers: { "Content-Type": "multipart/form-data" },
+          timeout: 150000, // 2.5 min por etapa (Gemini puede tardar hasta 2 min)
           silentError: true,
         });
 
