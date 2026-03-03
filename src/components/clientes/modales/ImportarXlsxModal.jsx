@@ -24,9 +24,10 @@ export default function ImportarXlsxModal({
   chatApi,
   apiList,
   cargarOpcionesFiltroEtiquetas,
+  cargarOpcionesCustomLabels,
 }) {
   const PLANTILLA_URL =
-    "https://imp-datas.s3.amazonaws.com/documents/2026-01-12T22-55-34-472Z-plantilla_import_clientes.xlsx";
+    "https://imp-datas.s3.amazonaws.com/documents/2026-03-03T16-27-16-386Z-plantilla_import_clientes_1__1_.xlsx";
 
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -64,7 +65,7 @@ export default function ImportarXlsxModal({
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
-      background: "#fff",
+      background: "transparent",
       width: 560,
       padding: 0,
       html: `
@@ -94,7 +95,7 @@ export default function ImportarXlsxModal({
         </div>
 
         <!-- BODY -->
-        <div style="padding: 18px;">
+        <div style="padding: 18px; background:#fff; border-radius: 0 0 18px 18px;">
           <div style="font-size:14px; color:#111827; font-weight:700;">${subtitle}</div>
           ${totalText}
 
@@ -137,7 +138,7 @@ export default function ImportarXlsxModal({
   }
 
   function swalImportSuccessPro(
-    message = "Importación completada correctamente."
+    message = "Importación completada correctamente.",
   ) {
     return Swal.fire({
       icon: "success",
@@ -162,14 +163,14 @@ export default function ImportarXlsxModal({
   async function importXLSX(selectedFile) {
     try {
       const id_configuracion_local = Number(
-        localStorage.getItem("id_configuracion")
+        localStorage.getItem("id_configuracion"),
       );
 
       if (!id_configuracion_local) {
         await Swal.fire(
           "Sin configuración",
           "No se encontró id_configuracion en localStorage.",
-          "info"
+          "info",
         );
         return;
       }
@@ -185,14 +186,14 @@ export default function ImportarXlsxModal({
       formData.append("id_configuracion", String(id_configuracion_local));
       formData.append("actualizar_cache_etiquetas", "true");
 
-      // ✅ Endpoint
+      //  Endpoint
       const { data: resp } = await chatApi.post(
         "/clientes_chat_center/importacion_masiva",
         formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        { headers: { "Content-Type": "multipart/form-data" } },
       );
 
-      // ✅ Mantener modal mientras refresca listado
+      // Mantener modal mientras refresca listado
       Swal.update({
         html: `
         <div style="border-radius:18px; overflow:hidden; text-align:left; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;">
@@ -203,7 +204,8 @@ export default function ImportarXlsxModal({
             </div>
             <div style="width: 42px; height: 42px; border-radius: 999px; border: 3px solid rgba(255,255,255,.25); border-top-color: rgba(255,255,255,.95); animation: spin 0.9s linear infinite;"></div>
           </div>
-          <div style="padding: 18px;">
+          
+          <div style="padding: 18px; background:#fff; border-radius: 0 0 18px 18px;">
             <div style="font-size:13px;color:#374151;line-height:1.5;">
               Estamos recargando contactos y etiquetas para mostrar los resultados inmediatamente.
             </div>
@@ -226,17 +228,18 @@ export default function ImportarXlsxModal({
 
       await apiList(1, true);
       await cargarOpcionesFiltroEtiquetas();
+      if (cargarOpcionesCustomLabels) await cargarOpcionesCustomLabels();
 
       Swal.close();
 
       await swalImportSuccessPro(
-        resp?.message || "Importación completada correctamente."
+        resp?.message || "Importación completada correctamente.",
       );
     } catch (e) {
       console.error("IMPORT XLSX:", e?.response?.data || e.message);
       Swal.close();
       await swalImportErrorPro(
-        e?.response?.data?.message || e?.message || "Error desconocido."
+        e?.response?.data?.message || e?.message || "Error desconocido.",
       );
     }
   }

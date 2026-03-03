@@ -192,21 +192,21 @@ const Cabecera = ({
     if (id_configuracion) fetchDropiLinked();
   }, [id_configuracion, fetchDropiLinked]);
 
-  useEffect(() => {
-    const fetchEstadoNumero = async () => {
-      if (!id_configuracion) return;
-      try {
-        const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
-          id_configuracion: id_configuracion,
-        });
-        setEstadoNumero(resp.data.data || []);
-      } catch (error) {
-        console.error("Error al obtener phone_numbers:", error);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchEstadoNumero = async () => {
+  //     if (!id_configuracion) return;
+  //     try {
+  //       const resp = await chatApi.post("/whatsapp_managment/ObtenerNumeros", {
+  //         id_configuracion: id_configuracion,
+  //       });
+  //       setEstadoNumero(resp.data.data || []);
+  //     } catch (error) {
+  //       console.error("Error al obtener phone_numbers:", error);
+  //     }
+  //   };
 
-    fetchEstadoNumero();
-  }, [id_configuracion]);
+  //   fetchEstadoNumero();
+  // }, [id_configuracion]);
 
   useEffect(() => {
     const checkBannedStatus = () => {
@@ -405,7 +405,21 @@ const Cabecera = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [opcionesMenuOpen]);
-  /* fin menu de opciones */
+
+  // Etiquetas custom (Asesor / Ciclo)
+  const [customLabels, setCustomLabels] = useState(null);
+
+  useEffect(() => {
+    if (!selectedChat?.id) {
+      setCustomLabels(null);
+      return;
+    }
+
+    chatApi
+      .get(`/etiquetas_custom_chat_center/cliente/${selectedChat.id}`)
+      .then(({ data }) => setCustomLabels(data?.data || null))
+      .catch(() => setCustomLabels(null));
+  }, [selectedChat?.id]);
 
   return (
     <>
@@ -1288,6 +1302,37 @@ const Cabecera = ({
                 <p className="text-gray-500 text-sm">
                   No hay etiquetas asignadas.
                 </p>
+              )}
+
+              {/* Etiquetas custom: Asesor y Ciclo */}
+              {customLabels?.nombre_asesor && (
+                <div
+                  className="group inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 shadow-sm max-w-full"
+                  title={`Asesor: ${customLabels.nombre_asesor}`}
+                >
+                  <i className="bx bx-user-voice text-sm text-sky-600" />
+                  <span className="text-xs font-semibold text-sky-800 truncate max-w-[180px]">
+                    {customLabels.nombre_asesor}
+                  </span>
+                  <span className="text-[10px] text-sky-500 font-medium uppercase">
+                    Asesor
+                  </span>
+                </div>
+              )}
+
+              {customLabels?.nombre_ciclo && (
+                <div
+                  className="group inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 shadow-sm max-w-full"
+                  title={`Ciclo: ${customLabels.nombre_ciclo}`}
+                >
+                  <i className="bx bx-revision text-sm text-emerald-600" />
+                  <span className="text-xs font-semibold text-emerald-800 truncate max-w-[180px]">
+                    {customLabels.nombre_ciclo}
+                  </span>
+                  <span className="text-[10px] text-emerald-500 font-medium uppercase">
+                    Ciclo
+                  </span>
+                </div>
               )}
             </div>
           </div>

@@ -36,6 +36,7 @@ const TablaContactos = ({
   apiDelete,
   mapRow,
   setItems,
+  setOrden,
 }) => {
   // Función para manejar la edición de cliente
   const [editing, setEditing] = useState(null);
@@ -177,6 +178,7 @@ const TablaContactos = ({
                 />
               </th>
             )}
+
             {cols.created && (
               <th className="w-40 text-left">
                 <SortButton
@@ -208,6 +210,15 @@ const TablaContactos = ({
               </th>
             )}
             {cols.tags && <th className="w-48 text-left">Tags</th>}
+
+            {/*  Asesor y Ciclo */}
+            <th className="w-36 text-left text-[11px] font-semibold tracking-wide text-slate-600">
+              Asesor
+            </th>
+            <th className="w-36 text-left text-[11px] font-semibold tracking-wide text-slate-600">
+              Ciclo
+            </th>
+
             <th className="w-24 text-right">Acciones</th>
           </tr>
         </thead>
@@ -215,7 +226,7 @@ const TablaContactos = ({
         <tbody className="[&>tr:nth-child(even)]:bg-slate-50/40 text-xs">
           {!loading && items.length === 0 && (
             <tr>
-              <td colSpan={9} className="py-16">
+              <td colSpan={11} className="py-16">
                 <div className="mx-auto max-w-md text-center">
                   <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
                     <i className="bx bx-user-circle text-2xl text-slate-500" />
@@ -247,13 +258,13 @@ const TablaContactos = ({
                 <td>
                   <div className="h-4 w-4 rounded bg-slate-200 animate-pulse" />
                 </td>
-                <td colSpan={5}>
+                <td colSpan={7}>
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
                     <div className="h-3 w-1/3 rounded bg-slate-200 animate-pulse" />
                   </div>
                 </td>
-                <td>
+                <td colSpan={2}>
                   <div className="h-3 w-24 rounded bg-slate-200 animate-pulse" />
                 </td>
               </tr>
@@ -351,6 +362,31 @@ const TablaContactos = ({
                     </div>
                   </td>
                 )}
+
+                {/* CELDA ASESOR */}
+                <td className="py-2 text-xs text-left">
+                  {c.asesor_nombre ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-600 text-[11px]">
+                      <i className="bx bx-user-voice text-xs" />
+                      {c.asesor_nombre}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </td>
+
+                {/* CELDA CICLO */}
+                <td className="py-2 text-xs text-left">
+                  {c.ciclo_nombre ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600 text-[11px]">
+                      <i className="bx bx-revision text-xs" />
+                      {c.ciclo_nombre}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </td>
+
                 <td className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     {/* ✅ Acción primaria: Abrir chat (icon-only, pro) */}

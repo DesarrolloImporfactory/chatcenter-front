@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import Swal from "sweetalert2";
 import CreateOrderPanel from "./CreateOrderPanel";
+import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
 
 export default function DropshipperClientPanel(props) {
   const {
@@ -1238,7 +1239,7 @@ export default function DropshipperClientPanel(props) {
         <div className="w-full max-w-3xl mx-auto">
           {/* ===== Header cliente (avatar+datos) ===== */}
           <div className="mb-6">
-            <div className="relative rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-hidden">
+            <div className="relative rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-visible">
               {/* Botón lápiz pro (anclado a la card) */}
               <button
                 type="button"
@@ -1335,6 +1336,9 @@ export default function DropshipperClientPanel(props) {
                   </div>
                 </div>
               </div>
+
+              {/* ETIQUETAS ADICIONALES (Asesor + Ciclo)  */}
+              <EtiquetasCustomSelect clienteId={selectedChat?.id} />
 
               {/* Aviso si falta phone */}
               {!phone && (

@@ -1,4 +1,6 @@
 import React from "react";
+import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
+import HistorialEncargados from "./HistorialEncargados";
 
 export default function BasicClientPanel({
   selectedChat,
@@ -20,7 +22,7 @@ export default function BasicClientPanel({
         {/* Info cliente */}
         <div className="mb-8 px-6 py-6 bg-transparent text-white rounded-2xl shadow-xl border border-violet-500 neon-border">
           <div className="mb-6">
-            <div className="relative rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-hidden">
+            <div className="relative rounded-2xl border border-white/10 bg-[#0b1222] shadow-xl overflow-visible">
               {/* Top strip */}
               <div className="px-5 py-4 bg-[#162c4a]">
                 <div className="flex items-center gap-4">
@@ -68,7 +70,7 @@ export default function BasicClientPanel({
                 </div>
               </div>
 
-              {/* Bottom grid info (mismo estilo / misma familia de color) */}
+              {/* Bottom grid info (Teléfono + Email) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/10 bg-[#0f1b33]">
                 {/* Teléfono */}
                 <div className="px-5 py-4">
@@ -119,6 +121,12 @@ export default function BasicClientPanel({
                   </div>
                 </div>
               </div>
+
+              {/* ETIQUETAS ADICIONALES (Asesor + Ciclo)  */}
+              <EtiquetasCustomSelect clienteId={selectedChat?.id} />
+
+              {/* HISTORIAL DE ENCARGADOS */}
+              <HistorialEncargados clienteId={selectedChat?.id} />
             </div>
           </div>
         </div>

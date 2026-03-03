@@ -254,9 +254,6 @@ const TemplateModal = ({ open, onClose, onConfirm }) => {
                   <p className="text-sm text-gray-400 font-medium">
                     No hay templates en esta sección
                   </p>
-                  <p className="text-[11px] text-gray-300">
-                    El administrador puede agregar desde el panel
-                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">

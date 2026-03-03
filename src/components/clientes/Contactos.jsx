@@ -144,7 +144,6 @@ function mapRow(row) {
   const convId =
     row.conversation_id ?? row.thread_id ?? row.id_conversation ?? "";
 
-  // 👇 NUEVO: “contacto visible” para UI (WhatsApp o IG/MS)
   const telefonoLimpio = row.telefono_limpio || "";
   const telefono = row.celular_cliente || "";
   const display_contact =
@@ -160,7 +159,6 @@ function mapRow(row) {
     telefono: telefono,
     telefono_limpio: telefonoLimpio,
 
-    // ✅ NUEVOS
     external_id: externalId,
     page_id: pageId,
     conversation_id: convId,
@@ -186,6 +184,11 @@ function mapRow(row) {
     pedido_confirmado: row.pedido_confirmado ?? 0,
     imagePath: row.imagePath || "",
     etiquetas: Array.isArray(row.etiquetas) ? row.etiquetas : [],
+    asesor_nombre: row.asesor_nombre || "",
+    ciclo_nombre: row.ciclo_nombre || "",
+    id_etiqueta_asesor: row.id_etiqueta_asesor ?? null,
+    id_etiqueta_ciclo: row.id_etiqueta_ciclo ?? null,
+
     _raw: row,
   };
 }
@@ -238,7 +241,6 @@ function Tooltip({ label, children }) {
   );
 }
 
-/* Select simple para filtro de Tags */
 /* Select avanzado para filtro de Tags (react-select) */
 function TagSelect({
   options,
@@ -409,8 +411,165 @@ function TagSelect({
         isClearable
         isSearchable
         isDisabled={disabled}
-        placeholder="Etiquetas (todas)"
+        placeholder="Etiquetas"
         noOptionsMessage={() => "Sin etiquetas"}
+        formatOptionLabel={formatOptionLabel}
+        styles={customStyles}
+        components={{ MenuList }}
+        menuPortalTarget={document.body}
+        menuPosition="fixed"
+        menuPlacement="auto"
+        maxMenuHeight={200}
+      />
+    </div>
+  );
+}
+
+/* Select profesional para Custom Labels (Asesor / Ciclo) */
+function CustomLabelSelect({
+  options,
+  value,
+  onChange,
+  placeholder = "Todos",
+  colorBadge = "#0ea5e9",
+  icon = "bx-purchase-tag",
+  onDelete,
+  onCreateNew,
+}) {
+  const selectOptions = options.map((o) => ({
+    value: String(o.id),
+    label: o.nombre,
+    id: o.id,
+  }));
+
+  const selectedOption =
+    selectOptions.find((o) => o.value === String(value)) || null;
+
+  const formatOptionLabel = (opt, { context }) => (
+    <div className="flex items-center justify-between w-full gap-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          className="h-2.5 w-2.5 rounded-full shrink-0 ring-1 ring-black/10"
+          style={{ backgroundColor: colorBadge }}
+        />
+        <span className="text-sm text-slate-700 truncate">{opt.label}</span>
+      </div>
+      {context === "menu" && onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete(opt.id, opt.label);
+          }}
+          className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 transition"
+          title={`Eliminar "${opt.label}"`}
+        >
+          <i className="bx bxs-trash text-sm" />
+        </button>
+      )}
+    </div>
+  );
+
+  const customStyles = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: 32,
+      maxHeight: 34,
+      borderRadius: 8,
+      fontSize: 13,
+      backgroundColor: "white",
+      borderColor: state.isFocused ? "#3b82f6" : "#e2e8f0",
+      boxShadow: state.isFocused ? "0 0 0 2px rgba(59,130,246,.2)" : "none",
+      cursor: "pointer",
+      "&:hover": { borderColor: "#94a3b8" },
+    }),
+    valueContainer: (base) => ({ ...base, padding: "0 6px" }),
+    placeholder: (base) => ({ ...base, color: "#94a3b8", fontSize: 13 }),
+    singleValue: (base) => ({ ...base, color: "#334155", fontSize: 13 }),
+    input: (base) => ({
+      ...base,
+      color: "#0f172a",
+      fontSize: 13,
+      margin: 0,
+      padding: 0,
+    }),
+    indicatorSeparator: () => ({ display: "none" }),
+    dropdownIndicator: (base) => ({
+      ...base,
+      padding: "0 4px",
+      color: "#94a3b8",
+    }),
+    clearIndicator: (base) => ({
+      ...base,
+      padding: "0 2px",
+      color: "#94a3b8",
+      cursor: "pointer",
+      "&:hover": { color: "#ef4444" },
+    }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: 12,
+      marginTop: 4,
+      padding: 4,
+      backgroundColor: "white",
+      border: "1px solid #e2e8f0",
+      boxShadow: "0 12px 28px rgba(0,0,0,.12)",
+      zIndex: 50,
+      minWidth: 200,
+    }),
+    menuList: (base) => ({ ...base, maxHeight: 220, padding: 2 }),
+    option: (base, state) => ({
+      ...base,
+      borderRadius: 8,
+      padding: "6px 8px",
+      cursor: "pointer",
+      backgroundColor: state.isSelected
+        ? "#eff6ff"
+        : state.isFocused
+          ? "#f8fafc"
+          : "transparent",
+      "&:active": { backgroundColor: "#e2e8f0" },
+    }),
+    noOptionsMessage: (base) => ({
+      ...base,
+      fontSize: 13,
+      color: "#94a3b8",
+    }),
+  };
+
+  const MenuList = (props) => (
+    <div>
+      <rsComponents.MenuList {...props}>{props.children}</rsComponents.MenuList>
+      {onCreateNew && (
+        <div className="border-t border-slate-100 px-2 py-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onCreateNew();
+            }}
+            className="flex items-center gap-2 w-full rounded-lg px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50 transition"
+          >
+            <i className="bx bx-plus text-sm" />
+            Crear nuevo
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ minWidth: 160 }}>
+      <Select
+        options={selectOptions}
+        value={selectedOption}
+        onChange={(opt) => onChange(opt ? opt.value : "")}
+        isClearable
+        isSearchable
+        placeholder={placeholder}
+        noOptionsMessage={() => "Sin opciones"}
         formatOptionLabel={formatOptionLabel}
         styles={customStyles}
         components={{ MenuList }}
@@ -977,6 +1136,11 @@ export default function Contactos() {
   // (opcional pero recomendado si quiere también soportar botones URL como el 1 a 1)
   const [bodyPlaceholders, setBodyPlaceholders] = useState([]); // [{n,key}]
   const [urlButtons, setUrlButtons] = useState([]); // [{index,ph,key,label,base}]
+
+  const [opcionesAsesor, setOpcionesAsesor] = useState([]);
+  const [opcionesCiclo, setOpcionesCiclo] = useState([]);
+  const [idAsesorFiltro, setIdAsesorFiltro] = useState("");
+  const [idCicloFiltro, setIdCicloFiltro] = useState("");
 
   const allPlaceholdersFilled = placeholders.every(
     (ph) => (placeholderValues[ph] || "").trim().length > 0,
@@ -1942,6 +2106,79 @@ export default function Contactos() {
     }
   }
 
+  async function cargarOpcionesCustomLabels() {
+    try {
+      const { data } = await chatApi.get(
+        "/etiquetas_custom_chat_center/listar",
+        {
+          params: {
+            id_configuracion: localStorage.getItem("id_configuracion"),
+          },
+        },
+      );
+      const lista = Array.isArray(data?.data) ? data.data : [];
+      setOpcionesAsesor(lista.filter((e) => e.tipo === "asesor"));
+      setOpcionesCiclo(lista.filter((e) => e.tipo === "ciclo"));
+    } catch (e) {
+      console.warn("Error cargando custom labels:", e?.message);
+    }
+  }
+
+  async function crearCustomLabel(tipo, nombre) {
+    if (!nombre?.trim()) return;
+    await chatApi.post("/etiquetas_custom_chat_center/crear", {
+      id_configuracion: Number(localStorage.getItem("id_configuracion")),
+      tipo,
+      nombre: nombre.trim(),
+    });
+    await cargarOpcionesCustomLabels();
+  }
+
+  async function eliminarCustomLabel(id, nombre) {
+    const ok = await swalConfirm(
+      "Eliminar etiqueta",
+      `¿Eliminar "${nombre}"? Se quitará de todos los clientes que la tengan.`,
+    );
+    if (!ok) return;
+    try {
+      swalLoading("Eliminando...");
+      await chatApi.delete(`/etiquetas_custom_chat_center/eliminar/${id}`, {
+        params: { id_configuracion: localStorage.getItem("id_configuracion") },
+      });
+      swalClose();
+      swalToast("Eliminada");
+      await cargarOpcionesCustomLabels();
+      // Reset filtro si se eliminó la opción seleccionada
+      if (String(idAsesorFiltro) === String(id)) setIdAsesorFiltro("");
+      if (String(idCicloFiltro) === String(id)) setIdCicloFiltro("");
+    } catch (e) {
+      swalClose();
+      swalError("No se pudo eliminar", e?.response?.data?.message || e.message);
+    }
+  }
+
+  async function promptCrearCustomLabel(tipo) {
+    const { value: nombre } = await Swal.fire({
+      title: `Nuevo ${tipo === "asesor" ? "Asesor" : "Ciclo"}`,
+      input: "text",
+      inputPlaceholder: `Nombre del ${tipo}...`,
+      showCancelButton: true,
+      confirmButtonText: "Crear",
+      cancelButtonText: "Cancelar",
+      inputValidator: (v) => (!v?.trim() ? "Escribe un nombre" : null),
+    });
+    if (!nombre) return;
+    try {
+      swalLoading("Creando...");
+      await crearCustomLabel(tipo, nombre);
+      swalClose();
+      swalToast(`${tipo === "asesor" ? "Asesor" : "Ciclo"} creado`);
+    } catch (e) {
+      swalClose();
+      swalError("No se pudo crear", e?.response?.data?.message || e.message);
+    }
+  }
+
   const id_configuracion = Number(localStorage.getItem("id_configuracion"));
 
   /**
@@ -2012,6 +2249,8 @@ export default function Contactos() {
         search_mode: phoneLike ? "phone" : "name",
         phone: phoneLike ? qPhone : undefined,
         id_configuracion: localStorage.getItem("id_configuracion"),
+        id_etiqueta_asesor: idAsesorFiltro || undefined,
+        id_etiqueta_ciclo: idCicloFiltro || undefined,
       };
 
       let dataResp;
@@ -2263,6 +2502,7 @@ export default function Contactos() {
   /* ===== Efectos ===== */
   useEffect(() => {
     cargarOpcionesFiltroEtiquetas();
+    cargarOpcionesCustomLabels();
   }, []);
 
   useEffect(() => {
@@ -2276,7 +2516,15 @@ export default function Contactos() {
 
     return () => clearTimeout(idTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, estado, orden, pageSize, idEtiquetaFiltro]);
+  }, [
+    q,
+    estado,
+    orden,
+    pageSize,
+    idEtiquetaFiltro,
+    idAsesorFiltro,
+    idCicloFiltro,
+  ]);
 
   /* Selección */
   const allSelected = useMemo(() => {
@@ -2872,6 +3120,30 @@ export default function Contactos() {
                 onCreateNew={() => ensureCatalogAndOpen("crear")}
               />
 
+              {/* Filtro Asesor */}
+              <CustomLabelSelect
+                options={opcionesAsesor}
+                value={idAsesorFiltro}
+                onChange={setIdAsesorFiltro}
+                placeholder="Asesor"
+                colorBadge="#0ea5e9"
+                icon="bx-user-voice"
+                onDelete={(id, nombre) => eliminarCustomLabel(id, nombre)}
+                onCreateNew={() => promptCrearCustomLabel("asesor")}
+              />
+
+              {/* Filtro Ciclo */}
+              <CustomLabelSelect
+                options={opcionesCiclo}
+                value={idCicloFiltro}
+                onChange={setIdCicloFiltro}
+                placeholder="Ciclo"
+                colorBadge="#10b981"
+                icon="bx-revision"
+                onDelete={(id, nombre) => eliminarCustomLabel(id, nombre)}
+                onCreateNew={() => promptCrearCustomLabel("ciclo")}
+              />
+
               <select
                 className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
                 value={orden}
@@ -2890,6 +3162,8 @@ export default function Contactos() {
                   setEstado("todos");
                   setIdEtiquetaFiltro("");
                   setOrden("recientes");
+                  setIdAsesorFiltro("");
+                  setIdCicloFiltro("");
                 }}
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 transition"
               >
@@ -3034,7 +3308,7 @@ export default function Contactos() {
       {/* ===== Modales de etiquetas ===== */}
       <ModalTags
         open={modalToggleOpen}
-        title="Toggle etiquetas"
+        title="Asignar etiquetas"
         onClose={() => setModalToggleOpen(false)}
         catalogo={catalogosPorCfg[idConfigForTags]}
         disabled={!selected.length}
@@ -3077,6 +3351,7 @@ export default function Contactos() {
         chatApi={chatApi}
         apiList={apiList}
         cargarOpcionesFiltroEtiquetas={cargarOpcionesFiltroEtiquetas}
+        cargarOpcionesCustomLabels={cargarOpcionesCustomLabels}
       />
       <NuevoContacto
         isOpen={isModalOpenNuevoContact}

@@ -64,7 +64,7 @@ const HistorialModal = ({ open, onClose, usage }) => {
 
       <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-200/50">
         {/* ── Header ── */}
-        <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-5 shrink-0">
+        <div className="bg-gradient-to-r bg-[#171931] px-6 py-5 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur grid place-items-center">
@@ -72,7 +72,7 @@ const HistorialModal = ({ open, onClose, usage }) => {
               </div>
               <div>
                 <h2 className="font-bold text-white text-base">
-                  Historial de generaciones
+                  Historial de imágenes generadas
                 </h2>
                 <p className="text-white/60 text-xs mt-0.5">
                   {pagination.total} imagen{pagination.total !== 1 ? "es" : ""}{" "}
