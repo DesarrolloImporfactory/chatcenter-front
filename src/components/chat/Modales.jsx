@@ -1072,35 +1072,61 @@ const Modales = ({
     const jwtServidor = localStorage.getItem("token");
 
     try {
+      // ── 1. Backend: descargar + convertir + subir a WhatsApp ──────
       const { data } = await chatApi.post("/whatsapp_managment/enviar-video", {
         stream_url: videoUrl,
         jwt_servidor: jwtServidor,
         wa_token: dataAdmin.token,
         phone_number_id: dataAdmin.id_telefono,
-        numero_destino: selectedChat.celular_cliente,
-        caption: caption,
       });
 
       if (data.status !== 200) {
-        alert(`Error: ${data.message}`);
+        alert(`Error procesando video: ${data.message}`);
         return;
       }
 
-      const { wamid } = data;
+      const { media_id } = data;
 
-      let id_recibe = selectedChat.id;
-      let mid_mensaje = dataAdmin.id_telefono;
-      let telefono_configuracion = dataAdmin.telefono;
+      // ── 2. Frontend: enviar mensaje a WhatsApp ────────────────────
+      const response = await fetch(
+        `https://graph.facebook.com/v19.0/${dataAdmin.id_telefono}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${dataAdmin.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to: selectedChat.celular_cliente,
+            type: "video",
+            video: {
+              id: media_id,
+              caption: caption || "",
+            },
+          }),
+        },
+      );
 
+      const result = await response.json();
+
+      if (result.error) {
+        alert(`Error enviando mensaje: ${result.error.message}`);
+        return;
+      }
+
+      const wamid = result?.messages?.[0]?.id || null;
+
+      // ── 3. Guardar en BD ──────────────────────────────────────────
       agregar_mensaje_enviado(
         caption,
         "video",
         videoUrl,
         selectedChat.celular_cliente,
-        mid_mensaje,
-        id_recibe,
+        dataAdmin.id_telefono,
+        selectedChat.id,
         id_configuracion,
-        telefono_configuracion,
+        dataAdmin.telefono,
         wamid,
         "",
         "",
