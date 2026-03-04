@@ -3024,13 +3024,16 @@ const Chat = () => {
             };
 
         // ✅ CONDICIÓN EXACTA DEL ANTIGUO (pero con encargado unificado)
-        if (canSeeChat) {
-          if (encargadoId == null) {
-            if (scopeChats == "waiting") {
+        const isSearchEmpty = !searchTerm?.trim();
+        if (canSeeChat && isSearchEmpty) {
+          if (selectedTab == "abierto") {
+            if (encargadoId == null) {
+              if (scopeChats == "waiting") {
+                actualizado.unshift(nuevoChat);
+              }
+            } else if (scopeChats == "mine") {
               actualizado.unshift(nuevoChat);
             }
-          } else {
-            actualizado.unshift(nuevoChat);
           }
         }
 
@@ -3098,6 +3101,8 @@ const Chat = () => {
     cursorFecha,
     cursorId,
     scopeChats,
+    searchTerm,
+    selectedTab
   ]);
 
   const recargarDatosFactura = () => {
