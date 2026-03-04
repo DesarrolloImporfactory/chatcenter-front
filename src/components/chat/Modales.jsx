@@ -61,6 +61,8 @@ const Modales = ({
   templateResults,
   templateNamePreselect,
   templatePreselectNonce,
+  socketRef,
+  nombre_encargado_global,
 }) => {
   const [templateText, setTemplateText] = useState("");
   const [placeholders, setPlaceholders] = useState([]);
@@ -431,6 +433,27 @@ const Modales = ({
     },
   });
 
+  const enviarArchivoViaSocket = (fileUrl, fileType, caption = "") => {
+    if (!socketRef?.current) throw new Error("Socket no conectado");
+
+    socketRef.current.emit("SEND_MESSAGE", {
+      id_configuracion,
+      chatId: selectedChat.id,
+      source: selectedChat.source,
+      page_id: selectedChat.page_id,
+      external_id: selectedChat.external_id,
+      mensaje: caption || "",
+      tipo_mensaje: fileType,
+      attachment_url: fileUrl,
+      ruta_archivo: fileUrl, // ← AGREGAR
+      nombre_encargado: nombre_encargado_global || "",
+      client_tmp_id: `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      to: null,
+      tag: "HUMAN_AGENT",
+      messaging_type: "MESSAGE_TAG",
+    });
+  };
+
   /* modal crear etiquetas */
   const [tagName, setTagName] = useState("");
   const [tagColor, setTagColor] = useState("#ff0000"); // Color predeterminado
@@ -582,6 +605,15 @@ const Modales = ({
 
   // Función para enviar la imagen a través de la API de WhatsApp
   const enviarImagenWhatsApp = async (imageUrl, caption = "") => {
+    const source = selectedChat?.source || "wa";
+
+    // ── IG / Messenger → socket unificado ──
+    if (source === "ms" || source === "ig") {
+      const fullUrl = "https://new.imporsuitpro.com/" + imageUrl;
+      enviarArchivoViaSocket(fullUrl, "image", caption);
+      return;
+    }
+
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
@@ -771,6 +803,15 @@ const Modales = ({
 
   // Función para enviar el documento a través de la API de WhatsApp
   const enviarDocumentoWhatsApp = async (documentUrl, caption = "") => {
+    const source = selectedChat?.source || "wa";
+
+    if (source === "ms" || source === "ig") {
+      const fullUrl = "https://new.imporsuitpro.com/" + documentUrl.ruta;
+      enviarArchivoViaSocket(fullUrl, "document", caption);
+
+      return;
+    }
+
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
@@ -1068,7 +1109,14 @@ const Modales = ({
   };
 
   // Función para enviar el video a través de la API de WhatsApp
-  const enviarVideoWhatsApp = async (videoUrl, caption = "", file) => {
+  const enviarVideoWhatsApp = async (videoUrl, caption = "") => {
+    const source = selectedChat?.source || "wa";
+
+    if (source === "ms" || source === "ig") {
+      enviarArchivoViaSocket(videoUrl, "video", caption);
+      return;
+    }
+
     try {
       const form = new FormData();
       form.append("file", file); // File del input
@@ -1094,7 +1142,7 @@ const Modales = ({
 
       const { media_id } = data;
 
-      // Enviar mensaje (igual que ya lo haces)
+      // ── 2. Frontend: enviar mensaje a WhatsApp ────────────────────
       const response = await fetch(
         `https://graph.facebook.com/v19.0/${dataAdmin.id_telefono}/messages`,
         {
@@ -1107,12 +1155,16 @@ const Modales = ({
             messaging_product: "whatsapp",
             to: selectedChat.celular_cliente,
             type: "video",
-            video: { id: media_id, caption: caption || "" },
+            video: {
+              id: media_id,
+              caption: caption || "",
+            },
           }),
         },
       );
 
       const result = await response.json();
+
       if (result.error) {
         alert(`Error enviando mensaje: ${result.error.message}`);
         return;
@@ -1120,6 +1172,7 @@ const Modales = ({
 
       const wamid = result?.messages?.[0]?.id || null;
 
+      // ── 3. Guardar en BD ──────────────────────────────────────────
       agregar_mensaje_enviado(
         caption,
         "video",

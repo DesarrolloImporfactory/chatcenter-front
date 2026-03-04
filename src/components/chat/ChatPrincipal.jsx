@@ -966,73 +966,6 @@ const ChatPrincipal = ({
   const videoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // helper: subir a tu uploader S3
-  async function uploadToS3(file) {
-    const form = new FormData();
-    form.append("file", file); // nombre del campo esperado por tu uploader
-
-    const resp = await fetch(
-      "https://uploader.imporfactory.app/api/files/upload",
-      {
-        method: "POST",
-        body: form,
-      },
-    );
-    const json = await resp.json();
-    if (!json?.success) throw new Error("Error subiendo archivo");
-    return json.data; // { url, fileName, size, mimeType, ... }
-  }
-
-  async function handleFilePicked(kind, file) {
-    if (!file || !selectedChat) return;
-
-    try {
-      const up = await uploadToS3(file);
-      const clientTmpId =
-        "tmp-file-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-      const created = new Date().toISOString();
-
-      const tipo =
-        kind === "image" ? "image" : kind === "video" ? "video" : "document";
-
-      const ruta_archivo =
-        tipo === "document"
-          ? JSON.stringify({
-              ruta: up.url,
-              nombre: up.fileName,
-              size: up.size,
-              mimeType: up.mimeType,
-            })
-          : up.url;
-
-      // mensaje optimista
-      setMensajesOrdenados((prev) => [
-        ...prev,
-        {
-          id: clientTmpId,
-          rol_mensaje: 1,
-          texto_mensaje: "",
-          tipo_mensaje: tipo,
-          ruta_archivo,
-          mid_mensaje: null,
-          visto: 0,
-          created_at: created,
-          responsable: dataAdmin?.nombre_encargado || "",
-          client_tmp_id: clientTmpId,
-        },
-      ]);
-
-      setIsMenuOpen(false);
-    } catch (err) {
-      console.error("Attach error:", err);
-      alert("No se pudo subir/enviar el archivo.");
-    } finally {
-      if (imageInputRef.current) imageInputRef.current.value = "";
-      if (videoInputRef.current) videoInputRef.current.value = "";
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
   // Normaliza nombres tipo "EvelynCherrez", "Evelyn_Cherrez", "Evelyn-Cherrez"
   function prettyAgentName(raw) {
     if (!raw) return "";
@@ -2557,37 +2490,6 @@ const ChatPrincipal = ({
                     </ul>
                   </div>
                 )}
-
-                {/* Inputs ocultos para Messenger/IG */}
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) =>
-                    e.target.files?.[0] &&
-                    handleFilePicked("image", e.target.files[0])
-                  }
-                />
-                <input
-                  ref={videoInputRef}
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={(e) =>
-                    e.target.files?.[0] &&
-                    handleFilePicked("video", e.target.files[0])
-                  }
-                />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) =>
-                    e.target.files?.[0] &&
-                    handleFilePicked("document", e.target.files[0])
-                  }
-                />
 
                 <label
                   htmlFor="file-upload"
