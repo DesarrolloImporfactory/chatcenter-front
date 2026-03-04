@@ -1073,12 +1073,18 @@ const Modales = ({
 
     try {
       // ── 1. Backend: descargar + convertir + subir a WhatsApp ──────
-      const { data } = await chatApi.post("/whatsapp_managment/enviar-video", {
-        stream_url: videoUrl,
-        jwt_servidor: jwtServidor,
-        wa_token: dataAdmin.token,
-        phone_number_id: dataAdmin.id_telefono,
-      });
+      const { data } = await chatApi.post(
+        "/whatsapp_managment/enviar-video",
+        {
+          stream_url: videoUrl,
+          jwt_servidor: jwtServidor,
+          wa_token: dataAdmin.token,
+          phone_number_id: dataAdmin.id_telefono,
+        },
+        {
+          timeout: 300000, // 5 minutos
+        },
+      );
 
       if (data.status !== 200) {
         alert(`Error procesando video: ${data.message}`);
