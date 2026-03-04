@@ -902,112 +902,201 @@ const Modales = ({
   const [botonDeshabilitado_vid, setBotonDeshabilitado_vid] = useState(false);
 
   const enviarVideosWhatsApp = async () => {
-    setBotonDeshabilitado_vid(true); // Bloquear el botón al iniciar el proceso
+    setBotonDeshabilitado_vid(true);
 
     for (let vid of videos) {
       try {
-        // Subir video al servidor
-        const videoUrl = await uploadVideo(vid.file);
-
-        // Enviar video a WhatsApp
+        const videoUrl = await uploadVideo(vid.file); // sube a tu servidor
         if (videoUrl) {
-          await enviarVideoWhatsApp(videoUrl, vid.caption);
+          await enviarVideoWhatsApp(videoUrl, vid.caption); // backend hace el resto
         }
       } catch (error) {
-        console.error("Error al procesar el video:", error);
-        alert("Ocurrió un error al enviar el video. Inténtalo más tarde.");
+        console.error("Error:", error);
+        alert("Error al enviar el video.");
       }
     }
 
-    // Cerrar el modal y limpiar la lista de videos
-    handleModal_enviarArchivos(""); // Cierra el modal
-    setVideos([]); // Limpia la lista de videos
-    setVideoSeleccionado(null); // Limpia el video seleccionado
-
-    setBotonDeshabilitado_vid(false); // Desbloquear el botón al finalizar
+    handleModal_enviarArchivos("");
+    setVideos([]);
+    setVideoSeleccionado(null);
+    setBotonDeshabilitado_vid(false);
   };
 
   // Función para subir el video al servidor
-  const uploadVideo = async (video) => {
-    const formData = new FormData();
-    formData.append("video", video);
+  const uploadVideo = async (videoFile) => {
+    const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB
+    const CONCURRENCY = 8;
+    const BASE = "https://new.imporsuitpro.com/";
+    const jwtToken = localStorage.getItem("token");
 
-    try {
-      const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/guardar_video_Whatsapp",
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
+    const fileSize = videoFile.size;
+    const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
 
-      const data = await response.json();
+    // Extensión
+    const originalname = videoFile.name || "video.mp4";
+    const mimetype = videoFile.type || "video/mp4";
 
-      if (data.status === 500 || data.status === 400) {
-        alert(`Error al subir video: ${data.message}`);
-        return null;
-      }
+    const extFromName = originalname.includes(".")
+      ? originalname.split(".").pop().toLowerCase()
+      : null;
+    const extFromMime = mimetype
+      ? mimetype.split("/").pop().replace("quicktime", "mov").toLowerCase()
+      : null;
+    const ext = extFromName || extFromMime || "mp4";
+    const safeOriginalName = extFromName ? originalname : `video.${ext}`;
 
-      return data.data; // Retorna la URL del video subido
-    } catch (error) {
-      console.error("Error en la solicitud de subida:", error);
-      alert(
-        "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde.",
-      );
+    // Fingerprint simple (sin crypto de Node)
+    const fingerprint = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    console.log(
+      `[VIDEO_UPLOAD] Iniciando: ${safeOriginalName} (${(fileSize / 1024 / 1024).toFixed(2)} MB, ${totalChunks} chunks)`,
+    );
+
+    // ── 1. Init ───────────────────────────────────────────────────────
+    const initRes = await fetch(BASE + "Videos/init", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwtToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fingerprint,
+        original_name: safeOriginalName,
+        file_size: fileSize,
+        total_chunks: totalChunks,
+        chunk_size: CHUNK_SIZE,
+        extension: ext,
+        mime_type: mimetype,
+      }),
+    });
+
+    const init = await initRes.json();
+    if (init.status !== 200) {
+      alert(`Error iniciando upload: ${init.message}`);
       return null;
     }
+
+    const { upload_id } = init;
+    const received = new Set(init.received_chunks || []);
+
+    console.log(
+      `[VIDEO_UPLOAD] upload_id: ${upload_id} | resuming: ${init.resuming}`,
+    );
+
+    // ── 2. Chunks con concurrencia ────────────────────────────────────
+    const pending = [];
+    for (let i = 0; i < totalChunks; i++) {
+      if (!received.has(i)) pending.push(i);
+    }
+
+    if (pending.length > 0) {
+      // Leer el archivo completo como ArrayBuffer para poder slicearlo
+      const arrayBuffer = await videoFile.arrayBuffer();
+
+      await new Promise((resolve, reject) => {
+        let active = 0;
+        let pi = 0;
+        let errored = false;
+
+        const next = () => {
+          while (active < CONCURRENCY && pi < pending.length && !errored) {
+            const chunkIndex = pending[pi++];
+            active++;
+
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, fileSize);
+            const chunkBlob = new Blob([arrayBuffer.slice(start, end)], {
+              type: "application/octet-stream",
+            });
+
+            const form = new FormData();
+            form.append("upload_id", upload_id);
+            form.append("chunk_index", String(chunkIndex));
+            form.append("total_chunks", String(totalChunks));
+            form.append("chunk", chunkBlob, `chunk_${chunkIndex}`);
+
+            fetch(BASE + "Videos/chunk", {
+              method: "POST",
+              body: form,
+            })
+              .then((r) => r.json())
+              .then((res) => {
+                if (res?.status !== 200) {
+                  throw new Error(
+                    res?.message || `Error en chunk ${chunkIndex}`,
+                  );
+                }
+                console.log(
+                  `[VIDEO_UPLOAD] Chunk ${chunkIndex + 1}/${totalChunks} ✓`,
+                );
+                active--;
+                next();
+              })
+              .catch((err) => {
+                if (!errored) {
+                  errored = true;
+                  reject(err);
+                }
+              });
+          }
+
+          if (active === 0 && pi >= pending.length && !errored) resolve();
+        };
+
+        next();
+      });
+    }
+
+    // ── 3. Complete ───────────────────────────────────────────────────
+    const completeRes = await fetch(BASE + "Videos/complete", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwtToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ upload_id }),
+    });
+
+    const complete = await completeRes.json();
+    if (complete.status !== 200) {
+      alert(`Error completando upload: ${complete.message}`);
+      return null;
+    }
+
+    console.log(`[VIDEO_UPLOAD] ✅ Listo: ${complete.stream_url}`);
+    return complete.stream_url; // <-- lo usa enviarVideoWhatsApp como videoUrl
   };
 
   // Función para enviar el video a través de la API de WhatsApp
   const enviarVideoWhatsApp = async (videoUrl, caption = "") => {
-    const fromPhoneNumberId = dataAdmin.id_telefono;
-    const accessToken = dataAdmin.token;
-    const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
-
-    const payload = {
-      messaging_product: "whatsapp",
-      to: numeroDestino,
-      type: "video",
-      video: {
-        link: "https://new.imporsuitpro.com/" + videoUrl,
-        caption: caption,
-      },
-    };
-
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
+    const jwtServidor = localStorage.getItem("token");
 
     try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
+      const { data } = await chatApi.post("/whatsapp_managment/enviar-video", {
+        stream_url: videoUrl,
+        jwt_servidor: jwtServidor,
+        wa_token: dataAdmin.token,
+        phone_number_id: dataAdmin.id_telefono,
+        numero_destino: selectedChat.celular_cliente,
+        caption: caption,
       });
 
-      const result = await response.json();
-
-      if (result.error) {
-        console.error("Error al enviar el video a WhatsApp:", result.error);
-        alert(`Error: ${result.error.message}`);
+      if (data.status !== 200) {
+        alert(`Error: ${data.message}`);
         return;
       }
 
-      console.log("Video enviado con éxito a WhatsApp:", result);
-
-      // Extraer wamid de la respuesta
-      const wamid = result?.messages?.[0]?.id || null;
+      const { wamid } = data;
 
       let id_recibe = selectedChat.id;
       let mid_mensaje = dataAdmin.id_telefono;
       let telefono_configuracion = dataAdmin.telefono;
+
       agregar_mensaje_enviado(
         caption,
         "video",
         videoUrl,
-        numeroDestino,
+        selectedChat.celular_cliente,
         mid_mensaje,
         id_recibe,
         id_configuracion,
@@ -1017,12 +1106,9 @@ const Modales = ({
         "",
         selectedChat.id_encargado,
       );
-
-      /* cargar socket */
-      /* cargar_socket(); */
     } catch (error) {
-      console.error("Error en la solicitud de WhatsApp:", error);
-      alert("Ocurrió un error al enviar el video. Inténtalo más tarde.");
+      console.error("Error enviando video:", error);
+      alert("Ocurrió un error al enviar el video.");
     }
   };
   /* ----- fin enviar videos ---------*/

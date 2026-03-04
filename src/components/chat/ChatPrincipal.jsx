@@ -165,16 +165,19 @@ function platformLabel(source) {
 }
 
 /* ——— Video Player premium (contenedor 16:9, responsivo) ——— */
-function PremiumVideoPlayer({ src }) {
-  const realSrc = /^https?:\/\//.test(src)
+function PremiumVideoPlayer({ src, token }) {
+  let realSrc = /^https?:\/\//.test(src)
     ? src
     : `https://new.imporsuitpro.com/${src}`;
 
-  console.log("realSrc: " + realSrc);
+  // ✅ Agregar token como query param para autenticación
+  if (token && realSrc.includes("/Videos/stream/")) {
+    realSrc = `${realSrc}?token=${token}`;
+  }
+
   return (
     <div className="w-full max-w-[460px]">
       <div className="relative w-full rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/10 bg-black">
-        {/* caja 16:9 */}
         <div className="pt-[56.25%]" />
         <video
           className="absolute inset-0 w-full h-full object-cover"
@@ -1240,9 +1243,10 @@ const ChatPrincipal = ({
       }
 
       return (
-        <div className="mb-2">
-          <PremiumVideoPlayer src={src} />
-        </div>
+        <PremiumVideoPlayer
+          src={src}
+          token={localStorage.getItem("token")} // ✅
+        />
       );
     }
 
@@ -2172,7 +2176,10 @@ const ChatPrincipal = ({
                             })()
                           ) : mensaje.tipo_mensaje === "video" ? (
                             <div className="p-1">
-                              <PremiumVideoPlayer src={mensaje.ruta_archivo} />
+                              <PremiumVideoPlayer
+                                src={mensaje.ruta_archivo}
+                                token={localStorage.getItem("token")} // ✅
+                              />
                             </div>
                           ) : mensaje.tipo_mensaje === "location" ? (
                             (() => {
