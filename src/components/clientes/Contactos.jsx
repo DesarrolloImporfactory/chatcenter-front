@@ -13,6 +13,8 @@ import NuevoContacto from "./modales/NuevoContacto";
 import EnviarTemplateMasivo from "./modales/EnviarTemplateMasivo";
 import TablaContactos from "./TablaContactos";
 
+chatApi.defaults.timeout = 150000;
+
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
   const res = await Swal.fire({
