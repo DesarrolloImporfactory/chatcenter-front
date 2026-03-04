@@ -908,7 +908,7 @@ const Modales = ({
       try {
         const videoUrl = await uploadVideo(vid.file); // sube a tu servidor
         if (videoUrl) {
-          await enviarVideoWhatsApp(videoUrl, vid.caption); // backend hace el resto
+          await enviarVideoWhatsApp(videoUrl, vid.caption, vid.file); // backend hace el resto
         }
       } catch (error) {
         console.error("Error:", error);
@@ -1068,7 +1068,7 @@ const Modales = ({
   };
 
   // Función para enviar el video a través de la API de WhatsApp
-  const enviarVideoWhatsApp = async (videoUrl, caption = "") => {
+  const enviarVideoWhatsApp = async (videoUrl, caption = "", file) => {
     try {
       const form = new FormData();
       form.append("file", file); // File del input
@@ -1123,7 +1123,7 @@ const Modales = ({
       agregar_mensaje_enviado(
         caption,
         "video",
-        "(subido_directo)", // o guarda algo si quieres
+        videoUrl,
         selectedChat.celular_cliente,
         dataAdmin.id_telefono,
         selectedChat.id,
