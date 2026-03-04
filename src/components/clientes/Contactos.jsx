@@ -13,8 +13,6 @@ import NuevoContacto from "./modales/NuevoContacto";
 import EnviarTemplateMasivo from "./modales/EnviarTemplateMasivo";
 import TablaContactos from "./TablaContactos";
 
-chatApi.defaults.timeout = 150000;
-
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
   const res = await Swal.fire({
@@ -2116,6 +2114,7 @@ export default function Contactos() {
           params: {
             id_configuracion: localStorage.getItem("id_configuracion"),
           },
+          timeout: 150000,
         },
       );
       const lista = Array.isArray(data?.data) ? data.data : [];
@@ -2261,12 +2260,14 @@ export default function Contactos() {
           "/clientes_chat_center/listar_por_etiqueta",
           {
             params: { ...paramsBase, ids: String(idEtiquetaFiltro) },
+            timeout: 150000,
           },
         );
         dataResp = data;
       } else {
         const { data } = await chatApi.get("/clientes_chat_center/listar", {
           params: paramsBase,
+          timeout: 150000,
         });
         dataResp = data;
       }
