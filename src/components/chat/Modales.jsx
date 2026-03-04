@@ -1069,20 +1069,21 @@ const Modales = ({
 
   // Función para enviar el video a través de la API de WhatsApp
   const enviarVideoWhatsApp = async (videoUrl, caption = "") => {
-    const jwtServidor = localStorage.getItem("token");
-
     try {
-      // ── 1. Backend: descargar + convertir + subir a WhatsApp ──────
+      const form = new FormData();
+      form.append("file", file); // File del input
+      form.append("caption", caption || "");
+      form.append("jwt_servidor", localStorage.getItem("token"));
+      form.append("wa_token", dataAdmin.token);
+      form.append("phone_number_id", dataAdmin.id_telefono);
+
+      // Backend: recibe file + lo sube a WA (y convierte si quieres)
       const { data } = await chatApi.post(
-        "/whatsapp_managment/enviar-video",
+        "/whatsapp_managment/enviar-video-file",
+        form,
         {
-          stream_url: videoUrl,
-          jwt_servidor: jwtServidor,
-          wa_token: dataAdmin.token,
-          phone_number_id: dataAdmin.id_telefono,
-        },
-        {
-          timeout: 300000, // 5 minutos
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 300000,
         },
       );
 
@@ -1093,7 +1094,7 @@ const Modales = ({
 
       const { media_id } = data;
 
-      // ── 2. Frontend: enviar mensaje a WhatsApp ────────────────────
+      // Enviar mensaje (igual que ya lo haces)
       const response = await fetch(
         `https://graph.facebook.com/v19.0/${dataAdmin.id_telefono}/messages`,
         {
@@ -1106,16 +1107,12 @@ const Modales = ({
             messaging_product: "whatsapp",
             to: selectedChat.celular_cliente,
             type: "video",
-            video: {
-              id: media_id,
-              caption: caption || "",
-            },
+            video: { id: media_id, caption: caption || "" },
           }),
         },
       );
 
       const result = await response.json();
-
       if (result.error) {
         alert(`Error enviando mensaje: ${result.error.message}`);
         return;
@@ -1123,11 +1120,10 @@ const Modales = ({
 
       const wamid = result?.messages?.[0]?.id || null;
 
-      // ── 3. Guardar en BD ──────────────────────────────────────────
       agregar_mensaje_enviado(
         caption,
         "video",
-        videoUrl,
+        "(subido_directo)", // o guarda algo si quieres
         selectedChat.celular_cliente,
         dataAdmin.id_telefono,
         selectedChat.id,
