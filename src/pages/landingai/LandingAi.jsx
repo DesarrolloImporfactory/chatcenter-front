@@ -7,7 +7,7 @@ import HeroSection from "./components/HeroSection";
 import StepHome from "./components/StepHome";
 import StepImages from "./components/StepImages";
 import StepPricing from "./components/StepPricing";
-import StepAngles from "./components/StepAngles";
+import StepAngles from "./components/stepAngles";
 import StepGenerate from "./components/StepGenerate";
 import StepResults from "./components/stepResults";
 
