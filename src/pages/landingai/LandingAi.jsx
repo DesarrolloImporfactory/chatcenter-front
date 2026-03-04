@@ -9,7 +9,7 @@ import StepImages from "./components/StepImages";
 import StepPricing from "./components/StepPricing";
 import StepAngles from "./components/stepAngles";
 import StepGenerate from "./components/StepGenerate";
-import StepResults from "./components/stepResults";
+import StepResults from "./components/StepResults";
 
 // Modals (existing)
 import HistorialModal from "./modales/HistorialModal";
