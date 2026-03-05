@@ -1109,7 +1109,7 @@ const Modales = ({
   };
 
   // Función para enviar el video a través de la API de WhatsApp
-  const enviarVideoWhatsApp = async (videoUrl, caption = "") => {
+  const enviarVideoWhatsApp = async (videoUrl, caption = "", videoFile) => {
     const source = selectedChat?.source || "wa";
 
     if (source === "ms" || source === "ig") {
@@ -1119,7 +1119,7 @@ const Modales = ({
 
     try {
       const form = new FormData();
-      form.append("file", file); // File del input
+      form.append("file", videoFile); // File del input
       form.append("caption", caption || "");
       form.append("jwt_servidor", localStorage.getItem("token"));
       form.append("wa_token", dataAdmin.token);
