@@ -88,18 +88,6 @@ const ImageReveal3D = ({ result, index, onComplete }) => {
               className={`absolute inset-0 pointer-events-none reveal-shine reveal-shine-${phase}`}
             />
           </div>
-
-          {/* "IA Generated" badge */}
-          <div
-            className={`absolute -bottom-5 left-1/2 -translate-x-1/2 reveal-badge reveal-badge-${phase}`}
-          >
-            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-blue-600 shadow-xl shadow-indigo-500/30 border border-indigo-400/30">
-              <i className="bx bx-magic-wand text-white text-xs" />
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                Generada con IA
-              </span>
-            </div>
-          </div>
         </div>
       </div>
 

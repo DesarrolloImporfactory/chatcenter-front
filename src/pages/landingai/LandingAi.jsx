@@ -29,7 +29,7 @@ const LandingAi = () => {
   const [step, setStep] = useState("home");
   const [userImages, setUserImages] = useState([]);
   const [description, setDescription] = useState("");
-  const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [aspectRatio, setAspectRatio] = useState("9:16");
 
   // ── NEW: Pricing state ──
   const [pricing, setPricing] = useState({
@@ -59,6 +59,9 @@ const LandingAi = () => {
     limit: 0,
     remaining: 0,
     plan: "",
+    angles_used: 0,
+    angles_limit: 0,
+    angles_remaining: 0,
   });
 
   // ── Modal state ──
@@ -323,6 +326,8 @@ const LandingAi = () => {
             setSelectedAngle={setSelectedAngle}
             customAngle={customAngle}
             setCustomAngle={setCustomAngle}
+            usage={usage}
+            setUsage={setUsage}
             onBack={() => goToStep("pricing")}
             onContinue={handleAnglesContinue}
           />
