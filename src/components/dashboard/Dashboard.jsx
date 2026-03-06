@@ -7,7 +7,7 @@ import PendingQueue from "./PendingQueue";
 import SlaToday from "./SlaToday";
 
 import ChatsCreatedChart from "./ChatsCreatedChart";
-import ChatsResolvedChart from "./ChartResolvedChart";
+import ChatsResolvedChart from "./ChatsResolvedChart";
 import FirstResponseChart from "./FirstResponseChart";
 import ResolutionChart from "./ResolutionChart";
 import ChatsByChannelChart from "./ChatsByChannelChart";
@@ -32,9 +32,19 @@ function uniqueByName(items) {
   return out;
 }
 
-// YYYY-MM-DD de hoy (para default)
+// ✅ YYYY-MM-DD de hoy
 function todayISO() {
   const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// ✅ YYYY-MM-DD de hace X días
+function daysAgoISO(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -52,10 +62,10 @@ export default function Dashboard() {
     connection: "Todas",
     tag: "Todas",
     motive: "Todos",
-    dateRange: { from: todayISO(), to: todayISO() }, // ✅ se mantiene {from,to}
+    // ✅ Por defecto: hace 3 días → hoy
+    dateRange: { from: daysAgoISO(3), to: todayISO() },
   });
 
-  // options que usa FiltersBar
   const [options, setOptions] = useState({
     departments: ["Todos"],
     users: ["Todos"],
@@ -70,7 +80,6 @@ export default function Dashboard() {
     },
   });
 
-  // ✅ Summary real (viene del backend)
   const [summary, setSummary] = useState({
     chatsCreated: 0,
     chatsResolved: 0,
@@ -80,7 +89,6 @@ export default function Dashboard() {
     avgResolutionSeconds: null,
   });
 
-  // ✅ Real: cola, SLA, charts
   const [pendingQueue, setPendingQueue] = useState([]);
   const [slaToday, setSlaToday] = useState({
     generalPct: 0,
@@ -98,7 +106,7 @@ export default function Dashboard() {
     resolution: [],
   });
 
-  // === 1) Cargar filtros desde backend (1 petición) ===
+  // === 1) Cargar filtros ===
   useEffect(() => {
     const cargarFiltros = async () => {
       try {
@@ -146,7 +154,7 @@ export default function Dashboard() {
           departments,
           users: usersOpts,
           connections,
-          motives: ["Todos"], // por ahora
+          motives: ["Todos"],
           _raw: {
             departamentos: deps,
             usuarios: users,
@@ -164,7 +172,7 @@ export default function Dashboard() {
     cargarFiltros();
   }, []);
 
-  // === 2) Calcular TAGS según la conexión seleccionada ===
+  // === 2) Calcular TAGS según conexión ===
   useEffect(() => {
     const { conexiones, etiquetas_por_configuracion } = options._raw || {};
     const selectedConnName = filters.connection;
@@ -206,7 +214,7 @@ export default function Dashboard() {
     setOptions((prev) => ({ ...prev, tags }));
   }, [filters.connection, options._raw]);
 
-  // === 3) Resolver id_configuracion según filters.connection ===
+  // === 3) Resolver id_configuracion ===
   const selectedConfigId = useMemo(() => {
     if (!filters.connection || filters.connection === "Todas") return null;
 
@@ -219,7 +227,7 @@ export default function Dashboard() {
     return row?.id ? Number(row.id) : null;
   }, [filters.connection, options._raw]);
 
-  // === 4) Fetch ALL (summary + cola + SLA + charts) ===
+  // === 4) FETCH CONSOLIDADO ===
   const fetchAll = async () => {
     try {
       setErrorMsg("");
@@ -227,22 +235,22 @@ export default function Dashboard() {
 
       const id_usuario = Number(localStorage.getItem("id_usuario"));
 
-      const payloadBase = {
+      const payload = {
         id_usuario,
-        id_configuracion: selectedConfigId, // null si "Todas"
-        from: filters.dateRange?.from || null, // ✅ ya no llega vacío
-        to: filters.dateRange?.to || null, // ✅ ya no llega vacío
+        id_configuracion: selectedConfigId,
+        from: filters.dateRange?.from || null,
+        to: filters.dateRange?.to || null,
       };
 
-      const [respStats, respQueue, respSla, respCharts] = await Promise.all([
-        chatApi.post("/dashboard/obtener_estadisticas", payloadBase),
-        chatApi.post("/dashboard/obtener_cola_pendientes", payloadBase),
-        chatApi.post("/dashboard/obtener_sla_hoy", payloadBase),
-        chatApi.post("/dashboard/obtener_charts", payloadBase),
-      ]);
+      const resp = await chatApi.post(
+        "/dashboard/obtener_dashboard_completo",
+        payload,
+      );
 
-      // ---- stats ----
-      const s = respStats?.data?.data?.summary || {};
+      const data = resp?.data?.data || {};
+
+      // ---- Summary ----
+      const s = data.summary || {};
       setSummary({
         chatsCreated: Number(s.chatsCreated || 0),
         chatsResolved: Number(s.chatsResolved || 0),
@@ -260,12 +268,12 @@ export default function Dashboard() {
             : Number(s.avgResolutionSeconds),
       });
 
-      // ---- queue ----
-      const q = respQueue?.data?.data?.rows || respQueue?.data?.data || [];
+      // ---- Queue ----
+      const q = data.pendingQueue || [];
       setPendingQueue(Array.isArray(q) ? q : []);
 
-      // ---- sla ----
-      const sla = respSla?.data?.data || {};
+      // ---- SLA ----
+      const sla = data.slaToday || {};
       setSlaToday({
         generalPct: Number(sla.generalPct || 0),
         metaPct: Number(sla.metaPct || 90),
@@ -274,8 +282,8 @@ export default function Dashboard() {
         abandoned: Number(sla.abandoned || 0),
       });
 
-      // ---- charts ----
-      const ch = respCharts?.data?.data || {};
+      // ---- Charts ----
+      const ch = data.charts || {};
       setCharts({
         byChannel: Array.isArray(ch.byChannel) ? ch.byChannel : [],
         byConnection: Array.isArray(ch.byConnection) ? ch.byConnection : [],
@@ -292,7 +300,6 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ cargar una vez al montar (hoy->hoy)
   useEffect(() => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -300,30 +307,28 @@ export default function Dashboard() {
 
   const headerRangeText =
     filters?.dateRange?.from && filters?.dateRange?.to
-      ? `Rango activo: ${filters.dateRange.from} → ${filters.dateRange.to}`
+      ? `Período: ${filters.dateRange.from} al ${filters.dateRange.to}`
       : "Seleccione un rango de fechas para ver el desempeño.";
 
   return (
-    <div className="min-h-[calc(100vh-48px)] w-full bg-white text-slate-900">
-      <div className="mx-auto w-full max-w-[100%] px-4 py-5">
-        {/* Header SaaS (mejorado) */}
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-[calc(100vh-48px)] w-full bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="mx-auto w-full max-w-[100%] px-4 py-6">
+        {/* Header */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-                Informes del Chat Center
-              </h1>
-              <span className="hidden sm:inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                Analítica • SLA • Operación
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 shadow-lg shadow-blue-600/30">
+                <i className="bx bx-bar-chart-alt-2 text-xl text-white"></i>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+                  Dashboard analítico de chat center
+                </h1>
+                <p className="mt-0.5 text-sm text-slate-600">
+                  {headerRangeText}
+                </p>
+              </div>
             </div>
-
-            <p className="mt-1 text-sm text-slate-600">
-              Visualice el rendimiento por fechas y filtre por conexión, usuario
-              y etiquetas para detectar cuellos de botella.
-            </p>
-
-            <div className="mt-2 text-xs text-slate-500">{headerRangeText}</div>
           </div>
         </div>
 
@@ -342,26 +347,30 @@ export default function Dashboard() {
         />
 
         {(loadingFilters || loadingData) && (
-          <div className="mt-2 text-xs text-slate-500">
-            {loadingFilters ? "Cargando filtros..." : null}
-            {loadingFilters && loadingData ? " | " : null}
-            {loadingData ? "Cargando datos..." : null}
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+            <i className="bx bx-loader-alt bx-spin"></i>
+            <span>
+              {loadingFilters ? "Cargando filtros..." : null}
+              {loadingFilters && loadingData ? " | " : null}
+              {loadingData ? "Cargando datos..." : null}
+            </span>
           </div>
         )}
 
         {errorMsg ? (
-          <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {errorMsg}
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <i className="bx bx-error-circle text-lg"></i>
+            <span>{errorMsg}</span>
           </div>
         ) : null}
 
-        {/* Cards resumen (REAL) */}
-        <div className="mt-5">
+        {/* Stats Cards */}
+        <div className="mt-6">
           <StatsCards summary={summary} />
         </div>
 
-        {/* Cola + SLA (REAL) */}
-        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* Cola + SLA */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <PendingQueue rows={pendingQueue} />
           </div>
@@ -370,8 +379,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Gráficas (REAL) */}
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+        {/* Gráficas */}
+        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
           <ChatsByChannelChart data={charts.byChannel} />
           <ChatsByConnectionChart data={charts.byConnection} />
 

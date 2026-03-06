@@ -1,15 +1,18 @@
 import React from "react";
 
-export default function ChartShell({ title, rightActions, children }) {
+export default function ChartShell({ title, explanation, children }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-sm font-semibold text-slate-800">{title}</div>
-        {rightActions ? (
-          <div className="text-xs text-slate-600">{rightActions}</div>
-        ) : null}
+    <div className="flex h-[400px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      {/* Header */}
+      <div className="mb-4 border-b border-slate-100 pb-3">
+        <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+        {explanation && (
+          <p className="mt-1 text-xs text-slate-500">{explanation}</p>
+        )}
       </div>
-      <div className="h-[320px]">{children}</div>
+
+      {/* Chart content */}
+      <div className="flex-1 min-h-0">{children}</div>
     </div>
   );
 }
