@@ -1302,6 +1302,8 @@ const Chat = () => {
       page_id: selectedChat.page_id,
       external_id: selectedChat.external_id,
       to: null,
+      tag: "HUMAN_AGENT",
+      messaging_type: "MESSAGE_TAG",
     });
   };
 
@@ -3026,7 +3028,6 @@ const Chat = () => {
         // ✅ CONDICIÓN EXACTA DEL ANTIGUO (pero con encargado unificado)
         const isSearchEmpty = !searchTerm?.trim();
         if (canSeeChat && isSearchEmpty) {
-          
           if (selectedTab == "abierto") {
             if (encargadoId == null) {
               if (scopeChats == "waiting") {
@@ -3103,7 +3104,7 @@ const Chat = () => {
     cursorId,
     scopeChats,
     searchTerm,
-    selectedTab
+    selectedTab,
   ]);
 
   const recargarDatosFactura = () => {
@@ -3608,6 +3609,8 @@ const Chat = () => {
         templateResults={templateResults}
         templateNamePreselect={templateNamePreselect}
         templatePreselectNonce={templatePreselectNonce}
+        socketRef={socketRef}
+        nombre_encargado_global={nombre_encargado_global}
       />
 
       {/* 🎵 Modal de Vista Previa de Audio */}

@@ -64,11 +64,11 @@ export default function PendingQueue({ rows }) {
           <thead className="sticky top-0 bg-slate-50">
             <tr className="text-left text-xs text-slate-500">
               <th className="px-4 py-3">PRIORIDAD</th>
-              <th className="px-4 py-3">ID</th>
+              <th className="px-4 py-3">TELÉFONO</th>
               <th className="px-4 py-3">CLIENTE</th>
               <th className="px-4 py-3">CANAL</th>
               <th className="px-4 py-3">ESPERA</th>
-              <th className="px-4 py-3">MOTIVO</th>
+              <th className="px-4 py-3">ESTADO</th>
             </tr>
           </thead>
           <tbody>
@@ -77,7 +77,9 @@ export default function PendingQueue({ rows }) {
                 <td className="px-4 py-3">
                   <PriorityPill value={r.priority} />
                 </td>
-                <td className="px-4 py-3 text-slate-600">{r.id}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  {r.telefono_limpio}
+                </td>
                 <td className="px-4 py-3">{r.client}</td>
                 <td className="px-4 py-3">
                   <ChannelBadge value={r.channel} />
@@ -85,7 +87,9 @@ export default function PendingQueue({ rows }) {
                 <td className="px-4 py-3 font-semibold text-rose-600">
                   {formatDuration(r.waitSeconds)}
                 </td>
-                <td className="px-4 py-3 text-slate-700">{r.motive}</td>
+                <td className="px-4 py-3 text-slate-700">
+                  {r.estado_contacto}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -4,7 +4,6 @@ import { BENEFITS, STEPS_LIST } from "./constants";
 const HeroSection = ({ usage, step, onShowHistory }) => {
   return (
     <div className="bg-[#0f1129] relative overflow-hidden rounded-3xl">
-      {/* Decorative gradient orbs */}
       <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-600/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/15 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/4" />
 
@@ -28,7 +27,9 @@ const HeroSection = ({ usage, step, onShowHistory }) => {
               todas las secciones de tu landing page.
             </p>
           </div>
+
           <div className="flex flex-col items-end gap-2 shrink-0">
+            {/* Badge imágenes */}
             {usage.limit > 0 && (
               <div
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm ${
@@ -41,6 +42,24 @@ const HeroSection = ({ usage, step, onShowHistory }) => {
                 {usage.used}/{usage.limit}
               </div>
             )}
+
+            {/* Badge ángulos — solo si el plan tiene acceso */}
+            {usage.angles_limit !== null &&
+              usage.angles_limit !== undefined && (
+                <div
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm ${
+                    usage.angles_remaining > 0
+                      ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
+                      : "bg-rose-500/10 border-rose-500/20 text-rose-300"
+                  }`}
+                >
+                  <i className="bx bx-target-lock text-sm" />
+                  {usage.angles_remaining > 0
+                    ? `${usage.angles_remaining} ángulo${usage.angles_remaining !== 1 ? "s" : ""}`
+                    : "Sin ángulos IA"}
+                </div>
+              )}
+
             {usage.plan && (
               <span className="text-[10px] text-white/30 font-medium">
                 {usage.plan}

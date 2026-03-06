@@ -14,7 +14,6 @@ const ResultCard = ({
 
   useEffect(() => {
     if (visible && !settled) {
-      // Card just became visible after 3D reveal — do settle animation
       setSettled(true);
       setShowShine(true);
       const t = setTimeout(() => setShowShine(false), 1200);
@@ -22,7 +21,6 @@ const ResultCard = ({
     }
   }, [visible, settled]);
 
-  // Reset settled when result changes (regeneration)
   useEffect(() => {
     if (visible) {
       setShowShine(true);
@@ -31,7 +29,6 @@ const ResultCard = ({
     }
   }, [result.image_url, result.image_base64]);
 
-  // Error card
   if (!result.success) {
     return (
       <div className="group relative rounded-2xl border border-rose-200/60 bg-gradient-to-br from-rose-50 to-white overflow-hidden rc-fadeIn">
@@ -67,7 +64,7 @@ const ResultCard = ({
       className={`group relative rounded-2xl overflow-hidden bg-white border transition-all duration-500 rc-appear
         ${
           isRegenerating
-            ? "border-amber-300 shadow-lg shadow-amber-500/10"
+            ? "border-blue-300 shadow-lg shadow-blue-500/10"
             : "border-gray-100 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/5"
         }`}
     >
@@ -83,14 +80,14 @@ const ResultCard = ({
 
       {/* ───── REGENERATING OVERLAY ───── */}
       {isRegenerating && (
-        <div className="absolute inset-0 z-30 bg-gradient-to-br from-amber-900/80 via-orange-900/70 to-amber-900/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+        <div className="absolute inset-0 z-30 bg-gradient-to-br from-indigo-900/80 via-blue-900/70 to-cyan-900/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
           <div className="relative">
-            <div className="absolute inset-0 w-20 h-20 rounded-full border-4 border-amber-400/30 animate-ping" />
+            <div className="absolute inset-0 w-20 h-20 rounded-full border-4 border-blue-400/30 animate-ping" />
             <div
-              className="absolute inset-0 w-20 h-20 rounded-full border-4 border-amber-400/20 animate-ping"
+              className="absolute inset-0 w-20 h-20 rounded-full border-4 border-cyan-400/20 animate-ping"
               style={{ animationDelay: "0.5s" }}
             />
-            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 grid place-items-center shadow-2xl shadow-orange-500/40">
+            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-indigo-400 to-cyan-500 grid place-items-center shadow-2xl shadow-cyan-500/40">
               <svg
                 className="animate-spin w-8 h-8 text-white"
                 fill="none"
@@ -116,22 +113,17 @@ const ResultCard = ({
             <p className="text-base font-black text-white mb-1">
               Regenerando sección
             </p>
-            <p className="text-sm text-amber-200 font-semibold">
+            <p className="text-sm text-cyan-200 font-semibold">
               {result.etapa.nombre}
             </p>
             <div className="mt-3 flex items-center justify-center gap-1.5">
-              <div
-                className="w-2 h-2 rounded-full bg-amber-300 animate-bounce"
-                style={{ animationDelay: "0ms" }}
-              />
-              <div
-                className="w-2 h-2 rounded-full bg-amber-300 animate-bounce"
-                style={{ animationDelay: "150ms" }}
-              />
-              <div
-                className="w-2 h-2 rounded-full bg-amber-300 animate-bounce"
-                style={{ animationDelay: "300ms" }}
-              />
+              {[0, 150, 300].map((delay) => (
+                <div
+                  key={delay}
+                  className="w-2 h-2 rounded-full bg-cyan-300 animate-bounce"
+                  style={{ animationDelay: `${delay}ms` }}
+                />
+              ))}
             </div>
           </div>
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -156,14 +148,12 @@ const ResultCard = ({
           style={{ maxHeight: "300px" }}
         />
 
-        {/* Shine on appear */}
         {showShine && (
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             <div className="rc-shine" />
           </div>
         )}
 
-        {/* Hover actions */}
         {!isRegenerating && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end justify-center pb-5">
             <div className="flex items-center gap-2 translate-y-3 group-hover:translate-y-0 transition-transform duration-300">
@@ -195,10 +185,10 @@ const ResultCard = ({
       <div className="px-4 py-3 flex items-center justify-between border-t border-gray-50 bg-white">
         <div className="flex items-center gap-2 min-w-0">
           <div
-            className={`w-1.5 h-1.5 rounded-full ${isRegenerating ? "bg-amber-400 animate-pulse" : "bg-emerald-400"}`}
+            className={`w-1.5 h-1.5 rounded-full ${isRegenerating ? "bg-blue-400 animate-pulse" : "bg-emerald-400"}`}
           />
           <span
-            className={`text-[11px] font-semibold truncate ${isRegenerating ? "text-amber-500" : "text-gray-500"}`}
+            className={`text-[11px] font-semibold truncate ${isRegenerating ? "text-blue-500" : "text-gray-500"}`}
           >
             {isRegenerating ? "Regenerando..." : "Generada con éxito"}
           </span>
@@ -209,7 +199,7 @@ const ResultCard = ({
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition ${
             isRegenerating
               ? "border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed"
-              : "border-gray-200 hover:border-amber-300 bg-white hover:bg-amber-50 text-gray-600 hover:text-amber-700"
+              : "border-gray-200 hover:border-indigo-300 bg-white hover:bg-indigo-50 text-gray-600 hover:text-indigo-700"
           }`}
         >
           <i className="bx bx-edit-alt text-xs" /> Editar
@@ -222,7 +212,7 @@ const ResultCard = ({
         }
         @keyframes rcAppear {
           from { opacity: 0; transform: scale(0.85) translateY(15px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
         }
         .rc-shine {
           position: absolute; top: 0; left: -80%; width: 60%; height: 100%;
@@ -233,8 +223,8 @@ const ResultCard = ({
         @keyframes rcShine { from { left: -60%; } to { left: 130%; } }
         .rc-scan-line {
           position: absolute; left: 0; right: 0; height: 3px;
-          background: linear-gradient(90deg, transparent, rgba(251,191,36,0.9), transparent);
-          box-shadow: 0 0 20px rgba(251,191,36,0.6), 0 0 40px rgba(251,191,36,0.3);
+          background: linear-gradient(90deg, transparent, rgba(56,189,248,0.9), transparent);
+          box-shadow: 0 0 20px rgba(56,189,248,0.6), 0 0 40px rgba(99,102,241,0.3);
           animation: rcScan 1.8s ease-in-out infinite;
         }
         @keyframes rcScan { 0% { top: -3px; } 50% { top: 100%; } 100% { top: -3px; } }

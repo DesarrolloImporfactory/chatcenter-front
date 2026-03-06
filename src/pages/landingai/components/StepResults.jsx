@@ -4,6 +4,7 @@ import ImageReveal3D from "./ImageReveal3D";
 import ImagePreviewModal from "./ImagePreviewModal";
 import EditPromptModal from "./EditPromptModal";
 import UsageBar from "./UsageBar";
+import GeneratingBar from "./GeneratingBar";
 
 const StepResults = ({
   generating,
@@ -20,19 +21,15 @@ const StepResults = ({
   const [previewResult, setPreviewResult] = useState(null);
   const [editResult, setEditResult] = useState(null);
 
-  // ── Reveal queue system ──
-  // Track which result indices have been "revealed" (3D animation shown)
   const [revealedSet, setRevealedSet] = useState(new Set());
-  const [currentReveal, setCurrentReveal] = useState(null); // { result, index }
+  const [currentReveal, setCurrentReveal] = useState(null);
   const revealQueueRef = useRef([]);
   const processingRef = useRef(false);
   const prevResultsLenRef = useRef(0);
 
-  // ── Regen reveal ──
   const [regenReveal, setRegenReveal] = useState(null);
   const prevRegenIdRef = useRef(null);
 
-  // Detect new results and add to reveal queue
   useEffect(() => {
     const prevLen = prevResultsLenRef.current;
     if (results.length > prevLen) {
@@ -40,7 +37,6 @@ const StepResults = ({
         if (results[i].success) {
           revealQueueRef.current.push({ result: results[i], index: i });
         } else {
-          // Errors don't get 3D reveal, just mark as revealed
           setRevealedSet((prev) => new Set([...prev, i]));
         }
       }
@@ -48,7 +44,6 @@ const StepResults = ({
       processQueue();
     }
     if (results.length < prevLen) {
-      // Reset (new generation)
       prevResultsLenRef.current = results.length;
       setRevealedSet(new Set());
       revealQueueRef.current = [];
@@ -57,17 +52,13 @@ const StepResults = ({
     }
   }, [results]);
 
-  // Detect regeneration completion -> show 3D reveal for that result
   useEffect(() => {
     if (prevRegenIdRef.current && !regeneratingId) {
       const finishedId = prevRegenIdRef.current;
-      // Find the result that was regenerated
       const idx = results.findIndex(
         (r) => r.etapa?.id === finishedId && r.success,
       );
-      if (idx >= 0) {
-        setRegenReveal({ result: results[idx], index: idx });
-      }
+      if (idx >= 0) setRegenReveal({ result: results[idx], index: idx });
     }
     prevRegenIdRef.current = regeneratingId;
   }, [regeneratingId, results]);
@@ -75,20 +66,16 @@ const StepResults = ({
   const processQueue = useCallback(() => {
     if (processingRef.current) return;
     if (revealQueueRef.current.length === 0) return;
-
     processingRef.current = true;
     const next = revealQueueRef.current.shift();
     setCurrentReveal(next);
   }, []);
 
   const handleRevealComplete = useCallback(() => {
-    if (currentReveal) {
+    if (currentReveal)
       setRevealedSet((prev) => new Set([...prev, currentReveal.index]));
-    }
     setCurrentReveal(null);
     processingRef.current = false;
-
-    // Process next in queue
     setTimeout(() => {
       if (revealQueueRef.current.length > 0) {
         processingRef.current = true;
@@ -98,9 +85,7 @@ const StepResults = ({
     }, 300);
   }, [currentReveal]);
 
-  const handleRegenRevealComplete = useCallback(() => {
-    setRegenReveal(null);
-  }, []);
+  const handleRegenRevealComplete = useCallback(() => setRegenReveal(null), []);
 
   const successCount = results.filter((r) => r.success).length;
 
@@ -127,7 +112,7 @@ const StepResults = ({
 
   return (
     <div>
-      {/* ───── 3D REVEAL OVERLAY (new generation) ───── */}
+      {/* 3D Reveal overlays */}
       {currentReveal && (
         <ImageReveal3D
           result={currentReveal.result}
@@ -135,8 +120,6 @@ const StepResults = ({
           onComplete={handleRevealComplete}
         />
       )}
-
-      {/* ───── 3D REVEAL OVERLAY (regeneration) ───── */}
       {regenReveal && (
         <ImageReveal3D
           result={regenReveal.result}
@@ -145,85 +128,164 @@ const StepResults = ({
         />
       )}
 
-      {/* ───── GENERATING PROGRESS ───── */}
-      {generating && (
-        <div className="mb-5 rounded-2xl overflow-hidden border border-indigo-100">
-          <div className="bg-gradient-to-r from-[#0f1129] to-[#1a1d45] p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="relative shrink-0">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 grid place-items-center shadow-xl shadow-indigo-500/30">
-                  <svg
-                    className="animate-spin w-6 h-6 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
-                </div>
-                <div className="absolute -inset-1 rounded-3xl border border-indigo-400/20 animate-pulse" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-black text-white mb-0.5">
-                  Generando sección {genProgress.current} de {genProgress.total}
-                </p>
-                <p className="text-sm font-semibold text-indigo-300">
-                  {genProgress.etapa}
-                </p>
-              </div>
-              <div className="text-right shrink-0">
-                <span className="text-3xl font-black text-white">
-                  {Math.round((genProgress.current / genProgress.total) * 100)}
-                  <span className="text-lg text-indigo-300">%</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+      {/* ── ESPERA INICIAL: todavía no llega ninguna imagen ── */}
+      {generating && results.length === 0 && (
+        <div
+          style={{
+            minHeight: 420,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 28,
+            padding: "48px 24px 48px",
+          }}
+        >
+          {/* Orb central */}
+          <div style={{ position: "relative", width: 110, height: 110 }}>
+            {[0, 1, 2].map((i) => (
               <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400 transition-all duration-700 relative overflow-hidden"
+                key={i}
                 style={{
-                  width: `${(genProgress.current / genProgress.total) * 100}%`,
+                  position: "absolute",
+                  inset: i * -20,
+                  borderRadius: "50%",
+                  border: `1.5px solid rgba(99,102,241,${0.22 - i * 0.06})`,
+                  animation: `waitRing ${3.5 + i * 0.8}s ease-in-out infinite`,
+                  animationDelay: `${i * 0.5}s`,
                 }}
-              >
-                <div className="absolute inset-0 sr-shimmer" />
-              </div>
+              />
+            ))}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "50%",
+                background:
+                  "linear-gradient(135deg, #6366f1 0%, #38bdf8 55%, #67e8f9 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow:
+                  "0 0 48px rgba(56,189,248,0.45), 0 0 90px rgba(99,102,241,0.15)",
+                animation: "waitPulse 2.2s ease-in-out infinite",
+              }}
+            >
+              <i
+                className="bx bx-magic-wand"
+                style={{ fontSize: 38, color: "white" }}
+              />
             </div>
+          </div>
 
-            <div className="flex items-center gap-1.5 mt-3">
-              {Array.from({ length: genProgress.total }).map((_, i) => (
+          {/* Texto */}
+          <div style={{ textAlign: "center", maxWidth: 380 }}>
+            <p
+              style={{
+                fontSize: 22,
+                fontWeight: 900,
+                color: "#111827",
+                margin: "0 0 10px",
+                letterSpacing: "-0.5px",
+              }}
+            >
+              La IA está creando tu landing
+            </p>
+            <p
+              style={{
+                fontSize: 13,
+                color: "#6b7280",
+                margin: "0 0 24px",
+                lineHeight: 1.65,
+              }}
+            >
+              Estamos generando cada sección con el estilo de tu template y las
+              fotos de tu producto.
+              <br />
+              <span style={{ color: "#9ca3af", fontSize: 12 }}>
+                Esto toma ~30 segundos por sección — no cierres la página.
+              </span>
+            </p>
+
+            {/* Dots loader */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+              {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className={`h-1 rounded-full flex-1 transition-all duration-300 ${
-                    i < genProgress.current
-                      ? "bg-emerald-400"
-                      : i === genProgress.current
-                        ? "bg-indigo-400 animate-pulse"
-                        : "bg-white/10"
-                  }`}
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: i % 2 === 0 ? "#6366f1" : "#38bdf8",
+                    animation: "waitDot 1.4s ease-in-out infinite",
+                    animationDelay: `${i * 0.18}s`,
+                  }}
                 />
               ))}
             </div>
           </div>
+
+          {/* Pills de secciones */}
+          {genProgress.total > 0 && (
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                flexWrap: "wrap",
+                justifyContent: "center",
+                maxWidth: 440,
+              }}
+            >
+              {Array.from({ length: genProgress.total }).map((_, i) => {
+                const done = i < genProgress.current;
+                const active = i === genProgress.current - 1;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      padding: "5px 14px",
+                      borderRadius: 99,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      transition: "all 0.4s ease",
+                      background: done
+                        ? "rgba(56,189,248,0.1)"
+                        : active
+                          ? "rgba(99,102,241,0.1)"
+                          : "rgba(0,0,0,0.04)",
+                      color: done ? "#0284c7" : active ? "#6366f1" : "#9ca3af",
+                      border: `1.5px solid ${
+                        done
+                          ? "rgba(56,189,248,0.35)"
+                          : active
+                            ? "rgba(99,102,241,0.35)"
+                            : "rgba(0,0,0,0.07)"
+                      }`,
+                      animation: active
+                        ? "waitPillPulse 1.6s ease-in-out infinite"
+                        : "none",
+                    }}
+                  >
+                    {done ? "✓ " : active ? "⟳ " : ""}
+                    Sección {i + 1}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ───── RESULTS HEADER ───── */}
+      {/* ── INLINE BAR: ya llegó la primera imagen, sigue generando ── */}
+      {generating && results.length > 0 && (
+        <GeneratingBar genProgress={genProgress} inline />
+      )}
+
+      {/* ── HEADER FINAL: terminó de generar ── */}
       {!generating && results.length > 0 && (
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 grid place-items-center shrink-0 shadow-lg shadow-emerald-500/20">
+            <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0 shadow-lg bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-emerald-500/20">
               <i className="bx bx-check-double text-white text-lg" />
             </div>
             <div>
@@ -250,12 +312,11 @@ const StepResults = ({
         </div>
       )}
 
-      {/* ───── RESULTS GRID ───── */}
+      {/* Results grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {results.map((r, i) => {
           const isRegen = regeneratingId === r.etapa?.id;
           const isVisible = revealedSet.has(i) || !r.success;
-
           return (
             <ResultCard
               key={`${r.etapa?.id}-${i}`}
@@ -271,7 +332,7 @@ const StepResults = ({
         })}
       </div>
 
-      {/* ───── BOTTOM ACTIONS ───── */}
+      {/* Bottom actions */}
       {!generating && results.length > 0 && (
         <div className="flex items-center justify-between pt-5 mt-5 border-t border-gray-100">
           <button
@@ -290,7 +351,7 @@ const StepResults = ({
         </div>
       )}
 
-      {/* ───── MODALS ───── */}
+      {/* Modals */}
       <ImagePreviewModal
         open={!!previewResult}
         onClose={() => setPreviewResult(null)}
@@ -305,13 +366,21 @@ const StepResults = ({
       />
 
       <style>{`
-        .sr-shimmer {
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-          animation: srShimmer 2s infinite;
+        @keyframes waitRing {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50%       { transform: scale(1.07); opacity: 1; }
         }
-        @keyframes srShimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+        @keyframes waitPulse {
+          0%, 100% { transform: scale(1); }
+          50%       { transform: scale(1.05); }
+        }
+        @keyframes waitDot {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+          40%            { transform: translateY(-11px); opacity: 1; }
+        }
+        @keyframes waitPillPulse {
+          0%, 100% { opacity: 0.7; }
+          50%       { opacity: 1; }
         }
       `}</style>
     </div>
