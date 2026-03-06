@@ -250,13 +250,12 @@ const ProductosView = () => {
 
   useEffect(() => {
     if (dropiModalOpen) fetchDropiProducts(true);
-  }, [dropiModalOpen]); // eslint-disable-line
+  }, [dropiModalOpen]);
 
   const importarDropi = async (dropiId) => {
     const idc = Number(localStorage.getItem("id_configuracion"));
     const { isConfirmed } = await Swal.fire({
-      title: "¿Importar producto?",
-      text: `Dropi #${dropiId}`,
+      title: `¿Importar producto con ID #${dropiId}?`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, importar",
@@ -312,7 +311,12 @@ const ProductosView = () => {
     <div className="flex flex-wrap gap-2">
       {isDropiLinked === true && (
         <button
-          onClick={() => setDropiModalOpen(true)}
+          onClick={() => {
+            setDropiKeywords("");
+            setDropiStart(0);
+            setDropiProducts([]);
+            setDropiModalOpen(true);
+          }}
           className="inline-flex items-center gap-2 bg-[#eb6e1b] hover:bg-[#d3661e]
             text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
         >
@@ -948,7 +952,12 @@ const ProductosView = () => {
       {/* ══ Importar Dropi ══ */}
       <ImportarProductosDropi
         open={dropiModalOpen}
-        onClose={() => setDropiModalOpen(false)}
+        onClose={() => {
+          setDropiModalOpen(false);
+          setDropiKeywords("");
+          setDropiStart(0);
+          setDropiProducts([]);
+        }}
         dropiKeywords={dropiKeywords}
         setDropiKeywords={setDropiKeywords}
         onSearch={fetchDropiProducts}

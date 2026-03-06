@@ -15,6 +15,23 @@ const ImportarProductosDropi = ({
 }) => {
   if (!open) return null;
 
+  const CLOUDFRONT_BASE = "https://d39ru7awumhhs2.cloudfront.net/";
+
+  const buildImageUrl = (path) => {
+    if (!path) return null;
+    if (/^https?:\/\//i.test(path)) return path;
+    return `${CLOUDFRONT_BASE}${String(path).replace(/^\/+/, "")}`;
+  };
+
+  const getProductStock = (product) => {
+    if (!Array.isArray(product?.warehouse_product)) return 0;
+
+    return product.warehouse_product.reduce(
+      (acc, wp) => acc + (Number(wp?.stock) || 0),
+      0,
+    );
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-3 overflow-hidden max-h-[90vh] flex flex-col">
@@ -67,8 +84,8 @@ const ImportarProductosDropi = ({
                   ? p.gallery.find((g) => g.main) || p.gallery[0]
                   : null;
 
-                // 👇 ojo: urlS3 puede NO ser URL completa; si le falla imagen, lo resolvemos en backend
-                const img = main?.url || main?.urlS3 || null;
+                const img = buildImageUrl(main?.url || main?.urlS3);
+                const stock = getProductStock(p);
 
                 return (
                   <div
@@ -79,7 +96,7 @@ const ImportarProductosDropi = ({
                       {img ? (
                         <img
                           src={img}
-                          alt=""
+                          alt={p.name}
                           className="w-20 h-20 object-cover"
                         />
                       ) : (
@@ -90,19 +107,16 @@ const ImportarProductosDropi = ({
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-slate-800 truncate">
+                      <h3 className="font-semibold text-slate-800 truncate">
                         {p.name}
-                      </div>
-
+                      </h3>
                       <div className="text-xs text-slate-500">
-                        ID: {p.id} • SKU: {p.sku || "—"}
+                        ID: {p.id} • SKU: {p.sku || "SIN SKU"} • Stock:{stock}
                       </div>
-
                       <div className="text-sm text-slate-700 mt-1">
                         Precio Proveedor: <b>{p.sale_price}</b> • Precio
                         Sugerido: {p.suggested_price}
                       </div>
-
                       <div className="mt-3 flex gap-2">
                         <button
                           onClick={() => onImport(p.id)}
