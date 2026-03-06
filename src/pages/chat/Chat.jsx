@@ -3026,6 +3026,7 @@ const Chat = () => {
         // ✅ CONDICIÓN EXACTA DEL ANTIGUO (pero con encargado unificado)
         const isSearchEmpty = !searchTerm?.trim();
         if (canSeeChat && isSearchEmpty) {
+          
           if (selectedTab == "abierto") {
             if (encargadoId == null) {
               if (scopeChats == "waiting") {
