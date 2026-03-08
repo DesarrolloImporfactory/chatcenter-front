@@ -5,6 +5,8 @@ import FiltersBar from "./FiltersBar";
 import StatsCards from "./StatsCards";
 import PendingQueue from "./PendingQueue";
 import SlaToday from "./SlaToday";
+import AgentLoad from "./AgentLoad";
+import FrequentTransfers from "./FrequentTransfers";
 
 import ChatsCreatedChart from "./ChatsCreatedChart";
 import ChatsResolvedChart from "./ChatsResolvedChart";
@@ -32,7 +34,6 @@ function uniqueByName(items) {
   return out;
 }
 
-// ✅ YYYY-MM-DD de hoy
 function todayISO() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -41,7 +42,6 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// ✅ YYYY-MM-DD de hace X días
 function daysAgoISO(days) {
   const d = new Date();
   d.setDate(d.getDate() - days);
@@ -62,7 +62,6 @@ export default function Dashboard() {
     connection: "Todas",
     tag: "Todas",
     motive: "Todos",
-    // ✅ Por defecto: hace 3 días → hoy
     dateRange: { from: daysAgoISO(3), to: todayISO() },
   });
 
@@ -105,6 +104,8 @@ export default function Dashboard() {
     firstResponse: [],
     resolution: [],
   });
+  const [agentLoad, setAgentLoad] = useState([]);
+  const [frequentTransfers, setFrequentTransfers] = useState([]);
 
   // === 1) Cargar filtros ===
   useEffect(() => {
@@ -172,7 +173,7 @@ export default function Dashboard() {
     cargarFiltros();
   }, []);
 
-  // === 2) Calcular TAGS según conexión ===
+  // === 2) Tags según conexión ===
   useEffect(() => {
     const { conexiones, etiquetas_por_configuracion } = options._raw || {};
     const selectedConnName = filters.connection;
@@ -245,6 +246,7 @@ export default function Dashboard() {
       const resp = await chatApi.post(
         "/dashboard/obtener_dashboard_completo",
         payload,
+        { timeout: 50000 },
       );
 
       const data = resp?.data?.data || {};
@@ -269,8 +271,9 @@ export default function Dashboard() {
       });
 
       // ---- Queue ----
-      const q = data.pendingQueue || [];
-      setPendingQueue(Array.isArray(q) ? q : []);
+      setPendingQueue(
+        Array.isArray(data.pendingQueue) ? data.pendingQueue : [],
+      );
 
       // ---- SLA ----
       const sla = data.slaToday || {};
@@ -292,6 +295,14 @@ export default function Dashboard() {
         firstResponse: Array.isArray(ch.firstResponse) ? ch.firstResponse : [],
         resolution: Array.isArray(ch.resolution) ? ch.resolution : [],
       });
+
+      // ---- Agent Load ----
+      setAgentLoad(Array.isArray(data.agentLoad) ? data.agentLoad : []);
+
+      // ---- Frequent Transfers ----
+      setFrequentTransfers(
+        Array.isArray(data.frequentTransfers) ? data.frequentTransfers : [],
+      );
     } catch (err) {
       console.error("Error cargando dashboard:", err);
       setErrorMsg("No se pudieron cargar los datos del dashboard.");
@@ -376,6 +387,16 @@ export default function Dashboard() {
           </div>
           <div className="lg:col-span-1">
             <SlaToday data={slaToday} />
+          </div>
+        </div>
+
+        {/* Carga por asesor + Transferencias frecuentes */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-1">
+            <AgentLoad data={agentLoad} />
+          </div>
+          <div className="lg:col-span-2">
+            <FrequentTransfers data={frequentTransfers} />
           </div>
         </div>
 
