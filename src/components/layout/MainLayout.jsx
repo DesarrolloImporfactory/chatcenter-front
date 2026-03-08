@@ -324,12 +324,14 @@ function MainLayout({ children }) {
   };
 
   const rutaEstados =
-    tipo_configuracion === "ventas"
-      ? "/estados_contactos_ventas"
-      : tipo_configuracion === "eventos"
-        ? "/estados_contactos_eventos"
-        : tipo_configuracion === "imporshop"
-          ? "/estados_contactos_imporshop"
+  tipo_configuracion === "ventas"
+    ? "/estados_contactos_ventas"
+    : tipo_configuracion === "eventos"
+      ? "/estados_contactos_eventos"
+      : tipo_configuracion === "imporshop"
+        ? "/estados_contactos_imporshop"
+        : tipo_configuracion === "imporshop_proveedor"
+          ? "/estados_contactos_imporshop_proveedor"
           : "/estados_contactos";
 
   const handleCalendarioClick = (e) => {

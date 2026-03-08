@@ -35,7 +35,10 @@ import Asistentes from "./pages/asistentes/Asistentes";
 import Estado_contactos_imporfactory from "./pages/contactos/Estado_contactos_imporfactory";
 import Estado_contactos_ventas from "./pages/contactos/Estado_contactos_ventas";
 import Estado_contactos_imporshop from "./pages/contactos/Estado_contactos_imporshop";
+import Estado_contactos_dinamico from "./pages/contactos/Estado_contactos_dinamico";
+import Estado_contactos_imporshop_proveedor from "./pages/contactos/Estado_contactos_imporshop_proveedor";
 import Estado_contactos_eventos from "./pages/contactos/Estado_contactos_eventos";
+import KanbanConfig from "./pages/kanban/configuracion/KanbanConfig";
 import OrdenesDropi from "./pages/dropi/OrdenesDropi";
 import Conexiones from "./pages/conexiones/Conexiones";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
@@ -43,6 +46,7 @@ import AdminConexiones from "./pages/conexiones/AdminConexiones";
 import Calendario from "./pages/calendario/Calendario";
 import LandingAi from "./pages/landingai/LandingAi";
 import LandingAiAdmin from "./pages/landingai/LandingAiAdmin";
+
 // Páginas de acceso y registro
 import Access from "./pages/landing/AccessGuided";
 import RegisterGuided from "./pages/landing/RegisterGuided";
@@ -143,7 +147,7 @@ function App() {
 
           {/* Rutas de autenticación */}
           <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
-
+          
           <Route path="/catalogo/:slug" element={<CatalogoPublicoView />} />
 
           {/* Rutas protegidas */}
@@ -159,7 +163,7 @@ function App() {
                     </MainLayout>
                   }
                 />
-
+                
                 <Route
                   path="/dashboard"
                   element={
@@ -191,7 +195,7 @@ function App() {
                     </MainLayout>
                   }
                 />
-
+                
                 {/*generador de imagenes*/}
                 <Route
                   path="/insta_landing"
@@ -252,6 +256,33 @@ function App() {
                   element={
                     <MainLayout>
                       <Estado_contactos_imporshop />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/estados_contactos_imporshop_proveedor"
+                  element={
+                    <MainLayout>
+                      <Estado_contactos_imporshop_proveedor />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/estado_contactos_dinamico"
+                  element={
+                    <MainLayout>
+                      <Estado_contactos_dinamico />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/kanban_config"
+                  element={
+                    <MainLayout>
+                      <KanbanConfig />
                     </MainLayout>
                   }
                 />
@@ -399,7 +430,7 @@ function App() {
                     </MainLayout>
                   }
                 />
-
+                
                 <Route
                   path="/catalogos"
                   element={
