@@ -52,6 +52,9 @@ const EditarPlantillaRapidaModal = ({
     return "";
   }, [tipoMensaje]);
 
+  // ── Upload helpers ──────────────────────────────────────────────
+
+  /** Sube a S3 (image, document, audio) */
   async function uploadToS3(file) {
     const form = new FormData();
     form.append("file", file);
@@ -69,6 +72,34 @@ const EditarPlantillaRapidaModal = ({
       throw new Error(json?.message || "Error subiendo archivo");
     return json.data;
   }
+
+  /** Sube VIDEO a la Video API (vía backend con conversión FFmpeg) */
+  async function uploadVideoToAPI(file) {
+    const form = new FormData();
+    form.append("file", file);
+
+    const resp = await chatApi.post(
+      "/whatsapp_managment/uploadVideoPlantillaRapida",
+      form,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 120000,
+      },
+    );
+
+    if (!resp?.data?.success) {
+      throw new Error(resp?.data?.message || "Error subiendo video");
+    }
+    return resp.data.data; // { url, fileName, mimeType, size, video_id }
+  }
+
+  /** Decide a dónde subir según el tipo */
+  async function uploadFile(file, tipo) {
+    if (tipo === "video") return uploadVideoToAPI(file);
+    return uploadToS3(file);
+  }
+
+  // ── Resto del componente ────────────────────────────────────────
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0] || null;
@@ -209,7 +240,8 @@ const EditarPlantillaRapidaModal = ({
       } else {
         // si seleccionó archivo nuevo => subir y reemplazar
         if (archivo) {
-          const up = await uploadToS3(archivo);
+          // ✅ Sube a S3 o Video API según tipo
+          const up = await uploadFile(archivo, tipoMensaje);
           payload = {
             ...payload,
             ruta_archivo: up.url,
@@ -227,7 +259,6 @@ const EditarPlantillaRapidaModal = ({
         }
       }
 
-      // 🔴 OJO: haga match con su ruta real.
       const resp = await chatApi.put(
         "/whatsapp_managment/EditarPlantilla",
         payload,

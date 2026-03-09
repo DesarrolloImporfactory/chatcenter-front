@@ -43,7 +43,9 @@ const CrearPlantillaRapidaModal = ({
     return "";
   }, [tipoMensaje]);
 
-  // ✅ helper: subir a tu uploader S3
+  // ── Upload helpers ──────────────────────────────────────────────
+
+  /** Sube a S3 (image, document, audio) */
   async function uploadToS3(file) {
     const form = new FormData();
     form.append("file", file);
@@ -61,6 +63,34 @@ const CrearPlantillaRapidaModal = ({
       throw new Error(json?.message || "Error subiendo archivo");
     return json.data; // { url, fileName, size, mimeType, ... }
   }
+
+  /** Sube VIDEO a la Video API (vía backend con conversión FFmpeg) */
+  async function uploadVideoToAPI(file) {
+    const form = new FormData();
+    form.append("file", file);
+
+    const resp = await chatApi.post(
+      "/whatsapp_managment/uploadVideoPlantillaRapida",
+      form,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 120000, // 2 min — videos pueden tardar
+      },
+    );
+
+    if (!resp?.data?.success) {
+      throw new Error(resp?.data?.message || "Error subiendo video");
+    }
+    return resp.data.data; // { url, fileName, mimeType, size, video_id }
+  }
+
+  /** Decide a dónde subir según el tipo */
+  async function uploadFile(file, tipo) {
+    if (tipo === "video") return uploadVideoToAPI(file);
+    return uploadToS3(file);
+  }
+
+  // ── Resto del componente ────────────────────────────────────────
 
   const resetForm = () => {
     setAtajo("");
@@ -153,8 +183,6 @@ const CrearPlantillaRapidaModal = ({
   const renderPreview = () => {
     if (tipoMensaje === "text") return null;
 
-    // si el preview es local blob => OK
-    // si luego sube a S3, podríamos mostrar link final con previewUrl actualizado
     if (!previewUrl) return null;
 
     const mime = previewMime || "";
@@ -229,10 +257,10 @@ const CrearPlantillaRapidaModal = ({
       };
 
       if (tipoMensaje !== "text") {
-        // 1) subir
-        const up = await uploadToS3(archivo);
+        // ✅ Sube a S3 o Video API según tipo
+        const up = await uploadFile(archivo, tipoMensaje);
 
-        // 2) usar URL pública como ruta_archivo
+        // usar URL pública como ruta_archivo
         payload = {
           ...payload,
           mensaje: msg || "",
@@ -241,7 +269,7 @@ const CrearPlantillaRapidaModal = ({
           file_name: up.fileName || archivo.name || null,
         };
 
-        // 3) actualizar preview para que sea ya el URL final (opcional)
+        // actualizar preview para que sea ya el URL final (opcional)
         if (previewUrl && previewUrl.startsWith("blob:"))
           URL.revokeObjectURL(previewUrl);
         setPreviewUrl(up.url);
