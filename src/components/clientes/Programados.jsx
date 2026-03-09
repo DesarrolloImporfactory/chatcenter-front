@@ -9,7 +9,8 @@ const Programados = () => {
   const [items, setItems] = useState([]);
   const [pageSize, setPageSize] = useState(LIMIT_DEFAULT);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalLotes, setTotalLotes] = useState(0);
 
   const idConfiguracion = localStorage.getItem("id_configuracion");
 
@@ -35,10 +36,9 @@ const Programados = () => {
 
         if (!data.ok) throw new Error(data.msg);
 
-        const resp = data.data || [];
-
-        setItems(resp);
-        setHasMore(resp.length === sizeToUse);
+        setItems(data.data || []);
+        setTotalPages(data.pagination?.totalPages || 1);
+        setTotalLotes(data.pagination?.totalLotes || 0);
         setPage(pageToUse);
       } catch (error) {
         Swal.fire(
@@ -103,12 +103,7 @@ const Programados = () => {
       (i) => i.estado === "pendiente",
     ).length;
 
-    return {
-      total,
-      enviados,
-      errores,
-      pendientes,
-    };
+    return { total, enviados, errores, pendientes };
   };
 
   const [expandedLotes, setExpandedLotes] = useState({});
@@ -135,19 +130,47 @@ const Programados = () => {
         toast: true,
         position: "top-end",
         icon: "success",
-        title: "Copiado exitosamente ",
+        title: "Copiado exitosamente",
         showConfirmButton: false,
         timer: 1500,
       });
     } catch {
-      Swal.fire("Error", "No se pudo copy", "error");
+      Swal.fire("Error", "No se pudo copiar", "error");
     }
+  };
+
+  /* ================= PAGINACIÓN - GENERAR RANGO DE PÁGINAS ================= */
+
+  const getPageRange = () => {
+    const maxVisible = 7;
+
+    if (totalPages <= maxVisible) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const pages = [];
+    const left = Math.max(2, page - 1);
+    const right = Math.min(totalPages - 1, page + 1);
+
+    pages.push(1);
+
+    if (left > 2) pages.push("...");
+
+    for (let i = left; i <= right; i++) {
+      pages.push(i);
+    }
+
+    if (right < totalPages - 1) pages.push("...");
+
+    pages.push(totalPages);
+
+    return pages;
   };
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* ================= CONTENIDO SCROLL ================= */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto space-y-4 p-4">
         {loading && items.length === 0 && (
           <div className="text-center py-20 text-slate-400 animate-pulse">
             Cargando mensajes programados...
@@ -184,18 +207,15 @@ const Programados = () => {
                 <div className="flex justify-between items-start gap-6">
                   {/* IZQUIERDA */}
                   <div className="space-y-3">
-                    {/* TÍTULO + ID */}
                     <div className="flex items-center gap-3">
                       <h3 className="text-sm font-semibold text-slate-800">
                         Lote de envío
                       </h3>
-
                       <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
                         {lote.uuid_lote}
                       </span>
                     </div>
 
-                    {/* INFO GRID */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1 text-xs text-slate-600">
                       <div className="flex items-center gap-2">
                         <i className="bx bx-calendar text-slate-400" />
@@ -288,16 +308,13 @@ const Programados = () => {
                       className="flex justify-between items-center px-6 py-4 text-xs hover:bg-slate-50 transition"
                     >
                       <div className="space-y-2">
-                        {/* NOMBRE */}
                         <div className="font-medium text-slate-800 text-sm">
                           {item.nombre_cliente
                             ? `${item.nombre_cliente} ${item.apellido_cliente || ""}`
                             : "Cliente desconocido"}
                         </div>
 
-                        {/* INFO */}
                         <div className="flex flex-wrap gap-6 text-slate-500">
-                          {/* TELEFONO */}
                           <div className="flex items-center gap-2">
                             <i className="bx bx-phone text-slate-400" />
                             <span>{item.telefono}</span>
@@ -310,7 +327,6 @@ const Programados = () => {
                             </button>
                           </div>
 
-                          {/* EMAIL */}
                           {item.email_cliente && (
                             <div className="flex items-center gap-2">
                               <i className="bx bx-envelope text-slate-400" />
@@ -327,7 +343,6 @@ const Programados = () => {
                         </div>
                       </div>
 
-                      {/* ESTADO */}
                       <span
                         className={`px-3 py-1 rounded-full border text-[11px] font-semibold ${badgeColor(
                           item.estado,
@@ -345,20 +360,23 @@ const Programados = () => {
       </div>
 
       {/* ================= FOOTER FIJO ================= */}
-      <div className="border-t border-slate-200 bg-white px-4 py-2 text-xs flex items-center justify-between">
+      <div className="border-t border-slate-200 bg-white px-4 py-3 text-xs flex items-center justify-between">
         <span className="text-slate-600">
-          Mostrando {items.length} registros · Página {page}
+          {totalLotes} lotes · Página {page} de {totalPages}
         </span>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          {/* TAMAÑO */}
           <div className="flex items-center gap-1">
-            <span className="text-slate-500">Tamaño</span>
+            <span className="text-slate-500">Lotes/pág</span>
             <select
               className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
               value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+              }}
             >
-              {[10, 20, 25, 50, 100].map((n) => (
+              {[5, 10, 20, 50].map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -366,18 +384,46 @@ const Programados = () => {
             </select>
           </div>
 
-          <div className="flex">
+          {/* NÚMEROS DE PÁGINA */}
+          <div className="flex items-center gap-1">
+            {/* PREV */}
             <button
               disabled={page <= 1 || loading}
               onClick={() => apiList(page - 1, pageSize)}
-              className="rounded-l-md border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40"
+              className="rounded-md border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40"
             >
               ‹
             </button>
+
+            {getPageRange().map((p, idx) =>
+              p === "..." ? (
+                <span
+                  key={`dots-${idx}`}
+                  className="px-1 text-slate-400 select-none"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  disabled={loading}
+                  onClick={() => apiList(p, pageSize)}
+                  className={`min-w-[28px] rounded-md border px-2 py-1 text-center transition ${
+                    p === page
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+
+            {/* NEXT */}
             <button
-              disabled={!hasMore || loading}
+              disabled={page >= totalPages || loading}
               onClick={() => apiList(page + 1, pageSize)}
-              className="rounded-r-md border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40"
+              className="rounded-md border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40"
             >
               ›
             </button>
