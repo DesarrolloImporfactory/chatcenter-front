@@ -147,6 +147,7 @@ function MainLayout({ children }) {
   /* ── Role helpers ── */
   const role = userData?.role || localStorage.getItem("user_role");
   const isSuperAdmin = role === "super_administrador";
+  const isAdmin = role === "administrador" || role === "super_administrador";
 
   /* ── Nav item config ── */
   const conexionPath = isSuperAdmin
@@ -214,6 +215,14 @@ function MainLayout({ children }) {
                 navigate(conexionPath);
               }}
             />
+
+            {isAdmin && (
+              <NavBtn
+                path="/dashboard"
+                icon="bx-bar-chart-alt-2"
+                label="Dashboard"
+              />
+            )}
 
             {/* Insta Landing */}
             <NavBtn

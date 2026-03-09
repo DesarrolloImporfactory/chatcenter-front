@@ -42,9 +42,9 @@ function getInitials(name) {
 }
 
 export default function AgentLoad({ data = [] }) {
-  const maxChats = Math.max(...data.map((a) => a.chats_abiertos || 0), 1);
-  const totalChats = data.reduce((s, a) => s + (a.chats_abiertos || 0), 0);
-  const activeAgents = data.filter((a) => (a.chats_abiertos || 0) > 0).length;
+  const maxChats = Math.max(...data.map((a) => a.total_chats || 0), 1);
+  const totalChats = data.reduce((s, a) => s + (a.total_chats || 0), 0);
+  const activeAgents = data.filter((a) => (a.total_chats || 0) > 0).length;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -59,7 +59,7 @@ export default function AgentLoad({ data = [] }) {
               CARGA POR ASESOR
             </h3>
             <p className="text-xs text-slate-400">
-              Chats abiertos asignados actualmente
+              Chats atendidos en el período seleccionado
             </p>
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function AgentLoad({ data = [] }) {
       {/* Agent list */}
       <div className="max-h-[400px] space-y-2.5 overflow-auto pr-1">
         {data.map((agent, i) => {
-          const chats = agent.chats_abiertos || 0;
+          const chats = agent.total_chats || 0;
           const pct = maxChats > 0 ? (chats / maxChats) * 100 : 0;
 
           return (
