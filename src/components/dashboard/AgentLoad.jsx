@@ -56,7 +56,7 @@ export default function AgentLoad({ data = [] }) {
           </div>
           <div>
             <h3 className="text-sm font-semibold tracking-wide text-slate-700">
-              CARGA POR ASESOR
+              CARGA POR ASESOR.
             </h3>
             <p className="text-xs text-slate-400">
               Chats atendidos en el período seleccionado
