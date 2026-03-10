@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+
 import chatApi from "../../api/chatcenter";
 
 import FiltersBar from "./FiltersBar";
@@ -14,6 +15,8 @@ import FirstResponseChart from "./FirstResponseChart";
 import ResolutionChart from "./ResolutionChart";
 import ChatsByChannelChart from "./ChatsByChannelChart";
 import ChatsByConnectionChart from "./ChatsByConnectionChart";
+import { useDashboardRealtime } from "../../hooks/useDashboardRealTime";
+import { useSocket } from "../../context/SocketProvider";
 
 // ===== Helpers =====
 function safeName(v) {
@@ -106,6 +109,10 @@ export default function Dashboard() {
   });
   const [agentLoad, setAgentLoad] = useState([]);
   const [frequentTransfers, setFrequentTransfers] = useState([]);
+
+  //Tiempo Real
+  const { socket } = useSocket();
+  const id_usuario = Number(localStorage.getItem("id_usuario"));
 
   // === 1) Cargar filtros ===
   useEffect(() => {
@@ -228,92 +235,109 @@ export default function Dashboard() {
     return row?.id ? Number(row.id) : null;
   }, [filters.connection, options._raw]);
 
-  // === 4) FETCH CONSOLIDADO ===
-  const fetchAll = async () => {
-    try {
-      setErrorMsg("");
-      setLoadingData(true);
+  // === 4) FETCH SELECTIVO ===
+  const fetchSections = useCallback(
+    async (sections) => {
+      const isAll = sections.includes("all");
+      try {
+        setErrorMsg("");
+        if (isAll) setLoadingData(true);
 
-      const id_usuario = Number(localStorage.getItem("id_usuario"));
+        const id_usuario = Number(localStorage.getItem("id_usuario"));
+        const payload = {
+          id_usuario,
+          id_configuracion: selectedConfigId,
+          from: filters.dateRange?.from || null,
+          to: filters.dateRange?.to || null,
+        };
 
-      const payload = {
-        id_usuario,
-        id_configuracion: selectedConfigId,
-        from: filters.dateRange?.from || null,
-        to: filters.dateRange?.to || null,
-      };
+        const resp = await chatApi.post(
+          "/dashboard/obtener_dashboard_completo",
+          payload,
+          { timeout: 50000 },
+        );
+        const data = resp?.data?.data || {};
 
-      const resp = await chatApi.post(
-        "/dashboard/obtener_dashboard_completo",
-        payload,
-        { timeout: 50000 },
-      );
+        if (isAll || sections.includes("summary")) {
+          const s = data.summary || {};
+          setSummary({
+            chatsCreated: Number(s.chatsCreated || 0),
+            chatsResolved: Number(s.chatsResolved || 0),
+            withReplies: Number(s.withReplies || 0),
+            noReply: Number(s.noReply || 0),
+            avgFirstResponseSeconds: s.avgFirstResponseSeconds ?? null,
+            avgResolutionSeconds: s.avgResolutionSeconds ?? null,
+          });
+        }
+        if (isAll || sections.includes("pendingQueue"))
+          setPendingQueue(
+            Array.isArray(data.pendingQueue) ? data.pendingQueue : [],
+          );
 
-      const data = resp?.data?.data || {};
+        if (isAll || sections.includes("slaToday")) {
+          const sla = data.slaToday || {};
+          setSlaToday({
+            generalPct: Number(sla.generalPct || 0),
+            metaPct: Number(sla.metaPct || 90),
+            channels: Array.isArray(sla.channels) ? sla.channels : [],
+            resolvedToday: Number(sla.resolvedToday || 0),
+            abandoned: Number(sla.abandoned || 0),
+          });
+        }
+        if (isAll || sections.includes("charts")) {
+          const ch = data.charts || {};
+          setCharts({
+            byChannel: Array.isArray(ch.byChannel) ? ch.byChannel : [],
+            byConnection: Array.isArray(ch.byConnection) ? ch.byConnection : [],
+            chatsCreated: Array.isArray(ch.chatsCreated) ? ch.chatsCreated : [],
+            chatsResolved: Array.isArray(ch.chatsResolved)
+              ? ch.chatsResolved
+              : [],
+            firstResponse: Array.isArray(ch.firstResponse)
+              ? ch.firstResponse
+              : [],
+            resolution: Array.isArray(ch.resolution) ? ch.resolution : [],
+          });
+        }
+        if (isAll || sections.includes("agentLoad"))
+          setAgentLoad(Array.isArray(data.agentLoad) ? data.agentLoad : []);
 
-      // ---- Summary ----
-      const s = data.summary || {};
-      setSummary({
-        chatsCreated: Number(s.chatsCreated || 0),
-        chatsResolved: Number(s.chatsResolved || 0),
-        withReplies: Number(s.withReplies || 0),
-        noReply: Number(s.noReply || 0),
-        avgFirstResponseSeconds:
-          s.avgFirstResponseSeconds === null ||
-          s.avgFirstResponseSeconds === undefined
-            ? null
-            : Number(s.avgFirstResponseSeconds),
-        avgResolutionSeconds:
-          s.avgResolutionSeconds === null ||
-          s.avgResolutionSeconds === undefined
-            ? null
-            : Number(s.avgResolutionSeconds),
-      });
+        if (isAll || sections.includes("frequentTransfers"))
+          setFrequentTransfers(
+            Array.isArray(data.frequentTransfers) ? data.frequentTransfers : [],
+          );
+      } catch (err) {
+        console.error("Error cargando dashboard:", err);
+        if (isAll)
+          setErrorMsg("No se pudieron cargar los datos del dashboard.");
+      } finally {
+        if (isAll) setLoadingData(false);
+      }
+    },
+    [selectedConfigId, filters],
+  );
 
-      // ---- Queue ----
-      setPendingQueue(
-        Array.isArray(data.pendingQueue) ? data.pendingQueue : [],
-      );
+  // fetchAll ahora delega — FiltersBar y el useEffect de mount siguen funcionando igual
+  const fetchAll = useCallback(() => fetchSections(["all"]), [fetchSections]);
 
-      // ---- SLA ----
-      const sla = data.slaToday || {};
-      setSlaToday({
-        generalPct: Number(sla.generalPct || 0),
-        metaPct: Number(sla.metaPct || 90),
-        channels: Array.isArray(sla.channels) ? sla.channels : [],
-        resolvedToday: Number(sla.resolvedToday || 0),
-        abandoned: Number(sla.abandoned || 0),
-      });
+  // Tiempo real via socket
+  useDashboardRealtime({
+    socket,
+    id_usuario,
+    onRefreshSections: fetchSections,
+  });
 
-      // ---- Charts ----
-      const ch = data.charts || {};
-      setCharts({
-        byChannel: Array.isArray(ch.byChannel) ? ch.byChannel : [],
-        byConnection: Array.isArray(ch.byConnection) ? ch.byConnection : [],
-        chatsCreated: Array.isArray(ch.chatsCreated) ? ch.chatsCreated : [],
-        chatsResolved: Array.isArray(ch.chatsResolved) ? ch.chatsResolved : [],
-        firstResponse: Array.isArray(ch.firstResponse) ? ch.firstResponse : [],
-        resolution: Array.isArray(ch.resolution) ? ch.resolution : [],
-      });
-
-      // ---- Agent Load ----
-      setAgentLoad(Array.isArray(data.agentLoad) ? data.agentLoad : []);
-
-      // ---- Frequent Transfers ----
-      setFrequentTransfers(
-        Array.isArray(data.frequentTransfers) ? data.frequentTransfers : [],
-      );
-    } catch (err) {
-      console.error("Error cargando dashboard:", err);
-      setErrorMsg("No se pudieron cargar los datos del dashboard.");
-    } finally {
-      setLoadingData(false);
-    }
-  };
+  // Fallback polling cada 60s
+  useEffect(() => {
+    const interval = setInterval(
+      () => fetchSections(["pendingQueue", "agentLoad"]),
+      60_000,
+    );
+    return () => clearInterval(interval);
+  }, [fetchSections]);
 
   useEffect(() => {
     fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const headerRangeText =

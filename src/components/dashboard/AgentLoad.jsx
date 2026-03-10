@@ -45,6 +45,10 @@ export default function AgentLoad({ data = [] }) {
   const maxChats = Math.max(...data.map((a) => a.total_chats || 0), 1);
   const totalChats = data.reduce((s, a) => s + (a.total_chats || 0), 0);
   const activeAgents = data.filter((a) => (a.total_chats || 0) > 0).length;
+  const totalAbiertos = data.reduce(
+    (s, a) => s + (a.chats_abiertos_ahora || 0),
+    0,
+  );
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -68,7 +72,7 @@ export default function AgentLoad({ data = [] }) {
           <div className="text-right">
             <div className="text-lg font-bold text-slate-800">{totalChats}</div>
             <div className="text-[10px] uppercase tracking-wider text-slate-400">
-              total chats
+              total rango
             </div>
           </div>
           <div className="h-8 w-px bg-slate-200"></div>
@@ -77,9 +81,17 @@ export default function AgentLoad({ data = [] }) {
               {activeAgents}
             </div>
             <div className="text-[10px] uppercase tracking-wider text-slate-400">
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                con actividad
-              </div>
+              con actividad
+            </div>
+          </div>
+          <div className="h-8 w-px bg-slate-200"></div>
+          {/* ← NUEVO */}
+          <div className="text-right">
+            <div className="text-lg font-bold text-rose-600">
+              {totalAbiertos}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">
+              abiertos ahora
             </div>
           </div>
         </div>
@@ -102,23 +114,39 @@ export default function AgentLoad({ data = [] }) {
               >
                 {getInitials(agent.nombre_encargado)}
               </div>
-
               {/* Info + bar */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-slate-700 truncate">
                     {agent.nombre_encargado || "Sin nombre"}
                   </span>
-                  <span
-                    className={`ml-2 flex-shrink-0 text-sm font-bold tabular-nums ${
-                      chats === 0 ? "text-slate-300" : "text-slate-800"
-                    }`}
-                  >
-                    {chats}
-                  </span>
+                  {/* Dos métricas */}
+                  <div className="ml-2 flex flex-shrink-0 items-center gap-2">
+                    <span className="text-[11px] text-slate-400">rango</span>
+                    <span
+                      className={`text-sm font-bold tabular-nums ${chats === 0 ? "text-slate-300" : "text-slate-800"}`}
+                    >
+                      {chats}
+                    </span>
+                    <span className="h-3 w-px bg-slate-200"></span>
+                    <span className="text-[11px] text-slate-400">abiertos</span>
+                    <span
+                      className={`text-sm font-bold tabular-nums ${
+                        (agent.chats_abiertos_ahora || 0) > 20
+                          ? "text-rose-600"
+                          : (agent.chats_abiertos_ahora || 0) > 10
+                            ? "text-amber-500"
+                            : (agent.chats_abiertos_ahora || 0) > 0
+                              ? "text-emerald-600"
+                              : "text-slate-300"
+                      }`}
+                    >
+                      {agent.chats_abiertos_ahora || 0}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Progress bar */}
+                {/* Barra basada en chats del rango */}
                 <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${getBarColor(i)}`}

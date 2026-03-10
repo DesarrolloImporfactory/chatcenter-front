@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { classNames, formatDuration } from "../../utils/parseEventDef";
 
 const CHAT_ROUTE = "/chat";
@@ -54,8 +53,6 @@ function ChannelBadge({ value }) {
 }
 
 export default function PendingQueue({ rows = [] }) {
-  const navigate = useNavigate();
-
   const openChatById = (row) => {
     const chatId =
       typeof row === "object" ? (row?.id_cliente_chat_center ?? row?.id) : row;
@@ -68,12 +65,8 @@ export default function PendingQueue({ rows = [] }) {
       localStorage.setItem("id_configuracion", idConfig);
     }
 
-    navigate(`${CHAT_ROUTE}/${chatId}`, {
-      state: {
-        id_configuracion:
-          idConfig || Number(localStorage.getItem("id_configuracion")),
-      },
-    });
+    const url = `${window.location.origin}${CHAT_ROUTE}/${chatId}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (

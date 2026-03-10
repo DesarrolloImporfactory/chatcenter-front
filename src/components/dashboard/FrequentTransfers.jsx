@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { classNames } from "../../utils/parseEventDef";
 
 const CHAT_ROUTE = "/chat";
@@ -41,8 +40,6 @@ function ChannelBadge({ value }) {
 }
 
 export default function FrequentTransfers({ data = [] }) {
-  const navigate = useNavigate();
-
   const openChat = (row) => {
     const chatId = row.id;
     if (!chatId) return;
@@ -52,9 +49,8 @@ export default function FrequentTransfers({ data = [] }) {
       localStorage.setItem("id_configuracion", row.id_configuracion);
     }
 
-    navigate(`${CHAT_ROUTE}/${chatId}`, {
-      state: { id_configuracion: row.id_configuracion },
-    });
+    const url = `${window.location.origin}${CHAT_ROUTE}/${chatId}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (
