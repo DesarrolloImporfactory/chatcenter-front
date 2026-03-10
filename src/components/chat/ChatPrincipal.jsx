@@ -2823,6 +2823,7 @@ const ChatPrincipal = ({
                               handleOptionSelect({
                                 mensaje: result.mensaje,
                                 ruta_archivo: result.ruta_archivo || null,
+                                tipo_mensaje: result.tipo_mensaje || null,
                               })
                             }
                             className="

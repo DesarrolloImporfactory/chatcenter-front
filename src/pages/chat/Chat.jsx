@@ -1099,6 +1099,8 @@ const Chat = () => {
   };
 
   const inferTipoFromUrl = (url = "") => {
+    if (String(url).includes("/Videos/stream/")) return "video";
+
     const ext = getExtFromUrl(url);
 
     const img = ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg", "heic"];
@@ -1170,12 +1172,14 @@ const Chat = () => {
           mimeType: file?.type || "",
         })
       : attachmentUrl
-        ? JSON.stringify({
-            ruta: attachmentUrl,
-            nombre: fileNameFromUrl(attachmentUrl),
-            size: 0,
-            mimeType: "",
-          })
+        ? tipo === "video" || tipo === "image" || tipo === "audio"
+          ? attachmentUrl
+          : JSON.stringify({
+              ruta: attachmentUrl,
+              nombre: fileNameFromUrl(attachmentUrl),
+              size: 0,
+              mimeType: "",
+            })
         : null;
 
     // =========================
@@ -1281,6 +1285,7 @@ const Chat = () => {
       dataAdmin,
       nombre_encargado: nombre_encargado_global,
       client_tmp_id: tmpId,
+      jwt_token: localStorage.getItem("token"),
     };
 
     if (isWA) {

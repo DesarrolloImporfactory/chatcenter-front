@@ -140,7 +140,13 @@ const EditarPlantillaRapidaModal = ({
 
         {tipoMensaje === "video" && (
           <video
-            src={previewUrl}
+            src={
+              previewUrl &&
+              previewUrl.includes("/Videos/stream/") &&
+              !previewUrl.startsWith("blob:")
+                ? `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}token=${localStorage.getItem("token")}`
+                : previewUrl
+            }
             controls
             className="w-full max-h-56 rounded-lg border bg-black"
           />

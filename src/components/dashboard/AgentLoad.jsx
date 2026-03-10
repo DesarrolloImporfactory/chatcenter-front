@@ -77,7 +77,9 @@ export default function AgentLoad({ data = [] }) {
               {activeAgents}
             </div>
             <div className="text-[10px] uppercase tracking-wider text-slate-400">
-              activos
+              <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                con actividad
+              </div>
             </div>
           </div>
         </div>

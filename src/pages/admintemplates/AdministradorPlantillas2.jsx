@@ -1123,16 +1123,17 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
 
     // Video
     if (tipo === "video") {
+      const videoSrc = finalUrl.includes("/Videos/stream/")
+        ? `${finalUrl}${finalUrl.includes("?") ? "&" : "?"}token=${localStorage.getItem("token")}`
+        : finalUrl;
+
       return (
         <div className="mt-2">
-          <a
-            href={finalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline"
-          >
-            Ver video ({name})
-          </a>
+          <video
+            src={videoSrc}
+            controls
+            className="w-full max-w-[260px] max-h-40 rounded-lg border bg-black"
+          />
         </div>
       );
     }
