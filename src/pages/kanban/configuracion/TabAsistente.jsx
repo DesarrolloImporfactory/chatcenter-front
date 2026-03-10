@@ -369,14 +369,56 @@ const TabAsistente = ({
       const res = await chatApi.post("/kanban_acciones/listar", {
         id_kanban_columna: columnaId,
       });
-      const soloTriggers = (res.data.data || []).filter(
+      const acciones = res.data.data || [];
+      const soloTriggers = acciones.filter(
         (a) => a.tipo_accion === "cambiar_estado",
-      ); // ← data.data
+      );
       setTriggers(soloTriggers);
+      // ← Detectar si tiene contexto_productos
+      setTieneContextoProductos(
+        acciones.some((a) => a.tipo_accion === "contexto_productos"),
+      );
     } catch (err) {
       Toast.fire({ icon: "error", title: "Error al cargar triggers" });
     } finally {
       setLoadingTriggers(false);
+    }
+  };
+
+  const sincronizarCatalogo = async () => {
+    Swal.fire({
+      title: "Sincronizando catálogo",
+      html: "Por favor espere mientras se sincronizan todos los productos.<br><br><small style='color:#64748b'>Esto puede demorar un momento dependiendo de la cantidad de productos que posea.</small>",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_columnas/sincronizar_catalogo",
+        { id: columnaId },
+      );
+      if (data?.success) {
+        setUltimaSync(new Date());
+        Swal.fire({
+          icon: "success",
+          title: "¡Catálogo sincronizado!",
+          text: `Se indexaron ${data.data.total_items} productos correctamente.`,
+          confirmButtonColor: "#6366f1",
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "warning",
+        title: "Error al sincronizar",
+        text:
+          err?.response?.data?.message ||
+          err.message ||
+          "No se pudo sincronizar el catálogo.",
+        confirmButtonColor: "#6366f1",
+      });
     }
   };
 
@@ -415,6 +457,42 @@ const TabAsistente = ({
       Toast.fire({ icon: "success", title: "Trigger eliminado" });
     } catch (err) {
       Toast.fire({ icon: "error", title: "Error al eliminar" });
+    }
+  };
+
+  const [sincronizando, setSincronizando] = useState(false);
+  const [ultimaSync, setUltimaSync] = useState(null);
+  const [tieneContextoProductos, setTieneContextoProductos] = useState(false);
+
+  const toggleContextoProductos = async () => {
+    const nuevoValor = !tieneContextoProductos;
+    try {
+      if (nuevoValor) {
+        await chatApi.post("/kanban_acciones/crear", {
+          id_kanban_columna: columnaId,
+          id_configuracion: idConfiguracion,
+          tipo_accion: "contexto_productos",
+          config: JSON.stringify({}),
+          activo: 1,
+          orden: 0,
+        });
+        setTieneContextoProductos(true);
+        // Auto-sync con Swal
+        await sincronizarCatalogo();
+      } else {
+        const res = await chatApi.post("/kanban_acciones/listar", {
+          id_kanban_columna: columnaId,
+        });
+        const accion = (res.data.data || []).find(
+          (a) => a.tipo_accion === "contexto_productos",
+        );
+        if (accion)
+          await chatApi.post("/kanban_acciones/eliminar", { id: accion.id });
+        setTieneContextoProductos(false);
+        Toast.fire({ icon: "success", title: "Catálogo desactivado" });
+      }
+    } catch (err) {
+      Toast.fire({ icon: "error", title: "Error al actualizar" });
     }
   };
 
@@ -877,6 +955,101 @@ const TabAsistente = ({
                 </>
               )}
             </button>
+          </div>
+
+          {/* ── Catálogo de productos ── */}
+          <div
+            style={{
+              borderTop: "1px solid rgba(0,0,0,.06)",
+              paddingTop: 22,
+              marginTop: 4,
+              marginBottom: 22,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: tieneContextoProductos
+                      ? "rgba(99,102,241,.12)"
+                      : "#f1f5f9",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <i
+                    className="bx bx-package"
+                    style={{
+                      fontSize: "1.4rem",
+                      color: tieneContextoProductos ? "#6366f1" : "#94a3b8",
+                    }}
+                  />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      fontSize: "0.95rem",
+                    }}
+                  >
+                    Catálogo de productos
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                    {tieneContextoProductos
+                      ? "El asistente consulta el catálogo actualizado"
+                      : "Activa para que el asistente conozca tus productos"}
+                  </div>
+                </div>
+              </div>
+              <Toggle
+                checked={tieneContextoProductos}
+                onChange={toggleContextoProductos}
+              />
+            </div>
+
+            {tieneContextoProductos && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: 14,
+                }}
+              >
+                <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                  {ultimaSync
+                    ? `Última sync: ${ultimaSync.toLocaleTimeString()}`
+                    : "Sin sincronizar aún — presiona el botón para indexar"}
+                </div>
+                <button
+                  onClick={sincronizarCatalogo}
+                  disabled={sincronizando}
+                  style={btnSecundario}
+                >
+                  {sincronizando ? (
+                    <>
+                      <i className="bx bx-loader-alt bx-spin" />{" "}
+                      Sincronizando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bx bx-refresh" /> Sincronizar catálogo
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Archivos de conocimiento */}

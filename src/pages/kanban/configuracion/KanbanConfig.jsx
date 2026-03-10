@@ -64,11 +64,11 @@ const TIPOS_ACCION = {
     icono: "bx bx-calendar-check",
     color: "#8b5cf6",
   },
-  separador_productos: {
+  /* separador_productos: {
     label: "Separador de productos",
     icono: "bx bx-list-ul",
     color: "#ec4899",
-  },
+  }, */
 };
 
 const Toast = Swal.mixin({
@@ -178,6 +178,7 @@ const KanbanConfig = () => {
     try {
       const { data } = await chatApi.post("/kanban_columnas/actualizar", {
         id: columnaActiva,
+        id_configuracion,
         ...formCol,
       });
       if (data?.success) {
@@ -208,6 +209,39 @@ const KanbanConfig = () => {
       if (data?.success) {
         Toast.fire({ icon: "success", title: "Acción agregada" });
         cargarAcciones(columnaActiva);
+
+        // ← AUTO-SYNC al agregar contexto_productos
+        if (tipo_accion === "contexto_productos") {
+          Swal.fire({
+            title: "Sincronizando catálogo",
+            html: "Por favor espere mientras se sincronizan todos los productos.<br><br><small style='color:#64748b'>Esto puede demorar un momento dependiendo de la cantidad de productos que posea.</small>",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => Swal.showLoading(),
+          });
+
+          chatApi
+            .post("/kanban_columnas/sincronizar_catalogo", {
+              id: columnaActiva,
+            })
+            .then(({ data: syncData }) => {
+              Swal.fire({
+                icon: "success",
+                title: "¡Catálogo sincronizado!",
+                text: `Se indexaron ${syncData.data.total_items} productos correctamente.`,
+                confirmButtonColor: "#6366f1",
+              });
+            })
+            .catch(() => {
+              Swal.fire({
+                icon: "warning",
+                title: "Acción guardada",
+                text: "No se pudo sincronizar el catálogo automáticamente. Puedes hacerlo manualmente desde la pestaña Asistente.",
+                confirmButtonColor: "#6366f1",
+              });
+            });
+        }
       }
     } catch {
       Toast.fire({ icon: "error", title: "Error al agregar acción" });
