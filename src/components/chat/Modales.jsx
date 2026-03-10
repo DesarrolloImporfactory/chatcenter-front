@@ -579,7 +579,7 @@ const Modales = ({
 
     try {
       const response = await fetch(
-        "https://new.imporsuitpro.com/" + "Pedidos/guardar_imagen_Whatsapp",
+        "https://new.imporsuitpro.com/" + "Imporia/guardar_imagen_Whatsapp",
         {
           method: "POST",
           body: formData,
@@ -777,7 +777,7 @@ const Modales = ({
 
     try {
       const response = await fetch(
-        "https://new.imporsuitpro.com/Pedidos/guardar_documento_Whatsapp",
+        "https://new.imporsuitpro.com/Imporia/guardar_documento_Whatsapp",
         {
           method: "POST",
           body: formData,
@@ -1215,12 +1215,15 @@ const Modales = ({
       return;
     }
 
+    // Limpiar teléfono: quitar caracteres especiales y espacios
+    const telefonoLimpio = newContactPhone.replace(/[^0-9]/g, "");
+
     try {
       const { data } = await chatApi.post(
         "/clientes_chat_center/agregarNumeroChat",
         {
           nombre: newContactName,
-          telefono: newContactPhone,
+          telefono: telefonoLimpio,
           apellido: "",
           id_configuracion,
         },
@@ -1233,21 +1236,17 @@ const Modales = ({
 
       Toast.fire({ icon: "success", title: "Contacto añadido" });
 
-      // Marca al nuevo contacto como destinatario
-      handleSelectPhoneNumber(newContactPhone, newContactName, null);
+      handleSelectPhoneNumber(telefonoLimpio, newContactName, null);
 
-      // Cambia de pestaña: búsqueda + plantilla
       setModalTab("buscar");
 
-      //controla el input y dispara la búsqueda del padre
-      setSearchQuery(newContactPhone);
+      setSearchQuery(telefonoLimpio);
       if (inputRefNumeroTelefono?.current) {
-        inputRefNumeroTelefono.current.value = newContactPhone;
+        inputRefNumeroTelefono.current.value = telefonoLimpio;
         const ev = new Event("input", { bubbles: true });
         inputRefNumeroTelefono.current.dispatchEvent(ev);
       }
 
-      // Limpia los campos del form "nuevo"
       setNewContactName("");
       setNewContactPhone("");
     } catch (error) {
