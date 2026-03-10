@@ -34,11 +34,13 @@ export function useDashboardRealtime({
 
   useEffect(() => {
     if (!socket || !id_usuario) return;
-
+    console.log("[RT] join con id_usuario:", id_usuario);
     // Entrar al room del dashboard de este usuario
     socket.emit("dashboard:join", { id_usuario });
 
     const handler = ({ tipo }) => {
+      console.log("[RT] evento recibido:", tipo);
+
       const sections = SECTIONS_BY_TIPO[tipo] ?? ["summary", "pendingQueue"];
       scheduleRefresh(sections);
     };

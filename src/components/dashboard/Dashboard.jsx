@@ -238,6 +238,8 @@ export default function Dashboard() {
   // === 4) FETCH SELECTIVO ===
   const fetchSections = useCallback(
     async (sections) => {
+      console.log("[RT] fetchSections llamado con:", sections); // ← agrega esto
+
       const isAll = sections.includes("all");
       try {
         setErrorMsg("");

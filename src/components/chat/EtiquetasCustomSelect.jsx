@@ -17,6 +17,9 @@ export default function EtiquetasCustomSelect({ clienteId }) {
 
   const [loading, setLoading] = useState(true);
 
+  // sub_usuarios para sugerencias rápidas dentro del select de Asesor
+  const [subUsuarios, setSubUsuarios] = useState([]);
+
   // Leer id_configuracion desde localStorage
   const getIdConfiguracion = () => localStorage.getItem("id_configuracion");
 
@@ -29,18 +32,23 @@ export default function EtiquetasCustomSelect({ clienteId }) {
 
     setLoading(true);
     try {
-      const [resAsesor, resCiclo, resCliente] = await Promise.all([
-        chatApi.get(
-          `/etiquetas_custom_chat_center/listar?tipo=asesor&id_configuracion=${id_configuracion}`,
-        ),
-        chatApi.get(
-          `/etiquetas_custom_chat_center/listar?tipo=ciclo&id_configuracion=${id_configuracion}`,
-        ),
-        chatApi.get(`/etiquetas_custom_chat_center/cliente/${clienteId}`),
-      ]);
+      const [resAsesor, resCiclo, resCliente, resSubUsuarios] =
+        await Promise.all([
+          chatApi.get(
+            `/etiquetas_custom_chat_center/listar?tipo=asesor&id_configuracion=${id_configuracion}`,
+          ),
+          chatApi.get(
+            `/etiquetas_custom_chat_center/listar?tipo=ciclo&id_configuracion=${id_configuracion}`,
+          ),
+          chatApi.get(`/etiquetas_custom_chat_center/cliente/${clienteId}`),
+          chatApi.get(
+            `/departamentos_chat_center/sub-usuarios-por-configuracion/${id_configuracion}`,
+          ),
+        ]);
 
       setAsesorOptions(resAsesor.data?.data || []);
       setCicloOptions(resCiclo.data?.data || []);
+      setSubUsuarios(resSubUsuarios.data?.data || []);
 
       const c = resCliente.data?.data || {};
       setSelectedAsesor(c.id_etiqueta_asesor || null);
@@ -111,7 +119,6 @@ export default function EtiquetasCustomSelect({ clienteId }) {
             a.nombre.localeCompare(b.nombre),
           );
         });
-        // Auto-asignar
         handleAssign("asesor", newOpt.id);
       } else {
         setCicloOptions((prev) => {
@@ -163,6 +170,49 @@ export default function EtiquetasCustomSelect({ clienteId }) {
     }
   };
 
+  // ── Autocompletar asesor desde sub_usuario ─────────
+  // Si la etiqueta con ese nombre ya existe → solo asigna
+  // Si no existe → la crea y luego asigna
+  const handleQuickAsesor = async (subUsuario, closeDropdown) => {
+    const id_configuracion = getIdConfiguracion();
+    if (!id_configuracion) return;
+
+    closeDropdown();
+
+    const nombre = subUsuario.nombre_encargado;
+    const existe = asesorOptions.find(
+      (o) => o.nombre.toLowerCase() === nombre.toLowerCase(),
+    );
+
+    if (existe) {
+      handleAssign("asesor", existe.id);
+      return;
+    }
+
+    try {
+      const { data } = await chatApi.post(
+        "/etiquetas_custom_chat_center/crear",
+        {
+          tipo: "asesor",
+          nombre,
+          id_configuracion,
+        },
+      );
+
+      const newOpt = data.data;
+      setAsesorOptions((prev) => {
+        const exists = prev.some((o) => o.id === newOpt.id);
+        if (exists) return prev;
+        return [...prev, newOpt].sort((a, b) =>
+          a.nombre.localeCompare(b.nombre),
+        );
+      });
+      handleAssign("asesor", newOpt.id);
+    } catch (err) {
+      console.error("Error creando etiqueta desde sub_usuario:", err);
+    }
+  };
+
   if (!clienteId) return null;
 
   return (
@@ -173,7 +223,7 @@ export default function EtiquetasCustomSelect({ clienteId }) {
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Asesor */}
+        {/* Asesor — con sugerencias rápidas de sub_usuarios dentro del dropdown */}
         <CustomSelectField
           label="Asesor"
           icon="bx-user-voice"
@@ -184,9 +234,18 @@ export default function EtiquetasCustomSelect({ clienteId }) {
           onChange={(val) => handleAssign("asesor", val)}
           onCreate={() => handleCreate("asesor")}
           onDelete={(id) => handleDelete("asesor", id)}
+          quickOptions={subUsuarios}
+          isQuickSelected={(u) => {
+            const et = asesorOptions.find(
+              (o) =>
+                o.nombre.toLowerCase() === u.nombre_encargado.toLowerCase(),
+            );
+            return !!(et && selectedAsesor === et.id);
+          }}
+          onQuickSelect={handleQuickAsesor}
         />
 
-        {/* Ciclo */}
+        {/* Ciclo — sin cambios */}
         <CustomSelectField
           label="Ciclo"
           icon="bx-revision"
@@ -216,9 +275,15 @@ function CustomSelectField({
   onChange,
   onCreate,
   onDelete,
+  // Opciones rápidas (sub_usuarios) — solo para Asesor
+  quickOptions = [],
+  isQuickSelected, // fn(u) => bool
+  onQuickSelect, // fn(u, closeFn)
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+
+  const close = () => setOpen(false);
 
   // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
@@ -269,6 +334,47 @@ function CustomSelectField({
       {/* Dropdown */}
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-[#151d35] border border-white/15 rounded-lg shadow-xl overflow-hidden animate-slideInDown">
+          {/* ── Sección sugerencias rápidas (solo si hay quickOptions) ── */}
+          {quickOptions.length > 0 && (
+            <>
+              <div className="px-3 pt-2 pb-1">
+                <span className="text-[10px] text-white/30 uppercase tracking-wider flex items-center gap-1">
+                  <i className="bx bx-zap text-[10px] text-sky-400" />
+                  Agentes
+                </span>
+              </div>
+              <div className="px-2 pb-2 flex flex-wrap gap-1.5">
+                {quickOptions.map((u) => {
+                  const isActive = isQuickSelected?.(u);
+                  return (
+                    <button
+                      key={u.id_sub_usuario}
+                      type="button"
+                      onClick={() => onQuickSelect(u, close)}
+                      className={`
+                        flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px]
+                        border transition-all duration-150
+                        ${
+                          isActive
+                            ? "bg-sky-500/20 border-sky-400/50 text-sky-300"
+                            : "bg-white/5 border-white/10 text-white/55 hover:bg-sky-500/10 hover:border-sky-400/30 hover:text-sky-300"
+                        }
+                      `}
+                    >
+                      {isActive ? (
+                        <i className="bx bx-check text-[10px]" />
+                      ) : (
+                        <i className="bx bx-user text-[10px]" />
+                      )}
+                      {u.nombre_encargado}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="border-t border-white/8" />
+            </>
+          )}
+
           {/* Sin asignar */}
           <button
             type="button"
@@ -289,7 +395,7 @@ function CustomSelectField({
           {/* Separador */}
           {options.length > 0 && <div className="border-t border-white/8" />}
 
-          {/* Opciones */}
+          {/* Opciones (etiquetas guardadas) */}
           <div className="max-h-40 overflow-y-auto custom-scrollbar">
             {options.map((opt) => (
               <div
