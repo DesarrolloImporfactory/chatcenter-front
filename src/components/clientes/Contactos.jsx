@@ -157,7 +157,7 @@ function mapRow(row) {
     apellido: row.apellido_cliente || "",
     email: row.email_cliente || "",
     telefono: telefono,
-    telefono_limpio: telefonoLimpio,
+    celular_cliente: telefonoLimpio,
 
     external_id: externalId,
     page_id: pageId,
