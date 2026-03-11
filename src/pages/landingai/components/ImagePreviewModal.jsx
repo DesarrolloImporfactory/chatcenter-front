@@ -1,5 +1,30 @@
 import React, { useEffect } from "react";
 
+// Descarga forzada via blob para evitar que el navegador abra la URL de S3
+const forceDownload = async (url, fileName) => {
+  try {
+    const response = await fetch(url, { mode: "cors" });
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch {
+    // fallback si falla el fetch (CORS estricto)
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+};
+
 const ImagePreviewModal = ({ open, onClose, result }) => {
   useEffect(() => {
     if (!open) return;
@@ -17,9 +42,11 @@ const ImagePreviewModal = ({ open, onClose, result }) => {
   const imgSrc =
     result.image_url || `data:image/png;base64,${result.image_base64}`;
 
-  const handleDownload = () => {
+  const fileName = `landing-ia-${result.etapa?.nombre?.replace(/\s+/g, "-").toLowerCase() || "seccion"}-${Date.now()}.png`;
+
+  const handleDownload = async () => {
     if (result.image_url) {
-      forceDownload(result.image_url, fileName);
+      await forceDownload(result.image_url, fileName);
     } else {
       // base64 directo
       const a = document.createElement("a");

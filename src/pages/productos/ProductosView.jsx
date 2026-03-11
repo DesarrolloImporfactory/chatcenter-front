@@ -629,13 +629,23 @@ const ProductosView = () => {
                                   : "Sin stock"}
                               </span>
                             )}
-                            {p.external_id != null && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit bg-orange-50 text-orange-500 ring-1 ring-orange-200">
+                            {p.external_source === "DROPI" &&
+                              p.external_id != null && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit bg-orange-50 text-orange-500 ring-1 ring-orange-200">
+                                  <i
+                                    className="bx bx-barcode"
+                                    style={{ fontSize: 10 }}
+                                  />
+                                  Dropi #{p.external_id}
+                                </span>
+                              )}
+                            {p.external_source === "INSTA_LANDING" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit bg-indigo-50 text-indigo-500 ring-1 ring-indigo-200">
                                 <i
-                                  className="bx bx-barcode"
+                                  className="bx bxs-zap"
                                   style={{ fontSize: 10 }}
                                 />
-                                Dropi #{p.external_id}
+                                InstaLanding
                               </span>
                             )}
                             {p.stock == null && p.external_id == null && (

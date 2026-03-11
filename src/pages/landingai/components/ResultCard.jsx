@@ -1,5 +1,29 @@
 import React, { useState, useEffect } from "react";
 
+// Descarga forzada via blob
+const forceDownload = async (url, fileName) => {
+  try {
+    const response = await fetch(url, { mode: "cors" });
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || `landing-ia-${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || `landing-ia-${Date.now()}.png`;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+};
+
 const ResultCard = ({
   result,
   index,
@@ -58,6 +82,17 @@ const ResultCard = ({
 
   const imgSrc =
     result.image_url || `data:image/png;base64,${result.image_base64}`;
+
+  const fileName = `landing-ia-${result.etapa?.nombre?.replace(/\s+/g, "-").toLowerCase() || "seccion"}-${Date.now()}.png`;
+
+  const handleDownloadClick = (e) => {
+    e.stopPropagation();
+    if (result.image_url) {
+      forceDownload(result.image_url, fileName);
+    } else {
+      onDownload(imgSrc);
+    }
+  };
 
   return (
     <div
@@ -167,10 +202,7 @@ const ResultCard = ({
                 <i className="bx bx-expand text-indigo-600 text-sm" /> Preview
               </button>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDownload(imgSrc);
-                }}
+                onClick={handleDownloadClick}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/95 hover:bg-white text-gray-900 text-[11px] font-bold transition shadow-lg backdrop-blur-sm"
               >
                 <i className="bx bx-download text-emerald-600 text-sm" />{" "}

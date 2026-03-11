@@ -12,7 +12,7 @@ import StepAngles from "./components/stepAngles";
 import StepGenerate from "./components/StepGenerate";
 import StepResults from "./components/StepResults";
 
-// Modals (existing)
+// Modals
 import HistorialModal from "./modales/HistorialModal";
 import TemplateModal from "./modales/TemplateModal";
 
@@ -28,33 +28,29 @@ const LandingAi = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ── Extract product context from navigation state ──
   const productState = location.state || {};
   const fromProducto = productState.fromProducto === true;
 
-  // ── Config state ──
+  // Config state
   const [selectedConfig, setSelectedConfig] = useState(null);
   const [step, setStep] = useState("home");
   const [userImages, setUserImages] = useState([]);
   const [description, setDescription] = useState("");
   const [aspectRatio, setAspectRatio] = useState("9:16");
 
-  // ── Product linkage ──
+  // Product linkage
   const [idProducto, setIdProducto] = useState(null);
   const [productoNombre, setProductoNombre] = useState("");
 
-  // ── Pricing state ──
-  const [pricing, setPricing] = useState({
-    precio_unitario: "",
-    combos: [],
-  });
+  // Pricing
+  const [pricing, setPricing] = useState({ precio_unitario: "", combos: [] });
 
-  // ── Angle state ──
+  // Angle
   const [selectedAngle, setSelectedAngle] = useState(null);
   const [customAngle, setCustomAngle] = useState("");
   const [anguloVenta, setAnguloVenta] = useState("");
 
-  // ── Generation state ──
+  // Generation
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState({
     current: 0,
@@ -67,7 +63,7 @@ const LandingAi = () => {
   const [moneda, setMoneda] = useState("USD");
   const [idioma, setIdioma] = useState("es");
 
-  // ── Usage state ──
+  // Usage
   const [usage, setUsage] = useState({
     used: 0,
     limit: 0,
@@ -78,16 +74,16 @@ const LandingAi = () => {
     angles_remaining: 0,
   });
 
-  // ── Modal state ──
+  // Modals
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // ── Assign to product modal ──
+  // Assign modal
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
 
-  // ── Background templates ──
+  // Background templates / etapas
   const [bgTemplates, setBgTemplates] = useState([]);
   const [etapas, setEtapas] = useState([]);
 
@@ -100,7 +96,7 @@ const LandingAi = () => {
     }, 60);
   }, []);
 
-  // ── Initialize with product data if coming from ProductoDetallePage ──
+  // ── Inicializar con datos del producto (solo una vez) ──
   useEffect(() => {
     if (fromProducto && !initializedRef.current) {
       initializedRef.current = true;
@@ -117,7 +113,6 @@ const LandingAi = () => {
         });
       }
 
-      // Pre-load product portada as user image
       if (productState.imagen_portada) {
         fetch(productState.imagen_portada, { mode: "cors" })
           .then((r) => r.blob())
@@ -138,12 +133,12 @@ const LandingAi = () => {
           .catch(() => {});
       }
 
-      // Clear navigation state so refresh doesn't re-apply
+      // Limpiar state de navegación para que un refresh no re-aplique
       window.history.replaceState({}, document.title);
     }
-  }, [fromProducto, productState]);
+  }, [fromProducto]); // ← SOLO fromProducto, no productState (evita re-render)
 
-  // ── Fetch initial data ──
+  // ── Fetch inicial ──
   useEffect(() => {
     chatApi
       .get("gemini/usage")
@@ -222,12 +217,7 @@ const LandingAi = () => {
         fd.append("marca", marca);
         fd.append("moneda", moneda);
         fd.append("idioma", idioma);
-
-        // ✅ FIX: enviar id_producto si está vinculado
-        if (idProducto) {
-          fd.append("id_producto", String(idProducto));
-        }
-
+        if (idProducto) fd.append("id_producto", String(idProducto));
         userImages.forEach((img) => {
           if (img.file) fd.append("user_images", img.file);
         });
@@ -278,11 +268,9 @@ const LandingAi = () => {
     }
   };
 
-  // ── Regenerate single etapa with edited prompt ──
   const handleRegenerateEtapa = async (result, promptExtra) => {
     if (!selectedConfig) return;
     const { template } = selectedConfig;
-
     setRegeneratingId(result.etapa.id);
 
     try {
@@ -298,11 +286,7 @@ const LandingAi = () => {
       fd.append("moneda", moneda);
       fd.append("idioma", idioma);
       fd.append("prompt_extra", promptExtra);
-
-      if (idProducto) {
-        fd.append("id_producto", String(idProducto));
-      }
-
+      if (idProducto) fd.append("id_producto", String(idProducto));
       userImages.forEach((img) => {
         if (img.file) fd.append("user_images", img.file);
       });
@@ -345,7 +329,7 @@ const LandingAi = () => {
     }
   };
 
-  // ── Assign results to existing product ──
+  // ── Assign to product ──
   const handleOpenAssignModal = async () => {
     setShowAssignModal(true);
     setLoadingProductos(true);
@@ -360,32 +344,31 @@ const LandingAi = () => {
   };
 
   const handleAssignToProduct = async (productoId) => {
-    // Re-assign the image URLs from results to the selected product
     const imageUrls = results
       .filter((r) => r.success && r.image_url)
       .map((r) => r.image_url);
-
-    if (imageUrls.length === 0) {
+    if (imageUrls.length === 0)
       return Toast.fire({
         icon: "error",
         title: "No hay imágenes para asignar",
       });
-    }
 
     try {
       await chatApi.post(`gemini/productos/${productoId}/asignar-imagenes`, {
         image_urls: imageUrls,
       });
 
-      setIdProducto(productoId);
+      // FIX: actualizar estado SIN navegar ni cambiar step
       const prod = productos.find((p) => p.id === productoId);
+      setIdProducto(productoId);
       if (prod) setProductoNombre(prod.nombre);
-
       setShowAssignModal(false);
+
       Toast.fire({
         icon: "success",
-        title: `${imageUrls.length} imagen${imageUrls.length !== 1 ? "es" : ""} asignada${imageUrls.length !== 1 ? "s" : ""} al producto`,
+        title: `${imageUrls.length} imagen${imageUrls.length !== 1 ? "es" : ""} asignada${imageUrls.length !== 1 ? "s" : ""} a ${prod?.nombre || "el producto"}`,
       });
+      // NO llamar setStep ni navigate — el usuario se queda en results
     } catch (err) {
       Toast.fire({
         icon: "error",
@@ -411,22 +394,20 @@ const LandingAi = () => {
     setProductoNombre("");
   };
 
-  // ── Go back to product detail ──
   const goBackToProduct = () => {
-    if (idProducto) {
-      navigate(`/insta_landing_productos/${idProducto}`);
-    }
+    if (idProducto) navigate(`/insta_landing_productos/${idProducto}`);
   };
 
+  /* ─────────────────────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-gray-50/50">
-      {/* ══════════════ PRODUCT CONTEXT BANNER ══════════════ */}
+      {/* PRODUCT CONTEXT BANNER */}
       {idProducto && (
         <div
           className="flex items-center gap-3 px-5 py-3 rounded-2xl mb-3"
           style={{
             background:
-              "linear-gradient(135deg, rgba(99,102,241,0.08), rgba(59,130,246,0.06))",
+              "linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.06))",
             border: "1px solid rgba(99,102,241,0.15)",
           }}
         >
@@ -449,8 +430,7 @@ const LandingAi = () => {
             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition hover:bg-white"
             style={{ border: "1px solid #e2e8f0", color: "#6366f1" }}
           >
-            <i className="bx bx-arrow-back text-xs" />
-            Volver al producto
+            <i className="bx bx-arrow-back text-xs" /> Volver al producto
           </button>
           <button
             onClick={() => {
@@ -465,14 +445,14 @@ const LandingAi = () => {
         </div>
       )}
 
-      {/* ══════════════ HERO ══════════════ */}
+      {/* HERO */}
       <HeroSection
         usage={usage}
         step={step}
         onShowHistory={() => setShowHistory(true)}
       />
 
-      {/* ══════════════ BODY ══════════════ */}
+      {/* BODY */}
       <div className="pt-5" ref={stepRef}>
         {step === "home" && (
           <StepHome
@@ -556,7 +536,7 @@ const LandingAi = () => {
               regeneratingId={regeneratingId}
             />
 
-            {/* ── Assign to product bar (only when results exist and not linked) ── */}
+            {/* Assign bar — solo si no hay producto vinculado */}
             {!generating && results.some((r) => r.success) && !idProducto && (
               <div
                 className="mt-5 flex items-center gap-3 px-5 py-4 rounded-2xl"
@@ -580,8 +560,7 @@ const LandingAi = () => {
                     ¿Vincular a un producto?
                   </p>
                   <p className="text-[10px] text-gray-400">
-                    Asigna estas imágenes a un producto existente para segmentar
-                    tus landings
+                    Asigna estas imágenes a un producto existente
                   </p>
                 </div>
                 <button
@@ -593,13 +572,12 @@ const LandingAi = () => {
                     color: "#6366f1",
                   }}
                 >
-                  <i className="bx bx-package text-sm" />
-                  Asignar a producto
+                  <i className="bx bx-package text-sm" /> Asignar a producto
                 </button>
               </div>
             )}
 
-            {/* Show linked product info */}
+            {/* Linked product banner */}
             {!generating && results.some((r) => r.success) && idProducto && (
               <div
                 className="mt-5 flex items-center gap-3 px-5 py-4 rounded-2xl"
@@ -630,8 +608,7 @@ const LandingAi = () => {
                   className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition hover:bg-white"
                   style={{ border: "1px solid #e2e8f0", color: "#10b981" }}
                 >
-                  Ver producto
-                  <i className="bx bx-right-arrow-alt text-sm" />
+                  Ver producto <i className="bx bx-right-arrow-alt text-sm" />
                 </button>
               </div>
             )}
@@ -639,7 +616,7 @@ const LandingAi = () => {
         )}
       </div>
 
-      {/* ══════════ MODALS ══════════ */}
+      {/* MODALS */}
       <TemplateModal
         open={showTemplateModal}
         onClose={() => setShowTemplateModal(false)}
@@ -653,7 +630,7 @@ const LandingAi = () => {
         usage={usage}
       />
 
-      {/* ══════════ ASSIGN TO PRODUCT MODAL ══════════ */}
+      {/* ASSIGN TO PRODUCT MODAL */}
       {showAssignModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -726,7 +703,7 @@ const LandingAi = () => {
                     No tienes productos
                   </p>
                   <p className="text-[11px] text-gray-400 mt-1">
-                    Crea uno primero en el catálogo de productos
+                    Crea uno primero en el catálogo
                   </p>
                 </div>
               ) : (
