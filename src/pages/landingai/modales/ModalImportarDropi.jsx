@@ -30,10 +30,11 @@ const Spin = ({ sm }) => (
 const CLOUDFRONT = "https://d39ru7awumhhs2.cloudfront.net";
 
 const getDropiImg = (prod) => {
-  const imgs = [...(prod?.photos || []), ...(prod?.gallery || [])];
-  const m = imgs.find((g) => g.main) || imgs[0];
-  if (!m) return null;
-  const raw = m.url || m.urlS3;
+  const main = Array.isArray(prod?.gallery)
+    ? prod.gallery.find((g) => g.main) || prod.gallery[0]
+    : null;
+  if (!main) return null;
+  const raw = main.url || main.urlS3;
   if (!raw) return null;
   if (/^https?:\/\//i.test(raw)) return raw;
   return `${CLOUDFRONT}/${String(raw).replace(/^\/+/, "")}`;
