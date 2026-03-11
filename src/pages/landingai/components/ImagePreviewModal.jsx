@@ -18,10 +18,17 @@ const ImagePreviewModal = ({ open, onClose, result }) => {
     result.image_url || `data:image/png;base64,${result.image_base64}`;
 
   const handleDownload = () => {
-    const a = document.createElement("a");
-    a.href = imgSrc;
-    a.download = `landing-${result.etapa?.slug || "ia"}-${Date.now()}.png`;
-    a.click();
+    if (result.image_url) {
+      forceDownload(result.image_url, fileName);
+    } else {
+      // base64 directo
+      const a = document.createElement("a");
+      a.href = imgSrc;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   };
 
   return (

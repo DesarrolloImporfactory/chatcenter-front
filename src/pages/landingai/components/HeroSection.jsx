@@ -65,12 +65,6 @@ const HeroSection = ({ usage, step, onShowHistory }) => {
                 {usage.plan}
               </span>
             )}
-            <button
-              onClick={onShowHistory}
-              className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white transition-all px-4 py-2 rounded-xl text-xs font-bold"
-            >
-              <i className="bx bx-history text-sm" /> Mi historial
-            </button>
           </div>
         </div>
 

@@ -45,6 +45,9 @@ import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
 import Calendario from "./pages/calendario/Calendario";
 import LandingAi from "./pages/landingai/LandingAi";
+import InstaLandingHistorial from "./pages/landingai/HistorialPage";
+import InstaLandingProductos from "./pages/landingai/ProductsPage";
+import ProductDetallePage from "./pages/landingai/ProductDetallePage";
 import LandingAiAdmin from "./pages/landingai/LandingAiAdmin";
 
 // Páginas de acceso y registro
@@ -147,7 +150,7 @@ function App() {
 
           {/* Rutas de autenticación */}
           <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
-          
+
           <Route path="/catalogo/:slug" element={<CatalogoPublicoView />} />
 
           {/* Rutas protegidas */}
@@ -163,7 +166,7 @@ function App() {
                     </MainLayout>
                   }
                 />
-                
+
                 <Route
                   path="/dashboard"
                   element={
@@ -195,7 +198,7 @@ function App() {
                     </MainLayout>
                   }
                 />
-                
+
                 {/*generador de imagenes*/}
                 <Route
                   path="/insta_landing"
@@ -211,6 +214,31 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <LandingAiAdmin />
+                    </MainLayout_conexiones>
+                  }
+                />
+                <Route
+                  path="/insta_landing_historial"
+                  element={
+                    <MainLayout_conexiones>
+                      <InstaLandingHistorial />
+                    </MainLayout_conexiones>
+                  }
+                />
+                <Route
+                  path="/insta_landing_productos"
+                  element={
+                    <MainLayout_conexiones>
+                      <InstaLandingProductos />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                <Route
+                  path="/insta_landing_productos/:id"
+                  element={
+                    <MainLayout_conexiones>
+                      <ProductDetallePage />
                     </MainLayout_conexiones>
                   }
                 />
@@ -430,7 +458,7 @@ function App() {
                     </MainLayout>
                   }
                 />
-                
+
                 <Route
                   path="/catalogos"
                   element={

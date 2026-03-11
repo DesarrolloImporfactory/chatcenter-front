@@ -97,12 +97,14 @@ const StepResults = ({
     a.click();
   };
 
-  const handleDownloadAll = () => {
-    results.forEach((r, i) => {
-      if (!r.success) return;
+  const handleDownloadAll = async () => {
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (!r.success) continue;
       const src = r.image_url || `data:image/png;base64,${r.image_base64}`;
-      setTimeout(() => handleDownload(src), i * 400);
-    });
+      await handleDownload(src);
+      await new Promise((res) => setTimeout(res, 500));
+    }
   };
 
   const handleEditRegenerate = (result, promptExtra) => {

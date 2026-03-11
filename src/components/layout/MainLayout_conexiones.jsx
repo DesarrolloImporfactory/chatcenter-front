@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 
 function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null);
 
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -163,6 +164,17 @@ function MainLayout({ children }) {
   /* ── Active check helper ── */
   const isActive = (path) => location.pathname === path;
 
+  const toggleMenu = (key) => {
+    setOpenMenu((prev) => (prev === key ? null : key));
+  };
+
+  /* ── Auto-expand if on insta_landing routes ── */
+  useEffect(() => {
+    if (location.pathname.startsWith("/insta_landing")) {
+      setOpenMenu("instaLanding");
+    }
+  }, [location.pathname]);
+
   /* ── Reusable nav button ── */
   const NavBtn = ({ path, icon, label, onClick }) => {
     const active = isActive(path);
@@ -224,12 +236,87 @@ function MainLayout({ children }) {
               />
             )}
 
-            {/* Insta Landing */}
-            <NavBtn
-              path={instaLandingPath}
-              icon="bx-image-add"
-              label={instaLandingLabel}
-            />
+            {/* ====== Insta Landing (expandable) ====== */}
+            <div>
+              <button
+                type="button"
+                onClick={() => toggleMenu("instaLanding")}
+                className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                  location.pathname.startsWith("/insta_landing")
+                    ? "bg-gray-200 font-semibold"
+                    : ""
+                }`}
+              >
+                <span className="flex items-center">
+                  <i
+                    className={`bx bx-image-add text-2xl mr-3 transition-colors ${
+                      location.pathname.startsWith("/insta_landing")
+                        ? "text-blue-600"
+                        : "text-gray-600 group-hover:text-blue-600"
+                    }`}
+                  />
+                  <span
+                    className={`text-lg transition-colors group-hover:text-blue-600 ${
+                      location.pathname.startsWith("/insta_landing")
+                        ? "text-blue-600"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    {instaLandingLabel}
+                  </span>
+                </span>
+                <i
+                  className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
+                    openMenu === "instaLanding" ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              <div
+                className="overflow-hidden transition-all duration-[600ms] ease-out"
+                style={{
+                  maxHeight: openMenu === "instaLanding" ? "220px" : "0px",
+                }}
+              >
+                <div className="ml-10 flex flex-col py-2">
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      isActive(instaLandingPath)
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                    onClick={() => navigate(instaLandingPath)}
+                  >
+                    <i className="bx bx-palette text-xl text-gray-600 group-hover:text-blue-600" />
+                    <span>Generador</span>
+                  </button>
+
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      isActive("/insta_landing_historial")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                    onClick={() => navigate("/insta_landing_historial")}
+                  >
+                    <i className="bx bx-history text-xl text-gray-600 group-hover:text-blue-600" />
+                    <span>Historial</span>
+                  </button>
+
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      isActive("/insta_landing_productos")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                    onClick={() => navigate("/insta_landing_productos")}
+                  >
+                    <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600" />
+                    <span>Productos</span>
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Usuarios */}
             <NavBtn path="/usuarios" icon="bx-user" label="Usuarios" />

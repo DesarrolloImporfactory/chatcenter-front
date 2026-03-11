@@ -2,6 +2,23 @@ import React, { useState } from "react";
 
 const MAX_COMBOS = 3;
 
+const MONEDAS = [
+  { code: "USD", symbol: "$", label: "Dólar (USD)", flag: "🇺🇸" },
+  { code: "COP", symbol: "$", label: "Peso Colombiano (COP)", flag: "🇨🇴" },
+  { code: "MXN", symbol: "$", label: "Peso Mexicano (MXN)", flag: "🇲🇽" },
+  { code: "PEN", symbol: "S/", label: "Sol Peruano (PEN)", flag: "🇵🇪" },
+  { code: "ARS", symbol: "$", label: "Peso Argentino (ARS)", flag: "🇦🇷" },
+  { code: "BRL", symbol: "R$", label: "Real Brasileño (BRL)", flag: "🇧🇷" },
+];
+
+const IDIOMAS = [
+  { code: "es", label: "Español", flag: "🇪🇸" },
+  { code: "en", label: "English", flag: "🇺🇸" },
+  { code: "pt", label: "Português", flag: "🇧🇷" },
+  { code: "fr", label: "Français", flag: "🇫🇷" },
+  { code: "zh", label: "中文 (Chino)", flag: "🇨🇳" },
+];
+
 const StepPricing = ({
   description,
   setDescription,
@@ -9,13 +26,29 @@ const StepPricing = ({
   setPricing,
   marca,
   setMarca,
+  moneda,
+  setMoneda,
+  idioma,
+  setIdioma,
   onBack,
   onContinue,
 }) => {
   const [comboError, setComboError] = useState("");
 
+  const currentMoneda = MONEDAS.find((m) => m.code === moneda) || MONEDAS[0];
+
+  // Helper: solo permite números positivos y un punto decimal
+  const sanitizePrice = (val) => {
+    // Quita todo excepto dígitos y punto
+    let clean = val.replace(/[^0-9.]/g, "");
+    // Solo un punto decimal
+    const parts = clean.split(".");
+    if (parts.length > 2) clean = parts[0] + "." + parts.slice(1).join("");
+    return clean;
+  };
+
   const handlePrecioChange = (val) => {
-    setPricing((prev) => ({ ...prev, precio_unitario: val }));
+    setPricing((prev) => ({ ...prev, precio_unitario: sanitizePrice(val) }));
   };
 
   const addCombo = () => {
@@ -33,7 +66,13 @@ const StepPricing = ({
   const updateCombo = (index, field, value) => {
     setPricing((prev) => {
       const combos = [...prev.combos];
-      combos[index] = { ...combos[index], [field]: value };
+      combos[index] = {
+        ...combos[index],
+        [field]:
+          field === "cantidad" || field === "precio"
+            ? sanitizePrice(value)
+            : value,
+      };
       return { ...prev, combos };
     });
   };
@@ -68,7 +107,7 @@ const StepPricing = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Descripción */}
+        {/* ── Col izquierda: Descripción ── */}
         <div className="lg:col-span-3 space-y-4">
           <div>
             <div className="mb-3">
@@ -100,9 +139,62 @@ const StepPricing = ({
               imágenes generadas
             </p>
           </div>
+
+          {/* ── Moneda + Idioma ── */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Moneda */}
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                <i className="bx bx-coin-stack mr-1 text-xs" />
+                Moneda
+              </label>
+              <div className="relative">
+                <select
+                  value={moneda}
+                  onChange={(e) => setMoneda(e.target.value)}
+                  className="w-full appearance-none border border-gray-200 rounded-xl pl-10 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 bg-gray-50 focus:bg-white transition cursor-pointer"
+                >
+                  {MONEDAS.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.flag} {m.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base pointer-events-none">
+                  {currentMoneda.flag}
+                </span>
+                <i className="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Idioma */}
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                <i className="bx bx-globe mr-1 text-xs" />
+                Idioma de textos
+              </label>
+              <div className="relative">
+                <select
+                  value={idioma}
+                  onChange={(e) => setIdioma(e.target.value)}
+                  className="w-full appearance-none border border-gray-200 rounded-xl pl-10 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 bg-gray-50 focus:bg-white transition cursor-pointer"
+                >
+                  {IDIOMAS.map((i) => (
+                    <option key={i.code} value={i.code}>
+                      {i.flag} {i.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base pointer-events-none">
+                  {IDIOMAS.find((i) => i.code === idioma)?.flag || "🌐"}
+                </span>
+                <i className="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Precios */}
+        {/* ── Col derecha: Precios ── */}
         <div className="lg:col-span-2 space-y-4">
           <div>
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -113,15 +205,19 @@ const StepPricing = ({
             </label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">
-                $
+                {currentMoneda.symbol}
               </span>
               <input
                 type="text"
+                inputMode="decimal"
                 value={pricing.precio_unitario}
                 onChange={(e) => handlePrecioChange(e.target.value)}
                 placeholder="29.99"
                 className="w-full border border-gray-200 rounded-xl pl-8 pr-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-300 bg-gray-50 focus:bg-white transition"
               />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400">
+                {moneda}
+              </span>
             </div>
           </div>
 
@@ -160,7 +256,7 @@ const StepPricing = ({
                     </span>
                     <div className="relative flex-1">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
-                        $
+                        {currentMoneda.symbol}
                       </span>
                       <input
                         type="text"
@@ -203,12 +299,13 @@ const StepPricing = ({
               <div className="mt-3 p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100">
                 <p className="text-[10px] font-bold text-indigo-600 mb-1">
                   <i className="bx bx-tag-alt mr-1" />
-                  La IA usará estos precios:
+                  La IA usará estos precios ({moneda}):
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {pricing.precio_unitario && (
                     <span className="px-2 py-0.5 rounded-md bg-white border border-indigo-100 text-[10px] font-semibold text-gray-700">
-                      1x ${pricing.precio_unitario}
+                      1x {currentMoneda.symbol}
+                      {pricing.precio_unitario}
                     </span>
                   )}
                   {pricing.combos
@@ -218,7 +315,8 @@ const StepPricing = ({
                         key={i}
                         className="px-2 py-0.5 rounded-md bg-white border border-indigo-100 text-[10px] font-semibold text-gray-700"
                       >
-                        {c.cantidad}x ${c.precio}
+                        {c.cantidad}x {currentMoneda.symbol}
+                        {c.precio}
                       </span>
                     ))}
                 </div>
