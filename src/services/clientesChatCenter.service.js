@@ -20,7 +20,7 @@ function mapRow(row) {
     row.conversation_id ?? row.thread_id ?? row.id_conversation ?? "";
 
   // 👇 NUEVO: “contacto visible” para UI (WhatsApp o IG/MS)
-  const telefonoLimpio = row.telefono_limpio || "";
+  const telefonoLimpio = row.celular_cliente || "";
   const telefono = row.celular_cliente || "";
   const display_contact =
     telefonoLimpio || telefono || externalId || pageId || convId || "";

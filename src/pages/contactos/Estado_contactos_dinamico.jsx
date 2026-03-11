@@ -512,7 +512,7 @@ const Estado_contactos = () => {
       [contacto.nombre_cliente, contacto.apellido_cliente]
         .filter(Boolean)
         .join(" ") || "Sin nombre";
-    const telefono = contacto.telefono_limpio || null;
+    const telefono = contacto.celular_cliente || null;
     const botColor = contacto.bot_openia === 1 ? "#2ECC71" : "#E74C3C";
     return (
       <div

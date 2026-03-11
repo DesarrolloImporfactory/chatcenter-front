@@ -108,7 +108,7 @@ const initials = (n, a) => {
 };
 
 function getDisplayContact(c) {
-  const phone = String(c?.telefono_limpio || c?.telefono || "").trim();
+  const phone = String(c?.celular_cliente || c?.telefono || "").trim();
   if (phone) return phone;
 
   const ext = String(c?.external_id || c?._raw?.external_id || "").trim();
@@ -144,10 +144,10 @@ function mapRow(row) {
   const convId =
     row.conversation_id ?? row.thread_id ?? row.id_conversation ?? "";
 
-  const telefonoLimpio = row.telefono_limpio || "";
+  const telefonoLimpio = row.celular_cliente || "";
   const telefono = row.celular_cliente || "";
   const display_contact =
-    telefonoLimpio || telefono || externalId || pageId || convId || "";
+    telefono || externalId || pageId || convId || "";
 
   return {
     id: chatId,
@@ -1603,7 +1603,7 @@ export default function Contactos() {
         continue;
       }
 
-      const recipientPhone = recipient.telefono_limpio;
+      const recipientPhone = recipient.celular_cliente;
       if (!recipientPhone) {
         fallidos.push(`ID: ${recipientId}, Teléfono no disponible`);
         continue;
@@ -2284,7 +2284,7 @@ export default function Contactos() {
       if (phoneLike) {
         mappedFiltered = mapped.filter((c) => {
           const t1 = normalizePhone(c.telefono || "");
-          const t2 = normalizePhone(c.telefono_limpio || "");
+          const t2 = normalizePhone(c.celular_cliente || "");
           return t1.includes(qPhone) || t2.includes(qPhone);
         });
       } else if (qOriginal?.trim()) {
@@ -2804,7 +2804,7 @@ export default function Contactos() {
 
       const body_json = {
         messaging_product: "whatsapp",
-        to: recipientEjemplo?.telefono_limpio || "0000000000", // solo referencia para parseo backend
+        to: recipientEjemplo?.celular_cliente || "0000000000", // solo referencia para parseo backend
         type: "template",
         template: {
           name: templateName,
