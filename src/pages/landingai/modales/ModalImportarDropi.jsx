@@ -27,16 +27,16 @@ const Spin = ({ sm }) => (
   </svg>
 );
 
+const CLOUDFRONT = "https://d39ru7awumhhs2.cloudfront.net";
+
 const getDropiImg = (prod) => {
   const imgs = [...(prod?.photos || []), ...(prod?.gallery || [])];
   const m = imgs.find((g) => g.main) || imgs[0];
   if (!m) return null;
-  return (
-    m.url ||
-    (m.urlS3
-      ? `https://d39ru7awumhhs2.cloudfront.net/${m.urlS3.replace(/^\//, "")}`
-      : null)
-  );
+  const raw = m.url || m.urlS3;
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `${CLOUDFRONT}/${String(raw).replace(/^\/+/, "")}`;
 };
 
 /**
