@@ -223,13 +223,22 @@ const ProductsPage = () => {
     setDropiLoading(true);
     setDropiProductos([]);
     try {
+      // DESPUÉS
       const payload = negocio?._userIntegration
-        ? { keywords: search, pageSize: 40, startData: 0 }
+        ? {
+            keywords: search,
+            pageSize: 40,
+            startData: 0,
+            order_by: "id",
+            order_type: "desc",
+          }
         : {
             id_configuracion: negocio.id,
             keywords: search,
             pageSize: 40,
             startData: 0,
+            order_by: "id",
+            order_type: "desc",
           };
       const res = await chatApi.post("gemini/dropi/productos", payload);
       const items = res.data?.data?.objects || res.data?.data || [];
