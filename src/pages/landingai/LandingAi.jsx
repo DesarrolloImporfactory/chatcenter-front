@@ -70,6 +70,7 @@ const LandingAi = () => {
 
   // ── Background templates ──
   const [bgTemplates, setBgTemplates] = useState([]);
+  const [etapas, setEtapas] = useState([]);
 
   const stepRef = useRef(null);
 
@@ -79,7 +80,7 @@ const LandingAi = () => {
     }, 60);
   }, []);
 
-  // ── Fetch initial data ──
+  // ── Un solo fetch que alimenta el modal ──
   useEffect(() => {
     chatApi
       .get("gemini/usage")
@@ -93,10 +94,17 @@ const LandingAi = () => {
         if (r.data?.data) setBgTemplates(r.data.data);
       })
       .catch(() => {});
+    chatApi
+      .get("gemini/etapas")
+      .then((r) => {
+        if (r.data?.data) setEtapas(r.data.data);
+      })
+      .catch(() => {});
   }, []);
 
-  // ── Handlers ──
+  //solo al montar
 
+  // ── Handlers ──
   const handleTemplateConfirm = ({ template, etapas, mode }) => {
     setSelectedConfig({ template, etapas, mode });
     setShowTemplateModal(false);
@@ -369,6 +377,8 @@ const LandingAi = () => {
         open={showTemplateModal}
         onClose={() => setShowTemplateModal(false)}
         onConfirm={handleTemplateConfirm}
+        templates={bgTemplates}
+        etapas={etapas}
       />
       <HistorialModal
         open={showHistory}

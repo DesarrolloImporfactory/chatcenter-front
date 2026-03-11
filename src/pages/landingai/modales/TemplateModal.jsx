@@ -1,56 +1,28 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import chatApi from "../../../api/chatcenter";
 
-/**
- * TemplateModal
- *
- * Props:
- *   open       (bool)
- *   onClose    ()
- *   onConfirm  ({ template, etapas, mode }) → parent proceeds
- */
-const TemplateModal = ({ open, onClose, onConfirm }) => {
-  // ── Data from API
-  const [templates, setTemplates] = useState([]);
-  const [etapas, setEtapas] = useState([]);
-  const [loadingData, setLoadingData] = useState(true);
-
+const TemplateModal = ({
+  open,
+  onClose,
+  onConfirm,
+  templates = [],
+  etapas = [],
+}) => {
   // ── UI State
   const [activeTab, setActiveTab] = useState(null); // id_etapa for filtering
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [modalStep, setModalStep] = useState("gallery"); // 'gallery' | 'etapas'
   const [selectedEtapas, setSelectedEtapas] = useState([]);
+  const loadingData = templates.length === 0 || etapas.length === 0;
 
   const tabsRef = useRef(null);
 
-  // ── Fetch data
-  const fetchData = useCallback(async () => {
-    setLoadingData(true);
-    try {
-      const [tRes, eRes] = await Promise.all([
-        chatApi.get("gemini/templates"),
-        chatApi.get("gemini/etapas"),
-      ]);
-      if (tRes.data?.data) setTemplates(tRes.data.data);
-      if (eRes.data?.data) {
-        setEtapas(eRes.data.data);
-        if (eRes.data.data.length > 0) setActiveTab(eRes.data.data[0].id);
-      }
-    } catch {
-      /* silencioso */
-    } finally {
-      setLoadingData(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (open) {
-      fetchData();
       setSelectedTemplate(null);
       setModalStep("gallery");
       setSelectedEtapas([]);
     }
-  }, [open, fetchData]);
+  }, [open]);
 
   // Pre-select recommended stages when going to step 2
   const goToEtapasStep = () => {
@@ -95,6 +67,15 @@ const TemplateModal = ({ open, onClose, onConfirm }) => {
     : templates;
 
   const activeEtapa = etapas.find((e) => e.id === activeTab);
+
+  useEffect(() => {
+    if (open) {
+      setSelectedTemplate(null);
+      setModalStep("gallery");
+      setSelectedEtapas([]);
+      if (etapas.length > 0) setActiveTab(etapas[0].id); // ← esto faltaba
+    }
+  }, [open, etapas]);
 
   if (!open) return null;
 
@@ -279,7 +260,6 @@ const TemplateModal = ({ open, onClose, onConfirm }) => {
                             className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             loading="lazy"
                           />
-
                           {active && (
                             <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-600 text-white grid place-items-center">
                               <i className="bx bx-check text-sm" />
