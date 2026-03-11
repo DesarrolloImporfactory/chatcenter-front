@@ -90,7 +90,7 @@ const Cabecera = ({
     if (["/productos", "/categorias"].includes(location.pathname)) {
       setOpenMenu("productos");
     } else if (["/calendario"].includes(location.pathname)) {
-      setOpenMenu("herramientas");
+      setOpenMenu("agentes");
     } else if (
       ["/canal-conexiones", "/dropi", "/asistentes"].includes(location.pathname)
     ) {
@@ -115,15 +115,17 @@ const Cabecera = ({
   };
 
   const rutaEstados =
-  tipo_configuracion === "ventas"
-    ? "/estados_contactos_ventas"
-    : tipo_configuracion === "eventos"
-      ? "/estados_contactos_eventos"
-      : tipo_configuracion === "imporshop"
-        ? "/estados_contactos_imporshop"
-        : tipo_configuracion === "imporshop_proveedor"
-          ? "/estados_contactos_imporshop_proveedor"
-          : "/estados_contactos";
+    tipo_configuracion === "ventas"
+      ? "/estados_contactos_ventas"
+      : tipo_configuracion === "eventos"
+        ? "/estados_contactos_eventos"
+        : tipo_configuracion === "imporshop"
+          ? "/estados_contactos_imporshop"
+          : tipo_configuracion === "kanban"
+            ? "/estado_contactos_dinamico"
+            : tipo_configuracion === "imporshop_proveedor"
+              ? "/estados_contactos_imporshop_proveedor"
+              : "/estados_contactos";
 
   const handleCalendarioClick = (e) => {
     e.preventDefault();
@@ -147,6 +149,15 @@ const Cabecera = ({
         if (r.isConfirmed) navigate("/planes");
       });
     }
+  };
+
+  const handleKanbanConfigClick = (e) => {
+    e.preventDefault();
+
+    localStorage.setItem("id_configuracion", id_configuracion);
+    localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
+
+    navigate("/kanban_config");
   };
 
   // =========================================================
@@ -748,11 +759,11 @@ const Cabecera = ({
             </div>
           </div>
 
-          {/* ====== Herramientas ====== */}
+          {/* ====== Agentes ====== */}
           <div>
             <button
               type="button"
-              onClick={() => toggleMenu("herramientas")}
+              onClick={() => toggleMenu("agentes")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                 ["/calendario"].includes(location.pathname)
                   ? "bg-gray-200 font-semibold"
@@ -762,13 +773,13 @@ const Cabecera = ({
               <span className="flex items-center">
                 <i className="bx bx-cog text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
                 <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                  Herramientas
+                  Agentes
                 </span>
               </span>
 
               <i
                 className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
-                  openMenu === "herramientas" ? "rotate-180" : ""
+                  openMenu === "agentes" ? "rotate-180" : ""
                 }`}
               />
             </button>
@@ -776,7 +787,7 @@ const Cabecera = ({
             <div
               className="overflow-hidden transition-all duration-[600ms] ease-out"
               style={{
-                maxHeight: openMenu === "herramientas" ? "360px" : "0px",
+                maxHeight: openMenu === "agentes" ? "360px" : "0px",
               }}
             >
               <div className="ml-10 flex flex-col py-2">
@@ -811,6 +822,30 @@ const Cabecera = ({
                   </span>
                 </button>
               </div>
+
+              {tipo_configuracion === "kanban" && (
+                <div className="ml-10 flex flex-col py-2">
+                  <button
+                    className={`group flex items-center gap-3 text-left px-4 py-2 ${
+                      location.pathname === "/kanban_config"
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                    onClick={(e) => {
+                      handleKanbanConfigClick(e);
+                      setSliderOpen(false);
+                    }}
+                  >
+                    <i
+                      className={`bx text-xl ${"bx-calendar text-gray-600 group-hover:text-blue-600"}`}
+                    ></i>
+
+                    <span className="flex items-center gap-2">
+                      Configurar agentes
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
