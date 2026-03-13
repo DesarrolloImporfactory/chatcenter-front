@@ -22,7 +22,9 @@ const FORM_INIT = {
   descripcion: "",
   marca: "",
   moneda: "USD",
+  idioma: "es",
   precio_unitario: "",
+  combos: [],
 };
 
 const ProductsPage = () => {
@@ -107,6 +109,35 @@ const ProductsPage = () => {
     }
   };
 
+  /* ════════ NAVIGATE TO FULL GENERATOR ════════ */
+  const goToFullGenerator = (p) => {
+    // Parsear combos si viene como string
+    let combos = [];
+    if (p.combos) {
+      try {
+        combos = typeof p.combos === "string" ? JSON.parse(p.combos) : p.combos;
+        if (!Array.isArray(combos)) combos = [];
+      } catch {
+        combos = [];
+      }
+    }
+
+    navigate("/insta_landing", {
+      state: {
+        fromProducto: true,
+        id_producto: p.id,
+        nombre: p.nombre || "",
+        descripcion: p.descripcion || "",
+        marca: p.marca || "",
+        moneda: p.moneda || "USD",
+        idioma: p.idioma || "es",
+        precio_unitario: p.precio_unitario || "",
+        combos,
+        imagen_portada: p.imagen_portada || null,
+      },
+    });
+  };
+
   /* ════════ CRUD ════════ */
   const resetForm = () => {
     setForm(FORM_INIT);
@@ -123,12 +154,25 @@ const ProductsPage = () => {
   };
 
   const openEdit = (p) => {
+    // Parsear combos
+    let combos = [];
+    if (p.combos) {
+      try {
+        combos = typeof p.combos === "string" ? JSON.parse(p.combos) : p.combos;
+        if (!Array.isArray(combos)) combos = [];
+      } catch {
+        combos = [];
+      }
+    }
+
     setForm({
       nombre: p.nombre || "",
       descripcion: p.descripcion || "",
       marca: p.marca || "",
       moneda: p.moneda || "USD",
+      idioma: p.idioma || "es",
       precio_unitario: p.precio_unitario || "",
+      combos,
     });
     setEditingProduct(p);
     setPortadaFile(null);
@@ -157,13 +201,25 @@ const ProductsPage = () => {
       return Toast.fire({ icon: "error", title: "El nombre es requerido" });
     setSaving(true);
     try {
+      // Incluir idioma y combos en el payload
+      const payload = {
+        nombre: form.nombre,
+        descripcion: form.descripcion,
+        marca: form.marca,
+        moneda: form.moneda,
+        idioma: form.idioma,
+        precio_unitario: form.precio_unitario,
+        combos: form.combos,
+      };
+
       let productoId = editingProduct?.id;
       if (editingProduct) {
-        await chatApi.put(`gemini/productos/${editingProduct.id}`, form);
+        await chatApi.put(`gemini/productos/${editingProduct.id}`, payload);
       } else {
-        const r = await chatApi.post("gemini/productos", form);
+        const r = await chatApi.post("gemini/productos", payload);
         productoId = r.data?.data?.id;
       }
+
       if (portadaFile && productoId) {
         const fd = new FormData();
         fd.append("imagen_portada", portadaFile);
@@ -181,6 +237,7 @@ const ProductsPage = () => {
           image_url: null,
         });
       }
+
       Toast.fire({
         icon: "success",
         title: editingProduct ? "Producto actualizado" : "Producto creado",
@@ -223,7 +280,6 @@ const ProductsPage = () => {
     setDropiLoading(true);
     setDropiProductos([]);
     try {
-      // DESPUÉS
       const payload = negocio?._userIntegration
         ? {
             keywords: search,
@@ -418,7 +474,7 @@ const ProductsPage = () => {
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-              {/* ── Importar desde Dropi — naranja ── */}
+              {/* ── Importar desde Dropi ── */}
               <button
                 onClick={openDropiModal}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
@@ -439,7 +495,7 @@ const ProductsPage = () => {
                 <span className="font-black">Dropi</span>
               </button>
 
-              {/* ── Vincular Dropi — naranja desconectado / verde conectado ── */}
+              {/* ── Vincular Dropi ── */}
               <button
                 onClick={() => setDropiLinkModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
@@ -472,7 +528,7 @@ const ProductsPage = () => {
                 <span className="sm:hidden">Dropi</span>
               </button>
 
-              {/* ── Nuevo producto — violeta ── */}
+              {/* ── Nuevo producto ── */}
               <button
                 onClick={openCreate}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95 hover:brightness-110"
@@ -602,6 +658,7 @@ const ProductsPage = () => {
               onEdit={() => openEdit(p)}
               onDelete={() => handleDelete(p)}
               onAlimentar={() => openAlimentarModal(p)}
+              onGenerateComplete={() => goToFullGenerator(p)}
             />
           ))}
           <button

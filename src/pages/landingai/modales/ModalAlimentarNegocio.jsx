@@ -115,7 +115,7 @@ const ModalAlimentarNegocio = ({
           </div>
 
           <p className="text-xs font-semibold text-gray-500 mb-3">
-            ¿A qué negocio deseas exportar?
+            ¿A qué negocio deseas exportar este producto?
           </p>
 
           {negociosLoading ? (

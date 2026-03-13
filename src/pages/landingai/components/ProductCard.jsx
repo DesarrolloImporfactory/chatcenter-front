@@ -9,13 +9,17 @@ const formatDate = (dateStr) => {
   });
 };
 
-const ActionBtn = ({ icon, title, onClick, danger }) => (
+const ActionBtn = ({ icon, title, onClick, danger, color }) => (
   <button
     onClick={onClick}
     title={title}
     className="w-7 h-7 rounded-lg grid place-items-center transition-colors active:scale-90"
     onMouseEnter={(e) => {
-      e.currentTarget.style.background = danger ? "#fef2f2" : "#f1f5f9";
+      e.currentTarget.style.background = danger
+        ? "#fef2f2"
+        : color
+          ? `${color}15`
+          : "#f1f5f9";
     }}
     onMouseLeave={(e) => {
       e.currentTarget.style.background = "transparent";
@@ -23,12 +27,19 @@ const ActionBtn = ({ icon, title, onClick, danger }) => (
   >
     <i
       className={`bx ${icon} text-sm`}
-      style={{ color: danger ? "#fca5a5" : "#94a3b8" }}
+      style={{ color: danger ? "#fca5a5" : color || "#94a3b8" }}
     />
   </button>
 );
 
-const ProductCard = ({ p, onNavigate, onEdit, onDelete, onAlimentar }) => {
+const ProductCard = ({
+  p,
+  onNavigate,
+  onEdit,
+  onDelete,
+  onAlimentar,
+  onGenerateComplete,
+}) => {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -93,10 +104,10 @@ const ProductCard = ({ p, onNavigate, onEdit, onDelete, onAlimentar }) => {
             color: "#a5b4fc",
           }}
         >
-          <i className="bx bx-image text-xs" /> {p.total_generaciones}
+          <i className="bx bx-image text-xs" /> {p.total_generaciones || 0}
         </div>
 
-        {/* Badge Dropi — naranja */}
+        {/* Badge Dropi */}
         {p.external_source && (
           <div
             className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase"
@@ -136,9 +147,9 @@ const ProductCard = ({ p, onNavigate, onEdit, onDelete, onAlimentar }) => {
           </p>
         )}
 
-        {/* CTA alimentar */}
+        {/* CTA — Generar landing completa (mismo estilo que el antiguo "Alimentar negocio con IA") */}
         <button
-          onClick={onAlimentar}
+          onClick={onGenerateComplete}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-bold transition-all active:scale-[0.97] mt-2 mb-3"
           style={{
             background:
@@ -155,7 +166,7 @@ const ProductCard = ({ p, onNavigate, onEdit, onDelete, onAlimentar }) => {
               "linear-gradient(135deg, rgba(99,102,241,0.07), rgba(79,70,229,0.07))";
           }}
         >
-          <i className="bx bxs-zap text-xs" /> Alimentar negocio con IA
+          <i className="bx bx-bolt-circle text-xs" /> Generar landing completa
         </button>
 
         {/* Footer */}
@@ -167,6 +178,12 @@ const ProductCard = ({ p, onNavigate, onEdit, onDelete, onAlimentar }) => {
             {formatDate(p.created_at)}
           </span>
           <div className="flex items-center gap-0.5">
+            <ActionBtn
+              icon="bxs-zap"
+              title="Alimentar negocio con IA"
+              onClick={onAlimentar}
+              color="#f59e0b"
+            />
             <ActionBtn icon="bx-edit-alt" title="Editar" onClick={onEdit} />
             <ActionBtn
               icon="bx-trash"

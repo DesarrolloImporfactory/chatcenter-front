@@ -42,15 +42,6 @@ const forceDownload = async (url) => {
 const ITEMS_PER_PAGE = 9;
 
 /* ── MINI COMPONENTS ── */
-const InfoRow = ({ label, value }) => (
-  <div className="flex items-center justify-between">
-    <span className="text-[11px] text-gray-400">{label}</span>
-    <span className="text-[11px] font-semibold text-gray-600 truncate ml-3 max-w-[180px] text-right">
-      {value}
-    </span>
-  </div>
-);
-
 const EmptyState = ({ onOpenGen, onGoFull }) => (
   <div className="flex flex-col items-center justify-center py-20 gap-4">
     <div
@@ -230,7 +221,7 @@ const ProductoDetallePage = () => {
 
   // Generator wizard
   const [genOpen, setGenOpen] = useState(false);
-  const [genStep, setGenStep] = useState(1); // 1 | 2 | 3
+  const [genStep, setGenStep] = useState(1);
   const [templates, setTemplates] = useState([]);
   const [etapas, setEtapas] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -292,6 +283,7 @@ const ProductoDetallePage = () => {
       .catch(() => {});
   }, [fetchProducto]);
 
+  // ── Cargar portada al abrir generador (con CORS fallback) ──
   useEffect(() => {
     if (
       producto?.imagen_portada &&
@@ -300,17 +292,27 @@ const ProductoDetallePage = () => {
       userImages.length === 0
     ) {
       portadaLoadedRef.current = true;
-      fetch(producto.imagen_portada, { mode: "cors" })
+      const createFileAndSet = (blob) => {
+        const file = new File([blob], "portada.png", {
+          type: blob.type || "image/png",
+        });
+        setUserImages([
+          { file, preview: producto.imagen_portada, fromProduct: true },
+        ]);
+      };
+      fetch(producto.imagen_portada)
         .then((r) => r.blob())
-        .then((blob) => {
-          const file = new File([blob], "portada.png", {
-            type: blob.type || "image/png",
-          });
+        .then(createFileAndSet)
+        .catch(() => {
           setUserImages([
-            { file, preview: producto.imagen_portada, fromProduct: true },
+            {
+              file: null,
+              remoteUrl: producto.imagen_portada,
+              preview: producto.imagen_portada,
+              fromProduct: true,
+            },
           ]);
-        })
-        .catch(() => {});
+        });
     }
     if (!genOpen) portadaLoadedRef.current = false;
   }, [producto, genOpen]);
@@ -342,7 +344,8 @@ const ProductoDetallePage = () => {
   const removeImage = (i) => {
     setUserImages((prev) => {
       const c = [...prev];
-      if (!c[i].fromProduct) URL.revokeObjectURL(c[i].preview);
+      if (!c[i].fromProduct && c[i].preview?.startsWith("blob:"))
+        URL.revokeObjectURL(c[i].preview);
       c.splice(i, 1);
       return c;
     });
@@ -354,7 +357,6 @@ const ProductoDetallePage = () => {
         ? prev.filter((e) => e.id !== et.id)
         : [...prev, et],
     );
-
   const selectAllEtapas = () =>
     setSelectedEtapas(
       selectedEtapas.length === etapas.length ? [] : [...etapas],
@@ -368,10 +370,23 @@ const ProductoDetallePage = () => {
     setUserImages([]);
   };
 
-  /* ── Generate ── */
+  /* ── Helper: append images ── */
+  const appendUserImages = (fd) => {
+    const remoteUrls = [];
+    userImages.forEach((img) => {
+      if (img.file) fd.append("user_images", img.file);
+      else if (img.remoteUrl) remoteUrls.push(img.remoteUrl);
+    });
+    if (remoteUrls.length > 0)
+      fd.append("user_image_urls", JSON.stringify(remoteUrls));
+  };
+
+  const hasPortada = !!producto?.imagen_portada;
+
+  /* ── Quick Generate ── */
   const handleQuickGenerate = async () => {
     if (!selectedTemplate || !userImages.length || !selectedEtapas.length)
-      return Toast.fire({ icon: "error", title: "Completa los 3 pasos" });
+      return Toast.fire({ icon: "error", title: "Completa los pasos" });
     if (usage.limit > 0 && usage.remaining < selectedEtapas.length)
       return Toast.fire({
         icon: "error",
@@ -401,11 +416,10 @@ const ProductoDetallePage = () => {
         fd.append("aspect_ratio", "9:16");
         fd.append("marca", producto.marca || "");
         fd.append("moneda", producto.moneda || "USD");
+        fd.append("idioma", producto.idioma || "es");
         fd.append("id_producto", String(id));
         fd.append("pricing", JSON.stringify(pricing));
-        userImages.forEach((img) => {
-          if (img.file) fd.append("user_images", img.file);
-        });
+        appendUserImages(fd);
         const res = await chatApi.post("gemini/generar-etapa", fd, {
           headers: { "Content-Type": "multipart/form-data" },
           timeout: 150000,
@@ -440,6 +454,18 @@ const ProductoDetallePage = () => {
   };
 
   const goToFullGenerator = () => {
+    let combos = [];
+    if (producto?.combos) {
+      try {
+        combos =
+          typeof producto.combos === "string"
+            ? JSON.parse(producto.combos)
+            : producto.combos;
+        if (!Array.isArray(combos)) combos = [];
+      } catch {
+        combos = [];
+      }
+    }
     navigate("/insta_landing", {
       state: {
         fromProducto: true,
@@ -448,8 +474,9 @@ const ProductoDetallePage = () => {
         descripcion: producto?.descripcion || "",
         marca: producto?.marca || "",
         moneda: producto?.moneda || "USD",
+        idioma: producto?.idioma || "es",
         precio_unitario: producto?.precio_unitario || "",
-        combos: producto?.combos || [],
+        combos,
         imagen_portada: producto?.imagen_portada || null,
       },
     });
@@ -473,7 +500,7 @@ const ProductoDetallePage = () => {
   );
   const displayTemplates = showAllTemplates
     ? filteredTemplates
-    : filteredTemplates.slice(0, 20);
+    : filteredTemplates.slice(0, 12);
 
   const getPaginationRange = () => {
     const { page, pages } = pagination;
@@ -523,6 +550,9 @@ const ProductoDetallePage = () => {
         <p className="text-sm text-gray-500">Producto no encontrado</p>
       </div>
     );
+
+  /* ── Wizard step number for sections (depends on hasPortada) ── */
+  const seccionesStep = hasPortada ? 2 : 3;
 
   /* ── RENDER ── */
   return (
@@ -647,14 +677,14 @@ const ProductoDetallePage = () => {
                 }}
               >
                 <i className="bx bx-expand text-sm" />
-                <span className="hidden sm:inline">Completo</span>
+                <span className="hidden sm:inline">Landing Completa</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* GENERATOR PANEL */}
+      {/* ══════════════ GENERATOR PANEL ══════════════ */}
       {genOpen && (
         <div
           className="mt-3 rounded-2xl overflow-hidden"
@@ -664,161 +694,67 @@ const ProductoDetallePage = () => {
             boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
           }}
         >
-          {/* STATE: GENERATING */}
+          {/* ── GENERATING STATE ── */}
           {generating && (
-            <div
-              style={{
-                minHeight: 400,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 28,
-                padding: "48px 24px",
-              }}
-            >
-              <div style={{ position: "relative", width: 110, height: 110 }}>
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: "absolute",
-                      inset: i * -20,
-                      borderRadius: "50%",
-                      border: `1.5px solid rgba(99,102,241,${0.22 - i * 0.06})`,
-                      animation: `gRing ${3.5 + i * 0.8}s ease-in-out infinite`,
-                      animationDelay: `${i * 0.5}s`,
-                    }}
-                  ></div>
-                ))}
+            <div className="flex flex-col items-center justify-center gap-6 py-12 px-6">
+              <div className="relative w-20 h-20">
                 <div
+                  className="absolute inset-0 rounded-full"
                   style={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: "50%",
-                    background:
-                      "linear-gradient(135deg,#6366f1 0%,#38bdf8 55%,#67e8f9 100%)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 0 48px rgba(56,189,248,.45)",
+                    background: "linear-gradient(135deg,#6366f1,#38bdf8)",
                     animation: "gPulse 2.2s ease-in-out infinite",
                   }}
                 >
-                  <i
-                    className="bx bx-magic-wand"
-                    style={{ fontSize: 38, color: "white" }}
-                  />
+                  <div className="w-full h-full grid place-items-center">
+                    <i className="bx bx-magic-wand text-3xl text-white" />
+                  </div>
                 </div>
               </div>
-              <div style={{ textAlign: "center", maxWidth: 360 }}>
-                <p
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 900,
-                    color: "#111827",
-                    margin: "0 0 8px",
-                  }}
-                >
-                  La IA está creando tu landing
-                </p>
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: "#6b7280",
-                    margin: "0 0 20px",
-                    lineHeight: 1.65,
-                  }}
-                >
+              <div className="text-center">
+                <p className="text-base font-black text-gray-800">
                   Generando sección{" "}
-                  <span style={{ color: "#6366f1", fontWeight: 800 }}>
+                  <span style={{ color: "#6366f1" }}>
                     {genProgress.current}/{genProgress.total}
                   </span>
-                  {genProgress.etapa && (
-                    <>
-                      {" "}
-                      —{" "}
-                      <span style={{ color: "#6366f1", fontWeight: 700 }}>
-                        {genProgress.etapa}
-                      </span>
-                    </>
-                  )}
                 </p>
-                <div
-                  style={{ display: "flex", justifyContent: "center", gap: 10 }}
-                >
-                  {[0, 1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      style={{
-                        width: 9,
-                        height: 9,
-                        borderRadius: "50%",
-                        background: i % 2 === 0 ? "#6366f1" : "#38bdf8",
-                        animation: "gDot 1.4s ease-in-out infinite",
-                        animationDelay: `${i * 0.18}s`,
-                      }}
-                    ></div>
-                  ))}
-                </div>
+                {genProgress.etapa && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {genProgress.etapa}
+                  </p>
+                )}
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  flexWrap: "wrap",
-                  justifyContent: "center",
-                  maxWidth: 440,
-                }}
-              >
+              <div className="flex gap-1.5 flex-wrap justify-center max-w-md">
                 {selectedEtapas.map((et, i) => {
                   const done = i < genProgress.current;
                   const active = i === genProgress.current - 1;
                   return (
-                    <div
+                    <span
                       key={et.id}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold"
                       style={{
-                        padding: "5px 14px",
-                        borderRadius: 99,
-                        fontSize: 11,
-                        fontWeight: 700,
                         background: done
                           ? "rgba(56,189,248,.1)"
                           : active
                             ? "rgba(99,102,241,.1)"
-                            : "rgba(0,0,0,.04)",
+                            : "#f1f5f9",
                         color: done
                           ? "#0284c7"
                           : active
                             ? "#6366f1"
                             : "#9ca3af",
-                        border: `1.5px solid ${done ? "rgba(56,189,248,.35)" : active ? "rgba(99,102,241,.35)" : "rgba(0,0,0,.07)"}`,
-                        animation: active
-                          ? "gPill 1.6s ease-in-out infinite"
-                          : "none",
+                        border: `1px solid ${done ? "rgba(56,189,248,.25)" : active ? "rgba(99,102,241,.25)" : "#e2e8f0"}`,
                       }}
                     >
                       {done ? "✓ " : active ? "⟳ " : ""}
                       {et.nombre}
-                    </div>
+                    </span>
                   );
                 })}
               </div>
-              <div
-                style={{
-                  width: "100%",
-                  maxWidth: 360,
-                  height: 5,
-                  borderRadius: 99,
-                  background: "#e2e8f0",
-                  overflow: "hidden",
-                }}
-              >
+              <div className="w-full max-w-xs h-1.5 rounded-full bg-gray-100 overflow-hidden">
                 <div
+                  className="h-full rounded-full transition-all duration-700"
                   style={{
-                    height: "100%",
-                    borderRadius: 99,
-                    transition: "width 0.7s ease-out",
                     width: `${genProgress.total > 0 ? (genProgress.current / genProgress.total) * 100 : 0}%`,
                     background:
                       "linear-gradient(90deg,#6366f1,#3b82f6,#06b6d4)",
@@ -828,30 +764,29 @@ const ProductoDetallePage = () => {
             </div>
           )}
 
-          {/* WIZARD */}
+          {/* ── WIZARD STEPS ── */}
           {!generating && (
-            <div className="p-5 sm:p-6">
-              {/* STEPPER */}
-              <div
-                className="flex items-center gap-2 mb-6 pb-4"
-                style={{ borderBottom: "1px solid #f1f5f9" }}
-              >
+            <div className="p-4 sm:p-5">
+              {/* Mini stepper */}
+              <div className="flex items-center gap-3 mb-4">
                 {[
-                  { n: 1, label: "Template", icon: "bx-palette" },
-                  { n: 2, label: "Fotos", icon: "bx-image-add" },
-                  { n: 3, label: "Secciones", icon: "bx-layer" },
-                ].map((s, idx) => {
+                  { n: 1, label: "Estilo", icon: "bx-palette" },
+                  ...(hasPortada
+                    ? []
+                    : [{ n: 2, label: "Fotos", icon: "bx-image-add" }]),
+                  { n: seccionesStep, label: "Secciones", icon: "bx-layer" },
+                ].map((s, idx, arr) => {
                   const isActive = genStep === s.n;
                   const isDone = genStep > s.n;
                   return (
                     <React.Fragment key={s.n}>
                       <button
                         onClick={() => isDone && setGenStep(s.n)}
-                        className="flex items-center gap-2 transition-all"
+                        className="flex items-center gap-1.5"
                         style={{ cursor: isDone ? "pointer" : "default" }}
                       >
                         <div
-                          className="w-8 h-8 rounded-xl grid place-items-center text-xs font-black transition-all duration-300"
+                          className="w-6 h-6 rounded-lg grid place-items-center text-[10px] font-black transition-all"
                           style={{
                             background: isDone
                               ? "rgba(16,185,129,.1)"
@@ -859,29 +794,26 @@ const ProductoDetallePage = () => {
                                 ? "#6366f1"
                                 : "#f1f5f9",
                             border: isDone
-                              ? "1.5px solid rgba(16,185,129,.25)"
+                              ? "1px solid rgba(16,185,129,.2)"
                               : isActive
                                 ? "none"
-                                : "1.5px solid #e2e8f0",
+                                : "1px solid #e2e8f0",
                             color: isDone
                               ? "#10b981"
                               : isActive
                                 ? "white"
                                 : "#94a3b8",
-                            boxShadow: isActive
-                              ? "0 4px 12px rgba(99,102,241,.35)"
-                              : "none",
                             transform: isActive ? "scale(1.1)" : "scale(1)",
                           }}
                         >
                           {isDone ? (
-                            <i className="bx bx-check text-sm" />
+                            <i className="bx bx-check text-xs" />
                           ) : (
-                            <i className={`bx ${s.icon} text-sm`} />
+                            <i className={`bx ${s.icon} text-xs`} />
                           )}
                         </div>
                         <span
-                          className="text-[11px] font-bold hidden sm:block transition-colors"
+                          className="text-[10px] font-bold hidden sm:block"
                           style={{
                             color: isDone
                               ? "#10b981"
@@ -893,63 +825,61 @@ const ProductoDetallePage = () => {
                           {s.label}
                         </span>
                       </button>
-                      {idx < 2 && (
+                      {idx < arr.length - 1 && (
                         <div
-                          className="flex-1 h-px transition-all duration-500"
+                          className="flex-1 h-px"
                           style={{
                             background:
                               genStep > s.n
-                                ? "rgba(16,185,129,.3)"
-                                : genStep === s.n
-                                  ? "rgba(99,102,241,.2)"
-                                  : "#e2e8f0",
+                                ? "rgba(16,185,129,.25)"
+                                : "#e2e8f0",
                           }}
                         ></div>
                       )}
                     </React.Fragment>
                   );
                 })}
-                <div
-                  className="ml-2 hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg shrink-0"
-                  style={{
-                    background: "rgba(16,185,129,.06)",
-                    border: "1px solid rgba(16,185,129,.12)",
-                  }}
-                >
-                  <i
-                    className="bx bx-check-circle text-xs"
-                    style={{ color: "#10b981" }}
-                  />
-                  <span
-                    className="text-[10px] font-semibold"
-                    style={{ color: "#10b981" }}
+
+                {/* Auto-data badge */}
+                {hasPortada && (
+                  <div
+                    className="ml-auto hidden sm:flex items-center gap-1 px-2 py-1 rounded-md"
+                    style={{
+                      background: "rgba(16,185,129,.05)",
+                      border: "1px solid rgba(16,185,129,.1)",
+                    }}
                   >
-                    Datos auto-incluidos
-                  </span>
-                </div>
+                    <i
+                      className="bx bx-check-circle text-[10px]"
+                      style={{ color: "#10b981" }}
+                    />
+                    <span
+                      className="text-[9px] font-semibold"
+                      style={{ color: "#10b981" }}
+                    >
+                      Crea imágenes automáticamente usando los datos del
+                      producto que registraste previamente
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* PASO 1: TEMPLATE */}
+              {/* ── PASO 1: TEMPLATE ── */}
               {genStep === 1 && (
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-sm font-black text-gray-800">
-                        Elige un template
-                      </h3>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
-                        El estilo visual de tu landing page
-                      </p>
-                    </div>
-                    {templates.length > 20 && (
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-bold text-gray-700">
+                      Elige el estilo visual
+                    </p>
+                    {filteredTemplates.length > 10 && (
                       <div className="relative">
-                        <i className="bx bx-search absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-300" />
+                        <i className="bx bx-search absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-300" />
                         <input
                           type="text"
                           value={templateSearch}
                           onChange={(e) => setTemplateSearch(e.target.value)}
                           placeholder="Buscar..."
-                          className="pl-7 pr-3 py-1.5 rounded-lg text-[11px] w-36 outline-none"
+                          className="pl-6 pr-2 py-1 rounded-md text-[10px] w-28 outline-none"
                           style={{
                             background: "#f8fafc",
                             border: "1px solid #e2e8f0",
@@ -958,44 +888,44 @@ const ProductoDetallePage = () => {
                       </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2.5 mb-3">
+
+                  {/* Template grid — compact */}
+                  {/* Template grid — 2 filas de 6 */}
+                  <div className="grid grid-cols-6 gap-2">
                     {displayTemplates.map((t) => {
                       const sel = selectedTemplate?.id === t.id;
                       return (
                         <button
                           key={t.id}
                           onClick={() => setSelectedTemplate(t)}
-                          className="group relative rounded-xl overflow-hidden transition-all duration-200"
+                          className="relative rounded-lg overflow-hidden transition-all duration-200"
                           style={{
                             aspectRatio: "9/16",
                             border: sel
                               ? "2.5px solid #6366f1"
-                              : "2px solid #e2e8f0",
+                              : "1.5px solid #e2e8f0",
                             boxShadow: sel
-                              ? "0 0 0 3px rgba(99,102,241,.15)"
-                              : "0 1px 3px rgba(0,0,0,.06)",
+                              ? "0 0 0 2px rgba(99,102,241,.15)"
+                              : "none",
                             transform: sel ? "scale(1.05)" : "scale(1)",
                           }}
                         >
                           <img
                             src={t.src_url}
                             alt=""
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            className="w-full h-full object-cover"
                             loading="lazy"
                           />
                           {sel && (
                             <div
                               className="absolute inset-0 grid place-items-center"
-                              style={{ background: "rgba(99,102,241,.15)" }}
+                              style={{ background: "rgba(99,102,241,.2)" }}
                             >
                               <div
-                                className="w-8 h-8 rounded-full grid place-items-center"
-                                style={{
-                                  background: "#6366f1",
-                                  boxShadow: "0 2px 12px rgba(99,102,241,.5)",
-                                }}
+                                className="w-5 h-5 rounded-full grid place-items-center"
+                                style={{ background: "#6366f1" }}
                               >
-                                <i className="bx bx-check text-white text-base" />
+                                <i className="bx bx-check text-white text-xs" />
                               </div>
                             </div>
                           )}
@@ -1003,70 +933,52 @@ const ProductoDetallePage = () => {
                       );
                     })}
                   </div>
-                  {filteredTemplates.length > 20 && (
-                    <button
-                      onClick={() => setShowAllTemplates(!showAllTemplates)}
-                      className="mb-4 text-[11px] font-semibold"
-                      style={{ color: "#6366f1" }}
-                    >
-                      {showAllTemplates
-                        ? "← Menos"
-                        : `Ver todos (${filteredTemplates.length}) →`}
-                    </button>
-                  )}
+
+                  {/* Footer con selección + botón */}
                   <div
-                    className="flex items-center justify-between pt-4"
+                    className="flex items-center justify-between mt-3 pt-3"
                     style={{ borderTop: "1px solid #f1f5f9" }}
                   >
-                    <span className="text-[11px] text-gray-400">
+                    <span className="text-[10px] text-gray-400">
                       {selectedTemplate ? (
                         <span style={{ color: "#10b981", fontWeight: 700 }}>
-                          ✓ {selectedTemplate.nombre || "Template seleccionado"}
+                          ✓ {selectedTemplate.nombre || "Seleccionado"}
                         </span>
                       ) : (
-                        "Selecciona un template para continuar"
+                        "Selecciona para continuar"
                       )}
                     </span>
                     <button
-                      onClick={() => setGenStep(2)}
+                      onClick={() => setGenStep(hasPortada ? seccionesStep : 2)}
                       disabled={!selectedTemplate}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-bold transition-all active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed"
                       style={{
-                        background: selectedTemplate
-                          ? "linear-gradient(135deg,#6366f1,#3b82f6)"
-                          : "#e2e8f0",
+                        background: selectedTemplate ? "#6366f1" : "#e2e8f0",
                         color: selectedTemplate ? "white" : "#94a3b8",
-                        boxShadow: selectedTemplate
-                          ? "0 4px 16px rgba(99,102,241,.25)"
-                          : "none",
                       }}
                     >
-                      Siguiente{" "}
-                      <i className="bx bx-right-arrow-alt text-base" />
+                      {hasPortada ? "Elegir secciones" : "Siguiente"}{" "}
+                      <i className="bx bx-right-arrow-alt text-sm" />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* PASO 2: FOTOS */}
-              {genStep === 2 && (
+              {/* ── PASO 2: FOTOS (solo si NO tiene portada) ── */}
+              {genStep === 2 && !hasPortada && (
                 <div>
-                  <div className="mb-4">
-                    <h3 className="text-sm font-black text-gray-800">
-                      Sube las fotos del producto
-                    </h3>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Hasta 6 fotos · La portada se incluye automáticamente
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
+                  <p className="text-xs font-bold text-gray-700 mb-3">
+                    Sube fotos del producto
+                  </p>
+                  <div className="flex gap-2 flex-wrap mb-3">
                     {userImages.map((img, i) => (
                       <div
                         key={i}
-                        className="relative group rounded-2xl overflow-hidden"
+                        className="relative group rounded-lg overflow-hidden"
                         style={{
-                          aspectRatio: "1/1",
-                          border: "2px solid #e2e8f0",
+                          width: 56,
+                          height: 56,
+                          border: "1.5px solid #e2e8f0",
                         }}
                       >
                         <img
@@ -1074,42 +986,33 @@ const ProductoDetallePage = () => {
                           alt=""
                           className="w-full h-full object-cover"
                         />
-                        {img.fromProduct && (
-                          <div
-                            className="absolute bottom-0 left-0 right-0 px-2 py-1 text-[9px] font-bold text-center"
-                            style={{
-                              background: "rgba(99,102,241,.85)",
-                              color: "white",
-                            }}
-                          >
-                            Portada
-                          </div>
-                        )}
                         <button
                           onClick={() => removeImage(i)}
-                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-lg grid place-items-center opacity-0 group-hover:opacity-100 transition"
-                          style={{ background: "rgba(239,68,68,.9)" }}
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded grid place-items-center opacity-0 group-hover:opacity-100 transition"
+                          style={{
+                            background: "rgba(239,68,68,.9)",
+                            fontSize: 8,
+                          }}
                         >
-                          <i className="bx bx-x text-white text-sm" />
+                          <i
+                            className="bx bx-x text-white"
+                            style={{ fontSize: 10 }}
+                          />
                         </button>
                       </div>
                     ))}
                     {userImages.length < 6 && (
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="rounded-2xl grid place-items-center transition hover:border-indigo-400"
+                        className="rounded-lg grid place-items-center transition hover:border-indigo-300"
                         style={{
-                          aspectRatio: "1/1",
-                          border: "2px dashed #d1d5db",
+                          width: 56,
+                          height: 56,
+                          border: "1.5px dashed #d1d5db",
                           background: "#fafafa",
                         }}
                       >
-                        <div className="text-center">
-                          <i className="bx bx-image-add text-2xl text-gray-300" />
-                          <p className="text-[9px] mt-1 text-gray-300 font-semibold">
-                            Subir
-                          </p>
-                        </div>
+                        <i className="bx bx-plus text-lg text-gray-300" />
                       </button>
                     )}
                   </div>
@@ -1121,122 +1024,83 @@ const ProductoDetallePage = () => {
                     className="hidden"
                     onChange={handleFileChange}
                   />
-                  {userImages.length === 0 && (
-                    <div
-                      className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl"
-                      style={{
-                        background: "rgba(251,191,36,.05)",
-                        border: "1px solid rgba(251,191,36,.15)",
-                      }}
-                    >
-                      <i
-                        className="bx bx-info-circle text-sm shrink-0"
-                        style={{ color: "#f59e0b" }}
-                      />
-                      <p className="text-[11px] text-gray-500">
-                        No se encontró portada. Sube al menos una foto.
-                      </p>
-                    </div>
-                  )}
                   <div
-                    className="flex items-center justify-between pt-4"
+                    className="flex items-center justify-between pt-3"
                     style={{ borderTop: "1px solid #f1f5f9" }}
                   >
                     <button
                       onClick={() => setGenStep(1)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition hover:bg-gray-50"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition hover:bg-gray-50"
                       style={{ border: "1px solid #e2e8f0", color: "#64748b" }}
                     >
-                      <i className="bx bx-left-arrow-alt text-base" /> Anterior
+                      <i className="bx bx-left-arrow-alt text-sm" /> Atrás
                     </button>
-                    <span className="text-[11px] text-gray-400">
-                      {userImages.length > 0 ? (
-                        <span style={{ color: "#10b981", fontWeight: 700 }}>
-                          {userImages.length} foto
-                          {userImages.length !== 1 ? "s" : ""} listas
-                        </span>
-                      ) : (
-                        "Sube al menos una foto"
-                      )}
-                    </span>
                     <button
                       onClick={() => setGenStep(3)}
                       disabled={userImages.length === 0}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-bold transition-all active:scale-95 disabled:opacity-25"
                       style={{
                         background:
-                          userImages.length > 0
-                            ? "linear-gradient(135deg,#6366f1,#3b82f6)"
-                            : "#e2e8f0",
+                          userImages.length > 0 ? "#6366f1" : "#e2e8f0",
                         color: userImages.length > 0 ? "white" : "#94a3b8",
-                        boxShadow:
-                          userImages.length > 0
-                            ? "0 4px 16px rgba(99,102,241,.25)"
-                            : "none",
                       }}
                     >
-                      Siguiente{" "}
-                      <i className="bx bx-right-arrow-alt text-base" />
+                      Siguiente <i className="bx bx-right-arrow-alt text-sm" />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* PASO 3: SECCIONES */}
-              {genStep === 3 && (
+              {/* ── PASO SECCIONES ── */}
+              {genStep === seccionesStep && (
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-sm font-black text-gray-800">
-                        Elige las secciones
-                      </h3>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
-                        Cada sección genera una imagen distinta
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-bold text-gray-700">
+                      Elige las secciones a generar
+                    </p>
                     <button
                       onClick={selectAllEtapas}
-                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition"
+                      className="text-[10px] font-bold px-2 py-1 rounded-md transition"
                       style={{
                         color: "#6366f1",
-                        background: "rgba(99,102,241,.06)",
-                        border: "1px solid rgba(99,102,241,.12)",
+                        background: "rgba(99,102,241,.05)",
+                        border: "1px solid rgba(99,102,241,.1)",
                       }}
                     >
                       {selectedEtapas.length === etapas.length
-                        ? "Deseleccionar todas"
-                        : "Seleccionar todas"}
+                        ? "Ninguna"
+                        : "Todas"}
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 mb-3">
                     {etapas.map((e) => {
                       const sel = !!selectedEtapas.find((s) => s.id === e.id);
                       return (
                         <button
                           key={e.id}
                           onClick={() => toggleEtapa(e)}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200"
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all"
                           style={{
-                            background: sel ? "rgba(99,102,241,.06)" : "white",
-                            border: `1.5px solid ${sel ? "rgba(99,102,241,.3)" : "#e2e8f0"}`,
-                            boxShadow: sel
-                              ? "0 2px 8px rgba(99,102,241,.1)"
-                              : "0 1px 3px rgba(0,0,0,.04)",
+                            background: sel ? "rgba(99,102,241,.05)" : "white",
+                            border: `1px solid ${sel ? "rgba(99,102,241,.25)" : "#e2e8f0"}`,
                           }}
                         >
                           <div
-                            className="w-5 h-5 rounded-md grid place-items-center shrink-0 transition-all"
+                            className="w-4 h-4 rounded grid place-items-center shrink-0"
                             style={{
                               background: sel ? "#6366f1" : "#f1f5f9",
-                              border: sel ? "none" : "1.5px solid #e2e8f0",
+                              border: sel ? "none" : "1px solid #e2e8f0",
                             }}
                           >
                             {sel && (
-                              <i className="bx bx-check text-white text-xs" />
+                              <i
+                                className="bx bx-check text-white"
+                                style={{ fontSize: 10 }}
+                              />
                             )}
                           </div>
                           <span
-                            className="text-xs font-semibold transition-colors"
+                            className="text-[11px] font-semibold truncate"
                             style={{ color: sel ? "#4f46e5" : "#475569" }}
                           >
                             {e.nombre}
@@ -1245,55 +1109,57 @@ const ProductoDetallePage = () => {
                       );
                     })}
                   </div>
+
+                  {/* Resumen + generar */}
                   {selectedEtapas.length > 0 && (
                     <div
-                      className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg mb-3"
                       style={{
-                        background: "rgba(99,102,241,.04)",
-                        border: "1px solid rgba(99,102,241,.12)",
+                        background: "rgba(99,102,241,.03)",
+                        border: "1px solid rgba(99,102,241,.1)",
                       }}
                     >
                       <i
-                        className="bx bx-bolt-circle text-base shrink-0"
+                        className="bx bx-bolt-circle text-sm"
                         style={{ color: "#6366f1" }}
                       />
-                      <p className="text-[11px] text-gray-600 flex-1">
-                        Se generarán{" "}
+                      <p className="text-[10px] text-gray-600 flex-1">
                         <span
                           className="font-black"
                           style={{ color: "#6366f1" }}
                         >
-                          {selectedEtapas.length} imagen
-                          {selectedEtapas.length !== 1 ? "es" : ""}
-                        </span>
+                          {selectedEtapas.length}
+                        </span>{" "}
+                        sección{selectedEtapas.length !== 1 ? "es" : ""}
                         {usage.limit > 0 && (
                           <>
                             {" "}
-                            · Te quedan{" "}
+                            ·{" "}
                             <span className="font-bold">
                               {usage.remaining}
                             </span>{" "}
-                            créditos
+                            créditos restantes
                           </>
                         )}
                       </p>
                     </div>
                   )}
+
                   <div
-                    className="flex items-center justify-between pt-4"
+                    className="flex items-center justify-between pt-3"
                     style={{ borderTop: "1px solid #f1f5f9" }}
                   >
                     <button
-                      onClick={() => setGenStep(2)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition hover:bg-gray-50"
+                      onClick={() => setGenStep(hasPortada ? 1 : 2)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition hover:bg-gray-50"
                       style={{ border: "1px solid #e2e8f0", color: "#64748b" }}
                     >
-                      <i className="bx bx-left-arrow-alt text-base" /> Anterior
+                      <i className="bx bx-left-arrow-alt text-sm" /> Atrás
                     </button>
                     <button
                       onClick={handleQuickGenerate}
                       disabled={selectedEtapas.length === 0}
-                      className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-bold transition-all active:scale-[.97] disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[.97] disabled:opacity-25 disabled:cursor-not-allowed"
                       style={{
                         background:
                           selectedEtapas.length > 0
@@ -1301,37 +1167,38 @@ const ProductoDetallePage = () => {
                             : "#e2e8f0",
                         boxShadow:
                           selectedEtapas.length > 0
-                            ? "0 4px 20px rgba(99,102,241,.3)"
+                            ? "0 4px 16px rgba(99,102,241,.25)"
                             : "none",
                         color: selectedEtapas.length > 0 ? "white" : "#94a3b8",
                       }}
                     >
-                      <i className="bx bx-magic-wand text-base" />
-                      Generar{" "}
+                      <i className="bx bx-magic-wand text-sm" /> Generar{" "}
                       {selectedEtapas.length > 0
                         ? `${selectedEtapas.length} sección${selectedEtapas.length !== 1 ? "es" : ""}`
                         : ""}
                     </button>
                   </div>
+
+                  {/* Tip */}
                   <div
-                    className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl"
+                    className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg"
                     style={{
-                      background: "rgba(251,191,36,.04)",
-                      border: "1px solid rgba(251,191,36,.12)",
+                      background: "rgba(251,191,36,.03)",
+                      border: "1px solid rgba(251,191,36,.1)",
                     }}
                   >
                     <i
-                      className="bx bx-bulb text-base shrink-0"
+                      className="bx bx-bulb text-sm shrink-0"
                       style={{ color: "#f59e0b" }}
                     />
-                    <p className="text-[11px] flex-1 text-gray-500">
-                      ¿Ángulos de venta personalizados?{" "}
+                    <p className="text-[10px] text-gray-500">
+                      ¿Necesitas ángulos de venta avanzados?
                       <button
                         onClick={goToFullGenerator}
-                        className="font-bold underline"
+                        className="font-bold underline ml-1"
                         style={{ color: "#f59e0b" }}
                       >
-                        Generador completo →
+                        Abrir el generador completo →
                       </button>
                     </p>
                   </div>
@@ -1342,8 +1209,17 @@ const ProductoDetallePage = () => {
         </div>
       )}
 
-      {/* GALLERY */}
-      <div className="pt-5">
+      {/* ══════════════ SEPARATOR ══════════════ */}
+      <div className="flex items-center gap-3 my-5">
+        <div className="flex-1 h-px" style={{ background: "#e2e8f0" }}></div>
+        <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">
+          Historial de imágenes
+        </span>
+        <div className="flex-1 h-px" style={{ background: "#e2e8f0" }}></div>
+      </div>
+
+      {/* ══════════════ GALLERY ══════════════ */}
+      <div>
         {generaciones.length === 0 && !loading ? (
           <EmptyState
             onOpenGen={() => setGenOpen(true)}
@@ -1546,10 +1422,7 @@ const ProductoDetallePage = () => {
       </div>
 
       <style>{`
-        @keyframes gRing { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.07);opacity:1} }
         @keyframes gPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-        @keyframes gPill  { 0%,100%{opacity:.7} 50%{opacity:1} }
-        @keyframes gDot   { 0%,80%,100%{transform:translateY(0);opacity:.45} 40%{transform:translateY(-10px);opacity:1} }
       `}</style>
     </div>
   );

@@ -15,6 +15,8 @@ import StepResults from "./components/StepResults";
 // Modals
 import HistorialModal from "./modales/HistorialModal";
 import TemplateModal from "./modales/TemplateModal";
+import ModalAsignarProducto from "./modales/ModalAsignarProducto";
+import ModalNuevoProducto from "./modales/ModalNuevoProducto";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -41,6 +43,7 @@ const LandingAi = () => {
   // Product linkage
   const [idProducto, setIdProducto] = useState(null);
   const [productoNombre, setProductoNombre] = useState("");
+  const [productPortada, setProductPortada] = useState(null);
 
   // Pricing
   const [pricing, setPricing] = useState({ precio_unitario: "", combos: [] });
@@ -74,6 +77,16 @@ const LandingAi = () => {
     angles_remaining: 0,
   });
 
+  // Derived flags — dependen de idProducto para resetear si desvincula
+  const canSkipToAngles =
+    fromProducto &&
+    !!productState.imagen_portada &&
+    !!productState.descripcion &&
+    !!idProducto;
+
+  const canSkipImages =
+    fromProducto && !!productState.imagen_portada && !!idProducto;
+
   // Modals
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -83,9 +96,17 @@ const LandingAi = () => {
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
 
+  // New product modal
+  const [showNewProductModal, setShowNewProductModal] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
+  const [creatingProduct, setCreatingProduct] = useState(false);
+
   // Background templates / etapas
   const [bgTemplates, setBgTemplates] = useState([]);
   const [etapas, setEtapas] = useState([]);
+
+  // Track si la portada se está cargando
+  const [loadingPortada, setLoadingPortada] = useState(false);
 
   const stepRef = useRef(null);
   const initializedRef = useRef(false);
@@ -95,6 +116,21 @@ const LandingAi = () => {
       stepRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
   }, []);
+
+  // ── Helper: appendear imágenes al FormData (file local + URL remota) ──
+  const appendUserImages = (fd) => {
+    const remoteUrls = [];
+    userImages.forEach((img) => {
+      if (img.file) {
+        fd.append("user_images", img.file);
+      } else if (img.remoteUrl) {
+        remoteUrls.push(img.remoteUrl);
+      }
+    });
+    if (remoteUrls.length > 0) {
+      fd.append("user_image_urls", JSON.stringify(remoteUrls));
+    }
+  };
 
   // ── Inicializar con datos del producto (solo una vez) ──
   useEffect(() => {
@@ -106,6 +142,7 @@ const LandingAi = () => {
       if (productState.descripcion) setDescription(productState.descripcion);
       if (productState.marca) setMarca(productState.marca);
       if (productState.moneda) setMoneda(productState.moneda);
+      if (productState.idioma) setIdioma(productState.idioma || "es");
       if (productState.precio_unitario || productState.combos) {
         setPricing({
           precio_unitario: productState.precio_unitario || "",
@@ -114,29 +151,49 @@ const LandingAi = () => {
       }
 
       if (productState.imagen_portada) {
-        fetch(productState.imagen_portada, { mode: "cors" })
+        setProductPortada(productState.imagen_portada);
+        setLoadingPortada(true);
+
+        const createFileAndSet = (blob) => {
+          const file = new File([blob], "portada-producto.png", {
+            type: blob.type || "image/png",
+          });
+          setUserImages([
+            {
+              id: Date.now() + Math.random(),
+              file,
+              dataUrl: productState.imagen_portada,
+              name: "portada-producto.png",
+              fromProduct: true,
+            },
+          ]);
+          setLoadingPortada(false);
+        };
+
+        // Intento 1: fetch directo
+        fetch(productState.imagen_portada)
           .then((r) => r.blob())
-          .then((blob) => {
-            const file = new File([blob], "portada-producto.png", {
-              type: blob.type || "image/png",
-            });
+          .then(createFileAndSet)
+          .catch(() => {
+            // CORS bloqueó el fetch — guardar solo la URL,
+            // el backend la descargará server-side
             setUserImages([
               {
                 id: Date.now() + Math.random(),
-                file,
+                file: null,
+                remoteUrl: productState.imagen_portada,
                 dataUrl: productState.imagen_portada,
                 name: "portada-producto.png",
                 fromProduct: true,
               },
             ]);
-          })
-          .catch(() => {});
+            setLoadingPortada(false);
+          });
       }
 
-      // Limpiar state de navegación para que un refresh no re-aplique
       window.history.replaceState({}, document.title);
     }
-  }, [fromProducto]); // ← SOLO fromProducto, no productState (evita re-render)
+  }, [fromProducto]);
 
   // ── Fetch inicial ──
   useEffect(() => {
@@ -160,11 +217,19 @@ const LandingAi = () => {
       .catch(() => {});
   }, []);
 
+  // ── Determinar siguiente paso después de seleccionar template ──
+  const getStepAfterTemplate = () => {
+    if (canSkipToAngles) return "angles";
+    if (canSkipImages) return "pricing";
+    return "images";
+  };
+
   // ── Handlers ──
   const handleTemplateConfirm = ({ template, etapas, mode }) => {
     setSelectedConfig({ template, etapas, mode });
     setShowTemplateModal(false);
-    setStep("images");
+    const nextStep = getStepAfterTemplate();
+    setStep(nextStep);
     scrollToStep();
   };
 
@@ -173,13 +238,40 @@ const LandingAi = () => {
     scrollToStep();
   };
 
+  const handleBackToHome = () => {
+    setStep("home");
+    if (selectedConfig) {
+      setTimeout(() => setShowTemplateModal(true), 150);
+    }
+    scrollToStep();
+  };
+
   const handleAnglesContinue = (angleText) => {
     setAnguloVenta(angleText);
     goToStep("generate");
   };
 
+  // ── GENERATE ──
   const handleGenerate = async () => {
-    if (!selectedConfig || userImages.length === 0) return;
+    if (!selectedConfig) {
+      return Toast.fire({
+        icon: "error",
+        title: "Selecciona un template primero",
+      });
+    }
+    if (userImages.length === 0) {
+      if (loadingPortada) {
+        return Toast.fire({
+          icon: "info",
+          title: "La imagen de portada aún se está cargando, espera un momento",
+        });
+      }
+      return Toast.fire({
+        icon: "error",
+        title: "No hay imágenes del producto. Sube al menos una.",
+      });
+    }
+
     const { template, etapas } = selectedConfig;
 
     if (usage.limit > 0 && usage.remaining < etapas.length) {
@@ -218,9 +310,7 @@ const LandingAi = () => {
         fd.append("moneda", moneda);
         fd.append("idioma", idioma);
         if (idProducto) fd.append("id_producto", String(idProducto));
-        userImages.forEach((img) => {
-          if (img.file) fd.append("user_images", img.file);
-        });
+        appendUserImages(fd);
 
         const res = await chatApi.post("gemini/generar-etapa", fd, {
           headers: { "Content-Type": "multipart/form-data" },
@@ -287,9 +377,7 @@ const LandingAi = () => {
       fd.append("idioma", idioma);
       fd.append("prompt_extra", promptExtra);
       if (idProducto) fd.append("id_producto", String(idProducto));
-      userImages.forEach((img) => {
-        if (img.file) fd.append("user_images", img.file);
-      });
+      appendUserImages(fd);
 
       const res = await chatApi.post("gemini/regenerar-etapa", fd, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -358,7 +446,6 @@ const LandingAi = () => {
         image_urls: imageUrls,
       });
 
-      // FIX: actualizar estado SIN navegar ni cambiar step
       const prod = productos.find((p) => p.id === productoId);
       setIdProducto(productoId);
       if (prod) setProductoNombre(prod.nombre);
@@ -368,12 +455,60 @@ const LandingAi = () => {
         icon: "success",
         title: `${imageUrls.length} imagen${imageUrls.length !== 1 ? "es" : ""} asignada${imageUrls.length !== 1 ? "s" : ""} a ${prod?.nombre || "el producto"}`,
       });
-      // NO llamar setStep ni navigate — el usuario se queda en results
     } catch (err) {
       Toast.fire({
         icon: "error",
         title: err?.response?.data?.message || "Error al asignar imágenes",
       });
+    }
+  };
+
+  // ── Create new product and assign ──
+  const handleCreateAndAssign = async () => {
+    if (!newProductName.trim())
+      return Toast.fire({ icon: "error", title: "El nombre es requerido" });
+
+    const imageUrls = results
+      .filter((r) => r.success && r.image_url)
+      .map((r) => r.image_url);
+    if (imageUrls.length === 0)
+      return Toast.fire({ icon: "error", title: "No hay imágenes" });
+
+    setCreatingProduct(true);
+    try {
+      const res = await chatApi.post("gemini/productos", {
+        nombre: newProductName.trim(),
+        descripcion: description || "",
+        marca: marca || "",
+        moneda: moneda || "USD",
+        idioma: idioma || "es",
+        precio_unitario: pricing.precio_unitario || null,
+        combos: pricing.combos || [],
+      });
+
+      if (res.data?.isSuccess && res.data?.data?.id) {
+        const newId = res.data.data.id;
+        await chatApi.post(`gemini/productos/${newId}/asignar-imagenes`, {
+          image_urls: imageUrls,
+        });
+
+        setIdProducto(newId);
+        setProductoNombre(newProductName.trim());
+        setShowNewProductModal(false);
+        setNewProductName("");
+
+        Toast.fire({
+          icon: "success",
+          title: `Producto creado con ${imageUrls.length} imagen${imageUrls.length !== 1 ? "es" : ""}`,
+        });
+      }
+    } catch (err) {
+      Toast.fire({
+        icon: "error",
+        title: err?.response?.data?.message || "Error al crear producto",
+      });
+    } finally {
+      setCreatingProduct(false);
     }
   };
 
@@ -411,12 +546,24 @@ const LandingAi = () => {
             border: "1px solid rgba(99,102,241,0.15)",
           }}
         >
-          <div
-            className="w-8 h-8 rounded-lg grid place-items-center shrink-0"
-            style={{ background: "rgba(99,102,241,0.1)" }}
-          >
-            <i className="bx bx-package text-sm" style={{ color: "#6366f1" }} />
-          </div>
+          {productPortada ? (
+            <img
+              src={productPortada}
+              alt=""
+              className="w-8 h-8 rounded-lg object-cover shrink-0"
+              style={{ border: "1.5px solid rgba(99,102,241,0.2)" }}
+            />
+          ) : (
+            <div
+              className="w-8 h-8 rounded-lg grid place-items-center shrink-0"
+              style={{ background: "rgba(99,102,241,0.1)" }}
+            >
+              <i
+                className="bx bx-package text-sm"
+                style={{ color: "#6366f1" }}
+              />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-gray-700 truncate">
               Generando para: {productoNombre || `Producto #${idProducto}`}
@@ -459,7 +606,7 @@ const LandingAi = () => {
             bgTemplates={bgTemplates}
             selectedConfig={selectedConfig}
             onShowTemplateModal={() => setShowTemplateModal(true)}
-            onContinue={() => goToStep("images")}
+            onContinue={() => goToStep(getStepAfterTemplate())}
           />
         )}
 
@@ -486,7 +633,7 @@ const LandingAi = () => {
             setMoneda={setMoneda}
             idioma={idioma}
             setIdioma={setIdioma}
-            onBack={() => goToStep("images")}
+            onBack={() => goToStep(canSkipImages ? "home" : "images")}
             onContinue={() => goToStep("angles")}
           />
         )}
@@ -501,7 +648,9 @@ const LandingAi = () => {
             setCustomAngle={setCustomAngle}
             usage={usage}
             setUsage={setUsage}
-            onBack={() => goToStep("pricing")}
+            onBack={() =>
+              canSkipToAngles ? handleBackToHome() : goToStep("pricing")
+            }
             onContinue={handleAnglesContinue}
           />
         )}
@@ -539,7 +688,7 @@ const LandingAi = () => {
             {/* Assign bar — solo si no hay producto vinculado */}
             {!generating && results.some((r) => r.success) && !idProducto && (
               <div
-                className="mt-5 flex items-center gap-3 px-5 py-4 rounded-2xl"
+                className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-5 py-4 rounded-2xl"
                 style={{
                   background: "white",
                   border: "1px solid #e2e8f0",
@@ -557,23 +706,41 @@ const LandingAi = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-xs font-bold text-gray-700">
-                    ¿Vincular a un producto?
+                    ¿Guardar estas imágenes?
                   </p>
                   <p className="text-[10px] text-gray-400">
-                    Asigna estas imágenes a un producto existente
+                    Asígnalas a un producto existente o crea uno nuevo
                   </p>
                 </div>
-                <button
-                  onClick={handleOpenAssignModal}
-                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition active:scale-95"
-                  style={{
-                    background: "rgba(99,102,241,0.08)",
-                    border: "1px solid rgba(99,102,241,0.15)",
-                    color: "#6366f1",
-                  }}
-                >
-                  <i className="bx bx-package text-sm" /> Asignar a producto
-                </button>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={handleOpenAssignModal}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition active:scale-95"
+                    style={{
+                      background: "rgba(99,102,241,0.08)",
+                      border: "1px solid rgba(99,102,241,0.15)",
+                      color: "#6366f1",
+                    }}
+                  >
+                    <i className="bx bx-package text-sm" /> Producto existente
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNewProductName(
+                        description ? description.slice(0, 80) : "",
+                      );
+                      setShowNewProductModal(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition active:scale-95"
+                    style={{
+                      background: "rgba(16,185,129,0.08)",
+                      border: "1px solid rgba(16,185,129,0.15)",
+                      color: "#10b981",
+                    }}
+                  >
+                    <i className="bx bx-plus-circle text-sm" /> Nuevo producto
+                  </button>
+                </div>
               </div>
             )}
 
@@ -630,135 +797,27 @@ const LandingAi = () => {
         usage={usage}
       />
 
-      {/* ASSIGN TO PRODUCT MODAL */}
-      {showAssignModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{
-            background: "rgba(15,17,41,0.5)",
-            backdropFilter: "blur(4px)",
-          }}
-          onClick={() => setShowAssignModal(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl overflow-hidden"
-            style={{ background: "white" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-9 h-9 rounded-xl grid place-items-center"
-                    style={{ background: "rgba(99,102,241,0.06)" }}
-                  >
-                    <i
-                      className="bx bx-package text-lg"
-                      style={{ color: "#6366f1" }}
-                    />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-800">
-                      Asignar a producto
-                    </h3>
-                    <p className="text-[10px] text-gray-400">
-                      Selecciona el producto destino
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowAssignModal(false)}
-                  className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"
-                >
-                  <i className="bx bx-x text-lg text-gray-400" />
-                </button>
-              </div>
+      <ModalAsignarProducto
+        open={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        productos={productos}
+        loadingProductos={loadingProductos}
+        onAssign={handleAssignToProduct}
+      />
 
-              {loadingProductos ? (
-                <div className="flex items-center justify-center py-12">
-                  <svg
-                    className="animate-spin w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="#6366f1"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="#6366f1"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
-                </div>
-              ) : productos.length === 0 ? (
-                <div className="text-center py-10">
-                  <i className="bx bx-package text-3xl text-gray-300 mb-2" />
-                  <p className="text-sm text-gray-500 font-medium">
-                    No tienes productos
-                  </p>
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Crea uno primero en el catálogo
-                  </p>
-                </div>
-              ) : (
-                <div
-                  className="space-y-2 max-h-80 overflow-y-auto"
-                  style={{ scrollbarWidth: "thin" }}
-                >
-                  {productos.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => handleAssignToProduct(p.id)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl transition hover:bg-gray-50 text-left"
-                      style={{ border: "1px solid #e2e8f0" }}
-                    >
-                      {p.imagen_portada ? (
-                        <img
-                          src={p.imagen_portada}
-                          alt=""
-                          className="w-10 h-10 rounded-lg object-cover shrink-0"
-                        />
-                      ) : (
-                        <div
-                          className="w-10 h-10 rounded-lg grid place-items-center shrink-0"
-                          style={{ background: "#f1f5f9" }}
-                        >
-                          <i className="bx bx-package text-gray-300" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-gray-700 truncate">
-                          {p.nombre}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {p.marca && (
-                            <span className="text-[10px] text-gray-400">
-                              {p.marca}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-gray-300">
-                            {p.total_generaciones || 0} imgs
-                          </span>
-                        </div>
-                      </div>
-                      <i
-                        className="bx bx-right-arrow-alt text-lg shrink-0"
-                        style={{ color: "#6366f1" }}
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalNuevoProducto
+        open={showNewProductModal}
+        onClose={() => setShowNewProductModal(false)}
+        newProductName={newProductName}
+        setNewProductName={setNewProductName}
+        creatingProduct={creatingProduct}
+        onCreateAndAssign={handleCreateAndAssign}
+        marca={marca}
+        description={description}
+        moneda={moneda}
+        pricing={pricing}
+        successCount={results.filter((r) => r.success).length}
+      />
     </div>
   );
 };

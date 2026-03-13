@@ -40,19 +40,6 @@ const getDropiImg = (prod) => {
   return `${CLOUDFRONT}/${String(raw).replace(/^\/+/, "")}`;
 };
 
-/**
- * Props:
- *   open, onClose,
- *   dropiStep, setDropiStep,
- *   selectedNegocio,
- *   negocios, negociosLoading,
- *   dropiProductos, dropiLoading,
- *   dropiSearch, setDropiSearch,
- *   selectedDropiProduct,
- *   dropiImporting,
- *   dropiIntegration,
- *   onSelectNegocio, onSearch, onSelectProduct, onConfirmImport
- */
 const ModalImportarDropi = ({
   open,
   onClose,
