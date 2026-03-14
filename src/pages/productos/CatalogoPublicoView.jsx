@@ -120,6 +120,7 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
   const {
     show_nombre,
     show_precio,
+    show_precio_proveedor,
     show_imagen,
     show_categoria,
     show_descripcion,
@@ -262,6 +263,16 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
             </span>
           </div>
         )}
+        {show_precio_proveedor &&
+          p?.precio_proveedor != null &&
+          Number(p.precio_proveedor) > 0 && (
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+              Costo proveedor:{" "}
+              <span style={{ fontWeight: 600, color: "#64748b" }}>
+                ${Number(p.precio_proveedor).toFixed(2)}
+              </span>
+            </div>
+          )}
       </div>
     </div>
   );
@@ -290,6 +301,7 @@ const CatalogoPublicoView = () => {
   const fields = settings?.fields || {};
   const show_nombre = fields?.show_nombre ?? true;
   const show_precio = fields?.show_precio ?? true;
+  const show_precio_proveedor = fields?.show_precio_proveedor ?? false;
   const show_imagen = fields?.show_imagen ?? true;
   const show_categoria = fields?.show_categoria ?? false;
   const show_descripcion = fields?.show_descripcion ?? false;
@@ -299,6 +311,7 @@ const CatalogoPublicoView = () => {
   const fieldsObj = {
     show_nombre,
     show_precio,
+    show_precio_proveedor,
     show_imagen,
     show_categoria,
     show_descripcion,

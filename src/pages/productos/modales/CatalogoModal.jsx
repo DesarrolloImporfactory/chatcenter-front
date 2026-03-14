@@ -20,6 +20,7 @@ const buildSettingsPayload = (form) => ({
   fields: {
     show_nombre: !!form.show_nombre,
     show_precio: !!form.show_precio,
+    show_precio_proveedor: !!form.show_precio_proveedor,
     show_imagen: !!form.show_imagen,
     show_categoria: !!form.show_categoria,
     show_descripcion: !!form.show_descripcion,
@@ -64,6 +65,12 @@ const CAMPOS_FIELDS = [
     desc: "Muestra el precio",
   },
   {
+    key: "show_precio_proveedor",
+    label: "Precio proveedor",
+    icon: "bx-purchase-tag-alt",
+    desc: "Muestra el costo del proveedor",
+  },
+  {
     key: "show_imagen",
     label: "Imagen",
     icon: "bx-image-alt",
@@ -102,6 +109,7 @@ const DEFAULT_FORM = {
   modo_visibilidad: "BOTH",
   show_nombre: true,
   show_precio: true,
+  show_precio_proveedor: false,
   show_imagen: true,
   show_categoria: true,
   show_descripcion: true,
@@ -289,6 +297,8 @@ const CatalogoModal = ({
           modo_visibilidad: cat.modo_visibilidad || "BOTH",
           show_nombre: settings?.fields?.show_nombre ?? true,
           show_precio: settings?.fields?.show_precio ?? true,
+          show_precio_proveedor:
+            settings?.fields?.show_precio_proveedor ?? false,
           show_imagen: settings?.fields?.show_imagen ?? true,
           show_categoria: settings?.fields?.show_categoria ?? true,
           show_descripcion: settings?.fields?.show_descripcion ?? true,

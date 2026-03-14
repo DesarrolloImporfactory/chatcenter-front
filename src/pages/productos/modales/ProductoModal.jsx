@@ -28,6 +28,7 @@ const EMPTY_FORM = {
   es_privado: "", // "" | "0" | "1"   — FIX: nombre correcto del campo en BD
   material: "",
   landing_url: "",
+  precio_proveedor: "",
 };
 
 const normalizaTipo = (t) => {
@@ -208,6 +209,7 @@ const ProductoModal = ({
         es_privado: privVal,
         material: p.material ?? "",
         landing_url: p.landing_url ?? "",
+        precio_proveedor: p.precio_proveedor ?? "",
       });
 
       setPreviewUrl(p.imagen_url || null);
@@ -794,6 +796,36 @@ const ProductoModal = ({
                       </div>
                       <p className="text-xs text-slate-400 mt-1">
                         Si el proveedor ya tiene su propia página de producto.
+                      </p>
+                    </div>
+
+                    {/* Precio proveedor */}
+                    <div>
+                      <Lbl>
+                        Precio proveedor{" "}
+                        <span className="normal-case font-normal text-slate-400">
+                          (costo Dropi u otro)
+                        </span>
+                      </Lbl>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">
+                          $
+                        </span>
+                        <Inp
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          className="pl-7"
+                          value={form.precio_proveedor}
+                          onChange={(e) =>
+                            setF("precio_proveedor", e.target.value)
+                          }
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Se usa para calcular margen. Se llena automáticamente al
+                        importar desde Dropi.
                       </p>
                     </div>
                   </div>
