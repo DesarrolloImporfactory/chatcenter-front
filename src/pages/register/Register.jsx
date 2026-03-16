@@ -300,7 +300,7 @@ export default function Register() {
                     </span>
                   </div>
                   <p className="text-[9px] text-slate-400">
-                    Banners y landings con Google Gemini
+                    Banners y landings en segundos
                   </p>
                   <span
                     className="inline-block mt-2 text-[8px] px-2 py-0.5 rounded-full font-bold"

@@ -405,10 +405,7 @@ const TabInstaLanding = ({ onLogin }) => {
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-[#0B1426]">
-                      Google Gemini AI
-                    </p>
-                    <p className="text-[8px] text-slate-400">
-                      Motor de generacion
+                      Designer Pro{" "}
                     </p>
                   </div>
                 </div>
@@ -477,14 +474,14 @@ const TabInstaLanding = ({ onLogin }) => {
                 </span>
               </h2>
               <p className="mt-4 text-sm sm:text-[15px] text-slate-500 leading-relaxed max-w-lg">
-                Ingrese el titulo, descripcion y precio de su producto. Google
-                Gemini genera banners de venta, landing pages con hasta 10
-                secciones y angulos persuasivos — listo para publicar en
-                Shopify, Dropi o su tienda propia.
+                Ingrese el titulo, descripcion y precio de su producto. Nuestra
+                IA genera banners de venta, landing pages con hasta 10 secciones
+                y angulos persuasivos — listo para publicar en Shopify, Dropi o
+                su tienda propia.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 {[
-                  { name: "Google Gemini", color: "#10B981" },
+                  { name: "Designer Pro", color: "#10B981" },
                   { name: "Dropi integrado", color: "#F59E0B" },
                   { name: "+280 templates", color: "#6366F1" },
                   { name: "Editor AI textos", color: "#00BFFF" },
@@ -776,7 +773,7 @@ const TabInstaLanding = ({ onLogin }) => {
             <StepCard
               number="3"
               title="La IA genera todo"
-              desc="Google Gemini crea el banner y cada seccion con textos de venta."
+              desc="Nuestra IA crea el banner y cada seccion con textos de venta."
             />
             <StepCard
               number="4"

@@ -338,18 +338,20 @@ export default function Login() {
                     Generador AI contenido
                   </p>
                   <div className="mt-2 flex gap-1">
-                    {["Gemini", "120+/mes", "10 secciones"].map((t, i) => (
-                      <span
-                        key={i}
-                        className="text-[7px] px-1.5 py-0.5 rounded-full font-semibold"
-                        style={{
-                          color: "#10B981",
-                          background: "rgba(16,185,129,0.08)",
-                        }}
-                      >
-                        {t}
-                      </span>
-                    ))}
+                    {["Designer Pro", "120+/mes", "10 secciones"].map(
+                      (t, i) => (
+                        <span
+                          key={i}
+                          className="text-[7px] px-1.5 py-0.5 rounded-full font-semibold"
+                          style={{
+                            color: "#10B981",
+                            background: "rgba(16,185,129,0.08)",
+                          }}
+                        >
+                          {t}
+                        </span>
+                      ),
+                    )}
                   </div>
                 </motion.div>
               </div>
