@@ -1478,16 +1478,20 @@ const TabAsistente = ({
                 <label style={lbl}>Palabra clave</label>
                 <input
                   type="text"
-                  placeholder="ej: ASESOR  o  [asesor_confirmado]: true"
+                  placeholder="ej: asesor"
                   value={nuevoTrigger.trigger}
                   onChange={(e) =>
-                    setNuevoTrigger((p) => ({ ...p, trigger: e.target.value }))
+                    setNuevoTrigger((p) => ({
+                      ...p,
+                      trigger: e.target.value.replace(/[\[\]:]/g, "").trim(),
+                    }))
                   }
                   style={inp}
                 />
+                {/* ← SIN el preview aquí */}
               </div>
               <div style={{ flex: 1 }}>
-                <label style={lbl}>Estado destino</label>
+                <label style={lbl}>Mover a columna</label>
                 <select
                   value={nuevoTrigger.estado_destino}
                   onChange={(e) =>
@@ -1507,17 +1511,64 @@ const TabAsistente = ({
                 </select>
               </div>
               <button onClick={agregarTrigger} style={btnPrimario}>
-                <i className="bx bx-plus" />
-                Agregar
+                <i className="bx bx-plus" /> Agregar
               </button>
             </div>
+
+            {/* Preview FUERA del row — no desplaza nada */}
+            {nuevoTrigger.trigger && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 6,
+                }}
+              >
+                <span style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                  Tag para tu prompt:
+                </span>
+                <code
+                  style={{
+                    fontSize: "0.78rem",
+                    background: "#ede9fe",
+                    color: "#6d28d9",
+                    padding: "2px 8px",
+                    borderRadius: 6,
+                    fontWeight: 700,
+                  }}
+                >
+                  [{nuevoTrigger.trigger}]:true
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `[${nuevoTrigger.trigger}]:true`,
+                    );
+                    Toast.fire({ icon: "success", title: "¡Tag copiado!" });
+                  }}
+                  style={{
+                    background: "none",
+                    border: "1px solid #c4b5fd",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    color: "#6d28d9",
+                    padding: "2px 7px",
+                    fontSize: "0.75rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <i className="bx bx-copy" /> Copiar
+                </button>
+              </div>
+            )}
 
             <div
               style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 8 }}
             >
-              💡 La detección es <strong>sin importar mayúsculas</strong> — si
-              la IA responde conteniendo la palabra, el contacto se mueve al
-              estado destino.
+              💡 Copia el tag y pégalo en el prompt del asistente...
             </div>
           </div>
         </>

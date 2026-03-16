@@ -269,7 +269,7 @@ const ChatPrincipal = ({
   // fuera del render (o en un utils):
   const ERROR_MAP = {
     131042: "Error con método de pago",
-    131026: "Mensaje no entregado",
+    131026: "El número no tiene WhatsApp",
     131047: "Fuera de la ventana de 24h. Requiere plantilla",
     131048: "Límite alcanzado por spam",
     131049: "Límite alcanzado por spam",
