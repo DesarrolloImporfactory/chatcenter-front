@@ -26,6 +26,30 @@ const BLOCK_CONFIG = {
     actionText: "Ver planes y suscribirme",
     cancelText: "Ahora no",
   },
+  PROMO_EXHAUSTED: {
+    icon: (
+      <svg
+        className="w-6 h-6"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#F59E0B"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+        <line x1="7" y1="7" x2="7.01" y2="7" />
+      </svg>
+    ),
+    iconBg: "rgba(245,158,11,0.08)",
+    iconBorder: "rgba(245,158,11,0.15)",
+    title: "Tus recursos promocionales se agotaron",
+    description:
+      "Usaste todas las imágenes y ángulos de tu código promocional.",
+    showPricing: false,
+    actionText: "Continuar",
+    cancelText: "Ahora no",
+  },
   PLAN_REQUIRED: {
     icon: (
       <svg
@@ -151,9 +175,45 @@ const BLOCK_CONFIG = {
 
 const DEFAULT_CONFIG = BLOCK_CONFIG.PLAN_REQUIRED;
 
-const ModalPlanBlock = ({ open, onClose, onAction, blockCode, trialInfo }) => {
+const ModalPlanBlock = ({
+  open,
+  onClose,
+  onAction,
+  blockCode,
+  trialInfo,
+  promoInfo,
+}) => {
   if (!open) return null;
   const config = BLOCK_CONFIG[blockCode] || DEFAULT_CONFIG;
+
+  const isPromoExhausted = blockCode === "PROMO_EXHAUSTED";
+  const promoRedirectUrl = promoInfo?.redirect_url || null;
+  const promoDescripcion = promoInfo?.descripcion || null;
+  const promoCodigo = promoInfo?.codigo || null;
+
+  const displayDescription = isPromoExhausted
+    ? promoDescripcion
+      ? `Usaste todos los recursos del código "${promoCodigo}". ${promoDescripcion}`
+      : config.description
+    : config.description;
+
+  const displayActionText = isPromoExhausted
+    ? promoRedirectUrl
+      ? "Continuar"
+      : "Ver planes y suscribirme"
+    : config.actionText;
+
+  const handleAction = () => {
+    if (isPromoExhausted && promoRedirectUrl) {
+      if (promoRedirectUrl.startsWith("http")) {
+        window.open(promoRedirectUrl, "_blank");
+      } else {
+        onAction(promoRedirectUrl);
+      }
+    } else {
+      onAction();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -166,16 +226,16 @@ const ModalPlanBlock = ({ open, onClose, onAction, blockCode, trialInfo }) => {
         className="relative rounded-2xl shadow-2xl w-full max-w-[400px] overflow-hidden bg-white border"
         style={{ borderColor: "rgba(11,20,38,0.1)" }}
       >
-        {/* Accent line — dark navy */}
         <div
           className="h-1.5 w-full"
           style={{
-            background: "linear-gradient(135deg, #0B1426 0%, #1e293b 100%)",
+            background: isPromoExhausted
+              ? "linear-gradient(135deg, #F59E0B 0%, #F97316 100%)"
+              : "linear-gradient(135deg, #0B1426 0%, #1e293b 100%)",
           }}
         />
 
         <div className="px-7 pt-7 pb-6">
-          {/* Icon */}
           <div
             className="mx-auto w-14 h-14 rounded-2xl grid place-items-center mb-5"
             style={{
@@ -191,8 +251,57 @@ const ModalPlanBlock = ({ open, onClose, onAction, blockCode, trialInfo }) => {
           </h3>
 
           <p className="text-center text-[13px] text-slate-500 mt-3 leading-relaxed">
-            {config.description}
+            {displayDescription}
           </p>
+
+          {isPromoExhausted && promoCodigo && (
+            <div className="mt-4 flex justify-center">
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+                style={{
+                  color: "#92400E",
+                  background: "rgba(245,158,11,0.08)",
+                  border: "1px solid rgba(245,158,11,0.15)",
+                }}
+              >
+                <svg
+                  className="w-3 h-3"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+                  <line x1="7" y1="7" x2="7.01" y2="7" />
+                </svg>
+                Código: {promoCodigo}
+              </span>
+            </div>
+          )}
+
+          {isPromoExhausted && (
+            <div
+              className="mt-4 flex items-center justify-center gap-6 py-3 rounded-xl"
+              style={{
+                background: "rgba(245,158,11,0.04)",
+                border: "1px solid rgba(245,158,11,0.1)",
+              }}
+            >
+              <div className="text-center">
+                <span className="text-lg font-extrabold text-slate-400">0</span>
+                <p className="text-[10px] text-slate-400 mt-0.5">imágenes</p>
+              </div>
+              <div
+                className="w-px h-8"
+                style={{ background: "rgba(245,158,11,0.15)" }}
+              />
+              <div className="text-center">
+                <span className="text-lg font-extrabold text-slate-400">0</span>
+                <p className="text-[10px] text-slate-400 mt-0.5">ángulos AI</p>
+              </div>
+            </div>
+          )}
 
           {config.showPricing && (
             <div
@@ -238,14 +347,26 @@ const ModalPlanBlock = ({ open, onClose, onAction, blockCode, trialInfo }) => {
 
           <div className="mt-6 flex flex-col gap-2.5">
             <button
-              onClick={onAction}
+              onClick={handleAction}
               className="w-full rounded-xl px-4 py-3.5 text-sm font-bold text-white transition-all hover:shadow-lg hover:-translate-y-[1px] active:translate-y-0"
               style={{
-                background: "linear-gradient(135deg, #0B1426 0%, #1e293b 100%)",
+                background: isPromoExhausted
+                  ? "linear-gradient(135deg, #F59E0B 0%, #F97316 100%)"
+                  : "linear-gradient(135deg, #0B1426 0%, #1e293b 100%)",
               }}
             >
-              {config.actionText}
+              {displayActionText}
             </button>
+
+            {isPromoExhausted && promoRedirectUrl && (
+              <button
+                onClick={() => onAction()}
+                className="w-full rounded-xl px-4 py-2.5 text-xs font-semibold text-[#0B1426] hover:bg-slate-50 transition border border-slate-200"
+              >
+                Ver planes y suscribirme
+              </button>
+            )}
+
             <button
               onClick={onClose}
               className="w-full rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-400 hover:bg-slate-50 transition"

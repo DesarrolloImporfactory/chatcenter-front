@@ -49,6 +49,7 @@ import InstaLandingHistorial from "./pages/landingai/HistorialPage";
 import InstaLandingProductos from "./pages/landingai/ProductsPage";
 import ProductDetallePage from "./pages/landingai/ProductDetallePage";
 import LandingAiAdmin from "./pages/landingai/LandingAiAdmin";
+import CodigosPromocionalesAdmin from "./pages/landingai/CodigosPromocionalesAdmin";
 
 // Páginas de acceso y registro
 import Access from "./pages/landing/AccessGuided";
@@ -218,6 +219,16 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
+
+                <Route
+                  path="/codigos_promocionales_admin"
+                  element={
+                    <MainLayout_conexiones>
+                      <CodigosPromocionalesAdmin />
+                    </MainLayout_conexiones>
+                  }
+                />
+
                 <Route
                   path="/insta_landing_historial"
                   element={

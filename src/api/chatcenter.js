@@ -17,6 +17,7 @@ const chatApi = axios.create({
 // ═══════════════════════════════════════════════════════
 const PLAN_BLOCK_CODES = new Set([
   "TRIAL_EXHAUSTED",
+  "PROMO_EXHAUSTED",
   "PLAN_REQUIRED",
   "PLAN_EXPIRED",
   "PLAN_INACTIVE",
@@ -68,10 +69,6 @@ chatApi.interceptors.response.use(
     });
 
     const silent = Boolean(originalRequest?.silentError);
-    //ejemplo de uso: const res = await chatApi.post("gemini/generar", fd, {
-    //headers: { "Content-Type": "multipart/form-data" },
-    //silentError: true, // evita toast global
-    //});
 
     const responseCode = error.response?.data?.code;
 
@@ -87,6 +84,7 @@ chatApi.interceptors.response.use(
             message: error.response?.data?.message || "",
             redirectTo: error.response?.data?.redirectTo || "/planes",
             trialInfo: error.response?.data?.trial_info || null,
+            promoInfo: error.response?.data?.promo_info || null,
           },
         }),
       );

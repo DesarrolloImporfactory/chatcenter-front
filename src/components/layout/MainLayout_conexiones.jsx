@@ -22,6 +22,7 @@ function MainLayout({ children }) {
     open: false,
     code: null,
     trialInfo: null,
+    promoInfo: null,
   });
 
   const location = useLocation();
@@ -72,6 +73,7 @@ function MainLayout({ children }) {
         open: true,
         code: detail.code || "PLAN_REQUIRED",
         trialInfo: detail.trialInfo || null,
+        promoInfo: detail.promoInfo || null,
       });
     };
     window.addEventListener("plan:blocked", handler);
@@ -275,6 +277,19 @@ function MainLayout({ children }) {
                     <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600" />
                     <span>Productos</span>
                   </button>
+
+                  {isSuperAdmin && (
+                    <>
+                      <div className="h-px bg-slate-200 my-1.5 mx-2" />
+                      <button
+                        className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/codigos_promocionales") ? "font-semibold text-blue-600" : ""}`}
+                        onClick={() => navigate("/codigos_promocionales_admin")}
+                      >
+                        <i className="bx bx-purchase-tag text-xl text-gray-600 group-hover:text-blue-600" />
+                        <span>Códigos Promo</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -318,12 +333,23 @@ function MainLayout({ children }) {
         open={planBlock.open}
         blockCode={planBlock.code}
         trialInfo={planBlock.trialInfo}
+        promoInfo={planBlock.promoInfo}
         onClose={() =>
-          setPlanBlock({ open: false, code: null, trialInfo: null })
+          setPlanBlock({
+            open: false,
+            code: null,
+            trialInfo: null,
+            promoInfo: null,
+          })
         }
-        onAction={() => {
-          setPlanBlock({ open: false, code: null, trialInfo: null });
-          navigate("/planes");
+        onAction={(customRedirect) => {
+          setPlanBlock({
+            open: false,
+            code: null,
+            trialInfo: null,
+            promoInfo: null,
+          });
+          navigate(customRedirect || "/planes");
         }}
       />
     </div>

@@ -4,6 +4,7 @@ import chatApi from "../../api/chatcenter";
 import { useNavigate } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import ModalTrialActivated from "./modales/ModalTrialActivated";
+import ModalCodigoPromo from "./modales/ModalCodigoPromo";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -286,9 +287,18 @@ const PlanesView = () => {
   const [promoPlan2Eligible, setPromoPlan2Eligible] = useState(false);
   const [ilTrialUsed, setIlTrialUsed] = useState(false);
   const [isTrialUsageActive, setIsTrialUsageActive] = useState(false);
+  const [isPromoUsageActive, setIsPromoUsageActive] = useState(false);
   const [showTrialActivated, setShowTrialActivated] = useState(false);
+  const [showPromoModal, setShowPromoModal] = useState(false);
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const getIdUsuario = () => {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const decoded = JSON.parse(atob(token.split(".")[1]));
+    return decoded.id_usuario || decoded.id_users;
+  };
 
   const refreshPlanActual = async () => {
     const token = localStorage.getItem("token");
@@ -314,9 +324,11 @@ const PlanesView = () => {
     setCurrentPlanEstado(plan?.estado ?? null);
     const estado = (plan?.estado || "").toLowerCase();
     const isTU = estado === "trial_usage";
+    const isPU = estado === "promo_usage";
     setIsTrialUsageActive(isTU);
+    setIsPromoUsageActive(isPU);
     const isActive =
-      estado.includes("activo") || estado.includes("trial") || isTU;
+      estado.includes("activo") || estado.includes("trial") || isTU || isPU;
     setHasActivePlan(Boolean(plan?.id_plan) && isActive);
     return plan;
   };
@@ -338,7 +350,10 @@ const PlanesView = () => {
   const isPlanActualActivo = useMemo(() => {
     const est = (currentPlanEstado || "").toLowerCase();
     return (
-      est.includes("activo") || est.includes("trial") || est === "trial_usage"
+      est.includes("activo") ||
+      est.includes("trial") ||
+      est === "trial_usage" ||
+      est === "promo_usage"
     );
   }, [currentPlanEstado]);
 
@@ -415,7 +430,8 @@ const PlanesView = () => {
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
 
-      if (isTrialUsageActive) {
+      // Desde trial_usage o promo_usage → directo a checkout
+      if (isTrialUsageActive || isPromoUsageActive) {
         setActionText("Redirigiendo al pago...");
         const res = await chatApi.post(
           "stripe_plan/crearSesionPago",
@@ -578,6 +594,28 @@ const PlanesView = () => {
           </div>
         )}
 
+        {/* Promo code button */}
+        <div className="absolute right-4 sm:right-6 top-3">
+          <button
+            onClick={() => setShowPromoModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-semibold text-slate-500 hover:text-amber-600 hover:bg-amber-50/60 transition-all duration-200"
+          >
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+              <line x1="7" y1="7" x2="7.01" y2="7" />
+            </svg>
+            Código promo
+          </button>
+        </div>
+
         {/* Title */}
         <div className="text-center pb-6 px-4">
           <h2 className="mt-5 text-3xl sm:text-4xl lg:text-[42px] font-extrabold text-[#0B1426] tracking-[-0.03em] leading-[1.15]  mx-auto">
@@ -615,6 +653,33 @@ const PlanesView = () => {
             </span>
           </div>
         )}
+
+        {/* Promo banner */}
+        {isPromoUsageActive && (
+          <div
+            className="mt-4 mx-auto max-w-lg flex items-center gap-3 px-5 py-3 rounded-2xl"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(249,115,22,0.04))",
+              border: "1px solid rgba(245,158,11,0.15)",
+            }}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-700">
+                Estás usando un código promocional
+              </p>
+              <p className="text-[10px] text-slate-500">
+                Suscríbete para acceso ilimitado cuando se agoten tus recursos.
+              </p>
+            </div>
+            <span
+              className="shrink-0 text-[10px] font-bold px-3 py-1 rounded-full"
+              style={{ color: "#D97706", background: "rgba(245,158,11,0.1)" }}
+            >
+              Promo activa
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── GRID — full width ── */}
@@ -637,26 +702,30 @@ const PlanesView = () => {
             const isCurrentVencido = isCurrent && !isPlanActualActivo;
             const isAction = Number(actionPlanId) === planId;
             const isCurrentTrialUsage = isCurrent && isTrialUsageActive;
+            const isCurrentPromoUsage = isCurrent && isPromoUsageActive;
+            const isCurrentFreeUsage =
+              isCurrentTrialUsage || isCurrentPromoUsage;
             const canTrialIL =
               planId === TRIAL_USAGE_PLAN_ID && !ilTrialUsed && !hasActivePlan;
             const canTrialDays =
               planId === TRIAL_DAYS_PLAN_ID && trialEligible && !hasActivePlan;
             const promoEligible =
-              promoPlan2Eligible && (!hasActivePlan || isTrialUsageActive);
+              promoPlan2Eligible &&
+              (!hasActivePlan || isTrialUsageActive || isPromoUsageActive);
             const showPromo = PROMO_PLANS.has(planId) && promoEligible;
             const precioNormal = Number(plan?.precio_plan || 0).toFixed(2);
             const precioEntero = Number(plan?.precio_plan || 0).toFixed(0);
             const features = buildFeatures(plan);
             const isDisabled =
               loading ||
-              (isCurrent && isPlanActualActivo && !isCurrentTrialUsage) ||
+              (isCurrent && isPlanActualActivo && !isCurrentFreeUsage) ||
               !!actionPlanId;
             const ilLabel =
               tipo === "avanzado" ? "INSTA LANDING MAX" : "INSTA LANDING";
             const icLabel = tipo === "avanzado" ? "IMPORCHAT PRO" : "IMPORCHAT";
 
             const getCTAText = () => {
-              if (isCurrentTrialUsage)
+              if (isCurrentFreeUsage)
                 return showPromo
                   ? `Suscribirse — $${PROMO_FIRST_MONTH} primer mes`
                   : "Suscribirse ahora";
@@ -669,7 +738,8 @@ const PlanesView = () => {
                     {actionText}
                   </span>
                 );
-              if (isTrialUsageActive) return "Cambiar a este plan";
+              if (isTrialUsageActive || isPromoUsageActive)
+                return "Cambiar a este plan";
               if (hasActivePlan) return "Cambiar a este plan";
               if (canTrialIL)
                 return `Probar gratis (${TRIAL_USAGE_LIMIT} imágenes)`;
@@ -678,7 +748,7 @@ const PlanesView = () => {
             };
 
             const handleClick = () => {
-              if (isCurrentTrialUsage) seleccionarPlan(planId);
+              if (isCurrentFreeUsage) seleccionarPlan(planId);
               else if (canTrialIL && !hasActivePlan) activarTrialIL();
               else seleccionarPlan(planId);
             };
@@ -791,6 +861,18 @@ const PlanesView = () => {
                           Prueba activa — suscríbete para continuar
                         </span>
                       )}
+                      {isCurrentPromoUsage && (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold"
+                          style={{
+                            color: "#D97706",
+                            background: "rgba(245,158,11,0.08)",
+                            border: "1px solid rgba(245,158,11,0.15)",
+                          }}
+                        >
+                          Promo activa — suscríbete para acceso completo
+                        </span>
+                      )}
                       {canTrialDays && (
                         <span
                           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold"
@@ -804,12 +886,12 @@ const PlanesView = () => {
                         </span>
                       )}
                       <span className="text-[9px] text-slate-400 text-center leading-relaxed">
-                        {isCurrentTrialUsage && showPromo ? (
+                        {isCurrentFreeUsage && showPromo ? (
                           <>
                             Paga solo <b>$5</b> tu primer mes. Luego $
                             {precioNormal}/mes.
                           </>
-                        ) : isCurrentTrialUsage ? (
+                        ) : isCurrentFreeUsage ? (
                           <>Suscríbete por ${precioNormal}/mes</>
                         ) : canTrialIL && showPromo ? (
                           <>Gratis → $5 primer mes → ${precioNormal}/mes</>
@@ -832,9 +914,7 @@ const PlanesView = () => {
                       disabled={isDisabled}
                       className={`w-full rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 mb-5 inline-flex items-center justify-center focus:outline-none
                         ${
-                          isCurrent &&
-                          isPlanActualActivo &&
-                          !isCurrentTrialUsage
+                          isCurrent && isPlanActualActivo && !isCurrentFreeUsage
                             ? "bg-slate-50 text-slate-400 cursor-default border border-slate-200"
                             : isDisabled
                               ? "bg-slate-100 text-slate-400 cursor-not-allowed"
@@ -844,7 +924,7 @@ const PlanesView = () => {
                         !(
                           isCurrent &&
                           isPlanActualActivo &&
-                          !isCurrentTrialUsage
+                          !isCurrentFreeUsage
                         ) && !isDisabled
                           ? { background: theme.gradient }
                           : {}
@@ -910,6 +990,18 @@ const PlanesView = () => {
           setShowTrialActivated(false);
           navigate("/insta_landing");
         }}
+      />
+
+      {/* Modal código promo */}
+      <ModalCodigoPromo
+        open={showPromoModal}
+        onClose={() => setShowPromoModal(false)}
+        onSuccess={({ imagenes, angulos }) => {
+          refreshPlanActual();
+          navigate("/insta_landing");
+        }}
+        idUsuario={getIdUsuario()}
+        chatApi={chatApi}
       />
     </div>
   );
