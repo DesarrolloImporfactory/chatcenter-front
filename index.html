@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
@@ -31,19 +31,23 @@
       const search = window.location.search;
 
       const isLoginWithParams =
-        pathname === "/login" &&
+        (pathname === "/login" || pathname === "/home") &&
         search.includes("token=") &&
         search.includes("tienda=");
 
       const token = localStorage.getItem("token");
 
       if (token && token !== "undefined" && token !== "") {
-        if ((pathname === "/login" && !isLoginWithParams) || pathname === "/") {
+        const shouldRedirectToChat =
+          (pathname === "/login" || pathname === "/home" || pathname === "/") &&
+          !isLoginWithParams;
+
+        if (shouldRedirectToChat) {
           window.location.href = "/chat";
         }
       } else {
         if ((pathname === "/chat" || pathname === "/") && !isLoginWithParams) {
-          window.location.href = "/login";
+          window.location.href = "/home";
         }
       }
     </script>
