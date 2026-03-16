@@ -18,7 +18,7 @@ import PlanesView from "./pages/planes/PlanesView";
 import PlanesViewPrueba from "./pages/planes/PlanesViewPrueba";
 import MiPlan from "./pages/facturacion/Miplan";
 import MiPlanPrueba from "./pages/facturacion/MiplanPrueba";
-import LandingTrial from "./pages/planes/LandingTrial";
+import LandingHome from "./pages/planes/LandingHome";
 
 import ListaPlanes from "./pages/planes/listaPlanes";
 
@@ -148,10 +148,11 @@ function App() {
             element={<TerminosServicioTikTok />}
           />
 
-          {/* Rutas de autenticación */}
           <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
 
           <Route path="/catalogo/:slug" element={<CatalogoPublicoView />} />
+
+          <Route path="/home" element={<LandingHome />} />
 
           {/* Rutas protegidas */}
           <Route element={<ProtectedRoutes />}>
@@ -442,15 +443,6 @@ function App() {
                 />
 
                 <Route
-                  path="/landing"
-                  element={
-                    <MainLayoutPlanes>
-                      <LandingTrial />
-                    </MainLayoutPlanes>
-                  }
-                />
-
-                <Route
                   path="/productos"
                   element={
                     <MainLayout>
@@ -484,7 +476,7 @@ function App() {
           <Route path="/registro_guiado" element={<RegisterGuided />} />
 
           <Route path="/login" element={<Login />} />
-          <Route path="/registro" element={<Register />} />
+          <Route path="/register" element={<Register />} />
 
           {/* 
           /administrador-whatsapp, sin envolver MainLayout 

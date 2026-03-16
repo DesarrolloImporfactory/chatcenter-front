@@ -579,7 +579,7 @@ const PlanesView = () => {
         )}
 
         {/* Title */}
-        <div className="text-center pt-8 pb-2 px-4">
+        <div className="text-center pb-6 px-4">
           <h2 className="mt-5 text-3xl sm:text-4xl lg:text-[42px] font-extrabold text-[#0B1426] tracking-[-0.03em] leading-[1.15]  mx-auto">
             Elija el plan ideal para{" "}
             <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
