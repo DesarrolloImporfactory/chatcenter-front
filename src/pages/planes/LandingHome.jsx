@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import TabImporChat from "./TabImporChat";
+import TabImporChat from "./TabImporchat";
 import TabInstaLanding from "./TabInstaLanding";
 
 /* ── Comparison Table ── */
