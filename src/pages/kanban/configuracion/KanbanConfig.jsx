@@ -1329,22 +1329,66 @@ const AccionCard = ({ accion, columnas, onUpdate, onDelete }) => {
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
           >
             <div>
-              <label style={lbl}>
-                Trigger (texto en la respuesta del asistente)
-              </label>
+              <label style={lbl}>Palabra clave</label>
               <input
-                value={local.trigger || ""}
-                onChange={(e) =>
-                  setLocal((p) => ({ ...p, trigger: e.target.value }))
-                }
+                value={(local.trigger || "").replace(/^\[|\]:true$/gi, "")}
+                onChange={(e) => {
+                  const palabra = e.target.value.replace(/[\[\]:]/g, "").trim();
+                  setLocal((p) => ({
+                    ...p,
+                    trigger: palabra ? `[${palabra}]:true` : "",
+                  }));
+                }}
                 style={inp}
-                placeholder="Ej: [pedido_confirmado]: true"
+                placeholder="ej: asesor"
               />
-              <div
-                style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 3 }}
-              >
-                Si la respuesta contiene este texto exacto…
-              </div>
+              {/* Preview + copiar */}
+              {local.trigger && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    marginTop: 6,
+                  }}
+                >
+                  <span style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                    Tag:
+                  </span>
+                  <code
+                    style={{
+                      fontSize: "0.78rem",
+                      background: "#ede9fe",
+                      color: "#6d28d9",
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {local.trigger}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(local.trigger);
+                      Toast.fire({ icon: "success", title: "¡Tag copiado!" });
+                    }}
+                    style={{
+                      background: "none",
+                      border: "1px solid #c4b5fd",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      color: "#6d28d9",
+                      padding: "2px 7px",
+                      fontSize: "0.75rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <i className="bx bx-copy" /> Copiar
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label style={lbl}>Mover contacto a columna</label>
