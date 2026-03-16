@@ -1139,20 +1139,30 @@ const Conexiones = () => {
         setConfiguracionAutomatizada(response.data.data || []);
         setMostrarErrorBot(false);
       } catch (error) {
-        const redirectTo = error?.response?.data?.redirectTo;
+        const code = error?.response?.data?.code;
+
+        // Si el interceptor global ya lo maneja (modal de MainLayout), no hacer nada
+        const PLAN_BLOCK_CODES = [
+          "TRIAL_EXHAUSTED",
+          "PLAN_REQUIRED",
+          "PLAN_EXPIRED",
+          "PLAN_INACTIVE",
+          "PLAN_UNAVAILABLE",
+          "ACCOUNT_BLOCKED",
+        ];
+
+        if (code && PLAN_BLOCK_CODES.includes(code)) {
+          return;
+        }
 
         if (error.response?.status === 403) {
           Swal.fire({
             icon: "error",
             title: error.response?.data?.message,
             confirmButtonText: "OK",
-          }).then(() => navigate(redirectTo || "/planes"));
-        } else if (error.response?.status === 402) {
-          Swal.fire({
-            icon: "error",
-            title: error.response?.data?.message,
-            confirmButtonText: "OK",
-          }).then(() => navigate(redirectTo || "/planes"));
+          }).then(() =>
+            navigate(error?.response?.data?.redirectTo || "/planes"),
+          );
         } else if (error.response?.status === 400) {
           setMostrarErrorBot(true);
         } else {

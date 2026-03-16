@@ -3,7 +3,6 @@ import { APP_CONFIG } from "../config";
 import authService from "../auth/AuthService";
 import { toast } from "react-hot-toast";
 
-// Crear instancia de axios
 const chatApi = axios.create({
   baseURL: APP_CONFIG.api.baseURL,
   timeout: APP_CONFIG.api.timeout,
@@ -12,25 +11,31 @@ const chatApi = axios.create({
   },
 });
 
-// Interceptor de request - añadir token y configuración
+// ═══════════════════════════════════════════════════════
+// Códigos del middleware checkPlanActivo que disparan
+// el modal global en MainLayout
+// ═══════════════════════════════════════════════════════
+const PLAN_BLOCK_CODES = new Set([
+  "TRIAL_EXHAUSTED",
+  "PLAN_REQUIRED",
+  "PLAN_EXPIRED",
+  "PLAN_INACTIVE",
+  "PLAN_UNAVAILABLE",
+  "ACCOUNT_BLOCKED",
+]);
+
 chatApi.interceptors.request.use(
   (config) => {
     const token = authService.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
-    // Añadir timestamp para evitar caché
     config.headers["X-Timestamp"] = Date.now();
 
-    // Log para desarrollo
     if (import.meta.env.NODE_ENV === "development") {
       console.log(
         `🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`,
-        {
-          headers: config.headers,
-          data: config.data,
-        },
+        { headers: config.headers, data: config.data },
       );
     }
 
@@ -42,28 +47,19 @@ chatApi.interceptors.request.use(
   },
 );
 
-// Interceptor de response - manejar errores globalmente
 chatApi.interceptors.response.use(
   (response) => {
-    // Log para desarrollo
     if (import.meta.env.NODE_ENV === "development") {
       console.log(
-        `✅ API Response: ${response.config.method?.toUpperCase()} ${
-          response.config.url
-        }`,
-        {
-          status: response.status,
-          data: response.data,
-        },
+        `✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`,
+        { status: response.status, data: response.data },
       );
     }
-
     return response;
   },
   async (error) => {
     const originalRequest = error.config;
 
-    // Log error
     console.error("❌ API Error:", {
       url: originalRequest?.url,
       status: error.response?.status,
@@ -71,39 +67,48 @@ chatApi.interceptors.response.use(
       data: error.response?.data,
     });
 
-    console.log("Error details:", error.toJSON());
-
     const silent = Boolean(originalRequest?.silentError);
-
     //ejemplo de uso: const res = await chatApi.post("gemini/generar", fd, {
     //headers: { "Content-Type": "multipart/form-data" },
     //silentError: true, // evita toast global
     //});
-    if (silent) {
-      return Promise.reject(error); // no muestra toast global
+
+    const responseCode = error.response?.data?.code;
+
+    // ═══════════════════════════════════════════════════════
+    // Plan block: capturar TODOS los códigos del middleware
+    // y disparar evento global → MainLayout muestra el modal.
+    // ═══════════════════════════════════════════════════════
+    if (responseCode && PLAN_BLOCK_CODES.has(responseCode)) {
+      window.dispatchEvent(
+        new CustomEvent("plan:blocked", {
+          detail: {
+            code: responseCode,
+            message: error.response?.data?.message || "",
+            redirectTo: error.response?.data?.redirectTo || "/planes",
+            trialInfo: error.response?.data?.trial_info || null,
+          },
+        }),
+      );
+      return Promise.reject(error);
     }
 
-    // Manejar diferentes tipos de error
+    if (silent) {
+      return Promise.reject(error);
+    }
+
     switch (error.response?.status) {
       case 401:
-        // IMPORTANTE: Primero verificar si realmente el token está expirado
-        // antes de cerrar sesión del usuario
         if (!originalRequest._retry) {
           originalRequest._retry = true;
-
-          // Verificar si el token está realmente expirado
           const isStillAuthenticated = authService.isAuthenticated();
-
           if (!isStillAuthenticated) {
-            // Token realmente expirado - cerrar sesión
             authService.logout();
             window.location.href = "/login";
             toast.error(
               "Sesión expirada. Por favor, inicia sesión nuevamente.",
             );
           } else {
-            // Token válido pero error 401 - probablemente es de una API externa
-            // No cerrar sesión, solo mostrar el error
             const errorMsg =
               error.response?.data?.message ||
               error.response?.data?.error ||
@@ -111,13 +116,17 @@ chatApi.interceptors.response.use(
             toast.error(errorMsg);
             console.warn(
               "Error 401 pero token válido - posible error de API externa:",
-              {
-                url: originalRequest?.url,
-                error: errorMsg,
-              },
+              { url: originalRequest?.url, error: errorMsg },
             );
           }
         }
+        break;
+
+      case 402:
+        toast.error(
+          error.response?.data?.message ||
+            "Se requiere un plan activo para continuar.",
+        );
         break;
 
       case 403:
@@ -128,8 +137,7 @@ chatApi.interceptors.response.use(
         toast.error("Recurso no encontrado.");
         break;
 
-      case 422:
-        // Error de validación
+      case 422: {
         const validationErrors = error.response?.data?.errors;
         if (validationErrors) {
           Object.values(validationErrors).forEach((errorMessages) => {
@@ -143,6 +151,7 @@ chatApi.interceptors.response.use(
           toast.error(error.response?.data?.message || "Datos inválidos.");
         }
         break;
+      }
 
       case 429:
         toast.error(
@@ -170,9 +179,7 @@ chatApi.interceptors.response.use(
   },
 );
 
-// Helper functions para requests comunes
 export const apiHelpers = {
-  // GET con manejo de errores
   async get(url, config = {}) {
     try {
       const response = await chatApi.get(url, config);
@@ -181,8 +188,6 @@ export const apiHelpers = {
       return { success: false, error: error.response?.data || error };
     }
   },
-
-  // POST con manejo de errores
   async post(url, data = {}, config = {}) {
     try {
       const response = await chatApi.post(url, data, config);
@@ -191,8 +196,6 @@ export const apiHelpers = {
       return { success: false, error: error.response?.data || error };
     }
   },
-
-  // PUT con manejo de errores
   async put(url, data = {}, config = {}) {
     try {
       const response = await chatApi.put(url, data, config);
@@ -201,8 +204,6 @@ export const apiHelpers = {
       return { success: false, error: error.response?.data || error };
     }
   },
-
-  // DELETE con manejo de errores
   async delete(url, config = {}) {
     try {
       const response = await chatApi.delete(url, config);
@@ -211,17 +212,12 @@ export const apiHelpers = {
       return { success: false, error: error.response?.data || error };
     }
   },
-
-  // Upload de archivos
   async upload(url, file, onProgress = null) {
     const formData = new FormData();
     formData.append("file", file);
-
     try {
       const response = await chatApi.post(url, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (progressEvent) => {
           if (onProgress) {
             const percentCompleted = Math.round(

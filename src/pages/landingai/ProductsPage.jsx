@@ -214,9 +214,13 @@ const ProductsPage = () => {
 
       let productoId = editingProduct?.id;
       if (editingProduct) {
-        await chatApi.put(`gemini/productos/${editingProduct.id}`, payload);
+        await chatApi.put(`gemini/productos/${editingProduct.id}`, payload, {
+          silentError: true,
+        });
       } else {
-        const r = await chatApi.post("gemini/productos", payload);
+        const r = await chatApi.post("gemini/productos", payload, {
+          silentError: true,
+        });
         productoId = r.data?.data?.id;
       }
 

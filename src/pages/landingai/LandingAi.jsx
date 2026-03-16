@@ -33,27 +33,18 @@ const LandingAi = () => {
   const productState = location.state || {};
   const fromProducto = productState.fromProducto === true;
 
-  // Config state
   const [selectedConfig, setSelectedConfig] = useState(null);
   const [step, setStep] = useState("home");
   const [userImages, setUserImages] = useState([]);
   const [description, setDescription] = useState("");
   const [aspectRatio, setAspectRatio] = useState("9:16");
-
-  // Product linkage
   const [idProducto, setIdProducto] = useState(null);
   const [productoNombre, setProductoNombre] = useState("");
   const [productPortada, setProductPortada] = useState(null);
-
-  // Pricing
   const [pricing, setPricing] = useState({ precio_unitario: "", combos: [] });
-
-  // Angle
   const [selectedAngle, setSelectedAngle] = useState(null);
   const [customAngle, setCustomAngle] = useState("");
   const [anguloVenta, setAnguloVenta] = useState("");
-
-  // Generation
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState({
     current: 0,
@@ -65,8 +56,6 @@ const LandingAi = () => {
   const [marca, setMarca] = useState("");
   const [moneda, setMoneda] = useState("USD");
   const [idioma, setIdioma] = useState("es");
-
-  // Usage
   const [usage, setUsage] = useState({
     used: 0,
     limit: 0,
@@ -77,35 +66,24 @@ const LandingAi = () => {
     angles_remaining: 0,
   });
 
-  // Derived flags — dependen de idProducto para resetear si desvincula
   const canSkipToAngles =
     fromProducto &&
     !!productState.imagen_portada &&
     !!productState.descripcion &&
     !!idProducto;
-
   const canSkipImages =
     fromProducto && !!productState.imagen_portada && !!idProducto;
 
-  // Modals
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-
-  // Assign modal
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
-
-  // New product modal
   const [showNewProductModal, setShowNewProductModal] = useState(false);
   const [newProductName, setNewProductName] = useState("");
   const [creatingProduct, setCreatingProduct] = useState(false);
-
-  // Background templates / etapas
   const [bgTemplates, setBgTemplates] = useState([]);
   const [etapas, setEtapas] = useState([]);
-
-  // Track si la portada se está cargando
   const [loadingPortada, setLoadingPortada] = useState(false);
 
   const stepRef = useRef(null);
@@ -117,26 +95,19 @@ const LandingAi = () => {
     }, 60);
   }, []);
 
-  // ── Helper: appendear imágenes al FormData (file local + URL remota) ──
   const appendUserImages = (fd) => {
     const remoteUrls = [];
     userImages.forEach((img) => {
-      if (img.file) {
-        fd.append("user_images", img.file);
-      } else if (img.remoteUrl) {
-        remoteUrls.push(img.remoteUrl);
-      }
+      if (img.file) fd.append("user_images", img.file);
+      else if (img.remoteUrl) remoteUrls.push(img.remoteUrl);
     });
-    if (remoteUrls.length > 0) {
+    if (remoteUrls.length > 0)
       fd.append("user_image_urls", JSON.stringify(remoteUrls));
-    }
   };
 
-  // ── Inicializar con datos del producto (solo una vez) ──
   useEffect(() => {
     if (fromProducto && !initializedRef.current) {
       initializedRef.current = true;
-
       if (productState.id_producto) setIdProducto(productState.id_producto);
       if (productState.nombre) setProductoNombre(productState.nombre);
       if (productState.descripcion) setDescription(productState.descripcion);
@@ -149,11 +120,9 @@ const LandingAi = () => {
           combos: productState.combos || [],
         });
       }
-
       if (productState.imagen_portada) {
         setProductPortada(productState.imagen_portada);
         setLoadingPortada(true);
-
         const createFileAndSet = (blob) => {
           const file = new File([blob], "portada-producto.png", {
             type: blob.type || "image/png",
@@ -169,14 +138,10 @@ const LandingAi = () => {
           ]);
           setLoadingPortada(false);
         };
-
-        // Intento 1: fetch directo
         fetch(productState.imagen_portada)
           .then((r) => r.blob())
           .then(createFileAndSet)
           .catch(() => {
-            // CORS bloqueó el fetch — guardar solo la URL,
-            // el backend la descargará server-side
             setUserImages([
               {
                 id: Date.now() + Math.random(),
@@ -190,19 +155,32 @@ const LandingAi = () => {
             setLoadingPortada(false);
           });
       }
-
       window.history.replaceState({}, document.title);
     }
   }, [fromProducto]);
 
-  // ── Fetch inicial ──
+  // Fetch inicial — el 402 TRIAL_EXHAUSTED lo captura el interceptor global (chatApi)
+  // y MainLayout muestra el modal. Aquí solo seteamos usage si llega bien.
   useEffect(() => {
     chatApi
       .get("gemini/usage")
       .then((r) => {
         if (r.data?.usage) setUsage(r.data.usage);
       })
-      .catch(() => {});
+      .catch((err) => {
+        // Si es 402 TRIAL_EXHAUSTED, el interceptor global ya disparó el evento.
+        // Igual seteamos lo que podamos del error para que el UI sepa el estado.
+        if (err?.response?.status === 402 && err?.response?.data?.trial_info) {
+          const ti = err.response.data.trial_info;
+          setUsage((prev) => ({
+            ...prev,
+            used: ti.used,
+            limit: ti.limit,
+            remaining: 0,
+            is_trial: true,
+          }));
+        }
+      });
     chatApi
       .get("gemini/templates")
       .then((r) => {
@@ -217,19 +195,16 @@ const LandingAi = () => {
       .catch(() => {});
   }, []);
 
-  // ── Determinar siguiente paso después de seleccionar template ──
   const getStepAfterTemplate = () => {
     if (canSkipToAngles) return "angles";
     if (canSkipImages) return "pricing";
     return "images";
   };
 
-  // ── Handlers ──
   const handleTemplateConfirm = ({ template, etapas, mode }) => {
     setSelectedConfig({ template, etapas, mode });
     setShowTemplateModal(false);
-    const nextStep = getStepAfterTemplate();
-    setStep(nextStep);
+    setStep(getStepAfterTemplate());
     scrollToStep();
   };
 
@@ -240,9 +215,7 @@ const LandingAi = () => {
 
   const handleBackToHome = () => {
     setStep("home");
-    if (selectedConfig) {
-      setTimeout(() => setShowTemplateModal(true), 150);
-    }
+    if (selectedConfig) setTimeout(() => setShowTemplateModal(true), 150);
     scrollToStep();
   };
 
@@ -251,21 +224,18 @@ const LandingAi = () => {
     goToStep("generate");
   };
 
-  // ── GENERATE ──
   const handleGenerate = async () => {
-    if (!selectedConfig) {
+    if (!selectedConfig)
       return Toast.fire({
         icon: "error",
         title: "Selecciona un template primero",
       });
-    }
     if (userImages.length === 0) {
-      if (loadingPortada) {
+      if (loadingPortada)
         return Toast.fire({
           icon: "info",
-          title: "La imagen de portada aún se está cargando, espera un momento",
+          title: "La imagen de portada aún se está cargando",
         });
-      }
       return Toast.fire({
         icon: "error",
         title: "No hay imágenes del producto. Sube al menos una.",
@@ -273,11 +243,10 @@ const LandingAi = () => {
     }
 
     const { template, etapas } = selectedConfig;
-
     if (usage.limit > 0 && usage.remaining < etapas.length) {
       return Toast.fire({
         icon: "error",
-        title: `Necesitas ${etapas.length} imágenes pero solo te quedan ${usage.remaining}`,
+        title: `Necesitas ${etapas.length} imágenes pero solo te quedan ${usage.remaining} de tu plan actual`,
       });
     }
 
@@ -326,13 +295,12 @@ const LandingAi = () => {
         });
         setResults([...generated]);
 
-        if (res.data.usage) {
+        if (res.data.usage)
           setUsage((prev) => ({
             ...prev,
             used: res.data.usage.used,
             remaining: res.data.usage.remaining,
           }));
-        }
       } catch (err) {
         generated.push({
           etapa: { id: etapa.id, nombre: etapa.nombre, slug: etapa.slug },
@@ -342,7 +310,12 @@ const LandingAi = () => {
         setResults([...generated]);
 
         if (err?.response?.status === 429 || err?.response?.status === 402) {
-          Toast.fire({ icon: "error", title: "Límite alcanzado" });
+          // 402 → el interceptor global ya disparó trial:exhausted → MainLayout muestra modal
+          // 429 → límite mensual (plan pagado) → toast
+          if (err?.response?.status === 429) {
+            Toast.fire({ icon: "error", title: "Límite mensual alcanzado" });
+          }
+          setGenerating(false);
           break;
         }
       }
@@ -350,12 +323,11 @@ const LandingAi = () => {
 
     setGenerating(false);
     const ok = generated.filter((g) => g.success).length;
-    if (ok > 0) {
+    if (ok > 0)
       Toast.fire({
         icon: "success",
-        title: `¡${ok} imagen${ok !== 1 ? "es" : ""} lista${ok !== 1 ? "s" : ""}!`,
+        title: `${ok} imagen${ok !== 1 ? "es" : ""} lista${ok !== 1 ? "s" : ""}`,
       });
-    }
   };
 
   const handleRegenerateEtapa = async (result, promptExtra) => {
@@ -397,27 +369,26 @@ const LandingAi = () => {
             : r,
         ),
       );
-
-      if (res.data.usage) {
+      if (res.data.usage)
         setUsage((prev) => ({
           ...prev,
           used: res.data.usage.used,
           remaining: res.data.usage.remaining,
         }));
-      }
-
-      Toast.fire({ icon: "success", title: "¡Sección regenerada!" });
+      Toast.fire({ icon: "success", title: "Sección regenerada" });
     } catch (err) {
-      Toast.fire({
-        icon: "error",
-        title: err?.response?.data?.message || "Error al regenerar la sección",
-      });
+      // 402 → interceptor global muestra el modal
+      if (err?.response?.status !== 402) {
+        Toast.fire({
+          icon: "error",
+          title: err?.response?.data?.message || "Error al regenerar",
+        });
+      }
     } finally {
       setRegeneratingId(null);
     }
   };
 
-  // ── Assign to product ──
   const handleOpenAssignModal = async () => {
     setShowAssignModal(true);
     setLoadingProductos(true);
@@ -440,40 +411,34 @@ const LandingAi = () => {
         icon: "error",
         title: "No hay imágenes para asignar",
       });
-
     try {
       await chatApi.post(`gemini/productos/${productoId}/asignar-imagenes`, {
         image_urls: imageUrls,
       });
-
       const prod = productos.find((p) => p.id === productoId);
       setIdProducto(productoId);
       if (prod) setProductoNombre(prod.nombre);
       setShowAssignModal(false);
-
       Toast.fire({
         icon: "success",
-        title: `${imageUrls.length} imagen${imageUrls.length !== 1 ? "es" : ""} asignada${imageUrls.length !== 1 ? "s" : ""} a ${prod?.nombre || "el producto"}`,
+        title: `${imageUrls.length} imagen${imageUrls.length !== 1 ? "es" : ""} asignada${imageUrls.length !== 1 ? "s" : ""}`,
       });
     } catch (err) {
       Toast.fire({
         icon: "error",
-        title: err?.response?.data?.message || "Error al asignar imágenes",
+        title: err?.response?.data?.message || "Error al asignar",
       });
     }
   };
 
-  // ── Create new product and assign ──
   const handleCreateAndAssign = async () => {
     if (!newProductName.trim())
       return Toast.fire({ icon: "error", title: "El nombre es requerido" });
-
     const imageUrls = results
       .filter((r) => r.success && r.image_url)
       .map((r) => r.image_url);
     if (imageUrls.length === 0)
       return Toast.fire({ icon: "error", title: "No hay imágenes" });
-
     setCreatingProduct(true);
     try {
       const res = await chatApi.post("gemini/productos", {
@@ -485,18 +450,15 @@ const LandingAi = () => {
         precio_unitario: pricing.precio_unitario || null,
         combos: pricing.combos || [],
       });
-
       if (res.data?.isSuccess && res.data?.data?.id) {
         const newId = res.data.data.id;
         await chatApi.post(`gemini/productos/${newId}/asignar-imagenes`, {
           image_urls: imageUrls,
         });
-
         setIdProducto(newId);
         setProductoNombre(newProductName.trim());
         setShowNewProductModal(false);
         setNewProductName("");
-
         Toast.fire({
           icon: "success",
           title: `Producto creado con ${imageUrls.length} imagen${imageUrls.length !== 1 ? "es" : ""}`,
@@ -533,10 +495,8 @@ const LandingAi = () => {
     if (idProducto) navigate(`/insta_landing_productos/${idProducto}`);
   };
 
-  /* ─────────────────────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-gray-50/50">
-      {/* PRODUCT CONTEXT BANNER */}
       {idProducto && (
         <div
           className="flex items-center gap-3 px-5 py-3 rounded-2xl mb-3"
@@ -592,14 +552,12 @@ const LandingAi = () => {
         </div>
       )}
 
-      {/* HERO */}
       <HeroSection
         usage={usage}
         step={step}
         onShowHistory={() => setShowHistory(true)}
       />
 
-      {/* BODY */}
       <div className="pt-5" ref={stepRef}>
         {step === "home" && (
           <StepHome
@@ -609,7 +567,6 @@ const LandingAi = () => {
             onContinue={() => goToStep(getStepAfterTemplate())}
           />
         )}
-
         {step === "images" && (
           <StepImages
             selectedConfig={selectedConfig}
@@ -620,7 +577,6 @@ const LandingAi = () => {
             onContinue={() => goToStep("pricing")}
           />
         )}
-
         {step === "pricing" && (
           <StepPricing
             description={description}
@@ -637,7 +593,6 @@ const LandingAi = () => {
             onContinue={() => goToStep("angles")}
           />
         )}
-
         {step === "angles" && (
           <StepAngles
             description={description}
@@ -654,7 +609,6 @@ const LandingAi = () => {
             onContinue={handleAnglesContinue}
           />
         )}
-
         {step === "generate" && (
           <StepGenerate
             selectedConfig={selectedConfig}
@@ -685,7 +639,6 @@ const LandingAi = () => {
               regeneratingId={regeneratingId}
             />
 
-            {/* Assign bar — solo si no hay producto vinculado */}
             {!generating && results.some((r) => r.success) && !idProducto && (
               <div
                 className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-5 py-4 rounded-2xl"
@@ -744,7 +697,6 @@ const LandingAi = () => {
               </div>
             )}
 
-            {/* Linked product banner */}
             {!generating && results.some((r) => r.success) && idProducto && (
               <div
                 className="mt-5 flex items-center gap-3 px-5 py-4 rounded-2xl"
@@ -783,7 +735,6 @@ const LandingAi = () => {
         )}
       </div>
 
-      {/* MODALS */}
       <TemplateModal
         open={showTemplateModal}
         onClose={() => setShowTemplateModal(false)}
@@ -796,7 +747,6 @@ const LandingAi = () => {
         onClose={() => setShowHistory(false)}
         usage={usage}
       />
-
       <ModalAsignarProducto
         open={showAssignModal}
         onClose={() => setShowAssignModal(false)}
@@ -804,7 +754,6 @@ const LandingAi = () => {
         loadingProductos={loadingProductos}
         onAssign={handleAssignToProduct}
       />
-
       <ModalNuevoProducto
         open={showNewProductModal}
         onClose={() => setShowNewProductModal(false)}
