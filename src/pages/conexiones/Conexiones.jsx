@@ -17,6 +17,7 @@ import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
 import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConfiguracionModalWhatsappBusiness";
 import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
 import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
+import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 
 /* ===========================
    Utilidades de la guía
@@ -1411,6 +1412,8 @@ const Conexiones = () => {
     window.dispatchEvent(new Event("dropi:config-changed"));
   }, []);
 
+  const [showExportModal, setShowExportModal] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
       <div className="mx-auto w-[100%] xl:w-[100%] 2xl:w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
@@ -1491,7 +1494,7 @@ const Conexiones = () => {
                 <option value="pendiente">Pendiente</option>
               </select>
 
-              <select
+              {/* <select
                 className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
                 value={filtroPago}
                 onChange={(e) => setFiltroPago(e.target.value)}
@@ -1499,7 +1502,18 @@ const Conexiones = () => {
                 <option value="">Todos los pagos</option>
                 <option value="activo">Pago activo</option>
                 <option value="inactivo">Pago inactivo</option>
-              </select>
+              </select> */}
+
+              <button
+                type="button"
+                onClick={() => setShowExportModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold
+                text-[#171931] bg-white ring-1 ring-slate-200
+                hover:bg-slate-50 hover:ring-slate-300 transition whitespace-nowrap"
+              >
+                <i className="bx bx-download text-lg" />
+                Exportar mensajes
+              </button>
             </div>
           </div>
           {/* Fila 2: guías de integración */}
@@ -2030,23 +2044,24 @@ const Conexiones = () => {
                               </div>
                             </HoverPopover>
                           </div>
-
-                          {/* Ir al Chat */}
-                          <button
-                            type="button"
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
+                          <div className="flex items-center gap-2">
+                            {/* Ir al Chat */}
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
                             text-white bg-gradient-to-b from-emerald-700 to-emerald-500 ring-1 ring-emerald-500/30
                             hover:brightness-110 transition"
-                            onClick={() => {
-                              setActiveConfig(config);
-                              navigate("/chat");
-                            }}
-                            title="Ir al chat"
-                            aria-label="Ir al chat"
-                          >
-                            <i className="bx bx-message-rounded-dots text-lg" />
-                            Ir al Chat
-                          </button>
+                              onClick={() => {
+                                setActiveConfig(config);
+                                navigate("/chat");
+                              }}
+                              title="Ir al chat"
+                              aria-label="Ir al chat"
+                            >
+                              <i className="bx bx-message-rounded-dots text-lg" />
+                              Ir al Chat
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2215,6 +2230,12 @@ const Conexiones = () => {
       )}
       {guideModal === "api" && (
         <GuiaWhatsappApiModal onClose={() => setGuideModal(null)} />
+      )}
+      {showExportModal && (
+        <ExportarMensajesModal
+          conexiones={configuracionAutomatizada}
+          onClose={() => setShowExportModal(false)}
+        />
       )}
     </div>
   );
