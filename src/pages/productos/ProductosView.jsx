@@ -7,6 +7,7 @@ import Header from "../Header/pageHeader";
 import { useDropi } from "../../context/DropiContext";
 import ImportarProductosDropi from "./modales/ImportarProductosDropi";
 import ProductoModal from "./modales/ProductoModal";
+import SyncDropiSwitches from "./SyncDropiSwitches";
 
 /* ─────────────────────────────────────────────────────────────
    Helpers
@@ -321,7 +322,7 @@ const ProductosView = () => {
             text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
         >
           <i className="bx bx-import text-base" />
-          Importar Dropi
+          Importar desde Dropi
         </button>
       )}
       <button
@@ -425,6 +426,11 @@ const ProductosView = () => {
               {listaProcesada.length !== 1 ? "s" : ""}
             </div>
           </div>
+          {isDropiLinked === true && (
+            <div className="mt-3">
+              <SyncDropiSwitches />{" "}
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -548,8 +554,17 @@ const ProductosView = () => {
                         </td>
 
                         {/* Precio */}
-                        <td className="px-4 py-3.5 text-center tabular-nums font-bold text-slate-800">
-                          {currency.format(Number(p.precio || 0))}
+                        <td className="px-4 py-3.5 text-center tabular-nums">
+                          <div className="font-bold text-slate-800">
+                            {currency.format(Number(p.precio || 0))}
+                          </div>
+                          {p.precio_proveedor != null &&
+                            Number(p.precio_proveedor) > 0 && (
+                              <div className="text-[10.5px] text-slate-400 font-medium mt-0.5">
+                                Costo{" "}
+                                {currency.format(Number(p.precio_proveedor))}
+                              </div>
+                            )}
                         </td>
 
                         {/* Tipo */}
