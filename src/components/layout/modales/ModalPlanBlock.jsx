@@ -358,14 +358,14 @@ const ModalPlanBlock = ({
               {displayActionText}
             </button>
 
-            {isPromoExhausted && promoRedirectUrl && (
+            {/* {isPromoExhausted && promoRedirectUrl && (
               <button
                 onClick={() => onAction()}
                 className="w-full rounded-xl px-4 py-2.5 text-xs font-semibold text-[#0B1426] hover:bg-slate-50 transition border border-slate-200"
               >
                 Ver planes y suscribirme
               </button>
-            )}
+            )} */}
 
             <button
               onClick={onClose}
