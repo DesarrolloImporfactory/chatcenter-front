@@ -30,6 +30,7 @@ const buildSettingsPayload = (form) => ({
     show_material: !!form.show_material,
   },
   password_privados: form.password_privados?.trim() || null,
+  whatsapp_numero: form.whatsapp_numero?.trim() || null,
 });
 
 const VISIBILIDAD_OPTIONS = [
@@ -131,6 +132,7 @@ const DEFAULT_FORM = {
   show_external_id: true,
   show_landing_url: true,
   show_material: true,
+  whatsapp_numero: "",
   password_privados: "",
   productIds: [],
 };
@@ -323,6 +325,7 @@ const CatalogoModal = ({
           show_landing_url: settings?.fields?.show_landing_url ?? true,
           show_material: settings?.fields?.show_material ?? true,
           password_privados: settings?.password_privados ?? "",
+          whatsapp_numero: settings?.whatsapp_numero ?? "",
           productIds: items.map((it) => it.id_producto),
         });
         setStep(1);
@@ -689,6 +692,42 @@ const CatalogoModal = ({
                         cualquiera podrá verlos.
                       </p>
                     )}
+                  </div>
+
+                  {/* WhatsApp para catálogo */}
+                  <div className="border border-emerald-200 bg-emerald-50/50 rounded-xl p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                        <i className="bx bxl-whatsapp text-emerald-600 text-lg" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-slate-800">
+                          WhatsApp de contacto
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          Número al que se enviará el mensaje cuando el cliente
+                          pulse "Quiero este producto".
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      className="w-full border border-emerald-200 bg-white rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none transition"
+                      placeholder="593999999999 (con código de país, sin +). Dejar vacío si no necesita el botón"
+                      value={form.whatsapp_numero}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          whatsapp_numero: e.target.value.replace(
+                            /[^0-9]/g,
+                            "",
+                          ),
+                        })
+                      }
+                    />
+                    <p className="text-xs text-slate-400 mt-1.5">
+                      Sin espacios, sin +, sin guiones. Ej: 593987654321
+                    </p>
                   </div>
                 </div>
               )}

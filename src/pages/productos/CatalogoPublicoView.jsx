@@ -128,16 +128,12 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
     show_external_id,
     show_landing_url,
     show_material,
+    whatsapp_numero,
   } = fields;
   const [imgError, setImgError] = useState(false);
   const imgUrl = show_imagen ? normalizeUrl(imageBase, p?.imagen_url) : null;
   const precio = money(p?.precio);
   const isPriv = Number(p?.es_privado) === 1;
-
-  // ═══════════════════════════════════════════════════════
-  // Reemplaza SOLO el return del componente ProductCard
-  // (todo lo demás del archivo queda igual)
-  // ═══════════════════════════════════════════════════════
 
   return (
     <div
@@ -159,7 +155,6 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
         e.currentTarget.style.transform = "";
       }}
     >
-      {/* Imagen */}
       {show_imagen && (
         <div
           className="w-full overflow-hidden relative bg-slate-50"
@@ -181,8 +176,6 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
               />
             </div>
           )}
-
-          {/* Badges */}
           <div className="absolute top-3 left-3 flex gap-1.5">
             {show_categoria && p?.categoria?.nombre && (
               <span
@@ -197,7 +190,6 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
               </span>
             )}
           </div>
-
           {isPriv && (
             <div
               className="absolute top-3 right-3 flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full"
@@ -214,7 +206,6 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
         </div>
       )}
 
-      {/* Info */}
       <div className="p-5 flex flex-col flex-1">
         {show_nombre && (
           <h3 className="font-bold text-slate-900 leading-snug text-sm sm:text-base">
@@ -228,7 +219,6 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
           </p>
         )}
 
-        {/* Stock + External ID chips */}
         {(show_stock || show_external_id) && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {show_stock && p?.stock != null && (
@@ -237,11 +227,13 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
                 style={{
                   background: Number(p.stock) > 0 ? "#ecfdf5" : "#f8fafc",
                   color: Number(p.stock) > 0 ? "#059669" : "#94a3b8",
-                  border: `1px solid ${Number(p.stock) > 0 ? "#a7f3d0" : "#e2e8f0"}`,
+                  border:
+                    "1px solid " +
+                    (Number(p.stock) > 0 ? "#a7f3d0" : "#e2e8f0"),
                 }}
               >
                 <i className="bx bx-box" style={{ fontSize: 11 }} />
-                {Number(p.stock) > 0 ? `${p.stock} en stock` : "Sin stock"}
+                {Number(p.stock) > 0 ? p.stock + " en stock" : "Sin stock"}
               </span>
             )}
             {show_external_id && p?.external_id != null && (
@@ -254,7 +246,7 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
                 }}
               >
                 <i className="bx bx-barcode" style={{ fontSize: 11 }} />
-                Dropi #{p.external_id}
+                {"Dropi #" + p.external_id}
               </span>
             )}
           </div>
@@ -275,14 +267,13 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
           p?.precio_proveedor != null &&
           Number(p.precio_proveedor) > 0 && (
             <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-              Costo proveedor:{" "}
+              {"Costo proveedor: "}
               <span style={{ fontWeight: 600, color: "#64748b" }}>
-                ${Number(p.precio_proveedor).toFixed(2)}
+                {"$" + Number(p.precio_proveedor).toFixed(2)}
               </span>
             </div>
           )}
 
-        {/* Acciones: Landing + Material */}
         {(show_landing_url || show_material) &&
           (p?.landing_url || p?.material) && (
             <div
@@ -328,7 +319,7 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <i className="bx bx-link-external" style={{ fontSize: 14 }} />
-                  Landing
+                  {"Landing"}
                 </a>
               )}
               {show_material && p?.material && (
@@ -365,11 +356,67 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <i className="bx bx-file" style={{ fontSize: 14 }} />
-                  Material
+                  {"Material"}
                 </a>
               )}
             </div>
           )}
+
+        {whatsapp_numero && (
+          <a
+            href={
+              "https://wa.me/" +
+              whatsapp_numero +
+              "?text=" +
+              encodeURIComponent(
+                "Hola! Me interesa este producto:\n\n" +
+                  "*" +
+                  (p?.nombre || "Producto") +
+                  "*\n" +
+                  (precio ? "Precio: " + precio + "\n" : "") +
+                  (p?.imagen_url
+                    ? p.imagen_url.replace(/ /g, "%20") + "\n"
+                    : "") +
+                  "\n¿Está disponible?",
+              )
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              marginTop: 10,
+              padding: "10px 14px",
+              borderRadius: 12,
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#fff",
+              background: "#25D366",
+              border: "none",
+              textDecoration: "none",
+              transition: "all .2s",
+              boxShadow: "0 2px 8px rgba(37,211,102,.25)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#20BD5A";
+              e.currentTarget.style.boxShadow =
+                "0 4px 14px rgba(37,211,102,.35)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#25D366";
+              e.currentTarget.style.boxShadow =
+                "0 2px 8px rgba(37,211,102,.25)";
+              e.currentTarget.style.transform = "";
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <i className="bx bxl-whatsapp" style={{ fontSize: 18 }} />
+            {"Quiero este producto"}
+          </a>
+        )}
       </div>
     </div>
   );
@@ -406,6 +453,7 @@ const CatalogoPublicoView = () => {
   const show_external_id = fields?.show_external_id ?? false;
   const show_landing_url = fields?.show_landing_url ?? true;
   const show_material = fields?.show_material ?? true;
+  const whatsapp_numero = settings?.whatsapp_numero || null;
   const passwordSaved = settings?.password_privados || null;
   const fieldsObj = {
     show_nombre,
@@ -418,6 +466,7 @@ const CatalogoPublicoView = () => {
     show_external_id,
     show_landing_url,
     show_material,
+    whatsapp_numero,
   };
 
   /* Fetch */
