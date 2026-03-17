@@ -92,6 +92,8 @@ const Chat = () => {
 
   const emojiPickerRef = useRef(null); // Referencia al contenedor del selector de emojis
 
+  const chatRequestIdRef = useRef(0);
+
   const [grabando, setGrabando] = useState(false); // Estado para grabación
 
   const [audioBlob, setAudioBlob] = useState(null); // Almacena la grabación
@@ -470,32 +472,6 @@ const Chat = () => {
       setId_plataforma_conf(null);
     } else {
       setId_plataforma_conf(idp ? parseInt(idp) : null);
-    }
-
-    if (idp && idp !== "null") {
-      const fetchData = async () => {
-        try {
-          const res = await chatApi.post(
-            "plataformas/obtener_usuario_plataforma",
-            {
-              id_plataforma: idp,
-            },
-          );
-
-          if (res.status === 200) {
-            setId_usuario_conf(res.data.data.id_usuario);
-          } else {
-            console.error(
-              "Error al obtener el usuario de la plataforma:",
-              res.data,
-            );
-          }
-        } catch (error) {
-          console.error("Error en la consulta:", error);
-        }
-      };
-
-      fetchData();
     }
   }, []);
 
@@ -2227,8 +2203,12 @@ const Chat = () => {
       if (!id_configuracion || !id_sub_usuario_global || !rol_usuario_global)
         return;
 
-      // ✅ normalizar source
-      // Si su backend espera null en vez de "all", cambie aquí:
+      // ✅ 1) Cancelar cualquier listener CHATS pendiente anterior
+      socketRef.current.off("CHATS");
+
+      // ✅ 2) Incrementar nonce — este request es el "dueño" actual
+      const myNonce = ++chatRequestIdRef.current;
+
       const sourceToSend =
         (overrideSource ?? sourceForList) === "all"
           ? "all"
@@ -2266,6 +2246,40 @@ const Chat = () => {
         rol_usuario_global,
         payload,
       );
+
+      // ✅ 3) Registrar listener fresco — descarta respuestas stale por nonce
+      socketRef.current.once("CHATS", (data) => {
+        if (myNonce !== chatRequestIdRef.current) {
+          console.debug(
+            `[CHATS] Respuesta stale ignorada (nonce ${myNonce} vs ${chatRequestIdRef.current})`,
+          );
+          return;
+        }
+
+        if (data.length > 0) {
+          if (reset) {
+            setMensajesAcumulados(data);
+          } else {
+            setMensajesAcumulados((prev) => {
+              const idsPrev = new Set(prev.map((c) => c.id));
+              const nuevos = data.filter((c) => !idsPrev.has(c.id));
+              return [...prev, ...nuevos];
+            });
+          }
+
+          const ultimo = data[data.length - 1];
+          setCursorFecha(ultimo.mensaje_created_at);
+          setCursorId(ultimo.id);
+        }
+
+        if (!waBootstrappedRef.current) {
+          waBootstrappedRef.current = true;
+          setIsLoading(false);
+        }
+
+        setCargandoChats(false);
+        prefetchProfilesFromChats(data);
+      });
     },
     [
       isSocketConnected,
@@ -2319,25 +2333,6 @@ const Chat = () => {
       socketRef.current.off("DATA_NOVEDADES");
 
       emitGetChats({ reset: true, limit: 10 });
-
-      socketRef.current.once("CHATS", (data) => {
-        if (data.length > 0) {
-          console.timeEnd("⏱ Tiempo hasta llegada de CHATS");
-          setMensajesAcumulados((prev) => [...prev, ...data]); // Agregamos, no reemplazamos
-
-          const ultimo = data[data.length - 1];
-          setCursorFecha(ultimo.mensaje_created_at);
-          setCursorId(ultimo.id);
-        }
-
-        // 👉 Fin del primer batch de WA
-        if (!waBootstrappedRef.current) {
-          waBootstrappedRef.current = true;
-          setIsLoading(false);
-        }
-
-        prefetchProfilesFromChats(data);
-      });
 
       // Emitir el evento con los filtros y la paginación
 
@@ -2571,24 +2566,9 @@ const Chat = () => {
           console.log("cursorFecha: " + cursorFecha);
           console.log("cursorId: " + cursorId);
 
-          emitGetChats({ reset: false, limit: 10 });
           setUltimo_cursorId(cursorId);
+          emitGetChats({ reset: false, limit: 10 });
 
-          socketRef.current.once("CHATS", (data) => {
-            if (data.length > 0) {
-              setMensajesAcumulados((prev) => {
-                const idsPrev = new Set(prev.map((msg) => msg.id));
-                const nuevos = data.filter((msg) => !idsPrev.has(msg.id));
-                return [...prev, ...nuevos];
-              });
-
-              const ultimo = data[data.length - 1];
-              setCursorFecha(ultimo.mensaje_created_at);
-              setCursorId(ultimo.id);
-            }
-            setCargandoChats(false);
-            prefetchProfilesFromChats(data);
-          });
         }
       }
     };
@@ -2609,17 +2589,6 @@ const Chat = () => {
       }
 
       emitGetChats({ reset: true, limit: 10 });
-
-      socketRef.current.once("CHATS", (data) => {
-        if (data.length > 0) {
-          setMensajesAcumulados(data);
-
-          const ultimo = data[data.length - 1];
-          setCursorFecha(ultimo.mensaje_created_at);
-          setCursorId(ultimo.id);
-        }
-        prefetchProfilesFromChats(data);
-      });
     };
 
     cargarChatsFiltros();
@@ -2643,35 +2612,6 @@ const Chat = () => {
   useEffect(() => {
     if (seRecibioMensaje) {
       emitGetChats({ reset: true, limit: 10 });
-      socketRef.current.once("CHATS", (data) => {
-        if (data.length > 0) {
-          setMensajesAcumulados((prevChats) => {
-            // Eliminar duplicados del nuevo data
-            const nuevosIds = new Set(data.map((chat) => chat.id));
-
-            // Filtrar chats viejos que no están siendo actualizados
-            const filtrados = prevChats.filter(
-              (chat) => !nuevosIds.has(chat.id),
-            );
-
-            // Unir chats filtrados con los nuevos
-            const actualizados = [...filtrados, ...data];
-
-            // Ordenar por mensaje_created_at descendente
-            actualizados.sort(
-              (a, b) =>
-                new Date(b.mensaje_created_at) - new Date(a.mensaje_created_at),
-            );
-
-            return actualizados;
-          });
-
-          const ultimo = data[data.length - 1];
-          setCursorFecha(ultimo.mensaje_created_at);
-          setCursorId(ultimo.id);
-        }
-        prefetchProfilesFromChats(data);
-      });
 
       // Obtener mensajes del chat seleccionado si existe
       if (selectedChat != null) {
