@@ -6,7 +6,7 @@ import Swal from "sweetalert2";
 import Header from "../Header/pageHeader";
 import { useDropi } from "../../context/DropiContext";
 import ImportarProductosDropi from "./modales/ImportarProductosDropi";
-import ProductoModal from "./modales/ProductoModal"; // ← modal extraído
+import ProductoModal from "./modales/ProductoModal";
 
 /* ─────────────────────────────────────────────────────────────
    Helpers

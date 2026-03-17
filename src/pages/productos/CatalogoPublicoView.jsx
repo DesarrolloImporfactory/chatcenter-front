@@ -126,11 +126,18 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
     show_descripcion,
     show_stock,
     show_external_id,
+    show_landing_url,
+    show_material,
   } = fields;
   const [imgError, setImgError] = useState(false);
   const imgUrl = show_imagen ? normalizeUrl(imageBase, p?.imagen_url) : null;
   const precio = money(p?.precio);
   const isPriv = Number(p?.es_privado) === 1;
+
+  // ═══════════════════════════════════════════════════════
+  // Reemplaza SOLO el return del componente ProductCard
+  // (todo lo demás del archivo queda igual)
+  // ═══════════════════════════════════════════════════════
 
   return (
     <div
@@ -263,6 +270,7 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
             </span>
           </div>
         )}
+
         {show_precio_proveedor &&
           p?.precio_proveedor != null &&
           Number(p.precio_proveedor) > 0 && (
@@ -271,6 +279,95 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
               <span style={{ fontWeight: 600, color: "#64748b" }}>
                 ${Number(p.precio_proveedor).toFixed(2)}
               </span>
+            </div>
+          )}
+
+        {/* Acciones: Landing + Material */}
+        {(show_landing_url || show_material) &&
+          (p?.landing_url || p?.material) && (
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: "1px solid #f1f5f9",
+              }}
+            >
+              {show_landing_url && p?.landing_url && (
+                <a
+                  href={p.landing_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#4338ca",
+                    background: "#eef2ff",
+                    border: "1px solid #e0e7ff",
+                    textDecoration: "none",
+                    transition: "all .15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#e0e7ff";
+                    e.currentTarget.style.borderColor = "#c7d2fe";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#eef2ff";
+                    e.currentTarget.style.borderColor = "#e0e7ff";
+                    e.currentTarget.style.transform = "";
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <i className="bx bx-link-external" style={{ fontSize: 14 }} />
+                  Landing
+                </a>
+              )}
+              {show_material && p?.material && (
+                <a
+                  href={p.material}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#166534",
+                    background: "#f0fdf4",
+                    border: "1px solid #dcfce7",
+                    textDecoration: "none",
+                    transition: "all .15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#dcfce7";
+                    e.currentTarget.style.borderColor = "#bbf7d0";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#f0fdf4";
+                    e.currentTarget.style.borderColor = "#dcfce7";
+                    e.currentTarget.style.transform = "";
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <i className="bx bx-file" style={{ fontSize: 14 }} />
+                  Material
+                </a>
+              )}
             </div>
           )}
       </div>
@@ -307,6 +404,8 @@ const CatalogoPublicoView = () => {
   const show_descripcion = fields?.show_descripcion ?? false;
   const show_stock = fields?.show_stock ?? false;
   const show_external_id = fields?.show_external_id ?? false;
+  const show_landing_url = fields?.show_landing_url ?? true;
+  const show_material = fields?.show_material ?? true;
   const passwordSaved = settings?.password_privados || null;
   const fieldsObj = {
     show_nombre,
@@ -317,6 +416,8 @@ const CatalogoPublicoView = () => {
     show_descripcion,
     show_stock,
     show_external_id,
+    show_landing_url,
+    show_material,
   };
 
   /* Fetch */

@@ -26,6 +26,8 @@ const buildSettingsPayload = (form) => ({
     show_descripcion: !!form.show_descripcion,
     show_stock: !!form.show_stock,
     show_external_id: !!form.show_external_id,
+    show_landing_url: !!form.show_landing_url,
+    show_material: !!form.show_material,
   },
   password_privados: form.password_privados?.trim() || null,
 });
@@ -100,6 +102,18 @@ const CAMPOS_FIELDS = [
     icon: "bx-barcode",
     desc: "Muestra el ID del producto en Dropi",
   },
+  {
+    key: "show_landing_url",
+    label: "Enlace / Landing",
+    icon: "bx-link-external",
+    desc: "Muestra botón con el enlace externo del producto",
+  },
+  {
+    key: "show_material",
+    label: "Material / Ficha técnica",
+    icon: "bx-file",
+    desc: "Muestra botón con el enlace a la ficha técnica",
+  },
 ];
 
 const DEFAULT_FORM = {
@@ -115,6 +129,8 @@ const DEFAULT_FORM = {
   show_descripcion: true,
   show_stock: true,
   show_external_id: true,
+  show_landing_url: true,
+  show_material: true,
   password_privados: "",
   productIds: [],
 };
@@ -304,6 +320,8 @@ const CatalogoModal = ({
           show_descripcion: settings?.fields?.show_descripcion ?? true,
           show_stock: settings?.fields?.show_stock ?? true,
           show_external_id: settings?.fields?.show_external_id ?? true,
+          show_landing_url: settings?.fields?.show_landing_url ?? true,
+          show_material: settings?.fields?.show_material ?? true,
           password_privados: settings?.password_privados ?? "",
           productIds: items.map((it) => it.id_producto),
         });
