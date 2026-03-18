@@ -229,6 +229,21 @@ function MainLayout({ children }) {
               />
             )}
 
+            {isAdmin && (
+              <div
+                className="group flex items-center w-full px-5 py-4 text-left opacity-50 cursor-not-allowed"
+                title="Función disponible próximamente"
+              >
+                <i className="bx bx-bar-chart-alt-2 text-2xl mr-3 text-gray-400" />
+                <span className="text-lg text-gray-400 flex-1">
+                  Dashboard Dropi
+                </span>
+                <span className="mr-3 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
+                  Próximamente
+                </span>
+              </div>
+            )}
+
             <div>
               <button
                 type="button"
