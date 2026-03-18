@@ -484,7 +484,7 @@ export default function SelectorHerramienta() {
           stats={[
             { value: "120+", label: "Banners" },
             { value: "10", label: "Secciones" },
-            { value: "AI", label: "Gemini" },
+            { value: "AI", label: "DesignerPro" },
           ]}
           accent="#10B981"
           locked={!canInstaLanding}
