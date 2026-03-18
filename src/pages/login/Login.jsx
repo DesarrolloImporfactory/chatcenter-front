@@ -170,38 +170,67 @@ export default function Login() {
       .then((userData) => {
         reset();
         const role = localStorage.getItem("user_role");
+
+        // Super admin → directo
         if (role === "super_administrador") {
           navigate("/administrador-conexiones");
           return;
         }
+
         const { estado, trial_end, id_plan, fecha_renovacion, permanente } =
           userData;
         const ahora = new Date();
+
+        // Permanente → selector
         if (Number(permanente) === 1) {
-          navigate("/conexiones");
+          navigate("/selector");
           return;
         }
+
+        // Suspendido/cancelado → planes
         if (estado === "suspendido" || estado === "cancelado") {
           navigate("/planes");
           return;
         }
+
+        // Trial Stripe vigente → selector
         if (estado === "activo" && trial_end && ahora <= new Date(trial_end)) {
-          navigate("/conexiones");
+          navigate("/selector");
           return;
         }
+
+        // Trial por uso (Insta Landing) → selector (tiene acceso limitado)
+        if (estado === "trial_usage") {
+          navigate("/selector");
+          return;
+        }
+
+        // Promo usage (código promocional) → selector
+        if (estado === "promo_usage") {
+          navigate("/selector");
+          return;
+        }
+
+        // Sin plan → planes
         if (!id_plan) {
           navigate("/planes");
           return;
         }
+
+        // Plan vencido → planes
         if (fecha_renovacion && ahora > new Date(fecha_renovacion)) {
           navigate("/planes");
           return;
         }
+
+        // Estado no activo → planes
         if (estado !== "activo") {
           navigate("/planes");
           return;
         }
-        navigate("/conexiones");
+
+        // Todo OK → selector
+        navigate("/selector");
       })
       .catch((e) => {
         setError("root", {

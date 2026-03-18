@@ -79,6 +79,7 @@ import SocketProvider from "./context/SocketProvider";
 import PresenceProvider from "./context/PresenceProvider";
 
 import Dashboard from "./components/dashboard/Dashboard";
+import SelectorHerramienta from "./pages/selectorHerramienta/selectorHerramienta";
 
 function App() {
   const location = useLocation();
@@ -479,6 +480,8 @@ function App() {
                     </MainLayout>
                   }
                 />
+
+                <Route path="/selector" element={<SelectorHerramienta />} />
               </Route>
             </Route>
           </Route>

@@ -988,7 +988,7 @@ const PlanesView = () => {
         promoPrice={PROMO_FIRST_MONTH}
         onStart={() => {
           setShowTrialActivated(false);
-          navigate("/insta_landing");
+          navigate("/selector");
         }}
       />
 
@@ -998,7 +998,7 @@ const PlanesView = () => {
         onClose={() => setShowPromoModal(false)}
         onSuccess={({ imagenes, angulos }) => {
           refreshPlanActual();
-          navigate("/insta_landing");
+          navigate("/selector");
         }}
         idUsuario={getIdUsuario()}
         chatApi={chatApi}
