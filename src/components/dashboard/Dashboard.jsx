@@ -238,7 +238,7 @@ export default function Dashboard() {
   // === 4) FETCH SELECTIVO ===
   const fetchSections = useCallback(
     async (sections) => {
-      console.log("[RT] fetchSections llamado con:", sections); // ← agrega esto
+      console.log("[RT] fetchSections llamado con:", sections);
 
       const isAll = sections.includes("all");
       try {
@@ -316,7 +316,7 @@ export default function Dashboard() {
         if (isAll) setLoadingData(false);
       }
     },
-    [selectedConfigId, filters],
+    [selectedConfigId, filters.dateRange],
   );
 
   // fetchAll ahora delega — FiltersBar y el useEffect de mount siguen funcionando igual
@@ -328,15 +328,6 @@ export default function Dashboard() {
     id_usuario,
     onRefreshSections: fetchSections,
   });
-
-  // Fallback polling cada 60s
-  useEffect(() => {
-    const interval = setInterval(
-      () => fetchSections(["pendingQueue", "agentLoad"]),
-      60_000,
-    );
-    return () => clearInterval(interval);
-  }, [fetchSections]);
 
   useEffect(() => {
     fetchAll();
