@@ -26,6 +26,48 @@ const Toast = Swal.mixin({
   timerProgressBar: true,
 });
 
+// ═══════════════════════════════════════════════════════════
+// Helper: fusionar promo bonus en el usage efectivo
+// Cuando el plan NO incluye imágenes/ángulos pero hay promo,
+// usar promo como recurso principal para que el UI funcione.
+// ═══════════════════════════════════════════════════════════
+function mergePromoIntoUsage(raw) {
+  const merged = { ...raw };
+  const promoImg = Number(raw.promo_imagenes_restantes || 0);
+  const promoAng = Number(raw.promo_angulos_restantes || 0);
+
+  // Si el plan NO tiene imágenes pero SÍ hay promo → promo es el recurso principal
+  if ((raw.limit || 0) <= 0 && promoImg > 0) {
+    merged.limit = promoImg;
+    merged.remaining = promoImg;
+    merged.used = 0;
+    merged.is_promo = true;
+  }
+
+  // Si el plan SÍ tiene imágenes Y TAMBIÉN hay promo bonus → sumar al remaining
+  if ((raw.limit || 0) > 0 && promoImg > 0) {
+    merged.remaining = (raw.remaining || 0) + promoImg;
+  }
+
+  // Ángulos: misma lógica
+  if (
+    (raw.angles_limit === null ||
+      raw.angles_limit === undefined ||
+      raw.angles_limit <= 0) &&
+    promoAng > 0
+  ) {
+    merged.angles_limit = promoAng;
+    merged.angles_remaining = promoAng;
+    merged.angles_used = 0;
+  }
+
+  if ((raw.angles_limit || 0) > 0 && promoAng > 0) {
+    merged.angles_remaining = (raw.angles_remaining || 0) + promoAng;
+  }
+
+  return merged;
+}
+
 const LandingAi = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -159,17 +201,18 @@ const LandingAi = () => {
     }
   }, [fromProducto]);
 
-  // Fetch inicial — el 402 TRIAL_EXHAUSTED lo captura el interceptor global (chatApi)
-  // y MainLayout muestra el modal. Aquí solo seteamos usage si llega bien.
+  // ═══════════════════════════════════════════════════════════
+  // Fetch inicial — fusionar promo bonus en el usage efectivo
+  // ═══════════════════════════════════════════════════════════
   useEffect(() => {
     chatApi
       .get("gemini/usage")
       .then((r) => {
-        if (r.data?.usage) setUsage(r.data.usage);
+        if (r.data?.usage) {
+          setUsage(mergePromoIntoUsage(r.data.usage));
+        }
       })
       .catch((err) => {
-        // Si es 402 TRIAL_EXHAUSTED, el interceptor global ya disparó el evento.
-        // Igual seteamos lo que podamos del error para que el UI sepa el estado.
         if (err?.response?.status === 402 && err?.response?.data?.trial_info) {
           const ti = err.response.data.trial_info;
           setUsage((prev) => ({
@@ -243,6 +286,8 @@ const LandingAi = () => {
     }
 
     const { template, etapas } = selectedConfig;
+
+    // Validar cuota: usar remaining que ya incluye promo bonus fusionado
     if (usage.limit > 0 && usage.remaining < etapas.length) {
       return Toast.fire({
         icon: "error",
@@ -295,12 +340,15 @@ const LandingAi = () => {
         });
         setResults([...generated]);
 
-        if (res.data.usage)
+        // Actualizar usage con lo que devuelve el backend
+        if (res.data.usage) {
           setUsage((prev) => ({
             ...prev,
             used: res.data.usage.used,
             remaining: res.data.usage.remaining,
+            is_promo: res.data.usage.is_promo || prev.is_promo,
           }));
+        }
       } catch (err) {
         generated.push({
           etapa: { id: etapa.id, nombre: etapa.nombre, slug: etapa.slug },
@@ -310,8 +358,6 @@ const LandingAi = () => {
         setResults([...generated]);
 
         if (err?.response?.status === 429 || err?.response?.status === 402) {
-          // 402 → el interceptor global ya disparó trial:exhausted → MainLayout muestra modal
-          // 429 → límite mensual (plan pagado) → toast
           if (err?.response?.status === 429) {
             Toast.fire({ icon: "error", title: "Límite mensual alcanzado" });
           }
@@ -369,15 +415,16 @@ const LandingAi = () => {
             : r,
         ),
       );
-      if (res.data.usage)
+      if (res.data.usage) {
         setUsage((prev) => ({
           ...prev,
           used: res.data.usage.used,
           remaining: res.data.usage.remaining,
+          is_promo: res.data.usage.is_promo || prev.is_promo,
         }));
+      }
       Toast.fire({ icon: "success", title: "Sección regenerada" });
     } catch (err) {
-      // 402 → interceptor global muestra el modal
       if (err?.response?.status !== 402) {
         Toast.fire({
           icon: "error",

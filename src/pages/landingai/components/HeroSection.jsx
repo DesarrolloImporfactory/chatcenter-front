@@ -2,6 +2,27 @@ import React from "react";
 import { BENEFITS, STEPS_LIST } from "./constants";
 
 const HeroSection = ({ usage, step, onShowHistory }) => {
+  // ── Calcular valores efectivos (plan + promo bonus) ──
+  const promoImg = Number(usage.promo_imagenes_restantes || 0);
+  const promoAng = Number(usage.promo_angulos_restantes || 0);
+
+  // Si el plan tiene límite, mostrar plan. Si no, mostrar promo como principal.
+  const showPlanImages = usage.limit > 0;
+  const showPlanAngles =
+    usage.angles_limit !== null &&
+    usage.angles_limit !== undefined &&
+    usage.angles_limit > 0;
+
+  // Mostrar badge promo independiente cuando:
+  // - El plan SÍ tiene imágenes (promo es bonus extra)
+  // - O el plan NO tiene imágenes pero promo SÍ (promo es el recurso principal)
+  const showPromoImagesBadge = !showPlanImages && promoImg > 0;
+  const showPromoAnglesBadge = !showPlanAngles && promoAng > 0;
+
+  // Badge extra cuando plan tiene quota Y TAMBIÉN tiene promo bonus
+  const showBonusImagesBadge = showPlanImages && promoImg > 0;
+  const showBonusAnglesBadge = showPlanAngles && promoAng > 0;
+
   return (
     <div className="bg-[#0f1129] relative overflow-hidden rounded-3xl">
       <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-600/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
@@ -29,8 +50,8 @@ const HeroSection = ({ usage, step, onShowHistory }) => {
           </div>
 
           <div className="flex flex-col items-end gap-2 shrink-0">
-            {/* Badge imágenes */}
-            {usage.limit > 0 && (
+            {/* ── Badge imágenes del PLAN ── */}
+            {showPlanImages && (
               <div
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm ${
                   usage.remaining > 0
@@ -43,26 +64,57 @@ const HeroSection = ({ usage, step, onShowHistory }) => {
               </div>
             )}
 
-            {/* Badge ángulos — solo si el plan tiene acceso */}
-            {usage.angles_limit !== null &&
-              usage.angles_limit !== undefined && (
-                <div
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm ${
-                    usage.angles_remaining > 0
-                      ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
-                      : "bg-rose-500/10 border-rose-500/20 text-rose-300"
-                  }`}
-                >
-                  <i className="bx bx-target-lock text-sm" />
-                  {usage.angles_remaining > 0
-                    ? `${usage.angles_remaining} ángulo${usage.angles_remaining !== 1 ? "s" : ""}`
-                    : "Sin ángulos IA"}
-                </div>
-              )}
+            {/* ── Badge imágenes PROMO (cuando plan NO incluye imágenes) ── */}
+            {showPromoImagesBadge && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm bg-violet-500/10 border-violet-500/20 text-violet-300">
+                <i className="bx bx-gift text-sm" />
+                {promoImg} img promo
+              </div>
+            )}
+
+            {/* ── Badge bonus imágenes promo (cuando plan SÍ tiene imágenes + bonus) ── */}
+            {showBonusImagesBadge && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm bg-violet-500/10 border-violet-500/20 text-violet-300">
+                <i className="bx bx-gift text-sm" />+{promoImg} bonus
+              </div>
+            )}
+
+            {/* ── Badge ángulos del PLAN ── */}
+            {showPlanAngles && (
+              <div
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm ${
+                  usage.angles_remaining > 0
+                    ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
+                    : "bg-rose-500/10 border-rose-500/20 text-rose-300"
+                }`}
+              >
+                <i className="bx bx-target-lock text-sm" />
+                {usage.angles_remaining > 0
+                  ? `${usage.angles_remaining} ángulo${usage.angles_remaining !== 1 ? "s" : ""}`
+                  : "Sin ángulos IA"}
+              </div>
+            )}
+
+            {/* ── Badge ángulos PROMO (cuando plan NO incluye ángulos) ── */}
+            {showPromoAnglesBadge && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm bg-violet-500/10 border-violet-500/20 text-violet-300">
+                <i className="bx bx-gift text-sm" />
+                {promoAng} ángulo{promoAng !== 1 ? "s" : ""} promo
+              </div>
+            )}
+
+            {/* ── Badge bonus ángulos promo (cuando plan SÍ tiene + bonus) ── */}
+            {showBonusAnglesBadge && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold backdrop-blur-sm bg-violet-500/10 border-violet-500/20 text-violet-300">
+                <i className="bx bx-gift text-sm" />+{promoAng} ángulos bonus
+              </div>
+            )}
 
             {usage.plan && (
               <span className="text-[10px] text-white/30 font-medium">
                 {usage.plan}
+                {(showPromoImagesBadge || showPromoAnglesBadge) &&
+                  " + Código Promo"}
               </span>
             )}
           </div>
