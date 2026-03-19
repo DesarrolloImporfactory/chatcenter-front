@@ -24,7 +24,7 @@ const shortDate = (d) =>
 
 const forceDownload = async (url) => {
   try {
-    const r = await fetch(url, { mode: "cors" });
+    const r = await fetch(url, { mode: "cors", cache: "no-store" });
     const blob = await r.blob();
     const u = URL.createObjectURL(blob);
     const a = document.createElement("a");

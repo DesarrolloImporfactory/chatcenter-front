@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 // Descarga forzada via blob
 const forceDownload = async (url, fileName) => {
   try {
-    const response = await fetch(url, { mode: "cors" });
+    const response = await fetch(url, { mode: "cors", cache: "no-store" });
     const blob = await response.blob();
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");

@@ -20,7 +20,7 @@ const shortDate = (dateStr) => {
 
 const forceDownload = async (url) => {
   try {
-    const resp = await fetch(url, { mode: "cors" });
+    const resp = await fetch(url, { mode: "cors", cache: "no-store" });
     const blob = await resp.blob();
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
