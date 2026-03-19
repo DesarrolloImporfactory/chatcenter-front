@@ -51,6 +51,11 @@ class AuthService {
     localStorage.removeItem("id_sub_usuario");
     localStorage.removeItem("id_usuario");
     localStorage.removeItem("user_role");
+    localStorage.removeItem("id_plataforma_conf");
+    localStorage.removeItem("tipo_configuracion");
+    localStorage.removeItem("telefono");
+    localStorage.removeItem("id_configuracion");
+    localStorage.removeItem("user_data");
     this.deleteCookie(this.cookieName);
   }
 

@@ -95,10 +95,25 @@ chatApi.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    const isAuthRequest = originalRequest?.url?.includes("/auth/");
+
     switch (error.response?.status) {
       case 401:
+        // En rutas de auth, un 401 es normal (credenciales incorrectas)
+        if (isAuthRequest) {
+          break;
+        }
         if (!originalRequest._retry) {
           originalRequest._retry = true;
+
+          // Si ya estamos en login, no hacer nada (evita loop infinito)
+          if (
+            window.location.pathname === "/login" ||
+            window.location.pathname === "/register"
+          ) {
+            break;
+          }
+
           const isStillAuthenticated = authService.isAuthenticated();
           if (!isStillAuthenticated) {
             authService.logout();
@@ -112,10 +127,6 @@ chatApi.interceptors.response.use(
               error.response?.data?.error ||
               "Error de autorización en el servicio externo";
             toast.error(errorMsg);
-            console.warn(
-              "Error 401 pero token válido - posible error de API externa:",
-              { url: originalRequest?.url, error: errorMsg },
-            );
           }
         }
         break;

@@ -36,7 +36,9 @@ export const loginThunk = createAsyncThunk(
   "user/login",
   async (credentials, { rejectWithValue }) => {
     try {
-      const response = await chatApi.post("/auth/login", credentials);
+      const response = await chatApi.post("/auth/login", credentials, {
+        silentError: true,
+      });
       const responseData = response.data;
 
       // Manejar diferentes estructuras de respuesta del backend
@@ -68,19 +70,18 @@ export const loginThunk = createAsyncThunk(
         localStorage.setItem("user_role", user.rol);
       }
 
-      Toast.fire({
-        icon: "success",
-        title: `¡Bienvenido ${user.nombre_encargado || user.usuario}!`,
-      });
+      // Toast.fire({
+      //   icon: "success",
+      //   title: `¡Bienvenido ${user.nombre_encargado || user.usuario}!`,
+      // });
 
       return user;
     } catch (err) {
       const msg =
         err.response?.data?.message || err.message || "Credenciales inválidas";
-      Toast.fire({ icon: "error", title: msg });
       return rejectWithValue(err.response?.data || err.message);
     }
-  }
+  },
 );
 
 export const newLoginThunk = createAsyncThunk(
@@ -104,7 +105,7 @@ export const newLoginThunk = createAsyncThunk(
       Toast.fire({ icon: "error", title: msg });
       return rejectWithValue(err.response?.data || err.message);
     }
-  }
+  },
 );
 
 export const registerThunk = createAsyncThunk(
@@ -121,7 +122,7 @@ export const registerThunk = createAsyncThunk(
       });
       return rejectWithValue(err.response?.data);
     }
-  }
+  },
 );
 
 // export const renewThunk = createAsyncThunk(
