@@ -3,6 +3,7 @@ import CustomAudioPlayer from "./CustomAudioPlayer";
 import ImageWithModal from "./modales/ImageWithModal";
 import EmojiPicker from "emoji-picker-react";
 import chatApi from "../../api/chatcenter";
+import Swal from 'sweetalert2';
 
 /* === Player estilo WhatsApp (sin autoplay) + velocidades 1x / 1.5x / 2x === */
 function WaAudioPlayer({ src }) {
@@ -281,6 +282,16 @@ const ChatPrincipal = ({
     new_wamid,
     id_wamid_mensaje,
   ) => {
+    Swal.fire({
+      title: "Reenviando mensaje...",
+      text: "Por favor espera",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
     try {
       const response = await chatApi.post(
         "/clientes_chat_center/actualizarMensajeReenviado",
@@ -293,15 +304,15 @@ const ChatPrincipal = ({
 
       let respuesta = response.data;
 
-      const fechaMySQL = new Date()
-        .toISOString()
-        .slice(0, 19)
-        .replace("T", " ");
-
       if (respuesta.status !== 200) {
         console.log("Error en la respuesta del servidor: " + respuesta);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "Ocurrió un error al actualizar el mensaje. Intenta nuevamente.",
+          confirmButtonText: "Cerrar",
+        });
       } else {
-        /* Mensajes seccion derecha */
         setMensajesOrdenados((prev) =>
           prev.map((mensaje) =>
             String(mensaje.id) === String(id_mensaje)
@@ -313,11 +324,29 @@ const ChatPrincipal = ({
               : mensaje,
           ),
         );
-        /* Mensajes seccion derecha */
+
+        Swal.fire({
+          icon: "success",
+          title: "¡Mensaje enviado!",
+          html: `
+          <p>El reenvío se realizó con éxito.</p>
+          <p style="margin-top:8px; color:#666; font-size:0.9em;">
+            En unos momentos Meta confirmará si el usuario recibió el mensaje correctamente.
+            Vuelve a abrir el chat en unos minutos.
+          </p>
+        `,
+          confirmButtonText: "Entendido",
+          confirmButtonColor: "#3085d6",
+        });
       }
     } catch (error) {
       console.error("Error al guardar el mensaje:", error);
-      alert("Ocurrió un error al guardar el mensaje. Inténtalo de nuevo.");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Ocurrió un error al guardar el mensaje. Inténtalo de nuevo.",
+        confirmButtonText: "Cerrar",
+      });
     }
   };
 

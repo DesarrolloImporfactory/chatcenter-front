@@ -136,6 +136,7 @@ const TabAsistente = ({
         "/kanban_columnas/obtener_asistente",
         { id: columnaId },
       );
+      console.log("🔍 obtener_asistente response:", data);
       if (data?.success && data.data) {
         setAsistente(data.data);
         setArchivos(data.data.archivos || []);
@@ -839,6 +840,7 @@ const TabAsistente = ({
                 </div>
               </div>
             </div>
+
             <a
               href={`https://platform.openai.com/assistants/${asistente.assistant_id}`}
               target="_blank"

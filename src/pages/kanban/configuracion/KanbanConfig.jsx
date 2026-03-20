@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter"; // ajusta si tu ruta es diferente
 import TabAsistente from "./TabAsistente";
+import RemarketingColumna from "./componentes/RemarketingColumna";
 
 // ─────────────────────────────────────────────────────────────
 // Constantes de UI
@@ -824,6 +825,50 @@ const KanbanConfig = () => {
                   <button onClick={guardarColumna} style={btnPrimario}>
                     <i className="bx bx-save" /> Guardar cambios
                   </button>
+                </div>
+
+                {/* ── Remarketing ── */}
+                <div
+                  style={{
+                    marginTop: 20,
+                    paddingTop: 20,
+                    borderTop: "1px solid rgba(0,0,0,.06)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        color: "#0f172a",
+                      }}
+                    >
+                      <i
+                        className="bx bx-radar"
+                        style={{ marginRight: 7, color: "#6366f1" }}
+                      />
+                      Remarketing automático
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "#64748b",
+                        marginTop: 3,
+                      }}
+                    >
+                      Si el cliente no responde en esta etapa, se le enviará un
+                      mensaje automático.
+                    </div>
+                  </div>
+                  <RemarketingColumna
+                    id_configuracion={id_configuracion}
+                    estado_db={columnaSeleccionada?.estado_db || ""}
+                    nombreColumna={columnaSeleccionada?.nombre || ""}
+                    columnas={columnas}
+                  />
                 </div>
               </div>
             )}

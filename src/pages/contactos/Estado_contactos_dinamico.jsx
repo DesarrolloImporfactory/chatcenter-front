@@ -416,7 +416,7 @@ const Estado_contactos = () => {
       [e]: { ...p[e], items: eList },
     }));
     try {
-      await chatApi.post("/clientes_chat_center/actualizar_estado", {
+      await chatApi.post("/clientes_chat_center/actualizar_estado_dinamico", {
         id_cliente: moved.id,
         nuevo_estado: e,
         id_configuracion,
