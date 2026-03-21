@@ -186,6 +186,58 @@ const Estado_contactos = () => {
   const searchTimersRef = useRef({});
   const LIMIT = 20;
 
+  const busquedaGlobalTimerRef = useRef(null);
+
+  const onBusquedaGlobal = useCallback(
+    (value) => {
+      if (busquedaGlobalTimerRef.current)
+        clearTimeout(busquedaGlobalTimerRef.current);
+
+      busquedaGlobalTimerRef.current = setTimeout(async () => {
+        if (!id_configuracion || !kanbanColumnas.length) return;
+        const columnKeys = kanbanColumnas.map((c) => c.estado_db);
+        const searchObj = {};
+        columnKeys.forEach((k) => {
+          searchObj[k] = value;
+        });
+
+        setBoardData((prev) => {
+          const next = { ...prev };
+          columnKeys.forEach((k) => {
+            next[k] = {
+              ...next[k],
+              items: [],
+              cursor: null,
+              hasMore: true,
+              loading: true,
+              search: value,
+            };
+          });
+          return next;
+        });
+
+        try {
+          const { data } = await chatApi.post(
+            "/clientes_chat_center/listar_contactos_estado_dinamico",
+            {
+              id_configuracion,
+              columnKeys,
+              limit: LIMIT,
+              cursors: {},
+              search: searchObj,
+              filtros,
+            },
+          );
+          if (!data?.success || !data?.data) return;
+          mergeColumnsResponse(data.data, columnKeys, { append: false });
+        } catch {
+          Toast.fire({ icon: "error", title: "Error buscando" });
+        }
+      }, 400);
+    },
+    [id_configuracion, kanbanColumnas, filtros],
+  );
+
   // ── 1. Init id_configuracion ──────────────────────────────
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
@@ -306,7 +358,12 @@ const Estado_contactos = () => {
         });
         next[k] = {
           ...prev[k],
-          items: merged,
+          items,
+          // ← conservar total previo en append, actualizar en carga fresca
+          total:
+            !append && col?.total !== undefined
+              ? col.total
+              : (prev[k]?.total ?? 0),
           cursor: page.next_cursor ?? null,
           hasMore: !!page.has_more,
           loading: false,
@@ -843,6 +900,7 @@ const Estado_contactos = () => {
       <KanbanFiltros
         id_configuracion={id_configuracion}
         onChange={(nuevosFiltros) => setFiltros(nuevosFiltros)}
+        onSearch={onBusquedaGlobal}
       />
 
       {isLoading && (
@@ -947,9 +1005,13 @@ const Estado_contactos = () => {
                             borderRadius: 999,
                             padding: "3px 9px",
                             boxShadow: "0 2px 6px rgba(0,0,0,.08)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            fontWeight: 700,
                           }}
                         >
-                          {items.length}
+                          {boardData[colKey]?.total ?? items.length}
                         </span>
                         {esIaVentas && (
                           <button

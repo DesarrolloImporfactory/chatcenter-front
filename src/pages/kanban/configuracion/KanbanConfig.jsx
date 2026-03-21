@@ -3,6 +3,8 @@ import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter"; // ajusta si tu ruta es diferente
 import TabAsistente from "./TabAsistente";
 import RemarketingColumna from "./componentes/RemarketingColumna";
+import DropisPlantillas from "../../dropi/DropisPlantillas";
+import PlantillasKanban from "./componentes/PlantillasKanban";
 
 // ─────────────────────────────────────────────────────────────
 // Constantes de UI
@@ -171,6 +173,63 @@ const KanbanConfig = () => {
       setAcciones([]);
     } finally {
       setLoadingAcc(false);
+    }
+  };
+
+  // ── Reiniciar configuración ──────────────────────────────
+  const reiniciarConfig = async () => {
+    const paso1 = await Swal.fire({
+      title: "¿Reiniciar configuración?",
+      html: `Se eliminarán <strong>todas las columnas, acciones y remarketings</strong> de este kanban.<br><br><span style="color:#ef4444;font-weight:600">Esta acción no se puede deshacer.</span>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Sí, entiendo",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!paso1.isConfirmed) return;
+
+    // Segunda confirmación
+    const paso2 = await Swal.fire({
+      title: "¿Estás completamente seguro?",
+      html: `Escribe <strong>REINICIAR</strong> para confirmar`,
+      input: "text",
+      inputPlaceholder: "REINICIAR",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Eliminar todo",
+      cancelButtonText: "Cancelar",
+      preConfirm: (valor) => {
+        if (valor !== "REINICIAR") {
+          Swal.showValidationMessage("Debes escribir REINICIAR exactamente");
+          return false;
+        }
+        return true;
+      },
+    });
+
+    if (!paso2.isConfirmed) return;
+
+    try {
+      const { data } = await chatApi.post("/kanban_plantillas/reiniciar", {
+        id_configuracion,
+      });
+      if (data?.success) {
+        await Swal.fire({
+          icon: "success",
+          title: "Configuración reiniciada",
+          text: "Todas las columnas han sido eliminadas.",
+          confirmButtonColor: "#6366f1",
+        });
+        // Reset estado local
+        setColumnas([]);
+        setColumnaActiva(null);
+        setAcciones([]);
+        setFormCol(null);
+      }
+    } catch {
+      Toast.fire({ icon: "error", title: "Error al reiniciar" });
     }
   };
 
@@ -379,10 +438,53 @@ const KanbanConfig = () => {
             Define columnas, asistentes de IA y acciones automáticas por etapa.
           </p>
         </div>
-        <button onClick={() => setShowModalNueva(true)} style={btnPrimario}>
-          <i className="bx bx-plus" style={{ fontSize: "1.1rem" }} />
-          Nueva columna
-        </button>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {/* boton de elegiar plantillas kanban*/}
+          <PlantillasKanban
+            id_configuracion={id_configuracion}
+            onPlantillaAplicada={cargarColumnas}
+          />
+          {/* boton de elegiar plantillas kanban*/}
+          {/* boton de configurar dropi */}
+          <DropisPlantillas id_configuracion={id_configuracion} />
+          {/* boton de configurar dropi */}
+          {/* boton de nueva columna */}
+          <button onClick={() => setShowModalNueva(true)} style={btnPrimario}>
+            <i className="bx bx-plus" style={{ fontSize: "1.1rem" }} />
+            Nueva columna
+          </button>
+          {/* boton de nueva columna */}
+          {/* boton de reiniciar */}
+          <button
+            onClick={reiniciarConfig}
+            title="Reiniciar configuración"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              border: "1.5px solid #fecaca",
+              background: "#fef2f2",
+              color: "#ef4444",
+              cursor: "pointer",
+              transition: "all .15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#fee2e2";
+              e.currentTarget.style.borderColor = "#f87171";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#fef2f2";
+              e.currentTarget.style.borderColor = "#fecaca";
+            }}
+          >
+            <i className="bx bx-trash" style={{ fontSize: "1.1rem" }} />
+          </button>
+          {/* boton de reiniciar */}
+        </div>
       </div>
 
       <div

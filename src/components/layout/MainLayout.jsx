@@ -700,7 +700,7 @@ function MainLayout({ children }) {
                       onClick={handleKanbanConfigClick}
                     >
                       <i
-                        className={`bx text-xl ${"bx-calendar text-gray-600 group-hover:text-blue-600"}`}
+                        className={`bx text-xl ${"bx-bot text-gray-600 group-hover:text-blue-600"}`}
                       ></i>
 
                       <span className="flex items-center gap-2">
