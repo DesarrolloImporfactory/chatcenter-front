@@ -170,16 +170,6 @@ export default function useCreateOrder({
       EnvioConCobro: rateType === "CON RECAUDO",
       ciudad_destino_cod_dane: String(selectedCityCodDane),
       ciudad_remitente_cod_dane: String(remitCodDane),
-
-      //Ecuador necesita products + amount para resolver la bodega
-      products: productsCart.map((p) => ({
-        id: Number(p.id),
-        quantity: Number(p.quantity) || 1,
-      })),
-      amount: productsCart.reduce(
-        (acc, p) => acc + (Number(p.price) || 0) * (Number(p.quantity) || 1),
-        0,
-      ),
     });
   }, [
     socketRef,
@@ -187,7 +177,6 @@ export default function useCreateOrder({
     selectedCityCodDane,
     remitCodDane,
     rateType,
-    productsCart,
   ]);
 
   // ── handlers de selección ──
