@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { resolveProductImage, NO_IMAGE } from "../../utils/orderHelper";
 
 export default function CreateOrderPanel(props) {
   const {
@@ -44,29 +45,7 @@ export default function CreateOrderPanel(props) {
 
   const topProducts = useMemo(() => (prodList || []).slice(0, 5), [prodList]);
 
-  const NO_IMAGE = "https://app.dropi.ec/assets/utils/no-image.jpg";
-
-  function resolveProductImage(p) {
-    if (!p) return null;
-    const direct =
-      p?.imageUrl ||
-      p?.image_url ||
-      p?.image ||
-      p?.url ||
-      p?.photo ||
-      p?.main_image ||
-      null;
-    if (direct && /^https?:\/\//i.test(String(direct))) return String(direct);
-    const urlS3 = p?.urlS3 || p?.url_s3 || null;
-    if (urlS3) {
-      return `https://app.dropi.ec/storage/${String(urlS3).replace(/^\/+/, "")}`;
-    }
-    return null;
-  }
-
-  function getImageOrFallback(p) {
-    return resolveProductImage(p) || NO_IMAGE;
-  }
+  const getImageOrFallback = (p) => resolveProductImage(p) || NO_IMAGE;
 
   // ── Clases reutilizables ──
   const inputCls =
@@ -509,10 +488,26 @@ export default function CreateOrderPanel(props) {
                               : "border-white/[0.06] bg-white/[0.015] hover:bg-white/[0.04] hover:border-white/[0.12]"
                           } ${!hasPrice ? "opacity-40 cursor-not-allowed" : ""}`}
                         >
-                          <p className="text-[11px] font-semibold text-white/85 truncate">
-                            {tName}
-                          </p>
-                          <p className="text-[13px] font-bold text-white mt-1 tracking-tight">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={`https://app.dropi.ec/assets/images/delivery/${t?.transportadora_minuscula || "default"}.png`}
+                              alt={tName}
+                              className="h-8 w-8 rounded-md object-contain bg-white/[0.06] border border-white/[0.06] shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-semibold text-white/85 truncate">
+                                {tName}
+                              </p>
+                              <p className="text-[9px] text-white/25 truncate">
+                                {t?.transportadora_service || "normal"}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-[13px] font-bold text-white mt-2 tracking-tight">
                             {price ? (
                               <>
                                 ${price}
@@ -527,10 +522,6 @@ export default function CreateOrderPanel(props) {
                                 No disponible
                               </span>
                             )}
-                          </p>
-                          <p className="text-[9px] text-white/25 mt-1 truncate">
-                            {t?.transportadora_service || "normal"} · ID{" "}
-                            {t?.transportadora_id ?? "—"}
                           </p>
                           {t?.error && (
                             <p className="mt-1.5 text-[9px] text-rose-300 bg-rose-500/10 rounded p-1.5">
