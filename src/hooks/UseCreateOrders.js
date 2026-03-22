@@ -206,7 +206,6 @@ export default function useCreateOrder({
     setSelectedCityId(null);
     setSelectedCityName("");
     setCities([]);
-    if (depId) emitGetCities(depId);
   };
 
   const handleSelectCity = (e) => {
