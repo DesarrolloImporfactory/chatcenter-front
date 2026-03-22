@@ -170,6 +170,19 @@ export default function useCreateOrder({
       EnvioConCobro: rateType === "CON RECAUDO",
       ciudad_destino_cod_dane: String(selectedCityCodDane),
       ciudad_remitente_cod_dane: String(remitCodDane),
+      products: productsCart.map((p) => ({
+        id: Number(p.id),
+        quantity: Number(p.quantity) || 1,
+        type: p.type || "SIMPLE",
+      })),
+      amount: productsCart.reduce(
+        (acc, p) => acc + (Number(p.price) || 0) * (Number(p.quantity) || 1),
+        0,
+      ),
+      destination_label: [selectedCityName, selectedDepartmentName]
+        .filter(Boolean)
+        .join(", ")
+        .toLowerCase(),
     });
   }, [
     socketRef,
@@ -177,6 +190,9 @@ export default function useCreateOrder({
     selectedCityCodDane,
     remitCodDane,
     rateType,
+    productsCart,
+    selectedCityName,
+    selectedDepartmentName,
   ]);
 
   // ── handlers de selección ──
