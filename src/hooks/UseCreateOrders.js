@@ -120,7 +120,7 @@ export default function useCreateOrder({
         startData: nextStart,
         no_count: true,
         order_by: "id",
-        order_type: "asc",
+        order_type: "desc",
         keywords: keywords || "",
         favorite: false,
         privated_product: false,
