@@ -1,5 +1,4 @@
-import React from "react";
-import Swal from "sweetalert2";
+import React, { useMemo } from "react";
 import {
   showOrderId,
   showOrderStatus,
@@ -41,192 +40,253 @@ export default function OrderDetail({
   const editable = canEditOrder(order);
   const cancelled = isCancelled(order);
   const pendingConfirm = isPendingConfirm(order);
+  const rateType = order?.rate_type || "—";
+
+  // ── Dirty check: comparar valores actuales vs originales de la orden ──
+  const isDirty = useMemo(() => {
+    const originalPhone = String(order?.phone || "").replace(/\D/g, "");
+    const originalName = order?.name || "";
+    const originalSurname = order?.surname || "";
+    const originalDir = order?.dir || "";
+
+    return (
+      String(phoneInput || "").replace(/\D/g, "") !== originalPhone ||
+      String(orderName || "").trim() !== originalName ||
+      String(orderSurname || "").trim() !== originalSurname ||
+      String(orderDir || "").trim() !== originalDir
+    );
+  }, [phoneInput, orderName, orderSurname, orderDir, order]);
 
   return (
-    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-base font-semibold truncate">
-            Orden #{showOrderId(order)}
-          </p>
-          <p className="text-xs text-white/60 truncate">
-            {fmtDate(showOrderDate(order))} • {getCityState(order)}
-          </p>
-        </div>
-        <span
-          className={`text-[11px] px-2 py-1 rounded-full border ${statusStyle(
-            showOrderStatus(order),
-          )}`}
-        >
-          {showOrderStatus(order)}
-        </span>
-      </div>
-
-      {/* Botones acción */}
-      <div className="mt-4 flex flex-col sm:flex-row gap-2">
-        {pendingConfirm && (
-          <button
-            type="button"
-            onClick={() => onEditOrder(order)}
-            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-sm font-semibold flex items-center justify-center gap-2"
-          >
-            <i className="bx bx-save" />
-            Guardar cambios
-          </button>
-        )}
-
-        {/* ✅ FIX: Solo mostrar "Cancelar orden" si NO está ya cancelada */}
-        {!cancelled && (
-          <button
-            type="button"
-            onClick={() => onCancelOrder(order)}
-            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 text-sm font-semibold flex items-center justify-center gap-2"
-          >
-            <i className="bx bx-x-circle" />
-            Cancelar orden
-          </button>
-        )}
-
-        {pendingConfirm && (
-          <button
-            type="button"
-            onClick={() => onConfirmOrder(order)}
-            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
-          >
-            <i className="bx bx-check-circle" />
-            Confirmar pedido
-          </button>
-        )}
-
-        {cancelled && (
-          <div className="text-xs text-rose-200 bg-rose-500/10 border border-rose-400/20 rounded-lg p-2">
-            Esta orden está cancelada y no se puede modificar.
+    <div className="space-y-2">
+      {/* ═══ Header + Stats ═══ */}
+      <div className="rounded-[10px] bg-[#0f1629] border border-white/[0.07] overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2.5 bg-gradient-to-br from-[#141d35] to-[#111827]">
+          <div className="min-w-0">
+            <p className="text-[13px] font-bold text-white tracking-tight">
+              #{showOrderId(order)}
+            </p>
+            <p className="text-[10px] text-white/35 mt-0.5">
+              {fmtDate(showOrderDate(order))} · {getCityState(order)}
+            </p>
           </div>
-        )}
+          <span
+            className={`text-[9px] px-2 py-1 rounded font-bold tracking-wide uppercase ${statusStyle(
+              showOrderStatus(order),
+            )}`}
+          >
+            {showOrderStatus(order)}
+          </span>
+        </div>
+
+        {/* Stats row */}
+        <div className="flex border-t border-white/5">
+          <div className="flex-1 px-3 py-2 border-r border-white/5">
+            <p className="text-[9px] uppercase tracking-widest text-white/30">
+              Total
+            </p>
+            <p className="text-[14px] font-bold text-white mt-0.5 tracking-tight">
+              ${getTotal(order)}
+            </p>
+          </div>
+          <div className="flex-1 px-3 py-2 border-r border-white/5">
+            <p className="text-[9px] uppercase tracking-widest text-white/30">
+              Envío
+            </p>
+            <p className="text-[12px] font-semibold text-white mt-0.5">
+              ${getShippingAmount(order)}
+            </p>
+          </div>
+          <div className="flex-1 px-3 py-2">
+            <p className="text-[9px] uppercase tracking-widest text-white/30">
+              Tipo
+            </p>
+            <p className="text-[11px] font-semibold text-white/85 mt-0.5 truncate">
+              {rateType}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Datos clave */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* ═══ Producto + Envío ═══ */}
+      <div className="rounded-[10px] bg-[#0f1629] border border-white/[0.07] overflow-hidden">
         {/* Producto */}
-        <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
+        <div className="flex items-center gap-2.5 px-3 py-2.5">
           <img
             src={getProductImage(order)}
             alt="Producto"
-            className="h-12 w-12 rounded-lg object-cover bg-white/5 border border-white/10 shrink-0"
+            className="h-10 w-10 rounded-md object-cover bg-white/[0.04] border border-white/[0.08] shrink-0"
             loading="lazy"
             onError={(e) => {
               e.currentTarget.onerror = null;
               e.currentTarget.src = NO_IMAGE;
             }}
           />
-          <div className="min-w-0">
-            <p className="text-xs text-white/60">Producto</p>
-            <p className="text-sm font-semibold truncate">
-              {getQty(order)} x {getProductName(order)}
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-white/90 truncate">
+              {getProductName(order)}
             </p>
-            <p className="text-xs text-white/60 truncate">
-              SKU: {getProductSku(order)}
+            <p className="text-[10px] text-white/30 mt-0.5">
+              SKU {getProductSku(order)}
             </p>
           </div>
+          <span className="text-[10px] font-semibold text-white/50 bg-white/[0.06] px-2 py-0.5 rounded shrink-0">
+            ×{getQty(order)}
+          </span>
         </div>
 
-        {/* Bodega */}
-        <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
-          <i className="bx bx-store text-xl text-emerald-300" />
-          <div className="min-w-0">
-            <p className="text-xs text-white/60">Bodega</p>
-            <p className="text-xs text-white truncate">
+        {/* Transportadora + Bodega */}
+        <div className="grid grid-cols-2 border-t border-white/5">
+          <div className="px-3 py-2 border-r border-white/5">
+            <p className="text-[9px] uppercase tracking-wider text-white/30">
+              Transportadora
+            </p>
+            <p className="text-[11px] font-semibold text-white/85 mt-0.5 truncate">
+              {getTransportadora(order)}
+            </p>
+          </div>
+          <div className="px-3 py-2">
+            <p className="text-[9px] uppercase tracking-wider text-white/30">
+              Bodega
+            </p>
+            <p className="text-[11px] text-white/50 mt-0.5 truncate">
               {getWarehouseName(order)}
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Teléfono */}
-        <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
-          <i className="bx bx-phone text-xl text-yellow-300" />
-          <div className="min-w-0">
-            <p className="text-[11px] text-white/60 mb-1">Teléfono</p>
-            <input
-              value={phoneInput}
-              onChange={(e) => setPhoneInput(e.target.value)}
-              disabled={!editable}
-              className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-400/60 ${
-                editable
-                  ? "text-white"
-                  : "text-white/40 cursor-not-allowed opacity-70"
-              }`}
-              placeholder="Ej: 57XXXXXXXXXX"
-            />
-          </div>
+      {/* ═══ Datos del cliente ═══ */}
+      <div className="rounded-[10px] bg-[#0f1629] border border-white/[0.07] overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+          <span className="text-[9px] uppercase tracking-widest text-white/25 font-semibold">
+            Cliente
+          </span>
+          {editable && (
+            <span className="text-[8px] uppercase tracking-wider text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded font-semibold">
+              Editable
+            </span>
+          )}
         </div>
 
-        {/* Transportadora */}
-        <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
-          <i className="bx bx-trip text-xl text-sky-300" />
-          <div className="min-w-0">
-            <p className="text-xs text-white/60">Transportadora</p>
-            <p className="text-sm font-semibold truncate">
-              {getTransportadora(order)}
-            </p>
-            <p className="text-xs text-white/60 truncate">
-              Envío: ${getShippingAmount(order)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Totales */}
-      <div className="mt-3 flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-        <p className="text-xs text-white/70">Total orden</p>
-        <p className="text-sm font-semibold text-white">${getTotal(order)}</p>
-      </div>
-
-      {/* Dirección */}
-      <div className="mt-3">
-        <p className="text-[11px] text-white/60 mb-1">Dirección</p>
-        <input
-          value={orderDir}
-          onChange={(e) => setOrderDir(e.target.value)}
-          disabled={!editable}
-          className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-400/60 ${
-            editable
-              ? "text-white"
-              : "text-white/40 cursor-not-allowed opacity-70"
-          }`}
-          placeholder="Dirección de entrega"
-        />
-      </div>
-
-      {/* Nombre / Apellido */}
-      <div className="mt-3 text-xs text-white/50">
-        <div className="flex items-start gap-3 bg-black/20 rounded-lg p-3 border border-white/10">
-          <i className="bx bx-id-card text-xl text-violet-300" />
-          <div className="min-w-0 w-full">
-            <p className="text-[11px] text-white/60 mb-1">Nombre</p>
+        {/* Nombre + Apellido */}
+        <div className="grid grid-cols-2 gap-1.5 px-3 pb-1.5">
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-white/30 block mb-1">
+              Nombre
+            </label>
             <input
               value={orderName}
               onChange={(e) => setOrderName(e.target.value)}
               disabled={!editable}
-              className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-400/60 ${
+              className={`w-full bg-white/[0.04] border border-white/[0.08] rounded-md px-2.5 py-[7px] text-[11px] outline-none transition-colors focus:border-violet-400/50 ${
                 editable
-                  ? "text-white"
-                  : "text-white/40 cursor-not-allowed opacity-70"
+                  ? "text-white hover:border-white/15"
+                  : "text-white/30 cursor-not-allowed opacity-55"
               }`}
+              placeholder="Nombre"
             />
-            <p className="text-[11px] text-white/60 mt-2 mb-1">Apellido</p>
+          </div>
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-white/30 block mb-1">
+              Apellido
+            </label>
             <input
               value={orderSurname}
               onChange={(e) => setOrderSurname(e.target.value)}
               disabled={!editable}
-              className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-400/60 ${
+              className={`w-full bg-white/[0.04] border border-white/[0.08] rounded-md px-2.5 py-[7px] text-[11px] outline-none transition-colors focus:border-violet-400/50 ${
                 editable
-                  ? "text-white"
-                  : "text-white/40 cursor-not-allowed opacity-70"
+                  ? "text-white hover:border-white/15"
+                  : "text-white/30 cursor-not-allowed opacity-55"
               }`}
+              placeholder="Apellido"
             />
           </div>
         </div>
+
+        {/* Teléfono */}
+        <div className="px-3 pb-1.5">
+          <label className="text-[9px] uppercase tracking-wider text-white/30 block mb-1">
+            Teléfono
+          </label>
+          <input
+            value={phoneInput}
+            onChange={(e) => setPhoneInput(e.target.value)}
+            disabled={!editable}
+            className={`w-full bg-white/[0.04] border border-white/[0.08] rounded-md px-2.5 py-[7px] text-[11px] outline-none transition-colors focus:border-violet-400/50 ${
+              editable
+                ? "text-white hover:border-white/15"
+                : "text-white/30 cursor-not-allowed opacity-55"
+            }`}
+            placeholder="Ej: 0962803007"
+          />
+        </div>
+
+        {/* Dirección */}
+        <div className="px-3 pb-2.5">
+          <label className="text-[9px] uppercase tracking-wider text-white/30 block mb-1">
+            Dirección
+          </label>
+          <input
+            value={orderDir}
+            onChange={(e) => setOrderDir(e.target.value)}
+            disabled={!editable}
+            className={`w-full bg-white/[0.04] border border-white/[0.08] rounded-md px-2.5 py-[7px] text-[11px] outline-none transition-colors focus:border-violet-400/50 ${
+              editable
+                ? "text-white hover:border-white/15"
+                : "text-white/30 cursor-not-allowed opacity-55"
+            }`}
+            placeholder="Dirección de entrega"
+          />
+        </div>
+      </div>
+
+      {/* ═══ Acciones ═══ */}
+      <div className="flex flex-col gap-1.5 pt-0.5">
+        {pendingConfirm && (
+          <button
+            type="button"
+            onClick={() => onConfirmOrder(order)}
+            className="w-full px-3 py-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/25 text-[11px] font-semibold flex items-center justify-center gap-1.5 text-emerald-300 transition-colors"
+          >
+            <i className="bx bx-check-circle text-sm" />
+            Confirmar pedido
+          </button>
+        )}
+
+        {pendingConfirm && (
+          <button
+            type="button"
+            onClick={() => onEditOrder(order)}
+            disabled={!isDirty}
+            className={`w-full px-3 py-2.5 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+              isDirty
+                ? "bg-violet-500/10 hover:bg-violet-500/20 border-violet-400/18 text-violet-300"
+                : "bg-white/[0.02] border-white/[0.06] text-white/20 cursor-not-allowed"
+            }`}
+          >
+            <i className="bx bx-save text-sm" />
+            Guardar cambios
+          </button>
+        )}
+
+        {!cancelled && (
+          <button
+            type="button"
+            onClick={() => onCancelOrder(order)}
+            className="w-full px-3 py-2.5 rounded-lg bg-transparent hover:bg-rose-500/10 border border-white/[0.06] hover:border-rose-400/15 text-[11px] font-medium flex items-center justify-center gap-1.5 text-white/35 hover:text-rose-300 transition-colors"
+          >
+            <i className="bx bx-x-circle text-sm" />
+            Cancelar orden
+          </button>
+        )}
+
+        {cancelled && (
+          <div className="text-center text-[10px] text-rose-300/70 bg-rose-500/[0.08] border border-rose-400/10 rounded-lg py-2.5 px-3">
+            Orden cancelada — no se puede modificar
+          </div>
+        )}
       </div>
     </div>
   );

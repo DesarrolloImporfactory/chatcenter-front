@@ -153,6 +153,22 @@ export default function DropshipperClientPanel(props) {
   const { selectedOrder } = ordersHook;
   const { orders, ordersLoading, ordersError, phone } = ordersHook;
 
+  // ── Botón reutilizable de Crear orden ──
+  const CreateOrderButton = () => (
+    <button
+      type="button"
+      onClick={openCreateOrderPanel}
+      className="w-full px-3 py-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/25 text-[11px] font-semibold flex items-center justify-center gap-1.5 text-emerald-300 transition-colors"
+      disabled={!phone}
+      title={
+        !phone ? "Falta teléfono para crear orden" : "Crear una nueva orden"
+      }
+    >
+      <i className="bx bx-plus-circle text-sm" />
+      Crear nueva orden
+    </button>
+  );
+
   return (
     <>
       <div className="relative col-span-1 h-[calc(100vh_-_130px)] overflow-y-auto custom-scrollbar text-white px-4 duration-700 transition-all animate-slide-in bg-[#171931]">
@@ -218,7 +234,7 @@ export default function DropshipperClientPanel(props) {
                 : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
             } bg-[#12172e] rounded-lg shadow-md mb-4`}
           >
-            <div className="p-4 text-white">
+            <div className="p-1 text-white">
               {/* Encabezado */}
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
@@ -277,20 +293,9 @@ export default function DropshipperClientPanel(props) {
                         <p className="text-sm text-white/80">
                           No hay órdenes para este cliente.
                         </p>
-                        <button
-                          type="button"
-                          onClick={openCreateOrderPanel}
-                          className="mt-3 w-full px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-sm font-semibold flex items-center justify-center gap-2"
-                          disabled={!phone}
-                          title={
-                            !phone
-                              ? "Falta teléfono para crear orden"
-                              : "Crear una nueva orden"
-                          }
-                        >
-                          <i className="bx bx-plus-circle" />
-                          Crear orden
-                        </button>
+                        <div className="mt-3">
+                          <CreateOrderButton />
+                        </div>
                       </>
                     ) : (
                       <CreateOrderPanel
@@ -355,12 +360,86 @@ export default function DropshipperClientPanel(props) {
                   </div>
                 )}
 
-              {/* Lista de órdenes */}
+              {/* Lista de órdenes + botón crear */}
               {!selectedOrder &&
                 !ordersLoading &&
                 !ordersError &&
                 orders?.length > 0 && (
-                  <OrderList orders={orders} onOpenOrder={openOrder} />
+                  <>
+                    {/* Botón crear orden (o panel de creación) */}
+                    {!createHook.createOrderOpen ? (
+                      <div className="mb-2">
+                        <CreateOrderButton />
+                      </div>
+                    ) : (
+                      <div className="mb-2 p-4 rounded-xl bg-white/5 border border-white/10">
+                        <CreateOrderPanel
+                          phoneInput={createHook.phoneInput}
+                          setPhoneInput={createHook.setPhoneInput}
+                          name={createHook.name}
+                          setName={createHook.setName}
+                          surname={createHook.surname}
+                          setSurname={createHook.setSurname}
+                          dir={createHook.dir}
+                          setDir={createHook.setDir}
+                          rateType={createHook.rateType}
+                          setRateType={createHook.setRateType}
+                          states={createHook.states}
+                          statesLoading={createHook.statesLoading}
+                          selectedDepartmentId={createHook.selectedDepartmentId}
+                          handleSelectDepartment={
+                            createHook.handleSelectDepartment
+                          }
+                          cities={createHook.cities}
+                          citiesLoading={createHook.citiesLoading}
+                          selectedCityId={createHook.selectedCityId}
+                          handleSelectCity={createHook.handleSelectCity}
+                          shippingQuotes={createHook.shippingQuotes}
+                          shippingQuotesLoading={
+                            createHook.shippingQuotesLoading
+                          }
+                          shippingQuotesError={createHook.shippingQuotesError}
+                          selectedShipping={createHook.selectedShipping}
+                          setSelectedShipping={createHook.setSelectedShipping}
+                          canShowShipping={
+                            Boolean(createHook.selectedCityCodDane) &&
+                            Boolean(createHook.remitCodDane)
+                          }
+                          onRecotizar={createHook.emitCotizaTransportadoras}
+                          keywords={createHook.keywords}
+                          setKeywords={createHook.setKeywords}
+                          prodList={createHook.prodList}
+                          prodLoading={createHook.prodLoading}
+                          prodError={createHook.prodError}
+                          emitGetProducts={createHook.emitGetProducts}
+                          addProductToCart={createHook.addProductToCart}
+                          productsCart={createHook.productsCart}
+                          updateCartItem={createHook.updateCartItem}
+                          removeProductFromCart={
+                            createHook.removeProductFromCart
+                          }
+                          canSubmit={
+                            Boolean(createHook.name?.trim()) &&
+                            Boolean(createHook.surname?.trim()) &&
+                            Boolean(createHook.dir?.trim()) &&
+                            Boolean(createHook.selectedDepartmentId) &&
+                            Boolean(createHook.selectedCityId) &&
+                            Array.isArray(createHook.productsCart) &&
+                            createHook.productsCart.length > 0 &&
+                            Boolean(
+                              pickDistributionCompanyFromQuote(
+                                createHook.selectedShipping,
+                              )?.id,
+                            )
+                          }
+                          onClose={() => createHook.setCreateOrderOpen(false)}
+                          onSubmit={createHook.emitCreateOrder}
+                        />
+                      </div>
+                    )}
+
+                    <OrderList orders={orders} onOpenOrder={openOrder} />
+                  </>
                 )}
 
               {/* Detalle de orden */}
