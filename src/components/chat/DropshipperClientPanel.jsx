@@ -439,10 +439,7 @@ export default function DropshipperClientPanel(props) {
                     )}
 
                     {!createHook.createOrderOpen && (
-                      <OrderList
-                        orders={orders}
-                        onOpenOrder={handleOpenOrder}
-                      />
+                      <OrderList orders={orders} onOpenOrder={openOrder} />
                     )}
                   </>
                 )}
