@@ -372,7 +372,7 @@ export default function DropshipperClientPanel(props) {
                         <CreateOrderButton />
                       </div>
                     ) : (
-                      <div className="mb-2 p-4 rounded-xl bg-white/5 border border-white/10">
+                      <div className="mb-2 rounded-xl bg-white/5 border border-white/10">
                         <CreateOrderPanel
                           phoneInput={createHook.phoneInput}
                           setPhoneInput={createHook.setPhoneInput}
