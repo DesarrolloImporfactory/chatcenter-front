@@ -5,6 +5,7 @@ import {
   pickWarehouseId,
   pickRemitCodDaneFromProduct,
   pickDistributionCompanyFromQuote,
+  pickWarehouseCityId,
 } from "../utils/orderHelper";
 
 export default function useCreateOrder({
@@ -165,11 +166,21 @@ export default function useCreateOrder({
     setShippingQuotes([]);
     setSelectedShipping(null);
 
+    const raw0 = productsCart[0]?.__raw || null;
+
+    // Objeto completo de ciudad destino del listing
+    const fullCityDestino =
+      cities.find(
+        (c) => String(c.cod_dane || "") === String(selectedCityCodDane),
+      ) || null;
+
     s.emit("GET_DROPI_COTIZA_ENVIO_V2", {
       id_configuracion: Number(id_configuracion),
       EnvioConCobro: rateType === "CON RECAUDO",
       ciudad_destino_cod_dane: String(selectedCityCodDane),
       ciudad_remitente_cod_dane: String(remitCodDane),
+      ciudad_destino_full: fullCityDestino,
+      warehouse_city_id: pickWarehouseCityId(raw0),
       products: productsCart.map((p) => ({
         id: Number(p.id),
         quantity: Number(p.quantity) || 1,
@@ -179,10 +190,6 @@ export default function useCreateOrder({
         (acc, p) => acc + (Number(p.price) || 0) * (Number(p.quantity) || 1),
         0,
       ),
-      destination_label: [selectedCityName, selectedDepartmentName]
-        .filter(Boolean)
-        .join(", ")
-        .toLowerCase(),
     });
   }, [
     socketRef,
@@ -191,10 +198,8 @@ export default function useCreateOrder({
     remitCodDane,
     rateType,
     productsCart,
-    selectedCityName,
-    selectedDepartmentName,
+    cities,
   ]);
-
   // ── handlers de selección ──
   const handleSelectDepartment = (e) => {
     const depId = Number(e.target.value) || null;

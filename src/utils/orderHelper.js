@@ -170,3 +170,19 @@ export const pickDistributionCompanyFromQuote = (q) => {
   if (id && String(name).trim()) return { id, name: String(name).trim() };
   return null;
 };
+
+export const pickWarehouseCityId = (rawProduct) => {
+  if (!rawProduct) return null;
+  // SIMPLE: warehouse_product[0].warehouse[0].city_id o warehouse_product[0].warehouse.city_id
+  const fromWP =
+    rawProduct?.warehouse_product?.[0]?.warehouse?.[0]?.city_id ||
+    rawProduct?.warehouse_product?.[0]?.warehouse?.city_id ||
+    null;
+  if (fromWP) return Number(fromWP);
+  // VARIABLE: variations[0].warehouse_product_variation[0].warehouse.city.id
+  const fromVar =
+    rawProduct?.variations?.[0]?.warehouse_product_variation?.[0]?.warehouse
+      ?.city?.id || null;
+  if (fromVar) return Number(fromVar);
+  return null;
+};
