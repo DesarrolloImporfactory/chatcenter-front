@@ -221,13 +221,19 @@ function MainLayout({ children }) {
                 navigate(conexionPath);
               }}
             />
-            {isAdmin && (
+            {/* {isAdmin && (
               <NavBtn
                 path="/dashboard"
                 icon="bx-bar-chart-alt-2"
                 label="Dashboard"
               />
-            )}
+            )} */}
+
+            <NavBtn
+              path="/dashboard"
+              icon="bx-bar-chart-alt-2"
+              label="Dashboard"
+            />
 
             {isAdmin && (
               <div
