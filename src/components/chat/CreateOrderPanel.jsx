@@ -57,6 +57,10 @@ export default function CreateOrderPanel(props) {
   const sectionCls =
     "rounded-[10px] bg-[#0f1629] border border-white/[0.07] overflow-hidden";
 
+  // ── ¿Ya se consultaron transportadoras al menos una vez? ──
+  const hasQuoted =
+    shippingQuotes.length > 0 || shippingQuotesError || shippingQuotesLoading;
+
   return (
     <div className="space-y-2">
       {/* ═══ Header ═══ */}
@@ -412,7 +416,7 @@ export default function CreateOrderPanel(props) {
           <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">
             Transportadora
           </span>
-          {canShowShipping && (
+          {canShowShipping && hasQuoted && (
             <button
               type="button"
               onClick={onRecotizar}
@@ -428,6 +432,7 @@ export default function CreateOrderPanel(props) {
         </div>
 
         <div className="px-3.5 pb-3">
+          {/* Bloqueado: falta ciudad o producto */}
           {!canShowShipping && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-[7px] bg-white/[0.02] border border-dashed border-white/[0.08]">
               <i className="bx bx-lock-alt text-white/15 text-sm shrink-0" />
@@ -441,21 +446,51 @@ export default function CreateOrderPanel(props) {
             </div>
           )}
 
-          {canShowShipping && shippingQuotesLoading && (
-            <p className="text-[10px] text-white/35 py-1">
-              Cotizando transportadoras…
-            </p>
+          {/* Botón: Consultar transportadoras (si aún no se ha cotizado) */}
+          {canShowShipping && !hasQuoted && (
+            <button
+              type="button"
+              onClick={onRecotizar}
+              disabled={shippingQuotesLoading}
+              className="w-full px-3.5 py-3 rounded-[7px] bg-blue-500/[0.12] hover:bg-blue-500/[0.22] border border-blue-400/[0.22] text-[11px] font-semibold text-blue-300 flex items-center justify-center gap-2 transition-colors"
+            >
+              <i className="bx bx-search-alt text-sm" />
+              Consultar transportadoras
+            </button>
           )}
 
-          {canShowShipping && shippingQuotesError && (
+          {/* Skeleton loading */}
+          {canShowShipping && shippingQuotesLoading && (
+            <div className="grid grid-cols-2 gap-1.5">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-2.5 animate-pulse"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-md bg-white/[0.06]" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-20 rounded bg-white/[0.06]" />
+                    </div>
+                  </div>
+                  <div className="h-4 w-14 rounded bg-white/[0.06] mt-2" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error */}
+          {canShowShipping && shippingQuotesError && !shippingQuotesLoading && (
             <div className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-400/15 rounded-md p-2">
               {shippingQuotesError}
             </div>
           )}
 
+          {/* Resultados de cotización */}
           {canShowShipping &&
             !shippingQuotesLoading &&
-            !shippingQuotesError && (
+            !shippingQuotesError &&
+            hasQuoted && (
               <>
                 {(shippingQuotes || []).length === 0 ? (
                   <p className="text-[10px] text-white/35 py-1">
@@ -470,11 +505,13 @@ export default function CreateOrderPanel(props) {
                         t?.distributionCompany?.name ||
                         "Transportadora";
                       const price = hasPrice
-                        ? String(t?.objects?.precioEnvio)
+                        ? Number(t?.objects?.precioEnvio).toFixed(2)
                         : null;
                       const isSelected =
                         selectedShipping?.transportadora_id ===
                         t?.transportadora_id;
+                      const hasSobrecargo =
+                        t?.objects?.overload_was_applied === true;
 
                       return (
                         <button
@@ -502,18 +539,17 @@ export default function CreateOrderPanel(props) {
                               <p className="text-[11px] font-semibold text-white/85 truncate">
                                 {tName}
                               </p>
-                              <p className="text-[9px] text-white/25 truncate">
-                                {t?.transportadora_service || "normal"}
-                              </p>
                             </div>
                           </div>
-                          <p className="text-[13px] font-bold text-white mt-2 tracking-tight">
+                          <div className="flex items-baseline gap-1.5 mt-2">
                             {price ? (
                               <>
-                                ${price}
-                                {t?.objects?.overload_was_applied && (
-                                  <span className="ml-1 text-[8px] font-medium text-amber-300/80">
-                                    *Sobrecargo
+                                <span className="text-[13px] font-bold text-white tracking-tight">
+                                  ${price}
+                                </span>
+                                {hasSobrecargo && (
+                                  <span className="text-[8px] font-medium text-amber-300/80 bg-amber-400/10 px-1.5 py-0.5 rounded">
+                                    +Sobrecargo
                                   </span>
                                 )}
                               </>
@@ -522,9 +558,9 @@ export default function CreateOrderPanel(props) {
                                 No disponible
                               </span>
                             )}
-                          </p>
+                          </div>
                           {t?.error && (
-                            <p className="mt-1.5 text-[9px] text-rose-300 bg-rose-500/10 rounded p-1.5">
+                            <p className="mt-1.5 text-[9px] text-rose-300 bg-rose-500/10 rounded p-1.5 line-clamp-2">
                               {t.error}
                             </p>
                           )}

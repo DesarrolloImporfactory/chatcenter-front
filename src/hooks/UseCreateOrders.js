@@ -401,16 +401,16 @@ export default function useCreateOrder({
   ]);
 
   // ── auto-cotizar cuando hay destino + remitente ──
-  useEffect(() => {
-    if (!createOrderOpen || !selectedCityCodDane || !remitCodDane) return;
-    emitCotizaTransportadoras();
-  }, [
-    createOrderOpen,
-    selectedCityCodDane,
-    remitCodDane,
-    rateType,
-    emitCotizaTransportadoras,
-  ]);
+  // useEffect(() => {
+  //   if (!createOrderOpen || !selectedCityCodDane || !remitCodDane) return;
+  //   emitCotizaTransportadoras();
+  // }, [
+  //   createOrderOpen,
+  //   selectedCityCodDane,
+  //   remitCodDane,
+  //   rateType,
+  //   emitCotizaTransportadoras,
+  // ]);
 
   // ── recargar cities si cambia rateType ──
   useEffect(() => {

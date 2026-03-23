@@ -438,7 +438,12 @@ export default function DropshipperClientPanel(props) {
                       </div>
                     )}
 
-                    <OrderList orders={orders} onOpenOrder={openOrder} />
+                    {!createHook.createOrderOpen && (
+                      <OrderList
+                        orders={orders}
+                        onOpenOrder={handleOpenOrder}
+                      />
+                    )}
                   </>
                 )}
 
