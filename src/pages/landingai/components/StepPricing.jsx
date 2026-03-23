@@ -20,8 +20,6 @@ const IDIOMAS = [
 ];
 
 const StepPricing = ({
-  description,
-  setDescription,
   pricing,
   setPricing,
   marca,
@@ -37,11 +35,8 @@ const StepPricing = ({
 
   const currentMoneda = MONEDAS.find((m) => m.code === moneda) || MONEDAS[0];
 
-  // Helper: solo permite números positivos y un punto decimal
   const sanitizePrice = (val) => {
-    // Quita todo excepto dígitos y punto
     let clean = val.replace(/[^0-9.]/g, "");
-    // Solo un punto decimal
     const parts = clean.split(".");
     if (parts.length > 2) clean = parts[0] + "." + parts.slice(1).join("");
     return clean;
@@ -85,8 +80,7 @@ const StepPricing = ({
     }));
   };
 
-  const canContinue =
-    description.trim().length >= 5 && marca.trim().length >= 1;
+  const canContinue = marca.trim().length >= 1;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5">
@@ -97,52 +91,32 @@ const StepPricing = ({
         </div>
         <div>
           <h2 className="font-bold text-gray-900 text-sm">
-            Detalla tu producto
+            Configura tu producto
           </h2>
           <p className="text-[11px] text-gray-400 mt-0.5">
-            Esta información será usada por la IA para generar ángulos de venta
-            y textos precisos
+            Nombre, precios, moneda e idioma para las imágenes
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* ── Col izquierda: Descripción ── */}
-        <div className="lg:col-span-3 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* ── Col izquierda: Nombre + Moneda + Idioma ── */}
+        <div className="space-y-4">
           <div>
-            <div className="mb-3">
-              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Nombre del Producto <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={marca}
-                onChange={(e) => setMarca(e.target.value)}
-                placeholder="Ej: HydraSkin, ImportaYa, Mi Tienda..."
-                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-300 bg-gray-50 focus:bg-white transition"
-              />
-            </div>
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Descripción del producto
-              <span className="text-rose-400">*</span>
+              Nombre del Producto <span className="text-rose-400">*</span>
             </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-              placeholder="Ej: Crema hidratante premium de la marca HydraSkin. Presentación de 120ml, colores azul y blanco. Ideal para piel seca y sensible. Público femenino 25-45 años. Contiene ácido hialurónico y vitamina E..."
-              className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-gray-800 placeholder-gray-300 bg-gray-50 focus:bg-white transition"
+            <input
+              type="text"
+              value={marca}
+              onChange={(e) => setMarca(e.target.value)}
+              placeholder="Ej: HydraSkin, ImportaYa, Mi Tienda..."
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-300 bg-gray-50 focus:bg-white transition"
             />
-            <p className="text-[10px] text-gray-400 mt-1.5">
-              <i className="bx bx-info-circle mr-1" />
-              Mientras más detallado, mejor serán los ángulos de venta y las
-              imágenes generadas
-            </p>
           </div>
 
           {/* ── Moneda + Idioma ── */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Moneda */}
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
                 <i className="bx bx-coin-stack mr-1 text-xs" />
@@ -167,7 +141,6 @@ const StepPricing = ({
               </div>
             </div>
 
-            {/* Idioma */}
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
                 <i className="bx bx-globe mr-1 text-xs" />
@@ -195,7 +168,7 @@ const StepPricing = ({
         </div>
 
         {/* ── Col derecha: Precios ── */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="space-y-4">
           <div>
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
               Precio unitario{" "}
@@ -343,8 +316,8 @@ const StepPricing = ({
               : "bg-gray-100 text-gray-400 cursor-not-allowed"
           }`}
         >
-          Generar ángulos de venta{" "}
-          <i className="bx bx-right-arrow-alt text-base" />
+          Generar descripción y ángulos con IA{" "}
+          <i className="bx bx-magic-wand text-base" />
         </button>
       </div>
     </div>

@@ -28,15 +28,12 @@ const Toast = Swal.mixin({
 
 // ═══════════════════════════════════════════════════════════
 // Helper: fusionar promo bonus en el usage efectivo
-// Cuando el plan NO incluye imágenes/ángulos pero hay promo,
-// usar promo como recurso principal para que el UI funcione.
 // ═══════════════════════════════════════════════════════════
 function mergePromoIntoUsage(raw) {
   const merged = { ...raw };
   const promoImg = Number(raw.promo_imagenes_restantes || 0);
   const promoAng = Number(raw.promo_angulos_restantes || 0);
 
-  // Si el plan NO tiene imágenes pero SÍ hay promo → promo es el recurso principal
   if ((raw.limit || 0) <= 0 && promoImg > 0) {
     merged.limit = promoImg;
     merged.remaining = promoImg;
@@ -44,12 +41,10 @@ function mergePromoIntoUsage(raw) {
     merged.is_promo = true;
   }
 
-  // Si el plan SÍ tiene imágenes Y TAMBIÉN hay promo bonus → sumar al remaining
   if ((raw.limit || 0) > 0 && promoImg > 0) {
     merged.remaining = (raw.remaining || 0) + promoImg;
   }
 
-  // Ángulos: misma lógica
   if (
     (raw.angles_limit === null ||
       raw.angles_limit === undefined ||
@@ -202,7 +197,7 @@ const LandingAi = () => {
   }, [fromProducto]);
 
   // ═══════════════════════════════════════════════════════════
-  // Fetch inicial — fusionar promo bonus en el usage efectivo
+  // Fetch inicial
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
     chatApi
@@ -234,6 +229,18 @@ const LandingAi = () => {
       .get("gemini/etapas")
       .then((r) => {
         if (r.data?.data) setEtapas(r.data.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════
+  // Refresh usage desde el backend (se llama post-generación)
+  // ═══════════════════════════════════════════════════════════
+  const refreshUsage = useCallback(() => {
+    chatApi
+      .get("gemini/usage")
+      .then((r) => {
+        if (r.data?.usage) setUsage(mergePromoIntoUsage(r.data.usage));
       })
       .catch(() => {});
   }, []);
@@ -287,7 +294,6 @@ const LandingAi = () => {
 
     const { template, etapas } = selectedConfig;
 
-    // Validar cuota: usar remaining que ya incluye promo bonus fusionado
     if (usage.limit > 0 && usage.remaining < etapas.length) {
       return Toast.fire({
         icon: "error",
@@ -328,7 +334,7 @@ const LandingAi = () => {
 
         const res = await chatApi.post("gemini/generar-etapa", fd, {
           headers: { "Content-Type": "multipart/form-data" },
-          timeout: 150000,
+          timeout: 210000,
           silentError: true,
         });
 
@@ -339,16 +345,7 @@ const LandingAi = () => {
           success: true,
         });
         setResults([...generated]);
-
-        // Actualizar usage con lo que devuelve el backend
-        if (res.data.usage) {
-          setUsage((prev) => ({
-            ...prev,
-            used: res.data.usage.used,
-            remaining: res.data.usage.remaining,
-            is_promo: res.data.usage.is_promo || prev.is_promo,
-          }));
-        }
+        refreshUsage();
       } catch (err) {
         generated.push({
           etapa: { id: etapa.id, nombre: etapa.nombre, slug: etapa.slug },
@@ -368,6 +365,7 @@ const LandingAi = () => {
     }
 
     setGenerating(false);
+    refreshUsage();
     const ok = generated.filter((g) => g.success).length;
     if (ok > 0)
       Toast.fire({
@@ -399,7 +397,7 @@ const LandingAi = () => {
 
       const res = await chatApi.post("gemini/regenerar-etapa", fd, {
         headers: { "Content-Type": "multipart/form-data" },
-        timeout: 150000,
+        timeout: 210000,
         silentError: true,
       });
 
@@ -415,14 +413,6 @@ const LandingAi = () => {
             : r,
         ),
       );
-      if (res.data.usage) {
-        setUsage((prev) => ({
-          ...prev,
-          used: res.data.usage.used,
-          remaining: res.data.usage.remaining,
-          is_promo: res.data.usage.is_promo || prev.is_promo,
-        }));
-      }
       Toast.fire({ icon: "success", title: "Sección regenerada" });
     } catch (err) {
       if (err?.response?.status !== 402) {
@@ -433,6 +423,7 @@ const LandingAi = () => {
       }
     } finally {
       setRegeneratingId(null);
+      refreshUsage();
     }
   };
 
@@ -626,8 +617,6 @@ const LandingAi = () => {
         )}
         {step === "pricing" && (
           <StepPricing
-            description={description}
-            setDescription={setDescription}
             pricing={pricing}
             setPricing={setPricing}
             marca={marca}
@@ -642,7 +631,9 @@ const LandingAi = () => {
         )}
         {step === "angles" && (
           <StepAngles
+            marca={marca}
             description={description}
+            setDescription={setDescription}
             pricing={pricing}
             selectedAngle={selectedAngle}
             setSelectedAngle={setSelectedAngle}

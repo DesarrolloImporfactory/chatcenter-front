@@ -1192,7 +1192,8 @@ const ProductoDetallePage = () => {
                       style={{ color: "#f59e0b" }}
                     />
                     <p className="text-[10px] text-gray-500">
-                      ¿Necesitas ángulos de venta avanzados?
+                      ¿Necesitas ángulos de venta avanzados y una descripción
+                      brillante del producto?
                       <button
                         onClick={goToFullGenerator}
                         className="font-bold underline ml-1"
