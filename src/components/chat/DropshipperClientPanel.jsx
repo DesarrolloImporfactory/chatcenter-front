@@ -287,7 +287,7 @@ export default function DropshipperClientPanel(props) {
                 !ordersLoading &&
                 !ordersError &&
                 orders?.length === 0 && (
-                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  <div className="rounded-xl bg-white/5 border border-white/10">
                     {!createHook.createOrderOpen ? (
                       <>
                         <p className="text-sm text-white/80">
@@ -372,7 +372,7 @@ export default function DropshipperClientPanel(props) {
                         <CreateOrderButton />
                       </div>
                     ) : (
-                      <div className="p-4 mb-2 rounded-xl bg-white/5 border border-white/10">
+                      <div className="mb-2 rounded-xl bg-white/5 border border-white/10">
                         <CreateOrderPanel
                           phoneInput={createHook.phoneInput}
                           setPhoneInput={createHook.setPhoneInput}
