@@ -39,39 +39,22 @@ function uniqueByName(items) {
 
 function todayISO() {
   const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function daysAgoISO(days) {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// ═════════════════════════════════════════════════════════════════════
-// getUserInfo — Detectar rol desde localStorage
-// ═════════════════════════════════════════════════════════════════════
 function getUserInfo() {
   const id_usuario = Number(localStorage.getItem("id_usuario"));
-
-  // _raw: leemos como string crudo porque localStorage.getItem retorna null
-  // si la key no existe. Number(null) = 0, lo cual confundiría "no tiene"
-  // con "id = 0". Por eso: si existe el string → Number(), si no → null.
   const id_sub_usuario_raw = localStorage.getItem("id_sub_usuario");
   const id_sub_usuario = id_sub_usuario_raw ? Number(id_sub_usuario_raw) : null;
-
-  // Tu localStorage guarda "user_role", el fallback "rol" es por compatibilidad
   const rol =
     localStorage.getItem("user_role") || localStorage.getItem("rol") || null;
-
   const esAdmin = !id_sub_usuario || rol === "administrador";
-
   return { id_usuario, id_sub_usuario, rol, esAdmin };
 }
 
@@ -111,7 +94,6 @@ export default function Dashboard() {
     avgFirstResponseSeconds: null,
     avgResolutionSeconds: null,
   });
-
   const [pendingQueue, setPendingQueue] = useState([]);
   const [slaToday, setSlaToday] = useState({
     generalPct: 0,
@@ -131,7 +113,6 @@ export default function Dashboard() {
   const [agentLoad, setAgentLoad] = useState([]);
   const [frequentTransfers, setFrequentTransfers] = useState([]);
 
-  // Tiempo Real
   const { socket } = useSocket();
   const { id_usuario, id_sub_usuario, esAdmin } = getUserInfo();
 
@@ -140,47 +121,39 @@ export default function Dashboard() {
     const cargarFiltros = async () => {
       try {
         setLoadingFilters(true);
-
         const resp = await chatApi.post("/dashboard/obtener_filtros", {
           id_usuario,
           id_sub_usuario,
           incluir_etiquetas: 1,
         });
-
         const payload = resp?.data?.data || {};
         const deps = payload.departamentos || [];
         const users = payload.usuarios || [];
         const conns = payload.conexiones || [];
         const etiquetasPorConf = payload.etiquetas_por_configuracion || {};
 
-        const departments = [
-          "Todos",
-          ...uniqueByName(
-            deps.map(
-              (d) => d.nombre_departamento || d.nombre || d.departamento,
-            ),
-          ),
-        ];
-
-        const usersOpts = [
-          "Todos",
-          ...uniqueByName(
-            users.map(
-              (u) => u.nombre_encargado || u.nombre || u.name || u.usuario,
-            ),
-          ),
-        ];
-
-        const connections = [
-          "Todas",
-          ...uniqueByName(conns.map((c) => c.nombre_configuracion)),
-        ];
-
         setOptions((prev) => ({
           ...prev,
-          departments,
-          users: usersOpts,
-          connections,
+          departments: [
+            "Todos",
+            ...uniqueByName(
+              deps.map(
+                (d) => d.nombre_departamento || d.nombre || d.departamento,
+              ),
+            ),
+          ],
+          users: [
+            "Todos",
+            ...uniqueByName(
+              users.map(
+                (u) => u.nombre_encargado || u.nombre || u.name || u.usuario,
+              ),
+            ),
+          ],
+          connections: [
+            "Todas",
+            ...uniqueByName(conns.map((c) => c.nombre_configuracion)),
+          ],
           motives: ["Todos"],
           _raw: {
             departamentos: deps,
@@ -195,35 +168,28 @@ export default function Dashboard() {
         setLoadingFilters(false);
       }
     };
-
     cargarFiltros();
   }, []);
 
   // === 2) Tags según conexión ===
   useEffect(() => {
     const { conexiones, etiquetas_por_configuracion } = options._raw || {};
-    const selectedConnName = filters.connection;
-
     let tags = ["Todas"];
-
     if (!conexiones || !etiquetas_por_configuracion) {
       setOptions((prev) => ({ ...prev, tags }));
       return;
     }
-
-    let selectedConfigId = null;
-
-    if (selectedConnName && selectedConnName !== "Todas") {
+    let selCfgId = null;
+    if (filters.connection && filters.connection !== "Todas") {
       const row = conexiones.find(
         (c) =>
           safeName(c.nombre_configuracion).toLowerCase() ===
-          safeName(selectedConnName).toLowerCase(),
+          safeName(filters.connection).toLowerCase(),
       );
-      selectedConfigId = row?.id ? Number(row.id) : null;
+      selCfgId = row?.id ? Number(row.id) : null;
     }
-
-    if (selectedConfigId) {
-      const tagsArr = etiquetas_por_configuracion[selectedConfigId] || [];
+    if (selCfgId) {
+      const tagsArr = etiquetas_por_configuracion[selCfgId] || [];
       tags = [
         "Todas",
         ...uniqueByName(
@@ -237,14 +203,12 @@ export default function Dashboard() {
         ...uniqueByName(all.map((t) => t.nombre_etiqueta || t.nombre || t.tag)),
       ];
     }
-
     setOptions((prev) => ({ ...prev, tags }));
   }, [filters.connection, options._raw]);
 
-  // === 3) Resolver id_configuracion desde nombre de conexión ===
+  // === 3) Resolver filtros ===
   const selectedConfigId = useMemo(() => {
     if (!filters.connection || filters.connection === "Todas") return null;
-
     const conns = options._raw?.conexiones || [];
     const row = conns.find(
       (c) =>
@@ -254,14 +218,8 @@ export default function Dashboard() {
     return row?.id ? Number(row.id) : null;
   }, [filters.connection, options._raw]);
 
-  // === 3b) Resolver id_sub_usuario desde nombre de usuario seleccionado ===
-  // Cuando el admin selecciona "Belén Garcia ImporFactory" en el dropdown,
-  // buscamos su id_sub_usuario (378) en _raw.usuarios para enviarlo al backend.
-  // Si está en "Todos" → null → el backend no filtra por agente.
   const selectedSubUsuarioFiltro = useMemo(() => {
-    if (!esAdmin) return null; // Agente no usa este filtro, el backend ya lo filtra por él
-    if (!filters.user || filters.user === "Todos") return null;
-
+    if (!esAdmin || !filters.user || filters.user === "Todos") return null;
     const usuarios = options._raw?.usuarios || [];
     const row = usuarios.find((u) => {
       const nombre = safeName(
@@ -272,17 +230,14 @@ export default function Dashboard() {
     return row?.id_sub_usuario ? Number(row.id_sub_usuario) : null;
   }, [filters.user, options._raw, esAdmin]);
 
-  // === 4) FETCH — elige endpoint según rol ===
+  // === 4) FETCH SELECTIVO ===
   const fetchSections = useCallback(
     async (sections) => {
-      console.log("[RT] fetchSections llamado con:", sections);
-
       const isAll = sections.includes("all");
       try {
         setErrorMsg("");
         if (isAll) setLoadingData(true);
 
-        // ── Elegir endpoint según rol ──────────────────────────────────
         const endpoint = esAdmin
           ? "/dashboard/obtener_dashboard_completo"
           : "/dashboard/obtener_dashboard_agente";
@@ -292,28 +247,22 @@ export default function Dashboard() {
           id_configuracion: selectedConfigId,
           from: filters.dateRange?.from || null,
           to: filters.dateRange?.to || null,
+          sections: isAll ? "all" : sections,
         };
 
-        if (esAdmin) {
-          // Admin: si seleccionó un usuario específico, enviar su id para filtrar
-          // Si es "Todos" → selectedSubUsuarioFiltro es null → backend no filtra
-          if (selectedSubUsuarioFiltro) {
-            payload.id_sub_usuario_filtro = selectedSubUsuarioFiltro;
-          }
-        } else {
-          // Agente: siempre envía su propio id_sub_usuario
-          if (id_sub_usuario) {
-            payload.id_sub_usuario = id_sub_usuario;
-          }
+        if (esAdmin && selectedSubUsuarioFiltro) {
+          payload.id_sub_usuario_filtro = selectedSubUsuarioFiltro;
+        }
+        if (!esAdmin && id_sub_usuario) {
+          payload.id_sub_usuario = id_sub_usuario;
         }
 
-        const resp = await chatApi.post(endpoint, payload, {
-          timeout: 50000,
-        });
+        const resp = await chatApi.post(endpoint, payload, { timeout: 50000 });
         const data = resp?.data?.data || {};
 
-        if (isAll || sections.includes("summary")) {
-          const s = data.summary || {};
+        // Solo actualizar state si la key vino en la respuesta
+        if (data.summary !== undefined) {
+          const s = data.summary;
           setSummary({
             chatsCreated: Number(s.chatsCreated || 0),
             chatsResolved: Number(s.chatsResolved || 0),
@@ -323,13 +272,12 @@ export default function Dashboard() {
             avgResolutionSeconds: s.avgResolutionSeconds ?? null,
           });
         }
-        if (isAll || sections.includes("pendingQueue"))
+        if (data.pendingQueue !== undefined)
           setPendingQueue(
             Array.isArray(data.pendingQueue) ? data.pendingQueue : [],
           );
-
-        if (isAll || sections.includes("slaToday")) {
-          const sla = data.slaToday || {};
+        if (data.slaToday !== undefined) {
+          const sla = data.slaToday;
           setSlaToday({
             generalPct: Number(sla.generalPct || 0),
             metaPct: Number(sla.metaPct || 90),
@@ -338,8 +286,8 @@ export default function Dashboard() {
             abandoned: Number(sla.abandoned || 0),
           });
         }
-        if (isAll || sections.includes("charts")) {
-          const ch = data.charts || {};
+        if (data.charts !== undefined) {
+          const ch = data.charts;
           setCharts({
             byChannel: Array.isArray(ch.byChannel) ? ch.byChannel : [],
             byConnection: Array.isArray(ch.byConnection) ? ch.byConnection : [],
@@ -353,10 +301,9 @@ export default function Dashboard() {
             resolution: Array.isArray(ch.resolution) ? ch.resolution : [],
           });
         }
-        if (isAll || sections.includes("agentLoad"))
+        if (data.agentLoad !== undefined)
           setAgentLoad(Array.isArray(data.agentLoad) ? data.agentLoad : []);
-
-        if (isAll || sections.includes("frequentTransfers"))
+        if (data.frequentTransfers !== undefined)
           setFrequentTransfers(
             Array.isArray(data.frequentTransfers) ? data.frequentTransfers : [],
           );
@@ -380,11 +327,33 @@ export default function Dashboard() {
 
   const fetchAll = useCallback(() => fetchSections(["all"]), [fetchSections]);
 
-  // Tiempo real via socket
+  // === 5) DELTAS OPTIMISTAS ===
+  // Cuando el server envía { deltas: { chatsCreated: 1 } }, actualizamos
+  // el contador INSTANTÁNEAMENTE sin esperar al HTTP fetch.
+  // 2-3 segundos después, el fetch real corrige el valor exacto.
+  const handleDeltas = useCallback((deltas) => {
+    if (!deltas || typeof deltas !== "object") return;
+
+    setSummary((prev) => {
+      const updated = { ...prev };
+      if (typeof deltas.chatsCreated === "number")
+        updated.chatsCreated = prev.chatsCreated + deltas.chatsCreated;
+      if (typeof deltas.chatsResolved === "number")
+        updated.chatsResolved = prev.chatsResolved + deltas.chatsResolved;
+      if (typeof deltas.withReplies === "number")
+        updated.withReplies = prev.withReplies + deltas.withReplies;
+      if (typeof deltas.noReply === "number")
+        updated.noReply = prev.noReply + deltas.noReply;
+      return updated;
+    });
+  }, []);
+
+  // === 6) Socket real-time ===
   useDashboardRealtime({
     socket,
     id_usuario,
     onRefreshSections: fetchSections,
+    onApplyDeltas: handleDeltas,
   });
 
   useEffect(() => {
@@ -403,7 +372,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-[calc(100vh-48px)] w-full bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="mx-auto w-full max-w-[100%] px-4 py-6">
-        {/* Header */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
@@ -420,16 +388,13 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
           {!esAdmin && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-              <i className="bx bx-user text-sm"></i>
-              Vista personal
+              <i className="bx bx-user text-sm"></i> Vista personal
             </span>
           )}
         </div>
 
-        {/* Filtros */}
         <FiltersBar
           filters={filters}
           options={{
@@ -454,19 +419,17 @@ export default function Dashboard() {
           </div>
         )}
 
-        {errorMsg ? (
+        {errorMsg && (
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <i className="bx bx-error-circle text-lg"></i>
             <span>{errorMsg}</span>
           </div>
-        ) : null}
+        )}
 
-        {/* Stats Cards */}
         <div className="mt-6">
           <StatsCards summary={summary} />
         </div>
 
-        {/* Cola + SLA */}
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <PendingQueue rows={pendingQueue} />
@@ -476,7 +439,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Carga por asesor + Transferencias frecuentes */}
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-1">
             <AgentLoad data={agentLoad} />
@@ -486,14 +448,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Gráficas */}
         <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
           <ChatsByChannelChart data={charts.byChannel} />
           <ChatsByConnectionChart data={charts.byConnection} />
-
           <FirstResponseChart data={charts.firstResponse} />
           <ResolutionChart data={charts.resolution} />
-
           <ChatsCreatedChart data={charts.chatsCreated} />
           <ChatsResolvedChart data={charts.chatsResolved} />
         </div>
