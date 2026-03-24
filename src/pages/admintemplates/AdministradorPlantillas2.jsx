@@ -1460,10 +1460,8 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   const handleCreatePlantilla = async (payload) => {
     try {
       const { headerFile, ...rest } = payload || {};
-
       let resp;
 
-      // Si viene archivo => multipart/form-data
       if (headerFile) {
         const fd = new FormData();
         fd.append("id_configuracion", id_configuracion);
@@ -1472,12 +1470,10 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         fd.append("category", rest.category);
         fd.append("components", JSON.stringify(rest.components || []));
         fd.append("headerFile", headerFile);
-
         resp = await chatApi.post("/whatsapp_managment/CrearPlantilla", fd, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        // Sin archivo => JSON
         resp = await chatApi.post("/whatsapp_managment/CrearPlantilla", {
           ...rest,
           id_configuracion,
@@ -1492,10 +1488,13 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         await fetchPlantillas();
         setMostrarModalPlantilla(false);
       } else {
-        setStatusMessage({
-          type: "error",
-          text: resp.data?.error || "Error al crear la plantilla.",
-        });
+        const rawError = resp.data?.error;
+        const errorText =
+          typeof rawError === "string"
+            ? rawError
+            : traducirErrorMeta(rawError) || "Error al crear la plantilla.";
+
+        setStatusMessage({ type: "error", text: errorText });
       }
     } catch {
       setStatusMessage({
