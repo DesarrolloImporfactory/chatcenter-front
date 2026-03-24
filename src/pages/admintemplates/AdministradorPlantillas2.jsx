@@ -145,6 +145,56 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     setVerModal(true);
   };
 
+  const eliminarTemplateMeta = async (plantilla) => {
+    const result = await Swal.fire({
+      title: "¿Eliminar plantilla?",
+      html: `Se eliminará <b>${plantilla.name}</b> de Meta Business.<br/>
+           <span class="text-sm text-gray-500">
+             Esta acción no se puede deshacer. Si creas otra plantilla con el mismo nombre, 
+             puede tardar hasta 5 minutos en estar disponible.
+           </span>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const resp = await chatApi.post(
+        "/whatsapp_managment/eliminarTemplateMeta",
+        {
+          id_configuracion,
+          template_name: plantilla.name,
+        },
+      );
+
+      if (resp.data.success) {
+        setStatusMessage({
+          type: "success",
+          text: `Plantilla "${plantilla.name}" eliminada correctamente.`,
+        });
+        // Recargar la lista
+        await fetchPlantillas();
+      } else {
+        const rawError = resp.data?.error;
+        const errorText =
+          typeof rawError === "string"
+            ? rawError
+            : traducirErrorMeta(rawError) || "Error al eliminar la plantilla.";
+        setStatusMessage({ type: "error", text: errorText });
+      }
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Error al conectar con el servidor.",
+      });
+    }
+  };
+
   const handleAbrirConfiguraciones = () => setModalConfigOpen(true);
   const handleAbrirConfiguracionesCalendario = () =>
     setModalConfigOpenCalendario(true);
@@ -1011,7 +1061,8 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                     </span>
                   )}
                 </td>
-                <td className="py-2 px-4">
+                <td className="py-2 px-4 flex gap-1">
+                  {/* Ver */}
                   <button
                     onClick={() => handleVerPlantilla(plantilla)}
                     className="text-blue-600 hover:text-blue-800 p-2"
@@ -1035,6 +1086,28 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                         strokeLinejoin="round"
                         strokeWidth={2}
                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* Eliminar */}
+                  <button
+                    onClick={() => eliminarTemplateMeta(plantilla)}
+                    className="text-red-500 hover:text-red-700 p-2"
+                    title="Eliminar de Meta"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 inline"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
                     </svg>
                   </button>
