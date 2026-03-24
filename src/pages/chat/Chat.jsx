@@ -1865,7 +1865,7 @@ const Chat = () => {
   const [selectedEstado, setSelectedEstado] = useState([]);
   const [selectedTransportadora, setSelectedTransportadora] = useState(null);
   const [selectedNovedad, setSelectedNovedad] = useState(null);
-  const [selectedPedidos_confirmados, setSelectedPedidos_confirmados] =
+  const [selectedEstado_contacto, setSelectedEstado_contacto] =
     useState([]);
   const [selectedTab, setSelectedTab] = useState("abierto");
   const [filteredChats, setFilteredChats] = useState([]);
@@ -2225,7 +2225,7 @@ const Chat = () => {
           selectedTransportadora,
           selectedNovedad,
           selectedTab,
-          selectedPedidos_confirmados,
+          selectedEstado_contacto,
           source: sourceToSend,
         },
         scopeChats,
@@ -2294,7 +2294,7 @@ const Chat = () => {
       selectedTransportadora,
       selectedNovedad,
       selectedTab,
-      selectedPedidos_confirmados,
+      selectedEstado_contacto,
       scopeChats,
       sourceForList,
     ],
@@ -2568,7 +2568,6 @@ const Chat = () => {
 
           setUltimo_cursorId(cursorId);
           emitGetChats({ reset: false, limit: 10 });
-
         }
       }
     };
@@ -2599,7 +2598,7 @@ const Chat = () => {
     selectedTransportadora,
     selectedNovedad,
     selectedTab,
-    selectedPedidos_confirmados,
+    selectedEstado_contacto,
     scopeChats,
   ]);
 
@@ -3379,13 +3378,14 @@ const Chat = () => {
         scrollRef={scrollRef}
         handleScrollMensajes={handleScrollMensajes}
         id_plataforma_conf={id_plataforma_conf}
-        selectedPedidos_confirmados={selectedPedidos_confirmados}
-        setSelectedPedidos_confirmados={setSelectedPedidos_confirmados}
+        selectedEstado_contacto={selectedEstado_contacto}
+        setSelectedEstado_contacto={setSelectedEstado_contacto}
         isLoading={isLoading}
         cargandoChats={cargandoChats}
         scopeChats={scopeChats}
         setScopeChats={setScopeChats}
         onChangeChannelAndFetch={onChangeChannelAndFetch}
+        id_configuracion={id_configuracion}
       />
       {/* todos los mensajes */}
       <ChatPrincipal
