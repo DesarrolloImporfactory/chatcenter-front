@@ -891,6 +891,7 @@ function MessageItem({
   chatTemporales = 90,
   estado_guia,
   color,
+  estado_contacto,
   acortarTexto,
   formatNombreCliente,
   getIdLabel,
@@ -901,30 +902,8 @@ function MessageItem({
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const liRef = useRef(null);
+  const eyeRef = useRef(null);
   const [imgError, setImgError] = useState(false);
-  const leaveTimerRef = useRef(null);
-
-  // Eventos hover determinísticos
-  const handleEnter = () => {
-    cancelLeaveTimer();
-    setPreviewOpen(true);
-  };
-  const handleLeave = (e) => {
-    cancelLeaveTimer();
-
-    // 1) si el mouse entra al portal (preview), NO cierres
-    const next = e?.relatedTarget;
-    if (next && next.closest && next.closest("[data-hover-preview-root]")) {
-      return; // el puntero va hacia el preview
-    }
-
-    // 2) fallback por si relatedTarget viene nulo (algunos iframes)
-    leaveTimerRef.current = setTimeout(() => {
-      const el = document.elementFromPoint?.(e.clientX, e.clientY);
-      if (el && el.closest && el.closest("[data-hover-preview-root]")) return;
-      setPreviewOpen(false);
-    }, 120); // pequeño margen para “túnel” mouse
-  };
 
   const nombre = acortarTexto(
     formatNombreCliente(mensaje?.nombre_cliente ?? ""),
@@ -934,20 +913,17 @@ function MessageItem({
   const numero = getIdLabel(mensaje);
   const tienePendientes = (mensaje?.mensajes_pendientes ?? 0) > 0;
 
-  // === Tipo real (con heurística adicional) ===
   const tipoDetectado = inferirTipoContenido(mensaje);
   const isTemplate = tipoDetectado === "template";
-
   const esNotificacion =
     mensaje?.tipo === "notificacion" ||
     tipoDetectado === "notificacion" ||
     mensaje?.source === "notificacion";
 
-  // Texto para preview (si es location necesitamos el JSON crudo)
   const textoPlano = mensaje?.texto_mensaje || "";
   const textoPreview =
     tipoDetectado === "location"
-      ? textoPlano // el iframe/Maps necesita el JSON crudo
+      ? textoPlano
       : expandirTemplate(textoPlano, mensaje?.ruta_archivo, 20000);
 
   const previewCortoBase = expandirTemplate(
@@ -955,23 +931,14 @@ function MessageItem({
     mensaje?.ruta_archivo,
     chatTemporales,
   );
-
   const previewCorto = esNotificacion
     ? `🔔 Notificación: ${previewCortoBase}`
     : previewCortoBase;
 
-  const cancelLeaveTimer = () => {
-    if (leaveTimerRef.current) {
-      clearTimeout(leaveTimerRef.current);
-      leaveTimerRef.current = null;
-    }
-  };
-
-  // Ruta normalizada para media
   const rawRuta = mensaje?.ruta_archivo || "";
   const rutaMedia = (() => {
     if (!rawRuta) return "";
-    if (tipoDetectado === "document") return rawRuta; // puede ser JSON
+    if (tipoDetectado === "document") return rawRuta;
     return /^https?:\/\//.test(rawRuta)
       ? rawRuta
       : `https://new.imporsuitpro.com/${rawRuta}`;
@@ -991,31 +958,76 @@ function MessageItem({
 
   const displayId = (() => {
     const n = String(numero || "").trim();
-
-    // ✅ Si "numero" es realmente un número (solo dígitos, con o sin +), forzar +
-    // Ej: "593999..." => "+593999..."
-    // Ej: "+593999..." => "+593999..."
     if (n) {
       const digits = n.replace(/^\+/, "");
-      const esNumero = /^\d{6,15}$/.test(digits); // ajuste si quiere (6-15)
+      const esNumero = /^\d{6,15}$/.test(digits);
       if (esNumero) return `+${digits}`;
     }
-
-    // Caso IG/MS: usar identificador alterno (SIN forzar +)
     const ext = String(mensaje?.external_id || "").trim();
     if (ext) return ext;
-
     const page = String(mensaje?.page_id || mensaje?.id_page || "").trim();
     if (page) return page;
-
     const conv = String(
       mensaje?.conversation_id || mensaje?.thread_id || "",
     ).trim();
     if (conv) return conv;
-
-    // Último recurso
     return "";
   })();
+
+  // ── Helpers de color ──────────────────────────────────────────
+  const intensifyHex = (hex) => {
+    if (!hex) return null;
+    const clean = hex.replace("#", "");
+    let r = parseInt(clean.substring(0, 2), 16) / 255;
+    let g = parseInt(clean.substring(2, 4), 16) / 255;
+    let b = parseInt(clean.substring(4, 6), 16) / 255;
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
+
+    const max = Math.max(r, g, b),
+      min = Math.min(r, g, b);
+    let h,
+      s,
+      l = (max + min) / 2;
+    if (max === min) return hex;
+
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
+    }
+
+    s = 0.75;
+    l = Math.min(l, 0.42);
+
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
+    g = Math.round(hue2rgb(p, q, h) * 255);
+    b = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
+
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const estadoColorRaw = estado_contacto?.color || null;
+  const estadoNombre = estado_contacto?.nombre || null;
+  const estadoColorVivo = intensifyHex(estadoColorRaw);
+  const showEstado = estadoNombre && estadoColorRaw;
 
   return (
     <li
@@ -1023,42 +1035,38 @@ function MessageItem({
       className={[
         "group relative cursor-pointer px-3 py-3 sm:px-4 sm:py-3.5",
         "transition-all duration-150 ease-out",
-        // ✅ 3) Background distinto si es notificación
         seleccionado
           ? "bg-slate-50 cursor-default"
           : esNotificacion
             ? "bg-amber-100/70 hover:bg-amber-50 border-l-4 border-amber-300"
             : "hover:bg-slate-50 hover:shadow-xs",
       ].join(" ")}
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave} // ⬅️ actualizado
       onClick={() => {
         if (!seleccionado && typeof onClick === "function") onClick();
       }}
     >
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-0 ring-slate-900/0 transition-all duration-150 group-hover:ring-4 group-hover:ring-slate-900/5" />
 
-      {/* Preview lateral */}
+      {/* anchorRef apunta al ojo para que el portal salga desde ahí */}
       <HoverPreviewPortal
-        anchorRef={liRef}
+        anchorRef={eyeRef}
         open={previewOpen}
         onForceClose={() => setPreviewOpen(false)}
         tipo={tipoDetectado}
         texto={textoPreview}
         ruta={rutaMedia}
-        rutaRaw={rawRuta} /* pasa ruta cruda para CustomAudioPlayer */
+        rutaRaw={rawRuta}
         isTemplate={isTemplate}
         replyRef={replyRef}
         replyAuthor={replyAuthor || (!own ? nombre : "Tú")}
       />
 
       <div className="grid grid-cols-[3rem_1fr_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2.5">
-        {/* Avatar premium (sin badge de canal) */}
+        {/* ── Avatar ── */}
         <div className="relative col-[1] row-span-2 h-12 w-12 shrink-0">
           <div
             className={[
               "h-12 w-12 overflow-hidden rounded-full ring-2 transition-all duration-150",
-              // opcional: anillo distinto para notificación
               esNotificacion
                 ? "ring-amber-200"
                 : tienePendientes
@@ -1077,43 +1085,70 @@ function MessageItem({
             <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-transparent to-white/20" />
           </div>
         </div>
-        {/* Nombre + Número (número abajo) */}
-        <div className="col-[2] row-[1] min-w-0 flex flex-col gap-0.5 leading-[1.15]">
+
+        {/* ── Nombre + estado_contacto ── */}
+        <div className="col-[2] row-[1] min-w-0 flex flex-col gap-1 leading-[1.15]">
           <div className="min-w-0 flex items-center gap-2">
-            <span className="truncate text-[13.5px] font-semibold text-slate-900">
+            <span className="truncate text-[13px] font-semibold text-slate-900">
               {nombre}
             </span>
 
-            {/* Badge solo arriba */}
-            {/* {esNotificacion && (
-              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
-                Notificación
+            {showEstado && (
+              <span
+                className="shrink-0 inline-flex items-center gap-1 whitespace-nowrap"
+                title={`Estado: ${estadoNombre}`}
+              >
+                <span
+                  className="h-[7px] w-[7px] rounded-full shrink-0"
+                  style={{ backgroundColor: estadoColorVivo }}
+                />
+                <span
+                  className="text-[9.5px] font-semibold leading-none"
+                  style={{ color: estadoColorVivo }}
+                >
+                  {estadoNombre}
+                </span>
               </span>
-            )} */}
+            )}
           </div>
 
           <span
-            className="min-w-0 truncate text-[12px] text-slate-500 tabular-nums pt-1"
+            className="min-w-0 truncate text-[11px] text-slate-400 tabular-nums"
             title={displayId}
           >
             {displayId}
           </span>
         </div>
 
-        {/* Pill estado */}
-        {/* <div className="col-[3] row-[1] flex justify-end">
-          <PillEstado texto={mensaje.nombre_encargado} colorClass={color} />
-        </div> */}
-        {/* Pill encargado */}
-        <div className="col-[3] row-[1] flex justify-end">
+        {/* ── Columna derecha fila 1: encargado + ojo ── */}
+        <div className="col-[3] row-[1] flex items-center justify-end gap-2">
           <PillEncargado
             texto={mensaje.nombre_encargado}
             colorClass={"bg-emerald-500"}
           />
+
+          {/* ── Botón ojo ── aparece en hover del li */}
+          <button
+            ref={eyeRef}
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            onMouseEnter={() => setPreviewOpen(true)}
+            onMouseLeave={() => setPreviewOpen(false)}
+            className={[
+              "shrink-0 h-6 w-6 rounded-full grid place-items-center transition-all duration-150",
+              previewOpen
+                ? "bg-blue-100 text-blue-600"
+                : "text-slate-400 hover:bg-blue-50 hover:text-blue-500",
+            ].join(" ")}
+            title="Vista previa"
+          >
+            <i className="bx bx-show text-[13px]" />
+          </button>
         </div>
-        {/* Fecha + contador */}
+
+        {/* ── Fecha + contador (col derecha fila 2) ── */}
         <div className="col-[3] row-[2] mt-0.5 flex items-center justify-end gap-2">
-          <span className="text-[11px] text-slate-500 leading-[1.2]">
+          <span className="text-[10.5px] text-slate-400 leading-[1.2]">
             {formatFecha(mensaje?.mensaje_created_at)}
           </span>
           {tienePendientes && (
@@ -1122,8 +1157,9 @@ function MessageItem({
             </span>
           )}
         </div>
-        {/* Canal + Preview breve */}
-        <div className="col-[2] row-[2] min-w-0 flex items-center gap-2 pt-0.5 text-[12.5px] text-slate-700 leading-[1.45]">
+
+        {/* ── Canal + preview (col centro fila 2) ── */}
+        <div className="col-[2] row-[2] min-w-0 flex items-center gap-1.5 pt-0.5 text-[11.5px] text-slate-500 leading-[1.45]">
           <PillCanal source={mensaje?.source} />
           <span
             className="truncate"
@@ -1834,6 +1870,11 @@ export const Sidebar = ({
               );
               const seleccionado = selectedChat?.id === mensaje.id;
 
+              const estado_contacto = {
+                nombre: mensaje.nombre_estado || null,
+                color: mensaje.color_fondo_estado || null,
+              };
+
               return (
                 <MessageItem
                   key={mensaje.id}
@@ -1841,6 +1882,7 @@ export const Sidebar = ({
                   chatTemporales={chatTemporales}
                   estado_guia={estado_guia}
                   color={color}
+                  estado_contacto={estado_contacto}
                   acortarTexto={acortarTexto}
                   formatNombreCliente={formatNombreCliente}
                   getIdLabel={getIdLabel}
