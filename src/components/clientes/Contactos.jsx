@@ -146,8 +146,7 @@ function mapRow(row) {
 
   const telefonoLimpio = row.celular_cliente || "";
   const telefono = row.celular_cliente || "";
-  const display_contact =
-    telefono || externalId || pageId || convId || "";
+  const display_contact = telefono || externalId || pageId || convId || "";
 
   return {
     id: chatId,
@@ -440,6 +439,7 @@ function CustomLabelSelect({
     value: String(o.id),
     label: o.nombre,
     id: o.id,
+    color: o.color || null,
   }));
 
   const selectedOption =
@@ -450,7 +450,7 @@ function CustomLabelSelect({
       <div className="flex items-center gap-2 min-w-0">
         <span
           className="h-2.5 w-2.5 rounded-full shrink-0 ring-1 ring-black/10"
-          style={{ backgroundColor: colorBadge }}
+          style={{ backgroundColor: opt.color || colorBadge }}
         />
         <span className="text-sm text-slate-700 truncate">{opt.label}</span>
       </div>
@@ -937,6 +937,9 @@ export default function Contactos() {
   };
 
   const [view, setView] = useState("contactos");
+
+  const [estadoContactoFiltro, setEstadoContactoFiltro] = useState("");
+  const [opcionesEstadoContacto, setOpcionesEstadoContacto] = useState([]);
 
   const closeRowMenu = (ev) => {
     const details = ev.currentTarget.closest("details");
@@ -2106,6 +2109,25 @@ export default function Contactos() {
     }
   }
 
+  async function cargarOpcionesEstadoContacto() {
+    try {
+      const { data } = await chatApi.post("/kanban_columnas/listar", {
+        id_configuracion: localStorage.getItem("id_configuracion"),
+      });
+      setOpcionesEstadoContacto(Array.isArray(data?.data) ? data.data : []);
+    } catch (e) {
+      console.warn("Error cargando estado_contacto:", e?.message);
+      setOpcionesEstadoContacto([]);
+    }
+  }
+
+  // Dentro del useEffect inicial:
+  useEffect(() => {
+    cargarOpcionesFiltroEtiquetas();
+    cargarOpcionesCustomLabels();
+    cargarOpcionesEstadoContacto(); // ← agregar
+  }, []);
+
   async function cargarOpcionesCustomLabels() {
     try {
       const { data } = await chatApi.get(
@@ -2252,6 +2274,7 @@ export default function Contactos() {
         id_configuracion: localStorage.getItem("id_configuracion"),
         id_etiqueta_asesor: idAsesorFiltro || undefined,
         id_etiqueta_ciclo: idCicloFiltro || undefined,
+        estado_contacto: estadoContactoFiltro || undefined,
       };
 
       let dataResp;
@@ -2527,6 +2550,7 @@ export default function Contactos() {
     idEtiquetaFiltro,
     idAsesorFiltro,
     idCicloFiltro,
+    estadoContactoFiltro,
   ]);
 
   /* Selección */
@@ -3147,6 +3171,24 @@ export default function Contactos() {
                 onCreateNew={() => promptCrearCustomLabel("ciclo")}
               />
 
+              {/* Filtro Estado Contacto */}
+              <CustomLabelSelect
+                options={opcionesEstadoContacto.map((o) => ({
+                  id: o.estado_db,
+                  nombre: o.nombre || o.estado_db,
+                  color: o.color_texto || "#94a3b8",
+                }))}
+                value={estadoContactoFiltro}
+                onChange={setEstadoContactoFiltro}
+                placeholder="Estado contacto"
+                colorBadge={
+                  opcionesEstadoContacto.find(
+                    (o) => o.estado_db === estadoContactoFiltro,
+                  )?.color_texto || "#94a3b8"
+                }
+                icon="bx-transfer"
+              />
+
               <select
                 className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
                 value={orden}
@@ -3167,6 +3209,7 @@ export default function Contactos() {
                   setOrden("recientes");
                   setIdAsesorFiltro("");
                   setIdCicloFiltro("");
+                  setEstadoContactoFiltro("");
                 }}
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 transition"
               >
