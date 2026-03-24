@@ -1445,7 +1445,7 @@ const Conexiones = () => {
                 </button>
 
                 {/* Reabrir guía */}
-                <button
+                {/* <button
                   onClick={() => {
                     setTourOpen(true);
                     setStep(0);
@@ -1455,7 +1455,7 @@ const Conexiones = () => {
                 >
                   <i className="bx bx-help-circle text-xl align-middle" />{" "}
                   <span className="hidden sm:inline">¿Cómo funciona?</span>
-                </button>
+                </button> */}
               </div>
             </div>
 
