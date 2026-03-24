@@ -54,6 +54,27 @@ function daysAgoISO(days) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// ═════════════════════════════════════════════════════════════════════
+// getUserInfo — Detectar rol desde localStorage
+// ═════════════════════════════════════════════════════════════════════
+function getUserInfo() {
+  const id_usuario = Number(localStorage.getItem("id_usuario"));
+
+  // _raw: leemos como string crudo porque localStorage.getItem retorna null
+  // si la key no existe. Number(null) = 0, lo cual confundiría "no tiene"
+  // con "id = 0". Por eso: si existe el string → Number(), si no → null.
+  const id_sub_usuario_raw = localStorage.getItem("id_sub_usuario");
+  const id_sub_usuario = id_sub_usuario_raw ? Number(id_sub_usuario_raw) : null;
+
+  // Tu localStorage guarda "user_role", el fallback "rol" es por compatibilidad
+  const rol =
+    localStorage.getItem("user_role") || localStorage.getItem("rol") || null;
+
+  const esAdmin = !id_sub_usuario || rol === "administrador";
+
+  return { id_usuario, id_sub_usuario, rol, esAdmin };
+}
+
 export default function Dashboard() {
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
@@ -110,21 +131,15 @@ export default function Dashboard() {
   const [agentLoad, setAgentLoad] = useState([]);
   const [frequentTransfers, setFrequentTransfers] = useState([]);
 
-  //Tiempo Real
+  // Tiempo Real
   const { socket } = useSocket();
-  const id_usuario = Number(localStorage.getItem("id_usuario"));
+  const { id_usuario, id_sub_usuario, esAdmin } = getUserInfo();
 
   // === 1) Cargar filtros ===
   useEffect(() => {
     const cargarFiltros = async () => {
       try {
         setLoadingFilters(true);
-
-        const id_usuario = Number(localStorage.getItem("id_usuario"));
-        const id_sub_usuario_raw = localStorage.getItem("id_sub_usuario");
-        const id_sub_usuario = id_sub_usuario_raw
-          ? Number(id_sub_usuario_raw)
-          : null;
 
         const resp = await chatApi.post("/dashboard/obtener_filtros", {
           id_usuario,
@@ -149,7 +164,11 @@ export default function Dashboard() {
 
         const usersOpts = [
           "Todos",
-          ...uniqueByName(users.map((u) => u.nombre || u.name || u.usuario)),
+          ...uniqueByName(
+            users.map(
+              (u) => u.nombre_encargado || u.nombre || u.name || u.usuario,
+            ),
+          ),
         ];
 
         const connections = [
@@ -222,7 +241,7 @@ export default function Dashboard() {
     setOptions((prev) => ({ ...prev, tags }));
   }, [filters.connection, options._raw]);
 
-  // === 3) Resolver id_configuracion ===
+  // === 3) Resolver id_configuracion desde nombre de conexión ===
   const selectedConfigId = useMemo(() => {
     if (!filters.connection || filters.connection === "Todas") return null;
 
@@ -235,7 +254,25 @@ export default function Dashboard() {
     return row?.id ? Number(row.id) : null;
   }, [filters.connection, options._raw]);
 
-  // === 4) FETCH SELECTIVO ===
+  // === 3b) Resolver id_sub_usuario desde nombre de usuario seleccionado ===
+  // Cuando el admin selecciona "Belén Garcia ImporFactory" en el dropdown,
+  // buscamos su id_sub_usuario (378) en _raw.usuarios para enviarlo al backend.
+  // Si está en "Todos" → null → el backend no filtra por agente.
+  const selectedSubUsuarioFiltro = useMemo(() => {
+    if (!esAdmin) return null; // Agente no usa este filtro, el backend ya lo filtra por él
+    if (!filters.user || filters.user === "Todos") return null;
+
+    const usuarios = options._raw?.usuarios || [];
+    const row = usuarios.find((u) => {
+      const nombre = safeName(
+        u.nombre_encargado || u.nombre || u.name || u.usuario,
+      );
+      return nombre.toLowerCase() === safeName(filters.user).toLowerCase();
+    });
+    return row?.id_sub_usuario ? Number(row.id_sub_usuario) : null;
+  }, [filters.user, options._raw, esAdmin]);
+
+  // === 4) FETCH — elige endpoint según rol ===
   const fetchSections = useCallback(
     async (sections) => {
       console.log("[RT] fetchSections llamado con:", sections);
@@ -245,7 +282,11 @@ export default function Dashboard() {
         setErrorMsg("");
         if (isAll) setLoadingData(true);
 
-        const id_usuario = Number(localStorage.getItem("id_usuario"));
+        // ── Elegir endpoint según rol ──────────────────────────────────
+        const endpoint = esAdmin
+          ? "/dashboard/obtener_dashboard_completo"
+          : "/dashboard/obtener_dashboard_agente";
+
         const payload = {
           id_usuario,
           id_configuracion: selectedConfigId,
@@ -253,11 +294,22 @@ export default function Dashboard() {
           to: filters.dateRange?.to || null,
         };
 
-        const resp = await chatApi.post(
-          "/dashboard/obtener_dashboard_completo",
-          payload,
-          { timeout: 50000 },
-        );
+        if (esAdmin) {
+          // Admin: si seleccionó un usuario específico, enviar su id para filtrar
+          // Si es "Todos" → selectedSubUsuarioFiltro es null → backend no filtra
+          if (selectedSubUsuarioFiltro) {
+            payload.id_sub_usuario_filtro = selectedSubUsuarioFiltro;
+          }
+        } else {
+          // Agente: siempre envía su propio id_sub_usuario
+          if (id_sub_usuario) {
+            payload.id_sub_usuario = id_sub_usuario;
+          }
+        }
+
+        const resp = await chatApi.post(endpoint, payload, {
+          timeout: 50000,
+        });
         const data = resp?.data?.data || {};
 
         if (isAll || sections.includes("summary")) {
@@ -316,10 +368,16 @@ export default function Dashboard() {
         if (isAll) setLoadingData(false);
       }
     },
-    [selectedConfigId, filters.dateRange],
+    [
+      selectedConfigId,
+      selectedSubUsuarioFiltro,
+      filters.dateRange,
+      esAdmin,
+      id_sub_usuario,
+      id_usuario,
+    ],
   );
 
-  // fetchAll ahora delega — FiltersBar y el useEffect de mount siguen funcionando igual
   const fetchAll = useCallback(() => fetchSections(["all"]), [fetchSections]);
 
   // Tiempo real via socket
@@ -338,6 +396,10 @@ export default function Dashboard() {
       ? `Período: ${filters.dateRange.from} al ${filters.dateRange.to}`
       : "Seleccione un rango de fechas para ver el desempeño.";
 
+  const dashboardTitle = esAdmin
+    ? "Dashboard analítico de chat center"
+    : "Mi dashboard de rendimiento";
+
   return (
     <div className="min-h-[calc(100vh-48px)] w-full bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="mx-auto w-full max-w-[100%] px-4 py-6">
@@ -350,7 +412,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                  Dashboard analítico de chat center
+                  {dashboardTitle}
                 </h1>
                 <p className="mt-0.5 text-sm text-slate-600">
                   {headerRangeText}
@@ -358,6 +420,13 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {!esAdmin && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+              <i className="bx bx-user text-sm"></i>
+              Vista personal
+            </span>
+          )}
         </div>
 
         {/* Filtros */}
