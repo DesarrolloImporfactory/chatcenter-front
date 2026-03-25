@@ -71,6 +71,7 @@ const CodigosPromoAdmin = () => {
 
   const token = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${token}` };
+  const [planesDisponibles, setPlanesDisponibles] = useState([]);
 
   // ─── Fetch codes ───
   const fetchCodigos = async () => {
@@ -89,6 +90,11 @@ const CodigosPromoAdmin = () => {
 
   useEffect(() => {
     fetchCodigos();
+    // Cargar planes para el select de unlock_plan_id
+    chatApi
+      .get("planes/listarPlanes", { headers })
+      .then(({ data }) => setPlanesDisponibles(data?.data || []))
+      .catch(() => {});
   }, []);
 
   // ─── Fetch canjes for detail ───
@@ -137,6 +143,7 @@ const CodigosPromoAdmin = () => {
       fecha_inicio: "",
       fecha_fin: "",
       redirect_on_exhaust: "",
+      unlock_plan_id: "",
     });
     setModalOpen(true);
   };
@@ -154,6 +161,7 @@ const CodigosPromoAdmin = () => {
       fecha_inicio: toInputDate(c.fecha_inicio),
       fecha_fin: toInputDate(c.fecha_fin),
       redirect_on_exhaust: c.redirect_on_exhaust || "",
+      unlock_plan_id: c.unlock_plan_id || "",
     });
     setModalOpen(true);
   };
@@ -176,6 +184,9 @@ const CodigosPromoAdmin = () => {
         fecha_inicio: form.fecha_inicio || null,
         fecha_fin: form.fecha_fin || null,
         redirect_on_exhaust: form.redirect_on_exhaust.trim() || null,
+        unlock_plan_id: form.unlock_plan_id
+          ? Number(form.unlock_plan_id)
+          : null,
       };
 
       if (editingId) {
@@ -471,6 +482,14 @@ const CodigosPromoAdmin = () => {
                           </p>
                           <p className="text-[9px] text-slate-400">áng</p>
                         </div>
+                        {c.unlock_plan_id && (
+                          <div className="text-center">
+                            <p className="text-xs font-bold text-amber-600">
+                              #{c.unlock_plan_id}
+                            </p>
+                            <p className="text-[9px] text-amber-400">plan</p>
+                          </div>
+                        )}
                         <div className="text-center min-w-[60px]">
                           <p className="text-xs font-bold text-[#0B1426]">
                             {c.usos_actuales || 0}
@@ -704,6 +723,14 @@ const CodigosPromoAdmin = () => {
                     ) : (
                       "Stripe checkout"
                     )}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Desbloquea plan</span>
+                  <span className="font-medium text-slate-700">
+                    {detailCodigo.unlock_plan_id
+                      ? `Plan #${detailCodigo.unlock_plan_id}`
+                      : "—"}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
@@ -1007,6 +1034,34 @@ const CodigosPromoAdmin = () => {
                     Si pones una URL, cuando se agoten los recursos del cliente
                     será redirigido ahí en vez de al pago de Stripe.
                   </p>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Desbloquear plan
+                      <span className="text-[10px] text-slate-400 ml-1">
+                        (vacío = solo regala recursos)
+                      </span>
+                    </label>
+                    <select
+                      value={form.unlock_plan_id}
+                      onChange={(e) =>
+                        setForm({ ...form, unlock_plan_id: e.target.value })
+                      }
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-amber-400 transition"
+                    >
+                      <option value="">Ninguno — solo regala recursos</option>
+                      {planesDisponibles.map((p) => (
+                        <option key={p.id_plan} value={p.id_plan}>
+                          #{p.id_plan} — {p.nombre_plan} ($
+                          {Number(p.precio_plan).toFixed(0)}/mes)
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Al canjear este código, el usuario podrá ver y suscribirse
+                      al plan seleccionado.
+                    </p>
+                  </div>
                 </div>
               </div>
 

@@ -6,6 +6,7 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
   const [message, setMessage] = useState("");
   const [imagenesRegalo, setImagenesRegalo] = useState(0);
   const [angulosRegalo, setAngulosRegalo] = useState(0);
+  const [unlockPlanId, setUnlockPlanId] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -15,6 +16,7 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
       setMessage("");
       setImagenesRegalo(0);
       setAngulosRegalo(0);
+      setUnlockPlanId(null);
       setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [open]);
@@ -32,6 +34,9 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
   const token = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${token}` };
 
+  const isUnlockCode = Boolean(unlockPlanId);
+  const hasResources = imagenesRegalo > 0 || angulosRegalo > 0;
+
   const handleValidate = async () => {
     if (!codigo.trim()) return;
     setStep("validating");
@@ -46,6 +51,7 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
         setStep("valid");
         setImagenesRegalo(data.imagenes_regalo || 0);
         setAngulosRegalo(data.angulos_regalo || 0);
+        setUnlockPlanId(data.unlock_plan_id || null);
         setMessage(data.message || "Código válido.");
       } else {
         setStep("error");
@@ -69,6 +75,7 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
         setStep("success");
         setImagenesRegalo(data.imagenes_otorgadas || 0);
         setAngulosRegalo(data.angulos_otorgados || 0);
+        setUnlockPlanId(data.unlocked_plan_id || null);
         setMessage(data.message || "¡Código canjeado!");
       } else {
         setStep("error");
@@ -88,9 +95,11 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
 
   // Helper: construir texto de regalo
   const giftSummary = () => {
+    if (isUnlockCode && !hasResources) return "Plan exclusivo desbloqueado";
     const parts = [];
     if (imagenesRegalo > 0) parts.push(`${imagenesRegalo} imágenes`);
     if (angulosRegalo > 0) parts.push(`${angulosRegalo} ángulos AI`);
+    if (isUnlockCode) parts.push("+ plan exclusivo");
     return parts.join(" + ") || "recursos gratis";
   };
 
@@ -181,7 +190,7 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
           </h3>
           <p className="text-xs text-slate-500 text-center mb-5">
             {step === "success"
-              ? `${giftSummary()} añadidos a tu cuenta`
+              ? giftSummary()
               : "Ingresa tu código para obtener recursos gratis"}
           </p>
 
@@ -268,31 +277,53 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
                 <p className="text-sm font-bold text-amber-700 mb-2">
                   {codigo}
                 </p>
-                <div className="flex items-center justify-center gap-4">
-                  {imagenesRegalo > 0 && (
-                    <div className="flex flex-col items-center">
-                      <span className="text-xl font-extrabold text-amber-600">
-                        {imagenesRegalo}
+
+                {/* Mostrar recursos si los hay */}
+                {hasResources && (
+                  <div className="flex items-center justify-center gap-4 mb-2">
+                    {imagenesRegalo > 0 && (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xl font-extrabold text-amber-600">
+                          {imagenesRegalo}
+                        </span>
+                        <span className="text-[10px] text-amber-600/70 font-medium">
+                          imágenes
+                        </span>
+                      </div>
+                    )}
+                    {imagenesRegalo > 0 && angulosRegalo > 0 && (
+                      <span className="text-amber-300 text-lg font-light">
+                        +
                       </span>
-                      <span className="text-[10px] text-amber-600/70 font-medium">
-                        imágenes
-                      </span>
-                    </div>
-                  )}
-                  {imagenesRegalo > 0 && angulosRegalo > 0 && (
-                    <span className="text-amber-300 text-lg font-light">+</span>
-                  )}
-                  {angulosRegalo > 0 && (
-                    <div className="flex flex-col items-center">
-                      <span className="text-xl font-extrabold text-amber-600">
-                        {angulosRegalo}
-                      </span>
-                      <span className="text-[10px] text-amber-600/70 font-medium">
-                        ángulos AI
-                      </span>
-                    </div>
-                  )}
-                </div>
+                    )}
+                    {angulosRegalo > 0 && (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xl font-extrabold text-amber-600">
+                          {angulosRegalo}
+                        </span>
+                        <span className="text-[10px] text-amber-600/70 font-medium">
+                          ángulos AI
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Mostrar badge de desbloqueo de plan */}
+                {isUnlockCode && (
+                  <div
+                    className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg mt-1"
+                    style={{
+                      background: "rgba(245,158,11,0.1)",
+                      border: "1px solid rgba(245,158,11,0.2)",
+                    }}
+                  >
+                    <span style={{ fontSize: "16px" }}>🎓</span>
+                    <span className="text-xs font-bold text-amber-700">
+                      Desbloquea Plan Comunidad — $39/mes
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -300,6 +331,7 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
                   onClick={() => {
                     setStep("input");
                     setMessage("");
+                    setUnlockPlanId(null);
                   }}
                   className="flex-1 py-3 rounded-xl text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
                 >
@@ -352,40 +384,65 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
               <div
                 className="mb-4 px-4 py-4 rounded-xl"
                 style={{
-                  background: "rgba(16,185,129,0.06)",
-                  border: "1px solid rgba(16,185,129,0.15)",
+                  background: isUnlockCode
+                    ? "rgba(245,158,11,0.06)"
+                    : "rgba(16,185,129,0.06)",
+                  border: isUnlockCode
+                    ? "1px solid rgba(245,158,11,0.15)"
+                    : "1px solid rgba(16,185,129,0.15)",
                 }}
               >
-                <div className="flex items-center justify-center gap-5">
-                  {imagenesRegalo > 0 && (
-                    <div className="flex flex-col items-center">
-                      <span className="text-2xl font-extrabold text-emerald-600">
-                        {imagenesRegalo}
+                {/* Recursos regalados */}
+                {hasResources && (
+                  <div className="flex items-center justify-center gap-5 mb-2">
+                    {imagenesRegalo > 0 && (
+                      <div className="flex flex-col items-center">
+                        <span className="text-2xl font-extrabold text-emerald-600">
+                          {imagenesRegalo}
+                        </span>
+                        <span className="text-[10px] text-emerald-600/70 font-medium">
+                          imágenes
+                        </span>
+                      </div>
+                    )}
+                    {imagenesRegalo > 0 && angulosRegalo > 0 && (
+                      <span className="text-emerald-300 text-lg font-light">
+                        +
                       </span>
-                      <span className="text-[10px] text-emerald-600/70 font-medium">
-                        imágenes
-                      </span>
+                    )}
+                    {angulosRegalo > 0 && (
+                      <div className="flex flex-col items-center">
+                        <span className="text-2xl font-extrabold text-emerald-600">
+                          {angulosRegalo}
+                        </span>
+                        <span className="text-[10px] text-emerald-600/70 font-medium">
+                          ángulos AI
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Plan desbloqueado */}
+                {isUnlockCode && (
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <span style={{ fontSize: "24px" }}>🎓</span>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-amber-700">
+                        Plan Comunidad desbloqueado
+                      </p>
+                      <p className="text-[10px] text-amber-600/70">
+                        Ecosistema completo a $39/mes
+                      </p>
                     </div>
-                  )}
-                  {imagenesRegalo > 0 && angulosRegalo > 0 && (
-                    <span className="text-emerald-300 text-lg font-light">
-                      +
-                    </span>
-                  )}
-                  {angulosRegalo > 0 && (
-                    <div className="flex flex-col items-center">
-                      <span className="text-2xl font-extrabold text-emerald-600">
-                        {angulosRegalo}
-                      </span>
-                      <span className="text-[10px] text-emerald-600/70 font-medium">
-                        ángulos AI
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <p className="text-[10px] text-emerald-600/60 text-center mt-2">
-                  disponibles en tu cuenta
-                </p>
+                  </div>
+                )}
+
+                {!isUnlockCode && (
+                  <p className="text-[10px] text-emerald-600/60 text-center mt-2">
+                    disponibles en tu cuenta
+                  </p>
+                )}
               </div>
 
               <button
@@ -395,15 +452,17 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
                     onSuccess({
                       imagenes: imagenesRegalo,
                       angulos: angulosRegalo,
+                      unlocked_plan_id: unlockPlanId,
                     });
                 }}
                 className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:shadow-lg active:scale-[0.98]"
                 style={{
-                  background:
-                    "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                  background: isUnlockCode
+                    ? "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)"
+                    : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
                 }}
               >
-                Empezar a crear
+                {isUnlockCode ? "Ver planes" : "Empezar a crear"}
               </button>
             </>
           )}

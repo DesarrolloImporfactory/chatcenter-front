@@ -9,7 +9,8 @@ import ModalCodigoPromo from "./modales/ModalCodigoPromo";
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const PLANES_VISIBLES = new Set([6, 2, 3, 4]);
-const SORT_ORDER = { 6: 1, 2: 2, 3: 3, 4: 4 };
+const HIDDEN_PLANS = new Set([22]); // Planes ocultos que se desbloquean por código
+const SORT_ORDER = { 6: 1, 2: 2, 22: 2.5, 3: 3, 4: 4 };
 const TRIAL_DAYS_PLAN_ID = 2;
 const TRIAL_DAYS = 7;
 const TRIAL_USAGE_PLAN_ID = 6;
@@ -18,12 +19,17 @@ const PROMO_FIRST_MONTH = 5;
 const PROMO_PLANS = new Set([6, 2, 3, 4]);
 
 const detectPlanType = (plan) => {
+  // Comunidad primero (tiene tools_access='both' pero es plan especial)
+  const nombre = (plan?.nombre_plan || "").toLowerCase();
+  if (nombre.includes("comunidad")) return "comunidad";
+  const id = Number(plan?.id_plan || 0);
+  if (id === 22) return "comunidad";
+
   const tools = (plan?.tools_access || "").toLowerCase().trim();
   if (tools === "insta_landing") return "insta_landing";
   if (tools === "imporchat") return "imporchat";
   if (tools === "both")
     return Number(plan?.precio_plan || 0) >= 90 ? "avanzado" : "pro";
-  const nombre = (plan?.nombre_plan || "").toLowerCase();
   if (nombre.includes("insta landing") || nombre.includes("instalanding"))
     return "insta_landing";
   if (
@@ -40,7 +46,6 @@ const detectPlanType = (plan) => {
     nombre.includes("basico")
   )
     return "pro";
-  const id = Number(plan?.id_plan || 0);
   if (id === 6 || id === 20) return "insta_landing";
   if (id === 2 || id === 16) return "imporchat";
   if (id === 4 || id === 18) return "avanzado";
@@ -65,6 +70,14 @@ const PLAN_THEMES = {
     badge: null,
     tagline: "HERRAMIENTA INDIVIDUAL",
   },
+  comunidad: {
+    accent: "#F59E0B",
+    accentLight: "rgba(245,158,11,0.06)",
+    accentBorder: "rgba(245,158,11,0.18)",
+    gradient: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+    badge: "EXCLUSIVO ESTUDIANTES",
+    tagline: "ECOSISTEMA COMPLETO — COMUNIDAD",
+  },
   pro: {
     accent: "#6366F1",
     accentLight: "rgba(99,102,241,0.06)",
@@ -85,6 +98,60 @@ const PLAN_THEMES = {
 
 const buildFeatures = (plan) => {
   const tipo = detectPlanType(plan);
+  if (tipo === "comunidad") {
+    return [
+      {
+        label: `${plan.max_banners_mes || 200} banners/mes`,
+        enabled: true,
+        section: "il",
+      },
+      {
+        label: `${plan.max_angulos_ia || 100} ángulos AI`,
+        enabled: true,
+        section: "il",
+      },
+      {
+        label: `${plan.max_secciones_landing || 5} secciones landing`,
+        enabled: true,
+        section: "il",
+      },
+      {
+        label: `${plan.max_estilos_visuales || 3} estilos visuales`,
+        enabled: true,
+        section: "il",
+      },
+      {
+        label: `Dropi (${plan.max_productos_dropi > 0 ? plan.max_productos_dropi : 20} productos)`,
+        enabled: true,
+        section: "il",
+      },
+      {
+        label: `${plan.max_agentes_whatsapp || 1} agente WhatsApp AI`,
+        enabled: true,
+        section: "ic",
+      },
+      {
+        label: "Conversaciones ILIMITADAS",
+        enabled: true,
+        section: "ic",
+      },
+      {
+        label: "Respuestas auto 24/7",
+        enabled: true,
+        section: "ic",
+      },
+      {
+        label: "Dashboard básico",
+        enabled: true,
+        section: "extra",
+      },
+      {
+        label: "Precio exclusivo comunidad",
+        enabled: true,
+        section: "extra",
+      },
+    ];
+  }
   if (tipo === "insta_landing") {
     return [
       {
@@ -290,6 +357,7 @@ const PlanesView = () => {
   const [isPromoUsageActive, setIsPromoUsageActive] = useState(false);
   const [showTrialActivated, setShowTrialActivated] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
+  const [unlockedPlans, setUnlockedPlans] = useState([]);
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -330,6 +398,7 @@ const PlanesView = () => {
     const isActive =
       estado.includes("activo") || estado.includes("trial") || isTU || isPU;
     setHasActivePlan(Boolean(plan?.id_plan) && isActive);
+    setUnlockedPlans(flags?.unlocked_plans || []);
     return plan;
   };
 
@@ -430,7 +499,6 @@ const PlanesView = () => {
       const decoded = JSON.parse(atob(token.split(".")[1]));
       const id_usuario = decoded.id_usuario || decoded.id_users;
 
-      // Desde trial_usage o promo_usage → directo a checkout
       if (isTrialUsageActive || isPromoUsageActive) {
         setActionText("Redirigiendo al pago...");
         const res = await chatApi.post(
@@ -556,20 +624,29 @@ const PlanesView = () => {
   };
 
   const visiblePlans = useMemo(() => {
+    const baseVisible = new Set(PLANES_VISIBLES);
+
+    // Agregar planes desbloqueados por código promo
+    unlockedPlans.forEach((id) => baseVisible.add(Number(id)));
+
+    // Si el usuario YA tiene un plan oculto activo, mostrarlo
+    if (currentPlanId && HIDDEN_PLANS.has(Number(currentPlanId))) {
+      baseVisible.add(Number(currentPlanId));
+    }
+
     return (planes || [])
-      .filter((p) => PLANES_VISIBLES.has(Number(p.id_plan)))
+      .filter((p) => baseVisible.has(Number(p.id_plan)))
       .sort(
         (a, b) =>
           (SORT_ORDER[Number(a.id_plan)] ?? 99) -
           (SORT_ORDER[Number(b.id_plan)] ?? 99),
       );
-  }, [planes]);
+  }, [planes, unlockedPlans, currentPlanId]);
 
   return (
     <div className="min-h-screen bg-white">
       {/* ── HEADER ── */}
       <div className="relative px-4 sm:px-6 pt-3 pb-6">
-        {/* Back button */}
         {hasPlan && (
           <div className="absolute left-4 sm:left-6 top-3">
             <button
@@ -594,7 +671,6 @@ const PlanesView = () => {
           </div>
         )}
 
-        {/* Promo code button */}
         <div className="absolute right-4 sm:right-6 top-3">
           <button
             onClick={() => setShowPromoModal(true)}
@@ -616,9 +692,8 @@ const PlanesView = () => {
           </button>
         </div>
 
-        {/* Title */}
         <div className="text-center pb-6 px-4">
-          <h2 className="mt-5 text-3xl sm:text-4xl lg:text-[42px] font-extrabold text-[#0B1426] tracking-[-0.03em] leading-[1.15]  mx-auto">
+          <h2 className="mt-5 text-3xl sm:text-4xl lg:text-[42px] font-extrabold text-[#0B1426] tracking-[-0.03em] leading-[1.15] mx-auto">
             Elija el plan ideal para{" "}
             <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
               escalar sus ventas
@@ -627,7 +702,6 @@ const PlanesView = () => {
           </h2>
         </div>
 
-        {/* Trial banner */}
         {isTrialUsageActive && (
           <div
             className="mt-4 mx-auto max-w-lg flex items-center gap-3 px-5 py-3 rounded-2xl"
@@ -654,7 +728,6 @@ const PlanesView = () => {
           </div>
         )}
 
-        {/* Promo banner */}
         {isPromoUsageActive && (
           <div
             className="mt-4 mx-auto max-w-lg flex items-center gap-3 px-5 py-3 rounded-2xl"
@@ -682,9 +755,13 @@ const PlanesView = () => {
         )}
       </div>
 
-      {/* ── GRID — full width ── */}
+      {/* ── GRID ── */}
       <div className="px-3 sm:px-4 pb-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch ${
+            visiblePlans.length <= 4 ? "xl:grid-cols-4" : "xl:grid-cols-5"
+          }`}
+        >
           {planes.length === 0 &&
             Array.from({ length: 4 }).map((_, i) => (
               <div
@@ -697,7 +774,8 @@ const PlanesView = () => {
             const planId = Number(plan.id_plan);
             const tipo = detectPlanType(plan);
             const theme = PLAN_THEMES[tipo];
-            const isBoth = tipo === "pro" || tipo === "avanzado";
+            const isBoth =
+              tipo === "pro" || tipo === "avanzado" || tipo === "comunidad";
             const isCurrent = Number(currentPlanId) === planId;
             const isCurrentVencido = isCurrent && !isPlanActualActivo;
             const isAction = Number(actionPlanId) === planId;
@@ -981,7 +1059,6 @@ const PlanesView = () => {
         </div>
       </div>
 
-      {/* Modal trial activated */}
       <ModalTrialActivated
         open={showTrialActivated}
         limit={TRIAL_USAGE_LIMIT}
@@ -992,13 +1069,14 @@ const PlanesView = () => {
         }}
       />
 
-      {/* Modal código promo */}
       <ModalCodigoPromo
         open={showPromoModal}
         onClose={() => setShowPromoModal(false)}
-        onSuccess={({ imagenes, angulos }) => {
-          refreshPlanActual();
-          navigate("/selector");
+        onSuccess={async ({ imagenes, angulos, unlocked_plan_id }) => {
+          await refreshPlanActual();
+          if (!unlocked_plan_id) {
+            navigate("/selector");
+          }
         }}
         idUsuario={getIdUsuario()}
         chatApi={chatApi}
