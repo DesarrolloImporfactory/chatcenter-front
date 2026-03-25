@@ -1,7 +1,9 @@
 import axios from "axios";
+import Swal from "sweetalert2";
 import { APP_CONFIG } from "../config";
 import authService from "../auth/AuthService";
 import { toast } from "react-hot-toast";
+import { jwtDecode } from "jwt-decode";
 
 const chatApi = axios.create({
   baseURL: APP_CONFIG.api.baseURL,
@@ -88,6 +90,104 @@ chatApi.interceptors.response.use(
           },
         }),
       );
+      return Promise.reject(error);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // CARD_CAPTURE_REQUIRED: Plan 21 sin tarjeta registrada
+    // Muestra modal → llama a capturarTarjetaPlan21 → redirige a Stripe
+    // ═══════════════════════════════════════════════════════
+    if (responseCode === "CARD_CAPTURE_REQUIRED") {
+      // Evitar mostrar múltiples modales si varios requests fallan a la vez
+      if (!window.__cardCaptureModalOpen) {
+        window.__cardCaptureModalOpen = true;
+
+        Swal.fire({
+          icon: "info",
+          title: "Registra tu método de pago",
+          html: `
+            <div style="text-align:left; line-height:1.6; font-size:14px;">
+              <p style="margin:0 0 12px; color:#334155;">
+                Para usar esta función necesitas registrar tu tarjeta.
+              </p>
+              <div style="
+                display:flex; align-items:center; gap:10px;
+                padding:12px 14px; border-radius:12px;
+                background:#F0FDF4; border:1px solid #BBF7D0; margin:0 0 12px;">
+                <span style="font-size:20px;">🔒</span>
+                <div>
+                  <div style="font-weight:700; color:#166534; font-size:13px;">
+                    No se cobra nada hoy
+                  </div>
+                  <div style="color:#15803D; font-size:12px;">
+                    El cobro de $29/mes inicia cuando termine tu período incluido.
+                  </div>
+                </div>
+              </div>
+              <p style="margin:0; color:#64748B; font-size:12px;">
+                Solo toma 30 segundos.
+              </p>
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonText: "Registrar tarjeta",
+          cancelButtonText: "Ahora no",
+          confirmButtonColor: "#4f46e5",
+          reverseButtons: true,
+          allowOutsideClick: false,
+        }).then(async (result) => {
+          window.__cardCaptureModalOpen = false;
+
+          if (result.isConfirmed) {
+            try {
+              // Obtener id_usuario del token
+              const token = authService.getToken();
+              if (!token) {
+                toast.error("Sesión expirada. Inicia sesión nuevamente.");
+                return;
+              }
+              const decoded = jwtDecode(token);
+              const id_usuario = decoded?.id_usuario;
+
+              if (!id_usuario) {
+                toast.error("No se pudo identificar tu usuario.");
+                return;
+              }
+
+              // Mostrar loading
+              Swal.fire({
+                title: "Preparando checkout...",
+                text: "Serás redirigido a Stripe en un momento.",
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading(),
+              });
+
+              const { data } = await chatApi.post(
+                "stripe_plan/capturarTarjetaPlan21",
+                { id_usuario },
+              );
+
+              if (data?.success && data?.url) {
+                // Redirigir a Stripe Checkout
+                window.location.href = data.url;
+              } else {
+                Swal.close();
+                toast.error(
+                  data?.message || "No se pudo crear la sesión de pago.",
+                );
+              }
+            } catch (err) {
+              Swal.close();
+              toast.error(
+                err?.response?.data?.message ||
+                  "Error al conectar con Stripe. Intenta de nuevo.",
+              );
+            }
+          }
+        });
+      }
+
       return Promise.reject(error);
     }
 

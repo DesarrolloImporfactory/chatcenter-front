@@ -104,6 +104,7 @@ const StepAngles = ({
       }
       setHasGenerated(true);
     } catch (err) {
+      if (err?.response?.data?.code === "CARD_CAPTURE_REQUIRED") return;
       Toast.fire({
         icon: "error",
         title: err?.response?.data?.message || "Error al generar con IA",
