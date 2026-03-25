@@ -437,7 +437,7 @@ const TabAsistente = ({
         id_configuracion: idConfiguracion,
         tipo_accion: "cambiar_estado",
         config: JSON.stringify({
-          trigger: nuevoTrigger.trigger.trim(),
+          trigger: `[${nuevoTrigger.trigger.trim()}]:true`,
           estado_destino: nuevoTrigger.estado_destino.trim(),
         }),
         activo: 1,
