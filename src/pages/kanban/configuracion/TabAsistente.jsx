@@ -400,6 +400,7 @@ const TabAsistente = ({
       const { data } = await chatApi.post(
         "/kanban_columnas/sincronizar_catalogo",
         { id: columnaId },
+        { timeout: 120000 }
       );
       if (data?.success) {
         setUltimaSync(new Date());
@@ -437,7 +438,7 @@ const TabAsistente = ({
         id_configuracion: idConfiguracion,
         tipo_accion: "cambiar_estado",
         config: JSON.stringify({
-          trigger: nuevoTrigger.trigger.trim(),
+          trigger: `[${nuevoTrigger.trigger.trim()}]:true`,
           estado_destino: nuevoTrigger.estado_destino.trim(),
         }),
         activo: 1,

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter"; // ajusta si tu ruta es diferente
 import TabAsistente from "./TabAsistente";
 import RemarketingColumna from "./componentes/RemarketingColumna";
 import DropisPlantillas from "../../dropi/DropisPlantillas";
 import PlantillasKanban from "./componentes/PlantillasKanban";
+import MisPlantillas from "./componentes/MisPlantillas";
 
 // ─────────────────────────────────────────────────────────────
 // Constantes de UI
@@ -119,6 +120,46 @@ const KanbanConfig = () => {
     es_estado_final: 0,
   });
   const [guardandoNueva, setGuardandoNueva] = useState(false);
+
+  const dragItem = useRef(null);
+  const dragOverItem = useRef(null);
+  const [draggingId, setDraggingId] = useState(null);
+
+  /* reordenar */
+
+  const handleDragEnd = async () => {
+    if (dragItem.current === null || dragOverItem.current === null) return;
+    if (dragItem.current === dragOverItem.current) {
+      setDraggingId(null);
+      dragItem.current = null;
+      dragOverItem.current = null;
+      return;
+    }
+
+    // Reordenar localmente
+    const nuevas = [...columnas];
+    const [moved] = nuevas.splice(dragItem.current, 1);
+    nuevas.splice(dragOverItem.current, 0, moved);
+
+    // Asignar nuevo orden
+    const conOrden = nuevas.map((col, i) => ({ ...col, orden: i + 1 }));
+    setColumnas(conOrden);
+    setDraggingId(null);
+    dragItem.current = null;
+    dragOverItem.current = null;
+
+    // Persistir en backend
+    try {
+      await chatApi.post("/kanban_columnas/reordenar", {
+        id_configuracion,
+        orden: conOrden.map((c) => ({ id: c.id, orden: c.orden })),
+      });
+      Toast.fire({ icon: "success", title: "Orden guardado" });
+    } catch {
+      Toast.fire({ icon: "error", title: "Error al guardar orden" });
+      cargarColumnas(); // revertir si falla
+    }
+  };
 
   // ── Cargar columnas ──────────────────────────────────────
   const cargarColumnas = useCallback(async () => {
@@ -342,6 +383,43 @@ const KanbanConfig = () => {
     }
   };
 
+  const togglePrincipal = async () => {
+    const esPrincipal = !!columnaSeleccionada?.es_principal;
+    try {
+      if (esPrincipal) {
+        // Si ya es principal, quitar
+        const { data } = await chatApi.post(
+          "/kanban_columnas/quitar_principal",
+          {
+            id_configuracion,
+          },
+        );
+        if (data?.success) {
+          setColumnas(data.data);
+          Toast.fire({ icon: "success", title: "Columna principal removida" });
+        }
+      } else {
+        // Marcar como principal
+        const { data } = await chatApi.post(
+          "/kanban_columnas/marcar_principal",
+          {
+            id: columnaActiva,
+            id_configuracion,
+          },
+        );
+        if (data?.success) {
+          setColumnas(data.data);
+          Toast.fire({
+            icon: "success",
+            title: "Columna principal establecida",
+          });
+        }
+      }
+    } catch {
+      Toast.fire({ icon: "error", title: "Error al actualizar" });
+    }
+  };
+
   // ── Crear columna nueva ──────────────────────────────────
   const crearColumna = async () => {
     if (!formNueva.nombre || !formNueva.estado_db) {
@@ -440,6 +518,11 @@ const KanbanConfig = () => {
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {/* boton de elegiar plantillas propias*/}
+          <MisPlantillas
+            id_configuracion={id_configuracion}
+            onPlantillaAplicada={cargarColumnas}
+          />
           {/* boton de elegiar plantillas kanban*/}
           <PlantillasKanban
             id_configuracion={id_configuracion}
@@ -518,9 +601,19 @@ const KanbanConfig = () => {
           >
             Columnas ({columnas.length})
           </div>
-          {columnas.map((col) => (
+          {columnas.map((col, index) => (
             <div
               key={col.id}
+              draggable
+              onDragStart={() => {
+                dragItem.current = index;
+                setDraggingId(col.id);
+              }}
+              onDragEnter={() => {
+                dragOverItem.current = index;
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnd={handleDragEnd}
               onClick={() => {
                 setColumnaActiva(col.id);
                 setTabActiva("columna");
@@ -530,19 +623,34 @@ const KanbanConfig = () => {
                 alignItems: "center",
                 gap: 10,
                 padding: "11px 14px",
-                cursor: "pointer",
+                cursor: "grab",
                 borderLeft:
                   col.id === columnaActiva
                     ? "3px solid #6366f1"
                     : "3px solid transparent",
                 background:
-                  col.id === columnaActiva
-                    ? "rgba(99,102,241,.06)"
-                    : "transparent",
+                  draggingId === col.id
+                    ? "rgba(99,102,241,.12)"
+                    : col.id === columnaActiva
+                      ? "rgba(99,102,241,.06)"
+                      : "transparent",
                 transition: "all .12s",
                 borderBottom: "1px solid rgba(0,0,0,.04)",
+                opacity: draggingId === col.id ? 0.5 : 1,
+                userSelect: "none",
               }}
             >
+              {/* Handle de arrastre */}
+              <i
+                className="bx bx-grid-vertical"
+                style={{
+                  color: "#cbd5e1",
+                  fontSize: "1rem",
+                  flexShrink: 0,
+                  cursor: "grab",
+                }}
+              />
+
               <div
                 style={{
                   width: 32,
@@ -560,6 +668,7 @@ const KanbanConfig = () => {
                   style={{ color: col.color_texto, fontSize: "1rem" }}
                 />
               </div>
+
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
@@ -583,6 +692,7 @@ const KanbanConfig = () => {
                   {col.estado_db}
                 </div>
               </div>
+
               <div
                 style={{
                   display: "flex",
@@ -603,6 +713,20 @@ const KanbanConfig = () => {
                     }}
                   >
                     IA
+                  </span>
+                )}
+                {!!col.es_principal && (
+                  <span
+                    style={{
+                      fontSize: "0.62rem",
+                      background: "#fef9c3",
+                      color: "#ca8a04",
+                      borderRadius: 999,
+                      padding: "1px 5px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ★
                   </span>
                 )}
                 {!col.activo && (
@@ -915,6 +1039,64 @@ const KanbanConfig = () => {
                       desc="Desactiva IA en esta columna"
                       colorOn="#ef4444"
                     />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={lbl}>Columna principal</label>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 12,
+                        border: `1px solid ${columnaSeleccionada?.es_principal ? "rgba(234,179,8,.3)" : "rgba(0,0,0,.07)"}`,
+                        background: columnaSeleccionada?.es_principal
+                          ? "rgba(234,179,8,.06)"
+                          : "#fafafa",
+                        marginTop: 6,
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "0.87rem",
+                            color: "#0f172a",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                          }}
+                        >
+                          <i
+                            className="bx bx-star"
+                            style={{
+                              color: columnaSeleccionada?.es_principal
+                                ? "#ca8a04"
+                                : "#94a3b8",
+                            }}
+                          />
+                          {columnaSeleccionada?.es_principal
+                            ? "Esta es la columna principal"
+                            : "Marcar como columna principal"}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748b",
+                            marginTop: 2,
+                          }}
+                        >
+                          {columnaSeleccionada?.es_principal
+                            ? "Los chats cerrados regresarán a esta columna"
+                            : "Solo una columna puede ser la principal"}
+                        </div>
+                      </div>
+                      <ToggleSwitch
+                        checked={!!columnaSeleccionada?.es_principal}
+                        onChange={togglePrincipal}
+                        colorOn="#ca8a04"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div
