@@ -9,18 +9,148 @@ import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import { useNavigate } from "react-router-dom";
 
-const RESULT_NUMBER_OPTIONS = [10, 20, 30, 40, 50];
+const RESULT_NUMBER_OPTIONS = [10, 50, 100, 200, 500, 1000];
 
 const STATUS_OPTIONS = [
   { id: "", name: "Todos" },
+  // ── Estados Dropi internos ──
   { id: "PENDIENTE CONFIRMACION", name: "Pendiente confirmación" },
   { id: "PENDIENTE", name: "Pendiente" },
   { id: "GUIA_GENERADA", name: "Guía generada" },
   { id: "GUIA_ANULADA", name: "Guía anulada" },
-  { id: "CANCELADO", name: "Cancelada" },
-  { id: "ENTREGADO", name: "Entregada" },
+  { id: "CANCELADO", name: "Cancelado" },
+  { id: "RECHAZADO", name: "Rechazado" },
+  { id: "ENTREGADO", name: "Entregado" },
   { id: "DEVOLUCION", name: "Devolución" },
   { id: "NOVEDAD SOLUCIONADA", name: "Novedad solucionada" },
+  {
+    id: "PREPARADO PARA TRANSPORTADORA",
+    name: "Preparado para transportadora",
+  },
+  { id: "INDEMNIZADA POR DROPI", name: "Indemnizada por Dropi" },
+  { id: "DEVOLUCION EN TRANSITO", name: "Devolución en tránsito" },
+  { id: "ENTREGADO A TRANSPORTADORA", name: "Entregado a transportadora" },
+  { id: "EN BODEGA DROPI", name: "En bodega Dropi" },
+  { id: "RECOGIDO POR DROPI", name: "Recogido por Dropi" },
+  { id: "RECIBIDO PAU", name: "Recibido PAU" },
+  { id: "RECIBIDO POR DROPI", name: "Recibido por Dropi" },
+  { id: "FINALIZADO POR RETENCION", name: "Finalizado por retención" },
+  { id: "PROCESO FINALIZADO", name: "Proceso finalizado" },
+  { id: "POR RECOLECTAR", name: "Por recolectar" },
+  // ── Estados transportadora ──
+  { id: "EN BODEGA", name: "En bodega" },
+  { id: "ZONA DE ENTREGA", name: "Zona de entrega" },
+  { id: "ZONA DE ENTREGA DEVOLUCIÓN", name: "Zona de entrega devolución" },
+  { id: "EN TRÁNSITO", name: "En tránsito" },
+  { id: "CON NOVEDAD", name: "Con novedad" },
+  { id: "DEVOLUCIÓN / ENTREGA", name: "Devolución / Entrega" },
+  { id: "ENVÍO LISTO EN OFICINA", name: "Envío listo en oficina" },
+  { id: "NOVEDAD", name: "Novedad" },
+  { id: "ASIGNADO", name: "Asignado" },
+  {
+    id: "CERTIFICACION DE PRUEBA DE ENTREGA",
+    name: "Certificación prueba de entrega",
+  },
+  {
+    id: "CERTIFICACION DEVOLUCION AL REMITENTE",
+    name: "Certificación devolución al remitente",
+  },
+  { id: "DESAPLICADO", name: "Desaplicado" },
+  { id: "DEVUELTO", name: "Devuelto" },
+  { id: "EMBARCANDO", name: "Embarcando" },
+  { id: "EN DISTRIBUCION A CLIENTE", name: "En distribución a cliente" },
+  {
+    id: "EN DISTRIBUCION PARA ENTREGA EN AGENCIA",
+    name: "En distribución entrega en agencia",
+  },
+  { id: "EN RUTA", name: "En ruta" },
+  { id: "ENTREGA DIGITALIZADA", name: "Entrega digitalizada" },
+  { id: "GENERADO CLIENTE CORPORATIVO", name: "Generado cliente corporativo" },
+  { id: "INGRESANDO", name: "Ingresando" },
+  { id: "INGRESO A CONFIRMACION", name: "Ingreso a confirmación" },
+  {
+    id: "INVENTARIO EN CENTRO LOGISTICO",
+    name: "Inventario en centro logístico",
+  },
+  { id: "RECOLECTADO", name: "Recolectado" },
+  { id: "REPORTADO ENTREGADO", name: "Reportado entregado" },
+  { id: "TRASLADO A CENTRO LOGISTICO", name: "Traslado a centro logístico" },
+  { id: "DESTINATARIO FALLECIDO", name: "Destinatario fallecido" },
+  {
+    id: "EN ESPERA DE FIRMA DE DOCUMENTOS TC",
+    name: "En espera firma documentos TC",
+  },
+  {
+    id: "DEVOLUCION DE DISTRIBUCION CLIENTE SOLICITA RETIRAR EN CS",
+    name: "Devolución distribución — retiro en CS",
+  },
+  {
+    id: "PARA RETIRO EN AGENCIA SERVIENTREGA",
+    name: "Retiro en agencia Servientrega",
+  },
+  { id: "GENERADO", name: "Generado" },
+  { id: "PROCESAMIENTO", name: "Procesamiento" },
+  { id: "DEVOLUCION AL REMITENTE", name: "Devolución al remitente" },
+  { id: "GENERADA", name: "Generada" },
+  { id: "PICKING", name: "Picking" },
+  { id: "PACKING", name: "Packing" },
+  { id: "EN REPARTO", name: "En reparto" },
+  { id: "ENTREGADA GINTRACOM", name: "Entregada Gintracom" },
+  { id: "DEVOLUCIÓN", name: "Devolución" },
+  {
+    id: "DEVOLUCIÓN ENTREGADA A ORIGEN",
+    name: "Devolución entregada a origen",
+  },
+  { id: "CANCELADA POR TRANSPORTADORA", name: "Cancelada por transportadora" },
+  { id: "INDEMNIZACIÓN", name: "Indemnización" },
+  { id: "ANULADA", name: "Anulada" },
+  { id: "NOVEDAD EN GESTION", name: "Novedad en gestión" },
+  {
+    id: "DESTINATARIO RE-PROGRAMA FECHA DE ENTREGA",
+    name: "Destinatario reprograma fecha",
+  },
+  {
+    id: "DESTINATARIO SOLICITA CAMBIO DE DIRECCIÓN",
+    name: "Destinatario cambio dirección",
+  },
+  {
+    id: "FUERA DE COBERTURA, NO COINCIDE LA CIUDAD REAL DESTINO CON LA CIUDAD INGRESADA",
+    name: "Fuera de cobertura",
+  },
+  {
+    id: "MERCANCÍA CON AVERÍA EN REPARTO. INDEMNIZACIÓN",
+    name: "Mercancía avería — indemnización",
+  },
+  {
+    id: "MERCANCIA HURTADA EN REPARTO. INDEMNIZACIÓN",
+    name: "Mercancía hurtada — indemnización",
+  },
+  { id: "OBSTRUCCIÓN EN LA VÍA PÚBLICA", name: "Obstrucción en vía pública" },
+  { id: "PROBLEMAS DE ORDEN PÚBLICO", name: "Problemas de orden público" },
+  {
+    id: "SE REALIZA VISITA A DESTINATARIO RE-PROGRAMA FECHA DE ENTREGA",
+    name: "Visita destinatario — reprograma",
+  },
+  { id: "ACCIDENTE EN CARRETERA", name: "Accidente en carretera" },
+  { id: "SOLUCION APROBADA", name: "Solución aprobada" },
+  { id: "SOLUCION INCORRECTA", name: "Solución incorrecta" },
+  { id: "EN BODEGA ORIGEN", name: "En bodega origen" },
+  { id: "EN CAMINO", name: "En camino" },
+  { id: "RECOLECCION", name: "Recolección" },
+  { id: "RECOGIDO", name: "Recogido" },
+  { id: "EN TRANSITO", name: "En tránsito" },
+  { id: "BODEGA DESTINO", name: "Bodega destino" },
+  { id: "SINIESTRO", name: "Siniestro" },
+  { id: "INCAUTADO", name: "Incautado" },
+  { id: "EN PROCESO DE DEVOLUCION", name: "En proceso de devolución" },
+  { id: "RECIBIDO PUNTO DE VENTA", name: "Recibido punto de venta" },
+  {
+    id: "TRANSITO A DEVOLUCION PROVEEDOR",
+    name: "Tránsito devolución proveedor",
+  },
+  { id: "NOVEDAD DEVOLUCION", name: "Novedad devolución" },
+  { id: "DEVOLUCION EN BODEGA", name: "Devolución en bodega" },
+  { id: "DEVOLUCION EN RUTA", name: "Devolución en ruta" },
 ];
 
 const OrdenesDropi = () => {
@@ -72,7 +202,6 @@ const OrdenesDropi = () => {
 
   const fmtDateTime = (val) => {
     if (!val) return "";
-    // si ya viene formateado como "31/01/2026 - 02:28", lo dejamos
     if (typeof val === "string" && val.includes("/")) return val;
 
     const d = new Date(val);
@@ -94,7 +223,6 @@ const OrdenesDropi = () => {
     if (idc) setId_configuracion(parseInt(idc, 10));
   }, []);
 
-  // set default range (8 días) al cargar
   useEffect(() => {
     const { from, until } = getDefaultRange();
     setDateFrom(from);
@@ -112,7 +240,6 @@ const OrdenesDropi = () => {
 
   // =========================
   // MAPPER: respuesta Dropi -> fila UI
-  // (bandeja/agent_assigned vacíos por ahora)
   // =========================
   const mapOrderToRow = useCallback((o) => {
     const details = Array.isArray(o?.orderdetails) ? o.orderdetails : [];
@@ -131,12 +258,10 @@ const OrdenesDropi = () => {
       phone: o?.phone ?? "",
       email: o?.client_email ?? o?.email ?? "",
 
-      // ✅ VIENEN DEL BACKEND
       has_chat: !!o?.has_chat,
       tray: o?.tray ?? "",
       agent_assigned: o?.agent_assigned ?? "",
 
-      // ✅ para abrir chat por ID
       chat_id_cliente: o?.chat_id_cliente ?? null,
       id_cliente_chat_center: o?.id_cliente_chat_center ?? null,
 
@@ -159,7 +284,6 @@ const OrdenesDropi = () => {
   const query = useMemo(() => {
     if (!id_configuracion) return null;
 
-    // si toca fechas, que sean ambas
     if ((dateFrom && !dateUntil) || (!dateFrom && dateUntil)) {
       return { invalidDate: true };
     }
@@ -169,16 +293,13 @@ const OrdenesDropi = () => {
       result_number: resultNumber,
       start,
 
-      // fechas (solo si rango completo)
       filter_date_by:
         dateFrom && dateUntil ? String(filterDateBy || "").trim() : undefined,
       from: dateFrom && dateUntil ? dateFrom : undefined,
       until: dateFrom && dateUntil ? dateUntil : undefined,
 
-      // status
       status: String(status || "").trim() || undefined,
 
-      // texto libre (debounced)
       textToSearch: String(debouncedSearch || "").trim() || undefined,
     };
   }, [
@@ -207,7 +328,6 @@ const OrdenesDropi = () => {
           body,
         );
 
-        // ✅ según su JSON: res.data.data.objects / res.data.data.total
         const objects = res?.data?.data?.objects ?? [];
         const total =
           res?.data?.data?.total ?? res?.data?.data?.total_results ?? 0;
@@ -237,7 +357,6 @@ const OrdenesDropi = () => {
     [mapOrderToRow],
   );
 
-  // ✅ ÚNICO EFFECT QUE DISPARA LA PETICIÓN
   useEffect(() => {
     if (!query) return;
 
@@ -268,8 +387,6 @@ const OrdenesDropi = () => {
   // =========================
   const handleSearchClick = () => {
     setPage(1);
-    // NO llame fetchOrders aquí: el effect se dispara solo por query (start cambia)
-    // Si usted quiere forzar aunque no haya cambiado nada:
     lastKeyRef.current = "";
   };
 
@@ -327,60 +444,81 @@ const OrdenesDropi = () => {
     </button>
   );
 
-  // paginador con páginas visibles
-  const getVisiblePages = (current, total) => {
-    const maxButtons = 7;
-    if (total <= maxButtons)
-      return Array.from({ length: total }, (_, i) => i + 1);
-
-    const pages = [];
-    const left = Math.max(2, current - 1);
-    const right = Math.min(total - 1, current + 1);
-
-    pages.push(1);
-    if (left > 2) pages.push("...");
-    for (let p = left; p <= right; p++) pages.push(p);
-    if (right < total - 1) pages.push("...");
-    pages.push(total);
-
-    return pages;
-  };
-
-  const visiblePages = useMemo(
-    () => getVisiblePages(page, totalPages),
-    [page, totalPages],
-  );
-
   // =========================
-  // BADGE COLOR POR ESTADO
+  // BADGE COLOR POR ESTADO (agrupado por categoría)
   // =========================
   const getStatusBadgeClass = useCallback((s) => {
     const st = String(s || "")
       .trim()
       .toUpperCase();
 
-    const MAP = {
-      "PENDIENTE CONFIRMACION":
-        "bg-amber-50 text-amber-700 border border-amber-200",
-      PENDIENTE: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+    if (st.includes("ENTREGADO") || st.includes("ENTREGADA"))
+      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    if (
+      st.includes("DEVOLUCION") ||
+      st.includes("DEVOLUCIÓN") ||
+      st.includes("DEVUELTO")
+    )
+      return "bg-orange-50 text-orange-700 border border-orange-200";
+    if (
+      st.includes("CANCELAD") ||
+      st.includes("ANULADA") ||
+      st.includes("RECHAZADO")
+    )
+      return "bg-rose-50 text-rose-700 border border-rose-200";
+    if (st.includes("NOVEDAD") || st.includes("SOLUCION"))
+      return "bg-purple-50 text-purple-700 border border-purple-200";
+    if (st.includes("PENDIENTE"))
+      return "bg-amber-50 text-amber-700 border border-amber-200";
+    if (st.includes("GUIA"))
+      return "bg-blue-50 text-blue-700 border border-blue-200";
+    if (
+      st.includes("TRANSITO") ||
+      st.includes("TRÁNSITO") ||
+      st.includes("RUTA") ||
+      st.includes("CAMINO") ||
+      st.includes("REPARTO")
+    )
+      return "bg-sky-50 text-sky-700 border border-sky-200";
+    if (
+      st.includes("BODEGA") ||
+      st.includes("INVENTARIO") ||
+      st.includes("RECOLECT") ||
+      st.includes("RECOGIDO") ||
+      st.includes("RECIBIDO")
+    )
+      return "bg-indigo-50 text-indigo-700 border border-indigo-200";
+    if (
+      st.includes("INDEMNIZ") ||
+      st.includes("SINIESTRO") ||
+      st.includes("HURTAD") ||
+      st.includes("AVERÍA") ||
+      st.includes("INCAUTADO")
+    )
+      return "bg-red-50 text-red-700 border border-red-200";
+    if (
+      st.includes("PREPARADO") ||
+      st.includes("PICKING") ||
+      st.includes("PACKING") ||
+      st.includes("EMBARCANDO") ||
+      st.includes("GENERADO") ||
+      st.includes("GENERADA") ||
+      st.includes("ASIGNADO")
+    )
+      return "bg-cyan-50 text-cyan-700 border border-cyan-200";
 
-      GUIA_GENERADA: "bg-blue-50 text-blue-700 border border-blue-200",
-      GUIA_ANULADA: "bg-gray-100 text-gray-700 border border-gray-200",
-
-      ENTREGADO: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-      DEVOLUCION: "bg-orange-50 text-orange-700 border border-orange-200",
-
-      "NOVEDAD SOLUCIONADA":
-        "bg-purple-50 text-purple-700 border border-purple-200",
-      CANCELADO: "bg-rose-50 text-rose-700 border border-rose-200",
-    };
-
-    return MAP[st] || "bg-slate-50 text-slate-700 border border-slate-200";
+    return "bg-slate-50 text-slate-700 border border-slate-200";
   }, []);
+
+  // =========================
+  // Rango de resultados que se muestran
+  // =========================
+  const showingFrom = totalResults > 0 ? start + 1 : 0;
+  const showingTo = Math.min(start + resultNumber, totalResults);
 
   return (
     <div className="p-5">
-      {/* HEADER SIMPLE */}
+      {/* HEADER */}
       <div className="mb-6 rounded-2xl bg-[#171931] text-white p-6 shadow-lg">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
@@ -448,7 +586,7 @@ const OrdenesDropi = () => {
             <div className="mt-1 text-xs opacity-0 select-none">.</div>
           </div>
 
-          {/* Status */}
+          {/* Status — select nativo con scroll del navegador */}
           <div className="flex flex-col h-full">
             <label className="text-sm font-semibold text-gray-700">
               Status
@@ -461,8 +599,8 @@ const OrdenesDropi = () => {
                 setStatus(e.target.value);
               }}
             >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s.id || "ALL"} value={s.id}>
+              {STATUS_OPTIONS.map((s, idx) => (
+                <option key={`${s.id}-${idx}`} value={s.id}>
                   {s.name}
                 </option>
               ))}
@@ -475,7 +613,6 @@ const OrdenesDropi = () => {
             <label className="text-sm font-semibold text-gray-700 opacity-0 select-none">
               Buscar
             </label>
-
             <button
               onClick={handleSearchClick}
               className="mt-1 bg-[#171931] text-white hover:opacity-95 transition px-4 py-2 rounded-xl text-sm font-semibold shadow w-full"
@@ -483,7 +620,6 @@ const OrdenesDropi = () => {
             >
               {ordersLoading ? "Cargando..." : "Buscar"}
             </button>
-
             <div className="mt-1 text-xs opacity-0 select-none">.</div>
           </div>
 
@@ -492,15 +628,13 @@ const OrdenesDropi = () => {
             <label className="text-sm font-semibold text-gray-700 opacity-0 select-none">
               Limpiar
             </label>
-
             <button
               onClick={handleClear}
-              className="mt-1 bg-gray-200 text-gray-800 hover:bg-gray-200 transition px-4 py-2 rounded-xl text-sm font-semibold shadow w-full"
+              className="mt-1 bg-gray-200 text-gray-800 hover:bg-gray-300 transition px-4 py-2 rounded-xl text-sm font-semibold shadow w-full"
               disabled={ordersLoading}
             >
               Limpiar
             </button>
-
             <div className="mt-1 text-xs opacity-0 select-none">.</div>
           </div>
         </div>
@@ -541,18 +675,14 @@ const OrdenesDropi = () => {
                   const fullName =
                     `${o?.name ?? ""} ${o?.surname ?? ""}`.trim() ||
                     "Sin nombre";
-
                   const email = o?.email ? o.email : "Sin email";
                   const phone = o?.phone
                     ? `Tel: ${o.phone}`
                     : "Tel: Sin teléfono";
-
                   const bandeja = o?.tray || "Sin conversación";
-
                   const agente = o?.agent_assigned
                     ? o.agent_assigned
                     : "Sin agente";
-
                   const producto = o?.product_name ?? "-";
                   const fecha = fmtDateTime(o?.created_at);
                   const estado = o?.status ?? "-";
@@ -611,91 +741,70 @@ const OrdenesDropi = () => {
           </table>
         </div>
 
-        {/* FOOTER CONTROLES */}
-        <div className="mt-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          {/* result_number */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600">Mostrar:</span>
-            <select
-              className="px-3 py-2 border rounded-xl bg-white"
-              value={resultNumber}
-              onChange={(e) => {
-                setPage(1);
-                setResultNumber(Number(e.target.value));
-              }}
-              disabled={ordersLoading}
-            >
-              {RESULT_NUMBER_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+        {/* ══════════════════════════════════════════════
+            FOOTER: Mostrar X | info | ‹ Anterior  Página X  Siguiente ›
+           ══════════════════════════════════════════════ */}
+        <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm">
+          {/* Izquierda: Mostrar + info */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Mostrar</span>
+              <select
+                className="px-3 py-1.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#171931]"
+                value={resultNumber}
+                onChange={(e) => {
+                  setPage(1);
+                  setResultNumber(Number(e.target.value));
+                }}
+                disabled={ordersLoading}
+              >
+                {RESULT_NUMBER_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <span className="text-sm text-gray-600">
-              Página <span className="font-semibold text-gray-900">{page}</span>{" "}
-              de{" "}
-              <span className="font-semibold text-gray-900">{totalPages}</span>
-            </span>
+            {totalResults > 0 && (
+              <span className="text-gray-500">
+                {showingFrom}–{showingTo} de{" "}
+                <span className="font-semibold text-gray-800">
+                  {totalResults.toLocaleString()}
+                </span>{" "}
+                resultados
+              </span>
+            )}
           </div>
 
-          {/* paginación */}
-          <div className="flex items-center gap-2 justify-end flex-wrap">
+          {/* Derecha: Paginación estilo Dropi */}
+          <div className="flex items-center gap-1">
             <button
-              className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold disabled:opacity-50"
-              disabled={ordersLoading || page <= 1}
-              onClick={() => setPage(1)}
-              title="Primera"
-            >
-              ⟪
-            </button>
-
-            <button
-              className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold disabled:opacity-50"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                page <= 1 || ordersLoading
+                  ? "text-gray-300 cursor-not-allowed"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
               disabled={ordersLoading || page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              title="Anterior"
             >
-              ⟨
+              ‹ Anterior
             </button>
 
-            {visiblePages.map((p, idx) =>
-              p === "..." ? (
-                <span key={`dots-${idx}`} className="px-2 text-gray-400">
-                  ...
-                </span>
-              ) : (
-                <button
-                  key={p}
-                  className={`px-3 py-2 rounded-xl font-semibold transition ${
-                    p === page
-                      ? "bg-[#171931] text-white shadow"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-800"
-                  }`}
-                  disabled={ordersLoading}
-                  onClick={() => setPage(p)}
-                >
-                  {p}
-                </button>
-              ),
-            )}
+            <span className="px-3 py-1.5 rounded-lg bg-[#171931] text-white text-sm font-semibold min-w-[80px] text-center">
+              Página {page}
+            </span>
 
             <button
-              className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold disabled:opacity-50"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                page >= totalPages || ordersLoading
+                  ? "text-gray-300 cursor-not-allowed"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
               disabled={ordersLoading || page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              title="Siguiente"
             >
-              ⟩
-            </button>
-
-            <button
-              className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold disabled:opacity-50"
-              disabled={ordersLoading || page >= totalPages}
-              onClick={() => setPage(totalPages)}
-              title="Última"
-            >
-              ⟫
+              Siguiente ›
             </button>
           </div>
         </div>
