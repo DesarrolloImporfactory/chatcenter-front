@@ -400,6 +400,7 @@ const TabAsistente = ({
       const { data } = await chatApi.post(
         "/kanban_columnas/sincronizar_catalogo",
         { id: columnaId },
+        { timeout: 120000 }
       );
       if (data?.success) {
         setUltimaSync(new Date());

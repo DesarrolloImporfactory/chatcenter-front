@@ -5,6 +5,7 @@ import TabAsistente from "./TabAsistente";
 import RemarketingColumna from "./componentes/RemarketingColumna";
 import DropisPlantillas from "../../dropi/DropisPlantillas";
 import PlantillasKanban from "./componentes/PlantillasKanban";
+import MisPlantillas from "./componentes/MisPlantillas";
 
 // ─────────────────────────────────────────────────────────────
 // Constantes de UI
@@ -517,6 +518,11 @@ const KanbanConfig = () => {
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {/* boton de elegiar plantillas propias*/}
+          <MisPlantillas
+            id_configuracion={id_configuracion}
+            onPlantillaAplicada={cargarColumnas}
+          />
           {/* boton de elegiar plantillas kanban*/}
           <PlantillasKanban
             id_configuracion={id_configuracion}
