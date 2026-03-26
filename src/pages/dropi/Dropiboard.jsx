@@ -58,7 +58,7 @@ const Dropiboard = () => {
           from: dateRange.from,
           until: dateRange.until,
         },
-        { timeout: 120000 },
+        { timeout: 300000 },
       );
 
       setStats(data?.data || null);
@@ -122,7 +122,7 @@ const Dropiboard = () => {
               Dropi<span className="text-[#00BFFF]">Board</span>
             </h1>
             <p className="text-[11px] text-[#8899AA] mt-0.5">
-              Dashboard Inteligente — by GRUPO IMPOR
+              Dashboard Inteligente
             </p>
           </div>
         </div>
@@ -215,7 +215,12 @@ const Dropiboard = () => {
               Consultando órdenes desde Dropi...
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Esto puede tomar unos segundos según el volumen de datos
+              Dependiendo del volumen esto puede tomar entre 30 segundos y 3
+              minutos
+            </p>
+            <p className="text-[10px] text-slate-300 mt-3">
+              No cierre esta página — el servidor está recopilando todas las
+              órdenes del período
             </p>
           </div>
         )}
@@ -275,12 +280,6 @@ const Dropiboard = () => {
             {/* Footer */}
             <div className="text-center pt-6 pb-2 border-t border-slate-200 mt-4">
               <p className="text-[10px] text-slate-400">
-                Dropi<span className="text-[#00BFFF] font-semibold">Board</span>{" "}
-                v1.0 — by{" "}
-                <span className="text-[#00BFFF] font-semibold">
-                  GRUPO IMPOR
-                </span>{" "}
-                —{" "}
                 {totalOrders > 0 && (
                   <span>{totalOrders.toLocaleString()} órdenes procesadas</span>
                 )}
