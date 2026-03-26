@@ -79,6 +79,7 @@ import SocketProvider from "./context/SocketProvider";
 import PresenceProvider from "./context/PresenceProvider";
 
 import Dashboard from "./components/dashboard/Dashboard";
+import Dropiboard from "./pages/dropi/Dropiboard";
 import SelectorHerramienta from "./pages/selectorHerramienta/selectorHerramienta";
 
 function App() {
@@ -175,6 +176,15 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <Dashboard />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                <Route
+                  path="/dropiboard"
+                  element={
+                    <MainLayout_conexiones>
+                      <Dropiboard />
                     </MainLayout_conexiones>
                   }
                 />
