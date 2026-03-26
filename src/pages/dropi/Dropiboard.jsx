@@ -33,7 +33,140 @@ const Dropiboard = () => {
     return { from: toYMD(from), until: toYMD(today) };
   });
 
-  // ─── Fetch dashboard stats (1 call, backend pagina internamente) ───
+  // ─── Split date range into chunks ───
+  const splitDateRange = useCallback((from, until, chunks) => {
+    const fromDate = new Date(from);
+    const untilDate = new Date(until);
+    const totalDays = Math.ceil((untilDate - fromDate) / (1000 * 60 * 60 * 24));
+    const daysPerChunk = Math.ceil(totalDays / chunks);
+    const ranges = [];
+
+    for (let i = 0; i < chunks; i++) {
+      const chunkFrom = new Date(fromDate);
+      chunkFrom.setDate(chunkFrom.getDate() + i * daysPerChunk);
+
+      const chunkUntil = new Date(fromDate);
+      chunkUntil.setDate(chunkUntil.getDate() + (i + 1) * daysPerChunk);
+
+      if (chunkUntil > untilDate) chunkUntil.setTime(untilDate.getTime());
+      if (chunkFrom >= untilDate) break;
+
+      ranges.push({
+        from: toYMD(chunkFrom),
+        until: toYMD(chunkUntil),
+      });
+    }
+    return ranges;
+  }, []);
+
+  // ─── Merge multiple chunk responses into one ───
+  const mergeStats = useCallback((results) => {
+    const merged = {
+      totalOrders: 0,
+      totalMoney: 0,
+      statusStats: {},
+      kpis: {},
+      dailyChart: [],
+      topProducts: [],
+      retiroAgencia: [],
+      pagesFetched: 0,
+      isPartial: false,
+      partialMessage: null,
+    };
+
+    const dailyMap = {};
+    const productMap = {};
+    const allRetiro = [];
+
+    for (const r of results) {
+      if (!r) continue;
+      merged.totalOrders += r.totalOrders || 0;
+      merged.totalMoney += r.totalMoney || 0;
+      merged.pagesFetched += r.pagesFetched || 0;
+      if (r.isPartial) merged.isPartial = true;
+
+      // Merge statusStats
+      for (const [key, val] of Object.entries(r.statusStats || {})) {
+        if (!merged.statusStats[key])
+          merged.statusStats[key] = { count: 0, money: 0 };
+        merged.statusStats[key].count += val.count || 0;
+        merged.statusStats[key].money += val.money || 0;
+      }
+
+      // Merge dailyChart
+      for (const day of r.dailyChart || []) {
+        if (!dailyMap[day.day])
+          dailyMap[day.day] = {
+            day: day.day,
+            pedidos: 0,
+            entregadas: 0,
+            devoluciones: 0,
+          };
+        dailyMap[day.day].pedidos += day.pedidos || 0;
+        dailyMap[day.day].entregadas += day.entregadas || 0;
+        dailyMap[day.day].devoluciones += day.devoluciones || 0;
+      }
+
+      // Merge products
+      for (const p of r.topProducts || []) {
+        if (!productMap[p.name])
+          productMap[p.name] = {
+            name: p.name,
+            ordenes: 0,
+            entregadas: 0,
+            devoluciones: 0,
+            ingreso: 0,
+          };
+        productMap[p.name].ordenes += p.ordenes || 0;
+        productMap[p.name].entregadas += p.entregadas || 0;
+        productMap[p.name].devoluciones += p.devoluciones || 0;
+        productMap[p.name].ingreso += p.ingreso || 0;
+      }
+
+      // Merge retiro
+      allRetiro.push(...(r.retiroAgencia || []));
+    }
+
+    merged.dailyChart = Object.values(dailyMap).sort((a, b) =>
+      a.day.localeCompare(b.day),
+    );
+    merged.topProducts = Object.values(productMap)
+      .sort((a, b) => b.ordenes - a.ordenes)
+      .slice(0, 10);
+    merged.retiroAgencia = allRetiro
+      .sort((a, b) => b.days - a.days)
+      .slice(0, 20);
+
+    // Recalcular KPIs desde statusStats mergeados
+    const entregadas = merged.statusStats.entregada?.count || 0;
+    const devoluciones = merged.statusStats.devolucion?.count || 0;
+    merged.kpis = {
+      totalOrders: merged.totalOrders,
+      entregadas,
+      devoluciones,
+      canceladas: merged.statusStats.cancelada?.count || 0,
+      totalMoney: merged.totalMoney,
+      ingresoEntregadas: merged.statusStats.entregada?.money || 0,
+      tasaEntrega:
+        merged.totalOrders > 0 ? (entregadas / merged.totalOrders) * 100 : 0,
+      tasaDevolucion:
+        merged.totalOrders > 0 ? (devoluciones / merged.totalOrders) * 100 : 0,
+      ticketPromedio:
+        entregadas > 0
+          ? (merged.statusStats.entregada?.money || 0) / entregadas
+          : 0,
+      retiroAgencia: merged.statusStats.retiro_agencia?.count || 0,
+    };
+
+    if (merged.isPartial) {
+      merged.partialMessage =
+        "Se analizaron las primeras órdenes de cada período. Para datos completos, seleccione un rango más corto.";
+    }
+
+    return merged;
+  }, []);
+
+  // ─── Fetch dashboard (parallel chunks to avoid Apache 60s timeout) ───
   const fetchDashboard = useCallback(async () => {
     if (!selectedIntegration) return;
 
@@ -51,32 +184,69 @@ const Dropiboard = () => {
     setErrorMsg("");
 
     try {
-      const { data } = await chatApi.post(
-        "dropi_integrations/dashboard/stats",
-        {
-          id_configuracion: cfgId,
-          from: dateRange.from,
-          until: dateRange.until,
-        },
-        { timeout: 300000 },
+      const fromDate = new Date(dateRange.from);
+      const untilDate = new Date(dateRange.until);
+      const totalDays = Math.ceil(
+        (untilDate - fromDate) / (1000 * 60 * 60 * 24),
       );
 
-      setStats(data?.data || null);
+      // ≤5 días → 1 request, ≤10 → 2 paralelos, >10 → 3 paralelos
+      const numChunks = totalDays <= 5 ? 1 : totalDays <= 10 ? 2 : 3;
+      const ranges = splitDateRange(dateRange.from, dateRange.until, numChunks);
+
+      console.log(
+        `[dropiboard] Splitting ${totalDays} days into ${ranges.length} chunks:`,
+        ranges,
+      );
+
+      // Fetch all chunks in parallel
+      const promises = ranges.map((range) =>
+        chatApi
+          .post(
+            "dropi_integrations/dashboard/stats",
+            {
+              id_configuracion: cfgId,
+              from: range.from,
+              until: range.until,
+            },
+            { timeout: 60000 },
+          )
+          .then((res) => res?.data?.data || null)
+          .catch((err) => {
+            console.error(
+              `[dropiboard] Chunk ${range.from}→${range.until} failed:`,
+              err?.message,
+            );
+            return null;
+          }),
+      );
+
+      const results = await Promise.all(promises);
+      const validResults = results.filter(Boolean);
+
+      if (validResults.length === 0) {
+        setErrorMsg("No se pudieron obtener datos de Dropi. Intente de nuevo.");
+        setStats(null);
+      } else {
+        const merged = mergeStats(validResults);
+        setStats(merged);
+
+        if (validResults.length < ranges.length) {
+          setErrorMsg(
+            `${ranges.length - validResults.length} de ${ranges.length} consultas fallaron. Los datos pueden estar incompletos.`,
+          );
+        }
+      }
     } catch (err) {
       console.error("Dropiboard fetch error:", err);
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Error al consultar datos de Dropi";
-      setErrorMsg(msg);
+      setErrorMsg(err?.message || "Error al consultar datos de Dropi");
       setStats(null);
     } finally {
       setLoading(false);
     }
-  }, [selectedIntegration, dateRange]);
+  }, [selectedIntegration, dateRange, splitDateRange, mergeStats]);
 
-  // ─── Extract data from backend response ───
+  // ─── Extract data from stats ───
   const statusStats = stats?.statusStats || {};
   const kpis = stats?.kpis || {
     totalOrders: 0,
@@ -95,7 +265,7 @@ const Dropiboard = () => {
   const retiroAgencia = stats?.retiroAgencia || [];
   const totalOrders = stats?.totalOrders || 0;
 
-  // ─── Pie data (frontend, a partir de statusStats del backend) ───
+  // ─── Pie data ───
   const pieData = useMemo(() => {
     return DISPLAY_ORDER.map((key) => ({
       name: STATUS_CATEGORIES[key].label,
@@ -215,12 +385,12 @@ const Dropiboard = () => {
               Consultando órdenes desde Dropi...
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Dependiendo del volumen esto puede tomar entre 30 segundos y 3
+              Dependiendo del volumen esto puede tomar entre 30 segundos y 2
               minutos
             </p>
             <p className="text-[10px] text-slate-300 mt-3">
-              No cierre esta página — el servidor está recopilando todas las
-              órdenes del período
+              No cierre esta página — el servidor está recopilando las órdenes
+              del período
             </p>
           </div>
         )}
@@ -228,6 +398,24 @@ const Dropiboard = () => {
         {/* ── Dashboard data ── */}
         {hasFetched && !loading && stats && (
           <>
+            {/* Partial data warning */}
+            {stats.isPartial && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                <svg
+                  className="w-5 h-5 shrink-0 text-amber-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span>{stats.partialMessage}</span>
+              </div>
+            )}
+
             {/* Info bar */}
             {stats.pagesFetched > 1 && (
               <div className="mb-4 flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-4 py-2 text-xs text-slate-500">
