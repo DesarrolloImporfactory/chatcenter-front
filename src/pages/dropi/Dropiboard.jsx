@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import chatApi from "../../api/chatcenter";
 
 import DropiFilters from "./dropiboard/formatters/DropiFilters";
@@ -8,7 +8,6 @@ import DropiCharts from "./dropiboard/proporcional/DropiCharts";
 import DropiProductsTable from "./dropiboard/proporcional/DropiProductsTable";
 import DropiRetiroAgencia from "./dropiboard/proporcional/DropiRetiroAgencia";
 import {
-  classifyStatus,
   STATUS_CATEGORIES,
   DISPLAY_ORDER,
   toYMD,
@@ -19,8 +18,9 @@ import {
 // ═══════════════════════════════════════════════════════════════
 const Dropiboard = () => {
   const [loading, setLoading] = useState(false);
-  const [orders, setOrders] = useState([]);
+  const [stats, setStats] = useState(null);
   const [hasFetched, setHasFetched] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   // ── Integration selection ──
   const [selectedIntegration, setSelectedIntegration] = useState(null);
@@ -33,134 +33,69 @@ const Dropiboard = () => {
     return { from: toYMD(from), until: toYMD(today) };
   });
 
-  // ─── Fetch ALL orders for the date range (paginated N+1) ───
-  const fetchAllOrders = useCallback(async () => {
+  // ─── Fetch dashboard stats (1 call, backend pagina internamente) ───
+  const fetchDashboard = useCallback(async () => {
     if (!selectedIntegration) return;
+
+    const cfgId =
+      selectedIntegration.id_configuracion ||
+      parseInt(localStorage.getItem("id_configuracion"), 10);
+
+    if (!cfgId) {
+      setErrorMsg("No se encontró id_configuracion para esta integración.");
+      return;
+    }
+
     setLoading(true);
     setHasFetched(true);
+    setErrorMsg("");
 
     try {
-      let allOrders = [];
-      let start = 0;
-      let hasMore = true;
-      const pageSize = 200;
+      const { data } = await chatApi.post(
+        "dropi_integrations/dashboard/stats",
+        {
+          id_configuracion: cfgId,
+          from: dateRange.from,
+          until: dateRange.until,
+        },
+        { timeout: 120000 },
+      );
 
-      // Determine id_configuracion — for user-level integrations we need
-      // a different approach, but for now the API requires id_configuracion
-      const id_configuracion = selectedIntegration.id_configuracion;
-
-      if (!id_configuracion) {
-        // User-level integration without id_configuracion
-        // Try using localStorage fallback
-        const fallback = parseInt(localStorage.getItem("id_configuracion"), 10);
-        if (!fallback) {
-          setOrders([]);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const cfgId =
-        id_configuracion ||
-        parseInt(localStorage.getItem("id_configuracion"), 10);
-
-      while (hasMore) {
-        const { data } = await chatApi.post(
-          "dropi_integrations/orders/myorders/list",
-          {
-            id_configuracion: cfgId,
-            result_number: pageSize,
-            start,
-            filter_date_by: "FECHA DE CREADO",
-            from: dateRange.from,
-            until: dateRange.until,
-          },
-        );
-
-        const objects = data?.data?.objects ?? [];
-        allOrders = [...allOrders, ...objects];
-        hasMore = Boolean(data?.data?.hasMore);
-        start += pageSize;
-
-        // Safety: max 2000 orders per load
-        if (allOrders.length >= 2000) break;
-      }
-
-      setOrders(allOrders);
+      setStats(data?.data || null);
     } catch (err) {
       console.error("Dropiboard fetch error:", err);
-      setOrders([]);
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Error al consultar datos de Dropi";
+      setErrorMsg(msg);
+      setStats(null);
     } finally {
       setLoading(false);
     }
   }, [selectedIntegration, dateRange]);
 
-  // ─── Classified orders ───
-  const classified = useMemo(() => {
-    return orders.map((o) => ({
-      ...o,
-      _cat: classifyStatus(o.status),
-      _total: Number(o.total_order || 0),
-    }));
-  }, [orders]);
+  // ─── Extract data from backend response ───
+  const statusStats = stats?.statusStats || {};
+  const kpis = stats?.kpis || {
+    totalOrders: 0,
+    entregadas: 0,
+    devoluciones: 0,
+    canceladas: 0,
+    totalMoney: 0,
+    ingresoEntregadas: 0,
+    tasaEntrega: 0,
+    tasaDevolucion: 0,
+    ticketPromedio: 0,
+    retiroAgencia: 0,
+  };
+  const dailyChart = stats?.dailyChart || [];
+  const topProducts = stats?.topProducts || [];
+  const retiroAgencia = stats?.retiroAgencia || [];
+  const totalOrders = stats?.totalOrders || 0;
 
-  // ─── Status counts + money ───
-  const statusStats = useMemo(() => {
-    const stats = {};
-    for (const key of Object.keys(STATUS_CATEGORIES)) {
-      stats[key] = { count: 0, money: 0 };
-    }
-    for (const o of classified) {
-      const cat = o._cat;
-      if (!stats[cat]) stats[cat] = { count: 0, money: 0 };
-      stats[cat].count += 1;
-      stats[cat].money += o._total;
-    }
-    return stats;
-  }, [classified]);
-
-  const totalOrders = classified.length;
-  const totalMoney = classified.reduce((s, o) => s + o._total, 0);
-
-  // ─── KPIs ───
-  const kpis = useMemo(() => {
-    const entregadas = statusStats.entregada?.count || 0;
-    const devoluciones = statusStats.devolucion?.count || 0;
-    const ingresoEntregadas = statusStats.entregada?.money || 0;
-    const tasaEntrega = totalOrders > 0 ? (entregadas / totalOrders) * 100 : 0;
-    const tasaDevolucion =
-      totalOrders > 0 ? (devoluciones / totalOrders) * 100 : 0;
-
-    return {
-      totalOrders,
-      entregadas,
-      devoluciones,
-      canceladas: statusStats.cancelada?.count || 0,
-      ingresoEntregadas,
-      tasaEntrega,
-      tasaDevolucion,
-      totalMoney,
-      ticketPromedio: entregadas > 0 ? ingresoEntregadas / entregadas : 0,
-      retiroAgencia: statusStats.retiro_agencia?.count || 0,
-    };
-  }, [statusStats, totalOrders, totalMoney]);
-
-  // ─── Chart: orders by day ───
-  const dailyChart = useMemo(() => {
-    const byDay = {};
-    for (const o of classified) {
-      const day = (o.created_at || "").slice(0, 10);
-      if (!day) continue;
-      if (!byDay[day])
-        byDay[day] = { day, pedidos: 0, entregadas: 0, devoluciones: 0 };
-      byDay[day].pedidos += 1;
-      if (o._cat === "entregada") byDay[day].entregadas += 1;
-      if (o._cat === "devolucion") byDay[day].devoluciones += 1;
-    }
-    return Object.values(byDay).sort((a, b) => a.day.localeCompare(b.day));
-  }, [classified]);
-
-  // ─── Chart: pie data ───
+  // ─── Pie data (frontend, a partir de statusStats del backend) ───
   const pieData = useMemo(() => {
     return DISPLAY_ORDER.map((key) => ({
       name: STATUS_CATEGORIES[key].label,
@@ -168,49 +103,6 @@ const Dropiboard = () => {
       color: STATUS_CATEGORIES[key].color,
     })).filter((d) => d.value > 0);
   }, [statusStats]);
-
-  // ─── Top products ───
-  const topProducts = useMemo(() => {
-    const byProduct = {};
-    for (const o of classified) {
-      const details = Array.isArray(o.orderdetails) ? o.orderdetails : [];
-      for (const d of details) {
-        const name = d?.product?.name || "Sin nombre";
-        if (!byProduct[name])
-          byProduct[name] = {
-            name,
-            ordenes: 0,
-            entregadas: 0,
-            devoluciones: 0,
-            ingreso: 0,
-          };
-        byProduct[name].ordenes += 1;
-        if (o._cat === "entregada") {
-          byProduct[name].entregadas += 1;
-          byProduct[name].ingreso += o._total;
-        }
-        if (o._cat === "devolucion") byProduct[name].devoluciones += 1;
-      }
-    }
-    return Object.values(byProduct)
-      .sort((a, b) => b.ordenes - a.ordenes)
-      .slice(0, 10);
-  }, [classified]);
-
-  // ─── Retiro agencia orders ───
-  const retiroAgenciaOrders = useMemo(() => {
-    return classified
-      .filter((o) => o._cat === "retiro_agencia")
-      .map((o) => {
-        const createdDate = new Date(o.created_at);
-        const now = new Date();
-        const diffDays = Math.floor(
-          (now - createdDate) / (1000 * 60 * 60 * 24),
-        );
-        return { ...o, _days: diffDays };
-      })
-      .sort((a, b) => b._days - a._days);
-  }, [classified]);
 
   // ═══════════════════════════════════════════════════════════════
   // RENDER
@@ -246,9 +138,27 @@ const Dropiboard = () => {
           onChangeIntegration={setSelectedIntegration}
           dateRange={dateRange}
           onChangeDateRange={setDateRange}
-          onApply={fetchAllOrders}
+          onApply={fetchDashboard}
           loading={loading}
         />
+
+        {/* ── Error state ── */}
+        {errorMsg && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <svg
+              className="w-5 h-5 shrink-0 text-red-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         {/* ── Empty state ── */}
         {!hasFetched && !loading && (
@@ -311,8 +221,35 @@ const Dropiboard = () => {
         )}
 
         {/* ── Dashboard data ── */}
-        {hasFetched && !loading && (
+        {hasFetched && !loading && stats && (
           <>
+            {/* Info bar */}
+            {stats.pagesFetched > 1 && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-4 py-2 text-xs text-slate-500">
+                <svg
+                  className="w-4 h-4 text-[#00BFFF]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 16v-4M12 8h.01" />
+                </svg>
+                <span>
+                  Se consultaron{" "}
+                  <strong className="text-slate-700">
+                    {stats.pagesFetched}
+                  </strong>{" "}
+                  páginas de Dropi para obtener{" "}
+                  <strong className="text-slate-700">
+                    {totalOrders.toLocaleString()}
+                  </strong>{" "}
+                  órdenes
+                </span>
+              </div>
+            )}
+
             {/* Status Bar */}
             <DropiStatusBar
               statusStats={statusStats}
@@ -330,11 +267,53 @@ const Dropiboard = () => {
             />
 
             {/* Retiro Agencia Alert */}
-            <DropiRetiroAgencia orders={retiroAgenciaOrders} />
+            <DropiRetiroAgencia orders={retiroAgencia} />
 
             {/* Products */}
             <DropiProductsTable topProducts={topProducts} loading={loading} />
+
+            {/* Footer */}
+            <div className="text-center pt-6 pb-2 border-t border-slate-200 mt-4">
+              <p className="text-[10px] text-slate-400">
+                Dropi<span className="text-[#00BFFF] font-semibold">Board</span>{" "}
+                v1.0 — by{" "}
+                <span className="text-[#00BFFF] font-semibold">
+                  GRUPO IMPOR
+                </span>{" "}
+                —{" "}
+                {totalOrders > 0 && (
+                  <span>{totalOrders.toLocaleString()} órdenes procesadas</span>
+                )}
+              </p>
+            </div>
           </>
+        )}
+
+        {/* ── No data state ── */}
+        {hasFetched && !loading && !stats && !errorMsg && (
+          <div className="text-center py-16">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-slate-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <h3 className="text-sm font-bold text-slate-600 mb-1">
+              Sin datos en este rango
+            </h3>
+            <p className="text-xs text-slate-400">
+              Intente con un rango de fechas más amplio
+            </p>
+          </div>
         )}
       </div>
     </div>

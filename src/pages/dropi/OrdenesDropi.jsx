@@ -9,7 +9,7 @@ import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import { useNavigate } from "react-router-dom";
 
-const RESULT_NUMBER_OPTIONS = [10, 50, 100, 200, 500, 1000];
+const RESULT_NUMBER_OPTIONS = [10, 20, 40, 60, 80, 99];
 
 const STATUS_OPTIONS = [
   { id: "", name: "Todos" },

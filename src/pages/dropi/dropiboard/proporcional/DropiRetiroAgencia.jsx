@@ -3,7 +3,7 @@ import React from "react";
 export default function DropiRetiroAgencia({ orders }) {
   if (!orders || orders.length === 0) return null;
 
-  const urgentCount = orders.filter((o) => o._days >= 5).length;
+  const urgentCount = orders.filter((o) => o.days >= 5).length;
 
   return (
     <div className="mb-6 rounded-2xl border-2 border-orange-200 bg-gradient-to-r from-orange-50/80 to-white p-5 shadow-sm">
@@ -46,8 +46,8 @@ export default function DropiRetiroAgencia({ orders }) {
           </thead>
           <tbody>
             {orders.slice(0, 15).map((o) => {
-              const isUrgent = o._days >= 5;
-              const isWarning = o._days >= 3 && o._days < 5;
+              const isUrgent = o.days >= 5;
+              const isWarning = o.days >= 3 && o.days < 5;
               return (
                 <tr
                   key={o.id}
@@ -66,9 +66,7 @@ export default function DropiRetiroAgencia({ orders }) {
                   </td>
                   <td className="px-3 py-2 text-xs">
                     <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium text-[10px]">
-                      {o.shipping_company ||
-                        o.distribution_company?.name ||
-                        "—"}
+                      {o.shipping_company || "—"}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-slate-500 font-mono text-[11px]">
@@ -90,7 +88,7 @@ export default function DropiRetiroAgencia({ orders }) {
                       {isUrgent && (
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                       )}
-                      {o._days}d
+                      {o.days}d
                     </span>
                   </td>
                 </tr>
