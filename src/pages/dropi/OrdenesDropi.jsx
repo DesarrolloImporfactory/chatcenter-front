@@ -153,13 +153,122 @@ const STATUS_OPTIONS = [
   { id: "DEVOLUCION EN RUTA", name: "Devolución en ruta" },
 ];
 
+const StatusDropdown = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef(null);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return STATUS_OPTIONS;
+    const s = search.toLowerCase();
+    return STATUS_OPTIONS.filter(
+      (o) => o.name.toLowerCase().includes(s) || o.id.toLowerCase().includes(s),
+    );
+  }, [search]);
+
+  const selected = STATUS_OPTIONS.find((o) => o.id === value);
+
+  // cerrar al hacer click fuera
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="flex flex-col h-full" ref={ref}>
+      <label className="text-sm font-semibold text-gray-700">Estado</label>
+
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((o) => !o);
+          setSearch("");
+        }}
+        className="mt-1 w-full px-4 py-2 border rounded-xl bg-white text-left text-sm focus:outline-none focus:ring-2 focus:ring-[#171931] flex items-center justify-between gap-2"
+      >
+        <span className={value ? "text-gray-900" : "text-gray-400"}>
+          {selected?.name || "Todos"}
+        </span>
+        <svg
+          className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+
+      <div className="mt-1 text-xs opacity-0 select-none">.</div>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="relative z-50">
+          <div className="absolute top-0 left-0 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+            {/* Search */}
+            <div className="p-2 border-b border-gray-100">
+              <input
+                type="text"
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar estado..."
+                className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-[#171931] transition"
+              />
+            </div>
+
+            {/* Options */}
+            <div className="max-h-48 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <div className="px-4 py-3 text-xs text-gray-400 text-center">
+                  Sin resultados
+                </div>
+              ) : (
+                filtered.map((o, idx) => {
+                  const isActive = o.id === value;
+                  return (
+                    <button
+                      key={`${o.id}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        onChange(o.id);
+                        setOpen(false);
+                        setSearch("");
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm transition ${
+                        isActive
+                          ? "bg-[#171931] text-white"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {o.name}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const OrdenesDropi = () => {
   const [id_configuracion, setId_configuracion] = useState(null);
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  const [totalResults, setTotalResults] = useState(0);
+  // Paginación estilo Dropi: hasMore en vez de total
+  const [hasMore, setHasMore] = useState(false);
 
   // =========================
   // PAGINACIÓN (Dropi: start + result_number)
@@ -168,11 +277,6 @@ const OrdenesDropi = () => {
   const [resultNumber, setResultNumber] = useState(10);
 
   const start = useMemo(() => (page - 1) * resultNumber, [page, resultNumber]);
-
-  const totalPages = useMemo(() => {
-    const t = Number(totalResults) || 0;
-    return Math.max(1, Math.ceil(t / resultNumber));
-  }, [totalResults, resultNumber]);
 
   // =========================
   // FILTROS
@@ -202,6 +306,7 @@ const OrdenesDropi = () => {
 
   const fmtDateTime = (val) => {
     if (!val) return "";
+    // si ya viene formateado como "31/01/2026 - 02:28", lo dejamos
     if (typeof val === "string" && val.includes("/")) return val;
 
     const d = new Date(val);
@@ -223,6 +328,7 @@ const OrdenesDropi = () => {
     if (idc) setId_configuracion(parseInt(idc, 10));
   }, []);
 
+  // set default range (8 días) al cargar
   useEffect(() => {
     const { from, until } = getDefaultRange();
     setDateFrom(from);
@@ -258,10 +364,12 @@ const OrdenesDropi = () => {
       phone: o?.phone ?? "",
       email: o?.client_email ?? o?.email ?? "",
 
+      // ✅ VIENEN DEL BACKEND
       has_chat: !!o?.has_chat,
       tray: o?.tray ?? "",
       agent_assigned: o?.agent_assigned ?? "",
 
+      // ✅ para abrir chat por ID
       chat_id_cliente: o?.chat_id_cliente ?? null,
       id_cliente_chat_center: o?.id_cliente_chat_center ?? null,
 
@@ -284,6 +392,7 @@ const OrdenesDropi = () => {
   const query = useMemo(() => {
     if (!id_configuracion) return null;
 
+    // si toca fechas, que sean ambas
     if ((dateFrom && !dateUntil) || (!dateFrom && dateUntil)) {
       return { invalidDate: true };
     }
@@ -293,13 +402,16 @@ const OrdenesDropi = () => {
       result_number: resultNumber,
       start,
 
+      // fechas (solo si rango completo)
       filter_date_by:
         dateFrom && dateUntil ? String(filterDateBy || "").trim() : undefined,
       from: dateFrom && dateUntil ? dateFrom : undefined,
       until: dateFrom && dateUntil ? dateUntil : undefined,
 
+      // status
       status: String(status || "").trim() || undefined,
 
+      // texto libre (debounced)
       textToSearch: String(debouncedSearch || "").trim() || undefined,
     };
   }, [
@@ -329,15 +441,13 @@ const OrdenesDropi = () => {
         );
 
         const objects = res?.data?.data?.objects ?? [];
-        const total =
-          res?.data?.data?.total ?? res?.data?.data?.total_results ?? 0;
 
         const mapped = (Array.isArray(objects) ? objects : []).map(
           mapOrderToRow,
         );
 
         setOrders(mapped);
-        setTotalResults(Number(total) || 0);
+        setHasMore(Boolean(res?.data?.data?.hasMore));
       } catch (error) {
         const msg =
           error?.response?.data?.message ||
@@ -357,6 +467,7 @@ const OrdenesDropi = () => {
     [mapOrderToRow],
   );
 
+  // ✅ ÚNICO EFFECT QUE DISPARA LA PETICIÓN
   useEffect(() => {
     if (!query) return;
 
@@ -510,15 +621,9 @@ const OrdenesDropi = () => {
     return "bg-slate-50 text-slate-700 border border-slate-200";
   }, []);
 
-  // =========================
-  // Rango de resultados que se muestran
-  // =========================
-  const showingFrom = totalResults > 0 ? start + 1 : 0;
-  const showingTo = Math.min(start + resultNumber, totalResults);
-
   return (
     <div className="p-5">
-      {/* HEADER */}
+      {/* HEADER SIMPLE */}
       <div className="mb-6 rounded-2xl bg-[#171931] text-white p-6 shadow-lg">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
@@ -586,33 +691,21 @@ const OrdenesDropi = () => {
             <div className="mt-1 text-xs opacity-0 select-none">.</div>
           </div>
 
-          {/* Status — select nativo con scroll del navegador */}
-          <div className="flex flex-col h-full">
-            <label className="text-sm font-semibold text-gray-700">
-              Status
-            </label>
-            <select
-              className="mt-1 w-full px-4 py-2 border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#171931]"
-              value={status}
-              onChange={(e) => {
-                setPage(1);
-                setStatus(e.target.value);
-              }}
-            >
-              {STATUS_OPTIONS.map((s, idx) => (
-                <option key={`${s.id}-${idx}`} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <div className="mt-1 text-xs opacity-0 select-none">.</div>
-          </div>
+          {/* Status — dropdown con búsqueda */}
+          <StatusDropdown
+            value={status}
+            onChange={(val) => {
+              setPage(1);
+              setStatus(val);
+            }}
+          />
 
           {/* Botón Buscar */}
           <div className="flex flex-col h-full">
             <label className="text-sm font-semibold text-gray-700 opacity-0 select-none">
               Buscar
             </label>
+
             <button
               onClick={handleSearchClick}
               className="mt-1 bg-[#171931] text-white hover:opacity-95 transition px-4 py-2 rounded-xl text-sm font-semibold shadow w-full"
@@ -620,6 +713,7 @@ const OrdenesDropi = () => {
             >
               {ordersLoading ? "Cargando..." : "Buscar"}
             </button>
+
             <div className="mt-1 text-xs opacity-0 select-none">.</div>
           </div>
 
@@ -628,6 +722,7 @@ const OrdenesDropi = () => {
             <label className="text-sm font-semibold text-gray-700 opacity-0 select-none">
               Limpiar
             </label>
+
             <button
               onClick={handleClear}
               className="mt-1 bg-gray-200 text-gray-800 hover:bg-gray-300 transition px-4 py-2 rounded-xl text-sm font-semibold shadow w-full"
@@ -635,6 +730,7 @@ const OrdenesDropi = () => {
             >
               Limpiar
             </button>
+
             <div className="mt-1 text-xs opacity-0 select-none">.</div>
           </div>
         </div>
@@ -675,14 +771,18 @@ const OrdenesDropi = () => {
                   const fullName =
                     `${o?.name ?? ""} ${o?.surname ?? ""}`.trim() ||
                     "Sin nombre";
+
                   const email = o?.email ? o.email : "Sin email";
                   const phone = o?.phone
                     ? `Tel: ${o.phone}`
                     : "Tel: Sin teléfono";
+
                   const bandeja = o?.tray || "Sin conversación";
+
                   const agente = o?.agent_assigned
                     ? o.agent_assigned
                     : "Sin agente";
+
                   const producto = o?.product_name ?? "-";
                   const fecha = fmtDateTime(o?.created_at);
                   const estado = o?.status ?? "-";
@@ -742,43 +842,32 @@ const OrdenesDropi = () => {
         </div>
 
         {/* ══════════════════════════════════════════════
-            FOOTER: Mostrar X | info | ‹ Anterior  Página X  Siguiente ›
+            FOOTER: Mostrar [N] | ‹ Anterior  Página X  Siguiente ›
            ══════════════════════════════════════════════ */}
         <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm">
-          {/* Izquierda: Mostrar + info */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">Mostrar</span>
-              <select
-                className="px-3 py-1.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#171931]"
-                value={resultNumber}
-                onChange={(e) => {
-                  setPage(1);
-                  setResultNumber(Number(e.target.value));
-                }}
-                disabled={ordersLoading}
-              >
-                {RESULT_NUMBER_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {totalResults > 0 && (
-              <span className="text-gray-500">
-                {showingFrom}–{showingTo} de{" "}
-                <span className="font-semibold text-gray-800">
-                  {totalResults.toLocaleString()}
-                </span>{" "}
-                resultados
-              </span>
-            )}
+          {/* Izquierda: Mostrar */}
+          <div className="flex items-center gap-2">
+            <span className="text-gray-600">Mostrar</span>
+            <select
+              className="px-3 py-1.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#171931]"
+              value={resultNumber}
+              onChange={(e) => {
+                setPage(1);
+                setResultNumber(Number(e.target.value));
+              }}
+              disabled={ordersLoading}
+            >
+              {RESULT_NUMBER_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Derecha: Paginación estilo Dropi */}
           <div className="flex items-center gap-1">
+            {/* Anterior */}
             <button
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                 page <= 1 || ordersLoading
@@ -791,18 +880,20 @@ const OrdenesDropi = () => {
               ‹ Anterior
             </button>
 
+            {/* Página X */}
             <span className="px-3 py-1.5 rounded-lg bg-[#171931] text-white text-sm font-semibold min-w-[80px] text-center">
               Página {page}
             </span>
 
+            {/* Siguiente */}
             <button
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                page >= totalPages || ordersLoading
+                !hasMore || ordersLoading
                   ? "text-gray-300 cursor-not-allowed"
                   : "text-gray-700 hover:bg-gray-100"
               }`}
-              disabled={ordersLoading || page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={ordersLoading || !hasMore}
+              onClick={() => setPage((p) => p + 1)}
             >
               Siguiente ›
             </button>
