@@ -42,8 +42,8 @@ const Dropiboard = () => {
 
   // ─── Split date range into chunks (SIN SOLAPAMIENTO) ───
   const splitDateRange = useCallback((from, until, chunks) => {
-    const fromDate = new Date(from);
-    const untilDate = new Date(until);
+    const fromDate = new Date(from + "T00:00:00");
+    const untilDate = new Date(until + "T00:00:00");
     const totalDays = Math.max(
       1,
       Math.ceil((untilDate - fromDate) / (1000 * 60 * 60 * 24)),
@@ -220,8 +220,8 @@ const Dropiboard = () => {
 
       try {
         if (!syncingMsg && !silent) retryCountRef.current = 0;
-        const fromDate = new Date(dateRange.from);
-        const untilDate = new Date(dateRange.until);
+        const fromDate = new Date(dateRange.from + "T00:00:00");
+        const untilDate = new Date(dateRange.until + "T00:00:00");
         const totalDays = Math.max(
           1,
           Math.ceil((untilDate - fromDate) / (1000 * 60 * 60 * 24)),

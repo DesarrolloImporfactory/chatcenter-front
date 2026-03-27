@@ -133,8 +133,8 @@ export default function DropiFilters({
                 onChange={(e) => {
                   setActivePreset(-1);
                   const from = e.target.value;
-                  const fromDate = new Date(from);
-                  const untilDate = new Date(dateRange.until);
+                  const fromDate = new Date(from + "T00:00:00");
+                  const untilDate = new Date(dateRange.until + "T00:00:00");
                   const diffDays = Math.floor(
                     (untilDate - fromDate) / (1000 * 60 * 60 * 24),
                   );
@@ -157,8 +157,8 @@ export default function DropiFilters({
                 onChange={(e) => {
                   setActivePreset(-1);
                   const until = e.target.value;
-                  const fromDate = new Date(dateRange.from);
-                  const untilDate = new Date(until);
+                  const fromDate = new Date(dateRange.from + "T00:00:00");
+                  const untilDate = new Date(until + "T00:00:00");
                   const diffDays = Math.floor(
                     (untilDate - fromDate) / (1000 * 60 * 60 * 24),
                   );
