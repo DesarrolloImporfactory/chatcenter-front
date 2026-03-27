@@ -121,6 +121,42 @@ const KanbanConfig = () => {
   });
   const [guardandoNueva, setGuardandoNueva] = useState(false);
 
+  // ── Plantillas globales (solo super_admin) ────────────────
+  const esSuperAdmin = localStorage.getItem("user_role") === "super_admin";
+  const [showGuardarGlobal, setShowGuardarGlobal] = useState(false);
+  const [nombreGlobal, setNombreGlobal] = useState("");
+  const [descGlobal, setDescGlobal] = useState("");
+  const [iconoGlobal, setIconoGlobal] = useState("bx bx-layout");
+  const [colorGlobal, setColorGlobal] = useState("#6366f1");
+  const [guardandoGlobal, setGuardandoGlobal] = useState(false);
+
+  const handleGuardarGlobal = async () => {
+    if (!nombreGlobal.trim()) {
+      Toast.fire({ icon: "warning", title: "Ingresa un nombre" });
+      return;
+    }
+    setGuardandoGlobal(true);
+    try {
+      const { data } = await chatApi.post("/kanban_plantillas/guardar_global", {
+        id_configuracion,
+        nombre: nombreGlobal.trim(),
+        descripcion: descGlobal.trim() || null,
+        icono: iconoGlobal,
+        color: colorGlobal,
+      });
+      if (data?.success) {
+        Toast.fire({ icon: "success", title: "Plantilla global guardada ✓" });
+        setShowGuardarGlobal(false);
+        setNombreGlobal("");
+        setDescGlobal("");
+      }
+    } catch {
+      Toast.fire({ icon: "error", title: "Error al guardar" });
+    } finally {
+      setGuardandoGlobal(false);
+    }
+  };
+
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -591,6 +627,36 @@ const KanbanConfig = () => {
           {/* boton de configurar dropi */}
           <DropisPlantillas id_configuracion={id_configuracion} />
           {/* boton de configurar dropi */}
+          {/* boton guardar global — solo super_admin */}
+          {esSuperAdmin && (
+            <button
+              onClick={() => setShowGuardarGlobal(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "8px 14px",
+                borderRadius: 12,
+                border: "1.5px solid rgba(234,179,8,.4)",
+                background: "rgba(234,179,8,.08)",
+                color: "#ca8a04",
+                fontSize: ".82rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "all .15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(234,179,8,.15)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(234,179,8,.08)";
+              }}
+            >
+              <i className="bx bx-globe" style={{ fontSize: 15 }} />
+              Guardar global
+            </button>
+          )}
           {/* boton de nueva columna */}
           <button onClick={() => setShowModalNueva(true)} style={btnPrimario}>
             <i className="bx bx-plus" style={{ fontSize: "1.1rem" }} />
@@ -1396,6 +1462,240 @@ const KanbanConfig = () => {
           </div>
         )}
       </div>
+
+      {/* Modal guardar plantilla global */}
+      {showGuardarGlobal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(10,10,20,.55)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 16,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowGuardarGlobal(false);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 18,
+              width: "100%",
+              maxWidth: 440,
+              boxShadow: "0 32px 80px rgba(0,0,0,.22)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <div style={{ background: "rgb(23,25,49)", padding: "18px 22px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      background: "rgba(234,179,8,.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <i
+                      className="bx bx-globe"
+                      style={{ fontSize: 18, color: "#fbbf24" }}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: ".65rem",
+                        color: "rgba(255,255,255,.4)",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: ".07em",
+                      }}
+                    >
+                      Superadmin
+                    </div>
+                    <h2
+                      style={{
+                        margin: 0,
+                        fontSize: ".95rem",
+                        fontWeight: 700,
+                        color: "#fff",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      Guardar plantilla global
+                    </h2>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowGuardarGlobal(false)}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,.15)",
+                    background: "rgba(255,255,255,.08)",
+                    color: "rgba(255,255,255,.7)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <i className="bx bx-x" style={{ fontSize: 16 }} />
+                </button>
+              </div>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: ".74rem",
+                  color: "rgba(255,255,255,.45)",
+                }}
+              >
+                Visible para todos los usuarios en "Plantillas Kanban".
+              </p>
+            </div>
+            {/* Body */}
+            <div
+              style={{
+                padding: "20px 22px 24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              <div>
+                <label style={lbl}>Nombre *</label>
+                <input
+                  style={inp}
+                  placeholder="Ej: Ventas COD Ecuador"
+                  value={nombreGlobal}
+                  onChange={(e) => setNombreGlobal(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label style={lbl}>
+                  Descripción{" "}
+                  <span style={{ fontWeight: 400, color: "#94a3b8" }}>
+                    (opcional)
+                  </span>
+                </label>
+                <textarea
+                  style={{ ...inp, resize: "none" }}
+                  rows={2}
+                  placeholder="Flujo para..."
+                  value={descGlobal}
+                  onChange={(e) => setDescGlobal(e.target.value)}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>Icono</label>
+                  <select
+                    style={inp}
+                    value={iconoGlobal}
+                    onChange={(e) => setIconoGlobal(e.target.value)}
+                  >
+                    <option value="bx bx-layout">Layout</option>
+                    <option value="bx bx-store">Tienda</option>
+                    <option value="bx bx-cart">Carrito</option>
+                    <option value="bx bx-bot">Bot</option>
+                    <option value="bx bx-calendar">Calendario</option>
+                    <option value="bx bx-star">Estrella</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>Color</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      marginTop: 6,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {[
+                      "#6366f1",
+                      "#10b981",
+                      "#f59e0b",
+                      "#ef4444",
+                      "#3b82f6",
+                      "#8b5cf6",
+                    ].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setColorGlobal(c)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          background: c,
+                          border:
+                            colorGlobal === c
+                              ? "3px solid #0f172a"
+                              : "2px solid transparent",
+                          cursor: "pointer",
+                          transition: "all .12s",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  marginTop: 6,
+                }}
+              >
+                <button
+                  onClick={() => setShowGuardarGlobal(false)}
+                  style={btnSecundario}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleGuardarGlobal}
+                  disabled={guardandoGlobal}
+                  style={{
+                    ...btnPrimario,
+                    background: "rgb(23,25,49)",
+                    boxShadow: "none",
+                  }}
+                >
+                  {guardandoGlobal ? (
+                    <>
+                      <i className="bx bx-loader-alt bx-spin" /> Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bx bx-globe" /> Guardar global
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal nueva columna */}
       {showModalNueva && (
