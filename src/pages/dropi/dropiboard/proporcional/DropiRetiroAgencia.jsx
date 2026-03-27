@@ -8,8 +8,20 @@ export default function DropiRetiroAgencia({ orders }) {
   return (
     <div className="mb-6 rounded-2xl border-2 border-orange-200 bg-gradient-to-r from-orange-50/80 to-white p-5 shadow-sm">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center text-lg">
-          📦
+        <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center">
+          <svg
+            className="w-5 h-5 text-orange-600"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line x1="12" y1="22.08" x2="12" y2="12" />
+          </svg>
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-bold text-orange-700">
@@ -22,7 +34,19 @@ export default function DropiRetiroAgencia({ orders }) {
         <div className="flex items-center gap-2">
           {urgentCount > 0 && (
             <span className="inline-flex items-center gap-1 bg-red-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full animate-pulse">
-              ⚠ {urgentCount} urgente{urgentCount > 1 ? "s" : ""}
+              <svg
+                className="w-3 h-3"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              {urgentCount} urgente{urgentCount > 1 ? "s" : ""}
             </span>
           )}
           <span className="bg-orange-500 text-white text-xs font-extrabold px-3 py-1 rounded-full">
