@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback, useRef } from "react";
 import { resolveProductImage, NO_IMAGE } from "../../utils/orderHelper";
 
 export default function CreateOrderPanel(props) {
@@ -11,6 +11,8 @@ export default function CreateOrderPanel(props) {
     setSurname,
     dir,
     setDir,
+    notes,
+    setNotes,
     rateType,
     setRateType,
     states,
@@ -43,6 +45,32 @@ export default function CreateOrderPanel(props) {
     onSubmit,
   } = props;
 
+  // ── Protección anti-doble-submit ──
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
+
+  const handleSafeSubmit = useCallback(() => {
+    if (submitLockRef.current) return;
+    if (isSubmitting) return;
+    if (!canSubmit) return;
+
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      onSubmit();
+    } catch (_) {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
+
+    // Safety net: desbloquear después de 4s
+    setTimeout(() => {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }, 4000);
+  }, [canSubmit, isSubmitting, onSubmit]);
+
   const topProducts = useMemo(() => (prodList || []).slice(0, 5), [prodList]);
 
   const getImageOrFallback = (p) => resolveProductImage(p) || NO_IMAGE;
@@ -56,6 +84,7 @@ export default function CreateOrderPanel(props) {
     "text-[9px] uppercase tracking-wider text-white/35 block mb-1";
   const sectionCls =
     "rounded-[10px] bg-[#0f1629] border border-white/[0.07] overflow-hidden";
+  const requiredMark = <span className="text-rose-400 ml-0.5">*</span>;
 
   // ── ¿Ya se consultaron transportadoras al menos una vez? ──
   const hasQuoted =
@@ -95,7 +124,7 @@ export default function CreateOrderPanel(props) {
 
         <div className="grid grid-cols-2 gap-1.5 px-3.5 pb-1.5">
           <div>
-            <label className={labelCls}>Nombre</label>
+            <label className={labelCls}>Nombre{requiredMark}</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -104,7 +133,7 @@ export default function CreateOrderPanel(props) {
             />
           </div>
           <div>
-            <label className={labelCls}>Apellido</label>
+            <label className={labelCls}>Apellido{requiredMark}</label>
             <input
               value={surname}
               onChange={(e) => setSurname(e.target.value)}
@@ -115,7 +144,7 @@ export default function CreateOrderPanel(props) {
         </div>
 
         <div className="px-3.5 pb-1.5">
-          <label className={labelCls}>Teléfono</label>
+          <label className={labelCls}>Teléfono{requiredMark}</label>
           <input
             value={phoneInput}
             onChange={(e) => setPhoneInput(e.target.value)}
@@ -124,13 +153,26 @@ export default function CreateOrderPanel(props) {
           />
         </div>
 
-        <div className="px-3.5 pb-3">
-          <label className={labelCls}>Dirección de entrega</label>
+        <div className="px-3.5 pb-1.5">
+          <label className={labelCls}>Dirección de entrega{requiredMark}</label>
           <input
             value={dir}
             onChange={(e) => setDir(e.target.value)}
             className={inputCls}
             placeholder="Calle, referencia, sector..."
+          />
+        </div>
+
+        <div className="px-3.5 pb-3">
+          <label className={labelCls}>
+            Notas para la orden{" "}
+            <span className="text-white/15 normal-case">(opcional)</span>
+          </label>
+          <input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className={inputCls}
+            placeholder="Nota para el rótulo de la orden..."
           />
         </div>
       </div>
@@ -157,12 +199,12 @@ export default function CreateOrderPanel(props) {
               </select>
             </div>
             <div>
-              <label className={labelCls}>Provincia</label>
+              <label className={labelCls}>Provincia{requiredMark}</label>
               <select
                 value={selectedDepartmentId || ""}
                 onChange={handleSelectDepartment}
                 disabled={statesLoading}
-                className={selectCls}
+                className={`${selectCls} ${!selectedDepartmentId ? "border-amber-400/30" : ""}`}
               >
                 <option value="">
                   {statesLoading ? "Cargando..." : "Seleccione"}
@@ -180,13 +222,13 @@ export default function CreateOrderPanel(props) {
           </div>
 
           <div>
-            <label className={labelCls}>Ciudad</label>
+            <label className={labelCls}>Ciudad{requiredMark}</label>
             {selectedDepartmentId ? (
               <select
                 value={selectedCityId || ""}
                 onChange={handleSelectCity}
                 disabled={citiesLoading}
-                className={selectCls}
+                className={`${selectCls} ${!selectedCityId ? "border-amber-400/30" : ""}`}
               >
                 <option value="">
                   {citiesLoading ? "Cargando..." : "Seleccione"}
@@ -198,11 +240,13 @@ export default function CreateOrderPanel(props) {
                 ))}
               </select>
             ) : (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-[7px] bg-white/[0.02] border border-dashed border-white/[0.08]">
-                <i className="bx bx-lock-alt text-white/15 text-sm" />
-                <span className="text-[10px] text-white/25">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-[7px] bg-white/[0.02] border border-dashed border-amber-400/20">
+                <i className="bx bx-lock-alt text-amber-400/40 text-sm" />
+                <span className="text-[10px] text-amber-300/40">
                   Selecciona una{" "}
-                  <span className="text-white/45 font-semibold">provincia</span>{" "}
+                  <span className="text-amber-300/70 font-semibold">
+                    provincia
+                  </span>{" "}
                   primero
                 </span>
               </div>
@@ -215,7 +259,7 @@ export default function CreateOrderPanel(props) {
       <div className={sectionCls}>
         <div className="flex items-center justify-between px-3.5 pt-2.5 pb-2">
           <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">
-            Buscar productos
+            Buscar productos{requiredMark}
           </span>
           <button
             type="button"
@@ -229,7 +273,6 @@ export default function CreateOrderPanel(props) {
           </button>
         </div>
 
-        {/* Buscador */}
         <div className="flex gap-1.5 px-3.5 pb-2.5">
           <input
             value={keywords}
@@ -255,7 +298,6 @@ export default function CreateOrderPanel(props) {
           </div>
         )}
 
-        {/* Resultados */}
         <div className="px-3.5 pb-3">
           {prodLoading ? (
             <p className="text-[10px] text-white/35 py-2">
@@ -332,9 +374,16 @@ export default function CreateOrderPanel(props) {
 
         <div className="px-3.5 pb-3">
           {productsCart.length === 0 ? (
-            <p className="text-[10px] text-white/25 py-1">
-              Aún no agregas productos al carrito.
-            </p>
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-[7px] bg-amber-500/[0.04] border border-dashed border-amber-400/15">
+              <i className="bx bx-cart text-amber-400/40 text-sm" />
+              <span className="text-[10px] text-amber-300/45">
+                Agrega al menos{" "}
+                <span className="text-amber-300/70 font-semibold">
+                  1 producto
+                </span>{" "}
+                para continuar
+              </span>
+            </div>
           ) : (
             <div className="space-y-1.5">
               {productsCart.map((it) => (
@@ -342,7 +391,6 @@ export default function CreateOrderPanel(props) {
                   key={it.id}
                   className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-2.5"
                 >
-                  {/* Producto info + quitar */}
                   <div className="flex items-center gap-2.5">
                     <img
                       src={getImageOrFallback(it?.__raw || it)}
@@ -372,7 +420,6 @@ export default function CreateOrderPanel(props) {
                     </button>
                   </div>
 
-                  {/* Cantidad + Precio */}
                   <div className="mt-2 pt-2 border-t border-white/[0.05] grid grid-cols-2 gap-1.5">
                     <div>
                       <label className={labelCls}>Cantidad</label>
@@ -410,11 +457,50 @@ export default function CreateOrderPanel(props) {
         </div>
       </div>
 
+      {/* ═══ Checklist visual pre-cotización ═══ */}
+      <div className={sectionCls}>
+        <div className="px-3.5 py-2.5">
+          <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold block mb-2">
+            Requisitos para cotizar envío
+          </span>
+          <div className="space-y-1">
+            <CheckItem
+              done={Boolean(name?.trim())}
+              label="Nombre del cliente"
+            />
+            <CheckItem
+              done={Boolean(surname?.trim())}
+              label="Apellido del cliente"
+            />
+            <CheckItem
+              done={Boolean(phoneInput?.replace(/\D/g, ""))}
+              label="Teléfono"
+            />
+            <CheckItem
+              done={Boolean(dir?.trim())}
+              label="Dirección de entrega"
+            />
+            <CheckItem
+              done={Boolean(selectedDepartmentId)}
+              label="Provincia seleccionada"
+            />
+            <CheckItem
+              done={Boolean(selectedCityId)}
+              label="Ciudad seleccionada"
+            />
+            <CheckItem
+              done={productsCart.length > 0}
+              label="Al menos 1 producto en carrito"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* ═══ Transportadora ═══ */}
       <div className={sectionCls}>
         <div className="flex items-center justify-between px-3.5 pt-2.5 pb-2">
           <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">
-            Transportadora
+            Transportadora{requiredMark}
           </span>
           {canShowShipping && hasQuoted && (
             <button
@@ -432,21 +518,23 @@ export default function CreateOrderPanel(props) {
         </div>
 
         <div className="px-3.5 pb-3">
-          {/* Bloqueado: falta ciudad o producto */}
           {!canShowShipping && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-[7px] bg-white/[0.02] border border-dashed border-white/[0.08]">
-              <i className="bx bx-lock-alt text-white/15 text-sm shrink-0" />
-              <span className="text-[10px] text-white/25">
-                Selecciona{" "}
-                <span className="text-white/45 font-semibold">ciudad</span> y
-                agrega al menos{" "}
-                <span className="text-white/45 font-semibold">1 producto</span>{" "}
-                al carrito
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-[7px] bg-amber-500/[0.04] border border-dashed border-amber-400/20">
+              <i className="bx bx-error-circle text-amber-400/50 text-sm shrink-0" />
+              <span className="text-[10px] text-amber-300/50">
+                Revisa el checklist de arriba. Necesitas{" "}
+                <span className="text-amber-300/80 font-semibold">
+                  provincia, ciudad
+                </span>{" "}
+                y al menos{" "}
+                <span className="text-amber-300/80 font-semibold">
+                  1 producto
+                </span>{" "}
+                para consultar transportadoras.
               </span>
             </div>
           )}
 
-          {/* Botón: Consultar transportadoras (si aún no se ha cotizado) */}
           {canShowShipping && !hasQuoted && (
             <button
               type="button"
@@ -459,7 +547,6 @@ export default function CreateOrderPanel(props) {
             </button>
           )}
 
-          {/* Skeleton loading */}
           {canShowShipping && shippingQuotesLoading && (
             <div className="grid grid-cols-2 gap-1.5">
               {[0, 1, 2, 3].map((i) => (
@@ -479,14 +566,12 @@ export default function CreateOrderPanel(props) {
             </div>
           )}
 
-          {/* Error */}
           {canShowShipping && shippingQuotesError && !shippingQuotesLoading && (
             <div className="text-[10px] text-rose-300 bg-rose-500/10 border border-rose-400/15 rounded-md p-2">
               {shippingQuotesError}
             </div>
           )}
 
-          {/* Resultados de cotización */}
           {canShowShipping &&
             !shippingQuotesLoading &&
             !shippingQuotesError &&
@@ -603,6 +688,14 @@ export default function CreateOrderPanel(props) {
                     <span>Envío{carrierName ? ` (${carrierName})` : ""}</span>
                     <span>${ship.toFixed(2)}</span>
                   </div>
+                  {notes?.trim() && (
+                    <div className="flex justify-between text-[10px] text-white/35 pt-1">
+                      <span>Nota</span>
+                      <span className="text-right max-w-[60%] truncate">
+                        {notes.trim()}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
                     <span>Total</span>
                     <span>${total.toFixed(2)}</span>
@@ -618,23 +711,52 @@ export default function CreateOrderPanel(props) {
       <div className="pt-0.5">
         <button
           type="button"
-          onClick={onSubmit}
-          disabled={!canSubmit}
+          onClick={handleSafeSubmit}
+          disabled={!canSubmit || isSubmitting}
           className={`w-full px-3.5 py-3 rounded-[10px] text-[12px] font-semibold flex items-center justify-center gap-2 border transition-colors ${
-            canSubmit
+            canSubmit && !isSubmitting
               ? "bg-emerald-500/[0.12] hover:bg-emerald-500/[0.22] border-emerald-400/[0.22] text-emerald-300"
               : "bg-white/[0.02] border-white/[0.05] text-white/[0.18] cursor-not-allowed"
           }`}
         >
-          <i className="bx bx-check-circle text-sm" />
-          Crear orden
+          {isSubmitting ? (
+            <>
+              <i className="bx bx-loader-alt bx-spin text-sm" />
+              Creando orden…
+            </>
+          ) : (
+            <>
+              <i className="bx bx-check-circle text-sm" />
+              Crear orden
+            </>
+          )}
         </button>
-        {!canSubmit && (
+        {!canSubmit && !isSubmitting && (
           <p className="text-[9px] text-white/20 text-center mt-1.5">
-            Complete todos los campos y seleccione una transportadora
+            Complete todos los campos obligatorios y seleccione una
+            transportadora
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function CheckItem({ done, label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <i
+        className={`bx ${
+          done ? "bx-check-circle text-emerald-400" : "bx-circle text-white/20"
+        } text-sm`}
+      />
+      <span
+        className={`text-[10px] ${
+          done ? "text-emerald-300/80" : "text-white/30"
+        }`}
+      >
+        {label}
+      </span>
     </div>
   );
 }

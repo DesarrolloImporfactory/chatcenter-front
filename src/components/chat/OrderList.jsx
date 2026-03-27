@@ -13,6 +13,8 @@ import {
   getTransportadora,
   getShippingAmount,
   getTotal,
+  hasGuide,
+  getGuideUrl,
   NO_IMAGE,
 } from "../../utils/orderHelper";
 
@@ -26,7 +28,7 @@ export default function OrderList({ orders, onOpenOrder }) {
           key={String(showOrderId(o)) + "_" + idx}
           className="group rounded-[10px] bg-[#0f1629] border border-white/[0.08] overflow-hidden transition-all hover:border-blue-400/25"
         >
-          {/* Header: ID + Badge */}
+          {/* Header: ID + Guía + Badge */}
           <div className="flex items-start justify-between gap-2 px-3.5 pt-3 pb-0">
             <div className="min-w-0">
               <p className="text-[13px] font-bold text-white tracking-tight">
@@ -36,13 +38,28 @@ export default function OrderList({ orders, onOpenOrder }) {
                 {fmtDate(showOrderDate(o))} · {getCityState(o)}
               </p>
             </div>
-            <span
-              className={`text-[9px] px-2 py-1 rounded font-bold tracking-wide uppercase shrink-0 ${statusStyle(
-                showOrderStatus(o),
-              )}`}
-            >
-              {showOrderStatus(o)}
-            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Icono descarga guía */}
+              {hasGuide(o) && (
+                <a
+                  href={getGuideUrl(o)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-400/15 text-blue-300 transition-colors"
+                  title="Descargar guía PDF"
+                >
+                  <i className="bx bx-download text-sm" />
+                </a>
+              )}
+              <span
+                className={`text-[9px] px-2 py-1 rounded font-bold tracking-wide uppercase ${statusStyle(
+                  showOrderStatus(o),
+                )}`}
+              >
+                {showOrderStatus(o)}
+              </span>
+            </div>
           </div>
 
           {/* Producto */}

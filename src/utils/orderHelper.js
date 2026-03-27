@@ -186,3 +186,14 @@ export const pickWarehouseCityId = (rawProduct) => {
   if (fromVar) return Number(fromVar);
   return null;
 };
+
+export const getGuideUrl = (o) => {
+  const path = o?.guia_urls3 || null;
+  if (!path) return null;
+  if (/^https?:\/\//i.test(String(path))) return String(path);
+  return `${CLOUDFRONT}/${String(path).replace(/^\/+/, "")}`;
+};
+
+export const hasGuide = (o) => !!o?.guia_urls3;
+
+export const getGuideNumber = (o) => o?.shipping_guide || o?.sticker || null;

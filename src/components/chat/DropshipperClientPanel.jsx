@@ -307,6 +307,8 @@ export default function DropshipperClientPanel(props) {
                         setSurname={createHook.setSurname}
                         dir={createHook.dir}
                         setDir={createHook.setDir}
+                        notes={createHook.notes}
+                        setNotes={createHook.setNotes}
                         rateType={createHook.rateType}
                         setRateType={createHook.setRateType}
                         states={createHook.states}
@@ -382,6 +384,8 @@ export default function DropshipperClientPanel(props) {
                           setSurname={createHook.setSurname}
                           dir={createHook.dir}
                           setDir={createHook.setDir}
+                          notes={createHook.notes}
+                          setNotes={createHook.setNotes}
                           rateType={createHook.rateType}
                           setRateType={createHook.setRateType}
                           states={createHook.states}

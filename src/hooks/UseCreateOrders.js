@@ -38,6 +38,7 @@ export default function useCreateOrder({
   const [name, setName] = useState(selectedChat?.nombre_cliente || "");
   const [surname, setSurname] = useState(selectedChat?.apellido_cliente || "");
   const [dir, setDir] = useState("");
+  const [notes, setNotes] = useState("");
 
   // sync phone del chat
   useEffect(() => setPhoneInput(phone || ""), [phone]);
@@ -105,6 +106,7 @@ export default function useCreateOrder({
     setShippingQuotesLoading(false);
     setSelectedShipping(null);
     setDir("");
+    setNotes("");
   }, []);
 
   // ── emitters ──
@@ -200,6 +202,7 @@ export default function useCreateOrder({
     productsCart,
     cities,
   ]);
+
   // ── handlers de selección ──
   const handleSelectDepartment = (e) => {
     const depId = Number(e.target.value) || null;
@@ -368,7 +371,7 @@ export default function useCreateOrder({
       total_order,
       shipping_amount,
       payment_method_id: 1,
-      notes: "",
+      notes: String(notes || "").trim(),
       name: String(name || "").trim(),
       surname: String(surname || "").trim(),
       phone: cleanPhone,
@@ -394,23 +397,12 @@ export default function useCreateOrder({
     rateType,
     name,
     surname,
+    notes,
     selectedDepartmentName,
     selectedCityName,
     dir,
     selectedShipping,
   ]);
-
-  // ── auto-cotizar cuando hay destino + remitente ──
-  // useEffect(() => {
-  //   if (!createOrderOpen || !selectedCityCodDane || !remitCodDane) return;
-  //   emitCotizaTransportadoras();
-  // }, [
-  //   createOrderOpen,
-  //   selectedCityCodDane,
-  //   remitCodDane,
-  //   rateType,
-  //   emitCotizaTransportadoras,
-  // ]);
 
   // ── recargar cities si cambia rateType ──
   useEffect(() => {
@@ -620,6 +612,8 @@ export default function useCreateOrder({
     setSurname,
     dir,
     setDir,
+    notes,
+    setNotes,
 
     // productos
     prodLoading,
