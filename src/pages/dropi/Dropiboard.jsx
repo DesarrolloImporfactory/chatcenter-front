@@ -1,4 +1,10 @@
-import React, { useState, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
 import chatApi from "../../api/chatcenter";
 
 import DropiFilters from "./dropiboard/formatters/DropiFilters";
@@ -7,6 +13,7 @@ import DropiKpiCards from "./dropiboard/proporcional/DropiKpiCards";
 import DropiCharts from "./dropiboard/proporcional/DropiCharts";
 import DropiProductsTable from "./dropiboard/proporcional/DropiProductsTable";
 import DropiRetiroAgencia from "./dropiboard/proporcional/DropiRetiroAgencia";
+import DropiProfitBar from "./dropiboard/proporcional/DropiProfitBar";
 import {
   STATUS_CATEGORIES,
   DISPLAY_ORDER,
@@ -23,6 +30,7 @@ const Dropiboard = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [syncingMsg, setSyncingMsg] = useState("");
   const retryCountRef = useRef(0);
+  const profitTimerRef = useRef(null);
 
   const [selectedIntegration, setSelectedIntegration] = useState(null);
   const [dateRange, setDateRange] = useState(() => {
@@ -32,7 +40,7 @@ const Dropiboard = () => {
     return { from: toYMD(from), until: toYMD(today) };
   });
 
-  // ─── Split date range into chunks ───
+  // ─── Split date range into chunks (SIN SOLAPAMIENTO) ───
   const splitDateRange = useCallback((from, until, chunks) => {
     const fromDate = new Date(from);
     const untilDate = new Date(until);
@@ -46,10 +54,11 @@ const Dropiboard = () => {
     for (let i = 0; i < chunks; i++) {
       const chunkFrom = new Date(fromDate);
       chunkFrom.setDate(chunkFrom.getDate() + i * daysPerChunk);
+      if (i > 0) chunkFrom.setDate(chunkFrom.getDate() + 1);
+
       const chunkUntil = new Date(fromDate);
       chunkUntil.setDate(chunkUntil.getDate() + (i + 1) * daysPerChunk);
       if (chunkUntil > untilDate) chunkUntil.setTime(untilDate.getTime());
-      // FIX: usar > en vez de >= para que "Hoy" (from===until) funcione
       if (chunkFrom > untilDate) break;
       ranges.push({ from: toYMD(chunkFrom), until: toYMD(chunkUntil) });
     }
@@ -73,6 +82,19 @@ const Dropiboard = () => {
     const dailyMap = {};
     const productMap = {};
     const allRetiro = [];
+
+    const mergedProfit = {
+      profitEntregadas: 0,
+      profitPotencialTotal: 0,
+      profitCalculated: 0,
+      profitPending: 0,
+      totalOrders: 0,
+      entregadas: 0,
+      entregables: 0,
+      avgProfitPerOrder: 0,
+      isComplete: true,
+      pctCalculated: 100,
+    };
 
     for (const r of results) {
       if (!r) continue;
@@ -114,6 +136,17 @@ const Dropiboard = () => {
         productMap[p.name].ingreso += p.ingreso || 0;
       }
       allRetiro.push(...(r.retiroAgencia || []));
+
+      if (r.profitData) {
+        mergedProfit.profitEntregadas += r.profitData.profitEntregadas || 0;
+        mergedProfit.profitPotencialTotal +=
+          r.profitData.profitPotencialTotal || 0;
+        mergedProfit.profitCalculated += r.profitData.profitCalculated || 0;
+        mergedProfit.profitPending += r.profitData.profitPending || 0;
+        mergedProfit.entregadas += r.profitData.entregadas || 0;
+        mergedProfit.entregables += r.profitData.entregables || 0;
+        if (!r.profitData.isComplete) mergedProfit.isComplete = false;
+      }
     }
 
     merged.dailyChart = Object.values(dailyMap).sort((a, b) =>
@@ -145,6 +178,22 @@ const Dropiboard = () => {
           : 0,
       retiroAgencia: merged.statusStats.retiro_agencia?.count || 0,
     };
+
+    mergedProfit.totalOrders = merged.totalOrders;
+    mergedProfit.avgProfitPerOrder =
+      mergedProfit.profitCalculated > 0
+        ? Math.round(
+            (mergedProfit.profitPotencialTotal /
+              mergedProfit.profitCalculated) *
+              100,
+          ) / 100
+        : 0;
+    mergedProfit.pctCalculated =
+      merged.totalOrders > 0
+        ? Math.round((mergedProfit.profitCalculated / merged.totalOrders) * 100)
+        : 0;
+    merged.profitData = mergedProfit;
+
     if (merged.isPartial)
       merged.partialMessage =
         "Se analizaron las primeras órdenes de cada período. Para datos completos, seleccione un rango más corto.";
@@ -152,90 +201,142 @@ const Dropiboard = () => {
   }, []);
 
   // ─── Fetch dashboard ───
-  const fetchDashboard = useCallback(async () => {
-    if (!selectedIntegration) return;
-    const cfgId =
-      selectedIntegration.id_configuracion ||
-      parseInt(localStorage.getItem("id_configuracion"), 10);
-    if (!cfgId) {
-      setErrorMsg("No se encontró id_configuracion.");
-      return;
-    }
+  const fetchDashboard = useCallback(
+    async (silent = false) => {
+      if (!selectedIntegration) return;
+      const cfgId =
+        selectedIntegration.id_configuracion ||
+        parseInt(localStorage.getItem("id_configuracion"), 10);
+      if (!cfgId) {
+        setErrorMsg("No se encontró id_configuracion.");
+        return;
+      }
 
-    setLoading(true);
-    setHasFetched(true);
-    setErrorMsg("");
+      if (!silent) {
+        setLoading(true);
+        setHasFetched(true);
+        setErrorMsg("");
+      }
 
-    try {
-      if (!syncingMsg) retryCountRef.current = 0;
-      const fromDate = new Date(dateRange.from);
-      const untilDate = new Date(dateRange.until);
-      const totalDays = Math.max(
-        1,
-        Math.ceil((untilDate - fromDate) / (1000 * 60 * 60 * 24)),
-      );
-      const numChunks =
-        totalDays <= 5 ? 1 : totalDays <= 10 ? 2 : totalDays <= 20 ? 3 : 4;
-      const ranges = splitDateRange(dateRange.from, dateRange.until, numChunks);
+      try {
+        if (!syncingMsg && !silent) retryCountRef.current = 0;
+        const fromDate = new Date(dateRange.from);
+        const untilDate = new Date(dateRange.until);
+        const totalDays = Math.max(
+          1,
+          Math.ceil((untilDate - fromDate) / (1000 * 60 * 60 * 24)),
+        );
+        const numChunks =
+          totalDays <= 5 ? 1 : totalDays <= 10 ? 2 : totalDays <= 20 ? 3 : 4;
+        const ranges = splitDateRange(
+          dateRange.from,
+          dateRange.until,
+          numChunks,
+        );
 
-      const promises = ranges.map((range) =>
-        chatApi
-          .post(
-            "dropi_integrations/dashboard/stats",
-            { id_configuracion: cfgId, from: range.from, until: range.until },
-            { timeout: 60000 },
-          )
-          .then((res) => res?.data?.data || null)
-          .catch((err) => {
-            console.error(
-              `[dropiboard] Chunk ${range.from}→${range.until} failed:`,
-              err?.message,
+        const promises = ranges.map((range) =>
+          chatApi
+            .post(
+              "dropi_integrations/dashboard/stats",
+              {
+                id_configuracion: cfgId,
+                from: range.from,
+                until: range.until,
+              },
+              { timeout: 60000 },
+            )
+            .then((res) => res?.data?.data || null)
+            .catch((err) => {
+              console.error(
+                `[dropiboard] Chunk ${range.from}→${range.until} failed:`,
+                err?.message,
+              );
+              return null;
+            }),
+        );
+
+        const results = await Promise.all(promises);
+        const validResults = results.filter(Boolean);
+
+        if (validResults.length === 0) {
+          if (!silent) {
+            setErrorMsg(
+              "No se pudieron obtener datos de Dropi. Intente de nuevo.",
             );
-            return null;
-          }),
-      );
-
-      const results = await Promise.all(promises);
-      const validResults = results.filter(Boolean);
-
-      if (validResults.length === 0) {
-        setErrorMsg("No se pudieron obtener datos de Dropi. Intente de nuevo.");
-        setStats(null);
-        setSyncingMsg("");
-      } else {
-        const merged = mergeStats(validResults);
-        const anySyncing = validResults.some((r) => r?.syncing === true);
-        if (anySyncing && merged.totalOrders === 0) {
-          retryCountRef.current += 1;
-          if (retryCountRef.current >= 6) {
-            setSyncingMsg("");
             setStats(null);
+            setSyncingMsg("");
+          }
+        } else {
+          const merged = mergeStats(validResults);
+          const anySyncing = validResults.some((r) => r?.syncing === true);
+          if (anySyncing && merged.totalOrders === 0) {
+            retryCountRef.current += 1;
+            if (retryCountRef.current >= 6) {
+              setSyncingMsg("");
+              setStats(null);
+              if (!silent) setLoading(false);
+              return;
+            }
+            if (!silent) {
+              setErrorMsg("");
+              setStats(null);
+              setSyncingMsg("Sincronizando órdenes por primera vez...");
+            }
+            setTimeout(() => {
+              setSyncingMsg("");
+              fetchDashboard();
+            }, 5000);
+            if (!silent) setLoading(false);
             return;
           }
-          setErrorMsg("");
+          setSyncingMsg("");
+          setStats(merged);
+          if (!silent && validResults.length < ranges.length) {
+            setErrorMsg(
+              `${ranges.length - validResults.length} de ${ranges.length} consultas fallaron. Los datos pueden estar incompletos.`,
+            );
+          }
+        }
+      } catch (err) {
+        if (!silent) {
+          setErrorMsg(err?.message || "Error al consultar datos");
           setStats(null);
-          setSyncingMsg("Sincronizando órdenes por primera vez...");
-          setTimeout(() => {
-            setSyncingMsg("");
-            fetchDashboard();
-          }, 5000);
-          return;
         }
-        setSyncingMsg("");
-        setStats(merged);
-        if (validResults.length < ranges.length) {
-          setErrorMsg(
-            `${ranges.length - validResults.length} de ${ranges.length} consultas fallaron. Los datos pueden estar incompletos.`,
-          );
-        }
+      } finally {
+        if (!silent) setLoading(false);
       }
-    } catch (err) {
-      setErrorMsg(err?.message || "Error al consultar datos");
-      setStats(null);
-    } finally {
-      setLoading(false);
+    },
+    [selectedIntegration, dateRange, splitDateRange, mergeStats, syncingMsg],
+  );
+
+  // ─── Auto-refresh para profit (cada 35s mientras no esté completo) ───
+  useEffect(() => {
+    if (profitTimerRef.current) {
+      clearTimeout(profitTimerRef.current);
+      profitTimerRef.current = null;
     }
-  }, [selectedIntegration, dateRange, splitDateRange, mergeStats, syncingMsg]);
+
+    if (!stats?.profitData || stats.profitData.isComplete) return;
+    if (
+      stats.profitData.profitPotencialTotal === 0 &&
+      stats.profitData.profitCalculated > 0
+    )
+      return;
+
+    profitTimerRef.current = setTimeout(() => {
+      console.log(
+        `[profit-autorefresh] ${stats.profitData.profitCalculated}/${stats.profitData.totalOrders} — refreshing...`,
+      );
+      fetchDashboard(true);
+    }, 35000);
+
+    return () => {
+      if (profitTimerRef.current) {
+        clearTimeout(profitTimerRef.current);
+        profitTimerRef.current = null;
+      }
+    };
+  }, [stats?.profitData?.profitCalculated, stats?.profitData?.isComplete]);
 
   const statusStats = stats?.statusStats || {};
   const kpis = stats?.kpis || {
@@ -254,6 +355,7 @@ const Dropiboard = () => {
   const topProducts = stats?.topProducts || [];
   const retiroAgencia = stats?.retiroAgencia || [];
   const totalOrders = stats?.totalOrders || 0;
+  const profitData = stats?.profitData || null;
 
   const pieData = useMemo(() => {
     return DISPLAY_ORDER.map((key) => ({
@@ -265,11 +367,8 @@ const Dropiboard = () => {
 
   return (
     <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50">
-      {/* ══════════════════════════════════════
-          HEADER
-         ══════════════════════════════════════ */}
+      {/* HEADER */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#2a1a0e] to-[#FF6B35] text-white px-6 py-5">
-        {/* Subtle pattern */}
         <div
           className="absolute inset-0 opacity-[0.06]"
           style={{
@@ -301,7 +400,6 @@ const Dropiboard = () => {
             </div>
           </div>
 
-          {/* Right badges */}
           <div className="hidden md:flex items-center gap-3">
             {selectedIntegration && (
               <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5">
@@ -333,9 +431,7 @@ const Dropiboard = () => {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════
-          CONTENT
-         ══════════════════════════════════════ */}
+      {/* CONTENT */}
       <div className="px-4 sm:px-6 py-5">
         <DropiFilters
           selectedIntegration={selectedIntegration}
@@ -346,7 +442,6 @@ const Dropiboard = () => {
           loading={loading}
         />
 
-        {/* Error */}
         {errorMsg && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <svg
@@ -364,7 +459,6 @@ const Dropiboard = () => {
           </div>
         )}
 
-        {/* Syncing */}
         {syncingMsg && (
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
             <svg
@@ -396,15 +490,11 @@ const Dropiboard = () => {
           </div>
         )}
 
-        {/* ══════════════════════════════════════
-            EMPTY STATE
-           ══════════════════════════════════════ */}
+        {/* EMPTY STATE */}
         {!hasFetched && !loading && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-[#FF6B35] via-[#FF9A5C] to-[#FFD4B8]" />
-
             <div className="px-8 py-14 text-center">
-              {/* Dropi logo + stats bars */}
               <div className="flex items-center justify-center gap-5 mb-8">
                 <img
                   src={DROPI_LOGO}
@@ -435,7 +525,6 @@ const Dropiboard = () => {
                   ))}
                 </div>
               </div>
-
               <h3 className="text-xl font-extrabold text-slate-800 mb-2">
                 Tu operación Dropi en un solo lugar
               </h3>
@@ -444,8 +533,6 @@ const Dropiboard = () => {
                 productos top y retiros en agencia — todo sincronizado desde tu
                 cuenta Dropi.
               </p>
-
-              {/* Feature pills */}
               <div className="flex flex-wrap justify-center gap-2 mt-6">
                 {[
                   {
@@ -465,6 +552,10 @@ const Dropiboard = () => {
                     color: "bg-red-50 text-red-700 border-red-200",
                   },
                   {
+                    label: "Utilidad real",
+                    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                  },
+                  {
                     label: "Tendencias diarias",
                     color: "bg-sky-50 text-sky-700 border-sky-200",
                   },
@@ -477,8 +568,6 @@ const Dropiboard = () => {
                   </span>
                 ))}
               </div>
-
-              {/* Arrow */}
               <div className="mt-8 flex flex-col items-center gap-1 text-slate-400">
                 <svg
                   className="w-5 h-5 animate-bounce"
@@ -497,7 +586,6 @@ const Dropiboard = () => {
                 </span>
               </div>
             </div>
-
             <style>{`@keyframes growBar { from { height: 0; opacity: 0; } }`}</style>
           </div>
         )}
@@ -532,9 +620,7 @@ const Dropiboard = () => {
           </div>
         )}
 
-        {/* ══════════════════════════════════════
-            DASHBOARD DATA
-           ══════════════════════════════════════ */}
+        {/* DASHBOARD DATA */}
         {hasFetched && !loading && stats && (
           <>
             {stats.isPartial && (
@@ -559,6 +645,10 @@ const Dropiboard = () => {
               totalOrders={totalOrders}
             />
             <DropiKpiCards kpis={kpis} />
+
+            {/* ── Utilidad Real ── */}
+            <DropiProfitBar profitData={profitData} />
+
             <DropiCharts
               dailyChart={dailyChart}
               pieData={pieData}
