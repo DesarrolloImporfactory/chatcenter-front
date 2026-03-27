@@ -2,36 +2,30 @@ import React, { useState, useEffect } from "react";
 import chatApi from "../../../../api/chatcenter";
 import { toYMD } from "../dropiHelpers";
 
-// ═══════════════════════════════════════════════════════════════
-// DropiFilters — Selector de integración + rango de fechas
-// ═══════════════════════════════════════════════════════════════
-
-// ── Presets de fecha (máximo 15 días) ──
+// ── Presets de fecha (máximo 30 días) ──
 const DATE_PRESETS = [
   { label: "Hoy", days: 0 },
   { label: "7 días", days: 7 },
   { label: "15 días", days: 15 },
+  { label: "30 días", days: 30 },
 ];
 
 function getPresetRange(preset) {
   const today = new Date();
   const until = toYMD(today);
-
-  if (preset.days === 0) {
-    return { from: until, until };
-  }
-
+  if (preset.days === 0) return { from: until, until };
   const from = new Date();
   from.setDate(today.getDate() - preset.days);
   return { from: toYMD(from), until };
 }
 
-// Fecha mínima permitida (15 días atrás)
 function getMinDate() {
   const d = new Date();
-  d.setDate(d.getDate() - 15);
+  d.setDate(d.getDate() - 30);
   return toYMD(d);
 }
+
+const MAX_DAYS = 30;
 
 export default function DropiFilters({
   selectedIntegration,
@@ -43,9 +37,8 @@ export default function DropiFilters({
 }) {
   const [integrations, setIntegrations] = useState([]);
   const [loadingIntegrations, setLoadingIntegrations] = useState(true);
-  const [activePreset, setActivePreset] = useState(1); // default "7 días"
+  const [activePreset, setActivePreset] = useState(1);
 
-  // ── Fetch integrations on mount ──
   useEffect(() => {
     const fetchIntegrations = async () => {
       setLoadingIntegrations(true);
@@ -55,9 +48,8 @@ export default function DropiFilters({
         );
         const items = data?.data || [];
         setIntegrations(items);
-        if (items.length > 0 && !selectedIntegration) {
+        if (items.length > 0 && !selectedIntegration)
           onChangeIntegration(items[0]);
-        }
       } catch (e) {
         console.error("Error fetching integrations:", e);
       } finally {
@@ -69,8 +61,7 @@ export default function DropiFilters({
 
   const handlePreset = (idx) => {
     setActivePreset(idx);
-    const range = getPresetRange(DATE_PRESETS[idx]);
-    onChangeDateRange(range);
+    onChangeDateRange(getPresetRange(DATE_PRESETS[idx]));
   };
 
   const todayStr = toYMD(new Date());
@@ -85,7 +76,7 @@ export default function DropiFilters({
             Conexión Dropi
           </div>
           <select
-            className="h-[42px] w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-[#00BFFF] focus:ring-2 focus:ring-[#00BFFF]/15 transition"
+            className="h-[42px] w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-[#FF6B35]/15 transition"
             value={selectedIntegration?.id || ""}
             onChange={(e) => {
               const found = integrations.find(
@@ -115,7 +106,6 @@ export default function DropiFilters({
             Período
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Preset pills */}
             <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
               {DATE_PRESETS.map((p, idx) => (
                 <button
@@ -124,7 +114,7 @@ export default function DropiFilters({
                   onClick={() => handlePreset(idx)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
                     activePreset === idx
-                      ? "bg-[#0B1426] text-white shadow-sm"
+                      ? "bg-[#FF6B35] text-white shadow-sm"
                       : "text-slate-500 hover:text-slate-700 hover:bg-white/60"
                   }`}
                 >
@@ -133,11 +123,10 @@ export default function DropiFilters({
               ))}
             </div>
 
-            {/* Custom dates — max 15 días */}
             <div className="flex items-center gap-2">
               <input
                 type="date"
-                className="h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#00BFFF] transition"
+                className="h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#FF6B35] transition"
                 value={dateRange.from}
                 max={dateRange.until || todayStr}
                 min={minDateStr}
@@ -149,9 +138,9 @@ export default function DropiFilters({
                   const diffDays = Math.floor(
                     (untilDate - fromDate) / (1000 * 60 * 60 * 24),
                   );
-                  if (diffDays > 15) {
+                  if (diffDays > MAX_DAYS) {
                     const maxUntil = new Date(fromDate);
-                    maxUntil.setDate(maxUntil.getDate() + 15);
+                    maxUntil.setDate(maxUntil.getDate() + MAX_DAYS);
                     onChangeDateRange({ from, until: toYMD(maxUntil) });
                   } else {
                     onChangeDateRange({ ...dateRange, from });
@@ -161,7 +150,7 @@ export default function DropiFilters({
               <span className="text-slate-300 text-xs">→</span>
               <input
                 type="date"
-                className="h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#00BFFF] transition"
+                className="h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#FF6B35] transition"
                 value={dateRange.until}
                 max={todayStr}
                 min={dateRange.from || minDateStr}
@@ -173,9 +162,9 @@ export default function DropiFilters({
                   const diffDays = Math.floor(
                     (untilDate - fromDate) / (1000 * 60 * 60 * 24),
                   );
-                  if (diffDays > 15) {
+                  if (diffDays > MAX_DAYS) {
                     const minFrom = new Date(untilDate);
-                    minFrom.setDate(minFrom.getDate() - 15);
+                    minFrom.setDate(minFrom.getDate() - MAX_DAYS);
                     onChangeDateRange({ from: toYMD(minFrom), until });
                   } else {
                     onChangeDateRange({ ...dateRange, until });
@@ -183,7 +172,7 @@ export default function DropiFilters({
                 }}
               />
               <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                máx 15 días
+                máx {MAX_DAYS} días
               </span>
             </div>
           </div>
@@ -195,7 +184,7 @@ export default function DropiFilters({
           disabled={loading || !selectedIntegration}
           className="h-[42px] shrink-0 rounded-xl px-6 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
           style={{
-            background: "linear-gradient(135deg, #00BFFF 0%, #0090cc 100%)",
+            background: "linear-gradient(135deg, #FF6B35 0%, #e5551f 100%)",
           }}
         >
           {loading ? (
@@ -232,10 +221,8 @@ export default function DropiFilters({
       <div className="mt-2.5 flex items-center gap-2 text-[11px] text-slate-400">
         {selectedIntegration && (
           <>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
-              {selectedIntegration.type === "user"
-                ? "👤 Usuario"
-                : "📱 Conexión"}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 font-medium border border-orange-100">
+              {selectedIntegration.type === "user" ? "Usuario" : "Conexión"}
             </span>
             <span>
               {selectedIntegration.store_name} ·{" "}

@@ -13,9 +13,9 @@ import {
   toYMD,
 } from "./dropiboard/dropiHelpers";
 
-// ═══════════════════════════════════════════════════════════════
-// DROPIBOARD — Dashboard Inteligente para Dropi
-// ═══════════════════════════════════════════════════════════════
+const DROPI_LOGO =
+  "https://d39ru7awumhhs2.cloudfront.net/ecuador/brands/1/logo/171275980616951779761695177976GVUXDo6TWDrk6URjLWgAFjH65gE1D1c7MAfWNF6r (2).png";
+
 const Dropiboard = () => {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
@@ -25,7 +25,6 @@ const Dropiboard = () => {
   const retryCountRef = useRef(0);
 
   const [selectedIntegration, setSelectedIntegration] = useState(null);
-
   const [dateRange, setDateRange] = useState(() => {
     const today = new Date();
     const from = new Date();
@@ -50,13 +49,14 @@ const Dropiboard = () => {
       const chunkUntil = new Date(fromDate);
       chunkUntil.setDate(chunkUntil.getDate() + (i + 1) * daysPerChunk);
       if (chunkUntil > untilDate) chunkUntil.setTime(untilDate.getTime());
-      if (chunkFrom >= untilDate) break;
+      // FIX: usar > en vez de >= para que "Hoy" (from===until) funcione
+      if (chunkFrom > untilDate) break;
       ranges.push({ from: toYMD(chunkFrom), until: toYMD(chunkUntil) });
     }
     return ranges;
   }, []);
 
-  // ─── Merge multiple chunk responses ───
+  // ─── Merge chunks ───
   const mergeStats = useCallback((results) => {
     const merged = {
       totalOrders: 0,
@@ -145,11 +145,9 @@ const Dropiboard = () => {
           : 0,
       retiroAgencia: merged.statusStats.retiro_agencia?.count || 0,
     };
-
-    if (merged.isPartial) {
+    if (merged.isPartial)
       merged.partialMessage =
         "Se analizaron las primeras órdenes de cada período. Para datos completos, seleccione un rango más corto.";
-    }
     return merged;
   }, []);
 
@@ -160,7 +158,7 @@ const Dropiboard = () => {
       selectedIntegration.id_configuracion ||
       parseInt(localStorage.getItem("id_configuracion"), 10);
     if (!cfgId) {
-      setErrorMsg("No se encontró id_configuracion para esta integración.");
+      setErrorMsg("No se encontró id_configuracion.");
       return;
     }
 
@@ -176,7 +174,8 @@ const Dropiboard = () => {
         1,
         Math.ceil((untilDate - fromDate) / (1000 * 60 * 60 * 24)),
       );
-      const numChunks = totalDays <= 5 ? 1 : totalDays <= 10 ? 2 : 3;
+      const numChunks =
+        totalDays <= 5 ? 1 : totalDays <= 10 ? 2 : totalDays <= 20 ? 3 : 4;
       const ranges = splitDateRange(dateRange.from, dateRange.until, numChunks);
 
       const promises = ranges.map((range) =>
@@ -231,15 +230,13 @@ const Dropiboard = () => {
         }
       }
     } catch (err) {
-      console.error("Dropiboard fetch error:", err);
-      setErrorMsg(err?.message || "Error al consultar datos de Dropi");
+      setErrorMsg(err?.message || "Error al consultar datos");
       setStats(null);
     } finally {
       setLoading(false);
     }
   }, [selectedIntegration, dateRange, splitDateRange, mergeStats, syncingMsg]);
 
-  // ─── Data extraction ───
   const statusStats = stats?.statusStats || {};
   const kpis = stats?.kpis || {
     totalOrders: 0,
@@ -266,87 +263,68 @@ const Dropiboard = () => {
     })).filter((d) => d.value > 0);
   }, [statusStats]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // RENDER
-  // ═══════════════════════════════════════════════════════════════
   return (
     <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50">
       {/* ══════════════════════════════════════
-          HEADER — Pro dark navy
+          HEADER
          ══════════════════════════════════════ */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#111d35] to-[#162A4A] text-white px-6 py-6">
-        {/* Subtle grid background */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#FF6B35] via-[#ff7e4f] to-[#FF9A5C] text-white px-6 py-5">
+        {/* Subtle pattern */}
         <div
-          className="absolute inset-0 opacity-[0.04]"
+          className="absolute inset-0 opacity-[0.06]"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
+              "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+            backgroundSize: "24px 24px",
           }}
         />
-        {/* Glow accent */}
-        <div className="absolute -top-20 -right-20 w-60 h-60 bg-[#00BFFF]/8 rounded-full blur-3xl" />
+        <div className="absolute -top-16 -right-16 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
 
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Logo */}
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00BFFF] to-[#0090cc] flex items-center justify-center shadow-lg shadow-cyan-500/25 ring-1 ring-white/10">
-              <svg
-                className="w-6 h-6 text-white"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3 3h18v18H3z" opacity="0" />
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-              </svg>
-            </div>
-
+            <img
+              src={DROPI_LOGO}
+              alt="Dropi"
+              className="h-10 w-auto object-contain drop-shadow-lg"
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
+            <div className="h-8 w-px bg-white/30" />
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight leading-tight">
-                Dropi<span className="text-[#00BFFF]">Board</span>
+              <h1 className="text-xl font-extrabold tracking-tight leading-tight">
+                Dashboard de Órdenes
               </h1>
-              <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2">
-                <span>Dashboard Inteligente de Órdenes</span>
-                <span className="w-px h-3 bg-slate-600" />
-                <span className="text-[#00BFFF]/70 font-medium">
-                  GRUPO IMPOR
-                </span>
+              <p className="text-[11px] text-white/70 mt-0.5">
+                Análisis en tiempo real de tu operación
               </p>
             </div>
           </div>
 
-          {/* Right side badges */}
+          {/* Right badges */}
           <div className="hidden md:flex items-center gap-3">
             {selectedIntegration && (
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[11px] text-slate-300 font-medium">
+              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5">
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span className="text-[11px] text-white font-medium">
                   {selectedIntegration.store_name}
-                </span>
-                <span className="text-[10px] text-slate-500">
-                  {selectedIntegration.country_code}
                 </span>
               </div>
             )}
             {stats && totalOrders > 0 && (
-              <div className="flex items-center gap-1.5 bg-[#00BFFF]/10 border border-[#00BFFF]/20 rounded-lg px-3 py-1.5">
+              <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5">
                 <svg
-                  className="w-3.5 h-3.5 text-[#00BFFF]"
+                  className="w-3.5 h-3.5 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  <rect x="3" y="12" width="4" height="9" rx="1" />
+                  <rect x="10" y="7" width="4" height="14" rx="1" />
+                  <rect x="17" y="3" width="4" height="18" rx="1" />
                 </svg>
-                <span className="text-[11px] text-[#00BFFF] font-bold">
+                <span className="text-[11px] text-white font-bold">
                   {totalOrders.toLocaleString()} órdenes
                 </span>
               </div>
@@ -359,7 +337,6 @@ const Dropiboard = () => {
           CONTENT
          ══════════════════════════════════════ */}
       <div className="px-4 sm:px-6 py-5">
-        {/* Filters */}
         <DropiFilters
           selectedIntegration={selectedIntegration}
           onChangeIntegration={setSelectedIntegration}
@@ -369,7 +346,7 @@ const Dropiboard = () => {
           loading={loading}
         />
 
-        {/* Error state */}
+        {/* Error */}
         {errorMsg && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <svg
@@ -387,11 +364,11 @@ const Dropiboard = () => {
           </div>
         )}
 
-        {/* Syncing state */}
+        {/* Syncing */}
         {syncingMsg && (
-          <div className="mb-4 flex items-center gap-3 rounded-xl border border-[#00BFFF]/20 bg-[#00BFFF]/5 px-4 py-3 text-sm text-[#0B1426]">
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
             <svg
-              className="w-5 h-5 shrink-0 text-[#00BFFF] animate-spin"
+              className="w-5 h-5 shrink-0 text-[#FF6B35] animate-spin"
               viewBox="0 0 24 24"
               fill="none"
             >
@@ -412,7 +389,7 @@ const Dropiboard = () => {
             </svg>
             <span>
               {syncingMsg}{" "}
-              <strong className="text-[#00BFFF]">
+              <strong className="text-[#FF6B35]">
                 Reintentando automáticamente...
               </strong>
             </span>
@@ -420,46 +397,43 @@ const Dropiboard = () => {
         )}
 
         {/* ══════════════════════════════════════
-            EMPTY STATE — Primera vista
+            EMPTY STATE
            ══════════════════════════════════════ */}
         {!hasFetched && !loading && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white overflow-hidden">
-            {/* Top gradient bar */}
-            <div className="h-1 bg-gradient-to-r from-[#00BFFF] via-[#10B981] to-[#FF6B35]" />
+            <div className="h-1 bg-gradient-to-r from-[#FF6B35] via-[#FF9A5C] to-[#FFD4B8]" />
 
             <div className="px-8 py-14 text-center">
-              {/* Animated dashboard preview */}
-              <div className="w-24 h-24 mx-auto mb-6 relative">
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#0B1426] to-[#162A4A] shadow-xl shadow-slate-300/50 flex items-center justify-center">
-                  <svg
-                    className="w-10 h-10 text-[#00BFFF]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <path d="M3 9h18" />
-                    <path d="M9 21V9" />
-                    <path d="M13 13h4" />
-                    <path d="M13 17h4" />
-                  </svg>
+              {/* Dropi logo + stats bars */}
+              <div className="flex items-center justify-center gap-5 mb-8">
+                <img
+                  src={DROPI_LOGO}
+                  alt="Dropi"
+                  className="h-14 w-auto object-contain opacity-90"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+                <div className="h-12 w-px bg-slate-200" />
+                <div className="flex items-end gap-1.5">
+                  {[40, 65, 50, 80, 60, 90, 72].map((h, i) => (
+                    <div
+                      key={i}
+                      className="w-3 rounded-t-sm transition-all duration-700"
+                      style={{
+                        height: `${h * 0.55}px`,
+                        background:
+                          i % 3 === 0
+                            ? "#FF6B35"
+                            : i % 3 === 1
+                              ? "#10B981"
+                              : "#00BFFF",
+                        opacity: 0.7 + i * 0.04,
+                        animation: `growBar 1.5s ease-out ${i * 0.1}s both`,
+                      }}
+                    />
+                  ))}
                 </div>
-                {/* Floating dots */}
-                <div
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#10B981] border-2 border-white shadow-sm animate-bounce"
-                  style={{ animationDelay: "0s", animationDuration: "2s" }}
-                />
-                <div
-                  className="absolute -bottom-1 -left-1 w-3 h-3 rounded-full bg-[#FF6B35] border-2 border-white shadow-sm animate-bounce"
-                  style={{ animationDelay: "0.5s", animationDuration: "2.5s" }}
-                />
-                <div
-                  className="absolute top-1/2 -right-3 w-3 h-3 rounded-full bg-[#00BFFF] border-2 border-white shadow-sm animate-bounce"
-                  style={{ animationDelay: "1s", animationDuration: "2s" }}
-                />
               </div>
 
               <h3 className="text-xl font-extrabold text-slate-800 mb-2">
@@ -467,8 +441,8 @@ const Dropiboard = () => {
               </h3>
               <p className="text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
                 Visualiza estados de guías, tasa de entrega, devoluciones,
-                productos top y retiros en agencia — todo sincronizado
-                automáticamente desde tu cuenta Dropi.
+                productos top y retiros en agencia — todo sincronizado desde tu
+                cuenta Dropi.
               </p>
 
               {/* Feature pills */}
@@ -476,7 +450,7 @@ const Dropiboard = () => {
                 {[
                   {
                     label: "Estados en vivo",
-                    color: "bg-sky-50 text-sky-700 border-sky-200",
+                    color: "bg-orange-50 text-orange-700 border-orange-200",
                   },
                   {
                     label: "KPIs automáticos",
@@ -488,11 +462,11 @@ const Dropiboard = () => {
                   },
                   {
                     label: "Alertas retiro",
-                    color: "bg-orange-50 text-orange-700 border-orange-200",
+                    color: "bg-red-50 text-red-700 border-red-200",
                   },
                   {
-                    label: "Charts por día",
-                    color: "bg-blue-50 text-blue-700 border-blue-200",
+                    label: "Tendencias diarias",
+                    color: "bg-sky-50 text-sky-700 border-sky-200",
                   },
                 ].map((f) => (
                   <span
@@ -504,7 +478,7 @@ const Dropiboard = () => {
                 ))}
               </div>
 
-              {/* Arrow pointing up to filters */}
+              {/* Arrow */}
               <div className="mt-8 flex flex-col items-center gap-1 text-slate-400">
                 <svg
                   className="w-5 h-5 animate-bounce"
@@ -518,54 +492,42 @@ const Dropiboard = () => {
                   <path d="M5 12l7-7 7 7" />
                 </svg>
                 <span className="text-xs font-medium">
-                  Seleccione su conexión arriba y presione{" "}
-                  <strong className="text-[#00BFFF]">Consultar</strong>
+                  Seleccione su conexión y presione{" "}
+                  <strong className="text-[#FF6B35]">Consultar</strong>
                 </span>
               </div>
             </div>
+
+            <style>{`@keyframes growBar { from { height: 0; opacity: 0; } }`}</style>
           </div>
         )}
 
-        {/* Loading state */}
+        {/* Loading */}
         {loading && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-8 py-16 text-center">
-            <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-[#0B1426] to-[#162A4A] flex items-center justify-center shadow-lg">
-              <svg
-                className="w-8 h-8 text-[#00BFFF] animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="9"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  opacity="0.2"
+            <img
+              src={DROPI_LOGO}
+              alt="Dropi"
+              className="h-10 mx-auto mb-4 object-contain opacity-60"
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
+            <div className="flex justify-center gap-1 mb-4">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-[#FF6B35]"
+                  style={{ animation: `pulse 1.2s infinite ${i * 0.2}s` }}
                 />
-                <path
-                  d="M21 12a9 9 0 0 0-9-9"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
+              ))}
             </div>
             <p className="text-sm font-semibold text-slate-700">
               Consultando órdenes desde Dropi...
             </p>
             <p className="text-xs text-slate-400 mt-1.5">
-              Dependiendo del volumen esto puede tomar entre 10 y 60 segundos
+              Dependiendo del volumen puede tomar hasta 60 segundos
             </p>
-            <div className="flex justify-center gap-1 mt-4">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="w-2 h-2 rounded-full bg-[#00BFFF]"
-                  style={{ animation: `pulse 1.2s infinite ${i * 0.2}s` }}
-                />
-              ))}
-            </div>
             <style>{`@keyframes pulse { 0%,100% { opacity:0.2; transform:scale(0.8); } 50% { opacity:1; transform:scale(1.2); } }`}</style>
           </div>
         )}
@@ -575,7 +537,6 @@ const Dropiboard = () => {
            ══════════════════════════════════════ */}
         {hasFetched && !loading && stats && (
           <>
-            {/* Partial warning */}
             {stats.isPartial && (
               <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 <svg
@@ -606,11 +567,8 @@ const Dropiboard = () => {
             <DropiRetiroAgencia orders={retiroAgencia} />
             <DropiProductsTable topProducts={topProducts} loading={loading} />
 
-            {/* Footer */}
             <div className="text-center pt-6 pb-2 border-t border-slate-200 mt-4">
               <p className="text-[10px] text-slate-400">
-                Dropi<span className="text-[#00BFFF] font-semibold">Board</span>{" "}
-                —{" "}
                 {totalOrders > 0 && (
                   <span>{totalOrders.toLocaleString()} órdenes analizadas</span>
                 )}
@@ -619,30 +577,26 @@ const Dropiboard = () => {
           </>
         )}
 
-        {/* No data state */}
+        {/* No data */}
         {hasFetched && !loading && !stats && !errorMsg && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-8 py-16 text-center">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-slate-100 flex items-center justify-center">
-              <svg
-                className="w-7 h-7 text-slate-400"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M3 9h18" />
-                <path d="M9 21V9" />
-              </svg>
-            </div>
+            <svg
+              className="w-12 h-12 mx-auto mb-3 text-slate-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18" />
+              <path d="M9 21V9" />
+            </svg>
             <h3 className="text-sm font-bold text-slate-600 mb-1">
               Sin órdenes en este período
             </h3>
             <p className="text-xs text-slate-400">
-              No se encontraron órdenes para las fechas seleccionadas. Pruebe
-              con un rango más amplio.
+              No se encontraron órdenes. Pruebe con un rango más amplio.
             </p>
           </div>
         )}
