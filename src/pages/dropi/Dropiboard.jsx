@@ -21,6 +21,7 @@ const Dropiboard = () => {
   const [stats, setStats] = useState(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [syncingMsg, setSyncingMsg] = useState("");
 
   // ── Integration selection ──
   const [selectedIntegration, setSelectedIntegration] = useState(null);
@@ -227,8 +228,24 @@ const Dropiboard = () => {
       if (validResults.length === 0) {
         setErrorMsg("No se pudieron obtener datos de Dropi. Intente de nuevo.");
         setStats(null);
+        setSyncingMsg("");
       } else {
         const merged = mergeStats(validResults);
+
+        // Si el backend dice "syncing", auto-retry en 5 segundos
+        const anySyncing = validResults.some((r) => r?.syncing === true);
+        if (anySyncing && merged.totalOrders === 0) {
+          setErrorMsg("");
+          setStats(null);
+          setSyncingMsg("Sincronizando órdenes por primera vez...");
+          setTimeout(() => {
+            setSyncingMsg("");
+            fetchDashboard();
+          }, 5000);
+          return;
+        }
+
+        setSyncingMsg("");
         setStats(merged);
 
         if (validResults.length < ranges.length) {
@@ -327,6 +344,35 @@ const Dropiboard = () => {
               <line x1="9" y1="9" x2="15" y2="15" />
             </svg>
             <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* ── Syncing state ── */}
+        {syncingMsg && (
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <svg
+              className="w-5 h-5 shrink-0 text-blue-400 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="9"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                opacity="0.25"
+              />
+              <path
+                d="M21 12a9 9 0 0 0-9-9"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span>
+              {syncingMsg} <strong>Reintentando automáticamente...</strong>
+            </span>
           </div>
         )}
 
