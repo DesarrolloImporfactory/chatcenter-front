@@ -438,7 +438,7 @@ const Dropiboard = () => {
           onChangeIntegration={setSelectedIntegration}
           dateRange={dateRange}
           onChangeDateRange={setDateRange}
-          onApply={fetchDashboard}
+          onApply={() => fetchDashboard()}
           loading={loading}
         />
 
