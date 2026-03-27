@@ -291,6 +291,92 @@ const KanbanConfig = () => {
     }
   };
 
+  // ── Sincronizar catálogo con polling (reutilizable) ──────────
+  const sincronizarDesdeKanban = async (columnaId) => {
+    Swal.fire({
+      title: "Sincronizando catálogo",
+      html: `
+      <div style="font-size:.85rem;color:#64748b;margin-bottom:10px">
+        Indexando productos en OpenAI. Esto puede tardar 1-2 minutos.
+      </div>
+      <div id="swal-sync-kanban" style="font-size:.82rem;color:#6366f1;font-weight:600">
+        ⏳ Iniciando...
+      </div>
+    `,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      await chatApi.post("/kanban_columnas/sincronizar_catalogo", {
+        id: columnaId,
+      });
+
+      let intentos = 0;
+      const maxIntentos = 60;
+
+      const checkStatus = async () => {
+        intentos++;
+        try {
+          const { data } = await chatApi.post("/kanban_columnas/sync_status", {
+            id: columnaId,
+          });
+          const status = data?.data?.sync_status;
+
+          const el = document.getElementById("swal-sync-kanban");
+          if (el) {
+            if (status === "procesando")
+              el.innerHTML = `⏳ Indexando en OpenAI... (${intentos * 3}s)`;
+            else if (status === "completado") el.innerHTML = `✅ ¡Completado!`;
+            else if (status === "error") el.innerHTML = `❌ Error al indexar`;
+          }
+
+          if (status === "completado") {
+            Swal.fire({
+              icon: "success",
+              title: "¡Catálogo sincronizado!",
+              text: "Los productos están disponibles para el asistente.",
+              confirmButtonColor: "#6366f1",
+            });
+            return;
+          }
+          if (status === "error") {
+            Swal.fire({
+              icon: "warning",
+              title: "Error al sincronizar",
+              text: "No se pudo indexar el catálogo. Intenta manualmente desde la pestaña Asistente.",
+              confirmButtonColor: "#6366f1",
+            });
+            return;
+          }
+          if (intentos >= maxIntentos) {
+            Swal.fire({
+              icon: "info",
+              title: "Proceso en curso",
+              text: "La sincronización continúa en segundo plano.",
+              confirmButtonColor: "#6366f1",
+            });
+            return;
+          }
+          setTimeout(checkStatus, 3000);
+        } catch {
+          if (intentos < maxIntentos) setTimeout(checkStatus, 3000);
+        }
+      };
+
+      setTimeout(checkStatus, 3000);
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al iniciar sincronización",
+        text: err?.response?.data?.message || "Intenta nuevamente.",
+        confirmButtonColor: "#6366f1",
+      });
+    }
+  };
+
   // ── Agregar acción ───────────────────────────────────────
   const agregarAccion = async (tipo_accion) => {
     const defaults = {
@@ -313,35 +399,8 @@ const KanbanConfig = () => {
 
         // ← AUTO-SYNC al agregar contexto_productos
         if (tipo_accion === "contexto_productos") {
-          Swal.fire({
-            title: "Sincronizando catálogo",
-            html: "Por favor espere mientras se sincronizan todos los productos.<br><br><small style='color:#64748b'>Esto puede demorar un momento dependiendo de la cantidad de productos que posea.</small>",
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showConfirmButton: false,
-            didOpen: () => Swal.showLoading(),
-          });
-
-          chatApi
-            .post("/kanban_columnas/sincronizar_catalogo", {
-              id: columnaActiva,
-            })
-            .then(({ data: syncData }) => {
-              Swal.fire({
-                icon: "success",
-                title: "¡Catálogo sincronizado!",
-                text: `Se indexaron ${syncData.data.total_items} productos correctamente.`,
-                confirmButtonColor: "#6366f1",
-              });
-            })
-            .catch(() => {
-              Swal.fire({
-                icon: "warning",
-                title: "Acción guardada",
-                text: "No se pudo sincronizar el catálogo automáticamente. Puedes hacerlo manualmente desde la pestaña Asistente.",
-                confirmButtonColor: "#6366f1",
-              });
-            });
+          // Lanzar sync con polling
+          sincronizarDesdeKanban(columnaActiva);
         }
       }
     } catch {

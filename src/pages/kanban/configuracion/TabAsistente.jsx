@@ -387,9 +387,17 @@ const TabAsistente = ({
   };
 
   const sincronizarCatalogo = async () => {
+    // Abrir Swal de carga que NO se cierra solo
     Swal.fire({
       title: "Sincronizando catálogo",
-      html: "Por favor espere mientras se sincronizan todos los productos.<br><br><small style='color:#64748b'>Esto puede demorar un momento dependiendo de la cantidad de productos que posea.</small>",
+      html: `
+      <div style="font-size:.85rem;color:#64748b;margin-bottom:10px">
+        Indexando productos en OpenAI. Esto puede tardar 1-2 minutos.
+      </div>
+      <div id="swal-sync-status" style="font-size:.82rem;color:#6366f1;font-weight:600">
+        ⏳ Iniciando...
+      </div>
+    `,
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
@@ -397,28 +405,85 @@ const TabAsistente = ({
     });
 
     try {
-      const { data } = await chatApi.post(
-        "/kanban_columnas/sincronizar_catalogo",
-        { id: columnaId },
-        { timeout: 120000 }
-      );
-      if (data?.success) {
-        setUltimaSync(new Date());
-        Swal.fire({
-          icon: "success",
-          title: "¡Catálogo sincronizado!",
-          text: `Se indexaron ${data.data.total_items} productos correctamente.`,
-          confirmButtonColor: "#6366f1",
-        });
-      }
+      // Disparar el proceso en background
+      await chatApi.post("/kanban_columnas/sincronizar_catalogo", {
+        id: columnaId,
+      });
+
+      // Polling — no cierra el Swal hasta completado/error
+      let intentos = 0;
+      const maxIntentos = 60; // 3 minutos max (cada 3s)
+
+      const checkStatus = async () => {
+        intentos++;
+        try {
+          const { data } = await chatApi.post("/kanban_columnas/sync_status", {
+            id: columnaId,
+          });
+          const status = data?.data?.sync_status;
+
+          // Actualizar texto visible dentro del Swal
+          const el = document.getElementById("swal-sync-status");
+          if (el) {
+            if (status === "procesando") {
+              el.innerHTML = `⏳ Indexando en OpenAI... (${intentos * 3}s)`;
+            } else if (status === "completado") {
+              el.innerHTML = `✅ ¡Completado!`;
+            } else if (status === "error") {
+              el.innerHTML = `❌ Error al indexar`;
+            }
+          }
+
+          if (status === "completado") {
+            setUltimaSync(new Date());
+            // ← Aquí sí se cierra y muestra éxito
+            Swal.fire({
+              icon: "success",
+              title: "¡Catálogo sincronizado!",
+              text: "Los productos están disponibles para el asistente.",
+              confirmButtonColor: "#6366f1",
+            });
+            return;
+          }
+
+          if (status === "error") {
+            Swal.fire({
+              icon: "warning",
+              title: "Error al sincronizar",
+              text: "No se pudo indexar el catálogo. Intenta nuevamente.",
+              confirmButtonColor: "#6366f1",
+            });
+            return;
+          }
+
+          if (intentos >= maxIntentos) {
+            // Timeout — informar pero no es error fatal
+            Swal.fire({
+              icon: "info",
+              title: "Proceso en curso",
+              text: "La sincronización continúa en segundo plano. Cierra y vuelve en un momento.",
+              confirmButtonColor: "#6366f1",
+            });
+            return;
+          }
+
+          // Aún procesando → seguir polling sin cerrar el Swal
+          setTimeout(checkStatus, 3000);
+        } catch {
+          // Error de red → reintentar silenciosamente
+          if (intentos < maxIntentos) setTimeout(checkStatus, 3000);
+        }
+      };
+
+      // Primer check después de 3 segundos
+      setTimeout(checkStatus, 3000);
     } catch (err) {
       Swal.fire({
-        icon: "warning",
-        title: "Error al sincronizar",
+        icon: "error",
+        title: "Error al iniciar",
         text:
           err?.response?.data?.message ||
-          err.message ||
-          "No se pudo sincronizar el catálogo.",
+          "No se pudo iniciar la sincronización.",
         confirmButtonColor: "#6366f1",
       });
     }
@@ -479,8 +544,8 @@ const TabAsistente = ({
           orden: 0,
         });
         setTieneContextoProductos(true);
-        // Auto-sync con Swal
-        await sincronizarCatalogo();
+        // ← Llamar sin await — el Swal maneja el estado
+        sincronizarCatalogo();
       } else {
         const res = await chatApi.post("/kanban_acciones/listar", {
           id_kanban_columna: columnaId,

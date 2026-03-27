@@ -44,6 +44,9 @@ const RemarketingColumna = ({
   const [guardando, setGuardando] = useState(false);
   const [configActiva, setConfigActiva] = useState(false);
 
+  const [headerMediaUrl, setHeaderMediaUrl] = useState("");
+  const [headerInfo, setHeaderInfo] = useState(null); // { format, url }
+
   // ── Verificar si hay config activa al cargar ──────────────
   useEffect(() => {
     if (!id_configuracion || !estado_db) return;
@@ -77,6 +80,48 @@ const RemarketingColumna = ({
     }
   };
 
+  const getTemplateHeaderDefaultUrl = (template) => {
+    try {
+      const headerComp = template?.components?.find((c) => c.type === "HEADER");
+      if (!headerComp) return null;
+      const candidates = [
+        headerComp?.example?.header_handle?.[0],
+        headerComp?.example?.header_url?.[0],
+        headerComp?.example?.url?.[0],
+        headerComp?.url,
+        template?.header_url,
+        template?.example?.header_handle?.[0],
+      ].filter(Boolean);
+      const first = candidates[0];
+      if (!first) return null;
+      // ✅ decodificar antes de guardar en BD
+      return String(first).replace(/&amp;/g, "&");
+    } catch {
+      return null;
+    }
+  };
+
+  const handlePlantillaChange = (nombreTemplate) => {
+    setPlantillaSeleccionada(nombreTemplate);
+    setHeaderMediaUrl("");
+    setHeaderInfo(null);
+
+    const tpl = plantillas.find((p) => p.name === nombreTemplate);
+    if (!tpl) return;
+
+    const headerComp = tpl?.components?.find((c) => c.type === "HEADER");
+    if (!headerComp) return;
+
+    const fmt = String(headerComp.format || "").toUpperCase();
+    if (!["IMAGE", "VIDEO", "DOCUMENT"].includes(fmt)) return;
+
+    const url = getTemplateHeaderDefaultUrl(tpl);
+    if (url) {
+      setHeaderMediaUrl(url);
+      setHeaderInfo({ format: fmt, url });
+    }
+  };
+
   // ── Abrir modal + cargar config existente ─────────────────
   const handleAbrir = async () => {
     setShowModal(true);
@@ -92,6 +137,14 @@ const RemarketingColumna = ({
         setTiempoRemarketing(String(config.tiempo_espera_horas ?? "0"));
         setPlantillaSeleccionada(config.nombre_template ?? "");
         setEstadoDestino(config.estado_destino ?? "");
+        setHeaderMediaUrl(config.header_media_url ?? "");
+        // ✅ restaurar headerInfo si existe
+        if (config.header_format && config.header_media_url) {
+          setHeaderInfo({
+            format: config.header_format,
+            url: config.header_media_url,
+          });
+        }
         setConfigActiva(true);
       } else {
         setTiempoRemarketing("0");
@@ -106,7 +159,11 @@ const RemarketingColumna = ({
     }
   };
 
-  const cerrarModal = () => setShowModal(false);
+  const cerrarModal = () => {
+    setShowModal(false);
+    setHeaderMediaUrl(""); // ✅
+    setHeaderInfo(null); // ✅
+  };
 
   // ── Guardar ───────────────────────────────────────────────
   const handleGuardar = async () => {
@@ -123,6 +180,9 @@ const RemarketingColumna = ({
         nombre_template: plantillaSeleccionada,
         language_code: "es",
         estado_destino: estadoDestino || null,
+        header_format: headerInfo?.format || null, // ✅ nuevo
+        header_media_url: headerMediaUrl || null,
+        header_media_name: headerInfo?.name || null, // ✅ nuevo
       });
       Toast.fire({
         icon: "success",
@@ -622,7 +682,7 @@ const RemarketingColumna = ({
                           className="rm2-select"
                           value={plantillaSeleccionada}
                           onChange={(e) =>
-                            setPlantillaSeleccionada(e.target.value)
+                            handlePlantillaChange(e.target.value)
                           }
                         >
                           <option value="">Selecciona una plantilla</option>
@@ -632,6 +692,29 @@ const RemarketingColumna = ({
                             </option>
                           ))}
                         </select>
+                        {plantillaSeleccionada && headerInfo && (
+                          <div
+                            className="rm2-plantilla-ok"
+                            style={{ marginTop: 6 }}
+                          >
+                            <span
+                              className="rm2-ps-dot"
+                              style={{ background: "#6366f1" }}
+                            />
+                            <p
+                              className="rm2-ps-text"
+                              style={{ color: "#3730a3" }}
+                            >
+                              Se detectó un header de{" "}
+                              <strong>{headerInfo.format}</strong> en esta
+                              plantilla. Se enviará automáticamente al cliente.
+                            </p>
+                          </div>
+                        )}
+                        {plantillaSeleccionada &&
+                          !headerInfo &&
+                          // no mostrar nada extra, plantilla sin header multimedia
+                          null}
                         {plantillaSeleccionada &&
                           plantillaObj &&
                           (plantillaObj.status === "APPROVED" ? (
