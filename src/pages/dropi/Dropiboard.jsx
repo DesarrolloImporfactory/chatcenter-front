@@ -268,7 +268,7 @@ const Dropiboard = () => {
       {/* ══════════════════════════════════════
           HEADER
          ══════════════════════════════════════ */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#FF6B35] via-[#ff7e4f] to-[#FF9A5C] text-white px-6 py-5">
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#2a1a0e] to-[#FF6B35] text-white px-6 py-5">
         {/* Subtle pattern */}
         <div
           className="absolute inset-0 opacity-[0.06]"
