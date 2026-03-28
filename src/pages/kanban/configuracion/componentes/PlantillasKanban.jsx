@@ -33,8 +33,16 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
     setEmpresa("");
     setLoading(true);
     try {
-      const { data } = await chatApi.post("/kanban_plantillas/listar");
-      if (data?.success) setPlantillas(data.data || []);
+      const [resHard, resGlobal] = await Promise.all([
+        chatApi.post("/kanban_plantillas/listar"),
+        chatApi.post("/kanban_plantillas/listar_globales"),
+      ]);
+      const hardcoded = (resHard.data?.data || []).map((p) => ({
+        ...p,
+        tipo: "hardcoded",
+      }));
+      const globales = resGlobal.data?.data || [];
+      setPlantillas([...hardcoded, ...globales]);
     } catch {
       Toast.fire({ icon: "error", title: "Error al cargar plantillas" });
     } finally {
@@ -66,20 +74,29 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
       confirmButtonColor: BG_DARK,
       confirmButtonText: "Sí, aplicar",
       cancelButtonText: "Cancelar",
-      customClass: { container: "swal-over-modal" }, // ← agregar
+      customClass: { container: "swal-over-modal" },
     });
-
     if (!confirmacion.isConfirmed) return;
 
     setPaso(3);
-
     try {
-      const { data } = await chatApi.post("/kanban_plantillas/aplicar", {
-        id_configuracion,
-        plantilla_key: plantillaSeleccionada.key,
-        empresa: empresa.trim(),
-      });
+      const esGlobal = plantillaSeleccionada.tipo === "global";
+      const endpoint = esGlobal
+        ? "/kanban_plantillas/aplicar_global"
+        : "/kanban_plantillas/aplicar";
+      const body = esGlobal
+        ? {
+            id_configuracion,
+            id_plantilla: plantillaSeleccionada.id,
+            empresa: empresa.trim(),
+          }
+        : {
+            id_configuracion,
+            plantilla_key: plantillaSeleccionada.key,
+            empresa: empresa.trim(),
+          };
 
+      const { data } = await chatApi.post(endpoint, body);
       if (data?.success) {
         setResultado(data.data || []);
         setPaso(4);
@@ -403,58 +420,23 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                       }}
                     >
                       {plantillas.map((p) => {
-                        const meta = ICONOS_PLANTILLA[p.key] || {
-                          icon: "bx bx-layout",
-                          color: "#6366f1",
-                          bg: "#eff6ff",
-                        };
-
-                        // Preview columnas por plantilla
-                        const previewCols = {
-                          ventas: [
-                            {
-                              nombre: "Contacto Inicial",
-                              color: "#EFF6FF",
-                              texto: "#1D4ED8",
-                              icono: "bx bx-phone",
-                              ia: true,
-                            },
-                            {
-                              nombre: "IA Ventas",
-                              color: "#F0FDF4",
-                              texto: "#15803D",
-                              icono: "bx bx-bot",
-                              ia: true,
-                            },
-                            {
-                              nombre: "Generar Guía",
-                              color: "#FFFBEB",
-                              texto: "#B45309",
-                              icono: "bx bx-cart",
-                              ia: false,
-                            },
-                            {
-                              nombre: "Seguimiento",
-                              color: "#ECFEFF",
-                              texto: "#0E7490",
-                              icono: "bx bx-calendar",
-                              ia: true,
-                            },
-                            {
-                              nombre: "Asesor",
-                              color: "#FFF7ED",
-                              texto: "#C2410C",
-                              icono: "bx bx-user",
-                              ia: false,
-                            },
-                          ],
-                        };
-
-                        const cols = previewCols[p.key] || [];
+                        // ← meta dinámico según tipo
+                        const meta =
+                          p.tipo === "global"
+                            ? {
+                                icon: p.icono || "bx bx-layout",
+                                color: p.color || "#6366f1",
+                                bg: `${p.color || "#6366f1"}22`,
+                              }
+                            : ICONOS_PLANTILLA[p.key] || {
+                                icon: "bx bx-layout",
+                                color: "#6366f1",
+                                bg: "#eff6ff",
+                              };
 
                         return (
                           <div
-                            key={p.key}
+                            key={p.tipo === "global" ? `global-${p.id}` : p.key}
                             onClick={() => seleccionarPlantilla(p)}
                             style={{
                               borderRadius: 14,
@@ -477,7 +459,7 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                               e.currentTarget.style.transform = "translateY(0)";
                             }}
                           >
-                            {/* Preview visual temático */}
+                            {/* Preview visual */}
                             <div
                               style={{
                                 background:
@@ -513,10 +495,55 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                 }}
                               />
 
-                              {/* Flujo de íconos */}
+                              {/* ── Preview global — icono centrado ── */}
+                              {p.tipo === "global" && (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                    height: 74,
+                                    gap: 8,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 48,
+                                      height: 48,
+                                      borderRadius: 14,
+                                      background: `${p.color || "#6366f1"}25`,
+                                      border: `1px solid ${p.color || "#6366f1"}50`,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                    }}
+                                  >
+                                    <i
+                                      className={p.icono || "bx bx-layout"}
+                                      style={{
+                                        fontSize: "1.6rem",
+                                        color: p.color || "#6366f1",
+                                      }}
+                                    />
+                                  </div>
+                                  <span
+                                    style={{
+                                      fontSize: ".6rem",
+                                      color: "rgba(255,255,255,.5)",
+                                      fontWeight: 600,
+                                      textTransform: "uppercase",
+                                      letterSpacing: ".06em",
+                                    }}
+                                  >
+                                    Plantilla personalizada
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* ── Preview ventas — flujo de pasos ── */}
                               {p.key === "ventas" && (
                                 <>
-                                  {/* Titulo */}
                                   <div
                                     style={{
                                       fontSize: ".6rem",
@@ -529,8 +556,6 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                   >
                                     Flujo de ventas
                                   </div>
-
-                                  {/* Steps del flujo */}
                                   <div
                                     style={{
                                       display: "flex",
@@ -620,8 +645,6 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                       </React.Fragment>
                                     ))}
                                   </div>
-
-                                  {/* Stats mini */}
                                   <div
                                     style={{
                                       display: "flex",
@@ -742,7 +765,13 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                               >
                                 {p.descripcion}
                               </div>
-                              <div style={{ display: "flex", gap: 5 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: 5,
+                                  flexWrap: "wrap",
+                                }}
+                              >
                                 <span
                                   style={{
                                     fontSize: ".62rem",
@@ -781,6 +810,27 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                   />
                                   {p.columnas_ia} con IA
                                 </span>
+                                {p.tipo === "global" && (
+                                  <span
+                                    style={{
+                                      fontSize: ".62rem",
+                                      fontWeight: 700,
+                                      background: "#fef3c7",
+                                      color: "#92400e",
+                                      borderRadius: 999,
+                                      padding: "2px 7px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 3,
+                                    }}
+                                  >
+                                    <i
+                                      className="bx bx-globe"
+                                      style={{ fontSize: 10 }}
+                                    />
+                                    Global
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -1165,14 +1215,18 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                           gap: 10,
                           padding: "9px 14px",
                           borderRadius: 10,
-                          background: "#f0fdf4",
-                          border: "1px solid #bbf7d0",
+                          background: r.omitida ? "#fafafa" : "#f0fdf4",
+                          border: `1px solid ${r.omitida ? "#e5e7eb" : "#bbf7d0"}`,
                         }}
                       >
                         <i
-                          className="bx bx-check-circle"
+                          className={
+                            r.omitida
+                              ? "bx bx-minus-circle"
+                              : "bx bx-check-circle"
+                          }
                           style={{
-                            color: "#16a34a",
+                            color: r.omitida ? "#94a3b8" : "#16a34a",
                             fontSize: "1.1rem",
                             flexShrink: 0,
                           }}
@@ -1182,12 +1236,23 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                             style={{
                               fontWeight: 600,
                               fontSize: ".82rem",
-                              color: "#166534",
+                              color: r.omitida ? "#64748b" : "#166534",
                             }}
                           >
                             {r.columna}
                           </span>
-                          {r.assistant_id && (
+                          {r.omitida && (
+                            <span
+                              style={{
+                                fontSize: ".7rem",
+                                color: "#94a3b8",
+                                marginLeft: 8,
+                              }}
+                            >
+                              ya existe
+                            </span>
+                          )}
+                          {!r.omitida && r.assistant_id && (
                             <span
                               style={{
                                 fontSize: ".7rem",
