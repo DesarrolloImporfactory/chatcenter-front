@@ -24,7 +24,7 @@ const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useEffect : () => {};
 
 // ❌ ANTES: sumaba window.scrollY / window.scrollX
-// ✅ AHORA: coordenadas en viewport (perfecto para overlays fixed)
+//  AHORA: coordenadas en viewport (perfecto para overlays fixed)
 const useSpotlight = (targetRef, deps = []) => {
   const [rect, setRect] = useState(null);
 
@@ -748,7 +748,7 @@ const AdminConexiones = () => {
             if (data.success) {
               setStatusMessage({
                 type: "success",
-                text: "✅ Número conectado correctamente.",
+                text: "Número conectado correctamente.",
               });
               await fetchConfiguracionAutomatizada();
             } else {
@@ -854,7 +854,7 @@ const AdminConexiones = () => {
             },
           );
 
-          Swal.fire("¡Listo!", "Cuenta de TikTok conectada ✅", "success");
+          Swal.fire("¡Listo!", "Cuenta de TikTok conectada ", "success");
           await fetchConfiguracionAutomatizada();
 
           const cleanUrl = window.location.origin + window.location.pathname;
@@ -926,7 +926,7 @@ const AdminConexiones = () => {
             page_id: pageId,
           });
 
-          Swal.fire("¡Listo!", "Cuenta de Instagram conectada ✅", "success");
+          Swal.fire("¡Listo!", "Cuenta de Instagram conectada ", "success");
           await fetchConfiguracionAutomatizada();
         } else {
           const id_configuracion =
@@ -965,7 +965,7 @@ const AdminConexiones = () => {
             page_id: pageId,
           });
 
-          Swal.fire("¡Listo!", "Página conectada y suscrita ✅", "success");
+          Swal.fire("¡Listo!", "Página conectada y suscrita ", "success");
           await fetchConfiguracionAutomatizada();
         }
       } catch (e) {

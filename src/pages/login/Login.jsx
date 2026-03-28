@@ -199,7 +199,7 @@ export default function Login() {
           return;
         }
 
-        // Trial por uso (Insta Landing) → selector (tiene acceso limitado)
+        // Trial por uso (Insta Landing) → selector
         if (estado === "trial_usage") {
           navigate("/selector");
           return;
@@ -500,7 +500,7 @@ export default function Login() {
                 htmlFor="password"
                 className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider"
               >
-                Contrasena
+                Contraseña
               </label>
               <div className="relative">
                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
@@ -520,7 +520,7 @@ export default function Login() {
                   type={showPwd ? "text" : "password"}
                   placeholder="••••••••"
                   {...register("password", {
-                    required: "La contrasena es obligatoria",
+                    required: "La contraseña es obligatoria",
                   })}
                   className={`w-full pl-10 pr-12 py-3 rounded-xl text-sm bg-white text-[#0B1426] placeholder-slate-400 outline-none border-2 transition-all focus:border-[#0B1426] focus:shadow-[0_0_0_3px_rgba(11,20,38,0.06)] ${errors.password ? "border-rose-400" : "border-slate-200/80"}`}
                   autoComplete="current-password"
@@ -540,7 +540,8 @@ export default function Login() {
               )}
             </div>
 
-            <div className="flex items-center text-xs mb-6">
+            {/* ══════ RECORDARME + OLVIDÉ CONTRASEÑA ══════ */}
+            <div className="flex items-center justify-between text-xs mb-6">
               <label className="flex items-center gap-2 text-slate-500 select-none cursor-pointer">
                 <input
                   type="checkbox"
@@ -549,6 +550,13 @@ export default function Login() {
                 />
                 Recordarme
               </label>
+              <button
+                type="button"
+                onClick={() => navigate("/forgot_password")}
+                className="text-[#00BFFF] hover:text-[#0099cc] hover:underline font-semibold transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
             </div>
 
             {"root" in errors && errors.root?.message && (
@@ -637,7 +645,7 @@ export default function Login() {
                 <rect x="3" y="11" width="18" height="11" rx="2" />
                 <path d="M7 11V7a5 5 0 0110 0v4" />
               </svg>
-              Protegido con encriptacion SSL
+              Protegido con encriptación SSL
             </div>
           </form>
         </motion.div>

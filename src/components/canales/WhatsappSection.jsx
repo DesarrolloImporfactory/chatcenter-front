@@ -51,11 +51,13 @@ export default function WhatsappSection() {
     if (!userData) return;
 
     try {
-      const response = await chatApi.post("configuraciones/listar_conexiones_sub_user", {
-        id_usuario: userData.id_usuario,
-        id_sub_usuario: userData.id_sub_usuario,
-        
-      });
+      const response = await chatApi.post(
+        "configuraciones/listar_conexiones_sub_user",
+        {
+          id_usuario: userData.id_usuario,
+          id_sub_usuario: userData.id_sub_usuario,
+        },
+      );
       setConfig(response.data.data);
     } catch (err) {
       console.error("Error al obtener configuraciones", err);
@@ -83,7 +85,7 @@ export default function WhatsappSection() {
       const nums = data?.data || [];
       setHasNumbers(nums.length > 0);
       setConnected(
-        nums.some((n) => (n.status || "").toUpperCase() === "CONNECTED")
+        nums.some((n) => (n.status || "").toUpperCase() === "CONNECTED"),
       );
     } catch {
       setHasNumbers(false);
@@ -171,13 +173,13 @@ export default function WhatsappSection() {
                 redirect_uri: window.location.origin + "/conexiones",
                 display_number_onboarding: telefono,
                 id_usuario: userData.id_usuario,
-              }
+              },
             );
 
             if (data.success) {
               setStatusToast({
                 type: "success",
-                text: "✅ Número conectado correctamente.",
+                text: "Número conectado correctamente.",
               });
               fetchNumbers();
             } else {
@@ -208,7 +210,7 @@ export default function WhatsappSection() {
           setup: {},
           sessionInfoVersion: "3",
         },
-      }
+      },
     );
   };
 

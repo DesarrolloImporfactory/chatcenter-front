@@ -81,6 +81,7 @@ import PresenceProvider from "./context/PresenceProvider";
 import Dashboard from "./components/dashboard/Dashboard";
 import Dropiboard from "./pages/dropi/Dropiboard";
 import SelectorHerramienta from "./pages/selectorHerramienta/selectorHerramienta";
+import ForgotPassword from "./pages/login/ForgotPassword";
 
 function App() {
   const location = useLocation();
@@ -501,6 +502,7 @@ function App() {
 
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot_password" element={<ForgotPassword />} />
 
           {/* 
           /administrador-whatsapp, sin envolver MainLayout 

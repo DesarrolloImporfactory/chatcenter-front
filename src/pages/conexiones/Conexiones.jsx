@@ -27,7 +27,7 @@ const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useEffect : () => {};
 
 // ❌ ANTES: sumaba window.scrollY / window.scrollX
-// ✅ AHORA: coordenadas en viewport (perfecto para overlays fixed)
+//  AHORA: coordenadas en viewport (perfecto para overlays fixed)
 const useSpotlight = (targetRef, deps = []) => {
   const [rect, setRect] = useState(null);
 
@@ -498,7 +498,7 @@ const Conexiones = () => {
   const isInstagramConectado = (c) => Number(c?.instagram_conectado) === 1;
   const isTikTokConectado = (c) => Number(c?.tiktok_conectado) === 1;
 
-  // ✅ Overlay de conexión Meta (Embedded Signup)
+  //  Overlay de conexión Meta (Embedded Signup)
   const [metaConnecting, setMetaConnecting] = useState(false);
   const [metaConnectText, setMetaConnectText] = useState(
     "Conectando con Meta…",
@@ -737,7 +737,7 @@ const Conexiones = () => {
       return;
     }
 
-    // ✅ Arrancamos overlay ANTES del login para que nunca quede “en blanco”
+    //  Arrancamos overlay ANTES del login para que nunca quede “en blanco”
     setMetaConnectText("Abriendo conexión con Meta…");
     setMetaConnecting(true);
 
@@ -760,7 +760,7 @@ const Conexiones = () => {
             const redirectUri =
               "https://chatcenter.imporfactory.app/conexiones";
 
-            // ✅ Cambiamos el texto mientras consume el endpoint
+            //  Cambiamos el texto mientras consume el endpoint
             setMetaConnectText("Activando y sincronizando tu número…");
 
             const { data } = await chatApi.post(
@@ -776,7 +776,7 @@ const Conexiones = () => {
               },
             );
 
-            // ✅ Éxito total
+            //  Éxito total
             if (data?.success) {
               setMetaConnectText("¡Listo! Actualizando conexiones…");
               await fetchConfiguracionAutomatizada();
@@ -784,12 +784,12 @@ const Conexiones = () => {
 
               setStatusMessage({
                 type: "success",
-                text: "✅ Número conectado correctamente.",
+                text: "Número conectado correctamente.",
               });
               return;
             }
 
-            // ✅ Éxito parcial
+            //  Éxito parcial
             if (data?.partial) {
               setMetaConnecting(false);
               setStatusMessage({
@@ -922,7 +922,7 @@ const Conexiones = () => {
             },
           );
 
-          Swal.fire("¡Listo!", "Cuenta de TikTok conectada ✅", "success");
+          Swal.fire("¡Listo!", "Cuenta de TikTok conectada ", "success");
           await fetchConfiguracionAutomatizada();
 
           const cleanUrl = window.location.origin + window.location.pathname;
@@ -994,7 +994,7 @@ const Conexiones = () => {
             page_id: pageId,
           });
 
-          Swal.fire("¡Listo!", "Cuenta de Instagram conectada ✅", "success");
+          Swal.fire("¡Listo!", "Cuenta de Instagram conectada ", "success");
           await fetchConfiguracionAutomatizada();
         } else {
           const id_configuracion =
@@ -1033,7 +1033,7 @@ const Conexiones = () => {
             page_id: pageId,
           });
 
-          Swal.fire("¡Listo!", "Página conectada y suscrita ✅", "success");
+          Swal.fire("¡Listo!", "Página conectada y suscrita ", "success");
           await fetchConfiguracionAutomatizada();
         }
       } catch (e) {
@@ -1242,7 +1242,7 @@ const Conexiones = () => {
     })();
   }, [userData]);
 
-  // ✅ FUNCIÓN COMPLETA (reemplaza tu handleSyncCoexistencia actual)
+  //  FUNCIÓN COMPLETA (reemplaza tu handleSyncCoexistencia actual)
   const handleSyncCoexistencia = async (config) => {
     if (!config?.id) return;
 
@@ -1294,7 +1294,7 @@ const Conexiones = () => {
         },
       );
 
-      // ✅ OK
+      //  OK
       if (data?.success) {
         // marcar en UI inmediatamente
         setConfiguracionAutomatizada((prev) =>
@@ -1308,7 +1308,7 @@ const Conexiones = () => {
             ? "Sincronización realizada correctamente."
             : "Este número ya realizó la sincronización. No es necesario repetir el proceso.";
 
-        Swal.fire("Listo ✅", msg, "success");
+        Swal.fire("Listo ", msg, "success");
         return;
       }
 

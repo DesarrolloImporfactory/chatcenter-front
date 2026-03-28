@@ -54,7 +54,7 @@ chatApi.interceptors.response.use(
   (response) => {
     if (import.meta.env.NODE_ENV === "development") {
       console.log(
-        `✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`,
+        ` API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`,
         { status: response.status, data: response.data },
       );
     }
