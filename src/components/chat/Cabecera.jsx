@@ -31,8 +31,73 @@ const Cabecera = ({
   dataPlanes,
   toggleTagAssignment,
 }) => {
-  const [openContacto, setOpenContacto] = useState(false);
-  const [openTools, setOpenTools] = useState(false);
+  const [estadosKanban, setEstadosKanban] = useState([]);
+  const [loadingEstado, setLoadingEstado] = useState(false);
+  const [estadoDropdownOpen, setEstadoDropdownOpen] = useState(false);
+  const estadoDropdownRef = useRef(null);
+
+  // ─── 2) FETCH DE COLUMNAS KANBAN ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!id_configuracion) return;
+    chatApi
+      .post("/kanban_columnas/listar", { id_configuracion })
+      .then(({ data }) => setEstadosKanban(data?.data || data || []))
+      .catch(console.error);
+  }, [id_configuracion]);
+
+  // ─── 3) CERRAR DROPDOWN AL HACER CLICK FUERA ─────────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      if (
+        estadoDropdownRef.current &&
+        !estadoDropdownRef.current.contains(e.target)
+      )
+        setEstadoDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // ─── 4) HANDLER PARA CAMBIAR ESTADO ──────────────────────────────────────────
+  const handleChangeEstadoContacto = async (columna) => {
+    if (!selectedChat?.id) return;
+    setEstadoDropdownOpen(false);
+    setLoadingEstado(true);
+    try {
+      await chatApi.post("/clientes_chat_center/actualizar_estado_dinamico", {
+        id_cliente: selectedChat.id,
+        nuevo_estado: columna.estado_db,
+        id_configuracion,
+      });
+
+      // Actualizar selectedChat local
+      setSelectedChat((prev) => ({
+        ...prev,
+        nombre_estado: columna.nombre,
+        color_fondo_estado: columna.color_texto || columna.color || null,
+        estado_contacto: columna.estado_db,
+      }));
+
+      // Actualizar en la lista izquierda también
+      setMensajesAcumulados((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(selectedChat.id)
+            ? {
+                ...c,
+                nombre_estado: columna.nombre,
+                color_fondo_estado:
+                  columna.color_texto || columna.color || null,
+                estado_contacto: columna.estado_db,
+              }
+            : c,
+        ),
+      );
+    } catch (e) {
+      console.error("Error al cambiar estado:", e);
+    } finally {
+      setLoadingEstado(false);
+    }
+  };
 
   const [openMenu, setOpenMenu] = useState(null);
   const [openSubMenu, setOpenSubMenu] = useState(null);
@@ -1072,6 +1137,101 @@ const Cabecera = ({
                             : `${timeRemaining.days} ${timeRemaining.days === 1 ? "día" : "días"}`}
                       </span>
                     )}
+
+                    {/* ─── PILL ESTADO CONTACTO ─────────────────────────────────────── */}
+                    <div className="relative mt-1.5" ref={estadoDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setEstadoDropdownOpen((p) => !p)}
+                        disabled={loadingEstado}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 shadow-sm text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
+                        title="Cambiar estado del contacto"
+                      >
+                        {loadingEstado ? (
+                          <i className="bx bx-loader-alt animate-spin text-[12px] text-slate-400" />
+                        ) : selectedChat?.nombre_estado ? (
+                          <>
+                            <span
+                              className="h-2 w-2 rounded-full shrink-0"
+                              style={{
+                                backgroundColor:
+                                  selectedChat.color_fondo_estado || "#94a3b8",
+                              }}
+                            />
+                            <span
+                              style={{
+                                color:
+                                  selectedChat.color_fondo_estado || "#475569",
+                              }}
+                            >
+                              {selectedChat.nombre_estado}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="h-2 w-2 rounded-full bg-slate-300 shrink-0" />
+                            <span className="text-slate-400">Sin estado</span>
+                          </>
+                        )}
+                        <i
+                          className={`bx bx-chevron-down text-[11px] text-slate-400 transition-transform ${estadoDropdownOpen ? "rotate-180" : ""}`}
+                        />
+                      </button>
+
+                      {/* Dropdown de estados */}
+                      {estadoDropdownOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[180px] max-w-[240px] rounded-2xl border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(2,6,23,0.28)] ring-1 ring-black/5 p-1.5 overflow-hidden">
+                          {/* caret */}
+                          <span className="pointer-events-none absolute -top-1.5 left-4 h-3 w-3 rotate-45 bg-white border-t border-l border-slate-200/70" />
+
+                          {estadosKanban.length === 0 ? (
+                            <div className="px-3 py-2 text-[11px] text-slate-400">
+                              Sin estados configurados
+                            </div>
+                          ) : (
+                            estadosKanban.map((col) => {
+                              const color =
+                                col.color_texto || col.color || "#94a3b8";
+                              const isActive =
+                                selectedChat?.estado_contacto === col.estado_db;
+                              return (
+                                <button
+                                  key={col.id || col.estado_db}
+                                  type="button"
+                                  onClick={() =>
+                                    handleChangeEstadoContacto(col)
+                                  }
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] font-medium text-left transition-colors ${
+                                    isActive
+                                      ? "bg-slate-100 text-slate-900"
+                                      : "text-slate-700 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  <span
+                                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span
+                                    className="truncate"
+                                    style={{
+                                      color: isActive ? color : undefined,
+                                    }}
+                                  >
+                                    {col.nombre}
+                                  </span>
+                                  {isActive && (
+                                    <i
+                                      className="bx bx-check ml-auto text-[14px]"
+                                      style={{ color }}
+                                    />
+                                  )}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
