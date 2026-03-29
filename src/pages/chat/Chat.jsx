@@ -733,7 +733,8 @@ const Chat = () => {
       } else {
         if (
           id_encargado == id_sub_usuario_global ||
-          rol_usuario_global === "administrador"
+          rol_usuario_global === "administrador" ||
+          rol_usuario_global === "admin_limitado"
         ) {
           agregar_izquierda = scopeChats == "mine";
         } else {
@@ -1865,8 +1866,7 @@ const Chat = () => {
   const [selectedEstado, setSelectedEstado] = useState([]);
   const [selectedTransportadora, setSelectedTransportadora] = useState(null);
   const [selectedNovedad, setSelectedNovedad] = useState(null);
-  const [selectedEstado_contacto, setSelectedEstado_contacto] =
-    useState([]);
+  const [selectedEstado_contacto, setSelectedEstado_contacto] = useState([]);
   const [selectedTab, setSelectedTab] = useState("abierto");
   const [filteredChats, setFilteredChats] = useState([]);
   const [offset, setOffset] = useState(0);
@@ -2390,7 +2390,9 @@ const Chat = () => {
 
       if (msg.id_configuracion == localStorage.getItem("id_configuracion")) {
         const encargadoId = msg?.clientePorCelular?.id_encargado;
-        const isAdmin = rol_usuario_global === "administrador";
+        const isAdmin =
+          rol_usuario_global === "administrador" ||
+          rol_usuario_global === "admin_limitado";
 
         const deboVerlo = String(encargadoId) === String(id_sub_usuario_global);
 
@@ -2883,7 +2885,9 @@ const Chat = () => {
       const clienteWa = msg.clientePorCelular || null;
       const encargadoId = chat?.id_encargado ?? clienteWa?.id_encargado ?? null;
 
-      const isAdmin = rol_usuario_global === "administrador";
+      const isAdmin =
+          rol_usuario_global === "administrador" ||
+          rol_usuario_global === "admin_limitado";
       const encargadoStr =
         encargadoId == null ? "" : String(encargadoId).trim();
       const isUnassigned = !encargadoStr;

@@ -1009,6 +1009,7 @@ const UsuariosView = () => {
                           <option value="">Seleccione rol</option>
                           <option value="administrador">Administrador</option>
                           <option value="ventas">Ventas</option>
+                          <option value="admin_limitado">Administrador limitado</option>
                         </select>
                       </div>
                     </div>
