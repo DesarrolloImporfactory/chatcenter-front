@@ -39,6 +39,8 @@ const ProductCard = ({
   onDelete,
   onAlimentar,
   onGenerateComplete,
+  onSendToShopify,
+  shopifyConnected,
 }) => {
   const [hovered, setHovered] = useState(false);
 
@@ -147,10 +149,10 @@ const ProductCard = ({
           </p>
         )}
 
-        {/* CTA — Generar landing completa (mismo estilo que el antiguo "Alimentar negocio con IA") */}
+        {/* CTA — Generar landing completa */}
         <button
           onClick={onGenerateComplete}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-bold transition-all active:scale-[0.97] mt-2 mb-3"
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-bold transition-all active:scale-[0.97] mt-2 mb-2"
           style={{
             background:
               "linear-gradient(135deg, rgba(99,102,241,0.07), rgba(79,70,229,0.07))",
@@ -178,6 +180,12 @@ const ProductCard = ({
             {formatDate(p.created_at)}
           </span>
           <div className="flex items-center gap-0.5">
+            <ActionBtn
+              icon="bx-store"
+              title={shopifyConnected ? "Enviar a Shopify" : "Conectar Shopify"}
+              onClick={onSendToShopify}
+              color="#95BF47"
+            />
             <ActionBtn
               icon="bxs-zap"
               title="Alimentar negocio con IA"

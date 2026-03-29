@@ -8,6 +8,8 @@ import ModalCrudProducto from "./modales/ModalCrudProducto";
 import ModalImportarDropi from "./modales/ModalImportarDropi";
 import ModalAlimentarNegocio from "./modales/ModalAlimentarNegocio";
 import VincularDropiModal from "./modales/VincularDropiModal";
+import VincularShopifyModal from "./modales/VincularShopifyModal";
+import EnviarShopifyModal from "./modales/EnviarShopifyModal";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -66,6 +68,14 @@ const ProductsPage = () => {
   const [alimentarNegocio, setAlimentarNegocio] = useState(null);
   const [alimentarLoading, setAlimentarLoading] = useState(false);
 
+  /* ── Integración Shopify ── */
+  const [shopifyModal, setShopifyModal] = useState(false);
+  const [shopifyConnected, setShopifyConnected] = useState(false);
+  const [shopifyShopName, setShopifyShopName] = useState("");
+
+  const [enviarShopifyModal, setEnviarShopifyModal] = useState(false);
+  const [enviarShopifyImage, setEnviarShopifyImage] = useState(null); // { url, name }
+
   /* ════════ FETCHES ════════ */
   const fetchProductos = useCallback(async () => {
     setLoading(true);
@@ -88,10 +98,23 @@ const ProductsPage = () => {
     }
   }, []);
 
+  const fetchShopifyStatus = useCallback(async () => {
+    try {
+      const res = await chatApi.get("shopify/status");
+      setShopifyConnected(res.data?.connected || false);
+      setShopifyShopName(
+        res.data?.data?.shop_name || res.data?.data?.shop_domain || "",
+      );
+    } catch {
+      /* silencioso */
+    }
+  }, []);
+
   useEffect(() => {
     fetchProductos();
     fetchDropiIntegration();
-  }, [fetchProductos, fetchDropiIntegration]);
+    fetchShopifyStatus();
+  }, [fetchProductos, fetchDropiIntegration, fetchShopifyStatus]);
 
   const fetchNegocios = async () => {
     if (negocios.length > 0) return negocios;
@@ -500,24 +523,25 @@ const ProductsPage = () => {
               </button>
 
               {/* ── Vincular Dropi ── */}
+
               <button
                 onClick={() => setDropiLinkModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
                 style={{
                   background: dropiIntegration
-                    ? "rgba(34,197,94,0.12)"
+                    ? "rgba(255,255,255,0.95)"
                     : "rgba(249,115,22,0.1)",
-                  border: `1px solid ${dropiIntegration ? "rgba(34,197,94,0.3)" : "rgba(249,115,22,0.28)"}`,
-                  color: dropiIntegration ? "#86efac" : "#f97316",
+                  border: `1px solid ${dropiIntegration ? "rgba(249,115,22,0.3)" : "rgba(249,115,22,0.28)"}`,
+                  color: "#f97316",
                 }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = dropiIntegration
-                    ? "rgba(34,197,94,0.18)"
+                    ? "rgba(255,255,255,1)"
                     : "rgba(249,115,22,0.16)")
                 }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background = dropiIntegration
-                    ? "rgba(34,197,94,0.12)"
+                    ? "rgba(255,255,255,0.95)"
                     : "rgba(249,115,22,0.1)")
                 }
               >
@@ -530,6 +554,39 @@ const ProductsPage = () => {
                     : "Vincular Dropi"}
                 </span>
                 <span className="sm:hidden">Dropi</span>
+              </button>
+
+              {/* ── Vincular Shopify ── */}
+              <button
+                onClick={() => setShopifyModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
+                style={{
+                  background: shopifyConnected
+                    ? "rgba(34,197,94,0.12)"
+                    : "rgba(149,191,71,0.1)",
+                  border: `1px solid ${shopifyConnected ? "rgba(34,197,94,0.3)" : "rgba(149,191,71,0.28)"}`,
+                  color: shopifyConnected ? "#86efac" : "#95BF47",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = shopifyConnected
+                    ? "rgba(34,197,94,0.18)"
+                    : "rgba(149,191,71,0.18)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = shopifyConnected
+                    ? "rgba(34,197,94,0.12)"
+                    : "rgba(149,191,71,0.1)")
+                }
+              >
+                <i
+                  className={`bx ${shopifyConnected ? "bx-check-circle" : "bx-store"} text-sm`}
+                />
+                <span className="hidden sm:inline">
+                  {shopifyConnected
+                    ? `Shopify · ${shopifyShopName}`
+                    : "Conectar Shopify"}
+                </span>
+                <span className="sm:hidden">Shopify</span>
               </button>
 
               {/* ── Nuevo producto ── */}
@@ -658,11 +715,23 @@ const ProductsPage = () => {
             <ProductCard
               key={p.id}
               p={p}
+              shopifyConnected={shopifyConnected}
               onNavigate={() => navigate(`/insta_landing_productos/${p.id}`)}
               onEdit={() => openEdit(p)}
               onDelete={() => handleDelete(p)}
               onAlimentar={() => openAlimentarModal(p)}
               onGenerateComplete={() => goToFullGenerator(p)}
+              onSendToShopify={() => {
+                if (!shopifyConnected) {
+                  setShopifyModal(true);
+                  return;
+                }
+                setEnviarShopifyImage({
+                  url: p.imagen_portada,
+                  name: p.nombre,
+                });
+                setEnviarShopifyModal(true);
+              }}
             />
           ))}
           <button
@@ -749,6 +818,26 @@ const ProductsPage = () => {
         onClose={() => setDropiLinkModal(false)}
         integration={dropiIntegration}
         onSaved={fetchDropiIntegration}
+        Swal={Swal}
+      />
+
+      <VincularShopifyModal
+        open={shopifyModal}
+        onClose={() => setShopifyModal(false)}
+        onConnected={() => {
+          fetchShopifyStatus();
+          setShopifyModal(false);
+        }}
+        Swal={Swal}
+      />
+      <EnviarShopifyModal
+        open={enviarShopifyModal}
+        onClose={() => {
+          setEnviarShopifyModal(false);
+          setEnviarShopifyImage(null);
+        }}
+        imageUrl={enviarShopifyImage?.url}
+        imageName={enviarShopifyImage?.name}
         Swal={Swal}
       />
     </div>

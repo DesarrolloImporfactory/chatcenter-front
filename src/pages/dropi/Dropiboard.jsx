@@ -12,7 +12,7 @@ import DropiStatusBar from "./dropiboard/presets/DropiStatusBar";
 import DropiKpiCards from "./dropiboard/proporcional/DropiKpiCards";
 import DropiCharts from "./dropiboard/proporcional/DropiCharts";
 import DropiProductsTable from "./dropiboard/proporcional/DropiProductsTable";
-import DropiRetiroAgencia from "./dropiboard/proporcional/DropiRetiroAgencia";
+import DropiOrdersTable from "./dropiboard/proporcional/DropiOrdersTable";
 import DropiProfitBar from "./dropiboard/proporcional/DropiProfitBar";
 import {
   STATUS_CATEGORIES,
@@ -39,6 +39,9 @@ const Dropiboard = () => {
     from.setDate(today.getDate() - 7);
     return { from: toYMD(from), until: toYMD(today) };
   });
+
+  // ─── Filtro por status ───
+  const [selectedStatus, setSelectedStatus] = useState(null);
 
   // ─── Split date range into chunks (SIN SOLAPAMIENTO) ───
   const splitDateRange = useCallback((from, until, chunks) => {
@@ -75,6 +78,7 @@ const Dropiboard = () => {
       dailyChart: [],
       topProducts: [],
       retiroAgencia: [],
+      ordersByStatus: {},
       pagesFetched: 0,
       isPartial: false,
       partialMessage: null,
@@ -82,6 +86,7 @@ const Dropiboard = () => {
     const dailyMap = {};
     const productMap = {};
     const allRetiro = [];
+    const allOrdersByStatus = {};
 
     const mergedProfit = {
       profitEntregadas: 0,
@@ -137,6 +142,12 @@ const Dropiboard = () => {
       }
       allRetiro.push(...(r.retiroAgencia || []));
 
+      // Merge ordersByStatus
+      for (const [key, orders] of Object.entries(r.ordersByStatus || {})) {
+        if (!allOrdersByStatus[key]) allOrdersByStatus[key] = [];
+        allOrdersByStatus[key].push(...orders);
+      }
+
       if (r.profitData) {
         mergedProfit.profitEntregadas += r.profitData.profitEntregadas || 0;
         mergedProfit.profitPotencialTotal +=
@@ -158,6 +169,14 @@ const Dropiboard = () => {
     merged.retiroAgencia = allRetiro
       .sort((a, b) => b.days - a.days)
       .slice(0, 20);
+
+    // Limitar ordersByStatus a 25 por estado
+    for (const key of Object.keys(allOrdersByStatus)) {
+      allOrdersByStatus[key] = allOrdersByStatus[key]
+        .sort((a, b) => b.days - a.days)
+        .slice(0, 25);
+    }
+    merged.ordersByStatus = allOrdersByStatus;
 
     const entregadas = merged.statusStats.entregada?.count || 0;
     const devoluciones = merged.statusStats.devolucion?.count || 0;
@@ -204,11 +223,10 @@ const Dropiboard = () => {
   const fetchDashboard = useCallback(
     async (silent = false) => {
       if (!selectedIntegration) return;
-      const cfgId =
-        selectedIntegration.id_configuracion ||
-        parseInt(localStorage.getItem("id_configuracion"), 10);
-      if (!cfgId) {
-        setErrorMsg("No se encontró id_configuracion.");
+
+      const integrationId = selectedIntegration.id;
+      if (!integrationId) {
+        setErrorMsg("No se encontró integración válida.");
         return;
       }
 
@@ -216,6 +234,7 @@ const Dropiboard = () => {
         setLoading(true);
         setHasFetched(true);
         setErrorMsg("");
+        setSelectedStatus(null); // Reset filter al consultar
       }
 
       try {
@@ -239,7 +258,10 @@ const Dropiboard = () => {
             .post(
               "dropi_integrations/dashboard/stats",
               {
-                id_configuracion: cfgId,
+                integration_id: integrationId,
+                ...(selectedIntegration.id_configuracion
+                  ? { id_configuracion: selectedIntegration.id_configuracion }
+                  : {}),
                 from: range.from,
                 until: range.until,
               },
@@ -309,7 +331,7 @@ const Dropiboard = () => {
     [selectedIntegration, dateRange, splitDateRange, mergeStats, syncingMsg],
   );
 
-  // ─── Auto-refresh para profit (cada 35s mientras no esté completo) ───
+  // ─── Auto-refresh para profit ───
   useEffect(() => {
     if (profitTimerRef.current) {
       clearTimeout(profitTimerRef.current);
@@ -353,9 +375,19 @@ const Dropiboard = () => {
   };
   const dailyChart = stats?.dailyChart || [];
   const topProducts = stats?.topProducts || [];
-  const retiroAgencia = stats?.retiroAgencia || [];
+  const ordersByStatus = stats?.ordersByStatus || {};
   const totalOrders = stats?.totalOrders || 0;
   const profitData = stats?.profitData || null;
+
+  // Órdenes filtradas para la tabla
+  const filteredOrders = selectedStatus
+    ? ordersByStatus[selectedStatus] || []
+    : ordersByStatus.retiro_agencia || [];
+
+  const filteredStatusKey = selectedStatus || "retiro_agencia";
+  const filteredTotalCount = selectedStatus
+    ? statusStats[selectedStatus]?.count || 0
+    : statusStats.retiro_agencia?.count || 0;
 
   const pieData = useMemo(() => {
     return DISPLAY_ORDER.map((key) => ({
@@ -643,18 +675,29 @@ const Dropiboard = () => {
             <DropiStatusBar
               statusStats={statusStats}
               totalOrders={totalOrders}
+              activeFilter={selectedStatus}
+              onFilterStatus={setSelectedStatus}
             />
+
             <DropiKpiCards kpis={kpis} />
 
             {/* ── Utilidad Real ── */}
             <DropiProfitBar profitData={profitData} />
+
+            {/* ── Tabla de órdenes filtradas ── */}
+            {filteredOrders.length > 0 && (
+              <DropiOrdersTable
+                orders={filteredOrders}
+                statusKey={filteredStatusKey}
+                totalCount={filteredTotalCount}
+              />
+            )}
 
             <DropiCharts
               dailyChart={dailyChart}
               pieData={pieData}
               loading={loading}
             />
-            <DropiRetiroAgencia orders={retiroAgencia} />
             <DropiProductsTable topProducts={topProducts} loading={loading} />
 
             <div className="text-center pt-6 pb-2 border-t border-slate-200 mt-4">

@@ -194,30 +194,6 @@ const ToolCard = ({
                 {lockedLabel}
               </span>
             </div>
-            {/* <button
-              onClick={(e) => {
-                e.stopPropagation();
-                window.location.href = "/planes";
-              }}
-              className="w-full py-2.5 rounded-xl text-[11px] font-bold text-white text-center transition-all hover:brightness-110 hover:scale-[1.01] active:scale-[0.99]"
-              style={{
-                background: `linear-gradient(135deg, ${accent}, ${accent}cc)`,
-                boxShadow: `0 3px 16px ${accent}25`,
-              }}
-            >
-              <span className="flex items-center justify-center gap-1.5">
-                Desbloquear — Ver planes
-                <svg
-                  className="w-3.5 h-3.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                >
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </span>
-            </button> */}
           </div>
         ) : (
           /* ── CTA activo ── */
@@ -314,6 +290,7 @@ export default function SelectorHerramienta() {
   }, [navigate]);
 
   const canImporChat = toolsAccess === "imporchat" || toolsAccess === "both";
+  const canDropiboard = true; // Disponible para todos los planes activos
   const canInstaLanding =
     toolsAccess === "insta_landing" || toolsAccess === "both";
 
@@ -375,6 +352,18 @@ export default function SelectorHerramienta() {
             animation: "orbDrift 32s ease-in-out infinite reverse",
           }}
         />
+        {/* Orb dorado para Dropiboard */}
+        <div
+          className="absolute w-[400px] h-[400px] rounded-full"
+          style={{
+            top: "30%",
+            left: "35%",
+            background:
+              "radial-gradient(circle, rgba(234,179,8,.05), transparent 55%)",
+            filter: "blur(60px)",
+            animation: "orbDrift 28s ease-in-out infinite",
+          }}
+        />
         <div
           className="absolute top-0 left-1/2 w-px h-full opacity-[0.035]"
           style={{
@@ -417,34 +406,10 @@ export default function SelectorHerramienta() {
           <br />
           <span style={{ color: "#00BFFF" }}>vamos a usar</span> hoy?
         </h1>
-        {/* <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }}
-          className="mt-4 flex items-center justify-center gap-2.5"
-        >
-          <span
-            className="px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider"
-            style={{
-              color: "#00BFFF",
-              background: "rgba(0,191,255,.08)",
-              border: "1px solid rgba(0,191,255,.15)",
-            }}
-          >
-            {planName}
-          </span>
-          <span className="text-slate-600 text-[10px]">·</span>
-          <button
-            onClick={() => navigate("/planes")}
-            className="text-[10px] text-slate-500 hover:text-slate-300 transition underline underline-offset-2 decoration-slate-600"
-          >
-            Cambiar plan
-          </button>
-        </motion.div> */}
       </motion.div>
 
       {/* ── Cards ── */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-[860px]">
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-[1140px]">
         <ToolCard
           title="ImporChat"
           tagline="Agente AI de Ventas por WhatsApp"
@@ -477,9 +442,42 @@ export default function SelectorHerramienta() {
         />
 
         <ToolCard
+          title="Dropiboard"
+          tagline="Métricas & Utilidad en Tiempo Real"
+          description="Analiza todas tus órdenes Dropi en un solo lugar. Estados de guías, tasa de entrega, devoluciones, productos top, retiros en agencia y utilidad real calculada automáticamente."
+          badges={["Órdenes Live", "Utilidad Real", "KPIs", "Top Productos"]}
+          stats={[
+            { value: "Live", label: "Sync" },
+            { value: "$$$", label: "Profit" },
+            { value: "∞", label: "Órdenes" },
+          ]}
+          accent="#EAB308"
+          locked={!canDropiboard}
+          lockedLabel="Disponible en Pro Ecosistema"
+          delay={0.14}
+          onClick={() => navigate("/dropiboard")}
+          icon={
+            <svg
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#EAB308"
+              strokeWidth="1.6"
+            >
+              <rect x="3" y="12" width="4" height="9" rx="1" />
+              <rect x="10" y="7" width="4" height="14" rx="1" />
+              <rect x="17" y="3" width="4" height="18" rx="1" />
+              <circle cx="5" cy="10" r="1.5" fill="#EAB308" />
+              <circle cx="12" cy="5" r="1.5" fill="#EAB308" />
+              <circle cx="19" cy="1.5" r="1.5" fill="#EAB308" />
+            </svg>
+          }
+        />
+
+        <ToolCard
           title="Insta Landing"
           tagline="Banners & Landing Pages con AI"
-          description="Genera banners profesionales y landing pages optimizadas en segundos. Contenido visual que vende, potenciado por inteligencia artificial generativa."
+          description="Genera banners profesionales y landing pages optimizadas en segundos. Crea contenido visual que vende, potenciado por inteligencia artificial generativa enfocada en ecommerce."
           badges={["Generador AI", "120+ / mes", "10 secciones", "Dropi"]}
           stats={[
             { value: "120+", label: "Banners" },
