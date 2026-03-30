@@ -54,7 +54,8 @@ function getUserInfo() {
   const id_sub_usuario = id_sub_usuario_raw ? Number(id_sub_usuario_raw) : null;
   const rol =
     localStorage.getItem("user_role") || localStorage.getItem("rol") || null;
-  const esAdmin = !id_sub_usuario || rol === "administrador";
+  const esAdmin =
+    !id_sub_usuario || rol === "administrador" || rol === "admin_limitado";
   return { id_usuario, id_sub_usuario, rol, esAdmin };
 }
 
