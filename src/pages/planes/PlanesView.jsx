@@ -9,7 +9,7 @@ import ModalCodigoPromo from "./modales/ModalCodigoPromo";
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const PLANES_VISIBLES = new Set([6, 2, 3, 4]);
-const HIDDEN_PLANS = new Set([22]); // Planes ocultos que se desbloquean por código
+const HIDDEN_PLANS = new Set([22]);
 const SORT_ORDER = { 6: 1, 2: 2, 22: 2.5, 3: 3, 4: 4 };
 const TRIAL_DAYS_PLAN_ID = 2;
 const TRIAL_DAYS = 7;
@@ -19,12 +19,10 @@ const PROMO_FIRST_MONTH = 5;
 const PROMO_PLANS = new Set([6, 2, 3, 4]);
 
 const detectPlanType = (plan) => {
-  // Comunidad primero (tiene tools_access='both' pero es plan especial)
   const nombre = (plan?.nombre_plan || "").toLowerCase();
   if (nombre.includes("comunidad")) return "comunidad";
   const id = Number(plan?.id_plan || 0);
   if (id === 22) return "comunidad";
-
   const tools = (plan?.tools_access || "").toLowerCase().trim();
   if (tools === "insta_landing") return "insta_landing";
   if (tools === "imporchat") return "imporchat";
@@ -98,6 +96,7 @@ const PLAN_THEMES = {
 
 const buildFeatures = (plan) => {
   const tipo = detectPlanType(plan);
+
   if (tipo === "comunidad") {
     return [
       {
@@ -130,28 +129,15 @@ const buildFeatures = (plan) => {
         enabled: true,
         section: "ic",
       },
-      {
-        label: "Conversaciones ILIMITADAS",
-        enabled: true,
-        section: "ic",
-      },
-      {
-        label: "Respuestas auto 24/7",
-        enabled: true,
-        section: "ic",
-      },
-      {
-        label: "Dashboard básico",
-        enabled: true,
-        section: "extra",
-      },
-      {
-        label: "Precio exclusivo comunidad",
-        enabled: true,
-        section: "extra",
-      },
+      { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
+      { label: "Respuestas auto 24/7", enabled: true, section: "ic" },
+      { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
+      { label: "Utilidad real por orden", enabled: true, section: "db" },
+      { label: "Dashboard básico", enabled: true, section: "extra" },
+      { label: "Precio exclusivo comunidad", enabled: true, section: "extra" },
     ];
   }
+
   if (tipo === "insta_landing") {
     return [
       {
@@ -177,8 +163,10 @@ const buildFeatures = (plan) => {
       { label: "+280 templates", enabled: true },
       { label: "Editor textos AI", enabled: true },
       { label: "Sin ImporChat", enabled: false },
+      { label: "Sin Dropiboard", enabled: false },
     ];
   }
+
   if (tipo === "imporchat") {
     return [
       {
@@ -192,8 +180,10 @@ const buildFeatures = (plan) => {
       { label: "1 número WhatsApp", enabled: true },
       { label: "Dashboard básico", enabled: true },
       { label: "Sin Insta Landing", enabled: false },
+      { label: "Sin Dropiboard", enabled: false },
     ];
   }
+
   if (tipo === "pro") {
     return [
       {
@@ -224,6 +214,8 @@ const buildFeatures = (plan) => {
         section: "ic",
       },
       { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
+      { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
+      { label: "Utilidad real por orden", enabled: true, section: "db" },
       {
         label: "Landing → WhatsApp auto-link",
         enabled: true,
@@ -232,6 +224,8 @@ const buildFeatures = (plan) => {
       { label: "Analytics unificado", enabled: true, section: "extra" },
     ];
   }
+
+  // avanzado
   return [
     {
       label: `${plan.max_banners_mes || 500} banners/mes`,
@@ -267,6 +261,8 @@ const buildFeatures = (plan) => {
     { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
     { label: "Multi-número WhatsApp", enabled: true, section: "ic" },
     { label: "Bot entrenado con catálogo", enabled: true, section: "ic" },
+    { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
+    { label: "Utilidad real + profit", enabled: true, section: "db" },
     { label: "Analytics + heatmaps", enabled: true, section: "extra" },
     {
       label: `Sub-cuentas (${plan.max_subcuentas || 5})`,
@@ -625,15 +621,9 @@ const PlanesView = () => {
 
   const visiblePlans = useMemo(() => {
     const baseVisible = new Set(PLANES_VISIBLES);
-
-    // Agregar planes desbloqueados por código promo
     unlockedPlans.forEach((id) => baseVisible.add(Number(id)));
-
-    // Si el usuario YA tiene un plan oculto activo, mostrarlo
-    if (currentPlanId && HIDDEN_PLANS.has(Number(currentPlanId))) {
+    if (currentPlanId && HIDDEN_PLANS.has(Number(currentPlanId)))
       baseVisible.add(Number(currentPlanId));
-    }
-
     return (planes || [])
       .filter((p) => baseVisible.has(Number(p.id_plan)))
       .sort(
@@ -758,9 +748,7 @@ const PlanesView = () => {
       {/* ── GRID ── */}
       <div className="px-3 sm:px-4 pb-16">
         <div
-          className={`grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch ${
-            visiblePlans.length <= 4 ? "xl:grid-cols-4" : "xl:grid-cols-5"
-          }`}
+          className={`grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch ${visiblePlans.length <= 4 ? "xl:grid-cols-4" : "xl:grid-cols-5"}`}
         >
           {planes.length === 0 &&
             Array.from({ length: 4 }).map((_, i) => (
@@ -1029,6 +1017,12 @@ const PlanesView = () => {
                             {showHeader && f.section === "ic" && (
                               <SectionLabel label={icLabel} color="#10B981" />
                             )}
+                            {showHeader && f.section === "db" && (
+                              <SectionLabel
+                                label="DROPIBOARD"
+                                color="#EAB308"
+                              />
+                            )}
                             {showHeader && f.section === "extra" && (
                               <SectionLabel
                                 label="Extras"
@@ -1074,9 +1068,7 @@ const PlanesView = () => {
         onClose={() => setShowPromoModal(false)}
         onSuccess={async ({ imagenes, angulos, unlocked_plan_id }) => {
           await refreshPlanActual();
-          if (!unlocked_plan_id) {
-            navigate("/selector");
-          }
+          if (!unlocked_plan_id) navigate("/selector");
         }}
         idUsuario={getIdUsuario()}
         chatApi={chatApi}

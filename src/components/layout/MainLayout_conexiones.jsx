@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../shared/Header";
 import { Footer } from "../shared/Footer";
-import chatApi from "../../api/chatcenter";
 import { jwtDecode } from "jwt-decode";
-import io from "socket.io-client";
 import Swal from "sweetalert2";
 import ModalPlanBlock from "./modales/ModalPlanBlock";
 
@@ -14,13 +12,12 @@ function MainLayout({ children }) {
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
   const [userData, setUserData] = useState(null);
-  const [configuraciones, setConfiguraciones] = useState([]);
-  const [estadoNumero, setEstadoNumero] = useState([]);
 
   // Plan block modal (global)
   const [planBlock, setPlanBlock] = useState({
     open: false,
     code: null,
+    message: null,
     trialInfo: null,
     promoInfo: null,
   });
@@ -46,25 +43,6 @@ function MainLayout({ children }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (userData) fetchConfiguracionAutomatizada();
-  }, [userData]);
-
-  useEffect(() => {
-    const isBanned = estadoNumero.some((num) => num.status === "BANNED");
-    if (isBanned) {
-      Swal.fire({
-        icon: "error",
-        title: "Cuenta bloqueada",
-        text: "Tu número de WhatsApp ha sido bloqueado. Se cerrará tu sesión.",
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        allowEnterKey: true,
-        confirmButtonText: "OK",
-      }).then(() => handleLogout());
-    }
-  }, [estadoNumero]);
-
   // ═══ Listener global: plan:blocked (disparado por chatApi interceptor) ═══
   useEffect(() => {
     const handler = (e) => {
@@ -72,6 +50,7 @@ function MainLayout({ children }) {
       setPlanBlock({
         open: true,
         code: detail.code || "PLAN_REQUIRED",
+        message: detail.message || null,
         trialInfo: detail.trialInfo || null,
         promoInfo: detail.promoInfo || null,
       });
@@ -79,38 +58,6 @@ function MainLayout({ children }) {
     window.addEventListener("plan:blocked", handler);
     return () => window.removeEventListener("plan:blocked", handler);
   }, []);
-
-  const fetchConfiguracionAutomatizada = async () => {
-    if (!userData) return;
-    try {
-      const isSuperAdmin =
-        userData.role === "super_administrador" ||
-        localStorage.getItem("user_role") === "super_administrador";
-      const endpoint = isSuperAdmin
-        ? "configuraciones/listar_admin_conexiones"
-        : "configuraciones/listar_conexiones_sub_user";
-      const body = isSuperAdmin
-        ? {}
-        : {
-            id_usuario: userData.id_usuario,
-            id_sub_usuario: userData.id_sub_usuario,
-          };
-      const response = await chatApi.post(endpoint, body);
-      setConfiguraciones(response.data || []);
-    } catch (error) {
-      if (error.response?.status === 403) {
-        Swal.fire({
-          icon: "error",
-          title: error.response?.data?.message,
-          allowOutsideClick: false,
-          confirmButtonText: "OK",
-        }).then(() => navigate("/planes"));
-      } else {
-        console.error("Error al cargar la configuración automatizada.", error);
-        setConfiguraciones([]);
-      }
-    }
-  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -221,13 +168,6 @@ function MainLayout({ children }) {
                 navigate(conexionPath);
               }}
             />
-            {/* {isAdmin && (
-              <NavBtn
-                path="/dashboard"
-                icon="bx-bar-chart-alt-2"
-                label="Dashboard"
-              />
-            )} */}
 
             <NavBtn
               path="/dashboard"
@@ -346,12 +286,14 @@ function MainLayout({ children }) {
       <ModalPlanBlock
         open={planBlock.open}
         blockCode={planBlock.code}
+        blockMessage={planBlock.message}
         trialInfo={planBlock.trialInfo}
         promoInfo={planBlock.promoInfo}
         onClose={() =>
           setPlanBlock({
             open: false,
             code: null,
+            message: null,
             trialInfo: null,
             promoInfo: null,
           })
@@ -360,6 +302,7 @@ function MainLayout({ children }) {
           setPlanBlock({
             open: false,
             code: null,
+            message: null,
             trialInfo: null,
             promoInfo: null,
           });

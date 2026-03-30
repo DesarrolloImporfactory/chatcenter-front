@@ -30,11 +30,8 @@ const ToolCard = ({
       whileHover={!locked ? { y: -7 } : { y: -2 }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      onClick={locked ? undefined : onClick}
-      className={[
-        "relative rounded-2xl overflow-hidden transition-shadow duration-500",
-        locked ? "cursor-default" : "cursor-pointer",
-      ].join(" ")}
+      onClick={onClick}
+      className="relative rounded-2xl overflow-hidden transition-shadow duration-500 cursor-pointer"
       style={{
         boxShadow:
           hovered && !locked
@@ -290,7 +287,7 @@ export default function SelectorHerramienta() {
   }, [navigate]);
 
   const canImporChat = toolsAccess === "imporchat" || toolsAccess === "both";
-  const canDropiboard = true; // Disponible para todos los planes activos
+  const canDropiboard = toolsAccess === "both";
   const canInstaLanding =
     toolsAccess === "insta_landing" || toolsAccess === "both";
 
@@ -424,7 +421,7 @@ export default function SelectorHerramienta() {
           locked={!canImporChat}
           lockedLabel="Disponible en Pro Ecosistema"
           delay={0.08}
-          onClick={() => navigate("/conexiones")}
+          onClick={() => navigate(canImporChat ? "/conexiones" : "/planes")}
           icon={
             <svg
               className="w-5 h-5"
@@ -455,7 +452,7 @@ export default function SelectorHerramienta() {
           locked={!canDropiboard}
           lockedLabel="Disponible en Pro Ecosistema"
           delay={0.14}
-          onClick={() => navigate("/dropiboard")}
+          onClick={() => navigate(canDropiboard ? "/dropiboard" : "/planes")}
           icon={
             <svg
               className="w-5 h-5"
@@ -477,7 +474,7 @@ export default function SelectorHerramienta() {
         <ToolCard
           title="Insta Landing"
           tagline="Banners & Landing Pages con AI"
-          description="Genera banners profesionales y landing pages optimizadas en segundos. Crea contenido visual que vende, potenciado por inteligencia artificial generativa enfocada en ecommerce."
+          description="Genera banners profesionales y landing pages optimizadas en segundos. Crea contenido visual que vende, potenciado por inteligencia artificial generativa con enfoque en ecommerce."
           badges={["Generador AI", "120+ / mes", "10 secciones", "Dropi"]}
           stats={[
             { value: "120+", label: "Banners" },
@@ -488,7 +485,9 @@ export default function SelectorHerramienta() {
           locked={!canInstaLanding}
           lockedLabel="Disponible en Pro Ecosistema"
           delay={0.2}
-          onClick={() => navigate("/insta_landing")}
+          onClick={() =>
+            navigate(canInstaLanding ? "/insta_landing" : "/planes")
+          }
           icon={
             <svg
               className="w-5 h-5"

@@ -25,6 +25,7 @@ const PLAN_BLOCK_CODES = new Set([
   "PLAN_INACTIVE",
   "PLAN_UNAVAILABLE",
   "ACCOUNT_BLOCKED",
+  "TOOL_ACCESS_DENIED",
 ]);
 
 chatApi.interceptors.request.use(
@@ -90,6 +91,8 @@ chatApi.interceptors.response.use(
           },
         }),
       );
+      error._handledByInterceptor = true;
+
       return Promise.reject(error);
     }
 

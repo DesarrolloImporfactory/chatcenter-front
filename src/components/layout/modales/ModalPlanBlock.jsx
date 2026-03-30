@@ -171,6 +171,31 @@ const BLOCK_CONFIG = {
     actionText: "Ver planes",
     cancelText: "Cerrar",
   },
+  TOOL_ACCESS_DENIED: {
+    icon: (
+      <svg
+        className="w-6 h-6"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#0B1426"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0110 0v4" />
+      </svg>
+    ),
+    iconBg: "rgba(11,20,38,0.06)",
+    iconBorder: "rgba(11,20,38,0.1)",
+    title: "Herramienta no incluida en tu plan",
+    description:
+      "Tu plan actual no incluye acceso a esta herramienta. Actualiza para desbloquear todo el ecosistema.",
+    showPricing: false,
+    actionText: "Actualizar mi plan",
+    cancelText: "Volver",
+    useBackendMessage: true,
+  },
 };
 
 const DEFAULT_CONFIG = BLOCK_CONFIG.PLAN_REQUIRED;
@@ -180,6 +205,7 @@ const ModalPlanBlock = ({
   onClose,
   onAction,
   blockCode,
+  blockMessage,
   trialInfo,
   promoInfo,
 }) => {
@@ -195,7 +221,9 @@ const ModalPlanBlock = ({
     ? promoDescripcion
       ? `Usaste todos los recursos del código "${promoCodigo}". ${promoDescripcion}`
       : config.description
-    : config.description;
+    : config.useBackendMessage && blockMessage
+      ? blockMessage
+      : config.description;
 
   const displayActionText = isPromoExhausted
     ? promoRedirectUrl
@@ -357,15 +385,6 @@ const ModalPlanBlock = ({
             >
               {displayActionText}
             </button>
-
-            {/* {isPromoExhausted && promoRedirectUrl && (
-              <button
-                onClick={() => onAction()}
-                className="w-full rounded-xl px-4 py-2.5 text-xs font-semibold text-[#0B1426] hover:bg-slate-50 transition border border-slate-200"
-              >
-                Ver planes y suscribirme
-              </button>
-            )} */}
 
             <button
               onClick={onClose}
