@@ -138,18 +138,24 @@ const RemarketingColumna = ({
         setPlantillaSeleccionada(config.nombre_template ?? "");
         setEstadoDestino(config.estado_destino ?? "");
         setHeaderMediaUrl(config.header_media_url ?? "");
-        // ✅ restaurar headerInfo si existe
+
         if (config.header_format && config.header_media_url) {
           setHeaderInfo({
             format: config.header_format,
             url: config.header_media_url,
           });
+        } else if (config.header_format && !config.header_media_url) {
+          // ← header_format existe pero media_url nunca se guardó en BD
+          // headerInfo queda null — handleGuardar lo recuperará de plantillas[]
+          setHeaderInfo({ format: config.header_format, url: null });
         }
         setConfigActiva(true);
       } else {
         setTiempoRemarketing("0");
         setPlantillaSeleccionada("");
         setEstadoDestino("");
+        setHeaderMediaUrl("");
+        setHeaderInfo(null);
         setConfigActiva(false);
       }
     } catch {
@@ -171,19 +177,49 @@ const RemarketingColumna = ({
       Toast.fire({ icon: "warning", title: "Seleccione plantilla y tiempo" });
       return;
     }
+
+    // ── Fuente 1: lo que el usuario cambió en el select (handlePlantillaChange)
+    let headerFormatFinal = headerInfo?.format || null;
+    let headerMediaUrlFinal = headerMediaUrl || null;
+    let headerMediaNameFinal = null;
+
+    // ── Fuente 2: si no hay nada en estado, buscar en el array de plantillas cargadas
+    if (!headerFormatFinal || !headerMediaUrlFinal) {
+      const tplObj = plantillas.find((p) => p.name === plantillaSeleccionada);
+      if (tplObj) {
+        const headerComp = tplObj?.components?.find((c) => c.type === "HEADER");
+        if (headerComp) {
+          const fmt = String(headerComp.format || "").toUpperCase();
+          if (["IMAGE", "VIDEO", "DOCUMENT"].includes(fmt)) {
+            headerFormatFinal = headerFormatFinal || fmt;
+            if (!headerMediaUrlFinal) {
+              headerMediaUrlFinal = getTemplateHeaderDefaultUrl(tplObj);
+            }
+          }
+        }
+      }
+    }
+
+    const payload = {
+      id_configuracion,
+      estado_contacto: estado_db,
+      tiempo_espera_horas: Number(tiempoRemarketing),
+      nombre_template: plantillaSeleccionada,
+      language_code: "es",
+      estado_destino: estadoDestino || null,
+      header_format: headerFormatFinal,
+      header_media_url: headerMediaUrlFinal,
+      header_media_name: headerMediaNameFinal,
+    };
+
+    console.log(
+      "📤 [remarketing] payload guardando:",
+      JSON.stringify(payload, null, 2),
+    );
+
     setGuardando(true);
     try {
-      await chatApi.post("openai_assistants/configurar_remarketing", {
-        id_configuracion,
-        estado_contacto: estado_db,
-        tiempo_espera_horas: Number(tiempoRemarketing),
-        nombre_template: plantillaSeleccionada,
-        language_code: "es",
-        estado_destino: estadoDestino || null,
-        header_format: headerInfo?.format || null, // ✅ nuevo
-        header_media_url: headerMediaUrl || null,
-        header_media_name: headerInfo?.name || null, // ✅ nuevo
-      });
+      await chatApi.post("openai_assistants/configurar_remarketing", payload);
       Toast.fire({
         icon: "success",
         title: configActiva
