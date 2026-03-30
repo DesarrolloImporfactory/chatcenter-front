@@ -12,6 +12,7 @@ import Programados from "./Programados";
 import NuevoContacto from "./modales/NuevoContacto";
 import EnviarTemplateMasivo from "./modales/EnviarTemplateMasivo";
 import TablaContactos from "./TablaContactos";
+import FilterBar from "./FilterBar";
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -938,7 +939,8 @@ export default function Contactos() {
 
   const [view, setView] = useState("contactos");
 
-  const [estadoContactoFiltro, setEstadoContactoFiltro] = useState("");
+  const [idsEstadoContactoFiltro, setIdsEstadoContactoFiltro] = useState([]);
+
   const [opcionesEstadoContacto, setOpcionesEstadoContacto] = useState([]);
 
   const closeRowMenu = (ev) => {
@@ -1142,8 +1144,8 @@ export default function Contactos() {
 
   const [opcionesAsesor, setOpcionesAsesor] = useState([]);
   const [opcionesCiclo, setOpcionesCiclo] = useState([]);
-  const [idAsesorFiltro, setIdAsesorFiltro] = useState("");
-  const [idCicloFiltro, setIdCicloFiltro] = useState("");
+  const [idsAsesorFiltro, setIdsAsesorFiltro] = useState([]);
+  const [idsCicloFiltro, setIdsCicloFiltro] = useState([]);
 
   const allPlaceholdersFilled = placeholders.every(
     (ph) => (placeholderValues[ph] || "").trim().length > 0,
@@ -1895,7 +1897,7 @@ export default function Contactos() {
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(undefined);
 
-  const [pageSize, setPageSize] = useState(21);
+  const [pageSize, setPageSize] = useState(10);
   const LIMIT = pageSize;
 
   const [q, setQ] = useState("");
@@ -2272,9 +2274,15 @@ export default function Contactos() {
         search_mode: phoneLike ? "phone" : "name",
         phone: phoneLike ? qPhone : undefined,
         id_configuracion: localStorage.getItem("id_configuracion"),
-        id_etiqueta_asesor: idAsesorFiltro || undefined,
-        id_etiqueta_ciclo: idCicloFiltro || undefined,
-        estado_contacto: estadoContactoFiltro || undefined,
+        id_etiqueta_asesor: idsAsesorFiltro.length
+          ? idsAsesorFiltro.join(",")
+          : undefined,
+        id_etiqueta_ciclo: idsCicloFiltro.length
+          ? idsCicloFiltro.join(",")
+          : undefined,
+        estado_contacto: idsEstadoContactoFiltro.length
+          ? idsEstadoContactoFiltro.join(",")
+          : undefined,
       };
 
       let dataResp;
@@ -2535,22 +2543,19 @@ export default function Contactos() {
     setItems([]);
     setPage(1);
     setHasMore(true);
+    setSelected([]); //limpiar seleccion al cambiar filtros
 
-    const idTimeout = setTimeout(() => {
-      apiList(1, true);
-    }, 250);
-
-    return () => clearTimeout(idTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const id = setTimeout(() => apiList(1, true), 250);
+    return () => clearTimeout(id);
   }, [
     q,
     estado,
     orden,
     pageSize,
     idEtiquetaFiltro,
-    idAsesorFiltro,
-    idCicloFiltro,
-    estadoContactoFiltro,
+    idsAsesorFiltro,
+    idsCicloFiltro,
+    idsEstadoContactoFiltro,
   ]);
 
   /* Selección */
@@ -3084,181 +3089,49 @@ export default function Contactos() {
       {activeTab === "contactos" && (
         <>
           {/* ====== Subtoolbar (buscador + columnas) ====== */}
-          <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white/70 px-4 py-3 backdrop-blur-sm">
-            <div className="relative flex-1 min-w-[240px] max-w-[520px]">
-              <i className="bx bx-search absolute left-3 top-2.5 text-slate-500" />
-              <input
-                className="w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800 outline-none ring-1 ring-transparent transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60"
-                placeholder="Buscar por nombre, apellido o teléfono…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* ====== Filtros ====== */}
-          <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-2 text-xs">
-            <div className="flex items-center gap-2">
-              {["todos", "1", "0"].map((e) => (
-                <button
-                  key={e}
-                  onClick={() => setEstado(e)}
-                  className={`rounded-full border px-3 py-1 transition text-xs ${
-                    estado === e
-                      ? "border-blue-600 bg-blue-50 text-blue-700"
-                      : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
-                  }`}
-                >
-                  {e === "todos"
-                    ? "Todos"
-                    : e === "1"
-                      ? "Activos"
-                      : "Inactivos"}
-                </button>
-              ))}
-            </div>
-
-            <div className="ml-3 flex items-center gap-2">
-              <TagSelect
-                options={opcionesFiltroEtiquetas}
-                value={idEtiquetaFiltro}
-                onChange={setIdEtiquetaFiltro}
-                disabled={false}
-                unavailable={false}
-                onDelete={async (idEtiqueta, nombre) => {
-                  const ok = await swalConfirm(
-                    "Eliminar etiqueta",
-                    `¿Eliminar la etiqueta "${nombre}"? Se quitará de todos los clientes.`,
-                  );
-                  if (!ok) return;
-                  try {
-                    swalLoading("Eliminando...");
-                    await eliminarEtiquetasCatalogo([idEtiqueta]);
-                    if (String(idEtiquetaFiltro) === String(idEtiqueta)) {
-                      setIdEtiquetaFiltro("");
-                    }
-                    swalClose();
-                    swalToast("Etiqueta eliminada");
-                  } catch (e) {
-                    swalClose();
-                    swalError("No se pudo eliminar", e?.message);
-                  }
-                }}
-                onCreateNew={() => ensureCatalogAndOpen("crear")}
-              />
-
-              {/* Filtro Asesor */}
-              <CustomLabelSelect
-                options={opcionesAsesor}
-                value={idAsesorFiltro}
-                onChange={setIdAsesorFiltro}
-                placeholder="Asesor"
-                colorBadge="#0ea5e9"
-                icon="bx-user-voice"
-                onDelete={(id, nombre) => eliminarCustomLabel(id, nombre)}
-                onCreateNew={() => promptCrearCustomLabel("asesor")}
-              />
-
-              {/* Filtro Ciclo */}
-              <CustomLabelSelect
-                options={opcionesCiclo}
-                value={idCicloFiltro}
-                onChange={setIdCicloFiltro}
-                placeholder="Ciclo"
-                colorBadge="#10b981"
-                icon="bx-revision"
-                onDelete={(id, nombre) => eliminarCustomLabel(id, nombre)}
-                onCreateNew={() => promptCrearCustomLabel("ciclo")}
-              />
-
-              {/* Filtro Estado Contacto */}
-              <CustomLabelSelect
-                options={opcionesEstadoContacto.map((o) => ({
-                  id: o.estado_db,
-                  nombre: o.nombre || o.estado_db,
-                  color: o.color_texto || "#94a3b8",
-                }))}
-                value={estadoContactoFiltro}
-                onChange={setEstadoContactoFiltro}
-                placeholder="Estado contacto"
-                colorBadge={
-                  opcionesEstadoContacto.find(
-                    (o) => o.estado_db === estadoContactoFiltro,
-                  )?.color_texto || "#94a3b8"
-                }
-                icon="bx-transfer"
-              />
-
-              <select
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
-                value={orden}
-                onChange={(e) => setOrden(e.target.value)}
-                title="Orden"
-              >
-                <option value="recientes">Más recientes</option>
-                <option value="antiguos">Más antiguos</option>
-                <option value="actividad_desc">Actividad (desc)</option>
-                <option value="actividad_asc">Actividad (asc)</option>
-              </select>
-
-              <button
-                onClick={() => {
-                  setQ("");
-                  setEstado("todos");
-                  setIdEtiquetaFiltro("");
-                  setOrden("recientes");
-                  setIdAsesorFiltro("");
-                  setIdCicloFiltro("");
-                  setEstadoContactoFiltro("");
-                }}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 transition"
-              >
-                <i className="bx bx-reset text-sm" />
-                Limpiar
-              </button>
-
-              {/* TAGS acciones rápidas */}
-              <div className="ml-4 flex items-center gap-1">
-                <Tooltip label="Asignar etiquetas a seleccionados">
-                  <button
-                    className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-                    onClick={() => ensureCatalogAndOpen("asignar")}
-                    disabled={!selected.length}
-                  >
-                    <i className="bx bxs-purchase-tag-alt text-[16px]" />
-                  </button>
-                </Tooltip>
-                <Tooltip label="Quitar etiquetas a seleccionados">
-                  <button
-                    className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-                    onClick={() => ensureCatalogAndOpen("quitar")}
-                    disabled={!selected.length}
-                  >
-                    <i className="bx bxs-minus-circle text-[16px]" />
-                  </button>
-                </Tooltip>
-                <Tooltip label="Crear nueva etiqueta">
-                  <button
-                    className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    onClick={() => ensureCatalogAndOpen("crear")}
-                  >
-                    <i className="bx bxs-plus-circle text-[16px]" />
-                  </button>
-                </Tooltip>
-              </div>
-
-              {/* Eliminar */}
-              <Tooltip label="Eliminar clientes seleccionados">
-                <button
-                  disabled={!selected.length}
-                  onClick={onDeleteSelected}
-                  className="ml-2 inline-flex items-center justify-center h-8 w-8 rounded-full border border-red-100 bg-red-50 text-red-500 hover:bg-red-100 disabled:opacity-40"
-                >
-                  <i className="bx bxs-trash-alt text-[16px]" />
-                </button>
-              </Tooltip>
-            </div>
-          </div>
+          <FilterBar
+            q={q}
+            setQ={setQ}
+            estado={estado}
+            setEstado={setEstado}
+            idEtiquetaFiltro={idEtiquetaFiltro}
+            setIdEtiquetaFiltro={setIdEtiquetaFiltro}
+            opcionesFiltroEtiquetas={opcionesFiltroEtiquetas}
+            onDeleteEtiqueta={(id, nombre) => {
+              /* tu lógica actual */
+            }}
+            onCreateEtiqueta={() => ensureCatalogAndOpen("crear")}
+            idsAsesorFiltro={idsAsesorFiltro}
+            setIdsAsesorFiltro={setIdsAsesorFiltro}
+            opcionesAsesor={opcionesAsesor}
+            onDeleteAsesor={(id, nombre) => eliminarCustomLabel(id, nombre)}
+            onCreateAsesor={() => promptCrearCustomLabel("asesor")}
+            idsCicloFiltro={idsCicloFiltro}
+            setIdsCicloFiltro={setIdsCicloFiltro}
+            opcionesCiclo={opcionesCiclo}
+            onDeleteCiclo={(id, nombre) => eliminarCustomLabel(id, nombre)}
+            onCreateCiclo={() => promptCrearCustomLabel("ciclo")}
+            idsEstadoContactoFiltro={idsEstadoContactoFiltro}
+            setIdsEstadoContactoFiltro={setIdsEstadoContactoFiltro}
+            opcionesEstadoContacto={opcionesEstadoContacto}
+            orden={orden}
+            setOrden={setOrden}
+            selectedCount={selected.length}
+            onAsignarTags={() => ensureCatalogAndOpen("asignar")}
+            onQuitarTags={() => ensureCatalogAndOpen("quitar")}
+            onCrearTag={() => ensureCatalogAndOpen("crear")}
+            onDeleteSelected={onDeleteSelected}
+            onReset={() => {
+              setQ("");
+              setEstado("todos");
+              setIdEtiquetaFiltro("");
+              setOrden("recientes");
+              setIdsAsesorFiltro([]);
+              setIdsCicloFiltro([]);
+              setIdsEstadoContactoFiltro([]);
+              setSelected([]);
+            }}
+          />
 
           <TablaContactos
             items={items}
@@ -3319,7 +3192,7 @@ export default function Contactos() {
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value))}
                 >
-                  {[10, 20, 25, 50, 100, 200, 500].map((n) => (
+                  {[10, 20, 25, 50, 100, 200, 500, 1000].map((n) => (
                     <option key={n} value={n}>
                       {n}
                     </option>
