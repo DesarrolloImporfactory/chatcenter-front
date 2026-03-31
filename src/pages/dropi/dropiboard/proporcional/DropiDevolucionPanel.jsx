@@ -486,7 +486,7 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="overflow-x-auto overflow-y-auto max-h-[480px] rounded-xl border border-slate-200">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
