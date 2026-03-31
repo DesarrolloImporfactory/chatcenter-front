@@ -1146,6 +1146,7 @@ export default function Contactos() {
   const [opcionesCiclo, setOpcionesCiclo] = useState([]);
   const [idsAsesorFiltro, setIdsAsesorFiltro] = useState([]);
   const [idsCicloFiltro, setIdsCicloFiltro] = useState([]);
+  const [filtroFecha, setFiltroFecha] = useState(null);
 
   const allPlaceholdersFilled = placeholders.every(
     (ph) => (placeholderValues[ph] || "").trim().length > 0,
@@ -2283,6 +2284,9 @@ export default function Contactos() {
         estado_contacto: idsEstadoContactoFiltro.length
           ? idsEstadoContactoFiltro.join(",")
           : undefined,
+        fecha_tipo: filtroFecha?.tipo || undefined,
+        fecha_desde: filtroFecha?.desde || undefined,
+        fecha_hasta: filtroFecha?.hasta || undefined,
       };
 
       let dataResp;
@@ -2556,6 +2560,7 @@ export default function Contactos() {
     idsAsesorFiltro,
     idsCicloFiltro,
     idsEstadoContactoFiltro,
+    filtroFecha,
   ]);
 
   /* Selección */
@@ -3130,7 +3135,10 @@ export default function Contactos() {
               setIdsCicloFiltro([]);
               setIdsEstadoContactoFiltro([]);
               setSelected([]);
+              setFiltroFecha(null);
             }}
+            filtroFecha={filtroFecha} // ← agregar
+            setFiltroFecha={setFiltroFecha}
           />
 
           <TablaContactos
