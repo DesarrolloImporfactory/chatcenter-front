@@ -14,6 +14,7 @@ import DropiCharts from "./dropiboard/proporcional/DropiCharts";
 import DropiProductsTable from "./dropiboard/proporcional/DropiProductsTable";
 import DropiOrdersTable from "./dropiboard/proporcional/DropiOrdersTable";
 import DropiProfitBar from "./dropiboard/proporcional/DropiProfitBar";
+import DropiDevolucionPanel from "./dropiboard/proporcional/DropiDevolucionPanel";
 import {
   STATUS_CATEGORIES,
   DISPLAY_ORDER,
@@ -213,6 +214,39 @@ const Dropiboard = () => {
         : 0;
     merged.profitData = mergedProfit;
 
+    // ── Merge devolucionAnalysis ──
+    const allDevOrders = [];
+    let isSupplierView = false;
+
+    for (const r of results) {
+      if (!r?.devolucionAnalysis) continue;
+      if (r.devolucionAnalysis.isSupplierView) isSupplierView = true;
+      allDevOrders.push(...(r.devolucionAnalysis.orders || []));
+    }
+
+    if (allDevOrders.length > 0) {
+      allDevOrders.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at),
+      );
+      const limitedDevOrders = allDevOrders.slice(0, 200);
+
+      merged.devolucionAnalysis = {
+        isSupplierView,
+        summary: {
+          totalDevolutions: limitedDevOrders.length,
+          withScan: limitedDevOrders.filter((o) => o.alertLevel === "ok")
+            .length,
+          withoutScan: limitedDevOrders.filter(
+            (o) => o.alertLevel === "critical",
+          ).length,
+          pendingReturn: limitedDevOrders.filter(
+            (o) => o.alertLevel === "pending",
+          ).length,
+        },
+        orders: limitedDevOrders,
+      };
+    }
+
     if (merged.isPartial)
       merged.partialMessage =
         "Se analizaron las primeras órdenes de cada período. Para datos completos, seleccione un rango más corto.";
@@ -378,6 +412,7 @@ const Dropiboard = () => {
   const ordersByStatus = stats?.ordersByStatus || {};
   const totalOrders = stats?.totalOrders || 0;
   const profitData = stats?.profitData || null;
+  const devolucionAnalysis = stats?.devolucionAnalysis || null;
 
   // Órdenes filtradas para la tabla
   const filteredOrders = selectedStatus
@@ -683,6 +718,8 @@ const Dropiboard = () => {
 
             {/* ── Utilidad Real ── */}
             <DropiProfitBar profitData={profitData} />
+
+            <DropiDevolucionPanel devolucionAnalysis={devolucionAnalysis} />
 
             {/* ── Tabla de órdenes filtradas ── */}
             {filteredOrders.length > 0 && (
