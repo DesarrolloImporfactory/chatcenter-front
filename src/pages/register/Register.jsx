@@ -142,7 +142,14 @@ export default function Register() {
   const acepta = watch("acepta", false);
 
   const onSubmit = (data) => {
-    dispatch(registerThunk(data))
+    // Solo enviamos los 3 campos reales — backend auto-deriva nombre y usuario
+    const payload = {
+      email: data.email,
+      nombre_encargado: data.nombre_encargado,
+      password: data.password,
+    };
+
+    dispatch(registerThunk(payload))
       .unwrap()
       .then(() => {
         reset();
@@ -215,7 +222,7 @@ export default function Register() {
                 >
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
-                Registro gratuito
+                30 segundos
               </div>
 
               <h1 className="text-2xl lg:text-[32px] font-extrabold text-white leading-tight tracking-[-0.02em]">
@@ -225,8 +232,7 @@ export default function Register() {
                 </span>
               </h1>
               <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-                Una sola cuenta le da acceso a ambas herramientas con
-                inteligencia artificial.
+                Solo necesita su nombre, email y contraseña. Nada más.
               </p>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
@@ -383,7 +389,7 @@ export default function Register() {
           </div>
         </motion.section>
 
-        {/* FORM */}
+        {/* FORM — 4 campos: nombre, email, contraseña, confirmar */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -394,52 +400,13 @@ export default function Register() {
             onSubmit={handleSubmit(onSubmit)}
             className="rounded-3xl p-6 sm:p-8 bg-white/70 backdrop-blur-2xl shadow-[0_8px_40px_rgba(11,20,38,0.08)] border border-white/80 ring-1 ring-slate-200/30"
           >
-            {/* Nombre empresa */}
+            {/* Nombre completo */}
             <div className="mb-3">
               <label
-                htmlFor="nombre"
+                htmlFor="nombre_encargado"
                 className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider"
               >
-                Empresa
-              </label>
-              <div className="relative">
-                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                </div>
-                <input
-                  id="nombre"
-                  type="text"
-                  placeholder="Mi Empresa SAS"
-                  {...register("nombre", {
-                    required: "Obligatorio",
-                    minLength: { value: 3, message: "Minimo 3 caracteres" },
-                  })}
-                  className={inputCls(errors.nombre)}
-                />
-              </div>
-              {errors.nombre && (
-                <p className="text-rose-500 text-xs mt-1">
-                  {errors.nombre.message}
-                </p>
-              )}
-            </div>
-
-            {/* Usuario */}
-            <div className="mb-3">
-              <label
-                htmlFor="usuario"
-                className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider"
-              >
-                Usuario
+                Nombre completo
               </label>
               <div className="relative">
                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
@@ -455,23 +422,21 @@ export default function Register() {
                   </svg>
                 </div>
                 <input
-                  id="usuario"
+                  id="nombre_encargado"
                   type="text"
-                  placeholder="miempresa"
-                  {...register("usuario", {
+                  placeholder="Fernando Castro"
+                  {...register("nombre_encargado", {
                     required: "Requerido",
-                    pattern: {
-                      value: /^[a-zA-Z0-9_]{3,16}$/,
-                      message: "3-16 caracteres",
-                    },
+                    minLength: { value: 3, message: "Mínimo 3 caracteres" },
                   })}
-                  className={inputCls(errors.usuario)}
-                  autoComplete="username"
+                  className={inputCls(errors.nombre_encargado)}
+                  autoComplete="name"
+                  autoFocus
                 />
               </div>
-              {errors.usuario && (
+              {errors.nombre_encargado && (
                 <p className="text-rose-500 text-xs mt-1">
-                  {errors.usuario.message}
+                  {errors.nombre_encargado.message}
                 </p>
               )}
             </div>
@@ -505,51 +470,16 @@ export default function Register() {
                     required: "Requerido",
                     pattern: {
                       value: /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/,
-                      message: "Formato invalido",
+                      message: "Formato inválido",
                     },
                   })}
                   className={inputCls(errors.email)}
+                  autoComplete="email"
                 />
               </div>
               {errors.email && (
                 <p className="text-rose-500 text-xs mt-1">
                   {errors.email.message}
-                </p>
-              )}
-            </div>
-
-            {/* Encargado */}
-            <div className="mb-3">
-              <label
-                htmlFor="nombre_encargado"
-                className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider"
-              >
-                Nombre completo
-              </label>
-              <div className="relative">
-                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </div>
-                <input
-                  id="nombre_encargado"
-                  type="text"
-                  placeholder="Fernando Castro"
-                  {...register("nombre_encargado", { required: "Requerido" })}
-                  className={inputCls(errors.nombre_encargado)}
-                />
-              </div>
-              {errors.nombre_encargado && (
-                <p className="text-rose-500 text-xs mt-1">
-                  {errors.nombre_encargado.message}
                 </p>
               )}
             </div>
@@ -578,10 +508,10 @@ export default function Register() {
                 <input
                   id="password"
                   type={showPwd ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Mínimo 6 caracteres"
                   {...register("password", {
                     required: "Requerida",
-                    minLength: { value: 6, message: "Minimo 6" },
+                    minLength: { value: 6, message: "Mínimo 6 caracteres" },
                   })}
                   className={inputClsPwd(errors.password)}
                   autoComplete="new-password"
@@ -601,13 +531,13 @@ export default function Register() {
               )}
             </div>
 
-            {/* Confirm */}
+            {/* Confirmar contraseña */}
             <div className="mb-4">
               <label
                 htmlFor="password2"
                 className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider"
               >
-                Confirmar
+                Confirmar contraseña
               </label>
               <div className="relative">
                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
@@ -630,6 +560,7 @@ export default function Register() {
                     validate: (v) => v === watch("password") || "No coinciden",
                   })}
                   className={inputClsPwd(errors.password2)}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -647,7 +578,7 @@ export default function Register() {
             </div>
 
             {/* Terms */}
-            <div className="mb-4">
+            <div className="mb-5">
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
@@ -712,7 +643,7 @@ export default function Register() {
                   Creando cuenta...
                 </span>
               ) : (
-                "Crear cuenta"
+                "Crear cuenta gratis"
               )}
             </motion.button>
 
@@ -741,7 +672,7 @@ export default function Register() {
                 <rect x="3" y="11" width="18" height="11" rx="2" />
                 <path d="M7 11V7a5 5 0 0110 0v4" />
               </svg>
-              Protegido con encriptacion SSL
+              Protegido con encriptación SSL
             </div>
           </form>
         </motion.div>
