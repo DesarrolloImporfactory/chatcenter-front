@@ -228,22 +228,18 @@ const Dropiboard = () => {
       allDevOrders.sort(
         (a, b) => new Date(b.created_at) - new Date(a.created_at),
       );
-      const limitedDevOrders = allDevOrders.slice(0, 200);
 
       merged.devolucionAnalysis = {
         isSupplierView,
         summary: {
-          totalDevolutions: limitedDevOrders.length,
-          withScan: limitedDevOrders.filter((o) => o.alertLevel === "ok")
+          totalDevolutions: allDevOrders.length,
+          withScan: allDevOrders.filter((o) => o.alertLevel === "ok").length,
+          withoutScan: allDevOrders.filter((o) => o.alertLevel === "critical")
             .length,
-          withoutScan: limitedDevOrders.filter(
-            (o) => o.alertLevel === "critical",
-          ).length,
-          pendingReturn: limitedDevOrders.filter(
-            (o) => o.alertLevel === "pending",
-          ).length,
+          pendingReturn: allDevOrders.filter((o) => o.alertLevel === "pending")
+            .length,
         },
-        orders: limitedDevOrders,
+        orders: allDevOrders,
       };
     }
 
