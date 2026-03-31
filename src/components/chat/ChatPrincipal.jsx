@@ -275,6 +275,7 @@ const ChatPrincipal = ({
     131048: "Límite alcanzado por spam",
     131049: "Límite alcanzado por spam",
     131051: "Tipo de mensaje no soportado",
+    131031: "Cuenta de WhatsApp bloqueada o restringida por Meta. Verifica el Business Manager.",
   };
 
   const actualizar_mensaje_reenviado = async (
