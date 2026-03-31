@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import Select, { components as rsComponents } from "react-select";
+import DateRangeFilter from "./DateRangeFilter";
 
 /* ═══════════════════════════════════════════
    TagSelect — etiquetas (single select)
@@ -271,6 +272,8 @@ export default function FilterBar({
   onDeleteSelected,
   // reset
   onReset,
+  filtroFecha,
+  setFiltroFecha,
 }) {
   return (
     <>
@@ -355,6 +358,8 @@ export default function FilterBar({
             colorBadge="#94a3b8"
           />
 
+          <DateRangeFilter value={filtroFecha} onChange={setFiltroFecha} />
+
           {/* Orden */}
           <select
             className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
@@ -370,7 +375,10 @@ export default function FilterBar({
 
           {/* Reset */}
           <button
-            onClick={onReset}
+            onClick={() => {
+              onReset();
+              setFiltroFecha(null);
+            }}
             className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 transition"
           >
             <i className="bx bx-reset text-sm" />
