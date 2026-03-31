@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 
 /* ═══════════════════════════════════════════════════════════
    DropiDevolucionPanel
@@ -6,6 +6,11 @@ import React, { useState, useMemo } from "react";
    Panel exclusivo para proveedores.
    Muestra órdenes en devolución y detecta cuáles NO fueron
    escaneadas en bodega ("DEV CONFIRMADA POR BODEGA").
+   
+   Features:
+   - Tracking directo por transportadora
+   - Días en devolución
+   - Descarga CSV de reporte
    ═══════════════════════════════════════════════════════════ */
 
 const ALERT_CONFIG = {
@@ -98,16 +103,6 @@ function fmtDate(dateStr) {
   return `${day} ${mon} · ${h}:${m}`;
 }
 
-function isHighlightMovement(nom) {
-  const upper = String(nom || "").toUpperCase();
-  return (
-    upper.includes("DEV CONFIRMADA POR BODEGA") ||
-    upper.includes("DEVUELTO") ||
-    upper.includes("DEVOLUCION AL REMITENTE") ||
-    upper.includes("DEVOLUCIÓN AL REMITENTE")
-  );
-}
-
 function movementClass(nom) {
   const upper = String(nom || "").toUpperCase();
   if (upper.includes("DEV CONFIRMADA POR BODEGA")) return "success";
@@ -120,59 +115,285 @@ function movementClass(nom) {
   return "normal";
 }
 
-/* ══════════════════════════════════════
-   Timeline Row (expanded)
-   ══════════════════════════════════════ */
+function calcDaysInDevolution(order) {
+  const now = new Date();
+  const movements = order.movements || [];
+  const devMovement = movements.find((m) => {
+    const upper = String(m.nom_mov || "").toUpperCase();
+    return upper.includes("DEVOLU") || upper.includes("DEVUELTO");
+  });
+  const refDate = devMovement
+    ? new Date(devMovement.created_at)
+    : new Date(order.created_at);
+  return Math.max(0, Math.floor((now - refDate) / (1000 * 60 * 60 * 24)));
+}
+
+function getTrackingUrl(shippingCompany, guide) {
+  if (!guide) return null;
+  const comp = String(shippingCompany || "").toUpperCase();
+  const g = String(guide).trim();
+
+  if (
+    comp.includes("LAAR") ||
+    g.startsWith("LC") ||
+    g.startsWith("IMP") ||
+    g.startsWith("MKP")
+  ) {
+    return `https://fenixoper.laarcourier.com/Tracking/Guiacompleta.aspx?guia=${encodeURIComponent(g)}`;
+  }
+  if (comp.includes("GINTRACOM") || g.startsWith("D0") || g.startsWith("I0")) {
+    return `https://ec.gintracom.site/web/site/tracking?guia=${encodeURIComponent(g)}`;
+  }
+  if (comp.includes("VELOCES") || g.startsWith("V")) {
+    return `https://tracking.veloces.app/veloces/shipments/${encodeURIComponent(g)}/tracking`;
+  }
+  if (comp.includes("URBANO") || g.startsWith("WYB")) {
+    return `https://app.urbano.com.ec/plugin/etracking/etracking/?guia=${encodeURIComponent(g)}`;
+  }
+  if (comp.includes("SERVIENTREGA")) {
+    return `https://www.servientrega.com.ec/Tracking/?guia=${encodeURIComponent(g)}&tipo=GUIA`;
+  }
+  if (comp.includes("SPD") || comp.includes("SPEED")) {
+    return null;
+  }
+  return null;
+}
+
+function hasTrackingAvailable(shippingCompany) {
+  const comp = String(shippingCompany || "").toUpperCase();
+  return !(comp.includes("SPD") || comp.includes("SPEED"));
+}
+
+/* ── CSV Export ── */
+function downloadCSV(orders) {
+  const headers = [
+    "Orden",
+    "Cliente",
+    "Teléfono",
+    "Ciudad",
+    "Provincia",
+    "Transportadora",
+    "Guía",
+    "Total",
+    "Fecha creación",
+    "Días en devolución",
+    "Estado escaneo",
+    "Productos",
+    "Novedad/Motivo",
+  ];
+
+  const rows = orders.map((o) => {
+    const daysInDev = calcDaysInDevolution(o);
+    const alertLabel =
+      o.alertLevel === "ok"
+        ? "Escaneada OK"
+        : o.alertLevel === "critical"
+          ? "SIN ESCANEO BODEGA"
+          : "En tránsito de vuelta";
+    const productStr = (o.products || [])
+      .map((p) => `${p.quantity}x ${p.name}`)
+      .join(" | ");
+    const novedadMov = (o.movements || []).find((m) => {
+      const upper = String(m.nom_mov || "").toUpperCase();
+      return (
+        upper.includes("DESTINATARIO") ||
+        upper.includes("NO HAY QUIEN") ||
+        upper.includes("TITULAR") ||
+        upper.includes("FUERA DE COBERTURA") ||
+        upper.includes("NÚMERO TELEFÓNICO") ||
+        upper.includes("NUMERO TELEFONICO")
+      );
+    });
+    return [
+      o.id,
+      `${o.name} ${o.surname}`.trim(),
+      o.phone,
+      o.city,
+      o.state,
+      o.shipping_company,
+      o.shipping_guide,
+      o.total_order?.toFixed(2),
+      o.created_at,
+      daysInDev,
+      alertLabel,
+      productStr,
+      novedadMov?.nom_mov || "",
+    ];
+  });
+
+  const csvContent = [headers, ...rows]
+    .map((row) =>
+      row
+        .map((cell) => {
+          const str = String(cell ?? "");
+          return str.includes(",") || str.includes('"') || str.includes("\n")
+            ? `"${str.replace(/"/g, '""')}"`
+            : str;
+        })
+        .join(","),
+    )
+    .join("\n");
+
+  const blob = new Blob(["\uFEFF" + csvContent], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `reporte_devoluciones_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── Sub-components ── */
+const TrackingButton = ({ shippingCompany, guide }) => {
+  const url = getTrackingUrl(shippingCompany, guide);
+  if (!guide) return null;
+
+  if (!url || !hasTrackingAvailable(shippingCompany)) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-slate-400 bg-slate-100 cursor-not-allowed"
+        title="Tracking no disponible"
+      >
+        <svg
+          className="w-3 h-3"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+        No disponible
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+      title={`Rastrear guía ${guide}`}
+    >
+      <svg
+        className="w-3 h-3"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+      </svg>
+      Tracking
+    </a>
+  );
+};
+
+const DaysBadge = ({ days }) => {
+  let color = "text-slate-500 bg-slate-100";
+  if (days >= 7) color = "text-red-700 bg-red-100";
+  else if (days >= 4) color = "text-amber-700 bg-amber-100";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${color}`}
+    >
+      {days}d
+    </span>
+  );
+};
+
+/* ── Timeline Row ── */
 const TimelineRow = ({ order }) => {
   const movements = order.movements || [];
+  const daysInDev = order._days;
+  const trackingUrl = getTrackingUrl(
+    order.shipping_company,
+    order.shipping_guide,
+  );
 
   return (
     <tr>
-      <td colSpan={7} className="px-0 py-0">
+      <td colSpan={8} className="px-0 py-0">
         <div className="bg-slate-50 border-t border-b border-slate-200 px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Info de la orden */}
             <div>
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
                 Detalle de la orden
               </h4>
               <div className="space-y-1.5 text-sm">
                 <div className="flex gap-2">
-                  <span className="text-slate-400 w-24 shrink-0">Cliente:</span>
+                  <span className="text-slate-400 w-28 shrink-0">Cliente:</span>
                   <span className="text-slate-700 font-medium">
                     {order.name} {order.surname}
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="text-slate-400 w-24 shrink-0">
+                  <span className="text-slate-400 w-28 shrink-0">
                     Teléfono:
                   </span>
                   <span className="text-slate-700">{order.phone || "—"}</span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="text-slate-400 w-24 shrink-0">Ciudad:</span>
+                  <span className="text-slate-400 w-28 shrink-0">Ciudad:</span>
                   <span className="text-slate-700">
                     {order.city}
                     {order.state ? ` (${order.state})` : ""}
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="text-slate-400 w-24 shrink-0">
+                  <span className="text-slate-400 w-28 shrink-0">
                     Transportadora:
                   </span>
                   <span className="text-slate-700">
                     {order.shipping_company || "—"}
                   </span>
                 </div>
-                <div className="flex gap-2">
-                  <span className="text-slate-400 w-24 shrink-0">Guía:</span>
+                <div className="flex gap-2 items-center">
+                  <span className="text-slate-400 w-28 shrink-0">Guía:</span>
                   <span className="text-slate-700 font-mono text-xs">
                     {order.shipping_guide || "Sin guía"}
                   </span>
+                  {trackingUrl && (
+                    <a
+                      href={trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors ml-1"
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      >
+                        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                      Ver tracking
+                    </a>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-slate-400 w-28 shrink-0">
+                    Días en devolución:
+                  </span>
+                  <DaysBadge days={daysInDev} />
                 </div>
                 {order.products?.length > 0 && (
                   <div className="flex gap-2">
-                    <span className="text-slate-400 w-24 shrink-0">
+                    <span className="text-slate-400 w-28 shrink-0">
                       Productos:
                     </span>
                     <div className="text-slate-700">
@@ -190,8 +411,6 @@ const TimelineRow = ({ order }) => {
                   </div>
                 )}
               </div>
-
-              {/* Veredicto */}
               <div className="mt-4">
                 {order.alertLevel === "ok" ? (
                   <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700">
@@ -212,8 +431,6 @@ const TimelineRow = ({ order }) => {
                 )}
               </div>
             </div>
-
-            {/* Timeline de movimientos */}
             <div>
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
                 Historial de movimientos ({movements.length})
@@ -238,7 +455,6 @@ const TimelineRow = ({ order }) => {
                         : cls === "alert"
                           ? "text-red-600 font-semibold"
                           : "text-slate-600";
-
                     return (
                       <div key={i} className="relative pb-3 last:pb-0">
                         <div
@@ -253,8 +469,6 @@ const TimelineRow = ({ order }) => {
                       </div>
                     );
                   })}
-
-                  {/* Si falta el escaneo, agregar alerta visual al final */}
                   {order.alertLevel === "critical" && (
                     <div className="relative pb-0">
                       <div className="absolute -left-[25px] top-[5px] w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse" />
@@ -290,9 +504,22 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
 
   const { summary, orders } = devolucionAnalysis;
 
+  const PRIORITY = {
+    critical: 3,
+    pending: 2,
+    ok: 1,
+  };
+
   const filteredOrders = useMemo(() => {
     let result = orders || [];
 
+    // 🔥 1. Precalcular días UNA sola vez
+    result = result.map((o) => ({
+      ...o,
+      _days: calcDaysInDevolution(o),
+    }));
+
+    // 🔥 2. Filtros
     if (filter !== "all") {
       result = result.filter((o) => o.alertLevel === filter);
     }
@@ -310,16 +537,29 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
       );
     }
 
+    // 🚀 3. ORDEN PRO: prioridad + días
+    result = result.sort((a, b) => {
+      const pA = PRIORITY[a.alertLevel] || 0;
+      const pB = PRIORITY[b.alertLevel] || 0;
+
+      if (pB !== pA) return pB - pA;
+
+      return b._days - a._days;
+    });
+
     return result;
   }, [orders, filter, searchText]);
 
-  const toggleExpand = (id) => {
+  const toggleExpand = (id) =>
     setExpandedId((prev) => (prev === id ? null : id));
-  };
+  const handleDownloadCSV = useCallback(
+    () => downloadCSV(filteredOrders),
+    [filteredOrders],
+  );
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      {/* Header con gradiente rojo/naranja */}
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-white overflow-hidden mb-6">
+      {/* Header */}
       <div className="relative overflow-hidden bg-gradient-to-r from-red-600 via-red-500 to-orange-400 px-5 py-4">
         <div
           className="absolute inset-0 opacity-10"
@@ -416,7 +656,7 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
           </div>
         </div>
 
-        {/* Filter tabs + Search */}
+        {/* Filters + Search + Download */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
             {FILTER_TABS.map((tab) => {
@@ -428,42 +668,57 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                 <button
                   key={tab.key}
                   onClick={() => setFilter(tab.key)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                    filter === tab.key
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${filter === tab.key ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                 >
                   {tab.label}
-                  <span
-                    className={`ml-1.5 text-[10px] ${filter === tab.key ? "text-slate-400" : "text-slate-400"}`}
-                  >
+                  <span className="ml-1.5 text-[10px] text-slate-400">
                     {count}
                   </span>
                 </button>
               );
             })}
           </div>
-
-          <div className="relative w-full sm:w-64">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-56">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Buscar ID, nombre, guía..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-300 transition-all"
+              />
+            </div>
+            <button
+              onClick={handleDownloadCSV}
+              disabled={filteredOrders.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              title="Descargar reporte CSV"
             >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Buscar por ID, nombre, guía, ciudad..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-300 transition-all"
-            />
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              CSV
+            </button>
           </div>
         </div>
 
@@ -488,7 +743,7 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
         ) : (
           <div className="overflow-x-auto overflow-y-auto max-h-[480px] rounded-xl border border-slate-200">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-8"></th>
                   <th className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -503,11 +758,14 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                   <th className="text-right px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Total
                   </th>
-                  <th className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Fecha
+                  <th className="text-center px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Días
                   </th>
                   <th className="text-center px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Estado escaneo
+                    Escaneo
+                  </th>
+                  <th className="text-center px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden md:table-cell">
+                    Tracking
                   </th>
                 </tr>
               </thead>
@@ -516,20 +774,13 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                   const alertCfg =
                     ALERT_CONFIG[order.alertLevel] || ALERT_CONFIG.pending;
                   const isExpanded = expandedId === order.id;
-
+                  const daysInDev = order._days;
                   return (
                     <React.Fragment key={order.id}>
                       <tr
                         onClick={() => toggleExpand(order.id)}
-                        className={`border-b border-slate-100 cursor-pointer transition-colors ${
-                          isExpanded
-                            ? "bg-slate-50"
-                            : order.alertLevel === "critical"
-                              ? "hover:bg-red-50/50"
-                              : "hover:bg-slate-50/70"
-                        }`}
+                        className={`border-b border-slate-100 cursor-pointer transition-colors ${isExpanded ? "bg-slate-50" : order.alertLevel === "critical" ? "hover:bg-red-50/50" : "hover:bg-slate-50/70"}`}
                       >
-                        {/* Expand arrow */}
                         <td className="px-3 py-2.5 text-slate-400">
                           <svg
                             className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
@@ -542,8 +793,6 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                             <polyline points="9 18 15 12 9 6" />
                           </svg>
                         </td>
-
-                        {/* Orden ID */}
                         <td className="px-3 py-2.5">
                           <span className="font-mono text-xs font-bold text-slate-700">
                             #{order.id}
@@ -554,8 +803,6 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                             </p>
                           )}
                         </td>
-
-                        {/* Cliente */}
                         <td className="px-3 py-2.5">
                           <p className="text-xs font-medium text-slate-700 truncate max-w-[120px]">
                             {order.name} {order.surname}
@@ -564,8 +811,6 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                             {order.city}
                           </p>
                         </td>
-
-                        {/* Guía */}
                         <td className="px-3 py-2.5 hidden md:table-cell">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
@@ -576,22 +821,14 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                             </span>
                           </div>
                         </td>
-
-                        {/* Total */}
                         <td className="px-3 py-2.5 text-right">
                           <span className="text-xs font-bold text-slate-700">
                             ${order.total_order?.toFixed(2)}
                           </span>
                         </td>
-
-                        {/* Fecha */}
-                        <td className="px-3 py-2.5">
-                          <span className="text-[10px] text-slate-500">
-                            {fmtDate(order.created_at)}
-                          </span>
+                        <td className="px-3 py-2.5 text-center">
+                          <DaysBadge days={daysInDev} />
                         </td>
-
-                        {/* Estado escaneo */}
                         <td className="px-3 py-2.5 text-center">
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${alertCfg.badge}`}
@@ -600,9 +837,13 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                             {alertCfg.label}
                           </span>
                         </td>
+                        <td className="px-3 py-2.5 text-center hidden md:table-cell">
+                          <TrackingButton
+                            shippingCompany={order.shipping_company}
+                            guide={order.shipping_guide}
+                          />
+                        </td>
                       </tr>
-
-                      {/* Expanded timeline */}
                       {isExpanded && <TimelineRow order={order} />}
                     </React.Fragment>
                   );
@@ -612,7 +853,6 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
           </div>
         )}
 
-        {/* Footer */}
         {filteredOrders.length > 0 && (
           <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400">
             <span>

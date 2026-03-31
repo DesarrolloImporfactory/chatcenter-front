@@ -21,13 +21,7 @@ function getPresetRange(preset) {
   return { from: toYMD(from), until };
 }
 
-function getMinDate() {
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  return toYMD(d);
-}
-
-const MAX_DAYS = 30;
+const MAX_DAYS = 180;
 
 export default function DropiFilters({
   selectedIntegration,
@@ -75,7 +69,6 @@ export default function DropiFilters({
   };
 
   const todayStr = toYMD(new Date());
-  const minDateStr = getMinDate();
 
   const hasNoIntegrations = !loadingIntegrations && integrations.length === 0;
 
@@ -174,7 +167,6 @@ export default function DropiFilters({
                   className="h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#FF6B35] transition"
                   value={dateRange.from}
                   max={dateRange.until || todayStr}
-                  min={minDateStr}
                   onChange={(e) => {
                     setActivePreset(-1);
                     const from = e.target.value;
@@ -198,7 +190,7 @@ export default function DropiFilters({
                   className="h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#FF6B35] transition"
                   value={dateRange.until}
                   max={todayStr}
-                  min={dateRange.from || minDateStr}
+                  min={dateRange.from}
                   onChange={(e) => {
                     setActivePreset(-1);
                     const until = e.target.value;
@@ -217,7 +209,7 @@ export default function DropiFilters({
                   }}
                 />
                 <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                  máx {MAX_DAYS} días
+                  rango máx {MAX_DAYS} días (6 meses)
                 </span>
               </div>
             </div>
