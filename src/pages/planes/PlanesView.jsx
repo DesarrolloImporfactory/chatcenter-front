@@ -13,10 +13,12 @@ const HIDDEN_PLANS = new Set([22]);
 const SORT_ORDER = { 6: 1, 2: 2, 22: 2.5, 3: 3, 4: 4 };
 const TRIAL_DAYS_PLAN_ID = 2;
 const TRIAL_DAYS = 7;
+const TRIAL_DAYS_COMUNIDAD = 5; // ✅ NUEVO
 const TRIAL_USAGE_PLAN_ID = 6;
 const TRIAL_USAGE_LIMIT = 10;
 const PROMO_FIRST_MONTH = 5;
-const PROMO_PLANS = new Set([6, 2, 3, 4]);
+const PROMO_PLANS = new Set([6, 2, 3, 4, 22]); // ✅ añadido 22
+const PLAN_COMUNIDAD_ID = 22; // ✅ NUEVO
 
 const detectPlanType = (plan) => {
   const nombre = (plan?.nombre_plan || "").toLowerCase();
@@ -124,6 +126,12 @@ const buildFeatures = (plan) => {
         enabled: true,
         section: "il",
       },
+      // ✅ NUEVO: Conexión Shopify en IL
+      {
+        label: "Conexión con Shopify",
+        enabled: true,
+        section: "il",
+      },
       {
         label: `${plan.max_agentes_whatsapp || 1} agente WhatsApp AI`,
         enabled: true,
@@ -160,6 +168,8 @@ const buildFeatures = (plan) => {
         label: `Dropi (${plan.max_productos_dropi > 0 ? plan.max_productos_dropi : 20} productos)`,
         enabled: true,
       },
+      // ✅ NUEVO: Conexión Shopify
+      { label: "Conexión con Shopify", enabled: true },
       { label: "+280 templates", enabled: true },
       { label: "Editor textos AI", enabled: true },
       { label: "Sin ImporChat", enabled: false },
@@ -207,6 +217,8 @@ const buildFeatures = (plan) => {
         section: "il",
       },
       { label: "Dropi ILIMITADO + sync", enabled: true, section: "il" },
+      // ✅ NUEVO: Conexión Shopify en Pro
+      { label: "Conexión con Shopify", enabled: true, section: "il" },
       { label: "A/B Testing visual", enabled: true, section: "il" },
       {
         label: `${plan.max_agentes_whatsapp || 1} agente WhatsApp AI`,
@@ -248,6 +260,8 @@ const buildFeatures = (plan) => {
       section: "il",
     },
     { label: "Multi-tienda Dropi + API", enabled: true, section: "il" },
+    // ✅ NUEVO: Conexión Shopify en Avanzado
+    { label: "Conexión con Shopify", enabled: true, section: "il" },
     {
       label: `Bulk gen (${plan.bulk_gen_productos || 30} productos)`,
       enabled: true,
@@ -775,6 +789,11 @@ const PlanesView = () => {
               planId === TRIAL_USAGE_PLAN_ID && !ilTrialUsed && !hasActivePlan;
             const canTrialDays =
               planId === TRIAL_DAYS_PLAN_ID && trialEligible && !hasActivePlan;
+
+            // ✅ NUEVO: Trial 5 días para Plan Comunidad
+            const isComunidad = planId === PLAN_COMUNIDAD_ID;
+            const canTrialComunidad = isComunidad && !hasActivePlan;
+
             const promoEligible =
               promoPlan2Eligible &&
               (!hasActivePlan || isTrialUsageActive || isPromoUsageActive);
@@ -809,6 +828,9 @@ const PlanesView = () => {
               if (hasActivePlan) return "Cambiar a este plan";
               if (canTrialIL)
                 return `Probar gratis (${TRIAL_USAGE_LIMIT} imágenes)`;
+              // ✅ NUEVO: CTA para Comunidad con trial 5 días
+              if (canTrialComunidad)
+                return `${TRIAL_DAYS_COMUNIDAD} días gratis`;
               if (canTrialDays) return `${TRIAL_DAYS} días gratis`;
               return "Comenzar ahora";
             };
@@ -816,6 +838,7 @@ const PlanesView = () => {
             const handleClick = () => {
               if (isCurrentFreeUsage) seleccionarPlan(planId);
               else if (canTrialIL && !hasActivePlan) activarTrialIL();
+              // ✅ Comunidad va directo a checkout (Stripe maneja el trial)
               else seleccionarPlan(planId);
             };
 
@@ -939,6 +962,19 @@ const PlanesView = () => {
                           Promo activa — suscríbete para acceso completo
                         </span>
                       )}
+                      {/* ✅ NUEVO: Badge trial 5 días para Comunidad */}
+                      {canTrialComunidad && (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold"
+                          style={{
+                            color: "#D97706",
+                            background: "rgba(245,158,11,0.06)",
+                            border: "1px solid rgba(245,158,11,0.12)",
+                          }}
+                        >
+                          {TRIAL_DAYS_COMUNIDAD} días gratis
+                        </span>
+                      )}
                       {canTrialDays && (
                         <span
                           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold"
@@ -961,10 +997,22 @@ const PlanesView = () => {
                           <>Suscríbete por ${precioNormal}/mes</>
                         ) : canTrialIL && showPromo ? (
                           <>Gratis → $5 primer mes → ${precioNormal}/mes</>
+                        ) : canTrialComunidad && showPromo ? (
+                          /* ✅ NUEVO: Texto para Comunidad */
+                          <>
+                            {TRIAL_DAYS_COMUNIDAD} días gratis → $5 primer mes →
+                            ${precioNormal}/mes
+                          </>
                         ) : canTrialDays && showPromo ? (
                           <>
                             {TRIAL_DAYS} días gratis → $5 primer mes → $
                             {precioNormal}/mes
+                          </>
+                        ) : canTrialComunidad ? (
+                          /* ✅ Sin promo pero con trial comunidad */
+                          <>
+                            {TRIAL_DAYS_COMUNIDAD} días gratis. Luego $
+                            {precioNormal}/mes.
                           </>
                         ) : canTrialDays ? (
                           <>Luego ${precioNormal}/mes. Cancele cuando quiera.</>
@@ -998,11 +1046,6 @@ const PlanesView = () => {
                     >
                       {getCTAText()}
                     </button>
-                    {canTrialIL && !hasActivePlan && (
-                      <p className="text-[10px] text-center text-slate-400 -mt-3 mb-4">
-                        Sin tarjeta de crédito
-                      </p>
-                    )}
                     <div className="flex-1">
                       {features.map((f, idx) => {
                         const prevSection =

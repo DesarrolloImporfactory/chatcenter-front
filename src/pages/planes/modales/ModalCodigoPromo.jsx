@@ -320,7 +320,7 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
                   >
                     <span style={{ fontSize: "16px" }}>🎓</span>
                     <span className="text-xs font-bold text-amber-700">
-                      Desbloquea Plan Comunidad — $39/mes
+                      Desbloquea Plan Comunidad — $29/mes
                     </span>
                   </div>
                 )}
@@ -432,7 +432,7 @@ const ModalCodigoPromo = ({ open, onClose, onSuccess, idUsuario, chatApi }) => {
                         Plan Comunidad desbloqueado
                       </p>
                       <p className="text-[10px] text-amber-600/70">
-                        Ecosistema completo a $39/mes
+                        Ecosistema completo a $29/mes
                       </p>
                     </div>
                   </div>
