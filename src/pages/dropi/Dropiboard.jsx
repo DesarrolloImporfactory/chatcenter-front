@@ -45,215 +45,7 @@ const Dropiboard = () => {
   // ─── Filtro por status ───
   const [selectedStatus, setSelectedStatus] = useState(null);
 
-  // ─── Split date range into chunks (SIN SOLAPAMIENTO) ───
-  const splitDateRange = useCallback((from, until, chunks) => {
-    const fromDate = new Date(from + "T00:00:00");
-    const untilDate = new Date(until + "T00:00:00");
-    const totalDays = Math.max(
-      1,
-      Math.ceil((untilDate - fromDate) / (1000 * 60 * 60 * 24)),
-    );
-    const daysPerChunk = Math.ceil(totalDays / chunks);
-    const ranges = [];
-
-    for (let i = 0; i < chunks; i++) {
-      const chunkFrom = new Date(fromDate);
-      chunkFrom.setDate(chunkFrom.getDate() + i * daysPerChunk);
-      if (i > 0) chunkFrom.setDate(chunkFrom.getDate() + 1);
-
-      const chunkUntil = new Date(fromDate);
-      chunkUntil.setDate(chunkUntil.getDate() + (i + 1) * daysPerChunk);
-      if (chunkUntil > untilDate) chunkUntil.setTime(untilDate.getTime());
-      if (chunkFrom > untilDate) break;
-      ranges.push({ from: toYMD(chunkFrom), until: toYMD(chunkUntil) });
-    }
-    return ranges;
-  }, []);
-
-  // ─── Merge chunks ───
-  const mergeStats = useCallback((results) => {
-    const merged = {
-      totalOrders: 0,
-      totalMoney: 0,
-      statusStats: {},
-      kpis: {},
-      dailyChart: [],
-      topProducts: [],
-      retiroAgencia: [],
-      ordersByStatus: {},
-      pagesFetched: 0,
-      isPartial: false,
-      partialMessage: null,
-    };
-    const dailyMap = {};
-    const productMap = {};
-    const allRetiro = [];
-    const allOrdersByStatus = {};
-
-    const mergedProfit = {
-      profitEntregadas: 0,
-      profitPotencialTotal: 0,
-      profitCalculated: 0,
-      profitPending: 0,
-      totalOrders: 0,
-      entregadas: 0,
-      entregables: 0,
-      avgProfitPerOrder: 0,
-      isComplete: true,
-      pctCalculated: 100,
-    };
-
-    for (const r of results) {
-      if (!r) continue;
-      merged.totalOrders += r.totalOrders || 0;
-      merged.totalMoney += r.totalMoney || 0;
-      merged.pagesFetched += r.pagesFetched || 0;
-      if (r.isPartial) merged.isPartial = true;
-
-      for (const [key, val] of Object.entries(r.statusStats || {})) {
-        if (!merged.statusStats[key])
-          merged.statusStats[key] = { count: 0, money: 0 };
-        merged.statusStats[key].count += val.count || 0;
-        merged.statusStats[key].money += val.money || 0;
-      }
-      for (const day of r.dailyChart || []) {
-        if (!dailyMap[day.day])
-          dailyMap[day.day] = {
-            day: day.day,
-            pedidos: 0,
-            entregadas: 0,
-            devoluciones: 0,
-          };
-        dailyMap[day.day].pedidos += day.pedidos || 0;
-        dailyMap[day.day].entregadas += day.entregadas || 0;
-        dailyMap[day.day].devoluciones += day.devoluciones || 0;
-      }
-      for (const p of r.topProducts || []) {
-        if (!productMap[p.name])
-          productMap[p.name] = {
-            name: p.name,
-            ordenes: 0,
-            entregadas: 0,
-            devoluciones: 0,
-            ingreso: 0,
-          };
-        productMap[p.name].ordenes += p.ordenes || 0;
-        productMap[p.name].entregadas += p.entregadas || 0;
-        productMap[p.name].devoluciones += p.devoluciones || 0;
-        productMap[p.name].ingreso += p.ingreso || 0;
-      }
-      allRetiro.push(...(r.retiroAgencia || []));
-
-      // Merge ordersByStatus
-      for (const [key, orders] of Object.entries(r.ordersByStatus || {})) {
-        if (!allOrdersByStatus[key]) allOrdersByStatus[key] = [];
-        allOrdersByStatus[key].push(...orders);
-      }
-
-      if (r.profitData) {
-        mergedProfit.profitEntregadas += r.profitData.profitEntregadas || 0;
-        mergedProfit.profitPotencialTotal +=
-          r.profitData.profitPotencialTotal || 0;
-        mergedProfit.profitCalculated += r.profitData.profitCalculated || 0;
-        mergedProfit.profitPending += r.profitData.profitPending || 0;
-        mergedProfit.entregadas += r.profitData.entregadas || 0;
-        mergedProfit.entregables += r.profitData.entregables || 0;
-        if (!r.profitData.isComplete) mergedProfit.isComplete = false;
-      }
-    }
-
-    merged.dailyChart = Object.values(dailyMap).sort((a, b) =>
-      a.day.localeCompare(b.day),
-    );
-    merged.topProducts = Object.values(productMap)
-      .sort((a, b) => b.ordenes - a.ordenes)
-      .slice(0, 10);
-    merged.retiroAgencia = allRetiro
-      .sort((a, b) => b.days - a.days)
-      .slice(0, 20);
-
-    // Limitar ordersByStatus a 25 por estado
-    for (const key of Object.keys(allOrdersByStatus)) {
-      allOrdersByStatus[key] = allOrdersByStatus[key]
-        .sort((a, b) => b.days - a.days)
-        .slice(0, 25);
-    }
-    merged.ordersByStatus = allOrdersByStatus;
-
-    const entregadas = merged.statusStats.entregada?.count || 0;
-    const devoluciones = merged.statusStats.devolucion?.count || 0;
-    merged.kpis = {
-      totalOrders: merged.totalOrders,
-      entregadas,
-      devoluciones,
-      canceladas: merged.statusStats.cancelada?.count || 0,
-      totalMoney: merged.totalMoney,
-      ingresoEntregadas: merged.statusStats.entregada?.money || 0,
-      tasaEntrega:
-        merged.totalOrders > 0 ? (entregadas / merged.totalOrders) * 100 : 0,
-      tasaDevolucion:
-        merged.totalOrders > 0 ? (devoluciones / merged.totalOrders) * 100 : 0,
-      ticketPromedio:
-        entregadas > 0
-          ? (merged.statusStats.entregada?.money || 0) / entregadas
-          : 0,
-      retiroAgencia: merged.statusStats.retiro_agencia?.count || 0,
-    };
-
-    mergedProfit.totalOrders = merged.totalOrders;
-    mergedProfit.avgProfitPerOrder =
-      mergedProfit.profitCalculated > 0
-        ? Math.round(
-            (mergedProfit.profitPotencialTotal /
-              mergedProfit.profitCalculated) *
-              100,
-          ) / 100
-        : 0;
-    mergedProfit.pctCalculated =
-      merged.totalOrders > 0
-        ? Math.round((mergedProfit.profitCalculated / merged.totalOrders) * 100)
-        : 0;
-    merged.profitData = mergedProfit;
-
-    // ── Merge devolucionAnalysis ──
-    const allDevOrders = [];
-    let isSupplierView = false;
-
-    for (const r of results) {
-      if (!r?.devolucionAnalysis) continue;
-      if (r.devolucionAnalysis.isSupplierView) isSupplierView = true;
-      allDevOrders.push(...(r.devolucionAnalysis.orders || []));
-    }
-
-    if (allDevOrders.length > 0) {
-      allDevOrders.sort(
-        (a, b) => new Date(b.created_at) - new Date(a.created_at),
-      );
-
-      merged.devolucionAnalysis = {
-        isSupplierView,
-        summary: {
-          totalDevolutions: allDevOrders.length,
-          withScan: allDevOrders.filter((o) => o.alertLevel === "ok").length,
-          withoutScan: allDevOrders.filter((o) => o.alertLevel === "critical")
-            .length,
-          pendingReturn: allDevOrders.filter((o) => o.alertLevel === "pending")
-            .length,
-          unverifiable: allDevOrders.filter(
-            (o) => o.alertLevel === "unverifiable",
-          ).length,
-        },
-        orders: allDevOrders,
-      };
-    }
-
-    if (merged.isPartial)
-      merged.partialMessage =
-        "Se analizaron las primeras órdenes de cada período. Para datos completos, seleccione un rango más corto.";
-    return merged;
-  }, []);
-
-  // ─── Fetch dashboard ───
+  // ─── Fetch dashboard (1 sola petición) ───
   const fetchDashboard = useCallback(
     async (silent = false) => {
       if (!selectedIntegration) return;
@@ -279,48 +71,23 @@ const Dropiboard = () => {
 
       try {
         if (!syncingMsg && !silent) retryCountRef.current = 0;
-        const fromDate = new Date(dateRange.from + "T00:00:00");
-        const untilDate = new Date(dateRange.until + "T00:00:00");
-        const totalDays = Math.max(
-          1,
-          Math.ceil((untilDate - fromDate) / (1000 * 60 * 60 * 24)),
-        );
-        const numChunks =
-          totalDays <= 5 ? 1 : totalDays <= 10 ? 2 : totalDays <= 20 ? 3 : 4;
-        const ranges = splitDateRange(
-          dateRange.from,
-          dateRange.until,
-          numChunks,
-        );
 
-        const promises = ranges.map((range) =>
-          chatApi
-            .post(
-              "dropi_integrations/dashboard/stats",
-              {
-                integration_id: integrationId,
-                ...(selectedIntegration.id_configuracion
-                  ? { id_configuracion: selectedIntegration.id_configuracion }
-                  : {}),
-                from: range.from,
-                until: range.until,
-              },
-              { timeout: 60000 },
-            )
-            .then((res) => res?.data?.data || null)
-            .catch((err) => {
-              console.error(
-                `[dropiboard] Chunk ${range.from}→${range.until} failed:`,
-                err?.message,
-              );
-              return null;
-            }),
+        const res = await chatApi.post(
+          "dropi_integrations/dashboard/stats",
+          {
+            integration_id: integrationId,
+            ...(selectedIntegration.id_configuracion
+              ? { id_configuracion: selectedIntegration.id_configuracion }
+              : {}),
+            from: dateRange.from,
+            until: dateRange.until,
+          },
+          { timeout: 60000 },
         );
 
-        const results = await Promise.all(promises);
-        const validResults = results.filter(Boolean);
+        const data = res?.data?.data;
 
-        if (validResults.length === 0) {
+        if (!data) {
           if (!silent) {
             setErrorMsg(
               "No se pudieron obtener datos de Dropi. Intente de nuevo.",
@@ -328,54 +95,46 @@ const Dropiboard = () => {
             setStats(null);
             setSyncingMsg("");
           }
-        } else {
-          const merged = mergeStats(validResults);
-          const anySyncing = validResults.some((r) => r?.syncing === true);
+          return;
+        }
 
-          // ── CASO 1: Sync en curso pero SIN datos aún → retry completo ──
-          if (anySyncing && merged.totalOrders === 0) {
-            retryCountRef.current += 1;
-            if (retryCountRef.current >= 6) {
-              setSyncingMsg("");
-              setStats(null);
-              if (!silent) setLoading(false);
-              return;
-            }
-            if (!silent) {
-              setErrorMsg("");
-              setStats(null);
-              setSyncingMsg("Sincronizando órdenes por primera vez...");
-            }
-            setTimeout(() => {
-              setSyncingMsg("");
-              fetchDashboard();
-            }, 5000);
+        // ── CASO 1: Sync en curso pero SIN datos aún → retry ──
+        if (data.syncing && (data.totalOrders || 0) === 0) {
+          retryCountRef.current += 1;
+          if (retryCountRef.current >= 6) {
+            setSyncingMsg("");
+            setStats(null);
             if (!silent) setLoading(false);
             return;
           }
-
-          // ── CASO 2: Ya hay datos → mostrarlos ──
-          setStats(merged);
-
-          // ── CASO 2a: Backend sigue sincronizando → banner + auto-refresh silencioso ──
-          if (anySyncing && merged.totalOrders > 0) {
-            setSyncingMsg(
-              `Mostrando ${merged.totalOrders.toLocaleString()} órdenes. Seguimos sincronizando su información en segundo plano...`,
-            );
-            syncRefreshTimerRef.current = setTimeout(() => {
-              syncRefreshTimerRef.current = null;
-              fetchDashboard(true);
-            }, 8000);
-          } else {
-            // ── CASO 2b: Sync terminó → limpiar mensaje ──
+          if (!silent) {
+            setErrorMsg("");
+            setStats(null);
+            setSyncingMsg("Sincronizando órdenes por primera vez...");
+          }
+          setTimeout(() => {
             setSyncingMsg("");
-          }
+            fetchDashboard();
+          }, 5000);
+          if (!silent) setLoading(false);
+          return;
+        }
 
-          if (!silent && validResults.length < ranges.length) {
-            setErrorMsg(
-              `${ranges.length - validResults.length} de ${ranges.length} consultas fallaron. Los datos pueden estar incompletos.`,
-            );
-          }
+        // ── CASO 2: Ya hay datos → mostrarlos directamente ──
+        setStats(data);
+
+        // ── CASO 2a: Backend sigue sincronizando → banner + auto-refresh silencioso ──
+        if (data.syncing && (data.totalOrders || 0) > 0) {
+          setSyncingMsg(
+            `Mostrando ${(data.totalOrders || 0).toLocaleString()} órdenes. Seguimos sincronizando en segundo plano...`,
+          );
+          syncRefreshTimerRef.current = setTimeout(() => {
+            syncRefreshTimerRef.current = null;
+            fetchDashboard(true);
+          }, 8000);
+        } else {
+          // ── CASO 2b: Sync terminó → limpiar mensaje ──
+          setSyncingMsg("");
         }
       } catch (err) {
         if (!silent) {
@@ -386,7 +145,7 @@ const Dropiboard = () => {
         if (!silent) setLoading(false);
       }
     },
-    [selectedIntegration, dateRange, splitDateRange, mergeStats, syncingMsg],
+    [selectedIntegration, dateRange, syncingMsg],
   );
 
   // ─── Cleanup timers on unmount ───
@@ -724,23 +483,6 @@ const Dropiboard = () => {
         {/* DASHBOARD DATA */}
         {hasFetched && !loading && stats && (
           <>
-            {stats.isPartial && (
-              <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                <svg
-                  className="w-5 h-5 shrink-0 text-amber-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                <span>{stats.partialMessage}</span>
-              </div>
-            )}
-
             <DropiStatusBar
               statusStats={statusStats}
               totalOrders={totalOrders}
