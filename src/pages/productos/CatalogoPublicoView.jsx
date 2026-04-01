@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import { APP_CONFIG } from "../../config";
+import Swal from "sweetalert2";
 
 /* ─────────────────────────────────────────────────────────────
    Helpers
@@ -246,7 +247,27 @@ const ProductCard = ({ p, fields, imageBase, index }) => {
                 }}
               >
                 <i className="bx bx-barcode" style={{ fontSize: 11 }} />
-                {"Dropi #" + p.external_id}
+                {"ID Dropi #" + p.external_id}
+                <button
+                  type="button"
+                  title="Copiar ID"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(String(p.external_id));
+                    Swal.fire({
+                      toast: true,
+                      position: "top-end",
+                      icon: "success",
+                      title: `ID ${p.external_id} copiado`,
+                      showConfirmButton: false,
+                      timer: 1200,
+                      timerProgressBar: true,
+                    });
+                  }}
+                  className="ml-0.5 inline-flex items-center justify-center h-4 w-4 rounded hover:bg-orange-200/60 transition-colors"
+                >
+                  <i className="bx bx-copy text-[10px]" />
+                </button>
               </span>
             )}
           </div>

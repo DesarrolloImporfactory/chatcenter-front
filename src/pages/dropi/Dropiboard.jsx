@@ -32,6 +32,7 @@ const Dropiboard = () => {
   const [syncingMsg, setSyncingMsg] = useState("");
   const retryCountRef = useRef(0);
   const profitTimerRef = useRef(null);
+  const syncRefreshTimerRef = useRef(null);
 
   const [selectedIntegration, setSelectedIntegration] = useState(null);
   const [dateRange, setDateRange] = useState(() => {
@@ -264,7 +265,13 @@ const Dropiboard = () => {
         setLoading(true);
         setHasFetched(true);
         setErrorMsg("");
-        setSelectedStatus(null); // Reset filter al consultar
+        setSelectedStatus(null);
+      }
+
+      // Limpiar timer de sync refresh previo
+      if (syncRefreshTimerRef.current) {
+        clearTimeout(syncRefreshTimerRef.current);
+        syncRefreshTimerRef.current = null;
       }
 
       try {
@@ -321,6 +328,8 @@ const Dropiboard = () => {
         } else {
           const merged = mergeStats(validResults);
           const anySyncing = validResults.some((r) => r?.syncing === true);
+
+          // ── CASO 1: Sync en curso pero SIN datos aún → retry completo ──
           if (anySyncing && merged.totalOrders === 0) {
             retryCountRef.current += 1;
             if (retryCountRef.current >= 6) {
@@ -341,8 +350,24 @@ const Dropiboard = () => {
             if (!silent) setLoading(false);
             return;
           }
-          setSyncingMsg("");
+
+          // ── CASO 2: Ya hay datos → mostrarlos ──
           setStats(merged);
+
+          // ── CASO 2a: Backend sigue sincronizando → banner + auto-refresh silencioso ──
+          if (anySyncing && merged.totalOrders > 0) {
+            setSyncingMsg(
+              `Mostrando ${merged.totalOrders.toLocaleString()} órdenes. Seguimos sincronizando su información en segundo plano...`,
+            );
+            syncRefreshTimerRef.current = setTimeout(() => {
+              syncRefreshTimerRef.current = null;
+              fetchDashboard(true);
+            }, 8000);
+          } else {
+            // ── CASO 2b: Sync terminó → limpiar mensaje ──
+            setSyncingMsg("");
+          }
+
           if (!silent && validResults.length < ranges.length) {
             setErrorMsg(
               `${ranges.length - validResults.length} de ${ranges.length} consultas fallaron. Los datos pueden estar incompletos.`,
@@ -360,6 +385,16 @@ const Dropiboard = () => {
     },
     [selectedIntegration, dateRange, splitDateRange, mergeStats, syncingMsg],
   );
+
+  // ─── Cleanup timers on unmount ───
+  useEffect(() => {
+    return () => {
+      if (syncRefreshTimerRef.current) {
+        clearTimeout(syncRefreshTimerRef.current);
+        syncRefreshTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // ─── Auto-refresh para profit ───
   useEffect(() => {
@@ -547,7 +582,7 @@ const Dropiboard = () => {
             <span>
               {syncingMsg}{" "}
               <strong className="text-[#FF6B35]">
-                Reintentando automáticamente...
+                Se actualizará automáticamente.
               </strong>
             </span>
           </div>

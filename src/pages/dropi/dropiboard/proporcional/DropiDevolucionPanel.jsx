@@ -145,7 +145,7 @@ function getTrackingUrl(shippingCompany, guide) {
     return `https://ec.gintracom.site/web/site/tracking?guia=${encodeURIComponent(g)}`;
   }
   if (comp.includes("VELOCES") || g.startsWith("V")) {
-    return `https://tracking.veloces.app/veloces/shipments/${encodeURIComponent(g)}/tracking`;
+    return `https://tracking.veloces.app/`;
   }
   if (comp.includes("URBANO") || g.startsWith("WYB")) {
     return `https://app.urbano.com.ec/plugin/etracking/etracking/?guia=${encodeURIComponent(g)}`;
