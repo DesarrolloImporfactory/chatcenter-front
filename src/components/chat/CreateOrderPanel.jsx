@@ -744,7 +744,7 @@ export default function CreateOrderPanel(props) {
                   )}
 
                   {/* Utilidad estimada */}
-                  {utilidadEstimada !== null && (
+                  {/* {utilidadEstimada !== null && (
                     <div className="mt-1.5 px-2.5 py-2 rounded-[7px] bg-emerald-500/[0.06] border border-emerald-400/[0.12]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
@@ -767,7 +767,7 @@ export default function CreateOrderPanel(props) {
                         Total cobrado − costo proveedor − flete
                       </p>
                     </div>
-                  )}
+                  )} */}
 
                   {notes?.trim() && (
                     <div className="flex justify-between text-[10px] text-white/35 pt-1">
