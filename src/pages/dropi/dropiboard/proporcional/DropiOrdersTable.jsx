@@ -1,5 +1,78 @@
-import React from "react";
+import React, { useState } from "react";
 import { STATUS_CATEGORIES } from "../dropiHelpers";
+
+/* ── Tracking URL helper ── */
+function getTrackingUrl(shippingCompany, guide) {
+  if (!guide) return null;
+  const comp = String(shippingCompany || "").toUpperCase();
+  const g = String(guide).trim();
+  if (
+    comp.includes("LAAR") ||
+    g.startsWith("LC") ||
+    g.startsWith("IMP") ||
+    g.startsWith("MKP")
+  )
+    return `https://fenixoper.laarcourier.com/Tracking/Guiacompleta.aspx?guia=${encodeURIComponent(g)}`;
+  if (comp.includes("GINTRACOM") || g.startsWith("D0") || g.startsWith("I0"))
+    return `https://ec.gintracom.site/web/site/tracking?guia=${encodeURIComponent(g)}`;
+  if (comp.includes("VELOCES") || g.startsWith("V"))
+    return `https://tracking.veloces.app/tracking-client/${encodeURIComponent(g)}`;
+  if (comp.includes("URBANO") || g.startsWith("WYB"))
+    return `https://app.urbano.com.ec/plugin/etracking/etracking/?guia=${encodeURIComponent(g)}`;
+  if (comp.includes("SERVIENTREGA"))
+    return `https://www.servientrega.com.ec/Tracking/?guia=${encodeURIComponent(g)}&tipo=GUIA`;
+  return null;
+}
+
+const CopyGuideButton = ({ guide }) => {
+  const [copied, setCopied] = useState(false);
+  if (!guide) return null;
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(guide).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors ${copied ? "text-emerald-600 bg-emerald-50 border border-emerald-200" : "text-slate-500 bg-slate-50 border border-slate-200 hover:bg-slate-100"}`}
+      title={`Copiar guía ${guide}`}
+    >
+      {copied ? (
+        <>
+          <svg
+            className="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          Copiado
+        </>
+      ) : (
+        <>
+          <svg
+            className="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+          </svg>
+          Copiar
+        </>
+      )}
+    </button>
+  );
+};
 
 export default function DropiOrdersTable({ orders, statusKey, totalCount }) {
   if (!orders || orders.length === 0) return null;
@@ -14,7 +87,6 @@ export default function DropiOrdersTable({ orders, statusKey, totalCount }) {
       ? orders.filter((o) => o.days >= 5).length
       : 0;
 
-  // Icono según estado
   const statusIcon = {
     pendiente: (
       <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
@@ -61,7 +133,6 @@ export default function DropiOrdersTable({ orders, statusKey, totalCount }) {
     ),
   };
 
-  // Color de fila según días (solo relevante para retiro_agencia y novedad)
   const showDaysColumn =
     statusKey === "retiro_agencia" ||
     statusKey === "novedad" ||
@@ -159,12 +230,17 @@ export default function DropiOrdersTable({ orders, statusKey, totalCount }) {
               {showDaysColumn && (
                 <th className="text-center px-3 py-2 font-semibold">Días</th>
               )}
+              <th className="text-center px-3 py-2 font-semibold">Tracking</th>
             </tr>
           </thead>
           <tbody>
             {orders.map((o) => {
               const isUrgent = o.days >= 5;
               const isWarning = o.days >= 3 && o.days < 5;
+              const trackingUrl = getTrackingUrl(
+                o.shipping_company,
+                o.shipping_guide,
+              );
 
               return (
                 <tr
@@ -206,7 +282,10 @@ export default function DropiOrdersTable({ orders, statusKey, totalCount }) {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-slate-500 font-mono text-[11px]">
-                    {o.shipping_guide || "—"}
+                    <div className="flex items-center gap-1.5">
+                      {o.shipping_guide || "—"}
+                      <CopyGuideButton guide={o.shipping_guide} />
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-right font-semibold text-slate-800 text-xs">
                     ${Number(o.total_order || 0).toFixed(2)}
@@ -229,6 +308,35 @@ export default function DropiOrdersTable({ orders, statusKey, totalCount }) {
                       </span>
                     </td>
                   )}
+                  <td className="px-3 py-2 text-center">
+                    {trackingUrl ? (
+                      <a
+                        href={trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                        title={`Rastrear guía ${o.shipping_guide}`}
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        >
+                          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                        Tracking
+                      </a>
+                    ) : o.shipping_guide ? (
+                      <span className="text-[10px] text-slate-400">—</span>
+                    ) : (
+                      <span className="text-[10px] text-slate-300">—</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}

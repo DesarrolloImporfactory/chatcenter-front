@@ -1,29 +1,17 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 
 /* ═══════════════════════════════════════════════════════════
-   DropiDevolucionPanel
+   DropiDevolucionPanel — v3
    ─────────────────────────────────────────────────────────
    Panel exclusivo para proveedores.
-   Muestra órdenes en devolución y detecta cuáles NO fueron
-   escaneadas en bodega ("DEV CONFIRMADA POR BODEGA").
-   
-   alertLevel:
-     ok           → Escaneada en bodega (tiene DEV CONFIRMADA POR BODEGA)
-     critical     → Sin escaneo (tiene DEVOLUCION AL REMITENTE sin escaneo)
-     unverifiable → Devuelta, pero sin datos de carrier (managed_devolution_app=false)
-     pending      → En tránsito de vuelta
-
-   timelineSource:
-     carrier       → servientrega_movements (tracking del carrier)
-     dropi_history → history del getOrderDetail (historial Dropi)
-     none          → Sin datos (pendiente de sync)
+   Paginación frontend con "Cargar más" para evitar DOM bloat.
+   Summary usa valores del backend (SQL), no cuenta del array.
    ═══════════════════════════════════════════════════════════ */
 
 const ALERT_CONFIG = {
   critical: {
     label: "Sin escaneo",
     badge: "bg-red-100 text-red-700 border-red-200",
-    dot: "bg-red-500",
     icon: (
       <svg
         className="w-4 h-4"
@@ -42,7 +30,6 @@ const ALERT_CONFIG = {
   unverifiable: {
     label: "Sin verificar",
     badge: "bg-violet-100 text-violet-700 border-violet-200",
-    dot: "bg-violet-500",
     icon: (
       <svg
         className="w-4 h-4"
@@ -61,7 +48,6 @@ const ALERT_CONFIG = {
   ok: {
     label: "Escaneada",
     badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    dot: "bg-emerald-500",
     icon: (
       <svg
         className="w-4 h-4"
@@ -79,7 +65,6 @@ const ALERT_CONFIG = {
   pending: {
     label: "En tránsito",
     badge: "bg-amber-100 text-amber-700 border-amber-200",
-    dot: "bg-amber-500",
     icon: (
       <svg
         className="w-4 h-4"
@@ -104,7 +89,6 @@ const FILTER_TABS = [
   { key: "pending", label: "En tránsito" },
 ];
 
-/* ── Helpers ── */
 function fmtDate(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -123,22 +107,17 @@ function fmtDate(dateStr) {
     "Nov",
     "Dic",
   ];
-  const mon = months[d.getMonth()];
-  const h = d.getHours().toString().padStart(2, "0");
-  const m = d.getMinutes().toString().padStart(2, "0");
-  return `${day} ${mon} · ${h}:${m}`;
+  return `${day} ${months[d.getMonth()]} · ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
 function movementClass(nom) {
   const upper = String(nom || "").toUpperCase();
-  if (upper.includes("DEV CONFIRMADA POR BODEGA")) return "success";
-  if (upper.includes("ENTREGAD")) return "success";
+  if (upper.includes("DEV CONFIRMADA POR BODEGA") || upper.includes("ENTREGAD"))
+    return "success";
   if (
     upper.includes("DEVOLUCION") ||
     upper.includes("DEVOLUCIÓN") ||
-    upper.includes("DEVUELTO") ||
-    upper.includes("DEVOLUCION AL REMITENTE") ||
-    upper.includes("DEVOLUCIÓN AL REMITENTE")
+    upper.includes("DEVUELTO")
   )
     return "alert";
   if (upper.includes("NOVEDAD") && !upper.includes("SOLUCIONADA"))
@@ -150,8 +129,8 @@ function calcDaysInDevolution(order) {
   const now = new Date();
   const movements = order.movements || [];
   const devMovement = movements.find((m) => {
-    const upper = String(m.nom_mov || "").toUpperCase();
-    return upper.includes("DEVOLU") || upper.includes("DEVUELTO");
+    const u = String(m.nom_mov || "").toUpperCase();
+    return u.includes("DEVOLU") || u.includes("DEVUELTO");
   });
   const refDate = devMovement
     ? new Date(devMovement.created_at)
@@ -163,37 +142,29 @@ function getTrackingUrl(shippingCompany, guide) {
   if (!guide) return null;
   const comp = String(shippingCompany || "").toUpperCase();
   const g = String(guide).trim();
-
   if (
     comp.includes("LAAR") ||
     g.startsWith("LC") ||
     g.startsWith("IMP") ||
     g.startsWith("MKP")
-  ) {
+  )
     return `https://fenixoper.laarcourier.com/Tracking/Guiacompleta.aspx?guia=${encodeURIComponent(g)}`;
-  }
-  if (comp.includes("GINTRACOM") || g.startsWith("D0") || g.startsWith("I0")) {
+  if (comp.includes("GINTRACOM") || g.startsWith("D0") || g.startsWith("I0"))
     return `https://ec.gintracom.site/web/site/tracking?guia=${encodeURIComponent(g)}`;
-  }
-  if (comp.includes("VELOCES") || g.startsWith("V")) {
+  if (comp.includes("VELOCES") || g.startsWith("V"))
     return `https://tracking.veloces.app/tracking-client/${encodeURIComponent(g)}`;
-  }
-  if (comp.includes("URBANO") || g.startsWith("WYB")) {
+  if (comp.includes("URBANO") || g.startsWith("WYB"))
     return `https://app.urbano.com.ec/plugin/etracking/etracking/?guia=${encodeURIComponent(g)}`;
-  }
-  if (comp.includes("SERVIENTREGA")) {
+  if (comp.includes("SERVIENTREGA"))
     return `https://www.servientrega.com.ec/Tracking/?guia=${encodeURIComponent(g)}&tipo=GUIA`;
-  }
-  if (comp.includes("SPD") || comp.includes("SPEED")) return null;
   return null;
 }
 
-function hasTrackingAvailable(shippingCompany) {
-  const comp = String(shippingCompany || "").toUpperCase();
-  return !(comp.includes("SPD") || comp.includes("SPEED"));
+function hasTrackingAvailable(sc) {
+  const c = String(sc || "").toUpperCase();
+  return !(c.includes("SPD") || c.includes("SPEED"));
 }
 
-/* ── CSV Export ── */
 function downloadCSV(orders) {
   const headers = [
     "Orden",
@@ -210,30 +181,23 @@ function downloadCSV(orders) {
     "Productos",
     "Novedad/Motivo",
   ];
-
   const rows = orders.map((o) => {
-    const daysInDev = calcDaysInDevolution(o);
     const alertLabels = {
       ok: "Escaneada OK",
       critical: "SIN ESCANEO BODEGA",
-      unverifiable: "SIN VERIFICAR (sin datos carrier)",
-      pending: "En tránsito de vuelta",
+      unverifiable: "SIN VERIFICAR",
+      pending: "En tránsito",
     };
-    const alertLabel = alertLabels[o.alertLevel] || o.alertLevel;
     const productStr = (o.products || [])
       .map((p) => `${p.quantity}x ${p.name}`)
       .join(" | ");
     const novedadMov = (o.movements || []).find((m) => {
-      const upper = String(m.nom_mov || "").toUpperCase();
+      const u = String(m.nom_mov || "").toUpperCase();
       return (
-        upper.includes("DESTINATARIO") ||
-        upper.includes("NO HAY QUIEN") ||
-        upper.includes("TITULAR") ||
-        upper.includes("FUERA DE COBERTURA") ||
-        upper.includes("NÚMERO TELEFÓNICO") ||
-        upper.includes("NUMERO TELEFONICO") ||
-        upper.includes("MERCANCIA NO SOLICITADA") ||
-        upper.includes("DESCONFIANZA")
+        u.includes("DESTINATARIO") ||
+        u.includes("TITULAR") ||
+        u.includes("MERCANCIA") ||
+        u.includes("DESCONFIANZA")
       );
     });
     return [
@@ -246,26 +210,24 @@ function downloadCSV(orders) {
       o.shipping_guide,
       o.total_order?.toFixed(2),
       o.created_at,
-      daysInDev,
-      alertLabel,
+      calcDaysInDevolution(o),
+      alertLabels[o.alertLevel] || o.alertLevel,
       productStr,
       novedadMov?.nom_mov || novedadMov?.novedad || "",
     ];
   });
-
   const csvContent = [headers, ...rows]
     .map((row) =>
       row
         .map((cell) => {
-          const str = String(cell ?? "");
-          return str.includes(",") || str.includes('"') || str.includes("\n")
-            ? `"${str.replace(/"/g, '""')}"`
-            : str;
+          const s = String(cell ?? "");
+          return s.includes(",") || s.includes('"') || s.includes("\n")
+            ? `"${s.replace(/"/g, '""')}"`
+            : s;
         })
         .join(","),
     )
     .join("\n");
-
   const blob = new Blob(["\uFEFF" + csvContent], {
     type: "text/csv;charset=utf-8;",
   });
@@ -277,11 +239,9 @@ function downloadCSV(orders) {
   URL.revokeObjectURL(url);
 }
 
-/* ── Sub-components ── */
 const CopyGuideButton = ({ guide }) => {
   const [copied, setCopied] = useState(false);
   if (!guide) return null;
-
   const handleCopy = (e) => {
     e.stopPropagation();
     navigator.clipboard.writeText(guide).then(() => {
@@ -289,15 +249,10 @@ const CopyGuideButton = ({ guide }) => {
       setTimeout(() => setCopied(false), 1500);
     });
   };
-
   return (
     <button
       onClick={handleCopy}
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors ${
-        copied
-          ? "text-emerald-600 bg-emerald-50 border border-emerald-200"
-          : "text-slate-500 bg-slate-50 border border-slate-200 hover:bg-slate-100"
-      }`}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors ${copied ? "text-emerald-600 bg-emerald-50 border border-emerald-200" : "text-slate-500 bg-slate-50 border border-slate-200 hover:bg-slate-100"}`}
       title={`Copiar guía ${guide}`}
     >
       {copied ? (
@@ -337,13 +292,9 @@ const CopyGuideButton = ({ guide }) => {
 const TrackingButton = ({ shippingCompany, guide }) => {
   const url = getTrackingUrl(shippingCompany, guide);
   if (!guide) return null;
-
-  if (!url || !hasTrackingAvailable(shippingCompany)) {
+  if (!url || !hasTrackingAvailable(shippingCompany))
     return (
-      <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-slate-400 bg-slate-100 cursor-not-allowed"
-        title="Tracking no disponible"
-      >
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-slate-400 bg-slate-100 cursor-not-allowed">
         <svg
           className="w-3 h-3"
           viewBox="0 0 24 24"
@@ -355,11 +306,9 @@ const TrackingButton = ({ shippingCompany, guide }) => {
           <circle cx="12" cy="12" r="10" />
           <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
         </svg>
-        No disponible
+        N/D
       </span>
     );
-  }
-
   return (
     <a
       href={url}
@@ -367,7 +316,6 @@ const TrackingButton = ({ shippingCompany, guide }) => {
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
-      title={`Rastrear guía ${guide}`}
     >
       <svg
         className="w-3 h-3"
@@ -399,16 +347,13 @@ const DaysBadge = ({ days }) => {
   );
 };
 
-/* ── Timeline Row ── */
 const TimelineRow = ({ order }) => {
   const movements = order.movements || [];
-  const daysInDev = order._days;
   const trackingUrl = getTrackingUrl(
     order.shipping_company,
     order.shipping_guide,
   );
   const timelineSource = order.timelineSource || "none";
-
   return (
     <tr>
       <td colSpan={8} className="px-0 py-0">
@@ -479,7 +424,7 @@ const TimelineRow = ({ order }) => {
                   <span className="text-slate-400 w-28 shrink-0">
                     Días en devolución:
                   </span>
-                  <DaysBadge days={daysInDev} />
+                  <DaysBadge days={order._days} />
                 </div>
                 {order.products?.length > 0 && (
                   <div className="flex gap-2">
@@ -515,8 +460,7 @@ const TimelineRow = ({ order }) => {
                 ) : order.alertLevel === "unverifiable" ? (
                   <div className="rounded-lg bg-violet-50 border border-violet-200 px-3 py-2 text-xs text-violet-700">
                     <strong>Sin verificar.</strong> La devolución fue procesada
-                    sin pasar por el sistema de escaneo de Dropi. No es posible
-                    confirmar ni descartar el escaneo en bodega.
+                    sin pasar por el sistema de escaneo de Dropi.
                     {timelineSource === "dropi_history" &&
                       " Se muestra el historial interno de Dropi como referencia."}
                   </div>
@@ -535,7 +479,7 @@ const TimelineRow = ({ order }) => {
                     ? `Movimientos carrier (${movements.length})`
                     : timelineSource === "dropi_history"
                       ? `Historial Dropi (${movements.length})`
-                      : `Historial de movimientos (${movements.length})`}
+                      : `Historial (${movements.length})`}
                 </h4>
                 {timelineSource === "dropi_history" && (
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-violet-600 bg-violet-50 border border-violet-200">
@@ -547,8 +491,7 @@ const TimelineRow = ({ order }) => {
                 <div className="text-xs text-slate-400 italic">
                   <p>Sin movimientos registrados</p>
                   <p className="mt-1 text-[10px]">
-                    Los datos se sincronizarán automáticamente en la próxima
-                    consulta.
+                    Se sincronizarán en la próxima consulta.
                   </p>
                 </div>
               ) : (
@@ -613,37 +556,28 @@ const TimelineRow = ({ order }) => {
   );
 };
 
-/* ══════════════════════════════════════
-   Main Component
-   ══════════════════════════════════════ */
+/* ═══════════════════ Main ═══════════════════ */
 const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
   const [filter, setFilter] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [filter, searchText]);
 
   if (!devolucionAnalysis || !devolucionAnalysis.isSupplierView) return null;
-
   const { summary, orders } = devolucionAnalysis;
-
-  const PRIORITY = {
-    critical: 4,
-    unverifiable: 3,
-    pending: 2,
-    ok: 1,
-  };
+  const PRIORITY = { critical: 4, unverifiable: 3, pending: 2, ok: 1 };
 
   const filteredOrders = useMemo(() => {
-    let result = orders || [];
-
-    result = result.map((o) => ({
+    let result = (orders || []).map((o) => ({
       ...o,
       _days: calcDaysInDevolution(o),
     }));
-
-    if (filter !== "all") {
+    if (filter !== "all")
       result = result.filter((o) => o.alertLevel === filter);
-    }
-
     if (searchText.trim()) {
       const q = searchText.trim().toLowerCase();
       result = result.filter(
@@ -656,16 +590,17 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
           (o.city || "").toLowerCase().includes(q),
       );
     }
-
-    result = result.sort((a, b) => {
+    result.sort((a, b) => {
       const pA = PRIORITY[a.alertLevel] || 0;
       const pB = PRIORITY[b.alertLevel] || 0;
       if (pB !== pA) return pB - pA;
       return b._days - a._days;
     });
-
     return result;
   }, [orders, filter, searchText]);
+
+  const visibleOrders = filteredOrders.slice(0, visibleCount);
+  const hasMore = filteredOrders.length > visibleCount;
 
   const toggleExpand = (id) =>
     setExpandedId((prev) => (prev === id ? null : id));
@@ -673,12 +608,10 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
     () => downloadCSV(filteredOrders),
     [filteredOrders],
   );
-
   const alertCount = (summary.withoutScan || 0) + (summary.unverifiable || 0);
 
   return (
     <div className="mt-6 rounded-2xl border border-slate-200 bg-white overflow-hidden mb-6">
-      {/* Header */}
       <div className="relative overflow-hidden bg-gradient-to-r from-red-600 via-red-500 to-orange-400 px-5 py-4">
         <div
           className="absolute inset-0 opacity-10"
@@ -713,32 +646,29 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {alertCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-1.5 animate-pulse">
-                <svg
-                  className="w-3.5 h-3.5 text-white"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                >
-                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                <span className="text-[11px] text-white font-bold">
-                  {alertCount} alerta{alertCount !== 1 ? "s" : ""}
-                </span>
-              </div>
-            )}
-          </div>
+          {alertCount > 0 && (
+            <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-1.5 animate-pulse">
+              <svg
+                className="w-3.5 h-3.5 text-white"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span className="text-[11px] text-white font-bold">
+                {alertCount} alerta{alertCount !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="px-5 py-4">
-        {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
           <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -782,27 +712,25 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
           </div>
         </div>
 
-        {/* Filters + Search + Download */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5 flex-wrap">
             {FILTER_TABS.map((tab) => {
-              const count =
-                tab.key === "all"
-                  ? orders.length
-                  : orders.filter((o) => o.alertLevel === tab.key).length;
+              const SUMMARY_MAP = {
+                all: summary.totalDevolutions,
+                critical: summary.withoutScan,
+                unverifiable: summary.unverifiable || 0,
+                ok: summary.withScan,
+                pending: summary.pendingReturn,
+              };
               return (
                 <button
                   key={tab.key}
                   onClick={() => setFilter(tab.key)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                    filter === tab.key
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${filter === tab.key ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                 >
                   {tab.label}
                   <span className="ml-1.5 text-[10px] text-slate-400">
-                    {count}
+                    {SUMMARY_MAP[tab.key] ?? 0}
                   </span>
                 </button>
               );
@@ -833,7 +761,7 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
               onClick={handleDownloadCSV}
               disabled={filteredOrders.length === 0}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-              title="Descargar reporte CSV"
+              title="Descargar CSV"
             >
               <svg
                 className="w-4 h-4"
@@ -852,7 +780,6 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
           </div>
         </div>
 
-        {/* Table */}
         {filteredOrders.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
             <svg
@@ -900,24 +827,15 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((order) => {
+                {visibleOrders.map((order) => {
                   const alertCfg =
                     ALERT_CONFIG[order.alertLevel] || ALERT_CONFIG.pending;
                   const isExpanded = expandedId === order.id;
-                  const daysInDev = order._days;
                   return (
                     <React.Fragment key={order.id}>
                       <tr
                         onClick={() => toggleExpand(order.id)}
-                        className={`border-b border-slate-100 cursor-pointer transition-colors ${
-                          isExpanded
-                            ? "bg-slate-50"
-                            : order.alertLevel === "critical"
-                              ? "hover:bg-red-50/50"
-                              : order.alertLevel === "unverifiable"
-                                ? "hover:bg-violet-50/50"
-                                : "hover:bg-slate-50/70"
-                        }`}
+                        className={`border-b border-slate-100 cursor-pointer transition-colors ${isExpanded ? "bg-slate-50" : order.alertLevel === "critical" ? "hover:bg-red-50/50" : order.alertLevel === "unverifiable" ? "hover:bg-violet-50/50" : "hover:bg-slate-50/70"}`}
                       >
                         <td className="px-3 py-2.5 text-slate-400">
                           <svg
@@ -966,7 +884,7 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-center">
-                          <DaysBadge days={daysInDev} />
+                          <DaysBadge days={order._days} />
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           <span
@@ -992,10 +910,34 @@ const DropiDevolucionPanel = ({ devolucionAnalysis }) => {
           </div>
         )}
 
+        {hasMore && (
+          <div className="flex justify-center py-3">
+            <button
+              onClick={() => setVisibleCount((prev) => prev + 50)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"
+            >
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+              Cargar más ({filteredOrders.length - visibleCount} restantes)
+            </button>
+          </div>
+        )}
+
         {filteredOrders.length > 0 && (
           <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400">
             <span>
-              Mostrando {filteredOrders.length} de {orders.length} devoluciones
+              Mostrando {visibleOrders.length} de {summary.totalDevolutions}{" "}
+              devoluciones
+              {hasMore &&
+                ` (${filteredOrders.length - visibleCount} más disponibles)`}
             </span>
             {alertCount > 0 && (
               <span className="text-red-400 font-semibold">
