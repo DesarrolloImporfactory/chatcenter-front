@@ -659,7 +659,7 @@ export default function CreateOrderPanel(props) {
         </div>
       </div>
 
-      {/* ═══ Resumen ═══ */}
+      {/* ═══ Resumen del pedido (con flete absorbido) ═══ */}
       {productsCart.length > 0 && (
         <div className={sectionCls}>
           <div className="flex items-center justify-between px-3.5 pt-2.5 pb-2">
@@ -678,16 +678,97 @@ export default function CreateOrderPanel(props) {
               const total = subtotal + ship;
               const carrierName = selectedShipping?.transportadora || null;
 
+              // Costo proveedor total (para mostrar utilidad estimada)
+              const costoProveedor = productsCart.reduce(
+                (acc, it) =>
+                  acc + Number(it.quantity || 0) * (Number(it.sale_price) || 0),
+                0,
+              );
+              const utilidadEstimada =
+                costoProveedor > 0 ? total - costoProveedor - ship : null;
+
               return (
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] text-white/45">
-                    <span>Subtotal</span>
+                  {/* Desglose por producto */}
+                  {productsCart.map((it) => {
+                    const lineTotal =
+                      Number(it.quantity || 0) * Number(it.price || 0);
+                    return (
+                      <div
+                        key={it.id}
+                        className="flex justify-between text-[10px] text-white/40"
+                      >
+                        <span className="truncate max-w-[60%]">
+                          {it.name} ×{it.quantity}
+                        </span>
+                        <span>${lineTotal.toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
+
+                  <div className="flex justify-between text-[11px] text-white/50 pt-1 mt-1 border-t border-white/[0.04]">
+                    <span>Subtotal productos</span>
                     <span>${subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-[11px] text-white/45">
-                    <span>Envío{carrierName ? ` (${carrierName})` : ""}</span>
+
+                  <div className="flex justify-between text-[11px] text-white/50">
+                    <span>
+                      Envío
+                      {carrierName ? ` (${carrierName})` : ""}
+                    </span>
                     <span>${ship.toFixed(2)}</span>
                   </div>
+
+                  {/* Total a cobrar al cliente */}
+                  <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
+                    <span>Total a cobrar</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+
+                  {/* Aviso: flete incluido en precio */}
+                  {ship > 0 && (
+                    <div className="mt-2 px-2.5 py-2 rounded-[7px] bg-blue-500/[0.06] border border-blue-400/[0.12]">
+                      <div className="flex items-start gap-2">
+                        <i className="bx bx-info-circle text-blue-400/60 text-sm mt-0.5 shrink-0" />
+                        <p className="text-[9px] text-blue-300/70 leading-relaxed">
+                          El costo del envío (
+                          <span className="font-semibold text-blue-300">
+                            ${ship.toFixed(2)}
+                          </span>
+                          ) se incluirá dentro del precio del producto al crear
+                          la orden en Dropi. Esto asegura que el courier recaude
+                          el monto correcto.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Utilidad estimada */}
+                  {utilidadEstimada !== null && (
+                    <div className="mt-1.5 px-2.5 py-2 rounded-[7px] bg-emerald-500/[0.06] border border-emerald-400/[0.12]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <i className="bx bx-trending-up text-emerald-400/60 text-sm" />
+                          <span className="text-[9px] text-emerald-300/70">
+                            Utilidad estimada
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[12px] font-bold tracking-tight ${
+                            utilidadEstimada >= 0
+                              ? "text-emerald-300"
+                              : "text-rose-300"
+                          }`}
+                        >
+                          ${utilidadEstimada.toFixed(2)}
+                        </span>
+                      </div>
+                      <p className="text-[8px] text-emerald-300/40 mt-0.5 ml-5">
+                        Total cobrado − costo proveedor − flete
+                      </p>
+                    </div>
+                  )}
+
                   {notes?.trim() && (
                     <div className="flex justify-between text-[10px] text-white/35 pt-1">
                       <span>Nota</span>
@@ -696,10 +777,6 @@ export default function CreateOrderPanel(props) {
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
-                    <span>Total</span>
-                    <span>${total.toFixed(2)}</span>
-                  </div>
                 </div>
               );
             })()}
