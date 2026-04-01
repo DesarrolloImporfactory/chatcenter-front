@@ -131,7 +131,7 @@ const Dropiboard = () => {
           syncRefreshTimerRef.current = setTimeout(() => {
             syncRefreshTimerRef.current = null;
             fetchDashboard(true);
-          }, 8000);
+          }, 15000);
         } else {
           // ── CASO 2b: Sync terminó → limpiar mensaje ──
           setSyncingMsg("");
@@ -177,7 +177,7 @@ const Dropiboard = () => {
         `[profit-autorefresh] ${stats.profitData.profitCalculated}/${stats.profitData.totalOrders} — refreshing...`,
       );
       fetchDashboard(true);
-    }, 35000);
+    }, 55000);
 
     return () => {
       if (profitTimerRef.current) {
