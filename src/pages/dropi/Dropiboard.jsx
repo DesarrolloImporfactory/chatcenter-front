@@ -239,6 +239,9 @@ const Dropiboard = () => {
             .length,
           pendingReturn: allDevOrders.filter((o) => o.alertLevel === "pending")
             .length,
+          unverifiable: allDevOrders.filter(
+            (o) => o.alertLevel === "unverifiable",
+          ).length,
         },
         orders: allDevOrders,
       };

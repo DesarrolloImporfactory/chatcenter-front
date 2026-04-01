@@ -281,7 +281,7 @@ export default function CreateOrderPanel(props) {
               if (e.key === "Enter") emitGetProducts(true);
             }}
             className={`${inputCls} flex-1`}
-            placeholder="Nombre o SKU..."
+            placeholder="Nombre, ID o SKU..."
           />
           <button
             type="button"
