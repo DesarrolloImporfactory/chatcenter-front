@@ -313,12 +313,17 @@ export default function FilterBar({
         </div>
 
         <div className="ml-3 flex items-center gap-2 flex-wrap">
-          {/* Etiqueta (single) */}
-          <TagSelect
-            options={opcionesFiltroEtiquetas}
+          {/* Etiquetas (MULTI) */}
+          <MultiLabelSelect
+            options={opcionesFiltroEtiquetas.map((e) => ({
+              id: e.id_etiqueta,
+              nombre: e.nombre_etiqueta,
+              color: e.color_etiqueta,
+            }))}
             value={idEtiquetaFiltro}
             onChange={setIdEtiquetaFiltro}
-            disabled={false}
+            placeholder="Etiquetas"
+            colorBadge="#8b5cf6"
             onDelete={onDeleteEtiqueta}
             onCreateNew={onCreateEtiqueta}
           />
