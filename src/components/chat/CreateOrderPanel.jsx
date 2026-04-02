@@ -1,5 +1,80 @@
 import React, { useMemo, useState, useCallback, useRef } from "react";
+import Select from "react-select";
 import { resolveProductImage, NO_IMAGE } from "../../utils/orderHelper";
+
+/* ── estilos react-select para dark theme ── */
+const reactSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    background: "rgba(255,255,255,0.04)",
+    borderColor: state.isFocused
+      ? "rgba(167,139,250,0.5)"
+      : "rgba(255,255,255,0.08)",
+    borderRadius: 7,
+    minHeight: 34,
+    fontSize: 12,
+    color: "#fff",
+    boxShadow: "none",
+    "&:hover": { borderColor: "rgba(255,255,255,0.15)" },
+  }),
+  menu: (base) => ({
+    ...base,
+    background: "#151d38",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 7,
+    zIndex: 50,
+    fontSize: 12,
+  }),
+  menuList: (base) => ({
+    ...base,
+    maxHeight: 180,
+    padding: 2,
+  }),
+  option: (base, state) => ({
+    ...base,
+    background: state.isFocused
+      ? "rgba(167,139,250,0.15)"
+      : state.isSelected
+        ? "rgba(167,139,250,0.25)"
+        : "transparent",
+    color: "#fff",
+    fontSize: 12,
+    padding: "6px 10px",
+    borderRadius: 5,
+    cursor: "pointer",
+    "&:active": { background: "rgba(167,139,250,0.3)" },
+  }),
+  singleValue: (base) => ({ ...base, color: "#fff", fontSize: 12 }),
+  input: (base) => ({ ...base, color: "#fff", fontSize: 12 }),
+  placeholder: (base) => ({
+    ...base,
+    color: "rgba(255,255,255,0.18)",
+    fontSize: 12,
+  }),
+  indicatorSeparator: () => ({ display: "none" }),
+  dropdownIndicator: (base) => ({
+    ...base,
+    color: "rgba(255,255,255,0.25)",
+    padding: "0 6px",
+    "&:hover": { color: "rgba(255,255,255,0.5)" },
+  }),
+  clearIndicator: (base) => ({
+    ...base,
+    color: "rgba(255,255,255,0.25)",
+    padding: "0 4px",
+    "&:hover": { color: "rgba(255,255,255,0.5)" },
+  }),
+  noOptionsMessage: (base) => ({
+    ...base,
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 11,
+  }),
+  loadingMessage: (base) => ({
+    ...base,
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 11,
+  }),
+};
 
 export default function CreateOrderPanel(props) {
   const {
@@ -43,6 +118,9 @@ export default function CreateOrderPanel(props) {
     canSubmit,
     onClose,
     onSubmit,
+    /* ─── NUEVAS PROPS para checklist preciso ─── */
+    selectedCityCodDane,
+    remitCodDane,
   } = props;
 
   // ── Protección anti-doble-submit ──
@@ -89,6 +167,58 @@ export default function CreateOrderPanel(props) {
   // ── ¿Ya se consultaron transportadoras al menos una vez? ──
   const hasQuoted =
     shippingQuotes.length > 0 || shippingQuotesError || shippingQuotesLoading;
+
+  /* ── opciones react-select para Provincia ── */
+  const stateOptions = useMemo(
+    () =>
+      (states || []).map((d) => ({
+        value: Number(d.id || d.department_id),
+        label: d.name || d.department || d.nombre || "",
+        __raw: d,
+      })),
+    [states],
+  );
+  const selectedStateOption = useMemo(
+    () =>
+      stateOptions.find((o) => o.value === Number(selectedDepartmentId)) ||
+      null,
+    [stateOptions, selectedDepartmentId],
+  );
+
+  /* ── opciones react-select para Ciudad ── */
+  const cityOptions = useMemo(
+    () =>
+      (cities || []).map((c) => ({
+        value: Number(c.id || c.city_id),
+        label: c.name || c.city || c.nombre || "",
+        __raw: c,
+      })),
+    [cities],
+  );
+  const selectedCityOption = useMemo(
+    () => cityOptions.find((o) => o.value === Number(selectedCityId)) || null,
+    [cityOptions, selectedCityId],
+  );
+
+  /* ── handlers para react-select → bridge al mismo handleSelectDepartment/City ── */
+  const onStateChange = useCallback(
+    (opt) => {
+      // Simular el mismo evento que espera handleSelectDepartment
+      handleSelectDepartment({
+        target: { value: opt ? String(opt.value) : "" },
+      });
+    },
+    [handleSelectDepartment],
+  );
+
+  const onCityChange = useCallback(
+    (opt) => {
+      handleSelectCity({
+        target: { value: opt ? String(opt.value) : "" },
+      });
+    },
+    [handleSelectCity],
+  );
 
   return (
     <div className="space-y-2">
@@ -198,47 +328,45 @@ export default function CreateOrderPanel(props) {
                 <option value="SIN RECAUDO">SIN RECAUDO</option>
               </select>
             </div>
+
+            {/* ── Provincia: react-select buscable ── */}
             <div>
               <label className={labelCls}>Provincia{requiredMark}</label>
-              <select
-                value={selectedDepartmentId || ""}
-                onChange={handleSelectDepartment}
-                disabled={statesLoading}
-                className={`${selectCls} ${!selectedDepartmentId ? "border-amber-400/30" : ""}`}
-              >
-                <option value="">
-                  {statesLoading ? "Cargando..." : "Seleccione"}
-                </option>
-                {(states || []).map((d) => (
-                  <option
-                    key={d.id || d.department_id}
-                    value={d.id || d.department_id}
-                  >
-                    {d.name || d.department || d.nombre}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={stateOptions}
+                value={selectedStateOption}
+                onChange={onStateChange}
+                isLoading={statesLoading}
+                isDisabled={statesLoading}
+                isClearable
+                placeholder={
+                  statesLoading ? "Cargando..." : "Buscar provincia..."
+                }
+                noOptionsMessage={() => "Sin resultados"}
+                loadingMessage={() => "Cargando..."}
+                styles={reactSelectStyles}
+                menuPlacement="auto"
+              />
             </div>
           </div>
 
+          {/* ── Ciudad: react-select buscable ── */}
           <div>
             <label className={labelCls}>Ciudad{requiredMark}</label>
             {selectedDepartmentId ? (
-              <select
-                value={selectedCityId || ""}
-                onChange={handleSelectCity}
-                disabled={citiesLoading}
-                className={`${selectCls} ${!selectedCityId ? "border-amber-400/30" : ""}`}
-              >
-                <option value="">
-                  {citiesLoading ? "Cargando..." : "Seleccione"}
-                </option>
-                {(cities || []).map((c) => (
-                  <option key={c.id || c.city_id} value={c.id || c.city_id}>
-                    {c.name || c.city || c.nombre}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={cityOptions}
+                value={selectedCityOption}
+                onChange={onCityChange}
+                isLoading={citiesLoading}
+                isDisabled={citiesLoading}
+                isClearable
+                placeholder={citiesLoading ? "Cargando..." : "Buscar ciudad..."}
+                noOptionsMessage={() => "Sin resultados"}
+                loadingMessage={() => "Cargando..."}
+                styles={reactSelectStyles}
+                menuPlacement="auto"
+              />
             ) : (
               <div className="flex items-center gap-2 px-3 py-2 rounded-[7px] bg-white/[0.02] border border-dashed border-amber-400/20">
                 <i className="bx bx-lock-alt text-amber-400/40 text-sm" />
@@ -492,6 +620,20 @@ export default function CreateOrderPanel(props) {
               done={productsCart.length > 0}
               label="Al menos 1 producto en carrito"
             />
+
+            {/* ── Checks REALES que determinan canShowShipping ── */}
+            <CheckItem
+              done={Boolean(selectedCityCodDane)}
+              label="Ciudad con código DANE"
+              warn={Boolean(selectedCityId) && !selectedCityCodDane}
+              warnText="La ciudad seleccionada no tiene cod_dane"
+            />
+            <CheckItem
+              done={Boolean(remitCodDane)}
+              label="Bodega remitente con código DANE"
+              warn={productsCart.length > 0 && !remitCodDane}
+              warnText="El producto no tiene bodega con cod_dane"
+            />
           </div>
         </div>
       </div>
@@ -522,15 +664,14 @@ export default function CreateOrderPanel(props) {
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-[7px] bg-amber-500/[0.04] border border-dashed border-amber-400/20">
               <i className="bx bx-error-circle text-amber-400/50 text-sm shrink-0" />
               <span className="text-[10px] text-amber-300/50">
-                Revisa el checklist de arriba. Necesitas{" "}
-                <span className="text-amber-300/80 font-semibold">
-                  provincia, ciudad
-                </span>{" "}
-                y al menos{" "}
-                <span className="text-amber-300/80 font-semibold">
-                  1 producto
-                </span>{" "}
-                para consultar transportadoras.
+                {/* Mensaje más específico según lo que falta */}
+                {!selectedCityCodDane && !remitCodDane
+                  ? "La ciudad no tiene código DANE y el producto no tiene bodega con código DANE. Revisa el checklist."
+                  : !selectedCityCodDane
+                    ? "La ciudad seleccionada no tiene código DANE (cod_dane). Intenta seleccionar otra ciudad."
+                    : !remitCodDane
+                      ? "El producto del carrito no tiene una bodega con código DANE asignado. Verifica el producto en Dropi."
+                      : "Revisa el checklist de arriba. Necesitas provincia, ciudad y al menos 1 producto para consultar transportadoras."}
               </span>
             </div>
           )}
@@ -678,7 +819,6 @@ export default function CreateOrderPanel(props) {
               const total = subtotal + ship;
               const carrierName = selectedShipping?.transportadora || null;
 
-              // Costo proveedor total (para mostrar utilidad estimada)
               const costoProveedor = productsCart.reduce(
                 (acc, it) =>
                   acc + Number(it.quantity || 0) * (Number(it.sale_price) || 0),
@@ -689,7 +829,6 @@ export default function CreateOrderPanel(props) {
 
               return (
                 <div className="space-y-1">
-                  {/* Desglose por producto */}
                   {productsCart.map((it) => {
                     const lineTotal =
                       Number(it.quantity || 0) * Number(it.price || 0);
@@ -719,13 +858,11 @@ export default function CreateOrderPanel(props) {
                     <span>${ship.toFixed(2)}</span>
                   </div>
 
-                  {/* Total a cobrar al cliente */}
                   <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
                     <span>Total a cobrar</span>
                     <span>${total.toFixed(2)}</span>
                   </div>
 
-                  {/* Aviso: flete incluido en precio */}
                   {ship > 0 && (
                     <div className="mt-2 px-2.5 py-2 rounded-[7px] bg-blue-500/[0.06] border border-blue-400/[0.12]">
                       <div className="flex items-start gap-2">
@@ -742,32 +879,6 @@ export default function CreateOrderPanel(props) {
                       </div>
                     </div>
                   )}
-
-                  {/* Utilidad estimada */}
-                  {/* {utilidadEstimada !== null && (
-                    <div className="mt-1.5 px-2.5 py-2 rounded-[7px] bg-emerald-500/[0.06] border border-emerald-400/[0.12]">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <i className="bx bx-trending-up text-emerald-400/60 text-sm" />
-                          <span className="text-[9px] text-emerald-300/70">
-                            Utilidad estimada
-                          </span>
-                        </div>
-                        <span
-                          className={`text-[12px] font-bold tracking-tight ${
-                            utilidadEstimada >= 0
-                              ? "text-emerald-300"
-                              : "text-rose-300"
-                          }`}
-                        >
-                          ${utilidadEstimada.toFixed(2)}
-                        </span>
-                      </div>
-                      <p className="text-[8px] text-emerald-300/40 mt-0.5 ml-5">
-                        Total cobrado − costo proveedor − flete
-                      </p>
-                    </div>
-                  )} */}
 
                   {notes?.trim() && (
                     <div className="flex justify-between text-[10px] text-white/35 pt-1">
@@ -819,20 +930,33 @@ export default function CreateOrderPanel(props) {
   );
 }
 
-function CheckItem({ done, label }) {
+function CheckItem({ done, label, warn = false, warnText = "" }) {
   return (
     <div className="flex items-center gap-2">
       <i
         className={`bx ${
-          done ? "bx-check-circle text-emerald-400" : "bx-circle text-white/20"
+          done
+            ? "bx-check-circle text-emerald-400"
+            : warn
+              ? "bx-error-circle text-amber-400"
+              : "bx-circle text-white/20"
         } text-sm`}
       />
       <span
         className={`text-[10px] ${
-          done ? "text-emerald-300/80" : "text-white/30"
+          done
+            ? "text-emerald-300/80"
+            : warn
+              ? "text-amber-300/80"
+              : "text-white/30"
         }`}
       >
         {label}
+        {warn && warnText && (
+          <span className="text-[8px] text-amber-300/60 ml-1">
+            — {warnText}
+          </span>
+        )}
       </span>
     </div>
   );

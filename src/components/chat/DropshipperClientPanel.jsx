@@ -17,6 +17,68 @@ import {
   pickDistributionCompanyFromQuote,
 } from "../../utils/orderHelper";
 
+/* ── Props comunes que se pasan al CreateOrderPanel ── */
+function buildCreateOrderPanelProps(createHook) {
+  return {
+    phoneInput: createHook.phoneInput,
+    setPhoneInput: createHook.setPhoneInput,
+    name: createHook.name,
+    setName: createHook.setName,
+    surname: createHook.surname,
+    setSurname: createHook.setSurname,
+    dir: createHook.dir,
+    setDir: createHook.setDir,
+    notes: createHook.notes,
+    setNotes: createHook.setNotes,
+    rateType: createHook.rateType,
+    setRateType: createHook.setRateType,
+    states: createHook.states,
+    statesLoading: createHook.statesLoading,
+    selectedDepartmentId: createHook.selectedDepartmentId,
+    handleSelectDepartment: createHook.handleSelectDepartment,
+    cities: createHook.cities,
+    citiesLoading: createHook.citiesLoading,
+    selectedCityId: createHook.selectedCityId,
+    handleSelectCity: createHook.handleSelectCity,
+    shippingQuotes: createHook.shippingQuotes,
+    shippingQuotesLoading: createHook.shippingQuotesLoading,
+    shippingQuotesError: createHook.shippingQuotesError,
+    selectedShipping: createHook.selectedShipping,
+    setSelectedShipping: createHook.setSelectedShipping,
+    canShowShipping:
+      Boolean(createHook.selectedCityCodDane) &&
+      Boolean(createHook.remitCodDane),
+    onRecotizar: createHook.emitCotizaTransportadoras,
+    keywords: createHook.keywords,
+    setKeywords: createHook.setKeywords,
+    prodList: createHook.prodList,
+    prodLoading: createHook.prodLoading,
+    prodError: createHook.prodError,
+    emitGetProducts: createHook.emitGetProducts,
+    addProductToCart: createHook.addProductToCart,
+    productsCart: createHook.productsCart,
+    updateCartItem: createHook.updateCartItem,
+    removeProductFromCart: createHook.removeProductFromCart,
+    canSubmit:
+      Boolean(createHook.name?.trim()) &&
+      Boolean(createHook.surname?.trim()) &&
+      Boolean(createHook.dir?.trim()) &&
+      Boolean(createHook.selectedDepartmentId) &&
+      Boolean(createHook.selectedCityId) &&
+      Array.isArray(createHook.productsCart) &&
+      createHook.productsCart.length > 0 &&
+      Boolean(
+        pickDistributionCompanyFromQuote(createHook.selectedShipping)?.id,
+      ),
+    onClose: () => createHook.setCreateOrderOpen(false),
+    onSubmit: createHook.emitCreateOrder,
+
+    /* ── NUEVAS PROPS para checklist preciso ── */
+    selectedCityCodDane: createHook.selectedCityCodDane,
+    remitCodDane: createHook.remitCodDane,
+  };
+}
+
 export default function DropshipperClientPanel(props) {
   const {
     socketRef,
@@ -152,6 +214,9 @@ export default function DropshipperClientPanel(props) {
   // shortcuts
   const { selectedOrder } = ordersHook;
   const { orders, ordersLoading, ordersError, phone } = ordersHook;
+
+  // ── Props del panel de creación (una sola fuente de verdad) ──
+  const createPanelProps = buildCreateOrderPanelProps(createHook);
 
   // ── Botón reutilizable de Crear orden ──
   const CreateOrderButton = () => (
@@ -298,66 +363,7 @@ export default function DropshipperClientPanel(props) {
                         </div>
                       </>
                     ) : (
-                      <CreateOrderPanel
-                        phoneInput={createHook.phoneInput}
-                        setPhoneInput={createHook.setPhoneInput}
-                        name={createHook.name}
-                        setName={createHook.setName}
-                        surname={createHook.surname}
-                        setSurname={createHook.setSurname}
-                        dir={createHook.dir}
-                        setDir={createHook.setDir}
-                        notes={createHook.notes}
-                        setNotes={createHook.setNotes}
-                        rateType={createHook.rateType}
-                        setRateType={createHook.setRateType}
-                        states={createHook.states}
-                        statesLoading={createHook.statesLoading}
-                        selectedDepartmentId={createHook.selectedDepartmentId}
-                        handleSelectDepartment={
-                          createHook.handleSelectDepartment
-                        }
-                        cities={createHook.cities}
-                        citiesLoading={createHook.citiesLoading}
-                        selectedCityId={createHook.selectedCityId}
-                        handleSelectCity={createHook.handleSelectCity}
-                        shippingQuotes={createHook.shippingQuotes}
-                        shippingQuotesLoading={createHook.shippingQuotesLoading}
-                        shippingQuotesError={createHook.shippingQuotesError}
-                        selectedShipping={createHook.selectedShipping}
-                        setSelectedShipping={createHook.setSelectedShipping}
-                        canShowShipping={
-                          Boolean(createHook.selectedCityCodDane) &&
-                          Boolean(createHook.remitCodDane)
-                        }
-                        onRecotizar={createHook.emitCotizaTransportadoras}
-                        keywords={createHook.keywords}
-                        setKeywords={createHook.setKeywords}
-                        prodList={createHook.prodList}
-                        prodLoading={createHook.prodLoading}
-                        prodError={createHook.prodError}
-                        emitGetProducts={createHook.emitGetProducts}
-                        addProductToCart={createHook.addProductToCart}
-                        productsCart={createHook.productsCart}
-                        updateCartItem={createHook.updateCartItem}
-                        removeProductFromCart={createHook.removeProductFromCart}
-                        canSubmit={
-                          Boolean(createHook.name?.trim()) &&
-                          Boolean(createHook.surname?.trim()) &&
-                          Boolean(createHook.dir?.trim()) &&
-                          Boolean(createHook.selectedDepartmentId) &&
-                          Boolean(createHook.selectedCityId) &&
-                          Array.isArray(createHook.productsCart) &&
-                          createHook.productsCart.length > 0 &&
-                          Boolean(
-                            pickDistributionCompanyFromQuote(
-                              createHook.selectedShipping,
-                            )?.id,
-                          )
-                        }
-                        onClose={() => createHook.setCreateOrderOpen(false)}
-                        onSubmit={createHook.emitCreateOrder}
-                      />
+                      <CreateOrderPanel {...createPanelProps} />
                     )}
                   </div>
                 )}
@@ -368,77 +374,13 @@ export default function DropshipperClientPanel(props) {
                 !ordersError &&
                 orders?.length > 0 && (
                   <>
-                    {/* Botón crear orden (o panel de creación) */}
                     {!createHook.createOrderOpen ? (
                       <div className="mb-2">
                         <CreateOrderButton />
                       </div>
                     ) : (
                       <div className="mb-2 rounded-xl bg-white/5 border border-white/10">
-                        <CreateOrderPanel
-                          phoneInput={createHook.phoneInput}
-                          setPhoneInput={createHook.setPhoneInput}
-                          name={createHook.name}
-                          setName={createHook.setName}
-                          surname={createHook.surname}
-                          setSurname={createHook.setSurname}
-                          dir={createHook.dir}
-                          setDir={createHook.setDir}
-                          notes={createHook.notes}
-                          setNotes={createHook.setNotes}
-                          rateType={createHook.rateType}
-                          setRateType={createHook.setRateType}
-                          states={createHook.states}
-                          statesLoading={createHook.statesLoading}
-                          selectedDepartmentId={createHook.selectedDepartmentId}
-                          handleSelectDepartment={
-                            createHook.handleSelectDepartment
-                          }
-                          cities={createHook.cities}
-                          citiesLoading={createHook.citiesLoading}
-                          selectedCityId={createHook.selectedCityId}
-                          handleSelectCity={createHook.handleSelectCity}
-                          shippingQuotes={createHook.shippingQuotes}
-                          shippingQuotesLoading={
-                            createHook.shippingQuotesLoading
-                          }
-                          shippingQuotesError={createHook.shippingQuotesError}
-                          selectedShipping={createHook.selectedShipping}
-                          setSelectedShipping={createHook.setSelectedShipping}
-                          canShowShipping={
-                            Boolean(createHook.selectedCityCodDane) &&
-                            Boolean(createHook.remitCodDane)
-                          }
-                          onRecotizar={createHook.emitCotizaTransportadoras}
-                          keywords={createHook.keywords}
-                          setKeywords={createHook.setKeywords}
-                          prodList={createHook.prodList}
-                          prodLoading={createHook.prodLoading}
-                          prodError={createHook.prodError}
-                          emitGetProducts={createHook.emitGetProducts}
-                          addProductToCart={createHook.addProductToCart}
-                          productsCart={createHook.productsCart}
-                          updateCartItem={createHook.updateCartItem}
-                          removeProductFromCart={
-                            createHook.removeProductFromCart
-                          }
-                          canSubmit={
-                            Boolean(createHook.name?.trim()) &&
-                            Boolean(createHook.surname?.trim()) &&
-                            Boolean(createHook.dir?.trim()) &&
-                            Boolean(createHook.selectedDepartmentId) &&
-                            Boolean(createHook.selectedCityId) &&
-                            Array.isArray(createHook.productsCart) &&
-                            createHook.productsCart.length > 0 &&
-                            Boolean(
-                              pickDistributionCompanyFromQuote(
-                                createHook.selectedShipping,
-                              )?.id,
-                            )
-                          }
-                          onClose={() => createHook.setCreateOrderOpen(false)}
-                          onSubmit={createHook.emitCreateOrder}
-                        />
+                        <CreateOrderPanel {...createPanelProps} />
                       </div>
                     )}
 
