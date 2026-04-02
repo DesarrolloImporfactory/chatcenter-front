@@ -22,12 +22,16 @@ const reactSelectStyles = {
     background: "#151d38",
     border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 7,
-    zIndex: 50,
+    zIndex: 9999,
     fontSize: 12,
+  }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 9999,
   }),
   menuList: (base) => ({
     ...base,
-    maxHeight: 180,
+    maxHeight: 260,
     padding: 2,
   }),
   option: (base, state) => ({
@@ -76,6 +80,28 @@ const reactSelectStyles = {
   }),
 };
 
+/* ── CheckItem ── */
+function CheckItem({ done, label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <i
+        className={`bx ${
+          done ? "bx-check-circle text-emerald-400" : "bx-circle text-white/20"
+        } text-sm`}
+      />
+      <span
+        className={`text-[10px] ${
+          done ? "text-emerald-300/80" : "text-white/30"
+        }`}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════ */
+
 export default function CreateOrderPanel(props) {
   const {
     phoneInput,
@@ -118,7 +144,7 @@ export default function CreateOrderPanel(props) {
     canSubmit,
     onClose,
     onSubmit,
-    /* ─── NUEVAS PROPS para checklist preciso ─── */
+    /* props para aviso interno */
     selectedCityCodDane,
     remitCodDane,
   } = props;
@@ -142,7 +168,6 @@ export default function CreateOrderPanel(props) {
       setIsSubmitting(false);
     }
 
-    // Safety net: desbloquear después de 4s
     setTimeout(() => {
       submitLockRef.current = false;
       setIsSubmitting(false);
@@ -150,10 +175,9 @@ export default function CreateOrderPanel(props) {
   }, [canSubmit, isSubmitting, onSubmit]);
 
   const topProducts = useMemo(() => (prodList || []).slice(0, 5), [prodList]);
-
   const getImageOrFallback = (p) => resolveProductImage(p) || NO_IMAGE;
 
-  // ── Clases reutilizables ──
+  // ── Clases ──
   const inputCls =
     "w-full bg-white/[0.04] border border-white/[0.08] rounded-[7px] px-3 py-2 text-[12px] text-white outline-none transition-all focus:border-violet-400/50 focus:bg-white/[0.06] hover:border-white/15 placeholder:text-white/[0.18]";
   const selectCls =
@@ -164,17 +188,15 @@ export default function CreateOrderPanel(props) {
     "rounded-[10px] bg-[#0f1629] border border-white/[0.07] overflow-hidden";
   const requiredMark = <span className="text-rose-400 ml-0.5">*</span>;
 
-  // ── ¿Ya se consultaron transportadoras al menos una vez? ──
   const hasQuoted =
     shippingQuotes.length > 0 || shippingQuotesError || shippingQuotesLoading;
 
-  /* ── opciones react-select para Provincia ── */
+  /* ── react-select: Provincia ── */
   const stateOptions = useMemo(
     () =>
       (states || []).map((d) => ({
         value: Number(d.id || d.department_id),
         label: d.name || d.department || d.nombre || "",
-        __raw: d,
       })),
     [states],
   );
@@ -185,13 +207,12 @@ export default function CreateOrderPanel(props) {
     [stateOptions, selectedDepartmentId],
   );
 
-  /* ── opciones react-select para Ciudad ── */
+  /* ── react-select: Ciudad ── */
   const cityOptions = useMemo(
     () =>
       (cities || []).map((c) => ({
         value: Number(c.id || c.city_id),
         label: c.name || c.city || c.nombre || "",
-        __raw: c,
       })),
     [cities],
   );
@@ -200,25 +221,21 @@ export default function CreateOrderPanel(props) {
     [cityOptions, selectedCityId],
   );
 
-  /* ── handlers para react-select → bridge al mismo handleSelectDepartment/City ── */
+  /* ── bridge handlers ── */
   const onStateChange = useCallback(
-    (opt) => {
-      // Simular el mismo evento que espera handleSelectDepartment
+    (opt) =>
       handleSelectDepartment({
         target: { value: opt ? String(opt.value) : "" },
-      });
-    },
+      }),
     [handleSelectDepartment],
   );
-
   const onCityChange = useCallback(
-    (opt) => {
-      handleSelectCity({
-        target: { value: opt ? String(opt.value) : "" },
-      });
-    },
+    (opt) =>
+      handleSelectCity({ target: { value: opt ? String(opt.value) : "" } }),
     [handleSelectCity],
   );
+
+  /* ══════════════════════════════════════════════ */
 
   return (
     <div className="space-y-2">
@@ -329,7 +346,7 @@ export default function CreateOrderPanel(props) {
               </select>
             </div>
 
-            {/* ── Provincia: react-select buscable ── */}
+            {/* ── Provincia: buscable ── */}
             <div>
               <label className={labelCls}>Provincia{requiredMark}</label>
               <Select
@@ -346,11 +363,12 @@ export default function CreateOrderPanel(props) {
                 loadingMessage={() => "Cargando..."}
                 styles={reactSelectStyles}
                 menuPlacement="auto"
+                menuPortalTarget={document.body}
               />
             </div>
           </div>
 
-          {/* ── Ciudad: react-select buscable ── */}
+          {/* ── Ciudad: buscable ── */}
           <div>
             <label className={labelCls}>Ciudad{requiredMark}</label>
             {selectedDepartmentId ? (
@@ -366,6 +384,7 @@ export default function CreateOrderPanel(props) {
                 loadingMessage={() => "Cargando..."}
                 styles={reactSelectStyles}
                 menuPlacement="auto"
+                menuPortalTarget={document.body}
               />
             ) : (
               <div className="flex items-center gap-2 px-3 py-2 rounded-[7px] bg-white/[0.02] border border-dashed border-amber-400/20">
@@ -591,6 +610,7 @@ export default function CreateOrderPanel(props) {
           <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold block mb-2">
             Requisitos para cotizar envío
           </span>
+
           <div className="space-y-1">
             <CheckItem
               done={Boolean(name?.trim())}
@@ -620,21 +640,23 @@ export default function CreateOrderPanel(props) {
               done={productsCart.length > 0}
               label="Al menos 1 producto en carrito"
             />
-
-            {/* ── Checks REALES que determinan canShowShipping ── */}
-            <CheckItem
-              done={Boolean(selectedCityCodDane)}
-              label="Ciudad con código DANE"
-              warn={Boolean(selectedCityId) && !selectedCityCodDane}
-              warnText="La ciudad seleccionada no tiene cod_dane"
-            />
-            <CheckItem
-              done={Boolean(remitCodDane)}
-              label="Bodega remitente con código DANE"
-              warn={productsCart.length > 0 && !remitCodDane}
-              warnText="El producto no tiene bodega con cod_dane"
-            />
           </div>
+
+          {/* Aviso amigable cuando todo está verde pero hay incompatibilidad interna */}
+          {Boolean(selectedCityId) &&
+            productsCart.length > 0 &&
+            (!selectedCityCodDane || !remitCodDane) && (
+              <div className="mt-2 flex items-start gap-2 px-2.5 py-2 rounded-[7px] bg-amber-500/[0.06] border border-amber-400/[0.15]">
+                <i className="bx bx-info-circle text-amber-400/60 text-sm mt-0.5 shrink-0" />
+                <p className="text-[9px] text-amber-300/70 leading-relaxed">
+                  {!selectedCityCodDane && !remitCodDane
+                    ? "La ciudad seleccionada y el producto no son compatibles con el sistema de cotización. Intenta con otra ciudad u otro producto."
+                    : !selectedCityCodDane
+                      ? "La ciudad seleccionada no es compatible con el sistema de cotización. Intenta seleccionar otra ciudad."
+                      : "El producto seleccionado no tiene bodega habilitada para cotización. Verifica el producto en Dropi o prueba con otro."}
+                </p>
+              </div>
+            )}
         </div>
       </div>
 
@@ -664,14 +686,9 @@ export default function CreateOrderPanel(props) {
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-[7px] bg-amber-500/[0.04] border border-dashed border-amber-400/20">
               <i className="bx bx-error-circle text-amber-400/50 text-sm shrink-0" />
               <span className="text-[10px] text-amber-300/50">
-                {/* Mensaje más específico según lo que falta */}
-                {!selectedCityCodDane && !remitCodDane
-                  ? "La ciudad no tiene código DANE y el producto no tiene bodega con código DANE. Revisa el checklist."
-                  : !selectedCityCodDane
-                    ? "La ciudad seleccionada no tiene código DANE (cod_dane). Intenta seleccionar otra ciudad."
-                    : !remitCodDane
-                      ? "El producto del carrito no tiene una bodega con código DANE asignado. Verifica el producto en Dropi."
-                      : "Revisa el checklist de arriba. Necesitas provincia, ciudad y al menos 1 producto para consultar transportadoras."}
+                {Boolean(selectedCityId) && productsCart.length > 0
+                  ? "Hay un problema de compatibilidad con la ciudad o el producto. Revisa el aviso en el checklist de arriba."
+                  : "Revisa el checklist de arriba. Necesitas provincia, ciudad y al menos 1 producto para consultar transportadoras."}
               </span>
             </div>
           )}
@@ -800,7 +817,7 @@ export default function CreateOrderPanel(props) {
         </div>
       </div>
 
-      {/* ═══ Resumen del pedido (con flete absorbido) ═══ */}
+      {/* ═══ Resumen del pedido ═══ */}
       {productsCart.length > 0 && (
         <div className={sectionCls}>
           <div className="flex items-center justify-between px-3.5 pt-2.5 pb-2">
@@ -818,14 +835,6 @@ export default function CreateOrderPanel(props) {
               const ship = Number(selectedShipping?.objects?.precioEnvio) || 0;
               const total = subtotal + ship;
               const carrierName = selectedShipping?.transportadora || null;
-
-              const costoProveedor = productsCart.reduce(
-                (acc, it) =>
-                  acc + Number(it.quantity || 0) * (Number(it.sale_price) || 0),
-                0,
-              );
-              const utilidadEstimada =
-                costoProveedor > 0 ? total - costoProveedor - ship : null;
 
               return (
                 <div className="space-y-1">
@@ -851,10 +860,7 @@ export default function CreateOrderPanel(props) {
                   </div>
 
                   <div className="flex justify-between text-[11px] text-white/50">
-                    <span>
-                      Envío
-                      {carrierName ? ` (${carrierName})` : ""}
-                    </span>
+                    <span>Envío{carrierName ? ` (${carrierName})` : ""}</span>
                     <span>${ship.toFixed(2)}</span>
                   </div>
 
@@ -926,38 +932,6 @@ export default function CreateOrderPanel(props) {
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-function CheckItem({ done, label, warn = false, warnText = "" }) {
-  return (
-    <div className="flex items-center gap-2">
-      <i
-        className={`bx ${
-          done
-            ? "bx-check-circle text-emerald-400"
-            : warn
-              ? "bx-error-circle text-amber-400"
-              : "bx-circle text-white/20"
-        } text-sm`}
-      />
-      <span
-        className={`text-[10px] ${
-          done
-            ? "text-emerald-300/80"
-            : warn
-              ? "text-amber-300/80"
-              : "text-white/30"
-        }`}
-      >
-        {label}
-        {warn && warnText && (
-          <span className="text-[8px] text-amber-300/60 ml-1">
-            — {warnText}
-          </span>
-        )}
-      </span>
     </div>
   );
 }
