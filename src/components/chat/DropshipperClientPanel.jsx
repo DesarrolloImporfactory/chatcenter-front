@@ -75,6 +75,8 @@ function buildCreateOrderPanelProps(createHook) {
     selectedCityCodDane: createHook.selectedCityCodDane,
     remitCodDane: createHook.remitCodDane,
     noProrateFlete: createHook.noProrateFlete,
+    customerHistory: createHook.customerHistory,
+    customerHistoryLoading: createHook.customerHistoryLoading,
   };
 }
 

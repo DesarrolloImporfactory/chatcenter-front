@@ -147,6 +147,8 @@ export default function CreateOrderPanel(props) {
     selectedCityCodDane,
     remitCodDane,
     noProrateFlete,
+    customerHistory,
+    customerHistoryLoading,
   } = props;
 
   // ── Protección anti-doble-submit ──
@@ -324,6 +326,143 @@ export default function CreateOrderPanel(props) {
         </div>
       </div>
 
+      {/* ═══ Historial del cliente en Dropi ═══ */}
+      {(customerHistory || customerHistoryLoading) && (
+        <div className={sectionCls}>
+          <div className="px-3.5 py-2.5">
+            <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold block mb-2">
+              Historial del cliente en Dropi
+            </span>
+
+            {customerHistoryLoading ? (
+              <p className="text-[10px] text-white/35 py-1">
+                Consultando historial…
+              </p>
+            ) : customerHistory?.stats?.total_orders === 0 ? (
+              <div className="flex items-center gap-2 px-2.5 py-2 rounded-[7px] bg-white/[0.03] border border-white/[0.06]">
+                <i className="bx bx-user-plus text-blue-400/60 text-sm" />
+                <span className="text-[10px] text-white/50">
+                  Cliente nuevo — sin órdenes previas en Dropi
+                </span>
+              </div>
+            ) : (
+              <div
+                className={`rounded-[7px] p-2.5 border ${
+                  customerHistory?.risk?.color === "success"
+                    ? "bg-emerald-500/[0.06] border-emerald-400/20"
+                    : customerHistory?.risk?.color === "warning"
+                      ? "bg-amber-500/[0.06] border-amber-400/20"
+                      : customerHistory?.risk?.color === "danger"
+                        ? "bg-rose-500/[0.06] border-rose-400/20"
+                        : "bg-white/[0.03] border-white/[0.06]"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <i
+                    className={`bx text-sm ${
+                      customerHistory?.risk?.color === "success"
+                        ? "bx-check-circle text-emerald-400"
+                        : customerHistory?.risk?.color === "warning"
+                          ? "bx-error text-amber-400"
+                          : customerHistory?.risk?.color === "danger"
+                            ? "bx-x-circle text-rose-400"
+                            : "bx-help-circle text-white/40"
+                    }`}
+                  />
+                  <span
+                    className={`text-[11px] font-semibold ${
+                      customerHistory?.risk?.color === "success"
+                        ? "text-emerald-300"
+                        : customerHistory?.risk?.color === "warning"
+                          ? "text-amber-300"
+                          : customerHistory?.risk?.color === "danger"
+                            ? "text-rose-300"
+                            : "text-white/60"
+                    }`}
+                  >
+                    {customerHistory?.risk?.color === "success"
+                      ? "Buen historial de entrega"
+                      : customerHistory?.risk?.color === "warning"
+                        ? "Historial con riesgo medio"
+                        : customerHistory?.risk?.color === "danger"
+                          ? "Historial riesgoso"
+                          : "Sin datos suficientes"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
+                  <div className="text-center px-1.5 py-1.5 rounded-md bg-white/[0.04]">
+                    <p className="text-[13px] font-bold text-white">
+                      {customerHistory?.stats?.total_orders}
+                    </p>
+                    <p className="text-[8px] text-white/40">Total</p>
+                  </div>
+                  <div className="text-center px-1.5 py-1.5 rounded-md bg-emerald-500/[0.08]">
+                    <p className="text-[13px] font-bold text-emerald-300">
+                      {customerHistory?.stats?.delivered}
+                    </p>
+                    <p className="text-[8px] text-emerald-300/60">Entregadas</p>
+                  </div>
+                  <div className="text-center px-1.5 py-1.5 rounded-md bg-rose-500/[0.08]">
+                    <p className="text-[13px] font-bold text-rose-300">
+                      {customerHistory?.stats?.canceled}
+                    </p>
+                    <p className="text-[8px] text-rose-300/60">Devol/Cancel</p>
+                  </div>
+                  <div className="text-center px-1.5 py-1.5 rounded-md bg-blue-500/[0.08]">
+                    <p className="text-[13px] font-bold text-blue-300">
+                      {customerHistory?.risk?.delivery_rate !== null
+                        ? `${customerHistory.risk.delivery_rate.toFixed(0)}%`
+                        : "—"}
+                    </p>
+                    <p className="text-[8px] text-blue-300/60">Efectividad</p>
+                  </div>
+                </div>
+
+                {customerHistory?.risk?.color === "danger" && (
+                  <p className="mt-2 text-[9px] text-rose-300/70">
+                    Este cliente tiene un alto índice de devoluciones. Confirma
+                    los datos antes de despachar.
+                  </p>
+                )}
+                {customerHistory?.risk?.color === "warning" && (
+                  <p className="mt-2 text-[9px] text-amber-300/70">
+                    Probabilidad moderada. Confirma datos y monitorea la
+                    entrega.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Cross-store info */}
+            {customerHistory?.crossStore && (
+              <div className="mt-2 px-2.5 py-2 rounded-[7px] bg-violet-500/[0.06] border border-violet-400/[0.15]">
+                <div className="flex items-start gap-2">
+                  <i className="bx bx-globe text-violet-400/60 text-sm mt-0.5 shrink-0" />
+                  <div className="text-[9px] text-violet-300/70 leading-relaxed">
+                    <p>
+                      En{" "}
+                      <span className="font-semibold text-violet-300">
+                        todo Dropi
+                      </span>
+                      : {customerHistory.crossStore.total_orders_all_stores}{" "}
+                      órdenes,{" "}
+                      {customerHistory.crossStore.total_returns_all_stores}{" "}
+                      devoluciones
+                    </p>
+                    {customerHistory.crossStore.has_repeated_orders && (
+                      <p className="mt-0.5 text-amber-300/70">
+                        ⚠️ Tiene órdenes repetidas con otras tiendas
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ═══ Ubicación y tipo de envío ═══ */}
       <div className={sectionCls}>
         <div className="flex items-center justify-between px-3.5 pt-2.5 pb-2">
@@ -363,6 +502,7 @@ export default function CreateOrderPanel(props) {
                 loadingMessage={() => "Cargando..."}
                 styles={reactSelectStyles}
                 menuPlacement="auto"
+                menuPosition="fixed"
                 menuPortalTarget={document.body}
               />
             </div>
@@ -384,6 +524,7 @@ export default function CreateOrderPanel(props) {
                 loadingMessage={() => "Cargando..."}
                 styles={reactSelectStyles}
                 menuPlacement="auto"
+                menuPosition="fixed"
                 menuPortalTarget={document.body}
               />
             ) : (
@@ -909,13 +1050,13 @@ export default function CreateOrderPanel(props) {
                         <div className="flex items-start gap-2">
                           <i className="bx bx-info-circle text-amber-400/60 text-sm mt-0.5 shrink-0" />
                           <p className="text-[9px] text-amber-300/70 leading-relaxed">
-                            El precio que colocaste ya debe cubrir el costo del
-                            flete. Asegúrate de tener buena utilidad antes de
-                            crear la orden.
+                            El precio de venta que colocaste ya debe cubrir el
+                            costo del producto y del flete. Asegúrate de tener
+                            utilidad antes de crear la orden.
                             {utilidad !== null && utilidad <= 0 && (
                               <span className="block mt-1 text-rose-300 font-semibold">
-                                ⚠️ Tu utilidad es negativa o cero. Revisa el
-                                precio de venta.
+                                Tu utilidad es negativa o cero. Revisa el precio
+                                de venta.
                               </span>
                             )}
                           </p>

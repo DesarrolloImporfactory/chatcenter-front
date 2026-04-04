@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
+import chatApi from "../api/chatcenter";
 import {
   pickSupplierId,
   pickWarehouseId,
@@ -70,6 +71,10 @@ export default function useCreateOrder({
   const [shippingQuotes, setShippingQuotes] = useState([]);
   const [selectedShipping, setSelectedShipping] = useState(null);
 
+  // ── historial del cliente ──
+  const [customerHistory, setCustomerHistory] = useState(null);
+  const [customerHistoryLoading, setCustomerHistoryLoading] = useState(false);
+
   // refs para listeners
   const onProdOkRef = useRef(null);
   const onProdErrRef = useRef(null);
@@ -108,6 +113,8 @@ export default function useCreateOrder({
     setSelectedShipping(null);
     setDir("");
     setNotes("");
+    setCustomerHistory(null);
+    setCustomerHistoryLoading(false);
   }, []);
 
   // ── emitters ──
@@ -171,7 +178,6 @@ export default function useCreateOrder({
 
     const raw0 = productsCart[0]?.__raw || null;
 
-    // Objeto completo de ciudad destino del listing
     const fullCityDestino =
       cities.find(
         (c) => String(c.cod_dane || "") === String(selectedCityCodDane),
@@ -318,6 +324,61 @@ export default function useCreateOrder({
     setRemitCodDane(pickRemitCodDaneFromProduct(raw0));
   }, [productsCart]);
 
+  // ── fingerprint del carrito (detecta cambios de precio, cantidad, productos) ──
+  const cartFingerprint = useMemo(() => {
+    if (!productsCart.length) return "";
+    const ids = productsCart
+      .map((p) => p.id)
+      .sort()
+      .join(",");
+    const total = productsCart.reduce(
+      (acc, p) => acc + (Number(p.price) || 0) * (Number(p.quantity) || 1),
+      0,
+    );
+    return `${ids}_${total.toFixed(2)}`;
+  }, [productsCart]);
+
+  // ── invalidar shipping al cambiar carrito ──
+  useEffect(() => {
+    if (!cartFingerprint) return;
+    setShippingQuotes([]);
+    setSelectedShipping(null);
+    setShippingQuotesError(null);
+  }, [cartFingerprint]);
+
+  // ── fetch historial del cliente cuando hay teléfono ──
+  useEffect(() => {
+    const clean = String(phoneInput || "").replace(/\D/g, "");
+    if (clean.length < 7 || !id_configuracion) {
+      setCustomerHistory(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCustomerHistoryLoading(true);
+
+    chatApi
+      .get(
+        `/dropi_integrations/customer-history/${clean}?id_configuracion=${id_configuracion}`,
+      )
+      .then(({ data }) => {
+        if (!cancelled && data?.isSuccess) {
+          setCustomerHistory(data.data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCustomerHistory(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCustomerHistoryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phoneInput, id_configuracion]);
+
+  // ── emitCreateOrder ──
   const emitCreateOrder = useCallback(() => {
     const s = socketRef?.current;
     if (!s) return;
@@ -355,7 +416,6 @@ export default function useCreateOrder({
     let products;
 
     if (noProrateFlete) {
-      // ══ MODO NUEVO: precio tal cual puso el usuario, sin tocar nada ══
       products = productsCart.map((it) => ({
         id: Number(it.id),
         name: String(it.name || ""),
@@ -363,12 +423,11 @@ export default function useCreateOrder({
         variation_id: it.variation_id ?? null,
         variations: Array.isArray(it.variations) ? it.variations : [],
         quantity: Number(it.quantity) || 1,
-        price: Number(it.price) || 0, // ← precio exacto del usuario
+        price: Number(it.price) || 0,
         sale_price: it.sale_price ?? null,
         suggested_price: it.suggested_price ?? null,
       }));
     } else {
-      // ══ MODO LEGACY: prorratear flete en el precio ══
       products = productsCart.map((it) => {
         const qty = Number(it.quantity) || 1;
         const basePrice = Number(it.price) || 0;
@@ -459,12 +518,11 @@ export default function useCreateOrder({
     setShippingQuotesError(null);
   }, [selectedCityCodDane]);
 
-  // ── listeners de socket (productos/states/cities/create/shipping) ──
+  // ── listeners de socket ──
   useEffect(() => {
     const s = socketRef?.current;
     if (!s) return;
 
-    // limpiar
     if (onProdOkRef.current) s.off("DROPI_PRODUCTS_OK", onProdOkRef.current);
     if (onProdErrRef.current)
       s.off("DROPI_PRODUCTS_ERROR", onProdErrRef.current);
@@ -483,7 +541,6 @@ export default function useCreateOrder({
     if (onShipErrRef.current)
       s.off("DROPI_COTIZA_ENVIO_V2_ERROR", onShipErrRef.current);
 
-    // PRODUCTS
     const onProdOk = (resp) => {
       setProdLoading(false);
       const list =
@@ -503,7 +560,6 @@ export default function useCreateOrder({
       setProdList([]);
     };
 
-    // STATES
     const onStatesOk = (resp) => {
       setStatesLoading(false);
       const list =
@@ -525,7 +581,6 @@ export default function useCreateOrder({
       setStates([]);
     };
 
-    // CITIES
     const onCitiesOk = (resp) => {
       setCitiesLoading(false);
       const list =
@@ -547,7 +602,6 @@ export default function useCreateOrder({
       setCities([]);
     };
 
-    // CREATE ORDER
     const onCreateOk = (resp) => {
       Swal.fire({
         icon: "success",
@@ -568,7 +622,6 @@ export default function useCreateOrder({
       });
     };
 
-    // SHIPPING
     const onShipOk = (resp) => {
       setShippingQuotesLoading(false);
       const list =
@@ -594,7 +647,6 @@ export default function useCreateOrder({
       setSelectedShipping(null);
     };
 
-    // guardar refs + registrar
     onProdOkRef.current = onProdOk;
     onProdErrRef.current = onProdErr;
     onStatesOkRef.current = onStatesOk;
@@ -687,6 +739,10 @@ export default function useCreateOrder({
     selectedCityCodDane,
     remitCodDane,
     emitCotizaTransportadoras,
+
+    // historial cliente
+    customerHistory,
+    customerHistoryLoading,
 
     // submit
     emitCreateOrder,
