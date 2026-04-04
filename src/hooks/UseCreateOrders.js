@@ -14,6 +14,7 @@ export default function useCreateOrder({
   phone,
   selectedChat,
   emitGetOrders,
+  noProrateFlete = false,
 }) {
   // ── panel abierto / step ──
   const [createOrderOpen, setCreateOrderOpen] = useState(false);
@@ -317,9 +318,6 @@ export default function useCreateOrder({
     setRemitCodDane(pickRemitCodDaneFromProduct(raw0));
   }, [productsCart]);
 
-  // ══════════════════════════════════════════════════════════
-  //  — flete absorbido en el precio del producto
-  // ══════════════════════════════════════════════════════════
   const emitCreateOrder = useCallback(() => {
     const s = socketRef?.current;
     if (!s) return;
@@ -334,9 +332,12 @@ export default function useCreateOrder({
       return;
     }
 
-    // ── 1) Calcular flete y subtotal base ──
-    const shipping_amount_real =
-      Number(selectedShipping?.objects?.precioEnvio) || 0;
+    const distributionCompany =
+      pickDistributionCompanyFromQuote(selectedShipping);
+    if (!distributionCompany?.id) {
+      Swal.fire({ icon: "warning", title: "Seleccione una transportadora" });
+      return;
+    }
 
     const rawSubtotal = productsCart.reduce(
       (acc, it) => acc + (Number(it.quantity) || 1) * (Number(it.price) || 0),
@@ -348,57 +349,62 @@ export default function useCreateOrder({
       return;
     }
 
-    const distributionCompany =
-      pickDistributionCompanyFromQuote(selectedShipping);
-    if (!distributionCompany?.id) {
-      Swal.fire({ icon: "warning", title: "Seleccione una transportadora" });
-      return;
-    }
+    const shipping_amount_real =
+      Number(selectedShipping?.objects?.precioEnvio) || 0;
 
-    // ── 2) Prorratear flete en el precio de cada producto ──
-    const products = productsCart.map((it) => {
-      const qty = Number(it.quantity) || 1;
-      const basePrice = Number(it.price) || 0;
-      const lineTotal = qty * basePrice;
+    let products;
 
-      // Proporción de este ítem sobre el subtotal
-      const ratio =
-        rawSubtotal > 0 ? lineTotal / rawSubtotal : 1 / productsCart.length;
-
-      // Flete asignado a este ítem, dividido entre sus unidades
-      const shippingPerUnit =
-        productsCart.length > 0 ? (shipping_amount_real * ratio) / qty : 0;
-
-      // Precio final = precio base + flete prorrateado (redondeo a 2 dec)
-      const finalPrice = Math.round((basePrice + shippingPerUnit) * 100) / 100;
-
-      return {
+    if (noProrateFlete) {
+      // ══ MODO NUEVO: precio tal cual puso el usuario, sin tocar nada ══
+      products = productsCart.map((it) => ({
         id: Number(it.id),
         name: String(it.name || ""),
         type: it.type || "SIMPLE",
         variation_id: it.variation_id ?? null,
         variations: Array.isArray(it.variations) ? it.variations : [],
-        quantity: qty,
-        price: finalPrice, // ← precio CON flete incluido
+        quantity: Number(it.quantity) || 1,
+        price: Number(it.price) || 0, // ← precio exacto del usuario
         sale_price: it.sale_price ?? null,
         suggested_price: it.suggested_price ?? null,
-      };
-    });
+      }));
+    } else {
+      // ══ MODO LEGACY: prorratear flete en el precio ══
+      products = productsCart.map((it) => {
+        const qty = Number(it.quantity) || 1;
+        const basePrice = Number(it.price) || 0;
+        const lineTotal = qty * basePrice;
+        const ratio =
+          rawSubtotal > 0 ? lineTotal / rawSubtotal : 1 / productsCart.length;
+        const shippingPerUnit = (shipping_amount_real * ratio) / qty;
+        const finalPrice =
+          Math.round((basePrice + shippingPerUnit) * 100) / 100;
 
-    // ── 3) total_order = sum(price*qty) — ya incluye flete ──
+        return {
+          id: Number(it.id),
+          name: String(it.name || ""),
+          type: it.type || "SIMPLE",
+          variation_id: it.variation_id ?? null,
+          variations: Array.isArray(it.variations) ? it.variations : [],
+          quantity: qty,
+          price: finalPrice,
+          sale_price: it.sale_price ?? null,
+          suggested_price: it.suggested_price ?? null,
+        };
+      });
+    }
+
     const total_order = products.reduce(
       (acc, p) => acc + p.quantity * p.price,
       0,
     );
 
-    // ── 4) Emitir con shipping_amount = 0 (ya está dentro del precio) ──
     s.emit("DROPI_CREATE_ORDER", {
       id_configuracion: Number(id_configuracion),
       type: "FINAL_ORDER",
       type_service: "normal",
       rate_type: String(rateType || "CON RECAUDO"),
       total_order: Math.round(total_order * 100) / 100,
-      shipping_amount: 0, // ← flete ya absorbido en products[].price
+      shipping_amount: 0,
       payment_method_id: 1,
       notes: String(notes || "").trim(),
       name: String(name || "").trim(),
@@ -431,6 +437,7 @@ export default function useCreateOrder({
     selectedCityName,
     dir,
     selectedShipping,
+    noProrateFlete,
   ]);
 
   // ── recargar cities si cambia rateType ──
@@ -683,5 +690,6 @@ export default function useCreateOrder({
 
     // submit
     emitCreateOrder,
+    noProrateFlete,
   };
 }

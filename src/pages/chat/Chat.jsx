@@ -2886,8 +2886,8 @@ const Chat = () => {
       const encargadoId = chat?.id_encargado ?? clienteWa?.id_encargado ?? null;
 
       const isAdmin =
-          rol_usuario_global === "administrador" ||
-          rol_usuario_global === "admin_limitado";
+        rol_usuario_global === "administrador" ||
+        rol_usuario_global === "admin_limitado";
       const encargadoStr =
         encargadoId == null ? "" : String(encargadoId).trim();
       const isUnassigned = !encargadoStr;
@@ -3053,18 +3053,6 @@ const Chat = () => {
     selectedTab,
   ]);
 
-  const recargarDatosFactura = () => {
-    if (socketRef.current) {
-      // Emitir evento para solicitar datos actualizados
-      socketRef.current.emit("GET_FACTURAS", {
-        id_plataforma: id_plataforma_conf, // Ajusta con la info necesaria
-        telefono: selectedChat.celular_cliente,
-      });
-
-      console.log("Recargando datos de factura...");
-    }
-  };
-
   function validar_estadoLaar(estado) {
     let color = "";
     let estado_guia = "";
@@ -3223,73 +3211,6 @@ const Chat = () => {
       estado_guia,
     };
   }
-
-  // Función para obtener el estado y estilo dinámico
-  const obtenerEstadoGuia = (transporte, estado) => {
-    switch (transporte) {
-      case "LAAR":
-        return validar_estadoLaar(estado);
-      case "SERVIENTREGA":
-        return validar_estadoServi(estado);
-      case "GINTRACOM":
-        return validar_estadoGintracom(estado);
-      case "SPEED":
-        return validar_estadoSpeed(estado);
-      default:
-        return { color: "", estado_guia: "" }; // Estado desconocido
-    }
-  };
-
-  const [guiaSeleccionada, setGuiaSeleccionada] = useState(null);
-  const [provinciaCiudad, setProvinciaCiudad] = useState({
-    provincia: "",
-    ciudad: "",
-  });
-
-  //Manejo de seleccion de guia
-  const handleGuiaSeleccionada = (guia) => {
-    setGuiaSeleccionada(guia);
-
-    let { color, estado_guia } = obtenerEstadoGuia(
-      guia.transporte, // El sistema (LAAR, SERVIENTREGA, etc.)
-      guia.estado_guia_sistema, // El estado numérico
-    );
-
-    if (estado_guia == "Generado" || estado_guia == "Por recolectar") {
-      setDisableAanular(true);
-    } else {
-      setDisableAanular(false);
-
-      if (estado_guia == "Novedad") {
-        setDisableGestionar(true);
-      }
-    }
-
-    // Llamar a la función para obtener provincia y ciudad
-    if (guia.ciudad_cot) {
-      obtenerProvinciaCiudad(guia.ciudad_cot);
-    }
-  };
-
-  const obtenerProvinciaCiudad = async (id_ciudad) => {
-    try {
-      const { data } = await chatApi.get(
-        `/chat_service/ciudadProvincia/${id_ciudad}`,
-      );
-
-      if (!data.success) {
-        throw new Error("No se pudo obtener la ubicación");
-      }
-
-      //data.data => {ciudad, provincia}
-      setProvinciaCiudad({
-        provincia: data.data.provincia,
-        ciudad: data.data.ciudad,
-      });
-    } catch (err) {
-      setProvinciaCiudad({ provincia: "Sin datos", ciudad: "Sin datos" });
-    }
-  };
 
   const [numeroModalPreset, setNumeroModalPreset] = useState(null);
 
@@ -3450,50 +3371,10 @@ const Chat = () => {
       <DatosUsuarioModerno
         opciones={opciones}
         animateOut={animateOut}
-        facturasChatSeleccionado={facturasChatSeleccionado}
-        provincias={provincias}
-        socketRef={socketRef}
-        userData={userData}
-        id_configuracion={id_configuracion}
-        setFacturasChatSeleccionado={setFacturasChatSeleccionado}
-        guiasChatSeleccionado={guiasChatSeleccionado}
-        setGuiasChatSeleccionado={setGuiasChatSeleccionado}
-        novedades_gestionadas={novedades_gestionadas}
-        novedades_noGestionadas={novedades_noGestionadas}
-        validar_estadoLaar={validar_estadoLaar}
-        validar_estadoServi={validar_estadoServi}
-        validar_estadoGintracom={validar_estadoGintracom}
-        validar_estadoSpeed={validar_estadoSpeed}
-        guiaSeleccionada={guiaSeleccionada}
-        setGuiaSeleccionada={setGuiaSeleccionada}
-        provinciaCiudad={provinciaCiudad}
-        setProvinciaCiudad={setProvinciaCiudad}
-        handleGuiaSeleccionada={handleGuiaSeleccionada}
         selectedChat={selectedChat}
         setSelectedChat={setSelectedChat}
-        obtenerEstadoGuia={obtenerEstadoGuia}
-        disableAanular={disableAanular}
-        disableGestionar={disableGestionar}
-        recargarDatosFactura={recargarDatosFactura}
-        dataAdmin={dataAdmin}
-        buscar_id_recibe={buscar_id_recibe}
-        agregar_mensaje_enviado={agregar_mensaje_enviado}
-        id_plataforma_conf={id_plataforma_conf}
-        id_usuario_conf={id_usuario_conf}
-        monto_venta={monto_venta}
-        setMonto_venta={setMonto_venta}
-        costo={costo}
-        setCosto={setCosto}
-        precio_envio_directo={precio_envio_directo}
-        setPrecio_envio_directo={setPrecio_envio_directo}
-        fulfillment={fulfillment}
-        setFulfillment={setFulfillment}
-        total_directo={total_directo}
-        setTotal_directo={setTotal_directo}
-        validar_generar={validar_generar}
-        setValidar_generar={setValidar_generar}
-        selectedImageId={selectedImageId}
-        setSelectedImageId={setSelectedImageId}
+        socketRef={socketRef}
+        id_configuracion={id_configuracion}
       />
       {/* MODALES */}
       <Modales

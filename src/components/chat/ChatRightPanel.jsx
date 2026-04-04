@@ -20,6 +20,7 @@ export default function ChatRightPanel(props) {
       Cotizador: props.Cotizador,
       MiniCalendario: props.MiniCalendario,
       openEditContact: props.openEditContact,
+      isGoogleLinked: props.isGoogleLinked,
     }),
     [
       props.selectedChat,
@@ -34,6 +35,7 @@ export default function ChatRightPanel(props) {
       props.Cotizador,
       props.MiniCalendario,
       props.openEditContact,
+      props.isGoogleLinked,
     ],
   );
 

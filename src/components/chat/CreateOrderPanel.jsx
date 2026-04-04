@@ -144,9 +144,9 @@ export default function CreateOrderPanel(props) {
     canSubmit,
     onClose,
     onSubmit,
-    /* props para aviso interno */
     selectedCityCodDane,
     remitCodDane,
+    noProrateFlete,
   } = props;
 
   // ── Protección anti-doble-submit ──
@@ -790,11 +790,11 @@ export default function CreateOrderPanel(props) {
                                 <span className="text-[13px] font-bold text-white tracking-tight">
                                   ${price}
                                 </span>
-                                {hasSobrecargo && (
+                                {/* {hasSobrecargo && (
                                   <span className="text-[8px] font-medium text-amber-300/80 bg-amber-400/10 px-1.5 py-0.5 rounded">
                                     +Sobrecargo
                                   </span>
-                                )}
+                                )} */}
                               </>
                             ) : (
                               <span className="text-[10px] font-medium text-rose-300/60">
@@ -833,8 +833,19 @@ export default function CreateOrderPanel(props) {
                 0,
               );
               const ship = Number(selectedShipping?.objects?.precioEnvio) || 0;
-              const total = subtotal + ship;
               const carrierName = selectedShipping?.transportadora || null;
+
+              // Costo proveedor total (sale_price = costo del proveedor en Dropi)
+              const costoProveedor = productsCart.reduce(
+                (acc, it) =>
+                  acc + Number(it.quantity || 0) * (Number(it.sale_price) || 0),
+                0,
+              );
+
+              const total = noProrateFlete ? subtotal : subtotal + ship;
+              const utilidad = noProrateFlete
+                ? subtotal - ship - costoProveedor
+                : null;
 
               return (
                 <div className="space-y-1">
@@ -859,31 +870,89 @@ export default function CreateOrderPanel(props) {
                     <span>${subtotal.toFixed(2)}</span>
                   </div>
 
-                  <div className="flex justify-between text-[11px] text-white/50">
-                    <span>Envío{carrierName ? ` (${carrierName})` : ""}</span>
-                    <span>${ship.toFixed(2)}</span>
-                  </div>
-
-                  <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
-                    <span>Total a cobrar</span>
-                    <span>${total.toFixed(2)}</span>
-                  </div>
-
-                  {ship > 0 && (
-                    <div className="mt-2 px-2.5 py-2 rounded-[7px] bg-blue-500/[0.06] border border-blue-400/[0.12]">
-                      <div className="flex items-start gap-2">
-                        <i className="bx bx-info-circle text-blue-400/60 text-sm mt-0.5 shrink-0" />
-                        <p className="text-[9px] text-blue-300/70 leading-relaxed">
-                          El costo del envío (
-                          <span className="font-semibold text-blue-300">
-                            ${ship.toFixed(2)}
+                  {noProrateFlete ? (
+                    <>
+                      {/* ══ MODO NUEVO: calculadora de utilidad ══ */}
+                      {ship > 0 && (
+                        <div className="flex justify-between text-[11px] text-rose-300/70">
+                          <span>
+                            Costo flete{carrierName ? ` (${carrierName})` : ""}
                           </span>
-                          ) se incluirá dentro del precio del producto al crear
-                          la orden en Dropi. Esto asegura que el courier recaude
-                          el monto correcto.
-                        </p>
+                          <span>-${ship.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {costoProveedor > 0 && (
+                        <div className="flex justify-between text-[11px] text-rose-300/70">
+                          <span>Costo proveedor</span>
+                          <span>-${costoProveedor.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
+                        <span>Total a cobrar al cliente</span>
+                        <span>${subtotal.toFixed(2)}</span>
                       </div>
-                    </div>
+
+                      {utilidad !== null && ship > 0 && (
+                        <div
+                          className={`flex justify-between text-[13px] font-bold pt-1 ${
+                            utilidad > 0 ? "text-emerald-300" : "text-rose-400"
+                          }`}
+                        >
+                          <span>Tu utilidad estimada</span>
+                          <span>${utilidad.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      <div className="mt-2.5 px-2.5 py-2 rounded-[7px] bg-amber-500/[0.06] border border-amber-400/[0.15]">
+                        <div className="flex items-start gap-2">
+                          <i className="bx bx-info-circle text-amber-400/60 text-sm mt-0.5 shrink-0" />
+                          <p className="text-[9px] text-amber-300/70 leading-relaxed">
+                            El precio que colocaste ya debe cubrir el costo del
+                            flete. Asegúrate de tener buena utilidad antes de
+                            crear la orden.
+                            {utilidad !== null && utilidad <= 0 && (
+                              <span className="block mt-1 text-rose-300 font-semibold">
+                                ⚠️ Tu utilidad es negativa o cero. Revisa el
+                                precio de venta.
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* ══ MODO LEGACY ══ */}
+                      <div className="flex justify-between text-[11px] text-white/50">
+                        <span>
+                          Envío{carrierName ? ` (${carrierName})` : ""}
+                        </span>
+                        <span>${ship.toFixed(2)}</span>
+                      </div>
+
+                      <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
+                        <span>Total a cobrar</span>
+                        <span>${total.toFixed(2)}</span>
+                      </div>
+
+                      {ship > 0 && (
+                        <div className="mt-2 px-2.5 py-2 rounded-[7px] bg-blue-500/[0.06] border border-blue-400/[0.12]">
+                          <div className="flex items-start gap-2">
+                            <i className="bx bx-info-circle text-blue-400/60 text-sm mt-0.5 shrink-0" />
+                            <p className="text-[9px] text-blue-300/70 leading-relaxed">
+                              El costo del envío (
+                              <span className="font-semibold text-blue-300">
+                                ${ship.toFixed(2)}
+                              </span>
+                              ) se incluirá dentro del precio del producto al
+                              crear la orden en Dropi.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {notes?.trim() && (
