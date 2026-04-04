@@ -1,4 +1,7 @@
 import React from "react";
+import axios from "axios";
+import { useEffect, useState, useRef } from "react";
+
 import {
   showOrderId,
   showOrderStatus,
@@ -20,6 +23,59 @@ import {
 
 export default function OrderList({ orders, onOpenOrder }) {
   if (!orders?.length) return null;
+  const [alerts, setAlerts] = useState({});
+  const cacheRef = useRef({});
+
+  useEffect(() => {
+    if (!orders?.length) return;
+
+    //agrupar teléfonos únicos
+    const uniquePhones = [
+      ...new Set(
+        orders.map((o) => o?.phone?.replace(/\D/g, "")).filter(Boolean),
+      ),
+    ];
+
+    uniquePhones.forEach((phone) => {
+      //  si ya está en cache → NO llamar
+      if (cacheRef.current[phone]) return;
+
+      axios
+        .get(`https://api-v2.dropi.ec/orders/customers/fingerprint`, {
+          params: {
+            phone,
+            userid: 1,
+          },
+        })
+        .then((res) => {
+          const data = res?.data?.data;
+          if (!data) return;
+
+          const rate = data.confiability || 0;
+
+          let level = null;
+          if (rate < 0.5) level = "danger";
+          else if (rate < 0.8) level = "warning";
+
+          // 🔥 guardar en cache
+          cacheRef.current[phone] = level;
+
+          // 🔥 aplicar a TODAS las órdenes con ese phone
+          setAlerts((prev) => {
+            const updated = { ...prev };
+
+            orders.forEach((o) => {
+              if (o?.phone?.replace(/\D/g, "") === phone && level) {
+                updated[o.id] = level;
+              }
+            });
+
+            return updated;
+          });
+        })
+        .catch(() => {});
+    });
+  }, [orders]);
 
   return (
     <div className="space-y-2">
@@ -59,6 +115,18 @@ export default function OrderList({ orders, onOpenOrder }) {
               >
                 {showOrderStatus(o)}
               </span>
+              {alerts[o.id] && (
+                <span
+                  className={`ml-1 ${
+                    alerts[o.id] === "danger"
+                      ? "text-rose-400"
+                      : "text-amber-400"
+                  }`}
+                  title="Cliente con historial riesgoso"
+                >
+                  <i className="bx bx-bell text-sm" />
+                </span>
+              )}
             </div>
           </div>
 

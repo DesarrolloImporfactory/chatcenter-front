@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
-import chatApi from "../api/chatcenter";
+import axios from "axios";
 import {
   pickSupplierId,
   pickWarehouseId,
@@ -349,7 +349,8 @@ export default function useCreateOrder({
   // ── fetch historial del cliente cuando hay teléfono ──
   useEffect(() => {
     const clean = String(phoneInput || "").replace(/\D/g, "");
-    if (clean.length < 7 || !id_configuracion) {
+
+    if (clean.length < 7) {
       setCustomerHistory(null);
       return;
     }
@@ -357,13 +358,41 @@ export default function useCreateOrder({
     let cancelled = false;
     setCustomerHistoryLoading(true);
 
-    chatApi
-      .get(
-        `/dropi_integrations/customer-history/${clean}?id_configuracion=${id_configuracion}`,
-      )
-      .then(({ data }) => {
-        if (!cancelled && data?.isSuccess) {
-          setCustomerHistory(data.data);
+    axios
+      .get(`https://api-v2.dropi.ec/orders/customers/fingerprint`, {
+        params: {
+          phone: clean,
+          userid: 1, //  fijo para obtener response de dropi
+          productid: 0, // opcional
+        },
+      })
+      .then((res) => {
+        const data = res?.data?.data;
+
+        if (!cancelled && data) {
+          const total = data.total_orders || 0;
+          const delivered = data.orders_delivered || 0;
+          const canceled = data.orders_returned || 0;
+          const rate = data.confiability || 0;
+
+          let risk = "neutral";
+
+          if (rate >= 0.8) risk = "success";
+          else if (rate >= 0.5) risk = "warning";
+          else risk = "danger";
+
+          setCustomerHistory({
+            stats: {
+              total_orders: total,
+              delivered,
+              canceled,
+            },
+            risk: {
+              color: risk,
+              delivery_rate: rate * 100,
+            },
+            raw: data,
+          });
         }
       })
       .catch(() => {
@@ -376,7 +405,7 @@ export default function useCreateOrder({
     return () => {
       cancelled = true;
     };
-  }, [phoneInput, id_configuracion]);
+  }, [phoneInput]);
 
   // ── emitCreateOrder ──
   const emitCreateOrder = useCallback(() => {
@@ -603,13 +632,6 @@ export default function useCreateOrder({
     };
 
     const onCreateOk = (resp) => {
-      const newOrderId =
-        resp?.data?.objects?.id ||
-        resp?.data?.id ||
-        resp?.objects?.id ||
-        resp?.id ||
-        null;
-
       Swal.fire({
         icon: "success",
         title: "Orden creada",
@@ -617,56 +639,10 @@ export default function useCreateOrder({
         timer: 1800,
         showConfirmButton: false,
       });
-
       setCreateOrderOpen(false);
       setStep(1);
       emitGetOrders();
-
-      // ── Cross-store check después de crear ──
-      if (newOrderId && id_configuracion) {
-        chatApi
-          .post("/dropi_integrations/client-stats", {
-            id_configuracion: Number(id_configuracion),
-            order_ids: [Number(newOrderId)],
-          })
-          .then(({ data }) => {
-            if (data?.isSuccess && data?.data) {
-              const cs = data.data;
-              const totalAll = cs.total_orders_all_stores || 0;
-              const returnsAll = cs.total_returns_all_stores || 0;
-
-              if (totalAll > 1 || returnsAll > 0) {
-                const rate =
-                  totalAll > 0
-                    ? (((totalAll - returnsAll) / totalAll) * 100).toFixed(0)
-                    : 100;
-
-                Swal.fire({
-                  icon: Number(rate) < 40 ? "warning" : "info",
-                  title:
-                    Number(rate) < 40
-                      ? "⚠️ Cliente con alto riesgo"
-                      : "Historial del cliente en Dropi",
-                  html: `
-                <div style="text-align:left; font-size:13px; line-height:1.6">
-                  <p><b>En todo Dropi:</b> ${totalAll} órdenes, ${returnsAll} devoluciones</p>
-                  <p><b>Efectividad:</b> ${rate}%</p>
-                  ${cs.has_repeated_orders ? '<p style="color:#f59e0b">⚠️ Tiene órdenes repetidas con otras tiendas</p>' : ""}
-                  ${returnsAll > 0 ? '<p style="color:#ef4444; margin-top:8px">Monitorea esta entrega de cerca.</p>' : ""}
-                </div>
-              `,
-                  confirmButtonText: "Entendido",
-                  timer: returnsAll > 0 ? undefined : 5000,
-                });
-              }
-            }
-          })
-          .catch((err) => {
-            console.warn("[client-stats] Error post-creación:", err?.message);
-          });
-      }
     };
-
     const onCreateErr = (resp) => {
       Swal.fire({
         icon: "error",
