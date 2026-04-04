@@ -603,6 +603,13 @@ export default function useCreateOrder({
     };
 
     const onCreateOk = (resp) => {
+      const newOrderId =
+        resp?.data?.objects?.id ||
+        resp?.data?.id ||
+        resp?.objects?.id ||
+        resp?.id ||
+        null;
+
       Swal.fire({
         icon: "success",
         title: "Orden creada",
@@ -610,10 +617,56 @@ export default function useCreateOrder({
         timer: 1800,
         showConfirmButton: false,
       });
+
       setCreateOrderOpen(false);
       setStep(1);
       emitGetOrders();
+
+      // ── Cross-store check después de crear ──
+      if (newOrderId && id_configuracion) {
+        chatApi
+          .post("/dropi_integrations/client-stats", {
+            id_configuracion: Number(id_configuracion),
+            order_ids: [Number(newOrderId)],
+          })
+          .then(({ data }) => {
+            if (data?.isSuccess && data?.data) {
+              const cs = data.data;
+              const totalAll = cs.total_orders_all_stores || 0;
+              const returnsAll = cs.total_returns_all_stores || 0;
+
+              if (totalAll > 1 || returnsAll > 0) {
+                const rate =
+                  totalAll > 0
+                    ? (((totalAll - returnsAll) / totalAll) * 100).toFixed(0)
+                    : 100;
+
+                Swal.fire({
+                  icon: Number(rate) < 40 ? "warning" : "info",
+                  title:
+                    Number(rate) < 40
+                      ? "⚠️ Cliente con alto riesgo"
+                      : "Historial del cliente en Dropi",
+                  html: `
+                <div style="text-align:left; font-size:13px; line-height:1.6">
+                  <p><b>En todo Dropi:</b> ${totalAll} órdenes, ${returnsAll} devoluciones</p>
+                  <p><b>Efectividad:</b> ${rate}%</p>
+                  ${cs.has_repeated_orders ? '<p style="color:#f59e0b">⚠️ Tiene órdenes repetidas con otras tiendas</p>' : ""}
+                  ${returnsAll > 0 ? '<p style="color:#ef4444; margin-top:8px">Monitorea esta entrega de cerca.</p>' : ""}
+                </div>
+              `,
+                  confirmButtonText: "Entendido",
+                  timer: returnsAll > 0 ? undefined : 5000,
+                });
+              }
+            }
+          })
+          .catch((err) => {
+            console.warn("[client-stats] Error post-creación:", err?.message);
+          });
+      }
     };
+
     const onCreateErr = (resp) => {
       Swal.fire({
         icon: "error",
