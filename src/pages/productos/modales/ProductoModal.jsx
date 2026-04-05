@@ -172,8 +172,11 @@ const ProductoModal = ({
   const dropVideoRef = useRef(null);
   const dropUpsellRef = useRef(null);
 
+  const [videoRemoved, setVideoRemoved] = useState(false);
+
   /* ── Populate on open ── */
   useEffect(() => {
+    setVideoRemoved(false);
     if (!open) return;
     if (editingProduct) {
       const p = editingProduct;
@@ -254,20 +257,24 @@ const ProductoModal = ({
     dropRef.current?.classList.remove("border-indigo-400", "bg-indigo-50/40");
   };
 
+  /* cambiar el límite de 50MB a 16MB */
   const pickVideo = (file) => {
     if (!file || !file.type.startsWith("video/")) return;
-    if (file.size > 50 * 1024 * 1024) {
+    if (file.size > 16 * 1024 * 1024) {
+      // ← era 50MB
       Swal.fire({
         icon: "warning",
         title: "Video demasiado grande",
-        text: "Máx 50 MB.",
+        text: "Máx 16 MB (límite de WhatsApp Business).",
       });
       return;
     }
     if (previewVideo?.startsWith("blob:")) URL.revokeObjectURL(previewVideo);
     setPreviewVideo(URL.createObjectURL(file));
+    setVideoRemoved(false); // ← limpiar flag si sube nuevo video
     setF("video", file);
   };
+
   const dropVideo = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -326,6 +333,10 @@ const ProductoModal = ({
           data.append(k, v);
         }
       });
+
+      if (videoRemoved && !form.video) {
+        data.append("remove_video", "1");
+      }
 
       if (editingProduct) data.append("id_producto", editingProduct.id);
       else data.append("id_configuracion", idc);
@@ -846,7 +857,7 @@ const ProductoModal = ({
                   onPick={pickVideo}
                   accept="video/*"
                   icon="bx-video-plus"
-                  hint="MP4, WEBM — máx. 50 MB (opcional)"
+                  hint="MP4, WEBM — máx. 16 MB (opcional)"
                   preview={
                     previewVideo ? (
                       <video
@@ -861,6 +872,7 @@ const ProductoModal = ({
                       URL.revokeObjectURL(previewVideo);
                     setPreviewVideo(null);
                     setF("video", null);
+                    setVideoRemoved(true); // ← NUEVO: marcar que el usuario quitó el video
                   }}
                 />
               </div>
