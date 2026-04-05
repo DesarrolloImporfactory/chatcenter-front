@@ -82,6 +82,7 @@ import Dashboard from "./components/dashboard/Dashboard";
 import Dropiboard from "./pages/dropi/Dropiboard";
 import SelectorHerramienta from "./pages/selectorHerramienta/selectorHerramienta";
 import ForgotPassword from "./pages/login/ForgotPassword";
+import EncuestasView from "./pages/encuestas/EncuestasView";
 
 function App() {
   const location = useLocation();
@@ -326,6 +327,15 @@ function App() {
                   element={
                     <MainLayout>
                       <Estado_contactos_dinamico />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/encuestas"
+                  element={
+                    <MainLayout>
+                      <EncuestasView />
                     </MainLayout>
                   }
                 />

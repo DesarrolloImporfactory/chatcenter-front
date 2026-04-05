@@ -308,6 +308,7 @@ function MainLayout({ children }) {
         "/estados_contactos_ventas",
         "/estados_contactos_imporshop",
         "/estados_contactos_eventos",
+        "/encuestas",
       ].includes(location.pathname)
     ) {
       setOpenMenu("contacto");
@@ -483,6 +484,22 @@ function MainLayout({ children }) {
                 >
                   <i className="bx bx-check-shield text-xl text-gray-600 group-hover:text-blue-600"></i>
                   <span>Estado de contactos</span>
+                </button>
+
+                <button
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    location.pathname === "/encuestas"
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goTo("/encuestas");
+                    setSliderOpen(false);
+                  }}
+                >
+                  <i className="bx bx-bar-chart-alt-2 text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Encuestas</span>
                 </button>
               </div>
             </div>
