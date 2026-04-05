@@ -21,15 +21,105 @@ import {
   NO_IMAGE,
 } from "../../utils/orderHelper";
 
+/* ── Popover de historial ── */
+function CustomerPopover({ data }) {
+  if (!data) return null;
+  const {
+    total_orders = 0,
+    orders_delivered = 0,
+    orders_returned = 0,
+    confiability = 0,
+  } = data;
+  const rate = Math.round(confiability * 100);
+  const greenPct =
+    total_orders > 0 ? (orders_delivered / total_orders) * 100 : 0;
+  const redPct = total_orders > 0 ? (orders_returned / total_orders) * 100 : 0;
+  const grayPct = 100 - greenPct - redPct;
+
+  const isDanger = confiability < 0.5;
+  const isWarning = confiability >= 0.5 && confiability < 0.8;
+
+  return (
+    <div className="absolute right-0 top-full mt-1.5 z-50 w-[220px] rounded-lg bg-[#151d38] border border-white/[0.12] shadow-xl shadow-black/40 p-3 pointer-events-none">
+      {/* Título */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <i
+          className={`bx text-sm ${isDanger ? "bx-x-circle text-rose-400" : isWarning ? "bx-error text-amber-400" : "bx-check-circle text-emerald-400"}`}
+        />
+        <span
+          className={`text-[10px] font-bold ${isDanger ? "text-rose-300" : isWarning ? "text-amber-300" : "text-emerald-300"}`}
+        >
+          {isDanger
+            ? "Alto riesgo"
+            : isWarning
+              ? "Riesgo medio"
+              : "Buen historial"}
+        </span>
+        <span className="ml-auto text-[10px] font-bold text-white/60">
+          {rate}%
+        </span>
+      </div>
+
+      {/* Barra de confiabilidad */}
+      <div className="h-2 rounded-full overflow-hidden flex bg-white/[0.06] mb-2.5">
+        {greenPct > 0 && (
+          <div
+            className="bg-emerald-400 transition-all"
+            style={{ width: `${greenPct}%` }}
+          />
+        )}
+        {grayPct > 0 && (
+          <div
+            className="bg-white/[0.08] transition-all"
+            style={{ width: `${grayPct}%` }}
+          />
+        )}
+        {redPct > 0 && (
+          <div
+            className="bg-rose-400 transition-all"
+            style={{ width: `${redPct}%` }}
+          />
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-1.5">
+        <div className="text-center px-1 py-1.5 rounded-md bg-white/[0.04]">
+          <p className="text-[12px] font-bold text-white">{total_orders}</p>
+          <p className="text-[7px] uppercase tracking-wider text-white/40">
+            Total
+          </p>
+        </div>
+        <div className="text-center px-1 py-1.5 rounded-md bg-emerald-500/[0.08]">
+          <p className="text-[12px] font-bold text-emerald-300">
+            {orders_delivered}
+          </p>
+          <p className="text-[7px] uppercase tracking-wider text-emerald-300/60">
+            Entreg.
+          </p>
+        </div>
+        <div className="text-center px-1 py-1.5 rounded-md bg-rose-500/[0.08]">
+          <p className="text-[12px] font-bold text-rose-300">
+            {orders_returned}
+          </p>
+          <p className="text-[7px] uppercase tracking-wider text-rose-300/60">
+            Devol.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrderList({ orders, onOpenOrder }) {
   if (!orders?.length) return null;
-  const [alerts, setAlerts] = useState({});
-  const cacheRef = useRef({});
+  const [alerts, setAlerts] = useState({}); // id → level
+  const [alertsData, setAlertsData] = useState({}); // id → full API data
+  const cacheRef = useRef({}); // phone → { level, data }
 
   useEffect(() => {
     if (!orders?.length) return;
 
-    //agrupar teléfonos únicos
     const uniquePhones = [
       ...new Set(
         orders.map((o) => o?.phone?.replace(/\D/g, "")).filter(Boolean),
@@ -37,39 +127,40 @@ export default function OrderList({ orders, onOpenOrder }) {
     ];
 
     uniquePhones.forEach((phone) => {
-      //  si ya está en cache → NO llamar
       if (cacheRef.current[phone]) return;
 
       axios
         .get(`https://api-v2.dropi.ec/orders/customers/fingerprint`, {
-          params: {
-            phone,
-            userid: 1,
-          },
+          params: { phone, userid: 1 },
         })
         .then((res) => {
           const data = res?.data?.data;
           if (!data) return;
 
           const rate = data.confiability || 0;
-
           let level = null;
           if (rate < 0.5) level = "danger";
           else if (rate < 0.8) level = "warning";
 
-          // 🔥 guardar en cache
-          cacheRef.current[phone] = level;
+          cacheRef.current[phone] = { level, data };
 
-          // 🔥 aplicar a TODAS las órdenes con ese phone
           setAlerts((prev) => {
             const updated = { ...prev };
-
             orders.forEach((o) => {
               if (o?.phone?.replace(/\D/g, "") === phone && level) {
                 updated[o.id] = level;
               }
             });
+            return updated;
+          });
 
+          setAlertsData((prev) => {
+            const updated = { ...prev };
+            orders.forEach((o) => {
+              if (o?.phone?.replace(/\D/g, "") === phone && level) {
+                updated[o.id] = data;
+              }
+            });
             return updated;
           });
         })
@@ -84,7 +175,7 @@ export default function OrderList({ orders, onOpenOrder }) {
           key={String(showOrderId(o)) + "_" + idx}
           className="group rounded-[10px] bg-[#0f1629] border border-white/[0.08] overflow-hidden transition-all hover:border-blue-400/25"
         >
-          {/* Header: ID + Guía + Badge */}
+          {/* Header */}
           <div className="flex items-start justify-between gap-2 px-3.5 pt-3 pb-0">
             <div className="min-w-0">
               <p className="text-[13px] font-bold text-white tracking-tight">
@@ -95,7 +186,6 @@ export default function OrderList({ orders, onOpenOrder }) {
               </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              {/* Icono descarga guía */}
               {hasGuide(o) && (
                 <a
                   href={getGuideUrl(o)}
@@ -109,23 +199,23 @@ export default function OrderList({ orders, onOpenOrder }) {
                 </a>
               )}
               <span
-                className={`text-[9px] px-2 py-1 rounded font-bold tracking-wide uppercase ${statusStyle(
-                  showOrderStatus(o),
-                )}`}
+                className={`text-[9px] px-2 py-1 rounded font-bold tracking-wide uppercase ${statusStyle(showOrderStatus(o))}`}
               >
                 {showOrderStatus(o)}
               </span>
+
+              {/* ── Alerta con popover ── */}
               {alerts[o.id] && (
-                <span
-                  className={`ml-1 ${
-                    alerts[o.id] === "danger"
-                      ? "text-rose-400"
-                      : "text-amber-400"
-                  }`}
-                  title="Cliente con historial riesgoso"
-                >
-                  <i className="bx bx-bell text-sm" />
-                </span>
+                <div className="relative group/alert">
+                  <span
+                    className={`ml-1 cursor-default ${alerts[o.id] === "danger" ? "text-rose-400" : "text-amber-400"}`}
+                  >
+                    <i className="bx bxs-error-circle text-sm" />
+                  </span>
+                  <div className="hidden group-hover/alert:block">
+                    <CustomerPopover data={alertsData[o.id]} />
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -183,7 +273,7 @@ export default function OrderList({ orders, onOpenOrder }) {
             </div>
           </div>
 
-          {/* CTA bar full-width */}
+          {/* CTA */}
           <button
             type="button"
             onClick={() => onOpenOrder(o)}

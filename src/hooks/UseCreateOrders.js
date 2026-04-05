@@ -346,9 +346,26 @@ export default function useCreateOrder({
     setShippingQuotesError(null);
   }, [cartFingerprint]);
 
-  // ── fetch historial del cliente cuando hay teléfono ──
+  // ── helper: quitar código de país ──
+  function stripCountryCode(rawPhone) {
+    const digits = String(rawPhone || "").replace(/\D/g, "");
+    // Ecuador 593 (10 dígitos locales), Guatemala 502 (8 dígitos locales)
+    if (digits.startsWith("593") && digits.length >= 12) return digits.slice(3);
+    if (digits.startsWith("502") && digits.length >= 11) return digits.slice(3);
+    // México 52 (10 dígitos locales), Colombia 57 (10 dígitos locales)
+    if (digits.startsWith("57") && digits.length >= 12) return digits.slice(2);
+    if (digits.startsWith("52") && digits.length >= 12) return digits.slice(2);
+    // Si no matchea ningún patrón, devolver tal cual
+    return digits;
+  }
+
+  // ── fetch historial del cliente cuando hay teléfono O se abre el panel ──
   useEffect(() => {
-    const clean = String(phoneInput || "").replace(/\D/g, "");
+    // Solo correr si el panel está abierto
+    if (!createOrderOpen) return;
+
+    const raw = String(phoneInput || "").replace(/\D/g, "");
+    const clean = stripCountryCode(raw);
 
     if (clean.length < 7) {
       setCustomerHistory(null);
@@ -362,8 +379,8 @@ export default function useCreateOrder({
       .get(`https://api-v2.dropi.ec/orders/customers/fingerprint`, {
         params: {
           phone: clean,
-          userid: 1, //  fijo para obtener response de dropi
-          productid: 0, // opcional
+          userid: 1,
+          productid: 0,
         },
       })
       .then((res) => {
@@ -376,21 +393,13 @@ export default function useCreateOrder({
           const rate = data.confiability || 0;
 
           let risk = "neutral";
-
           if (rate >= 0.8) risk = "success";
           else if (rate >= 0.5) risk = "warning";
           else risk = "danger";
 
           setCustomerHistory({
-            stats: {
-              total_orders: total,
-              delivered,
-              canceled,
-            },
-            risk: {
-              color: risk,
-              delivery_rate: rate * 100,
-            },
+            stats: { total_orders: total, delivered, canceled },
+            risk: { color: risk, delivery_rate: rate * 100 },
             raw: data,
           });
         }
@@ -405,7 +414,7 @@ export default function useCreateOrder({
     return () => {
       cancelled = true;
     };
-  }, [phoneInput]);
+  }, [phoneInput, createOrderOpen]);
 
   // ── emitCreateOrder ──
   const emitCreateOrder = useCallback(() => {
