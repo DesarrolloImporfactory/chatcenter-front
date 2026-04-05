@@ -335,9 +335,12 @@ export default function CreateOrderPanel(props) {
             </span>
 
             {customerHistoryLoading ? (
-              <p className="text-[10px] text-white/35 py-1">
-                Consultando historial…
-              </p>
+              <div className="flex items-center gap-2 py-2">
+                <i className="bx bx-loader-alt bx-spin text-white/30 text-sm" />
+                <p className="text-[10px] text-white/35">
+                  Consultando historial…
+                </p>
+              </div>
             ) : customerHistory?.stats?.total_orders === 0 ? (
               <div className="flex items-center gap-2 px-2.5 py-2 rounded-[7px] bg-white/[0.03] border border-white/[0.06]">
                 <i className="bx bx-user-plus text-blue-400/60 text-sm" />
@@ -346,92 +349,158 @@ export default function CreateOrderPanel(props) {
                 </span>
               </div>
             ) : (
-              <div
-                className={`rounded-[7px] p-2.5 border ${
-                  customerHistory?.risk?.color === "success"
-                    ? "bg-emerald-500/[0.06] border-emerald-400/20"
-                    : customerHistory?.risk?.color === "warning"
-                      ? "bg-amber-500/[0.06] border-amber-400/20"
-                      : customerHistory?.risk?.color === "danger"
-                        ? "bg-rose-500/[0.06] border-rose-400/20"
-                        : "bg-white/[0.03] border-white/[0.06]"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <i
-                    className={`bx text-sm ${
-                      customerHistory?.risk?.color === "success"
-                        ? "bx-check-circle text-emerald-400"
-                        : customerHistory?.risk?.color === "warning"
-                          ? "bx-error text-amber-400"
-                          : customerHistory?.risk?.color === "danger"
-                            ? "bx-x-circle text-rose-400"
-                            : "bx-help-circle text-white/40"
-                    }`}
-                  />
-                  <span
-                    className={`text-[11px] font-semibold ${
-                      customerHistory?.risk?.color === "success"
-                        ? "text-emerald-300"
-                        : customerHistory?.risk?.color === "warning"
-                          ? "text-amber-300"
-                          : customerHistory?.risk?.color === "danger"
-                            ? "text-rose-300"
-                            : "text-white/60"
+              (() => {
+                const total = customerHistory?.stats?.total_orders || 0;
+                const delivered = customerHistory?.stats?.delivered || 0;
+                const canceled = customerHistory?.stats?.canceled || 0;
+                const riskColor = customerHistory?.risk?.color;
+                const deliveryRate = customerHistory?.risk?.delivery_rate;
+                const greenPct = total > 0 ? (delivered / total) * 100 : 0;
+                const redPct = total > 0 ? (canceled / total) * 100 : 0;
+                const grayPct = Math.max(0, 100 - greenPct - redPct);
+
+                return (
+                  <div
+                    className={`rounded-[7px] p-2.5 border ${
+                      riskColor === "success"
+                        ? "bg-emerald-500/[0.06] border-emerald-400/20"
+                        : riskColor === "warning"
+                          ? "bg-amber-500/[0.06] border-amber-400/20"
+                          : riskColor === "danger"
+                            ? "bg-rose-500/[0.06] border-rose-400/20"
+                            : "bg-white/[0.03] border-white/[0.06]"
                     }`}
                   >
-                    {customerHistory?.risk?.color === "success"
-                      ? "Buen historial de entrega"
-                      : customerHistory?.risk?.color === "warning"
-                        ? "Historial con riesgo medio"
-                        : customerHistory?.risk?.color === "danger"
-                          ? "Historial riesgoso"
-                          : "Sin datos suficientes"}
-                  </span>
-                </div>
+                    {/* Título con icono */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <i
+                        className={`bx text-base ${
+                          riskColor === "success"
+                            ? "bx-check-circle text-emerald-400"
+                            : riskColor === "warning"
+                              ? "bx-error text-amber-400"
+                              : riskColor === "danger"
+                                ? "bx-x-circle text-rose-400"
+                                : "bx-help-circle text-white/40"
+                        }`}
+                      />
+                      <span
+                        className={`text-[11px] font-bold ${
+                          riskColor === "success"
+                            ? "text-emerald-300"
+                            : riskColor === "warning"
+                              ? "text-amber-300"
+                              : riskColor === "danger"
+                                ? "text-rose-300"
+                                : "text-white/60"
+                        }`}
+                      >
+                        {riskColor === "success"
+                          ? "Cliente confiable"
+                          : riskColor === "warning"
+                            ? "Riesgo moderado"
+                            : riskColor === "danger"
+                              ? "Cliente riesgoso"
+                              : "Sin datos suficientes"}
+                      </span>
+                    </div>
 
-                <div className="grid grid-cols-4 gap-1.5">
-                  <div className="text-center px-1.5 py-1.5 rounded-md bg-white/[0.04]">
-                    <p className="text-[13px] font-bold text-white">
-                      {customerHistory?.stats?.total_orders}
+                    {/* Descripción en texto natural */}
+                    <p className="text-[10px] text-white/70 leading-relaxed mb-2.5">
+                      Este cliente tiene{" "}
+                      <span className="font-bold text-white">{total}</span>
+                      {total === 1 ? " orden" : " órdenes"} en Dropi
+                      {delivered > 0 && (
+                        <>
+                          , de las cuales{" "}
+                          <span className="font-bold text-emerald-300">
+                            {delivered}
+                          </span>
+                          {delivered === 1
+                            ? " fue entregada"
+                            : " fueron entregadas"}
+                        </>
+                      )}
+                      {canceled > 0 && (
+                        <>
+                          {delivered > 0 ? " y " : ", "}
+                          <span className="font-bold text-rose-300">
+                            {canceled}
+                          </span>
+                          {canceled === 1
+                            ? " fue devuelta"
+                            : " fueron devueltas"}
+                        </>
+                      )}
+                      .
                     </p>
-                    <p className="text-[8px] text-white/40">Total</p>
-                  </div>
-                  <div className="text-center px-1.5 py-1.5 rounded-md bg-emerald-500/[0.08]">
-                    <p className="text-[13px] font-bold text-emerald-300">
-                      {customerHistory?.stats?.delivered}
-                    </p>
-                    <p className="text-[8px] text-emerald-300/60">Entregadas</p>
-                  </div>
-                  <div className="text-center px-1.5 py-1.5 rounded-md bg-rose-500/[0.08]">
-                    <p className="text-[13px] font-bold text-rose-300">
-                      {customerHistory?.stats?.canceled}
-                    </p>
-                    <p className="text-[8px] text-rose-300/60">Devol/Cancel</p>
-                  </div>
-                  <div className="text-center px-1.5 py-1.5 rounded-md bg-blue-500/[0.08]">
-                    <p className="text-[13px] font-bold text-blue-300">
-                      {customerHistory?.risk?.delivery_rate !== null
-                        ? `${customerHistory.risk.delivery_rate.toFixed(0)}%`
-                        : "—"}
-                    </p>
-                    <p className="text-[8px] text-blue-300/60">Efectividad</p>
-                  </div>
-                </div>
 
-                {customerHistory?.risk?.color === "danger" && (
-                  <p className="mt-2 text-[9px] text-rose-300/70">
-                    Este cliente tiene un alto índice de devoluciones. Confirma
-                    los datos antes de despachar.
-                  </p>
-                )}
-                {customerHistory?.risk?.color === "warning" && (
-                  <p className="mt-2 text-[9px] text-amber-300/70">
-                    Probabilidad moderada. Confirma datos y monitorea la
-                    entrega.
-                  </p>
-                )}
-              </div>
+                    {/* Barra de efectividad */}
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-[8px] uppercase tracking-wider text-white/35 font-semibold">
+                        Efectividad de entrega
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold ${
+                          riskColor === "success"
+                            ? "text-emerald-300"
+                            : riskColor === "warning"
+                              ? "text-amber-300"
+                              : riskColor === "danger"
+                                ? "text-rose-300"
+                                : "text-white/60"
+                        }`}
+                      >
+                        {deliveryRate !== null
+                          ? `${deliveryRate.toFixed(0)}%`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="h-[6px] rounded-full overflow-hidden flex bg-white/[0.06]">
+                      {greenPct > 0 && (
+                        <div
+                          className="bg-emerald-400 rounded-l-full transition-all"
+                          style={{ width: `${greenPct}%` }}
+                        />
+                      )}
+                      {grayPct > 0 && (
+                        <div
+                          className="bg-white/[0.08] transition-all"
+                          style={{ width: `${grayPct}%` }}
+                        />
+                      )}
+                      {redPct > 0 && (
+                        <div
+                          className="bg-rose-400 rounded-r-full transition-all"
+                          style={{ width: `${redPct}%` }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[7px] text-emerald-400/50">
+                        Entregadas ({delivered})
+                      </span>
+                      <span className="text-[7px] text-rose-400/50">
+                        Devueltas ({canceled})
+                      </span>
+                    </div>
+
+                    {/* Advertencias contextuales */}
+                    {riskColor === "danger" && (
+                      <p className="mt-2.5 text-[9px] text-rose-300/70 bg-rose-500/[0.06] rounded-md px-2 py-1.5">
+                        Este cliente tiene un alto índice de devoluciones.
+                        Confirma los datos antes de despachar.
+                      </p>
+                    )}
+                    {riskColor === "warning" && (
+                      <p className="mt-2.5 text-[9px] text-amber-300/70 bg-amber-500/[0.06] rounded-md px-2 py-1.5">
+                        Probabilidad moderada de devolución. Confirma datos y
+                        monitorea la entrega.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()
             )}
 
             {/* Cross-store info */}

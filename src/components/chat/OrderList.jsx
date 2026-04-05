@@ -34,83 +34,88 @@ function CustomerPopover({ data }) {
   const greenPct =
     total_orders > 0 ? (orders_delivered / total_orders) * 100 : 0;
   const redPct = total_orders > 0 ? (orders_returned / total_orders) * 100 : 0;
-  const grayPct = 100 - greenPct - redPct;
+  const grayPct = Math.max(0, 100 - greenPct - redPct);
 
   const isDanger = confiability < 0.5;
   const isWarning = confiability >= 0.5 && confiability < 0.8;
 
   return (
-    <div className="absolute right-0 top-full mt-1.5 z-50 w-[220px] rounded-lg bg-[#151d38] border border-white/[0.12] shadow-xl shadow-black/40 p-3 pointer-events-none">
-      {/* Título */}
-      <div className="flex items-center gap-1.5 mb-2">
+    <div className="absolute right-0 top-full mt-1.5 z-50 w-[240px] rounded-lg bg-[#151d38] border border-white/[0.12] shadow-xl shadow-black/40 p-3 pointer-events-none">
+      {/* Título descriptivo */}
+      <div className="flex items-center gap-1.5 mb-2.5">
         <i
-          className={`bx text-sm ${isDanger ? "bx-x-circle text-rose-400" : isWarning ? "bx-error text-amber-400" : "bx-check-circle text-emerald-400"}`}
+          className={`bx text-base ${isDanger ? "bx-x-circle text-rose-400" : isWarning ? "bx-error text-amber-400" : "bx-check-circle text-emerald-400"}`}
         />
         <span
-          className={`text-[10px] font-bold ${isDanger ? "text-rose-300" : isWarning ? "text-amber-300" : "text-emerald-300"}`}
+          className={`text-[11px] font-bold ${isDanger ? "text-rose-300" : isWarning ? "text-amber-300" : "text-emerald-300"}`}
         >
           {isDanger
-            ? "Alto riesgo"
+            ? "Cliente riesgoso"
             : isWarning
-              ? "Riesgo medio"
-              : "Buen historial"}
-        </span>
-        <span className="ml-auto text-[10px] font-bold text-white/60">
-          {rate}%
+              ? "Riesgo moderado"
+              : "Cliente confiable"}
         </span>
       </div>
 
+      {/* Descripción en texto natural */}
+      <p className="text-[10px] text-white/70 leading-relaxed mb-2.5">
+        Este cliente tiene{" "}
+        <span className="font-bold text-white">{total_orders}</span>
+        {total_orders === 1 ? " orden" : " órdenes"} en Dropi
+        {orders_delivered > 0 && (
+          <>
+            , de las cuales{" "}
+            <span className="font-bold text-emerald-300">
+              {orders_delivered}
+            </span>
+            {orders_delivered === 1 ? " fue entregada" : " fueron entregadas"}
+          </>
+        )}
+        {orders_returned > 0 && (
+          <>
+            {orders_delivered > 0 ? " y " : ", "}
+            <span className="font-bold text-rose-300">{orders_returned}</span>
+            {orders_returned === 1 ? " fue devuelta" : " fueron devueltas"}
+          </>
+        )}
+        .
+      </p>
+
       {/* Barra de confiabilidad */}
-      <div className="h-2 rounded-full overflow-hidden flex bg-white/[0.06] mb-2.5">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[8px] uppercase tracking-wider text-white/35 font-semibold">
+          Efectividad
+        </span>
+        <span
+          className={`text-[10px] font-bold ${isDanger ? "text-rose-300" : isWarning ? "text-amber-300" : "text-emerald-300"}`}
+        >
+          {rate}%
+        </span>
+      </div>
+      <div className="h-[6px] rounded-full overflow-hidden flex bg-white/[0.06]">
         {greenPct > 0 && (
           <div
-            className="bg-emerald-400 transition-all"
+            className="bg-emerald-400 rounded-l-full"
             style={{ width: `${greenPct}%` }}
           />
         )}
         {grayPct > 0 && (
-          <div
-            className="bg-white/[0.08] transition-all"
-            style={{ width: `${grayPct}%` }}
-          />
+          <div className="bg-white/[0.08]" style={{ width: `${grayPct}%` }} />
         )}
         {redPct > 0 && (
           <div
-            className="bg-rose-400 transition-all"
+            className="bg-rose-400 rounded-r-full"
             style={{ width: `${redPct}%` }}
           />
         )}
       </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-1.5">
-        <div className="text-center px-1 py-1.5 rounded-md bg-white/[0.04]">
-          <p className="text-[12px] font-bold text-white">{total_orders}</p>
-          <p className="text-[7px] uppercase tracking-wider text-white/40">
-            Total
-          </p>
-        </div>
-        <div className="text-center px-1 py-1.5 rounded-md bg-emerald-500/[0.08]">
-          <p className="text-[12px] font-bold text-emerald-300">
-            {orders_delivered}
-          </p>
-          <p className="text-[7px] uppercase tracking-wider text-emerald-300/60">
-            Entreg.
-          </p>
-        </div>
-        <div className="text-center px-1 py-1.5 rounded-md bg-rose-500/[0.08]">
-          <p className="text-[12px] font-bold text-rose-300">
-            {orders_returned}
-          </p>
-          <p className="text-[7px] uppercase tracking-wider text-rose-300/60">
-            Devol.
-          </p>
-        </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-[7px] text-emerald-400/50">Entregadas</span>
+        <span className="text-[7px] text-rose-400/50">Devueltas</span>
       </div>
     </div>
   );
 }
-
 export default function OrderList({ orders, onOpenOrder }) {
   if (!orders?.length) return null;
   const [alerts, setAlerts] = useState({}); // id → level

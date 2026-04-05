@@ -104,7 +104,9 @@ export default function DropshipperClientPanel(props) {
     isGoogleLinked,
   } = props;
 
-  const noProrateFlete = Number(id_configuracion) === 185;
+  // const noProrateFlete = Number(id_configuracion) === 185;
+  //cambios para todos
+  const noProrateFlete = true;
 
   const ordersHook = useDropiOrders({
     socketRef,
