@@ -2258,38 +2258,49 @@ export default function Contactos() {
     }
   }
 
-  /*Exportar XLSX */
-  function exportXLSX() {
-    if (!items.length) {
-      swalInfo("Sin datos", "No hay clientes para exportar.");
-      return;
+  async function exportXLSX() {
+    try {
+      swalLoading("Generando Excel...");
+
+      const { data } = await chatApi.post(
+        "/clientes_chat_center/exportar_contactos_xlsx",
+        {
+          id_configuracion: Number(localStorage.getItem("id_configuracion")),
+          q: q || undefined,
+          estado: estado !== "todos" ? estado : undefined,
+          sort: orden,
+          id_etiqueta: idEtiquetaFiltro.length
+            ? idEtiquetaFiltro.join(",")
+            : undefined,
+          id_etiqueta_asesor: idsAsesorFiltro.length
+            ? idsAsesorFiltro.join(",")
+            : undefined,
+          id_etiqueta_ciclo: idsCicloFiltro.length
+            ? idsCicloFiltro.join(",")
+            : undefined,
+          estado_contacto: idsEstadoContactoFiltro.length
+            ? idsEstadoContactoFiltro.join(",")
+            : undefined,
+          fecha_tipo: filtroFecha?.tipo || undefined,
+          fecha_desde: filtroFecha?.desde || undefined,
+          fecha_hasta: filtroFecha?.hasta || undefined,
+        },
+        { responseType: "blob" },
+      );
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `contactos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      swalClose();
+      swalToast("XLSX exportado");
+    } catch (e) {
+      swalClose();
+      swalError("No se pudo exportar", e?.response?.data?.message || e.message);
     }
-
-    const rows = items.map((c) => ({
-      Nombre: c.nombre || "",
-      Apellido: c.apellido || "",
-      Email: c.email || "",
-      Telefono: c.telefono || "",
-      Estado: c.estado ? 1 : 0,
-      IdEtiqueta: c.id_etiqueta ?? "",
-      Creado: c.createdAt || "",
-      UltActividad: c.ultima_actividad || "",
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Clientes");
-    const wbout = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([wbout], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `clientes_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-    swalToast("XLSX exportado");
   }
 
   useEffect(() => {
