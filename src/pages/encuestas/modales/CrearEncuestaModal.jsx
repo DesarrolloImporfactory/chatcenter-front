@@ -261,6 +261,15 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
                 </p>
               </div>
 
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                <p className="text-xs text-blue-700">
+                  <i className="bx bx-info-circle mr-1" />
+                  {tipo === "satisfaccion"
+                    ? "El cliente verá este título y descripción cuando reciba la encuesta."
+                    : "Esta información es interna y te ayuda a identificar la encuesta."}
+                </p>
+              </div>
+
               {/* Nombre */}
               <div>
                 <label className="block text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1">

@@ -87,9 +87,11 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
     }
   };
 
+  const cardCls = "bg-white rounded-2xl border border-gray-200/80 shadow-sm";
+
   return (
     <div>
-      {/* Header */}
+      {/* Header — NO TOCAR */}
       <div className="flex items-center gap-3 mb-5">
         <button
           onClick={onBack}
@@ -132,58 +134,90 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
 
       {/* Stats cards */}
       {stats?.general && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-              Total respuestas
-            </p>
-            <p className="text-2xl font-bold text-gray-800 mt-1">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          <div className={`${cardCls} p-4`}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
+                <i className="bx bx-bar-chart text-gray-500 text-sm" />
+              </div>
+              <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                Total
+              </span>
+            </div>
+            <p className="text-2xl font-black text-gray-800">
               {stats.general.total || 0}
             </p>
           </div>
+
           {enc.tipo === "satisfaccion" && (
             <>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                  Respondidas
-                </p>
-                <p className="text-2xl font-bold text-emerald-600 mt-1">
+              <div className={`${cardCls} p-4`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                    <i className="bx bx-check-circle text-emerald-500 text-sm" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                    Respondidas
+                  </span>
+                </div>
+                <p className="text-2xl font-black text-emerald-600">
                   {stats.general.respondidas || 0}
                 </p>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                  Promedio
-                </p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">
+              <div className={`${cardCls} p-4`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <i className="bx bx-star text-blue-500 text-sm" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                    Promedio
+                  </span>
+                </div>
+                <p className="text-2xl font-black text-gray-800">
                   {stats.general.promedio_score || "—"}
                 </p>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                  Escalados
-                </p>
-                <p className="text-2xl font-bold text-red-500 mt-1">
+              <div className={`${cardCls} p-4`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center">
+                    <i className="bx bx-error text-red-500 text-sm" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                    Escalados
+                  </span>
+                </div>
+                <p className="text-2xl font-black text-red-500">
                   {stats.general.escalados || 0}
                 </p>
               </div>
             </>
           )}
+
           {enc.tipo === "webhook_lead" && (
             <>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                  Por Webhook
-                </p>
-                <p className="text-2xl font-bold text-blue-600 mt-1">
+              <div className={`${cardCls} p-4`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <i className="bx bx-link-external text-blue-500 text-sm" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                    Webhook
+                  </span>
+                </div>
+                <p className="text-2xl font-black text-blue-600">
                   {stats.general.por_webhook || 0}
                 </p>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-4 col-span-2">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                  Webhook Secret
-                </p>
-                <code className="text-xs text-blue-600 font-mono mt-1 block break-all select-all">
+              <div className={`${cardCls} p-4 col-span-2`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                    <i className="bx bx-key text-violet-500 text-sm" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                    Secret
+                  </span>
+                </div>
+                <code className="text-xs text-blue-600 font-mono block break-all select-all">
                   {enc.webhook_secret || "No configurado"}
                 </code>
               </div>
@@ -192,39 +226,51 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
         </div>
       )}
 
-      {/* NPS + Ranking encargados (solo satisfacción) */}
+      {/* NPS + Ranking */}
       {enc.tipo === "satisfaccion" && stats?.general && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              NPS Score
-            </h4>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+          <div className={`${cardCls} p-5`}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <i className="bx bx-trending-up text-emerald-500 text-sm" />
+              </div>
+              <h4 className="text-xs font-bold text-gray-700 uppercase tracking-widest">
+                NPS Score
+              </h4>
+            </div>
             <NpsBar
               promotores={stats.general.promotores || 0}
               neutrales={stats.general.neutrales || 0}
               detractores={stats.general.detractores || 0}
             />
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Ranking por Encargado
-            </h4>
+          <div className={`${cardCls} p-5`}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                <i className="bx bx-group text-violet-500 text-sm" />
+              </div>
+              <h4 className="text-xs font-bold text-gray-700 uppercase tracking-widest">
+                Por Encargado
+              </h4>
+            </div>
             {stats.porEncargado?.length === 0 ? (
               <p className="text-xs text-gray-400">Sin datos aún</p>
             ) : (
-              <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              <div className="space-y-2 max-h-36 overflow-y-auto">
                 {stats.porEncargado?.map((e, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between text-xs"
+                    className="flex items-center justify-between text-xs p-2 rounded-lg bg-gray-50/80"
                   >
-                    <span className="text-gray-700 truncate mr-2">
+                    <span className="text-gray-700 font-medium truncate mr-2">
                       {e.nombre_encargado}
                     </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-gray-400">{e.total} resp.</span>
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <span className="text-gray-400 text-[10px]">
+                        {e.total} resp.
+                      </span>
                       <span
-                        className={`font-bold ${(e.promedio || 0) >= 4 ? "text-emerald-600" : (e.promedio || 0) >= 3 ? "text-yellow-500" : "text-red-500"}`}
+                        className={`font-bold text-sm ${(e.promedio || 0) >= 4 ? "text-emerald-600" : (e.promedio || 0) >= 3 ? "text-yellow-500" : "text-red-500"}`}
                       >
                         {e.promedio || "—"}
                       </span>
@@ -238,15 +284,15 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
         {["respuestas", "config"].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-5 py-2 rounded-md text-xs font-medium transition-colors ${
+            className={`px-5 py-2 rounded-lg text-xs font-semibold transition-all ${
               tab === t
                 ? "bg-white text-gray-800 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-gray-400 hover:text-gray-600"
             }`}
           >
             {t === "respuestas" ? "Respuestas" : "Configuración"}

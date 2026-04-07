@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 
+import PageHeader from "../../pages/Header/pageHeader";
 import EncuestaCard from "./components/EncuestaCard";
 import EncuestaDetalle from "./components/EncuestaDetalle";
 import CrearEncuestaModal from "./modales/CrearEncuestaModal";
@@ -50,30 +51,41 @@ export default function EncuestasView() {
     );
   }
 
+  // Contar por tipo
+  const totalWebhook = encuestas.filter(
+    (e) => e.tipo === "webhook_lead",
+  ).length;
+  const totalSatisfaccion = encuestas.filter(
+    (e) => e.tipo === "satisfaccion",
+  ).length;
+  const totalRespuestas = encuestas.reduce(
+    (acc, e) => acc + (e.total_respuestas || 0),
+    0,
+  );
+
   return (
     <div className="w-full">
-      {/* Header */}
-      {!selected && (
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <i className="bx bx-bar-chart-alt-2 text-blue-500" />
-              Encuestas
-            </h1>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Configura encuestas para captar leads por webhook o medir la
-              satisfacción de tus clientes tras cada atención
-            </p>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors shadow-sm"
-          >
-            <i className="bx bx-plus text-sm" />
-            Nueva encuesta
-          </button>
-        </div>
-      )}
+      <PageHeader
+        title="Valoraciones"
+        subtitle="Mide la satisfacción de tus clientes y capta leads desde formularios externos."
+        icon={<i className="bx bx-bar-chart-alt-2 text-xl" />}
+        actions={[
+          {
+            label: "Nueva valoración",
+            icon: <i className="bx bx-plus text-base" />,
+            onClick: () => setShowCreate(true),
+            variant: "primary",
+          },
+          { type: "divider" },
+          {
+            label: "Actualizar",
+            icon: <i className="bx bx-refresh text-sm" />,
+            onClick: fetchEncuestas,
+            variant: "ghost",
+            size: "sm",
+          },
+        ]}
+      />
 
       {/* Content */}
       {selected ? (

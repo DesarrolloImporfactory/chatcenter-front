@@ -26,6 +26,7 @@ import ListaPlanes from "./pages/planes/listaPlanes";
 import Productos from "./pages/productos/ProductosView";
 import CatalogosView from "./pages/productos/CatalogosView";
 import CatalogoPublicoView from "./pages/productos/CatalogoPublicoView";
+import EncuestaPublica from "./pages/encuestas/EncuestaPublica";
 import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
@@ -156,6 +157,8 @@ function App() {
           <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
 
           <Route path="/catalogo/:slug" element={<CatalogoPublicoView />} />
+
+          <Route path="/encuesta-publica/:id" element={<EncuestaPublica />} />
 
           <Route path="/home" element={<LandingHome />} />
 
@@ -332,7 +335,7 @@ function App() {
                 />
 
                 <Route
-                  path="/encuestas"
+                  path="/valoraciones"
                   element={
                     <MainLayout>
                       <EncuestasView />

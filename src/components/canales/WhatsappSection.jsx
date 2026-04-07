@@ -82,6 +82,27 @@ export default function WhatsappSection() {
       });
       const [{ data }] = await Promise.all([req, minHold]);
 
+      // ★ Si Meta está rate limited, NO cambiar el estado de conexión
+      const hint = data?.hint || "";
+      if (hint === "meta_rate_limited") {
+        // Si ya sabíamos que estaba conectado, mantener ese estado
+        // Si es la primera carga, usar estadoConexion como fallback
+        if (!fetched) {
+          try {
+            const fallback = await chatApi.post(
+              "/whatsapp_managment/estadoConexion",
+              { id_configuracion },
+            );
+            const isConn = fallback?.data?.connectedLike === true;
+            setConnected(isConn);
+            setHasNumbers(isConn);
+          } catch {
+            // mantener estado actual
+          }
+        }
+        return;
+      }
+
       const nums = data?.data || [];
       setHasNumbers(nums.length > 0);
       setConnected(
@@ -99,9 +120,6 @@ export default function WhatsappSection() {
 
   useEffect(() => {
     fetchNumbers();
-    const onFocus = () => fetchNumbers();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
   }, [id_configuracion]);
 
   /* SDK Facebook */

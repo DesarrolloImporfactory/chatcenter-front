@@ -81,6 +81,29 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   const [tplSearch, setTplSearch] = useState("");
 
   const socketRef = useRef(null);
+  const numbersCache = useRef({ data: null, portfolio: null, ts: 0 });
+  const templatesCache = useRef({
+    data: null,
+    cursors: null,
+    ts: 0,
+    limit: null,
+  });
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutos — Meta rate limit dura ~15-20 min, 5 min es seguro
+
+  const [rateLimited, setRateLimited] = useState(false);
+  const rateLimitTimer = useRef(null);
+
+  // Helper: marca rate limit por 3 minutos (evita que el usuario re-dispare)
+  const activateRateLimitCooldown = (minutes = 3) => {
+    setRateLimited(true);
+    if (rateLimitTimer.current) clearTimeout(rateLimitTimer.current);
+    rateLimitTimer.current = setTimeout(
+      () => {
+        setRateLimited(false);
+      },
+      minutes * 60 * 1000,
+    );
+  };
 
   // ancla para scroll
   const numbersAnchorRef = useRef(null);
@@ -231,31 +254,88 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     socket.on("disconnect", () => {
       setIsSocketConnected(false);
     });
+
+    return () => {
+      socket.disconnect();
+      if (rateLimitTimer.current) clearTimeout(rateLimitTimer.current);
+    };
   }, []);
 
   // === WhatsApp numbers with skeleton & min hold
   useEffect(() => {
     const fetchPhoneNumbers = async () => {
       if (!userData || id_configuracion == null) return;
+
+      // ── Cache hit ──
+      const now = Date.now();
+      if (
+        numbersCache.current.ts &&
+        now - numbersCache.current.ts < CACHE_TTL
+      ) {
+        setPhoneNumbers(numbersCache.current.data || []);
+        setPortfolioOwner(numbersCache.current.portfolio || null);
+        setNumbersLoading(false);
+        return;
+      }
+
+      // ── Rate limited: usar cache viejo si existe, sino mostrar vacío ──
+      if (rateLimited) {
+        if (numbersCache.current.data) {
+          setPhoneNumbers(numbersCache.current.data);
+          setPortfolioOwner(numbersCache.current.portfolio);
+        }
+        setNumbersLoading(false);
+        return;
+      }
+
       try {
         setNumbersLoading(true);
-        const minHold = new Promise((r) => setTimeout(r, 400)); // evita flash
+        const minHold = new Promise((r) => setTimeout(r, 400));
         const req = chatApi.post("/whatsapp_managment/ObtenerNumeros", {
           id_configuracion,
         });
         const [resp] = await Promise.all([req, minHold]);
-        setPhoneNumbers(resp?.data?.data || []);
-        setPortfolioOwner(resp?.data?.portfolio_owner || null);
+
+        // ── Detectar rate limit en la respuesta ──
+        const hint = resp?.data?.hint || "";
+        if (hint === "meta_rate_limited") {
+          activateRateLimitCooldown(3);
+          // Usar datos de cache viejo si hay
+          if (numbersCache.current.data) {
+            setPhoneNumbers(numbersCache.current.data);
+            setPortfolioOwner(numbersCache.current.portfolio);
+          } else {
+            setPhoneNumbers([]);
+            setPortfolioOwner(null);
+          }
+          setNumbersLoading(false);
+          return;
+        }
+
+        const data = resp?.data?.data || [];
+        const portfolio = resp?.data?.portfolio_owner || null;
+
+        // ── Guardar en cache ──
+        numbersCache.current = { data, portfolio, ts: Date.now() };
+
+        setPhoneNumbers(data);
+        setPortfolioOwner(portfolio);
       } catch (error) {
         console.error("Error al obtener phone_numbers:", error);
-        setPhoneNumbers([]);
-        setPortfolioOwner(null);
+        // Si hay cache viejo, usarlo
+        if (numbersCache.current.data) {
+          setPhoneNumbers(numbersCache.current.data);
+          setPortfolioOwner(numbersCache.current.portfolio);
+        } else {
+          setPhoneNumbers([]);
+          setPortfolioOwner(null);
+        }
       } finally {
         setNumbersLoading(false);
       }
     };
     if (currentTab === "numbers") fetchPhoneNumbers();
-  }, [userData, currentTab, id_configuracion]);
+  }, [userData, currentTab, id_configuracion, rateLimited]);
 
   // Respuestas rápidas
   useEffect(() => {
@@ -357,40 +437,121 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   }, [tplSearch, plantillas]);
 
   // Carga una página de plantillas con cursores y límite
+
   const fetchPlantillas = async ({
     after = null,
     before = null,
     limit = pageLimit,
+    forceRefresh = false,
   } = {}) => {
     if (!userData || id_configuracion === null) return;
+
+    // ── Cache hit (solo si no hay paginación ni force) ──
+    const now = Date.now();
+    const isPaginating = after !== null || before !== null;
+    if (
+      !forceRefresh &&
+      !isPaginating &&
+      templatesCache.current.ts &&
+      now - templatesCache.current.ts < CACHE_TTL &&
+      templatesCache.current.limit === limit
+    ) {
+      setPlantillas(templatesCache.current.data || []);
+      setPageCursors(
+        templatesCache.current.cursors || {
+          before: null,
+          after: null,
+          hasPrev: false,
+          hasNext: false,
+        },
+      );
+      return;
+    }
+
+    // ── Rate limited: no disparar request ──
+    if (rateLimited && !forceRefresh) {
+      if (templatesCache.current.data) {
+        setPlantillas(templatesCache.current.data);
+        setPageCursors(
+          templatesCache.current.cursors || {
+            before: null,
+            after: null,
+            hasPrev: false,
+            hasNext: false,
+          },
+        );
+      }
+      return;
+    }
+
     try {
       setTplLoading(true);
       const resp = await chatApi.post(
         "/whatsapp_managment/obtenerTemplatesWhatsapp",
-        {
-          id_configuracion,
-          after,
-          before,
-          limit,
-        },
+        { id_configuracion, after, before, limit },
       );
 
-      // data de Meta => resp.data.data, paging => resp.data.paging
+      // ── Detectar rate limit ──
+      const metaState = resp?.data?.meta?.state;
+      if (metaState === "RATE_LIMITED") {
+        activateRateLimitCooldown(3);
+        // Usar cache viejo
+        if (templatesCache.current.data) {
+          setPlantillas(templatesCache.current.data);
+          setPageCursors(
+            templatesCache.current.cursors || {
+              before: null,
+              after: null,
+              hasPrev: false,
+              hasNext: false,
+            },
+          );
+        }
+        return;
+      }
+
       const data = resp?.data?.data ?? [];
       const paging = resp?.data?.paging ?? {};
       const curs = paging?.cursors ?? {};
 
-      setPlantillas(data);
-      setPageCursors({
-        // Siempre guardamos los cursores si vienen, pero
-        // habilitamos botones SOLO si Meta envía previous/next.
+      const newCursors = {
         before: curs?.before ?? null,
         after: curs?.after ?? null,
         hasPrev: Boolean(paging?.previous),
         hasNext: Boolean(paging?.next),
-      });
+      };
+
+      setPlantillas(data);
+      setPageCursors(newCursors);
+
+      // ── Guardar en cache ──
+      templatesCache.current = {
+        data,
+        cursors: newCursors,
+        ts: Date.now(),
+        limit,
+      };
     } catch (error) {
       console.error("Error al cargar las plantillas:", error);
+
+      // Si el error viene con 80008, activar cooldown
+      const metaCode = error?.response?.data?.response?.error?.code;
+      if (metaCode === 80008) {
+        activateRateLimitCooldown(3);
+        if (templatesCache.current.data) {
+          setPlantillas(templatesCache.current.data);
+          setPageCursors(
+            templatesCache.current.cursors || {
+              before: null,
+              after: null,
+              hasPrev: false,
+              hasNext: false,
+            },
+          );
+        }
+        return;
+      }
+
       setStatusMessage({
         type: "error",
         text: "No se pudieron cargar las plantillas.",
@@ -545,8 +706,8 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
           </div>
         )}
 
-        {/* 2) NO conectado → SOLO tarjeta de conectar */}
-        {!numbersLoading && !waConnected && (
+        {/* 2) NO conectado o rate limited sin cache */}
+        {!numbersLoading && !waConnected && !rateLimited && (
           <div className="p-5">
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
@@ -565,6 +726,38 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                 >
                   Conectar WhatsApp
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2b) Rate limited sin cache → mensaje tranquilo */}
+        {!numbersLoading && !waConnected && rateLimited && (
+          <div className="p-5">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      stroke="#059669"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-emerald-800">
+                    Tu número está conectado
+                  </h3>
+                  <p className="text-sm text-emerald-700 mt-0.5">
+                    En este momento WhatsApp tiene alta demanda y no podemos
+                    mostrar los detalles del perfil. Tu servicio sigue
+                    funcionando con normalidad. Consulta tus datos más tarde por
+                    favor.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -904,7 +1097,13 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
             <div className="flex gap-2">
               <button
                 onClick={() => setMostrarModalPlantilla(true)}
-                className="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700"
+                disabled={rateLimited}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  rateLimited
+                    ? "Espera unos minutos mientras WhatsApp se estabiliza"
+                    : ""
+                }
               >
                 + Crear Plantilla
               </button>
@@ -1114,15 +1313,40 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                 </td>
               </tr>
             ))}
+
             {!tplLoading &&
               plantillas.length > 0 &&
               plantillasFiltradas.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-gray-500">
-                    No se encontraron resultados para “{tplSearch}”.
+                    No se encontraron resultados para "{tplSearch}".
                   </td>
                 </tr>
               )}
+            {rateLimited && plantillas.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-12 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        stroke="#d97706"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <div className="text-sm font-medium text-gray-700">
+                      Las plantillas se cargarán en unos minutos
+                    </div>
+                    <div className="text-xs text-gray-500 max-w-sm">
+                      WhatsApp tiene alta demanda en este momento. Tus
+                      plantillas existentes siguen funcionando con normalidad.
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
