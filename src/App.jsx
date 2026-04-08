@@ -326,7 +326,7 @@ function App() {
                 />
 
                 <Route
-                  path="/estado_contactos_dinamico"
+                  path="/estados_contactos_dinamico"
                   element={
                     <MainLayout>
                       <Estado_contactos_dinamico />

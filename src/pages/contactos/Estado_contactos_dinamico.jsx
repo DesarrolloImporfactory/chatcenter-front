@@ -788,24 +788,266 @@ const Estado_contactos = () => {
       </div>
     );
 
+  // ─── Reemplaza SOLO el bloque "if (!kanbanColumnas.length) return ..." en Estado_contactos.jsx ───
+
   if (!kanbanColumnas.length)
     return (
-      <div className="p-5">
+      <div
+        className="kanban-empty-root"
+        style={{
+          minHeight: "calc(100vh - 5rem)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem 1.5rem",
+          background: "#fff",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* Ambient glows */}
         <div
-          style={{ textAlign: "center", padding: "60px 20px", color: "#888" }}
+          style={{
+            position: "absolute",
+            top: "-15%",
+            left: "10%",
+            width: 420,
+            height: 420,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(99,102,241,.08) 0%, transparent 70%)",
+            filter: "blur(80px)",
+            pointerEvents: "none",
+            animation: "emptyFloat 8s ease-in-out infinite",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "-10%",
+            right: "5%",
+            width: 360,
+            height: 360,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(59,130,246,.06) 0%, transparent 70%)",
+            filter: "blur(70px)",
+            pointerEvents: "none",
+            animation: "emptyFloat 10s ease-in-out infinite reverse",
+          }}
+        />
+
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            maxWidth: 520,
+            width: "100%",
+            textAlign: "center",
+            animation: "emptyFadeUp .8s cubic-bezier(.16,1,.3,1) both",
+          }}
         >
-          <i
-            className="bx bx-columns"
-            style={{ fontSize: "3rem", marginBottom: 12 }}
-          />
-          <p style={{ fontSize: "1.1rem", fontWeight: 600 }}>
-            No hay columnas configuradas
+          {/* Animated icon cluster */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 32,
+            }}
+          >
+            {[
+              { icon: "bx-bot", delay: "0s", color: "#818CF8", bg: "#EEF2FF" },
+              {
+                icon: "bx-columns",
+                delay: ".15s",
+                color: "#60A5FA",
+                bg: "#EFF6FF",
+              },
+              {
+                icon: "bx-right-arrow-alt",
+                delay: ".3s",
+                color: "#34D399",
+                bg: "#ECFDF5",
+              },
+              {
+                icon: "bx-trophy",
+                delay: ".45s",
+                color: "#FBBF24",
+                bg: "#FFFBEB",
+              },
+            ].map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 16,
+                  background: item.bg,
+                  border: `1px solid ${item.color}30`,
+                  display: "grid",
+                  placeItems: "center",
+                  animation: `emptyPop .5s cubic-bezier(.16,1,.3,1) ${item.delay} both`,
+                }}
+              >
+                <i
+                  className={`bx ${item.icon}`}
+                  style={{ fontSize: 24, color: item.color }}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Title */}
+          <h1
+            style={{
+              fontSize: "clamp(1.6rem, 4vw, 2.2rem)",
+              fontWeight: 800,
+              color: "#111827",
+              margin: "0 0 12px",
+              lineHeight: 1.2,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Tu embudo de contactos
+            <br />
+            <span
+              style={{
+                background: "linear-gradient(135deg, #4F46E5, #3B82F6)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              está listo para crearse
+            </span>
+          </h1>
+
+          {/* Subtitle */}
+          <p
+            style={{
+              fontSize: "clamp(.9rem, 2vw, 1.05rem)",
+              color: "#9CA3AF",
+              lineHeight: 1.7,
+              margin: "0 auto 32px",
+              maxWidth: 440,
+            }}
+          >
+            Visualiza en qué etapa se encuentra cada cliente. Configura las
+            columnas de tu Kanban, personaliza el prompt de tu IA y automatiza
+            el flujo de atención.
           </p>
-          <p style={{ fontSize: "0.9rem", marginTop: 6 }}>
-            Ve a <strong>Configuración → Kanban</strong> para crear las
-            columnas.
+
+          {/* Steps preview */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 6,
+              marginBottom: 36,
+              flexWrap: "wrap",
+            }}
+          >
+            {["Contacto Inicial", "Remarketing", "Asesor", "Cerrado"].map(
+              (label, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 999,
+                    background: "#F3F4F6",
+                    border: "1px solid #E5E7EB",
+                    fontSize: 13,
+                    color: "#6B7280",
+                    fontWeight: 600,
+                    animation: `emptySlideIn .4s cubic-bezier(.16,1,.3,1) ${0.6 + i * 0.1}s both`,
+                  }}
+                >
+                  {i > 0 && (
+                    <span style={{ marginRight: 6, opacity: 0.4 }}>→</span>
+                  )}
+                  {label}
+                </div>
+              ),
+            )}
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={() => {
+              window.location.href = "/kanban_config";
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "14px 32px",
+              borderRadius: 16,
+              background: "linear-gradient(135deg, #4F46E5, #6366F1)",
+              color: "#fff",
+              fontSize: "1rem",
+              fontWeight: 700,
+              border: "none",
+              cursor: "pointer",
+              boxShadow:
+                "0 8px 32px rgba(99,102,241,.25), inset 0 1px 0 rgba(255,255,255,.15)",
+              transition: "all .2s",
+              animation: "emptyFadeUp .6s cubic-bezier(.16,1,.3,1) .7s both",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px) scale(1.03)";
+              e.currentTarget.style.boxShadow =
+                "0 12px 40px rgba(99,102,241,.4), inset 0 1px 0 rgba(255,255,255,.15)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "none";
+              e.currentTarget.style.boxShadow =
+                "0 8px 32px rgba(99,102,241,.25), inset 0 1px 0 rgba(255,255,255,.15)";
+            }}
+            className="kanban-empty-cta"
+          >
+            <i className="bx bx-bot" style={{ fontSize: 22 }} />
+            Configurar agentes
+            <i
+              className="bx bx-right-arrow-alt"
+              style={{ fontSize: 20, opacity: 0.7 }}
+            />
+          </button>
+
+          <p
+            style={{
+              fontSize: 13,
+              color: "#9CA3AF",
+              marginTop: 16,
+              animation: "emptyFadeUp .5s cubic-bezier(.16,1,.3,1) .9s both",
+            }}
+          >
+            Ve a{" "}
+            <strong style={{ color: "#6B7280" }}>
+              Agentes → Configurar agentes
+            </strong>{" "}
+            y descarga una plantilla Kanban recomendada o crea tu propio flujo.
           </p>
         </div>
+
+        <style>{`
+          @keyframes emptyFloat {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.05); }
+          }
+          @keyframes emptyFadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes emptyPop {
+            from { opacity: 0; transform: scale(.5) translateY(12px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+          }
+          @keyframes emptySlideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+        `}</style>
       </div>
     );
 

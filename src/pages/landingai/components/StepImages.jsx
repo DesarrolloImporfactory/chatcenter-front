@@ -1,5 +1,6 @@
 import React, { useRef, useCallback } from "react";
 import { fileToDataUrl } from "./constants";
+const MAX_IMAGES = 5;
 
 const StepImages = ({
   selectedConfig,
@@ -14,16 +15,25 @@ const StepImages = ({
   const handleFileUpload = useCallback(
     async (e) => {
       const files = Array.from(e.target.files || []);
+
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
+
+        if (userImages.length >= MAX_IMAGES) break;
+
         const dataUrl = await fileToDataUrl(file);
-        setUserImages((prev) => [
-          ...prev,
-          { id: Date.now() + Math.random(), file, dataUrl, name: file.name },
-        ]);
+
+        setUserImages((prev) => {
+          if (prev.length >= MAX_IMAGES) return prev;
+
+          return [
+            ...prev,
+            { id: Date.now() + Math.random(), file, dataUrl, name: file.name },
+          ];
+        });
       }
     },
-    [setUserImages],
+    [setUserImages, userImages.length],
   );
 
   const handleDrop = useCallback(
@@ -84,6 +94,13 @@ const StepImages = ({
           </h2>
           <p className="text-[11px] text-gray-400 mt-0.5">
             La IA integrará tu producto en cada sección
+          </p>
+          <p className="text-[11px] text-amber-600 mt-1 font-semibold">
+            Usa fotos claras y limpias, donde se vea solo el producto.
+          </p>
+
+          <p className="text-[10px] text-gray-400 mt-1">
+            Máximo {MAX_IMAGES} imágenes
           </p>
         </div>
       </div>
@@ -163,12 +180,14 @@ const StepImages = ({
                     </button>
                   </div>
                 ))}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-indigo-300 transition grid place-items-center text-gray-300 hover:text-indigo-400"
-                >
-                  <i className="bx bx-plus text-xl" />
-                </button>
+                {userImages.length < MAX_IMAGES && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-indigo-300 transition grid place-items-center text-gray-300 hover:text-indigo-400"
+                  >
+                    <i className="bx bx-plus text-xl" />
+                  </button>
+                )}
               </div>
             </div>
           )}

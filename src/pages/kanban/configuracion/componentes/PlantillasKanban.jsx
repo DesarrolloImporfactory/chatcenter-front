@@ -68,7 +68,7 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
 
     const confirmacion = await Swal.fire({
       title: "¿Aplicar plantilla?",
-      html: `Se crearán <strong>${plantillaSeleccionada.total_columnas} columnas</strong> y <strong>${plantillaSeleccionada.columnas_ia} asistentes de IA</strong> para <strong>${empresa}</strong>.<br><br><small style="color:#64748b">Esto no eliminará columnas existentes.</small>`,
+      html: `Se crearán templates de mensajes en tu <strong>Business Manager</strong>, respuestas rapidas, <strong>${plantillaSeleccionada.total_columnas} columnas</strong> y <strong>${plantillaSeleccionada.columnas_ia} asistentes de IA</strong> para <strong>${empresa}</strong>.<br><br><small style="color:#64748b">Esto no eliminará columnas existentes.</small>`,
       icon: "question",
       showCancelButton: true,
       confirmButtonColor: BG_DARK,
@@ -96,7 +96,7 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
             empresa: empresa.trim(),
           };
 
-      const { data } = await chatApi.post(endpoint, body);
+      const { data } = await chatApi.post(endpoint, body, { timeout: 180000 });
       if (data?.success) {
         setResultado(data.data || []);
         setPaso(4);
@@ -1155,7 +1155,8 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                       lineHeight: 1.6,
                     }}
                   >
-                    Creando columnas y configurando asistentes en OpenAI.
+                    Creando columnas, templates, respuestas rapidas y
+                    configurando asistentes en OpenAI.
                     <br />
                     Esto puede tardar unos segundos.
                   </div>

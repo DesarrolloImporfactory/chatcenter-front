@@ -188,7 +188,7 @@ const Cabecera = ({
         : tipo_configuracion === "imporshop"
           ? "/estados_contactos_imporshop"
           : tipo_configuracion === "kanban"
-            ? "/estado_contactos_dinamico"
+            ? "/estados_contactos_dinamico"
             : tipo_configuracion === "imporshop_proveedor"
               ? "/estados_contactos_imporshop_proveedor"
               : "/estados_contactos";
