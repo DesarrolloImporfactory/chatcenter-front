@@ -6,6 +6,7 @@ import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
 import HistorialEncargados from "./HistorialEncargados";
 import OrderList from "./OrderList";
 import OrderDetail from "./OrderDetail";
+import EncuestasCliente from "./EncuestasCliente";
 
 import useDropiOrders from "../../hooks/useDropiOrders";
 import useCreateOrder from "../../hooks/UseCreateOrders";
@@ -243,6 +244,7 @@ export default function DropshipperClientPanel(props) {
           DEFAULT_AVATAR={DEFAULT_AVATAR}
           phone={phone}
           openEditContact={openEditContact}
+          id_configuracion={id_configuracion}
         />
 
         {/* ===== Botonera superior ===== */}
@@ -441,6 +443,7 @@ function ClientHeader({
   DEFAULT_AVATAR,
   phone,
   openEditContact,
+  id_configuracion,
 }) {
   return (
     <div className="mb-3">
@@ -501,6 +504,10 @@ function ClientHeader({
 
         <EtiquetasCustomSelect clienteId={selectedChat?.id} />
         <HistorialEncargados clienteId={selectedChat?.id} />
+        <EncuestasCliente
+          clienteId={selectedChat?.id}
+          id_configuracion={id_configuracion}
+        />
 
         {!phone && (
           <div className="px-3 py-1.5 bg-amber-500/10 border-t border-amber-400/20 text-amber-200 text-[9px]">

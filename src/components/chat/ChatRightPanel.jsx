@@ -21,6 +21,7 @@ export default function ChatRightPanel(props) {
       MiniCalendario: props.MiniCalendario,
       openEditContact: props.openEditContact,
       isGoogleLinked: props.isGoogleLinked,
+      id_configuracion: props.id_configuracion,
     }),
     [
       props.selectedChat,

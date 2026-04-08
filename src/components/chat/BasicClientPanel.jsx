@@ -1,6 +1,7 @@
 import React from "react";
 import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
 import HistorialEncargados from "./HistorialEncargados";
+import EncuestasCliente from "./EncuestasCliente";
 
 export default function BasicClientPanel({
   selectedChat,
@@ -16,6 +17,7 @@ export default function BasicClientPanel({
   MiniCalendario,
   openEditContact,
   isGoogleLinked,
+  id_configuracion,
 }) {
   return (
     <div className="flex items-start justify-center overflow-y-auto h-full md:h-[750px] pt-1 md:pt-2 custom-scrollbar">
@@ -118,6 +120,10 @@ export default function BasicClientPanel({
 
               <EtiquetasCustomSelect clienteId={selectedChat?.id} />
               <HistorialEncargados clienteId={selectedChat?.id} />
+              <EncuestasCliente
+                clienteId={selectedChat?.id}
+                id_configuracion={id_configuracion}
+              />
             </div>
           </div>
         </div>
