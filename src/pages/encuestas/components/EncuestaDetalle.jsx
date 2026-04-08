@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import chatApi from "../../../api/chatcenter";
 import Swal from "sweetalert2";
 import { TipoBadge, NpsBar } from "./SharedComponents";
@@ -14,6 +14,11 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
   const [tab, setTab] = useState("respuestas");
   const [activa, setActiva] = useState(enc.activa);
 
+  // Filtros server-side
+  const [filtroEstado, setFiltroEstado] = useState(null);
+  const [busqueda, setBusqueda] = useState("");
+  const debounceRef = useRef(null);
+
   const fetchStats = useCallback(async () => {
     try {
       const res = await chatApi.get(
@@ -26,12 +31,14 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
   }, [enc.id, idConfig]);
 
   const fetchRespuestas = useCallback(
-    async (p = 1) => {
+    async (p = 1, estado = filtroEstado, search = busqueda) => {
       try {
         setLoading(true);
-        const res = await chatApi.get(
-          `encuestas/${enc.id}/respuestas?id_configuracion=${idConfig}&page=${p}&limit=15`,
-        );
+        let url = `encuestas/${enc.id}/respuestas?id_configuracion=${idConfig}&page=${p}&limit=15`;
+        if (estado) url += `&estado=${estado}`;
+        if (search.trim())
+          url += `&busqueda=${encodeURIComponent(search.trim())}`;
+        const res = await chatApi.get(url);
         setRespuestas(res.data.data || []);
         setTotal(res.data.total || 0);
         setPage(p);
@@ -41,13 +48,19 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
         setLoading(false);
       }
     },
-    [enc.id, idConfig],
+    [enc.id, idConfig, filtroEstado, busqueda],
   );
 
   useEffect(() => {
     fetchStats();
-    fetchRespuestas(1);
-  }, [fetchStats, fetchRespuestas]);
+    fetchRespuestas(1, null, "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    fetchRespuestas(1, filtroEstado, busqueda);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroEstado]);
 
   const totalPages = Math.ceil(total / 15);
 
@@ -87,11 +100,23 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
     }
   };
 
+  const handleBusqueda = (val) => {
+    setBusqueda(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchRespuestas(1, filtroEstado, val);
+    }, 400);
+  };
+
+  const handleClickFiltro = (key) => {
+    setFiltroEstado((prev) => (prev === key ? null : key));
+  };
+
   const cardCls = "bg-white rounded-2xl border border-gray-200/80 shadow-sm";
 
   return (
     <div>
-      {/* Header — NO TOCAR */}
+      {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button
           onClick={onBack}
@@ -135,23 +160,32 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
       {/* Stats cards */}
       {stats?.general && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <div className={`${cardCls} p-4`}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
-                <i className="bx bx-bar-chart text-gray-500 text-sm" />
-              </div>
-              <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
-                Total
-              </span>
-            </div>
-            <p className="text-2xl font-black text-gray-800">
-              {stats.general.total || 0}
-            </p>
-          </div>
-
-          {enc.tipo === "satisfaccion" && (
+          {enc.tipo === "satisfaccion" ? (
             <>
+              {/* Enviadas — informativa */}
               <div className={`${cardCls} p-4`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <i className="bx bx-send text-gray-500 text-sm" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                    Enviadas
+                  </span>
+                </div>
+                <p className="text-2xl font-black text-gray-800">
+                  {stats.general.total || 0}
+                </p>
+              </div>
+
+              {/* Respondidas — filtra */}
+              <button
+                onClick={() => handleClickFiltro("respondidas")}
+                className={`${cardCls} p-4 text-left transition-all ${
+                  filtroEstado === "respondidas"
+                    ? "ring-2 ring-blue-500 ring-offset-1"
+                    : "hover:shadow-md"
+                }`}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
                     <i className="bx bx-check-circle text-emerald-500 text-sm" />
@@ -159,11 +193,16 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
                   <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
                     Respondidas
                   </span>
+                  <i
+                    className={`bx bx-filter ml-auto text-xs ${filtroEstado === "respondidas" ? "text-blue-500" : "text-gray-300"}`}
+                  />
                 </div>
                 <p className="text-2xl font-black text-emerald-600">
                   {stats.general.respondidas || 0}
                 </p>
-              </div>
+              </button>
+
+              {/* Promedio — solo informativa */}
               <div className={`${cardCls} p-4`}>
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -177,7 +216,16 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
                   {stats.general.promedio_score || "—"}
                 </p>
               </div>
-              <div className={`${cardCls} p-4`}>
+
+              {/* Escalados — filtra */}
+              <button
+                onClick={() => handleClickFiltro("escalados")}
+                className={`${cardCls} p-4 text-left transition-all ${
+                  filtroEstado === "escalados"
+                    ? "ring-2 ring-blue-500 ring-offset-1"
+                    : "hover:shadow-md"
+                }`}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center">
                     <i className="bx bx-error text-red-500 text-sm" />
@@ -185,16 +233,30 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
                   <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
                     Escalados
                   </span>
+                  <i
+                    className={`bx bx-filter ml-auto text-xs ${filtroEstado === "escalados" ? "text-blue-500" : "text-gray-300"}`}
+                  />
                 </div>
                 <p className="text-2xl font-black text-red-500">
                   {stats.general.escalados || 0}
                 </p>
-              </div>
+              </button>
             </>
-          )}
-
-          {enc.tipo === "webhook_lead" && (
+          ) : (
             <>
+              <div className={`${cardCls} p-4`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <i className="bx bx-bar-chart text-gray-500 text-sm" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                    Total
+                  </span>
+                </div>
+                <p className="text-2xl font-black text-gray-800">
+                  {stats.general.total || 0}
+                </p>
+              </div>
               <div className={`${cardCls} p-4`}>
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -223,6 +285,23 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {filtroEstado && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-gray-500">
+            Filtrando por:{" "}
+            <span className="font-semibold text-gray-700 capitalize">
+              {filtroEstado}
+            </span>
+          </span>
+          <button
+            onClick={() => setFiltroEstado(null)}
+            className="text-xs text-blue-500 hover:text-blue-700 underline"
+          >
+            Quitar filtro
+          </button>
         </div>
       )}
 
@@ -308,7 +387,9 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
           page={page}
           total={total}
           totalPages={totalPages}
-          onPageChange={fetchRespuestas}
+          onPageChange={(p) => fetchRespuestas(p, filtroEstado, busqueda)}
+          busqueda={busqueda}
+          onBusqueda={handleBusqueda}
         />
       )}
 

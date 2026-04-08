@@ -27,16 +27,24 @@ export default function EncuestaCard({ enc, onSelect, onToggle }) {
 
         {/* Stats rápidos */}
         <div className="grid grid-cols-3 gap-2 mb-3 mt-3">
-          <div className="text-center px-2 py-2 rounded-lg bg-gray-50">
-            <p className="text-xl font-bold text-gray-800">
-              {enc.total_respuestas || 0}
-            </p>
-            <p className="text-[9px] text-gray-400 uppercase tracking-wider">
-              Respuestas
-            </p>
-          </div>
-          {enc.tipo === "satisfaccion" && (
+          {enc.tipo === "satisfaccion" ? (
             <>
+              <div className="text-center px-2 py-2 rounded-lg bg-gray-50">
+                <p className="text-xl font-bold text-gray-800">
+                  {enc.total_respuestas || 0}
+                </p>
+                <p className="text-[9px] text-gray-400 uppercase tracking-wider">
+                  Enviadas
+                </p>
+              </div>
+              <div className="text-center px-2 py-2 rounded-lg bg-emerald-50">
+                <p className="text-xl font-bold text-emerald-600">
+                  {enc.total_respondidas || 0}
+                </p>
+                <p className="text-[9px] text-gray-400 uppercase tracking-wider">
+                  Respondidas
+                </p>
+              </div>
               <div className="text-center px-2 py-2 rounded-lg bg-gray-50">
                 <p className="text-xl font-bold text-gray-800">
                   {enc.promedio_score || "—"}
@@ -45,23 +53,26 @@ export default function EncuestaCard({ enc, onSelect, onToggle }) {
                   Promedio
                 </p>
               </div>
+            </>
+          ) : (
+            <>
               <div className="text-center px-2 py-2 rounded-lg bg-gray-50">
                 <p className="text-xl font-bold text-gray-800">
-                  {enc.cooldown_horas}h
+                  {enc.total_respuestas || 0}
                 </p>
                 <p className="text-[9px] text-gray-400 uppercase tracking-wider">
-                  Cooldown
+                  Respuestas
                 </p>
               </div>
+              <div className="col-span-2 px-3 py-2 rounded-lg bg-gray-50">
+                <p className="text-[10px] text-gray-400 mb-0.5">
+                  Webhook Secret
+                </p>
+                <code className="text-[10px] text-blue-600 font-mono break-all">
+                  {enc.webhook_secret || "No configurado"}
+                </code>
+              </div>
             </>
-          )}
-          {enc.tipo === "webhook_lead" && (
-            <div className="col-span-2 px-3 py-2 rounded-lg bg-gray-50">
-              <p className="text-[10px] text-gray-400 mb-0.5">Webhook Secret</p>
-              <code className="text-[10px] text-blue-600 font-mono break-all">
-                {enc.webhook_secret || "No configurado"}
-              </code>
-            </div>
           )}
         </div>
 
