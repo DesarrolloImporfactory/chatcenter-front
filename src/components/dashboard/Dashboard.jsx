@@ -261,7 +261,6 @@ export default function Dashboard() {
         const resp = await chatApi.post(endpoint, payload, { timeout: 50000 });
         const data = resp?.data?.data || {};
 
-        // Solo actualizar state si la key vino en la respuesta
         if (data.summary !== undefined) {
           const s = data.summary;
           setSummary({
@@ -329,9 +328,6 @@ export default function Dashboard() {
   const fetchAll = useCallback(() => fetchSections(["all"]), [fetchSections]);
 
   // === 5) DELTAS OPTIMISTAS ===
-  // Cuando el server envía { deltas: { chatsCreated: 1 } }, actualizamos
-  // el contador INSTANTÁNEAMENTE sin esperar al HTTP fetch.
-  // 2-3 segundos después, el fetch real corrige el valor exacto.
   const handleDeltas = useCallback((deltas) => {
     if (!deltas || typeof deltas !== "object") return;
 
@@ -367,35 +363,58 @@ export default function Dashboard() {
       : "Seleccione un rango de fechas para ver el desempeño.";
 
   const dashboardTitle = esAdmin
-    ? "Dashboard analítico de chat center"
+    ? "Dashboard analítico de mensajes"
     : "Mi dashboard de rendimiento";
 
   return (
-    <div className="min-h-[calc(100vh-48px)] w-full bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="mx-auto w-full max-w-[100%] px-4 py-6">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 shadow-lg shadow-blue-600/30">
-                <i className="bx bx-bar-chart-alt-2 text-xl text-white"></i>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                  {dashboardTitle}
-                </h1>
-                <p className="mt-0.5 text-sm text-slate-600">
-                  {headerRangeText}
-                </p>
-              </div>
+    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50">
+      {/* HEADER PREMIUM — fuera del padding, full-width, sin rounded */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#0a2518] to-[#059669] text-white px-6 py-5">
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+        <div className="absolute -top-16 -right-16 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
+
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-white/15 grid place-items-center">
+              <i className="bx bx-message-rounded-dots text-xl text-white" />
+            </div>
+            <div className="h-8 w-px bg-white/30" />
+            <div>
+              <h1 className="text-xl font-extrabold tracking-tight leading-tight">
+                {dashboardTitle}
+              </h1>
+              <p className="text-[11px] text-white/70 mt-0.5">
+                {headerRangeText}
+              </p>
             </div>
           </div>
-          {!esAdmin && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-              <i className="bx bx-user text-sm"></i> Vista personal
-            </span>
-          )}
-        </div>
 
+          <div className="hidden md:flex items-center gap-3">
+            {!esAdmin && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 px-3 py-1 text-xs font-medium text-white">
+                <i className="bx bx-user text-sm" /> Vista personal
+              </span>
+            )}
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5">
+              <i className="bx bxl-whatsapp text-sm text-emerald-300" />
+              <i className="bx bxl-messenger text-sm text-blue-300" />
+              <i className="bx bxl-instagram text-sm text-pink-300" />
+              <span className="text-[11px] text-white/80 font-medium ml-1">
+                Omnicanal
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 sm:px-6 py-5">
         <FiltersBar
           filters={filters}
           options={{

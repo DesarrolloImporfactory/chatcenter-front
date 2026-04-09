@@ -12,22 +12,17 @@ import chatApi from "../../api/chatcenter";
 import botImage from "../../assets/bot.png";
 import "./conexiones.css";
 
-/* === MODALES (sin cambios) === */
 import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
 import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConfiguracionModalWhatsappBusiness";
-
-/* ===========================
-   Utilidades de la guía
-=========================== */
+import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
+import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
+import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useEffect : () => {};
 
-// ❌ ANTES: sumaba window.scrollY / window.scrollX
-//  AHORA: coordenadas en viewport (perfecto para overlays fixed)
 const useSpotlight = (targetRef, deps = []) => {
   const [rect, setRect] = useState(null);
-
   const update = useCallback(() => {
     if (!targetRef?.current || typeof window === "undefined") return;
     const r = targetRef.current.getBoundingClientRect();
@@ -43,7 +38,6 @@ const useSpotlight = (targetRef, deps = []) => {
       vh: window.innerHeight,
     });
   }, [targetRef]);
-
   useIsomorphicLayoutEffect(() => {
     update();
     const onResize = () => update();
@@ -54,9 +48,7 @@ const useSpotlight = (targetRef, deps = []) => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onScroll);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
-
   return { rect, update };
 };
 
@@ -65,7 +57,6 @@ const Spotlight = ({ rect }) => {
   const haloPad = 28;
   return (
     <>
-      {/* Halo con transición */}
       <div
         className="fixed z-[60] pointer-events-none transition-[top,left,width,height] duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
         style={{
@@ -76,7 +67,6 @@ const Spotlight = ({ rect }) => {
           filter: "blur(6px)",
         }}
       />
-      {/* Anillo principal */}
       <div
         className="fixed z-[61] pointer-events-none rounded-xl ring-2 ring-offset-[3px] ring-offset-white transition-[top,left,width,height] duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
         style={{
@@ -90,7 +80,6 @@ const Spotlight = ({ rect }) => {
             "0 12px 40px rgba(59,130,246,.28), inset 0 0 0 1px rgba(255,255,255,.9)",
         }}
       />
-      {/* Pulso sutil */}
       <div
         className="fixed z-[59] pointer-events-none"
         style={{
@@ -103,25 +92,7 @@ const Spotlight = ({ rect }) => {
           animation: "pulseGlow 2s ease-out infinite",
         }}
       />
-      <style>{`
-        @keyframes pulseGlow {
-          0% { box-shadow: 0 0 0 0 rgba(99,102,241,.35); }
-          70% { box-shadow: 0 0 0 12px rgba(99,102,241,0); }
-          100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
-        }
-        @keyframes floatUp {
-          from { transform: translateY(6px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes sheetIn {
-          from { transform: translateY(16px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes dashDraw {
-          from { stroke-dashoffset: 100; }
-          to { stroke-dashoffset: 0; }
-        }
-      `}</style>
+      <style>{`@keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(99,102,241,.35); } 70% { box-shadow: 0 0 0 12px rgba(99,102,241,0); } 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } } @keyframes floatUp { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } @keyframes sheetIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } @keyframes dashDraw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }`}</style>
     </>
   );
 };
@@ -129,9 +100,7 @@ const Spotlight = ({ rect }) => {
 const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
   if (!rect || typeof window === "undefined") return null;
   const isMobile = window.innerWidth < 640;
-
-  if (isMobile) {
-    // Bottom sheet para móviles
+  if (isMobile)
     return (
       <div
         className="fixed inset-x-0 bottom-2 z-[73] px-3"
@@ -143,9 +112,6 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
         </div>
       </div>
     );
-  }
-
-  // Desktop/tablet
   const spaceBelow =
     rect.top + rect.height + offset + 240 < window.scrollY + rect.vh;
   const spaceAbove = rect.top - offset - 240 > window.scrollY;
@@ -158,14 +124,12 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
     else if (spaceAbove) place = "top";
     else place = "left";
   }
-
   const style = {
     transition:
       "top .28s cubic-bezier(.22,1,.36,1), left .28s cubic-bezier(.22,1,.36,1)",
   };
-  let anchorX = rect.left + rect.width / 2;
-  let anchorY = rect.top + rect.height / 2;
-
+  let anchorX = rect.left + rect.width / 2,
+    anchorY = rect.top + rect.height / 2;
   if (place === "bottom") {
     style.top = rect.top + rect.height + offset;
     style.left = Math.min(rect.left, window.scrollX + rect.vw - 400);
@@ -187,12 +151,10 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
     anchorX = rect.left;
     anchorY = rect.top + 20;
   }
-
-  const balloonX = style.left ?? 0;
-  const balloonY = style.top ?? 0;
-
-  let tipX = balloonX + 22;
-  let tipY = balloonY - 6;
+  const balloonX = style.left ?? 0,
+    balloonY = style.top ?? 0;
+  let tipX = balloonX + 22,
+    tipY = balloonY - 6;
   if (place === "bottom") {
     tipX = balloonX + 22;
     tipY = balloonY;
@@ -202,11 +164,10 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
   } else if (place === "right") {
     tipX = balloonX;
     tipY = balloonY + 22;
-  } else if (place === "left") {
+  } else {
     tipX = balloonX + 380;
     tipY = balloonY + 22;
   }
-
   return (
     <>
       <svg
@@ -242,9 +203,7 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
           </filter>
         </defs>
         <path
-          d={`M ${tipX} ${tipY} Q ${(tipX + anchorX) / 2} ${
-            (tipY + anchorY) / 2 - 20
-          }, ${anchorX} ${anchorY}`}
+          d={`M ${tipX} ${tipY} Q ${(tipX + anchorX) / 2} ${(tipY + anchorY) / 2 - 20}, ${anchorX} ${anchorY}`}
           stroke="url(#grad)"
           strokeWidth="3"
           fill="none"
@@ -258,7 +217,6 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
           }}
         />
       </svg>
-
       <div
         className="fixed z-[71] max-w-[380px] rounded-2xl bg-white/95 p-4 text-sm text-slate-700 ring-1 ring-slate-200 shadow-[0_30px_80px_rgba(2,6,23,.25)] backdrop-blur animate-[floatUp_.22s_ease-out]"
         style={style}
@@ -271,26 +229,17 @@ const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
   );
 };
 
-/* ===========================
-   Helpers UI originales
-=========================== */
-
 const HeaderStat = ({ label, value }) => (
   <div className="px-4 py-3 rounded-xl bg-white/30 backdrop-blur ring-1 ring-white/50 shadow-sm">
     <div className="text-xs uppercase tracking-wide text-white/80">{label}</div>
     <div className="text-lg font-semibold text-white">{value}</div>
   </div>
 );
-
 const pill = (classes, text) => (
   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>
     {text}
   </span>
 );
-
-/* =========================================================
-   NUEVO: Descripciones detalladas (para popover)
-========================================================= */
 
 const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
   const toneCls =
@@ -301,7 +250,6 @@ const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
         : tone === "warning"
           ? "text-amber-700 bg-amber-50 ring-amber-200"
           : "text-slate-700 bg-slate-50 ring-slate-200";
-
   return (
     <div className="flex gap-3 items-start">
       <div
@@ -317,10 +265,6 @@ const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
   );
 };
 
-/* =========================================================
-   NUEVO: Popover de hover con scroll propio
-========================================================= */
-
 const HoverPopover = ({
   open,
   onMouseEnter,
@@ -329,7 +273,6 @@ const HoverPopover = ({
   side = "right",
 }) => {
   if (!open) return null;
-
   const sideStyles =
     side === "right"
       ? "left-full top-0 ml-2"
@@ -338,7 +281,6 @@ const HoverPopover = ({
         : side === "top"
           ? "left-1/2 -translate-x-1/2 bottom-full mb-2"
           : "left-1/2 -translate-x-1/2 top-full mt-2";
-
   return (
     <div
       onMouseEnter={onMouseEnter}
@@ -348,18 +290,9 @@ const HoverPopover = ({
       aria-live="polite"
     >
       <div className="relative">
-        {/* flecha */}
         <div
           aria-hidden
-          className={`absolute ${
-            side === "right"
-              ? "-left-1 top-3"
-              : side === "left"
-                ? "-right-1 top-3"
-                : side === "top"
-                  ? "left-1/2 -translate-x-1/2 -bottom-1"
-                  : "left-1/2 -translate-x-1/2 -top-1"
-          } w-3 h-3 rotate-45 bg-white ring-1 ring-slate-200`}
+          className={`absolute ${side === "right" ? "-left-1 top-3" : side === "left" ? "-right-1 top-3" : side === "top" ? "left-1/2 -translate-x-1/2 -bottom-1" : "left-1/2 -translate-x-1/2 -top-1"} w-3 h-3 rotate-45 bg-white ring-1 ring-slate-200`}
         />
         <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.20)] backdrop-blur w-[340px] max-h-[240px] overflow-auto">
           {children}
@@ -369,17 +302,12 @@ const HoverPopover = ({
   );
 };
 
-/* ===========================
-   Vista principal con guía
-=========================== */
-
-const Conexionespruebas = () => {
+const Conexiones = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
     [],
   );
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
-
   const [mostrarErrorBot, setMostrarErrorBot] = useState(false);
   const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
     useState(false);
@@ -387,20 +315,15 @@ const Conexionespruebas = () => {
     ModalConfiguracionWhatsappBusiness,
     setModalConfiguracionWhatsappBusiness,
   ] = useState(false);
-
   const [statusMessage, setStatusMessage] = useState(null);
   const [idConfiguracion, setIdConfiguracion] = useState(null);
   const [NombreConfiguracion, setNombreConfiguracion] = useState(null);
   const [telefono, setTelefono] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Controles de vista
   const [search, setSearch] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroPago, setFiltroPago] = useState("");
   const [suspendiendoId, setSuspendiendoId] = useState(null);
-
-  // NUEVO: control de popover por card (hover)
   const [hoveredId, setHoveredId] = useState(null);
   const closeTimerRef = useRef(null);
   const openPopover = (id) => {
@@ -411,8 +334,139 @@ const Conexionespruebas = () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     closeTimerRef.current = setTimeout(() => setHoveredId(null), 120);
   };
+  const [syncingId, setSyncingId] = useState(null);
+  const [guideModal, setGuideModal] = useState(null);
 
-  // ==== REFS para guía ====
+  // Meta Ads — solo tracking del id que está conectando (no N+1)
+  const [adsConnectingId, setAdsConnectingId] = useState(null);
+
+  // Conectar Meta Ads
+  const handleConectarMetaAds = useCallback(
+    (config) => {
+      if (!window.FB) {
+        setStatusMessage({
+          type: "error",
+          text: "El SDK de Facebook aún no está listo.",
+        });
+        return;
+      }
+      setAdsConnectingId(config.id);
+      window.FB.login(
+        (response) => {
+          (async () => {
+            try {
+              const code = response?.authResponse?.code;
+              if (!code) {
+                setAdsConnectingId(null);
+                return;
+              }
+              const { data } = await chatApi.post("/meta_ads/conectar", {
+                code,
+                id_configuracion: config.id,
+                id_usuario: userData?.id_usuario,
+                redirect_uri: window.location.origin + "/conexiones",
+              });
+              if (!data.success && data.step !== "select_account") {
+                setAdsConnectingId(null);
+                return Swal.fire("Error", data.message, "error");
+              }
+              const accounts = data.accounts || [];
+              if (!accounts.length) {
+                setAdsConnectingId(null);
+                return Swal.fire(
+                  "Sin cuentas",
+                  "No se encontraron cuentas publicitarias.",
+                  "info",
+                );
+              }
+              const inputOptions = {};
+              for (const a of accounts)
+                inputOptions[a.ad_account_id] =
+                  `${a.name} (${a.currency}) — ${a.ad_account_id}`;
+              const { value: selectedId } = await Swal.fire({
+                title: "Selecciona tu cuenta de Ads",
+                input: "select",
+                inputOptions,
+                inputPlaceholder: "Elige una cuenta publicitaria",
+                showCancelButton: true,
+                confirmButtonText: "Conectar",
+                confirmButtonColor: "#4f46e5",
+              });
+              if (!selectedId) {
+                setAdsConnectingId(null);
+                return;
+              }
+              const { data: confirmData } = await chatApi.post(
+                "/meta_ads/conectar",
+                {
+                  id_configuracion: config.id,
+                  id_usuario: userData?.id_usuario,
+                  ad_account_id: selectedId,
+                  access_token: data._token,
+                },
+              );
+              if (confirmData.success) {
+                await fetchConfiguracionAutomatizada(); // refresca todo con 1 sola petición
+                Swal.fire(
+                  "¡Conectado!",
+                  `Cuenta ${confirmData.ad_account_name} vinculada.`,
+                  "success",
+                );
+              } else {
+                Swal.fire("Error", confirmData.message, "error");
+              }
+            } catch (err) {
+              Swal.fire(
+                "Error",
+                err?.response?.data?.message || err.message,
+                "error",
+              );
+            } finally {
+              setAdsConnectingId(null);
+            }
+          })();
+        },
+        {
+          scope: "ads_read",
+          response_type: "code",
+          override_default_response_type: true,
+          redirect_uri: window.location.origin + "/conexiones",
+        },
+      );
+    },
+    [userData?.id_usuario],
+  );
+
+  // Desconectar Meta Ads
+  const handleDesconectarMetaAds = useCallback(async (config) => {
+    const ask = await Swal.fire({
+      title: "Desconectar Meta Ads",
+      text: "Ya no se mostrarán las métricas de esta cuenta.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Desconectar",
+      confirmButtonColor: "#ef4444",
+      reverseButtons: true,
+    });
+    if (!ask.isConfirmed) return;
+    try {
+      await chatApi.post("/meta_ads/desconectar", {
+        id_configuracion: config.id,
+      });
+      await fetchConfiguracionAutomatizada(); // refresca todo con 1 sola petición
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Meta Ads desconectado",
+        showConfirmButton: false,
+        timer: 1800,
+      });
+    } catch (err) {
+      Swal.fire("Error", "No se pudo desconectar.", "error");
+    }
+  }, []);
+
   const headerRef = useRef(null);
   const statsRef = useRef(null);
   const newBtnRef = useRef(null);
@@ -423,34 +477,27 @@ const Conexionespruebas = () => {
   const menuRef = useRef(null);
 
   useEffect(() => {
-    if (!menuRef.current && typeof document !== "undefined") {
+    if (!menuRef.current && typeof document !== "undefined")
       menuRef.current = document.querySelector('[data-tour="hamburger"]');
-    }
   }, []);
 
-  // ==== TOUR STATE ====
   const [tourOpen, setTourOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
-  const [loadingTourPref, setLoadingTourPref] = useState(true); // evita parpadeo
+  const [loadingTourPref, setLoadingTourPref] = useState(true);
 
-  // === Nueva lógica: leer preferencia desde backend (sin localStorage) ===
   useEffect(() => {
     const loadPref = async () => {
       if (!userData?.id_usuario) return;
       try {
         const { data } = await chatApi.post(
           "usuarios_chat_center/tour-conexiones/get",
-          {
-            id_usuario: userData.id_usuario,
-          },
+          { id_usuario: userData.id_usuario },
         );
         const dismissed = Number(data?.tour_conexiones_dismissed) === 1;
         setDontShowAgain(dismissed);
         setTourOpen(!dismissed);
       } catch (e) {
-        // Si falla, mostramos la guía por defecto sin romper sesión
-        console.error("No se pudo leer preferencia de tour:", e);
         setDontShowAgain(false);
         setTourOpen(true);
       } finally {
@@ -460,24 +507,19 @@ const Conexionespruebas = () => {
     loadPref();
   }, [userData?.id_usuario]);
 
-  // Guardar preferencia en backend
-
   const persistTourPref = useCallback(
     async (value) => {
-      if (!userData?.id_usuario) return; // evita request inválida
+      if (!userData?.id_usuario) return;
       try {
         await chatApi.post("usuarios_chat_center/tour-conexiones/set", {
           id_usuario: userData.id_usuario,
           tour_conexiones_dismissed: value ? 1 : 0,
         });
-      } catch (e) {
-        console.error("No se pudo guardar preferencia de tour:", e);
-      }
+      } catch {}
     },
     [userData?.id_usuario],
   );
 
-  // Derivados/estadísticas
   const isConectado = (c) => {
     if (typeof c?.status_whatsapp === "string")
       return c.status_whatsapp.toUpperCase() === "CONNECTED";
@@ -486,11 +528,13 @@ const Conexionespruebas = () => {
       String(c?.id_whatsapp || "").trim(),
     );
   };
-
   const isMessengerConectado = (c) => Number(c?.messenger_conectado) === 1;
-
   const isInstagramConectado = (c) => Number(c?.instagram_conectado) === 1;
-  const isTikTokConectado = (c) => Number(c?.tiktok_conectado) === 1;
+
+  const [metaConnecting, setMetaConnecting] = useState(false);
+  const [metaConnectText, setMetaConnectText] = useState(
+    "Conectando con Meta…",
+  );
 
   const stats = useMemo(() => {
     const total = configuracionAutomatizada.length;
@@ -498,28 +542,18 @@ const Conexionespruebas = () => {
     const pagosActivos = configuracionAutomatizada.filter(
       (c) => Number(c.metodo_pago) === 1,
     ).length;
-    const messengerCon = configuracionAutomatizada.filter(
-      (c) => Number(c.messenger_conectado) === 1,
-    ).length;
-    return {
-      total,
-      conectados,
-      pendientes: total - conectados,
-      pagosActivos,
-      messengerCon,
-    };
+    return { total, conectados, pendientes: total - conectados, pagosActivos };
   }, [configuracionAutomatizada]);
 
   const listaFiltrada = useMemo(() => {
     const q = search.trim().toLowerCase();
     let data = [...configuracionAutomatizada];
-    if (q) {
+    if (q)
       data = data.filter(
         (c) =>
           c?.nombre_configuracion?.toLowerCase().includes(q) ||
           c?.telefono?.toLowerCase().includes(q),
       );
-    }
     if (filtroEstado) {
       const objetivo = filtroEstado === "conectado";
       data = data.filter((c) => isConectado(c) === objetivo);
@@ -531,7 +565,6 @@ const Conexionespruebas = () => {
     return data;
   }, [configuracionAutomatizada, search, filtroEstado, filtroPago]);
 
-  // ====== Pasos del tour ======
   const hasCards = listaFiltrada.length > 0;
   const tourSteps = useMemo(() => {
     const base = [
@@ -576,14 +609,14 @@ const Conexionespruebas = () => {
         key: "card",
         ref: firstCardRef,
         title: "Tarjeta de conexión",
-        body: "Pasá el mouse por “Ver detalles” para conocer todas las acciones disponibles, sin abrir la tarjeta.",
+        body: 'Pasá el mouse por "Ver detalles" para conocer todas las acciones disponibles.',
         placement: "auto",
       });
       base.push({
         key: "menu",
         ref: menuRef,
         title: "Menú principal (☰)",
-        body: "Este menú concentra las opciones de administración de la cuenta: Plan y facturación, gestión de Usuarios y Departamentos, y Cerrar sesión.",
+        body: "Plan y facturación, Usuarios, Departamentos y Cerrar sesión.",
         placement: "auto",
       });
     }
@@ -591,21 +624,27 @@ const Conexionespruebas = () => {
   }, [hasCards]);
 
   const currentRef = tourSteps[step]?.ref || null;
-  const { rect } = useSpotlight(currentRef, [
+  const { rect, update } = useSpotlight(currentRef, [
     tourOpen,
     step,
     currentRef,
     listaFiltrada.length,
   ]);
 
-  // Scroll al objetivo
+  useEffect(() => {
+    if (!tourOpen) return;
+    const onLayoutChanged = () => {
+      update?.();
+      setTimeout(() => update?.(), 320);
+    };
+    window.addEventListener("layout:changed", onLayoutChanged);
+    return () => window.removeEventListener("layout:changed", onLayoutChanged);
+  }, [tourOpen, update]);
   useEffect(() => {
     if (!tourOpen) return;
     const el = currentRef?.current;
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [tourOpen, step, currentRef]);
-
-  // Atajos
   useEffect(() => {
     if (!tourOpen) return;
     const onKey = (e) => {
@@ -617,12 +656,10 @@ const Conexionespruebas = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [tourOpen, step]);
 
-  // == NUEVO: sin localStorage; al cerrar/terminar persistimos en BD ==
   const handleSkip = useCallback(async () => {
     await persistTourPref(dontShowAgain);
     setTourOpen(false);
   }, [dontShowAgain, persistTourPref]);
-
   const handleNext = useCallback(async () => {
     setStep((s) => {
       if (s + 1 < tourSteps.length) return s + 1;
@@ -633,16 +670,10 @@ const Conexionespruebas = () => {
       return s;
     });
   }, [tourSteps.length, dontShowAgain, persistTourPref]);
-
   const handlePrev = useCallback(() => setStep((s) => Math.max(0, s - 1)), []);
-
-  /* ===========================
-     Lógica original (sin romper)
-  =========================== */
 
   const handleAbrirConfiguracionAutomatizada = () =>
     setModalConfiguracionAutomatizada(true);
-
   const [idConfiguracionFB, setIdConfiguracionFB] = useState(null);
 
   const confirmarEliminar = async (config) => {
@@ -658,7 +689,6 @@ const Conexionespruebas = () => {
       reverseButtons: true,
     });
     if (!res.isConfirmed) return;
-
     try {
       setSuspendiendoId(config.id);
       await chatApi.post("configuraciones/toggle_suspension", {
@@ -681,7 +711,6 @@ const Conexionespruebas = () => {
     }
   };
 
-  /* SDK Facebook e integraciones (sin cambios de lógica) */
   useEffect(() => {
     if (!document.getElementById("facebook-jssdk")) {
       const script = document.createElement("script");
@@ -709,48 +738,46 @@ const Conexionespruebas = () => {
       });
       return;
     }
-
+    setMetaConnectText("Abriendo conexión con Meta…");
+    setMetaConnecting(true);
     window.FB.login(
       (response) => {
         (async () => {
-          const code = response?.authResponse?.code;
-          if (!code) {
-            setStatusMessage({
-              type: "error",
-              text: "No se recibió el código de autorización.",
-            });
-            return;
-          }
-
-          const redirectUri = "https://chatcenter.imporfactory.app/conexiones";
-          console.log("redirectUri: " + redirectUri);
-
           try {
+            const code = response?.authResponse?.code;
+            if (!code) {
+              setMetaConnecting(false);
+              setStatusMessage({
+                type: "warning",
+                text: "Conexión cancelada.",
+              });
+              return;
+            }
+            setMetaConnectText("Activando y sincronizando tu número…");
             const { data } = await chatApi.post(
               "/whatsapp_managment/embeddedSignupComplete",
               {
                 code,
                 id_usuario: userData.id_usuario,
-                redirect_uri: redirectUri,
+                redirect_uri: "https://chatcenter.imporfactory.app/conexiones",
                 id_configuracion: config?.id,
                 display_number_onboarding: String(
                   config?.telefono || "",
                 ).trim(),
               },
             );
-
-            // Éxito total
-            if (data.success) {
+            if (data?.success) {
+              setMetaConnectText("¡Listo! Actualizando conexiones…");
+              await fetchConfiguracionAutomatizada();
+              setMetaConnecting(false);
               setStatusMessage({
                 type: "success",
-                text: " Número conectado correctamente.",
+                text: "Número conectado correctamente.",
               });
-              await fetchConfiguracionAutomatizada();
               return;
             }
-
-            // Éxito parcial
-            if (data.partial) {
+            if (data?.partial) {
+              setMetaConnecting(false);
               setStatusMessage({
                 type: "warning",
                 text: data.message,
@@ -758,19 +785,16 @@ const Conexionespruebas = () => {
               });
               return;
             }
-
-            // Error normal del backend
+            setMetaConnecting(false);
             setStatusMessage({
               type: "error",
-              text: data.message || "Error al activar el número.",
-              extra: data.contacto || null,
+              text: data?.message || "Error al activar el número.",
+              extra: data?.contacto || null,
             });
-            return;
           } catch (err) {
             const data = err?.response?.data;
-
-            // Mantengo tu catch EXACTO como estaba
             if (data?.partial) {
+              setMetaConnecting(false);
               setStatusMessage({
                 type: "warning",
                 text: data.message,
@@ -778,10 +802,9 @@ const Conexionespruebas = () => {
               });
               return;
             }
-
             const mensaje = data?.message || "Error al activar el número.";
             const linkWhatsApp = data?.contacto;
-
+            setMetaConnecting(false);
             setStatusMessage({
               type: "error",
               text: linkWhatsApp
@@ -821,7 +844,6 @@ const Conexionespruebas = () => {
       });
       window.location.href = data.url;
     } catch (err) {
-      console.error(err);
       Swal.fire(
         "Error",
         "No se pudo iniciar la conexión con Facebook.",
@@ -829,7 +851,6 @@ const Conexionespruebas = () => {
       );
     }
   };
-
   const pickPageWithSwal = async (pages) => {
     const inputOptions = pages.reduce((acc, p) => {
       acc[p.id] = `${p.name} (ID: ${p.id})`;
@@ -842,7 +863,6 @@ const Conexionespruebas = () => {
       inputPlaceholder: "Página de Facebook",
       showCancelButton: true,
       confirmButtonText: "Conectar",
-      cancelButtonText: "Cancelar",
     });
     return pageId;
   };
@@ -851,42 +871,10 @@ const Conexionespruebas = () => {
     const run = async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
-      const state = params.get("state");
       const error = params.get("error");
       if (!code || error) return;
-
       const provider = localStorage.getItem("oauth_provider");
-
       try {
-        if (provider === "tiktok") {
-          const id_configuracion =
-            localStorage.getItem("id_configuracion_tiktok") ||
-            localStorage.getItem("id_configuracion") ||
-            "";
-
-          if (!id_configuracion)
-            throw new Error("Falta id_configuracion (TikTok).");
-
-          const redirectUri = window.location.origin + TIKTOK_REDIRECT_PATH;
-
-          //Canjeamos el code por tokens/perfil
-          const { data: ex } = await chatApi.post(
-            "/tiktok/dev/oauth/exchange",
-            {
-              code,
-              state,
-              redirect_uri: redirectUri,
-            },
-          );
-
-          Swal.fire("¡Listo!", "Cuenta de TikTok conectada ", "success");
-          await fetchConfiguracionAutomatizada();
-
-          const cleanUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, "", cleanUrl);
-          return;
-        }
-
         if (provider === "instagram") {
           const id_configuracion =
             localStorage.getItem("id_configuracion_ig") ||
@@ -894,7 +882,6 @@ const Conexionespruebas = () => {
             "";
           if (!id_configuracion)
             throw new Error("Falta id_configuracion (IG).");
-
           const { data: ex } = await chatApi.post(
             "/instagram/facebook/oauth/exchange",
             {
@@ -907,7 +894,6 @@ const Conexionespruebas = () => {
             "/instagram/facebook/pages",
             { params: { oauth_session_id: ex.oauth_session_id } },
           );
-
           if (
             (!pagesRes?.pages_with_ig || pagesRes.pages_with_ig.length === 0) &&
             (pagesRes?.pages_without_ig || []).length > 0
@@ -915,43 +901,37 @@ const Conexionespruebas = () => {
             await Swal.fire({
               icon: "info",
               title: "No hay páginas con Instagram vinculado",
-              html: `
-                <div style="text-align:left">
-                  <p>Encontramos <b>${pagesRes.pages_without_ig.length}</b> página(s), pero ninguna tiene una cuenta de Instagram conectada.</p>
-                  <ol>
-                    <li>Convierte tu cuenta de IG a Profesional (Business/Creator).</li>
-                    <li>Vincúlala a la Página desde la app de Instagram o en <i>Meta Business Suite → Configuración → Cuentas vinculadas</i>.</li>
-                    <li>Vuelve a ejecutar este flujo.</li>
-                  </ol>
-                </div>`,
+              html: `<div style="text-align:left"><p>Encontramos <b>${pagesRes.pages_without_ig.length}</b> página(s), pero ninguna tiene Instagram conectada.</p></div>`,
               confirmButtonText: "Entendido",
             });
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState({}, "", cleanUrl);
+            window.history.replaceState(
+              {},
+              "",
+              window.location.origin + window.location.pathname,
+            );
             return;
           }
-
           const selectable = (pagesRes.pages_with_ig || []).map((p) => ({
             id: p.page_id,
             name: `${p.page_name} — @${p.ig_username}`,
           }));
           if (!selectable.length)
             throw new Error("No hay páginas con IG conectado.");
-
           const pageId = await pickPageWithSwal(selectable);
           if (!pageId) {
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState({}, "", cleanUrl);
+            window.history.replaceState(
+              {},
+              "",
+              window.location.origin + window.location.pathname,
+            );
             return;
           }
-
           await chatApi.post("/instagram/facebook/connect", {
             oauth_session_id: ex.oauth_session_id,
             id_configuracion,
             page_id: pageId,
           });
-
-          Swal.fire("¡Listo!", "Cuenta de Instagram conectada ", "success");
+          Swal.fire("¡Listo!", "Cuenta de Instagram conectada", "success");
           await fetchConfiguracionAutomatizada();
         } else {
           const id_configuracion =
@@ -961,7 +941,6 @@ const Conexionespruebas = () => {
             "";
           if (!id_configuracion)
             throw new Error("Falta id_configuracion (FB).");
-
           const { data: ex } = await chatApi.post(
             "/messenger/facebook/oauth/exchange",
             {
@@ -976,37 +955,38 @@ const Conexionespruebas = () => {
           );
           if (!pagesRes?.pages?.length)
             throw new Error("No se encontraron páginas.");
-
           const pageId = await pickPageWithSwal(pagesRes.pages);
           if (!pageId) {
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState({}, "", cleanUrl);
+            window.history.replaceState(
+              {},
+              "",
+              window.location.origin + window.location.pathname,
+            );
             return;
           }
-
           await chatApi.post("/messenger/facebook/connect", {
             oauth_session_id: ex.oauth_session_id,
             id_configuracion,
             page_id: pageId,
           });
-
-          Swal.fire("¡Listo!", "Página conectada y suscrita ", "success");
+          Swal.fire("¡Listo!", "Página conectada y suscrita", "success");
           await fetchConfiguracionAutomatizada();
         }
       } catch (e) {
-        console.error(e);
         Swal.fire(
           "Error",
           e?.message || "No fue posible completar la conexión",
           "error",
         );
       } finally {
-        const cleanUrl = window.location.origin + window.location.pathname;
-        window.history.replaceState({}, "", cleanUrl);
+        window.history.replaceState(
+          {},
+          "",
+          window.location.origin + window.location.pathname,
+        );
         localStorage.removeItem("oauth_provider");
         localStorage.removeItem("id_configuracion_ig");
         localStorage.removeItem("id_configuracion_fb");
-        localStorage.removeItem("id_configuracion_tiktok");
       }
     };
     run();
@@ -1026,7 +1006,6 @@ const Conexionespruebas = () => {
       });
       window.location.href = data.url;
     } catch (err) {
-      console.error(err);
       Swal.fire(
         "Error",
         "No se puede iniciar la conexión con Instagram",
@@ -1035,45 +1014,11 @@ const Conexionespruebas = () => {
     }
   };
 
-  const TIKTOK_REDIRECT_PATH = "/conexiones";
-
-  const handleConectarTikTokInbox = async (config) => {
-    try {
-      localStorage.setItem("oauth_provider", "tiktok");
-      localStorage.setItem("id_configuracion_tiktok", String(config.id));
-
-      const redirectUri = window.location.origin + TIKTOK_REDIRECT_PATH;
-
-      const { data } = await chatApi.get("/tiktok/dev/login-url", {
-        params: {
-          id_configuracion: config.id,
-          redirect_uri: redirectUri,
-        },
-      });
-
-      if (!data?.url) {
-        throw new Error("No se recibió URL de autorización de TikTok");
-      }
-
-      //Redirige al consentimiento de TikTok
-      window.location.href = data.url;
-    } catch (err) {
-      console.error(err);
-      Swal.fire(
-        "Error",
-        err?.message || "No se pudo iniciar la conexión con TikTok.",
-        "error",
-      );
-    }
-  };
-
-  // util pequeño
   const getUserIdSafe = () => {
     try {
       const t = localStorage.getItem("token");
       if (!t) return null;
-      const d = jwtDecode(t);
-      return d?.id_usuario ?? null;
+      return jwtDecode(t)?.id_usuario ?? null;
     } catch {
       return null;
     }
@@ -1084,31 +1029,25 @@ const Conexionespruebas = () => {
       const uid = overrideUserId ?? userData?.id_usuario ?? getUserIdSafe();
       const uid_sub = userData?.id_sub_usuario;
       if (!uid) return;
-
       try {
         setLoading(true);
         const response = await chatApi.post(
           "configuraciones/listar_conexiones_sub_user",
-          {
-            id_usuario: uid,
-            id_sub_usuario: uid_sub,
-          },
+          { id_usuario: uid, id_sub_usuario: uid_sub },
         );
         setConfiguracionAutomatizada(response.data.data || []);
         setMostrarErrorBot(false);
+        // ✅ meta_ads_conectado ya viene del SQL — 0 peticiones extra
       } catch (error) {
+        if (error._handledByInterceptor) return;
         if (error.response?.status === 403) {
           Swal.fire({
             icon: "error",
             title: error.response?.data?.message,
             confirmButtonText: "OK",
-          }).then(() => navigate("/planes"));
-        } else if (error.response?.status === 402) {
-          Swal.fire({
-            icon: "error",
-            title: error.response?.data?.message,
-            confirmButtonText: "OK",
-          }).then(() => navigate("plan"));
+          }).then(() =>
+            navigate(error?.response?.data?.redirectTo || "/planes"),
+          );
         } else if (error.response?.status === 400) {
           setMostrarErrorBot(true);
         } else {
@@ -1131,70 +1070,156 @@ const Conexionespruebas = () => {
     }
     setUserData(decoded);
   }, [navigate]);
-
   useEffect(() => {
     if (userData) fetchConfiguracionAutomatizada();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
-  // Aviso usuario específico (se conserva)
   useEffect(() => {
     if (!userData) return;
     const TARGET_ID = 46;
     if (Number(userData.id_usuario) !== TARGET_ID) return;
     const KEY = `conn_price_notice_v1_user_${TARGET_ID}`;
     if (localStorage.getItem(KEY) === "1") return;
-
     (async () => {
       const { value: dontShow } = await Swal.fire({
         title: "Actualización de precio – Plan Conexión",
         icon: "info",
-        html: `
-          <div style="text-align:left; line-height:1.55">
-            <p style="margin:0 0 8px">
-              Te informamos que el <b>Plan Conexión</b> tendrá un ajuste de precio.
-            </p>
-            <div style="
-              display:flex; align-items:center; gap:10px; 
-              padding:10px 12px; border-radius:10px; 
-              background:#F1F5F9; border:1px solid #E2E8F0; margin:8px 0 12px;">
-              <span style="font-weight:600; color:#0F172A;">Antes:</span>
-              <span style="text-decoration:line-through; color:#64748B">$29</span>
-              <span style="font-weight:600; color:#0F172A;">Ahora:</span>
-              <span style="font-weight:800; color:#16A34A">$35</span>
-              <span style="color:#64748B; font-size:12px">(por mes)</span>
-            </div>
-            <ul style="margin:0 0 10px 18px; padding:0; color:#334155">
-              <li>El cambio aplica a tus próximas renovaciones del plan.</li>
-              <li>No afecta tus conversaciones ni tus configuraciones actuales.</li>
-              <li>Mantenemos la misma calidad de servicio y soporte.</li>
-            </ul>
-            <p style="margin:8px 0 0; color:#475569">
-              Gracias por seguir con nosotros 💙
-            </p>
-          </div>
-        `,
+        html: `<div style="text-align:left; line-height:1.55"><p style="margin:0 0 8px">Te informamos que el <b>Plan Conexión</b> tendrá un ajuste de precio.</p><div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:#F1F5F9; border:1px solid #E2E8F0; margin:8px 0 12px;"><span style="font-weight:600; color:#0F172A;">Antes:</span><span style="text-decoration:line-through; color:#64748B">$29</span><span style="font-weight:600; color:#0F172A;">Ahora:</span><span style="font-weight:800; color:#16A34A">$35</span><span style="color:#64748B; font-size:12px">(por mes)</span></div><ul style="margin:0 0 10px 18px; padding:0; color:#334155"><li>El cambio aplica a tus próximas renovaciones.</li><li>No afecta tus conversaciones ni configuraciones actuales.</li></ul></div>`,
         confirmButtonText: "Entendido",
         showCancelButton: true,
         cancelButtonText: "Recordármelo luego",
-        focusConfirm: false,
         input: "checkbox",
-        inputPlaceholder: "No volver a mostrar este aviso",
+        inputPlaceholder: "No volver a mostrar",
         inputValue: 0,
-        customClass: { popup: "swal2-premium-modal" },
       });
       if (dontShow) localStorage.setItem(KEY, "1");
     })();
   }, [userData]);
 
-  /* ===========================
-     UI
-  =========================== */
+  const handleSyncCoexistencia = async (config) => {
+    if (!config?.id) return;
+    if (!isConectado(config))
+      return Swal.fire(
+        "Aún no se puede sincronizar",
+        "Primero conecte WhatsApp Business.",
+        "info",
+      );
+    if (Number(config.sincronizo_coexistencia) === 1)
+      return Swal.fire(
+        "Ya sincronizado",
+        "Este número ya realizó la sincronización.",
+        "success",
+      );
+    const ask = await Swal.fire({
+      title: "Sincronizar Chats",
+      html: '<div style="text-align:left; line-height:1.5"><p>Esta opción <b>solo aplica</b> si vinculó una cuenta de WhatsApp Business existente.</p></div>',
+      icon: "info",
+      showCancelButton: true,
+      confirmButtonText: "Entendido, sincronizar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#4f46e5",
+      reverseButtons: true,
+    });
+    if (!ask.isConfirmed) return;
+    try {
+      setSyncingId(config.id);
+      const { data } = await chatApi.post(
+        "/whatsapp_managment/coexistencia/sync",
+        { id_configuracion: config.id },
+      );
+      if (data?.success) {
+        setConfiguracionAutomatizada((prev) =>
+          prev.map((c) =>
+            c.id === config.id ? { ...c, sincronizo_coexistencia: 1 } : c,
+          ),
+        );
+        Swal.fire(
+          "Listo",
+          data?.status === "synced"
+            ? "Sincronización realizada."
+            : "Ya sincronizado.",
+          "success",
+        );
+        return;
+      }
+      const status = data?.status;
+      if (status === "not_coexistence_number")
+        return Swal.fire(
+          "No aplica",
+          data?.mensaje || "No compatible con Coexistencia.",
+          "info",
+        );
+      if (status === "missing_data")
+        return Swal.fire(
+          "Faltan datos",
+          data?.mensaje || "Falta info.",
+          "error",
+        );
+      if (status === "already_synced" || status === "already_done_by_meta") {
+        setConfiguracionAutomatizada((prev) =>
+          prev.map((c) =>
+            c.id === config.id ? { ...c, sincronizo_coexistencia: 1 } : c,
+          ),
+        );
+        return Swal.fire(
+          "Ya sincronizado",
+          data?.mensaje || "Ya sincronizado.",
+          "success",
+        );
+      }
+      return Swal.fire(
+        "No se pudo sincronizar",
+        data?.mensaje || "Error.",
+        "info",
+      );
+    } catch (err) {
+      const data = err?.response?.data;
+      if (data?.status === "not_coexistence_number")
+        return Swal.fire(
+          "No aplica",
+          data?.mensaje || "No compatible.",
+          "info",
+        );
+      if (data?.status === "missing_data")
+        return Swal.fire(
+          "Faltan datos",
+          data?.mensaje || "Falta info.",
+          "error",
+        );
+      return Swal.fire(
+        "Error",
+        data?.mensaje || "Error al sincronizar.",
+        "error",
+      );
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const setActiveConfig = useCallback((config) => {
+    if (!config?.id) return;
+    localStorage.setItem("id_configuracion", String(config.id));
+    localStorage.setItem(
+      "id_plataforma_conf",
+      String(config.id_plataforma || ""),
+    );
+    localStorage.setItem(
+      "tipo_configuracion",
+      String(config.tipo_configuracion || ""),
+    );
+    localStorage.setItem(
+      "nombre_configuracion",
+      String(config.nombre_configuracion || ""),
+    );
+    localStorage.setItem("telefono", String(config.telefono || ""));
+    window.dispatchEvent(new Event("dropi:config-changed"));
+  }, []);
+
+  const [showExportModal, setShowExportModal] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 md:px-6">
-      <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
-        {/* Header premium */}
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
+      <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
         <header className="relative isolate overflow-hidden">
           <div
             ref={headerRef}
@@ -1206,11 +1231,10 @@ const Conexionespruebas = () => {
                   Conexiones configuradas
                 </h1>
                 <p className="text-white/80 text-sm">
-                  Administra tus números y canales de WhatsApp Business y
-                  Messenger.
+                  Administra tus números y canales de WhatsApp Business,
+                  Messenger, Instagram y Meta Ads.
                 </p>
               </div>
-
               <div className="flex items-center gap-2">
                 <button
                   ref={newBtnRef}
@@ -1220,22 +1244,8 @@ const Conexionespruebas = () => {
                   <i className="bx bx-plus text-2xl transition-all duration-300 group-hover:brightness-125"></i>
                   <span className="tooltip">Nueva configuración</span>
                 </button>
-
-                {/* Reabrir guía */}
-                <button
-                  onClick={() => {
-                    setTourOpen(true);
-                    setStep(0);
-                  }}
-                  className="px-3 py-2 rounded-lg bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500/30 ring-1 ring-indigo-300/30"
-                  title="Mostrar visita guiada"
-                >
-                  <i className="bx bx-help-circle text-xl align-middle" />{" "}
-                  <span className="hidden sm:inline">¿Cómo funciona?</span>
-                </button>
               </div>
             </div>
-
             <div
               ref={statsRef}
               className="grid grid-cols-2 sm:grid-cols-4 gap-3"
@@ -1248,7 +1258,6 @@ const Conexionespruebas = () => {
           </div>
         </header>
 
-        {/* Barra de controles */}
         <div className="p-6 border-b border-slate-100 bg-white">
           <div className="max-w-8xl mx-auto flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <input
@@ -1259,10 +1268,9 @@ const Conexionespruebas = () => {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full lg:w-1/2 px-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
             />
-
             <div ref={filtersRef} className="flex gap-3 w-full lg:w-auto">
               <select
-                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 outline-none"
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value)}
               >
@@ -1270,29 +1278,51 @@ const Conexionespruebas = () => {
                 <option value="conectado">Conectado</option>
                 <option value="pendiente">Pendiente</option>
               </select>
-
-              <select
-                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                value={filtroPago}
-                onChange={(e) => setFiltroPago(e.target.value)}
+              <button
+                type="button"
+                onClick={() => setShowExportModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#171931] bg-white ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 transition whitespace-nowrap"
               >
-                <option value="">Todos los pagos</option>
-                <option value="activo">Pago activo</option>
-                <option value="inactivo">Pago inactivo</option>
-              </select>
+                <i className="bx bx-download text-lg" />
+                Exportar mensajes
+              </button>
             </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mt-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1">
+              ¿Cómo conectar?
+            </span>
+            <button
+              type="button"
+              onClick={() => setGuideModal("coexistencia")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition-all"
+            >
+              <i className="bx bx-mobile-alt text-sm" />
+              Coexistencia
+              <span className="text-[10px] text-indigo-400 font-medium">
+                celular + web
+              </span>
+              <i className="bx bx-play-circle text-sm text-indigo-400" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setGuideModal("api")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200 hover:bg-emerald-100 transition-all"
+            >
+              <i className="bx bx-code-alt text-sm" />
+              Solo WhatsApp API
+              <span className="text-[10px] text-emerald-400 font-medium">
+                sin celular
+              </span>
+              <i className="bx bx-play-circle text-sm text-emerald-400" />
+            </button>
           </div>
         </div>
 
-        {/* Toast de estado */}
         {statusMessage && (
           <div className="mx-auto mt-4 mb-0 w-[98%] max-w-7xl px-4">
             <div
-              className={`rounded-lg px-4 py-3 text-sm ${
-                statusMessage.type === "success"
-                  ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
-                  : "bg-rose-50 text-rose-800 ring-1 ring-rose-200"
-              }`}
+              className={`rounded-lg px-4 py-3 text-sm ${statusMessage.type === "success" ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : statusMessage.type === "warning" ? "bg-amber-50 text-amber-800 ring-1 ring-amber-200" : "bg-rose-50 text-rose-800 ring-1 ring-rose-200"}`}
             >
               {statusMessage.text}{" "}
               {statusMessage.extra && (
@@ -1309,7 +1339,6 @@ const Conexionespruebas = () => {
           </div>
         )}
 
-        {/* Contenido */}
         <div className="p-6">
           <div ref={gridRef} className="max-w-8xl mx-auto">
             {loading ? (
@@ -1333,11 +1362,11 @@ const Conexionespruebas = () => {
                 </h3>
                 <p className="mt-1 text-slate-500 text-sm md:text-base max-w-md">
                   Crea tu primera conexión y empieza a interactuar con tus
-                  clientes al instante.
+                  clientes.
                 </p>
                 <button
                   onClick={handleAbrirConfiguracionAutomatizada}
-                  className="mt-4 inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition group relative"
+                  className="mt-4 inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition"
                 >
                   <i className="bx bx-plus text-2xl"></i>
                   <span className="tooltip">Agregar configuración</span>
@@ -1348,15 +1377,18 @@ const Conexionespruebas = () => {
                 {listaFiltrada.map((config, idx) => {
                   const conectado = isConectado(config);
                   const pagoActivo = Number(config.metodo_pago) === 1;
-                  const isOpen = hoveredId === config.id;
+                  const yaSincronizo =
+                    Number(config?.sincronizo_coexistencia) === 1;
+                  // ✅ Directo del SQL — 0 peticiones extra
+                  const adsConectado = Number(config.meta_ads_conectado) === 1;
+                  const adsAccountName = config.meta_ads_account_name || null;
 
                   return (
                     <div
                       key={config.id}
                       ref={idx === 0 ? firstCardRef : null}
-                      className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-5 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
+                      className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-6 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
                     >
-                      {/* Header card */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="text-base font-semibold text-slate-800 truncate">
@@ -1377,8 +1409,6 @@ const Conexionespruebas = () => {
                             )}
                           </div>
                         </div>
-
-                        {/* eliminar */}
                         <button
                           type="button"
                           onClick={() => confirmarEliminar(config)}
@@ -1391,48 +1421,60 @@ const Conexionespruebas = () => {
                               : "hover:scale-105 hover:bg-rose-100",
                           ].join(" ")}
                           title="Eliminar conexión"
-                          aria-label="Eliminar conexión"
                         >
                           <i className="bx bx-trash text-xl"></i>
                         </button>
                       </div>
 
-                      {/* Teléfono */}
-                      <div className="mt-4 flex items-center gap-2 text-sm text-slate-700">
-                        <i className="bx bx-phone-call text-xl text-green-600 hover:sacudir"></i>
-                        <span className="font-medium">{config.telefono}</span>
+                      <div className="mt-5 flex items-center justify-between gap-2 text-sm text-slate-700">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <i className="bx bx-phone-call text-xl text-green-600"></i>
+                          <span className="font-medium truncate">
+                            {config.telefono}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(
+                                String(config.telefono || "").trim(),
+                              );
+                              Swal.fire({
+                                toast: true,
+                                position: "top-end",
+                                icon: "success",
+                                title: "Número copiado",
+                                showConfirmButton: false,
+                                timer: 1400,
+                              });
+                            } catch {
+                              Swal.fire("Error", "No se pudo copiar.", "error");
+                            }
+                          }}
+                          className="shrink-0 w-9 h-9 rounded-xl grid place-items-center ring-1 ring-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
+                          title="Copiar número"
+                        >
+                          <i className="bx bx-copy text-lg" />
+                        </button>
                       </div>
 
-                      {/* Acciones */}
-                      <div className="mt-5 space-y-3">
-                        {/* Fila superior: íconos */}
+                      <div className="mt-6 space-y-4">
                         <div className="flex flex-wrap items-center gap-3">
                           <div
                             className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
                             onClick={() => {
-                              localStorage.setItem(
-                                "id_configuracion",
-                                config.id,
-                              );
-                              localStorage.setItem(
-                                "id_plataforma_conf",
-                                config.id_plataforma,
-                              );
-                              localStorage.setItem(
-                                "nombre_configuracion",
-                                config.nombre_configuracion,
-                              );
+                              setActiveConfig(config);
                               navigate("/canal-conexiones");
                             }}
-                            title="Ir a configuración"
+                            title="Ir al canal de conexiones"
                           >
                             <i className="bx bx-cog text-2xl text-blue-600"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Ir a configuración
+                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                              Ir al canal de conexiones
                             </span>
                           </div>
 
-                          {/* Facebook Inbox (Messenger) */}
                           {!isMessengerConectado(config) ? (
                             <button
                               type="button"
@@ -1440,27 +1482,25 @@ const Conexionespruebas = () => {
                                 handleConectarFacebookInbox(config)
                               }
                               className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                              title="Conectar Inbox de Messenger"
-                              aria-label="Conectar Inbox de Messenger"
+                              title="Conectar Messenger"
                             >
                               <i className="bx bxl-messenger text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Conectar Inbox de Messenger
                               </span>
                             </button>
                           ) : (
                             <div
                               className="relative group text-blue-600"
-                              title="Inbox de Messenger conectado"
+                              title="Messenger conectado"
                             >
                               <i className="bx bxl-messenger text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Inbox de Messenger conectado
                               </span>
                             </div>
                           )}
 
-                          {/* Instagram Inbox */}
                           {!isInstagramConectado(config) ? (
                             <button
                               type="button"
@@ -1468,38 +1508,36 @@ const Conexionespruebas = () => {
                                 handleConectarInstagramInbox(config)
                               }
                               className="relative group cursor-pointer text-gray-500 hover:text-pink-600 transition transform hover:scale-110"
-                              title="Conectar Inbox de Instagram"
-                              aria-label="Conectar Inbox de Instagram"
+                              title="Conectar Instagram"
                             >
                               <i className="bx bxl-instagram text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Conectar Inbox de Instagram
                               </span>
                             </button>
                           ) : (
                             <div
                               className="relative group text-pink-600"
-                              title="Inbox de Instagram conectado"
+                              title="Instagram conectado"
                             >
                               <i className="bx bxl-instagram text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Inbox de Instagram conectado
                               </span>
                             </div>
                           )}
 
-                          {/* Meta Developer */}
                           {!conectado ? (
                             <div
                               className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
                               onClick={() =>
                                 handleConectarMetaDeveloper(config)
                               }
-                              title="Conectar Bussines Manager"
+                              title="Conectar Business Manager"
                             >
                               <i className="bx bxl-meta text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                                Conectar Bussines Manager
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                Conectar Business Manager
                               </span>
                             </div>
                           ) : (
@@ -1508,13 +1546,12 @@ const Conexionespruebas = () => {
                               title="Meta Business conectado"
                             >
                               <i className="bx bxl-meta text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Meta Business conectado
                               </span>
                             </div>
                           )}
 
-                          {/* WhatsApp */}
                           {!conectado ? (
                             <div
                               className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
@@ -1529,7 +1566,7 @@ const Conexionespruebas = () => {
                               title="Conectar WhatsApp Business"
                             >
                               <i className="bx bxl-whatsapp text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 Conectar WhatsApp Business
                               </span>
                             </div>
@@ -1539,41 +1576,97 @@ const Conexionespruebas = () => {
                               title="WhatsApp vinculado"
                             >
                               <i className="bx bxl-whatsapp text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
                                 WhatsApp vinculado
                               </span>
                             </div>
                           )}
 
-                          {/* TikTok */}
-                          {!isTikTokConectado(config) ? (
+                          {!conectado ? (
+                            <div
+                              className="relative group text-slate-400"
+                              title="Disponible al conectar WhatsApp"
+                            >
+                              <i className="bx bx-refresh text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                Disponible al conectar WhatsApp
+                              </span>
+                            </div>
+                          ) : yaSincronizo ? (
+                            <div
+                              className="relative group text-emerald-600"
+                              title="Chats sincronizados"
+                            >
+                              <i className="bx bx-check-circle text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-emerald-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                Chats sincronizados
+                              </span>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              disabled
-                              className="relative group cursor-not-allowed text-gray-500"
-                              aria-label="TikTok próximamente"
+                              onClick={() => handleSyncCoexistencia(config)}
+                              disabled={syncingId === config.id}
+                              className={[
+                                "relative group cursor-pointer transition transform hover:scale-110",
+                                "text-indigo-600 hover:text-indigo-700",
+                                syncingId === config.id
+                                  ? "opacity-60 cursor-not-allowed"
+                                  : "",
+                              ].join(" ")}
+                              title="Sincronizar"
                             >
-                              <i className="bx bxl-tiktok text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Próximamente
+                              <i
+                                className={`bx bx-refresh text-2xl ${syncingId === config.id ? "animate-spin" : ""}`}
+                              />
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-indigo-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                {syncingId === config.id
+                                  ? "Procesando..."
+                                  : "Sincronizar chats"}
+                              </span>
+                            </button>
+                          )}
+
+                          {/* META ADS */}
+                          {!adsConectado ? (
+                            <button
+                              type="button"
+                              onClick={() => handleConectarMetaAds(config)}
+                              disabled={adsConnectingId === config.id}
+                              className={[
+                                "relative group cursor-pointer transition transform hover:scale-110",
+                                "text-gray-500 hover:text-orange-600",
+                                adsConnectingId === config.id
+                                  ? "opacity-60 cursor-not-allowed"
+                                  : "",
+                              ].join(" ")}
+                              title="Conectar Meta Ads"
+                            >
+                              <i
+                                className={`bx bxs-bar-chart-alt-2 text-2xl ${adsConnectingId === config.id ? "animate-pulse" : ""}`}
+                              />
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                {adsConnectingId === config.id
+                                  ? "Conectando…"
+                                  : "Conectar Meta Ads"}
                               </span>
                             </button>
                           ) : (
                             <div
-                              className="relative group text-black"
-                              title="TikTok conectado"
+                              className="relative group text-orange-600 cursor-pointer"
+                              title={`Meta Ads: ${adsAccountName || "conectado"}`}
+                              onClick={() => handleDesconectarMetaAds(config)}
                             >
-                              <i className="bx bxl-tiktok text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                                TikTok conectado
+                              <i className="bx bxs-bar-chart-alt-2 text-2xl"></i>
+                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-orange-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                Ads: {adsAccountName || "conectado"} (click para
+                                desconectar)
                               </span>
                             </div>
                           )}
                         </div>
 
-                        {/* Fila inferior: Detalles (izq) + Ir al Chat (der) */}
-                        <div className="flex items-center justify-between">
-                          {/* Detalles */}
+                        <div className="mt-2 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
                           <div
                             className="relative"
                             onMouseEnter={() => openPopover(config.id)}
@@ -1581,11 +1674,14 @@ const Conexionespruebas = () => {
                             onFocus={() => openPopover(config.id)}
                             onBlur={() => setHoveredId(null)}
                           >
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-semibold ring-1 ring-indigo-200 bg-indigo-50 text-indigo-700 cursor-default select-none">
-                              <i className="bx bx-info-circle text-base" />{" "}
-                              Detalles
-                            </span>
-
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold text-slate-700 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+                              aria-label="Ver detalles"
+                            >
+                              <i className="bx bx-info-circle text-base text-indigo-600" />
+                              Ver detalles
+                            </button>
                             <HoverPopover
                               open={hoveredId === config.id}
                               onMouseEnter={() => openPopover(config.id)}
@@ -1595,77 +1691,123 @@ const Conexionespruebas = () => {
                               <div className="space-y-3 pr-1">
                                 <ActionDetailRow
                                   icon={<i className="bx bx-cog" />}
-                                  title="Configuración"
-                                  desc="Abrí el panel completo de ajustes: plantillas, webhooks, etiquetas y permisos."
+                                  title="Canal de conexiones"
+                                  desc="Administra plantillas, perfiles, etc."
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-messenger" />}
-                                  title="Messenger Inbox"
-                                  desc="Conecta tu Página de Facebook para recibir y responder mensajes directo en el inbox."
+                                  title={`Messenger ${isMessengerConectado(config) ? "(conectado)" : "(pendiente)"}`}
+                                  tone={
+                                    isMessengerConectado(config)
+                                      ? "success"
+                                      : "neutral"
+                                  }
+                                  desc={
+                                    isMessengerConectado(config)
+                                      ? "Página conectada al inbox."
+                                      : "Conecta tu Página de Facebook."
+                                  }
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-instagram" />}
-                                  title="Instagram (próximo)"
-                                  desc="Integración nativa al inbox. Requiere que tu cuenta de IG esté vinculada a una Página en Meta Business."
+                                  title={`Instagram ${isInstagramConectado(config) ? "(conectado)" : "(pendiente)"}`}
+                                  tone={
+                                    isInstagramConectado(config)
+                                      ? "success"
+                                      : "neutral"
+                                  }
+                                  desc={
+                                    isInstagramConectado(config)
+                                      ? "Instagram conectado al inbox."
+                                      : "Requiere IG vinculado a una Página."
+                                  }
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-meta" />}
-                                  title="Meta Business (requerido para WhatsApp)"
-                                  tone="warning"
-                                  desc="Para empezar una integración con WhatsApp Business debes iniciar la configuración en el Business Manager de tu empresa (Embedded Signup). Desde aquí finalizas el alta."
+                                  title={`Meta Business ${conectado ? "(conectado)" : "(requerido)"}`}
+                                  tone={conectado ? "success" : "warning"}
+                                  desc={
+                                    conectado
+                                      ? "Integración operativa para WhatsApp Business."
+                                      : "Primero configura el Business Manager."
+                                  }
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bxl-whatsapp" />}
-                                  title={`WhatsApp Business ${
-                                    conectado ? "(conectado)" : "(pendiente)"
-                                  }`}
+                                  title={`WhatsApp ${conectado ? "(conectado)" : "(pendiente)"}`}
                                   tone={conectado ? "success" : "neutral"}
                                   desc={
                                     conectado
-                                      ? "Tu número está activo y listo para enviar/recibir mensajes."
-                                      : "Inicia la activación en Business Manager y completa el proceso aquí para vincular tu número."
+                                      ? "Número activo y listo."
+                                      : "Vincula tu número desde Business Manager."
+                                  }
+                                />
+                                <ActionDetailRow
+                                  icon={<i className="bx bx-refresh" />}
+                                  title="Coexistencia"
+                                  tone={
+                                    !conectado
+                                      ? "neutral"
+                                      : yaSincronizo
+                                        ? "success"
+                                        : "warning"
+                                  }
+                                  desc={
+                                    !conectado
+                                      ? "Disponible al conectar WhatsApp."
+                                      : yaSincronizo
+                                        ? "Ya sincronizado."
+                                        : "Ejecuta una vez para traer mensajes existentes."
+                                  }
+                                />
+                                <ActionDetailRow
+                                  icon={
+                                    <i className="bx bxs-bar-chart-alt-2" />
+                                  }
+                                  title={`Meta Ads ${adsConectado ? "(conectado)" : "(pendiente)"}`}
+                                  tone={adsConectado ? "success" : "neutral"}
+                                  desc={
+                                    adsConectado
+                                      ? `Cuenta ${adsAccountName || ""} vinculada. Métricas en el dashboard.`
+                                      : "Conecta tu cuenta publicitaria de Meta."
                                   }
                                 />
                                 <ActionDetailRow
                                   icon={<i className="bx bx-chat" />}
                                   title="Chat"
-                                  desc="Abre la bandeja omnicanal para conversar con tus clientes y ver el historial."
+                                  desc="Bandeja omnicanal para conversar con clientes."
                                 />
                               </div>
                             </HoverPopover>
                           </div>
-
-                          {/* Ir al Chat */}
-                          <button
-                            type="button"
-                            className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold
-                 text-green-700 bg-green-50 ring-1 ring-green-200
-                 hover:bg-green-100 transition transform hover:scale-105"
-                            onClick={() => {
-                              localStorage.setItem(
-                                "id_configuracion",
-                                config.id,
-                              );
-                              localStorage.setItem(
-                                "id_plataforma_conf",
-                                config.id_plataforma,
-                              );
-                              localStorage.setItem(
-                                "tipo_configuracion",
-                                config.tipo_configuracion,
-                              );
-                              localStorage.setItem(
-                                "nombre_configuracion",
-                                config.nombre_configuracion,
-                              );
-                              localStorage.setItem("telefono", config.telefono);
-                              navigate("/chat");
-                            }}
-                            title="Ir al chat"
-                            aria-label="Ir al chat"
-                          >
-                            Ir al Chat
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {adsConectado && (
+                              <button
+                                type="button"
+                                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-orange-700 bg-orange-50 ring-1 ring-orange-200 hover:bg-orange-100 transition"
+                                onClick={() => {
+                                  setActiveConfig(config);
+                                  navigate("/meta_ads_dashboard");
+                                }}
+                                title="Ver dashboard de Ads"
+                              >
+                                <i className="bx bxs-bar-chart-alt-2 text-lg" />
+                                Ads
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-b from-emerald-700 to-emerald-500 ring-1 ring-emerald-500/30 hover:brightness-110 transition"
+                              onClick={() => {
+                                setActiveConfig(config);
+                                navigate("/chat");
+                              }}
+                              title="Ir al chat"
+                            >
+                              <i className="bx bx-message-rounded-dots text-lg" />
+                              Ir al Chat
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1677,7 +1819,6 @@ const Conexionespruebas = () => {
         </div>
       </div>
 
-      {/* === MODALES (como estaban) === */}
       {ModalConfiguracionAutomatizada && (
         <CrearConfiguracionModal
           onClose={() => setModalConfiguracionAutomatizada(false)}
@@ -1685,7 +1826,6 @@ const Conexionespruebas = () => {
           setStatusMessage={setStatusMessage}
         />
       )}
-
       {ModalConfiguracionWhatsappBusiness && (
         <CrearConfiguracionModalWhatsappBusiness
           onClose={() => setModalConfiguracionWhatsappBusiness(false)}
@@ -1697,7 +1837,6 @@ const Conexionespruebas = () => {
         />
       )}
 
-      {/* ==== VISITA GUIADA ==== */}
       {tourOpen && !loadingTourPref && (
         <>
           <Spotlight rect={rect} />
@@ -1712,31 +1851,20 @@ const Conexionespruebas = () => {
               <p className="mt-1 text-[13px] leading-5 text-slate-600">
                 {tourSteps[step].body}
               </p>
-
-              {/* HUD de progreso */}
               <div className="mt-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-slate-50 px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
-                    Paso {step + 1} / {tourSteps.length}
-                  </div>
+                <div className="rounded-lg bg-slate-50 px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
+                  Paso {step + 1} / {tourSteps.length}
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Atajos: ← → • Esc
-                </div>
+                <div className="text-[11px] text-slate-500">← → • Esc</div>
               </div>
-
-              {/* Controles */}
               <div className="mt-3 flex items-center justify-between">
                 <button
                   onClick={handleSkip}
                   className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-slate-600 hover:text-slate-800"
-                  aria-label="Omitir guía"
                 >
                   <i className="bx bx-x" /> Omitir
                 </button>
-
                 <div className="flex items-center gap-2">
-                  {/* Checkbox SIEMPRE visible; la preferencia se guarda al cerrar o terminar */}
                   <label className="mr-2 inline-flex items-center gap-2 text-[12px] text-slate-600">
                     <input
                       type="checkbox"
@@ -1746,7 +1874,6 @@ const Conexionespruebas = () => {
                     />
                     No volver a mostrar
                   </label>
-
                   <button
                     onClick={handlePrev}
                     disabled={step === 0}
@@ -1756,19 +1883,12 @@ const Conexionespruebas = () => {
                         ? "text-slate-400 ring-slate-200 cursor-not-allowed"
                         : "text-slate-700 ring-slate-200 hover:bg-slate-50",
                     ].join(" ")}
-                    aria-label="Anterior"
-                    title="Anterior (←)"
                   >
                     <i className="bx bx-left-arrow-alt" /> Atrás
                   </button>
-
                   <button
                     onClick={handleNext}
                     className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-indigo-600 to-indigo-500 px-3 py-1.5 text-[12px] font-semibold text-white ring-1 ring-indigo-500/30 hover:brightness-110"
-                    aria-label={
-                      step === tourSteps.length - 1 ? "Terminar" : "Siguiente"
-                    }
-                    title="Siguiente (→)"
                   >
                     {step === tourSteps.length - 1 ? "Terminar" : "Siguiente"}
                     <i className="bx bx-right-arrow-alt" />
@@ -1780,10 +1900,58 @@ const Conexionespruebas = () => {
         </>
       )}
 
-      {/* Evita parpadeo mientras se consulta la preferencia */}
-      {loadingTourPref && null}
+      {metaConnecting && (
+        <>
+          <div className="fixed inset-0 z-[999] bg-slate-950/60 backdrop-blur-sm" />
+          <div className="fixed inset-0 z-[1000] grid place-items-center px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white/95 p-5 ring-1 ring-slate-200 shadow-[0_30px_80px_rgba(2,6,23,.35)] animate-[sheetIn_.22s_ease-out]">
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 w-12 h-12 rounded-2xl grid place-items-center bg-indigo-50 ring-1 ring-indigo-200">
+                  <i className="bx bx-loader-alt text-3xl text-indigo-600 animate-spin" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-base font-bold text-slate-900">
+                    Procesando conexión
+                  </div>
+                  <div className="mt-1 text-sm text-slate-600">
+                    {metaConnectText}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1">
+                      <i className="bx bx-shield-quarter text-base text-emerald-600" />
+                      Seguro
+                    </span>
+                    <span className="opacity-60">•</span>
+                    <span className="inline-flex items-center gap-1">
+                      <i className="bx bx-time-five text-base text-indigo-600" />
+                      Puede tardar unos segundos
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-2 w-1/2 bg-indigo-500 animate-[progressBar_1.1s_ease-in-out_infinite]" />
+              </div>
+              <style>{`@keyframes progressBar { 0% { transform: translateX(-80%); } 50% { transform: translateX(40%); } 100% { transform: translateX(180%); } }`}</style>
+            </div>
+          </div>
+        </>
+      )}
+
+      {guideModal === "coexistencia" && (
+        <GuiaCoexistenciaModal onClose={() => setGuideModal(null)} />
+      )}
+      {guideModal === "api" && (
+        <GuiaWhatsappApiModal onClose={() => setGuideModal(null)} />
+      )}
+      {showExportModal && (
+        <ExportarMensajesModal
+          conexiones={configuracionAutomatizada}
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
     </div>
   );
 };
 
-export default Conexionespruebas;
+export default Conexiones;

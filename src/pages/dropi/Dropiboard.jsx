@@ -252,7 +252,7 @@ const Dropiboard = () => {
             <div className="h-8 w-px bg-white/30" />
             <div>
               <h1 className="text-xl font-extrabold tracking-tight leading-tight">
-                Dashboard de Órdenes
+                Dashboard analítico de órdenes
               </h1>
               <p className="text-[11px] text-white/70 mt-0.5">
                 Análisis en tiempo real de tu operación

@@ -170,18 +170,22 @@ function MainLayout({ children }) {
             />
 
             <NavBtn
-              path="/dashboard"
-              icon="bx-bar-chart-alt-2"
-              label="Dashboard"
+              path="/chatboard"
+              icon="bx-message-rounded-dots"
+              label="Chatboard"
             />
 
-            {isAdmin && (
-              <NavBtn
-                path="/dropiboard"
-                icon="bx-store -chart-alt-2"
-                label="Dropiboard"
-              />
-            )}
+            {/* <NavBtn
+              path="/adsboard"
+              icon="bxs-bar-chart-alt-2"
+              label="Adsboard"
+            /> */}
+
+            <NavBtn
+              path="/dropiboard"
+              icon="bx-store -chart-alt-2"
+              label="Dropiboard"
+            />
 
             <div>
               <button
