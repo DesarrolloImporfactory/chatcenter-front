@@ -47,6 +47,8 @@ const RemarketingColumna = ({
   const [headerMediaUrl, setHeaderMediaUrl] = useState("");
   const [headerInfo, setHeaderInfo] = useState(null); // { format, url }
 
+  const [desactivando, setDesactivando] = useState(false);
+
   // ── Verificar si hay config activa al cargar ──────────────
   useEffect(() => {
     if (!id_configuracion || !estado_db) return;
@@ -98,6 +100,46 @@ const RemarketingColumna = ({
       return String(first).replace(/&amp;/g, "&");
     } catch {
       return null;
+    }
+  };
+
+  const handleDesactivar = async () => {
+    const confirm = await Swal.fire({
+      title: "¿Desactivar remarketing?",
+      html: `Se cancelarán todos los envíos pendientes en <strong>${nombreColumna}</strong> y se borrará la configuración.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, desactivar",
+      cancelButtonText: "No, mantener",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: BG_DARK,
+      reverseButtons: true,
+      customClass: { container: "rm2-swal-top" }, // 👈 esto
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setDesactivando(true);
+    try {
+      await chatApi.post("openai_assistants/desactivar_remarketing", {
+        id_configuracion,
+        estado_contacto: estado_db,
+      });
+
+      // Reset estado local
+      setConfigActiva(false);
+      setPlantillaSeleccionada("");
+      setTiempoRemarketing("0");
+      setEstadoDestino("");
+      setHeaderMediaUrl("");
+      setHeaderInfo(null);
+
+      Toast.fire({ icon: "success", title: "Remarketing desactivado" });
+      cerrarModal();
+    } catch {
+      Toast.fire({ icon: "error", title: "Error al desactivar" });
+    } finally {
+      setDesactivando(false);
     }
   };
 
@@ -409,6 +451,7 @@ const RemarketingColumna = ({
           flex-shrink:0; transition:all .15s; font-family:inherit;
         }
         .rm2-close-btn:hover { background:rgba(255,255,255,.18); color:#fff; }
+        .rm2-swal-top { z-index: 99999 !important; }
       `}</style>
 
       {/* ── Botón disparador ── */}
@@ -874,47 +917,99 @@ const RemarketingColumna = ({
                   <div
                     style={{
                       display: "flex",
-                      justifyContent: "flex-end",
+                      justifyContent: "space-between",
+                      alignItems: "center",
                       gap: 10,
                       marginTop: 16,
                     }}
                   >
-                    <button
-                      className="rm2-btn-cancel"
-                      type="button"
-                      onClick={cerrarModal}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      className="rm2-btn-save"
-                      type="button"
-                      onClick={handleGuardar}
-                      disabled={guardando || !formularioListo}
-                    >
-                      {guardando ? (
-                        <>
-                          <i
-                            className="bx bx-loader-alt bx-spin"
-                            style={{ fontSize: 15 }}
-                          />{" "}
-                          Guardando...
-                        </>
-                      ) : configActiva ? (
-                        <>
-                          <i
-                            className="bx bx-refresh"
-                            style={{ fontSize: 15 }}
-                          />{" "}
-                          Actualizar remarketing
-                        </>
-                      ) : (
-                        <>
-                          <i className="bx bxs-zap" style={{ fontSize: 15 }} />{" "}
-                          Activar remarketing
-                        </>
+                    {/* Izquierda — desactivar (solo si está activo) */}
+                    <div>
+                      {configActiva && (
+                        <button
+                          type="button"
+                          onClick={handleDesactivar}
+                          disabled={desactivando}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "9px 16px",
+                            borderRadius: 10,
+                            border: "1.5px solid #fecaca",
+                            background: "#fff5f5",
+                            color: "#dc2626",
+                            fontWeight: 600,
+                            fontSize: ".82rem",
+                            cursor: desactivando ? "not-allowed" : "pointer",
+                            transition: "all .15s",
+                            fontFamily: "inherit",
+                            opacity: desactivando ? 0.5 : 1,
+                          }}
+                        >
+                          {desactivando ? (
+                            <>
+                              <i
+                                className="bx bx-loader-alt bx-spin"
+                                style={{ fontSize: 14 }}
+                              />
+                              Desactivando...
+                            </>
+                          ) : (
+                            <>
+                              <i
+                                className="bx bx-trash"
+                                style={{ fontSize: 14 }}
+                              />
+                              Desactivar
+                            </>
+                          )}
+                        </button>
                       )}
-                    </button>
+                    </div>
+
+                    {/* Derecha — cancelar + guardar */}
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        className="rm2-btn-cancel"
+                        type="button"
+                        onClick={cerrarModal}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        className="rm2-btn-save"
+                        type="button"
+                        onClick={handleGuardar}
+                        disabled={guardando || !formularioListo}
+                      >
+                        {guardando ? (
+                          <>
+                            <i
+                              className="bx bx-loader-alt bx-spin"
+                              style={{ fontSize: 15 }}
+                            />{" "}
+                            Guardando...
+                          </>
+                        ) : configActiva ? (
+                          <>
+                            <i
+                              className="bx bx-refresh"
+                              style={{ fontSize: 15 }}
+                            />{" "}
+                            Actualizar remarketing
+                          </>
+                        ) : (
+                          <>
+                            <i
+                              className="bx bxs-zap"
+                              style={{ fontSize: 15 }}
+                            />{" "}
+                            Activar remarketing
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
