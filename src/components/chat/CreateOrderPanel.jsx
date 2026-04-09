@@ -687,13 +687,18 @@ export default function CreateOrderPanel(props) {
                       <span className="text-[10px] text-white/50">
                         Prov.{" "}
                         <span className="font-semibold text-white/75">
-                          ${p?.sale_price || "—"}
+                          $
+                          {(p?.sale_price ?? p?.variations?.[0]?.sale_price) ||
+                            "—"}
                         </span>
                       </span>
                       <span className="text-[10px] text-white/50">
                         Sug.{" "}
                         <span className="font-semibold text-white/75">
-                          ${p?.suggested_price || "—"}
+                          $
+                          {(p?.suggested_price ??
+                            p?.variations?.[0]?.suggested_price) ||
+                            "—"}
                         </span>
                       </span>
                     </div>

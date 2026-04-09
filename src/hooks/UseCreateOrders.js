@@ -282,9 +282,20 @@ export default function useCreateOrder({
         );
       }
 
+      const effectiveSuggested =
+        p?.suggested_price ??
+        (Array.isArray(p?.variations) && p.variations.length
+          ? p.variations[0].suggested_price
+          : null);
+      const effectiveSale =
+        p?.sale_price ??
+        (Array.isArray(p?.variations) && p.variations.length
+          ? p.variations[0].sale_price
+          : null);
+
       const suggested =
-        Number(p?.suggested_price) ||
-        Number(p?.sale_price) ||
+        Number(effectiveSuggested) ||
+        Number(effectiveSale) ||
         Number(p?.price) ||
         0;
 
@@ -298,9 +309,9 @@ export default function useCreateOrder({
           variations: [],
           quantity: 1,
           price: suggested,
-          sale_price: p?.sale_price ? String(p.sale_price) : null,
-          suggested_price: p?.suggested_price
-            ? String(p.suggested_price)
+          sale_price: effectiveSale ? String(effectiveSale) : null,
+          suggested_price: effectiveSuggested
+            ? String(effectiveSuggested)
             : null,
           __raw: p,
         },
