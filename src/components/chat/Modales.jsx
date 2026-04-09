@@ -891,13 +891,13 @@ const Modales = ({
     const files = Array.from(event.target.files);
     const newVideos = files
       .filter((file) => {
-        if (file.size / (1024 * 1024) > MAX_FILE_SIZE_MB) {
+       /*  if (file.size / (1024 * 1024) > MAX_FILE_SIZE_MB) {
           Toast.fire({
             icon: "error",
             title: "El archivo excede el tamaño máximo permitido de 16 MB.",
           });
           return false;
-        }
+        } */
         return true;
       })
       .map((file) => ({
@@ -1136,7 +1136,21 @@ const Modales = ({
       );
 
       if (data.status !== 200) {
-        alert(`Error procesando video: ${data.message}`);
+        const isFileTooLarge =
+          data.message?.toLowerCase().includes("too large") ||
+          data.message?.toLowerCase().includes("limit_file_size") ||
+          data.code === "LIMIT_FILE_SIZE";
+
+        Toast.fire({
+          icon: "error",
+          title: isFileTooLarge
+            ? "El video es demasiado grande para enviarse."
+            : data.message || "Error procesando video",
+          text: isFileTooLarge
+            ? "Reduce el tamaño del archivo e inténtalo de nuevo."
+            : undefined,
+          timer: 5000,
+        });
         return;
       }
 
@@ -1189,7 +1203,21 @@ const Modales = ({
       );
     } catch (error) {
       console.error("Error enviando video:", error);
-      alert("Ocurrió un error al enviar el video.");
+      const isFileTooLarge =
+        error?.response?.data?.error?.code === "LIMIT_FILE_SIZE" ||
+        error?.response?.data?.message?.toLowerCase().includes("too large") ||
+        error?.message?.toLowerCase().includes("too large");
+
+      Toast.fire({
+        icon: "error",
+        title: isFileTooLarge
+          ? "El video es demasiado grande para enviarse."
+          : "Ocurrió un error al enviar el video.",
+        text: isFileTooLarge
+          ? "Reduce el tamaño del archivo e inténtalo de nuevo."
+          : undefined,
+        timer: 5000,
+      });
     }
   };
   /* ----- fin enviar videos ---------*/
@@ -3020,265 +3048,270 @@ const Modales = ({
       )}
 
       {modal_enviarArchivos && (
-        <div className="fixed inset-0 z-10 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg max-h-[80%] w-full max-w-md overflow-y-auto">
-            <h2 className="text-xl font-medium mb-4">Enviar</h2>
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
 
-            {tipo_modalEnviarArchivo === "Imagen" && (
-              <div>
-                <h2 className="text-lg font-medium mb-2">Imágenes</h2>
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-b from-slate-50 to-white shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+                  <i className={`bx ${
+                    tipo_modalEnviarArchivo === "Imagen"
+                      ? "bx-image-alt"
+                      : tipo_modalEnviarArchivo === "Video"
+                        ? "bx-video"
+                        : "bx-file"
+                  } text-xl`} />
+                </span>
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">
+                    Enviar {tipo_modalEnviarArchivo}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {tipo_modalEnviarArchivo === "Imagen"
+                      ? `${imagenes.length} imagen${imagenes.length !== 1 ? "es" : ""} seleccionada${imagenes.length !== 1 ? "s" : ""}`
+                      : tipo_modalEnviarArchivo === "Video"
+                        ? `${videos.length} video${videos.length !== 1 ? "s" : ""} seleccionado${videos.length !== 1 ? "s" : ""}`
+                        : `${documentos.length} documento${documentos.length !== 1 ? "s" : ""} seleccionado${documentos.length !== 1 ? "s" : ""}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleModal_enviarArchivos("")}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Cerrar"
+              >
+                <i className="bx bx-x text-2xl" />
+              </button>
+            </div>
 
-                {/* Vista de la imagen seleccionada */}
-                {imagenSeleccionada && (
-                  <div className="flex flex-col items-center mb-4">
-                    <img
-                      src={imagenSeleccionada.id}
-                      alt="Imagen seleccionada"
-                      className="w-full h-60 object-cover rounded-lg"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Añade un comentario"
-                      value={imagenSeleccionada.caption}
-                      onChange={(e) => handleCaptionChange(e.target.value)}
-                      className="w-full mt-2 p-2 border rounded text-sm"
-                    />
-                  </div>
-                )}
+            {/* ── Body ── */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
 
-                {/* Carrusel de miniaturas con scroll horizontal visible */}
-                <div
-                  className="flex items-center space-x-2 overflow-x-auto whitespace-nowrap mb-4 border-t pt-2"
-                  style={{ maxWidth: "100%" }}
-                >
-                  {imagenes.map((img) => (
-                    <div key={img.id} className="relative">
+              {/* ════ IMAGEN ════ */}
+              {tipo_modalEnviarArchivo === "Imagen" && (
+                <>
+                  {imagenSeleccionada ? (
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
                       <img
-                        src={img.id}
-                        alt="Miniatura"
-                        className={`w-16 h-16 object-cover rounded-lg cursor-pointer ${
-                          img.id === imagenSeleccionada?.id
-                            ? "border-2 border-blue-500"
-                            : ""
-                        }`}
-                        onClick={() => selectImage(img)}
+                        src={imagenSeleccionada.id}
+                        alt="Imagen seleccionada"
+                        className="w-full max-h-64 object-contain bg-black/5"
                       />
-                      {/* Botón de eliminar en la esquina superior derecha */}
-                      <button
-                        onClick={() => deleteImage(img.id)}
-                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Botón para añadir más imágenes */}
-                  <label className="flex items-center justify-center w-16 h-16 border rounded-lg cursor-pointer text-blue-500">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <i className="bx bx-plus text-3xl"></i>
-                  </label>
-                </div>
-
-                {/* Botón de enviar */}
-                <button
-                  onClick={enviarImagenesWhatsApp}
-                  disabled={botonDeshabilitado_img} // Deshabilitar el botón según el estado
-                  className={`px-4 py-2 rounded mt-4 w-full transition-all ${
-                    botonDeshabilitado_img
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
-                  }`}
-                >
-                  {botonDeshabilitado_img ? "Enviando..." : "Enviar"}
-                </button>
-              </div>
-            )}
-
-            {tipo_modalEnviarArchivo === "Documento" && (
-              <div>
-                <h2 className="text-lg font-medium mb-2">Documentos</h2>
-
-                {/* Vista del documento seleccionado en grande */}
-                {documentoSeleccionado && (
-                  <div className="flex flex-col items-center mb-4">
-                    <div className="flex flex-col items-center justify-center w-full h-40 bg-gray-100 rounded-lg">
-                      <i
-                        className={`${
-                          getFileIcon(documentoSeleccionado.name).icon
-                        } text-6xl ${
-                          getFileIcon(documentoSeleccionado.name).color
-                        }`}
-                      ></i>
-                      <p className="text-gray-700 mt-2 text-center truncate w-full px-2">
-                        {documentoSeleccionado.name}
-                      </p>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {documentoSeleccionado.size}
-                    </p>
-                    <input
-                      type="text"
-                      placeholder="Añade un comentario"
-                      value={documentoSeleccionado.caption}
-                      onChange={(e) =>
-                        handleDocumentCaptionChange(e.target.value)
-                      }
-                      className="w-full mt-2 p-2 border rounded text-sm"
-                    />
-                  </div>
-                )}
-
-                {/* Carrusel de miniaturas de documentos con scroll horizontal */}
-                <div
-                  className="flex items-center space-x-2 overflow-x-auto whitespace-nowrap mb-4 border-t pt-2"
-                  style={{ maxWidth: "100%" }}
-                >
-                  {documentos.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="relative flex flex-col items-center"
-                    >
-                      <div
-                        className={`w-16 h-16 flex items-center justify-center bg-gray-100 rounded-lg cursor-pointer ${
-                          doc.id === documentoSeleccionado?.id
-                            ? "border-2 border-blue-500"
-                            : ""
-                        }`}
-                        onClick={() => selectDocument(doc)}
-                      >
-                        <i
-                          className={`${getFileIcon(doc.name).icon} text-3xl ${
-                            getFileIcon(doc.name).color
-                          }`}
-                        ></i>
+                      <div className="p-3">
+                        <input
+                          type="text"
+                          placeholder="Añade un comentario…"
+                          value={imagenSeleccionada.caption}
+                          onChange={(e) => handleCaptionChange(e.target.value)}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm
+                            focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        />
                       </div>
-                      <button
-                        onClick={() => deleteDocument(doc.id)}
-                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
-                      >
-                        ×
-                      </button>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 text-slate-400">
+                      <i className="bx bx-image-alt text-4xl mb-2" />
+                      <p className="text-sm">Selecciona imágenes para previsualizar</p>
+                    </div>
+                  )}
 
-                  {/* Botón para añadir más documentos */}
-                  <label className="flex items-center justify-center w-16 h-16 border rounded-lg cursor-pointer text-blue-500">
-                    <input
-                      type="file"
-                      accept="*/*"
-                      multiple
-                      onChange={handleDocumentUpload}
-                      className="hidden"
-                    />
-                    <i className="bx bx-plus text-3xl"></i>
-                  </label>
-                </div>
-
-                {/* Botón de enviar */}
-                <button
-                  onClick={enviarDocumentosWhatsApp}
-                  disabled={botonDeshabilitado_doc} // Deshabilitar el botón según el estado
-                  className={`px-4 py-2 rounded mt-4 w-full transition-all ${
-                    botonDeshabilitado_doc
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
-                  }`}
-                >
-                  {botonDeshabilitado_doc ? "Enviando..." : "Enviar"}
-                </button>
-              </div>
-            )}
-
-            {tipo_modalEnviarArchivo === "Video" && (
-              <div>
-                <h2 className="text-lg font-medium mb-2">Videos</h2>
-
-                {/* Vista del video seleccionado */}
-                {videoSeleccionado && (
-                  <div className="flex flex-col items-center mb-4">
-                    <video
-                      src={videoSeleccionado.id}
-                      controls
-                      className="w-full h-60 rounded-lg"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Añade un comentario"
-                      value={videoSeleccionado.caption}
-                      onChange={(e) => handleVideoCaptionChange(e.target.value)}
-                      className="w-full mt-2 p-2 border rounded text-sm"
-                    />
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {imagenes.map((img) => (
+                      <div key={img.id} className="relative shrink-0">
+                        <img
+                          src={img.id}
+                          alt="Miniatura"
+                          className={`w-16 h-16 object-cover rounded-xl cursor-pointer transition ring-2 ${
+                            img.id === imagenSeleccionada?.id
+                              ? "ring-blue-500"
+                              : "ring-transparent hover:ring-slate-300"
+                          }`}
+                          onClick={() => selectImage(img)}
+                        />
+                        <button
+                          onClick={() => deleteImage(img.id)}
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs shadow-sm hover:bg-rose-600"
+                        >
+                          <i className="bx bx-x text-sm leading-none" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer text-blue-500 hover:border-blue-400 hover:bg-blue-50 transition">
+                      <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                      <i className="bx bx-plus text-2xl" />
+                    </label>
                   </div>
-                )}
+                </>
+              )}
 
-                {/* Carrusel de miniaturas de videos con scroll horizontal visible */}
-                <div
-                  className="flex items-center space-x-2 overflow-x-auto whitespace-nowrap mb-4 border-t pt-2"
-                  style={{ maxWidth: "100%" }}
-                >
-                  {videos.map((vid) => (
-                    <div key={vid.id} className="relative">
-                      <video
-                        src={vid.id}
-                        className={`w-16 h-16 object-cover rounded-lg cursor-pointer ${
-                          vid.id === videoSeleccionado?.id
-                            ? "border-2 border-blue-500"
-                            : ""
-                        }`}
-                        onClick={() => selectVideo(vid)}
-                      />
-                      {/* Botón de eliminar en la esquina superior derecha */}
-                      <button
-                        onClick={() => deleteVideo(vid.id)}
-                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
-                      >
-                        ×
-                      </button>
+              {/* ════ DOCUMENTO ════ */}
+              {tipo_modalEnviarArchivo === "Documento" && (
+                <>
+                  {documentoSeleccionado ? (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                      <div className="flex flex-col items-center justify-center py-8 gap-2">
+                        <i className={`${getFileIcon(documentoSeleccionado.name).icon} text-6xl ${getFileIcon(documentoSeleccionado.name).color}`} />
+                        <p className="text-sm font-medium text-slate-700 text-center px-4 truncate max-w-full">
+                          {documentoSeleccionado.name}
+                        </p>
+                        <span className="text-xs text-slate-400">{documentoSeleccionado.size}</span>
+                      </div>
+                      <div className="px-3 pb-3">
+                        <input
+                          type="text"
+                          placeholder="Añade un comentario…"
+                          value={documentoSeleccionado.caption}
+                          onChange={(e) => handleDocumentCaptionChange(e.target.value)}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm
+                            focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        />
+                      </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 text-slate-400">
+                      <i className="bx bx-file text-4xl mb-2" />
+                      <p className="text-sm">Selecciona documentos para previsualizar</p>
+                    </div>
+                  )}
 
-                  {/* Botón para añadir más videos */}
-                  <label className="flex items-center justify-center w-16 h-16 border rounded-lg cursor-pointer text-blue-500">
-                    <input
-                      type="file"
-                      accept="video/*"
-                      multiple
-                      onChange={handleVideoUpload}
-                      className="hidden"
-                    />
-                    <i className="bx bx-plus text-3xl"></i>
-                  </label>
-                </div>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {documentos.map((doc) => (
+                      <div key={doc.id} className="relative shrink-0">
+                        <div
+                          className={`w-16 h-16 flex items-center justify-center rounded-xl cursor-pointer transition ring-2 bg-slate-100 ${
+                            doc.id === documentoSeleccionado?.id
+                              ? "ring-blue-500"
+                              : "ring-transparent hover:ring-slate-300"
+                          }`}
+                          onClick={() => selectDocument(doc)}
+                        >
+                          <i className={`${getFileIcon(doc.name).icon} text-3xl ${getFileIcon(doc.name).color}`} />
+                        </div>
+                        <button
+                          onClick={() => deleteDocument(doc.id)}
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs shadow-sm hover:bg-rose-600"
+                        >
+                          <i className="bx bx-x text-sm leading-none" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer text-blue-500 hover:border-blue-400 hover:bg-blue-50 transition">
+                      <input type="file" accept="*/*" multiple onChange={handleDocumentUpload} className="hidden" />
+                      <i className="bx bx-plus text-2xl" />
+                    </label>
+                  </div>
+                </>
+              )}
 
-                {/* Botón de enviar */}
-                <button
-                  onClick={enviarVideosWhatsApp}
-                  disabled={botonDeshabilitado_vid} // Deshabilitar el botón según el estado
-                  className={`px-4 py-2 rounded mt-4 w-full transition-all ${
-                    botonDeshabilitado_vid
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
-                  }`}
-                >
-                  {botonDeshabilitado_vid ? "Enviando..." : "Enviar"}
-                </button>
-              </div>
-            )}
+              {/* ════ VIDEO ════ */}
+              {tipo_modalEnviarArchivo === "Video" && (
+                <>
+                  {videoSeleccionado ? (
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-black/5">
+                      <video
+                        src={videoSeleccionado.id}
+                        controls
+                        className="w-full max-h-64 bg-black"
+                      />
+                      <div className="p-3">
+                        <input
+                          type="text"
+                          placeholder="Añade un comentario…"
+                          value={videoSeleccionado.caption}
+                          onChange={(e) => handleVideoCaptionChange(e.target.value)}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm
+                            focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 text-slate-400">
+                      <i className="bx bx-video text-4xl mb-2" />
+                      <p className="text-sm">Selecciona videos para previsualizar</p>
+                    </div>
+                  )}
 
-            {/* Botón para cerrar el modal */}
-            <button
-              onClick={() => handleModal_enviarArchivos("")}
-              className="bg-red-500 text-white px-4 py-2 rounded mt-2 w-full"
-            >
-              Cerrar
-            </button>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {videos.map((vid) => (
+                      <div key={vid.id} className="relative shrink-0">
+                        <video
+                          src={vid.id}
+                          className={`w-16 h-16 object-cover rounded-xl cursor-pointer transition ring-2 ${
+                            vid.id === videoSeleccionado?.id
+                              ? "ring-blue-500"
+                              : "ring-transparent hover:ring-slate-300"
+                          }`}
+                          onClick={() => selectVideo(vid)}
+                        />
+                        <button
+                          onClick={() => deleteVideo(vid.id)}
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs shadow-sm hover:bg-rose-600"
+                        >
+                          <i className="bx bx-x text-sm leading-none" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer text-blue-500 hover:border-blue-400 hover:bg-blue-50 transition">
+                      <input type="file" accept="video/*" multiple onChange={handleVideoUpload} className="hidden" />
+                      <i className="bx bx-plus text-2xl" />
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ── Footer ── */}
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-t bg-slate-50 shrink-0">
+              <button
+                onClick={() => handleModal_enviarArchivos("")}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100"
+              >
+                <i className="bx bx-x" />
+                Cancelar
+              </button>
+
+              <button
+                onClick={
+                  tipo_modalEnviarArchivo === "Imagen"
+                    ? enviarImagenesWhatsApp
+                    : tipo_modalEnviarArchivo === "Video"
+                      ? enviarVideosWhatsApp
+                      : enviarDocumentosWhatsApp
+                }
+                disabled={
+                  tipo_modalEnviarArchivo === "Imagen"
+                    ? botonDeshabilitado_img || imagenes.length === 0
+                    : tipo_modalEnviarArchivo === "Video"
+                      ? botonDeshabilitado_vid || videos.length === 0
+                      : botonDeshabilitado_doc || documentos.length === 0
+                }
+                className={`inline-flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold shadow-sm transition ${
+                  (tipo_modalEnviarArchivo === "Imagen" && (botonDeshabilitado_img || imagenes.length === 0)) ||
+                  (tipo_modalEnviarArchivo === "Video" && (botonDeshabilitado_vid || videos.length === 0)) ||
+                  (tipo_modalEnviarArchivo === "Documento" && (botonDeshabilitado_doc || documentos.length === 0))
+                    ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+                }`}
+              >
+                <i className={`bx ${
+                  (tipo_modalEnviarArchivo === "Imagen" && botonDeshabilitado_img) ||
+                  (tipo_modalEnviarArchivo === "Video" && botonDeshabilitado_vid) ||
+                  (tipo_modalEnviarArchivo === "Documento" && botonDeshabilitado_doc)
+                    ? "bx-loader-alt animate-spin"
+                    : "bx-send"
+                }`} />
+                {(tipo_modalEnviarArchivo === "Imagen" && botonDeshabilitado_img) ||
+                 (tipo_modalEnviarArchivo === "Video" && botonDeshabilitado_vid) ||
+                 (tipo_modalEnviarArchivo === "Documento" && botonDeshabilitado_doc)
+                  ? "Enviando…"
+                  : "Enviar"}
+              </button>
+            </div>
           </div>
         </div>
       )}
