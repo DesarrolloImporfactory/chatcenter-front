@@ -1867,6 +1867,8 @@ const Chat = () => {
   const [selectedTransportadora, setSelectedTransportadora] = useState(null);
   const [selectedNovedad, setSelectedNovedad] = useState(null);
   const [selectedEstado_contacto, setSelectedEstado_contacto] = useState([]);
+  const [selectedLectura, setSelectedLectura] = useState(null);
+  const [selectedAsesor, setSelectedAsesor] = useState(null);
   const [selectedTab, setSelectedTab] = useState("abierto");
   const [filteredChats, setFilteredChats] = useState([]);
   const [offset, setOffset] = useState(0);
@@ -2159,6 +2161,12 @@ const Chat = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (id_configuracion) {
+      fetchListUsuarios();
+    }
+  }, [id_configuracion]);
+
   /* consumir api de etiquetas */
   useEffect(() => {
     const fetchEtiquetas = async () => {
@@ -2226,6 +2234,8 @@ const Chat = () => {
           selectedNovedad,
           selectedTab,
           selectedEstado_contacto,
+          selectedLectura,
+          selectedAsesor,
           source: sourceToSend,
         },
         scopeChats,
@@ -2295,6 +2305,8 @@ const Chat = () => {
       selectedNovedad,
       selectedTab,
       selectedEstado_contacto,
+      selectedLectura,
+      selectedAsesor,
       scopeChats,
       sourceForList,
     ],
@@ -2601,6 +2613,8 @@ const Chat = () => {
     selectedNovedad,
     selectedTab,
     selectedEstado_contacto,
+    selectedLectura,
+    selectedAsesor,
     scopeChats,
   ]);
 
@@ -3311,6 +3325,11 @@ const Chat = () => {
         setScopeChats={setScopeChats}
         onChangeChannelAndFetch={onChangeChannelAndFetch}
         id_configuracion={id_configuracion}
+        selectedLectura={selectedLectura}
+        setSelectedLectura={setSelectedLectura}
+        selectedAsesor={selectedAsesor}
+        setSelectedAsesor={setSelectedAsesor}
+        lista_usuarios={lista_usuarios}
       />
       {/* todos los mensajes */}
       <ChatPrincipal

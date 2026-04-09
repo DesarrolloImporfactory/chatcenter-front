@@ -1083,7 +1083,12 @@ export const Sidebar = ({
   scopeChats,
   setScopeChats,
   onChangeChannelAndFetch,
-  id_configuracion
+  id_configuracion,
+  selectedLectura,
+  setSelectedLectura,
+  selectedAsesor,
+  setSelectedAsesor,
+  lista_usuarios,
 }) => {
   const [input_busqueda, setInput_busqueda] = useState(searchTerm ?? "");
 
@@ -1208,6 +1213,18 @@ export const Sidebar = ({
     return estado_guia;
   };
 
+  const rol_usuario = useMemo(() => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return null;
+      const base64 = token.split(".")[1];
+      const decoded = JSON.parse(atob(base64));
+      return decoded?.rol ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const [channelFilter, setChannelFilter] = useState("all");
 
   const compareChats = (a, b) => {
@@ -1247,6 +1264,17 @@ export const Sidebar = ({
           }))
         : [],
     [estados_kanban],
+  );
+
+  const asesoresOptions = useMemo(
+    () =>
+      Array.isArray(lista_usuarios)
+        ? lista_usuarios.map((u) => ({
+            value: u.id_sub_usuario ?? u.id,
+            label: u.nombre_encargado ?? u.nombre ?? u.email,
+          }))
+        : [],
+    [lista_usuarios],
   );
 
   return (
@@ -1443,6 +1471,36 @@ export const Sidebar = ({
               styles={selectStyles}
             />
             <Select
+              isClearable
+              options={[
+                { value: "no_leidos", label: "No leídos" },
+                { value: "leidos", label: "Leídos" },
+              ]}
+              value={selectedLectura}
+              onChange={(opt) => setSelectedLectura(opt)}
+              placeholder="Leídos / No leídos"
+              className="w-full"
+              classNamePrefix="react-select"
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : null
+              }
+              styles={selectStyles}
+            />
+            {/* Filtro asesor — solo admins */}
+            {(rol_usuario === "administrador" || rol_usuario === "admin_limitado") && (
+              <Select
+                isClearable
+                options={asesoresOptions}
+                value={selectedAsesor}
+                onChange={(opt) => setSelectedAsesor(opt)}
+                placeholder="Filtrar por asesor"
+                className="w-full"
+                classNamePrefix="react-select"
+                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                styles={selectStyles}
+              />
+            )}
+            <Select
               isMulti
               options={etiquetasOptions}
               value={selectedEtiquetas}
@@ -1556,11 +1614,25 @@ export const Sidebar = ({
                   onClear={() => setSelectedEstado(null)}
                 />
               )}
+              {selectedLectura && (
+                <FilterChip
+                  label={selectedLectura.label}
+                  onClear={() => setSelectedLectura(null)}
+                />
+              )}
+              {selectedAsesor && (
+                <FilterChip
+                  label={`Asesor: ${selectedAsesor.label}`}
+                  onClear={() => setSelectedAsesor(null)}
+                />
+              )}
               {Array.isArray(selectedEtiquetas) &&
                 selectedEtiquetas.length +
                   (selectedNovedad ? 1 : 0) +
                   (selectedTransportadora ? 1 : 0) +
                   (selectedEstado ? 1 : 0) >
+                  (selectedLectura ? 1 : 0) +
+                  (selectedAsesor ? 1 : 0) >
                   0 && (
                   <button
                     type="button"
@@ -1569,6 +1641,8 @@ export const Sidebar = ({
                       setSelectedNovedad(null);
                       setSelectedTransportadora(null);
                       setSelectedEstado([]);
+                      setSelectedLectura(null);
+                      setSelectedAsesor(null);
                     }}
                     className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
                   >
