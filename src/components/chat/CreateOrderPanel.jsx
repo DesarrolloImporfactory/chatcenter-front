@@ -176,7 +176,7 @@ export default function CreateOrderPanel(props) {
     }, 4000);
   }, [canSubmit, isSubmitting, onSubmit]);
 
-  const topProducts = useMemo(() => (prodList || []).slice(0, 5), [prodList]);
+  const topProducts = useMemo(() => (prodList || []).slice(0, 3), [prodList]);
   const getImageOrFallback = (p) => resolveProductImage(p) || NO_IMAGE;
 
   // ── Clases ──
