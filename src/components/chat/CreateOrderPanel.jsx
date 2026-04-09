@@ -706,13 +706,36 @@ export default function CreateOrderPanel(props) {
                       SKU {p?.sku || "—"}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => addProductToCart(p)}
-                    className="px-3 py-1.5 rounded-[7px] bg-emerald-500/[0.12] hover:bg-emerald-500/[0.22] border border-emerald-400/[0.18] text-[10px] font-semibold text-emerald-300 shrink-0 transition-colors"
-                  >
-                    Agregar
-                  </button>
+                  {/* AGREGAR SIMPLE O VARIABLE: */}
+                  {p.type === "VARIABLE" &&
+                  Array.isArray(p.variations) &&
+                  p.variations.length > 0 ? (
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {p.variations.map((v) => {
+                        const label =
+                          v.attribute_values?.map((a) => a.value).join(" / ") ||
+                          v.sku;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => addProductToCart(p, v)}
+                            className="px-2.5 py-1 rounded-[6px] bg-emerald-500/[0.10] hover:bg-emerald-500/[0.22] border border-emerald-400/[0.15] text-[9px] font-semibold text-emerald-300 transition-colors whitespace-nowrap"
+                          >
+                            {label} (stock {v.stock ?? 0})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => addProductToCart(p)}
+                      className="px-3 py-1.5 rounded-[7px] bg-emerald-500/[0.12] hover:bg-emerald-500/[0.22] border border-emerald-400/[0.18] text-[10px] font-semibold text-emerald-300 shrink-0 transition-colors"
+                    >
+                      Agregar
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

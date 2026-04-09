@@ -135,17 +135,55 @@ export const getProductImage = (o) => {
 export const pickSupplierId = (p) =>
   Number(p?.user?.id || p?.user_id || 0) || null;
 
-export const pickWarehouseId = (p) =>
-  Number(
-    p?.warehouse_product?.[0]?.warehouse_id ||
-      p?.warehouse_product?.[0]?.warehouse?.id ||
-      0,
-  ) || null;
+// export const pickWarehouseId = (p) =>
+//   Number(
+//     p?.warehouse_product?.[0]?.warehouse_id ||
+//       p?.warehouse_product?.[0]?.warehouse?.id ||
+//       0,
+//   ) || null;
+
+export const pickWarehouseId = (p) => {
+  // SIMPLE
+  const fromWP =
+    Number(
+      p?.warehouse_product?.[0]?.warehouse_id ||
+        p?.warehouse_product?.[0]?.warehouse?.id ||
+        0,
+    ) || null;
+  if (fromWP) return fromWP;
+  // VARIABLE
+  const fromVar =
+    Number(
+      p?.variations?.[0]?.warehouse_product_variation?.[0]?.warehouse_id ||
+        p?.variations?.[0]?.warehouse_product_variation?.[0]?.warehouse?.id ||
+        0,
+    ) || null;
+  return fromVar;
+};
+
+// export const pickRemitCodDaneFromProduct = (rawProduct) => {
+//   if (!rawProduct) return "";
+//   const cod = rawProduct?.warehouse_product?.[0]?.warehouse?.city?.cod_dane;
+//   return String(cod || "").trim();
+// };
 
 export const pickRemitCodDaneFromProduct = (rawProduct) => {
   if (!rawProduct) return "";
+  // SIMPLE
   const cod = rawProduct?.warehouse_product?.[0]?.warehouse?.city?.cod_dane;
-  return String(cod || "").trim();
+  if (cod) return String(cod).trim();
+  // VARIABLE: fallback a variations
+  if (Array.isArray(rawProduct?.variations)) {
+    for (const v of rawProduct.variations) {
+      if (Array.isArray(v?.warehouse_product_variation)) {
+        for (const wpv of v.warehouse_product_variation) {
+          const c = wpv?.warehouse?.city?.cod_dane;
+          if (c) return String(c).trim();
+        }
+      }
+    }
+  }
+  return "";
 };
 
 export const pickDistributionCompanyFromQuote = (q) => {

@@ -191,7 +191,7 @@ export default function useCreateOrder({
       ciudad_destino_full: fullCityDestino,
       warehouse_city_id: pickWarehouseCityId(raw0),
       products: productsCart.map((p) => ({
-        id: Number(p.id),
+        id: Number(p.product_id || p.id),
         quantity: Number(p.quantity) || 1,
         type: p.type || "SIMPLE",
       })),
@@ -243,8 +243,8 @@ export default function useCreateOrder({
     setSelectedCityCodDane(String(codDane || ""));
   };
 
-  // ── carrito ──
-  const addProductToCart = (p) => {
+  // ── carrito (soporta VARIABLE con variation) ──
+  const addProductToCart = (p, variation = null) => {
     if (!p?.id) return;
 
     const newSupplierId = pickSupplierId(p);
@@ -273,21 +273,28 @@ export default function useCreateOrder({
         }
       }
 
-      const exists = prev.find((x) => Number(x.id) === Number(p.id));
+      // ID único: para VARIABLE usamos producto_variación, para SIMPLE solo id
+      const cartItemId = variation ? `${p.id}_${variation.id}` : p.id;
+
+      const exists = prev.find((x) => String(x.id) === String(cartItemId));
       if (exists) {
         return prev.map((x) =>
-          Number(x.id) === Number(p.id)
+          String(x.id) === String(cartItemId)
             ? { ...x, quantity: Number(x.quantity || 1) + 1 }
             : x,
         );
       }
 
+      // Resolver precios: variation > raíz > variations[0]
       const effectiveSuggested =
+        variation?.suggested_price ??
         p?.suggested_price ??
         (Array.isArray(p?.variations) && p.variations.length
           ? p.variations[0].suggested_price
           : null);
+
       const effectiveSale =
+        variation?.sale_price ??
         p?.sale_price ??
         (Array.isArray(p?.variations) && p.variations.length
           ? p.variations[0].sale_price
@@ -299,14 +306,20 @@ export default function useCreateOrder({
         Number(p?.price) ||
         0;
 
+      // Label de variación para mostrar en carrito
+      const varLabel = variation
+        ? ` - ${variation.attribute_values?.map((a) => a.value).join(" / ") || ""}`
+        : "";
+
       return [
         ...prev,
         {
-          id: p.id,
-          name: p.name,
+          id: cartItemId,
+          product_id: p.id,
+          name: `${p.name}${varLabel}`,
           type: p.type || "SIMPLE",
-          variation_id: null,
-          variations: [],
+          variation_id: variation?.id || null,
+          variations: variation ? [variation] : [],
           quantity: 1,
           price: suggested,
           sale_price: effectiveSale ? String(effectiveSale) : null,
@@ -320,12 +333,12 @@ export default function useCreateOrder({
   };
 
   const removeProductFromCart = (id) => {
-    setProductsCart((prev) => prev.filter((x) => Number(x.id) !== Number(id)));
+    setProductsCart((prev) => prev.filter((x) => String(x.id) !== String(id)));
   };
 
   const updateCartItem = (id, patch) => {
     setProductsCart((prev) =>
-      prev.map((x) => (Number(x.id) === Number(id) ? { ...x, ...patch } : x)),
+      prev.map((x) => (String(x.id) === String(id) ? { ...x, ...patch } : x)),
     );
   };
 
@@ -360,19 +373,15 @@ export default function useCreateOrder({
   // ── helper: quitar código de país ──
   function stripCountryCode(rawPhone) {
     const digits = String(rawPhone || "").replace(/\D/g, "");
-    // Ecuador 593 (10 dígitos locales), Guatemala 502 (8 dígitos locales)
     if (digits.startsWith("593") && digits.length >= 12) return digits.slice(3);
     if (digits.startsWith("502") && digits.length >= 11) return digits.slice(3);
-    // México 52 (10 dígitos locales), Colombia 57 (10 dígitos locales)
     if (digits.startsWith("57") && digits.length >= 12) return digits.slice(2);
     if (digits.startsWith("52") && digits.length >= 12) return digits.slice(2);
-    // Si no matchea ningún patrón, devolver tal cual
     return digits;
   }
 
   // ── fetch historial del cliente cuando hay teléfono O se abre el panel ──
   useEffect(() => {
-    // Solo correr si el panel está abierto
     if (!createOrderOpen) return;
 
     const raw = String(phoneInput || "").replace(/\D/g, "");
@@ -466,7 +475,7 @@ export default function useCreateOrder({
 
     if (noProrateFlete) {
       products = productsCart.map((it) => ({
-        id: Number(it.id),
+        id: Number(it.product_id || it.id),
         name: String(it.name || ""),
         type: it.type || "SIMPLE",
         variation_id: it.variation_id ?? null,
@@ -488,7 +497,7 @@ export default function useCreateOrder({
           Math.round((basePrice + shippingPerUnit) * 100) / 100;
 
         return {
-          id: Number(it.id),
+          id: Number(it.product_id || it.id),
           name: String(it.name || ""),
           type: it.type || "SIMPLE",
           variation_id: it.variation_id ?? null,
