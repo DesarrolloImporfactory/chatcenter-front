@@ -346,7 +346,7 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
                     </span>
                     <div className="flex items-center gap-2.5 shrink-0">
                       <span className="text-gray-400 text-[10px]">
-                        {e.total} resp.
+                        {e.total} encuestas enviadas.
                       </span>
                       <span
                         className={`font-bold text-sm ${(e.promedio || 0) >= 4 ? "text-emerald-600" : (e.promedio || 0) >= 3 ? "text-yellow-500" : "text-red-500"}`}

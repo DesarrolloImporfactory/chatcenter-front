@@ -23,13 +23,38 @@ const ImportarProductosDropi = ({
     return `${CLOUDFRONT_BASE}${String(path).replace(/^\/+/, "")}`;
   };
 
-  const getProductStock = (product) => {
-    if (!Array.isArray(product?.warehouse_product)) return 0;
+  // Reemplazar getProductStock existente + agregar estos 2 helpers
 
+  const getProductStock = (product) => {
+    // Primero intentar variations (productos VARIABLE)
+    if (Array.isArray(product?.variations) && product.variations.length > 0) {
+      return product.variations.reduce(
+        (acc, v) => acc + (Number(v?.stock) || 0),
+        0,
+      );
+    }
+    // Fallback: warehouse_product (productos SIMPLE)
+    if (!Array.isArray(product?.warehouse_product)) return 0;
     return product.warehouse_product.reduce(
       (acc, wp) => acc + (Number(wp?.stock) || 0),
       0,
     );
+  };
+
+  const getProductSalePrice = (product) => {
+    if (product.sale_price != null) return product.sale_price;
+    if (Array.isArray(product?.variations) && product.variations.length > 0) {
+      return product.variations[0].sale_price;
+    }
+    return null;
+  };
+
+  const getProductSuggestedPrice = (product) => {
+    if (product.suggested_price != null) return product.suggested_price;
+    if (Array.isArray(product?.variations) && product.variations.length > 0) {
+      return product.variations[0].suggested_price;
+    }
+    return null;
   };
 
   return (
@@ -114,8 +139,14 @@ const ImportarProductosDropi = ({
                         ID: {p.id} • SKU: {p.sku || "SIN SKU"} • Stock:{stock}
                       </div>
                       <div className="text-sm text-slate-700 mt-1">
-                        Precio Proveedor: <b>{p.sale_price}</b> • Precio
-                        Sugerido: {p.suggested_price}
+                        Precio Proveedor:{" "}
+                        <b>${getProductSalePrice(p) ?? "—"}</b> • Precio
+                        Sugerido: ${getProductSuggestedPrice(p) ?? "—"}
+                        {p.type === "VARIABLE" && (
+                          <span className="ml-1 text-xs text-amber-500 font-medium">
+                            (variable)
+                          </span>
+                        )}
                       </div>
                       <div className="mt-3 flex gap-2">
                         <button
