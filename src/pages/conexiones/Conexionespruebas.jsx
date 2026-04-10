@@ -355,16 +355,18 @@ const Conexiones = () => {
         (response) => {
           (async () => {
             try {
-              const code = response?.authResponse?.code;
-              if (!code) {
+              // Implicit grant → token viene directo, no code
+              const accessToken = response?.authResponse?.accessToken;
+              if (!accessToken) {
                 setAdsConnectingId(null);
                 return;
               }
+
+              // Paso 1: listar ad accounts (mandamos token directo, no code)
               const { data } = await chatApi.post("/meta_ads/conectar", {
-                code,
+                access_token: accessToken,
                 id_configuracion: config.id,
                 id_usuario: userData?.id_usuario,
-                redirect_uri: window.location.origin + "/conexionespruebas",
               });
               if (!data.success && data.step !== "select_account") {
                 setAdsConnectingId(null);
@@ -396,17 +398,19 @@ const Conexiones = () => {
                 setAdsConnectingId(null);
                 return;
               }
+
+              // Paso 2: confirmar
               const { data: confirmData } = await chatApi.post(
                 "/meta_ads/conectar",
                 {
                   id_configuracion: config.id,
                   id_usuario: userData?.id_usuario,
                   ad_account_id: selectedId,
-                  access_token: data._token,
+                  access_token: accessToken,
                 },
               );
               if (confirmData.success) {
-                await fetchConfiguracionAutomatizada(); // refresca todo con 1 sola petición
+                await fetchConfiguracionAutomatizada();
                 Swal.fire(
                   "¡Conectado!",
                   `Cuenta ${confirmData.ad_account_name} vinculada.`,
@@ -428,8 +432,7 @@ const Conexiones = () => {
         },
         {
           config_id: "2166692840537678",
-          response_type: "code",
-          override_default_response_type: true,
+          // Sin response_type ni override — implicit grant da token directo
         },
       );
     },
