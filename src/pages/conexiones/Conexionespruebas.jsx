@@ -364,7 +364,7 @@ const Conexiones = () => {
                 code,
                 id_configuracion: config.id,
                 id_usuario: userData?.id_usuario,
-                redirect_uri: window.location.origin + "/conexiones",
+                redirect_uri: window.location.origin + "/conexionespruebas",
               });
               if (!data.success && data.step !== "select_account") {
                 setAdsConnectingId(null);
@@ -430,7 +430,7 @@ const Conexiones = () => {
           config_id: "2166692840537678",
           response_type: "code",
           override_default_response_type: true,
-          redirect_uri: window.location.origin + "/conexiones",
+          redirect_uri: window.location.origin + "/conexionespruebas",
         },
       );
     },
