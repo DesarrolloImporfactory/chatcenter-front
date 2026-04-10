@@ -427,7 +427,7 @@ const Conexiones = () => {
           })();
         },
         {
-          scope: "ads_read",
+          config_id: "2166692840537678",
           response_type: "code",
           override_default_response_type: true,
           redirect_uri: window.location.origin + "/conexiones",

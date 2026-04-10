@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import Swal from "sweetalert2";
-import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
+import { jwtDecode } from "jwt-decode";
+import { useNavigate } from "react-router-dom";
 
-// ─── Helpers ────────────────────────────────────────────
+// ─── Helpers ───
 
 const fmt = (n, decimals = 0) => {
   if (n == null || isNaN(n)) return "—";
@@ -67,25 +67,25 @@ const presets = [
   { value: "last_month", label: "Mes pasado" },
 ];
 
-// ─── Main Component ─────────────────────────────────────
+// ─── Main ───
 
 const MetaAdsConexion = () => {
   const [userData, setUserData] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     try {
-      const token = localStorage.getItem("token");
-      if (token) setUserData(jwtDecode(token));
+      const t = localStorage.getItem("token");
+      if (t) setUserData(jwtDecode(t));
     } catch {}
   }, []);
 
-  // Connection selector state
+  // Conexiones (meta_ads_conectado viene del SQL)
   const [conexiones, setConexiones] = useState([]);
-  const [adsConnections, setAdsConnections] = useState({});
   const [selectedConfigId, setSelectedConfigId] = useState(null);
   const [loadingConexiones, setLoadingConexiones] = useState(true);
 
-  // Dashboard state
+  // Dashboard
   const [datePreset, setDatePreset] = useState("last_30d");
   const [accountData, setAccountData] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
@@ -93,9 +93,8 @@ const MetaAdsConexion = () => {
   const [dashLoading, setDashLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const [connectingId, setConnectingId] = useState(null);
 
-  // Load conexiones + ads status
+  // Cargar conexiones
   const fetchConexiones = useCallback(async () => {
     if (!userData?.id_usuario) return;
     setLoadingConexiones(true);
@@ -110,28 +109,12 @@ const MetaAdsConexion = () => {
       const configs = data.data || [];
       setConexiones(configs);
 
-      const adsMap = {};
-      await Promise.all(
-        configs.map(async (c) => {
-          try {
-            const { data: adRes } = await chatApi.get("/meta_ads/conexion", {
-              params: { id_configuracion: c.id },
-            });
-            if (adRes.connected) adsMap[c.id] = adRes.data;
-          } catch {}
-        }),
-      );
-      setAdsConnections(adsMap);
-
-      // Auto-select: prefer from localStorage, then first connected, then first
       const lsConfig = Number(localStorage.getItem("id_configuracion"));
-      const connectedIds = Object.keys(adsMap).map(Number);
       if (lsConfig && configs.some((c) => c.id === lsConfig)) {
         setSelectedConfigId(lsConfig);
-      } else if (connectedIds.length > 0) {
-        setSelectedConfigId(connectedIds[0]);
-      } else if (configs.length > 0) {
-        setSelectedConfigId(configs[0].id);
+      } else {
+        const withAds = configs.find((c) => Number(c.meta_ads_conectado) === 1);
+        setSelectedConfigId(withAds?.id || configs[0]?.id || null);
       }
     } catch (err) {
       console.error("Error loading conexiones:", err);
@@ -144,14 +127,13 @@ const MetaAdsConexion = () => {
     fetchConexiones();
   }, [fetchConexiones]);
 
+  // Derived
   const selectedConfig = useMemo(
     () => conexiones.find((c) => c.id === selectedConfigId) || null,
     [conexiones, selectedConfigId],
   );
-  const selectedAds = selectedConfigId
-    ? adsConnections[selectedConfigId] || null
-    : null;
-  const isAdsConnected = !!selectedAds;
+  const isAdsConnected = Number(selectedConfig?.meta_ads_conectado) === 1;
+  const adsAccountName = selectedConfig?.meta_ads_account_name || null;
 
   // Fetch dashboard
   const fetchDashboard = useCallback(async () => {
@@ -159,7 +141,6 @@ const MetaAdsConexion = () => {
     try {
       setDashLoading(true);
       setHasFetched(true);
-
       const [acctRes, campRes, adsRes] = await Promise.all([
         chatApi.get("/meta_ads/insights/account", {
           params: {
@@ -181,7 +162,6 @@ const MetaAdsConexion = () => {
           },
         }),
       ]);
-
       setAccountData(acctRes.data.success ? acctRes.data.data : null);
       setCampaigns(campRes.data.success ? campRes.data.data || [] : []);
       setTopAds(adsRes.data.success ? adsRes.data.data || [] : []);
@@ -192,142 +172,7 @@ const MetaAdsConexion = () => {
     }
   }, [selectedConfigId, isAdsConnected, datePreset]);
 
-  // Connect
-  const handleConnect = useCallback(() => {
-    if (!window.FB || !selectedConfigId || !userData) return;
-    setConnectingId(selectedConfigId);
-
-    window.FB.login(
-      (response) => {
-        (async () => {
-          try {
-            const code = response?.authResponse?.code;
-            if (!code) {
-              setConnectingId(null);
-              return;
-            }
-
-            const { data } = await chatApi.post("/meta_ads/conectar", {
-              code,
-              id_configuracion: selectedConfigId,
-              id_usuario: userData.id_usuario,
-              redirect_uri: window.location.origin + "/conexiones",
-            });
-
-            if (!data.success && data.step !== "select_account") {
-              setConnectingId(null);
-              return Swal.fire("Error", data.message, "error");
-            }
-
-            const accounts = data.accounts || [];
-            if (!accounts.length) {
-              setConnectingId(null);
-              return Swal.fire(
-                "Sin cuentas",
-                "No se encontraron cuentas publicitarias.",
-                "info",
-              );
-            }
-
-            const inputOptions = {};
-            for (const a of accounts) {
-              inputOptions[a.ad_account_id] =
-                `${a.name} (${a.currency}) — ${a.ad_account_id}`;
-            }
-
-            const { value: selectedId } = await Swal.fire({
-              title: "Selecciona tu cuenta de Ads",
-              input: "select",
-              inputOptions,
-              inputPlaceholder: "Elige una cuenta publicitaria",
-              showCancelButton: true,
-              confirmButtonText: "Conectar",
-              confirmButtonColor: "#4f46e5",
-            });
-
-            if (!selectedId) {
-              setConnectingId(null);
-              return;
-            }
-
-            const { data: confirmData } = await chatApi.post(
-              "/meta_ads/conectar",
-              {
-                id_configuracion: selectedConfigId,
-                id_usuario: userData.id_usuario,
-                ad_account_id: selectedId,
-                access_token: data._token,
-              },
-            );
-
-            if (confirmData.success) {
-              setAdsConnections((prev) => ({
-                ...prev,
-                [selectedConfigId]: {
-                  ad_account_id: selectedId,
-                  ad_account_name: confirmData.ad_account_name,
-                },
-              }));
-              Swal.fire(
-                "¡Conectado!",
-                `Cuenta ${confirmData.ad_account_name} vinculada.`,
-                "success",
-              );
-            } else {
-              Swal.fire("Error", confirmData.message, "error");
-            }
-          } catch (err) {
-            Swal.fire(
-              "Error",
-              err?.response?.data?.message || err.message,
-              "error",
-            );
-          } finally {
-            setConnectingId(null);
-          }
-        })();
-      },
-      {
-        scope: "ads_read",
-        response_type: "code",
-        override_default_response_type: true,
-        redirect_uri: window.location.origin + "/conexiones",
-      },
-    );
-  }, [selectedConfigId, userData]);
-
-  // Disconnect
-  const handleDisconnect = useCallback(async () => {
-    if (!selectedConfigId) return;
-    const ask = await Swal.fire({
-      title: "Desconectar Meta Ads",
-      text: "Ya no verás las métricas de esta cuenta.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Desconectar",
-      confirmButtonColor: "#ef4444",
-    });
-    if (!ask.isConfirmed) return;
-
-    await chatApi.post("/meta_ads/desconectar", {
-      id_configuracion: selectedConfigId,
-    });
-    setAdsConnections((prev) => {
-      const n = { ...prev };
-      delete n[selectedConfigId];
-      return n;
-    });
-    setAccountData(null);
-    setCampaigns([]);
-    setTopAds([]);
-    setHasFetched(false);
-  }, [selectedConfigId]);
-
-  // ══════════════════════════════════════
-  // RENDER
-  // ══════════════════════════════════════
-
-  const currency = selectedAds?.currency || "USD";
+  const currency = accountData?.currency || "USD";
   const d = accountData || {};
 
   return (
@@ -361,11 +206,11 @@ const MetaAdsConexion = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            {selectedAds && (
+            {isAdsConnected && adsAccountName && (
               <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-[11px] text-white font-medium">
-                  {selectedAds.ad_account_name || selectedAds.ad_account_id}
+                  {adsAccountName}
                 </span>
               </div>
             )}
@@ -406,8 +251,8 @@ const MetaAdsConexion = () => {
                       {c.nombre_configuracion ||
                         c.telefono ||
                         `Config #${c.id}`}
-                      {adsConnections[c.id]
-                        ? ` — ✓ ${adsConnections[c.id].ad_account_name || "Ads"}`
+                      {Number(c.meta_ads_conectado) === 1
+                        ? ` — ✓ ${c.meta_ads_account_name || "Ads"}`
                         : " — Sin Ads"}
                     </option>
                   ))}
@@ -438,57 +283,27 @@ const MetaAdsConexion = () => {
               </div>
             </div>
 
-            {/* Action */}
+            {/* Action — solo Consultar si está conectado */}
             {isAdsConnected ? (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={fetchDashboard}
-                  disabled={dashLoading}
-                  className="h-[42px] shrink-0 rounded-xl px-6 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
-                  }}
-                >
-                  {dashLoading ? (
-                    <span className="inline-flex items-center gap-2">
-                      <i className="bx bx-loader-alt animate-spin" />{" "}
-                      Cargando...
-                    </span>
-                  ) : (
-                    "Consultar"
-                  )}
-                </button>
-                <button
-                  onClick={handleDisconnect}
-                  className="h-[42px] shrink-0 rounded-xl px-3 text-sm font-semibold text-rose-600 bg-rose-50 ring-1 ring-rose-200 hover:bg-rose-100 transition"
-                  title="Desconectar Ads"
-                >
-                  <i className="bx bx-unlink" />
-                </button>
-              </div>
+              <button
+                onClick={fetchDashboard}
+                disabled={dashLoading}
+                className="h-[42px] shrink-0 rounded-xl px-6 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 bg-gradient-to-r from-indigo-600 to-indigo-700"
+              >
+                {dashLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <i className="bx bx-loader-alt animate-spin" /> Cargando...
+                  </span>
+                ) : (
+                  "Consultar"
+                )}
+              </button>
             ) : (
               <button
-                onClick={handleConnect}
-                disabled={
-                  connectingId === selectedConfigId || !selectedConfigId
-                }
-                className="h-[42px] shrink-0 rounded-xl px-6 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 inline-flex items-center gap-2"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
-                }}
+                onClick={() => navigate("/conexiones")}
+                className="h-[42px] shrink-0 rounded-xl px-5 text-sm font-semibold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition inline-flex items-center gap-2"
               >
-                {connectingId === selectedConfigId ? (
-                  <>
-                    <i className="bx bx-loader-alt animate-spin" />{" "}
-                    Conectando...
-                  </>
-                ) : (
-                  <>
-                    <i className="bx bxl-meta" /> Conectar Meta Ads
-                  </>
-                )}
+                <i className="bx bx-link-external" /> Ir a Conexiones
               </button>
             )}
           </div>
@@ -504,8 +319,8 @@ const MetaAdsConexion = () => {
             )}
             {!isAdsConnected && selectedConfigId && (
               <span className="inline-flex items-center gap-1.5 text-amber-600 font-medium">
-                <i className="bx bx-info-circle" /> Conecta Meta Ads para ver
-                métricas
+                <i className="bx bx-info-circle" /> Esta conexión no tiene Meta
+                Ads vinculado. Conéctalo desde la vista de Conexiones.
               </span>
             )}
           </div>
@@ -592,7 +407,16 @@ const MetaAdsConexion = () => {
                       <strong className="text-indigo-600">Consultar</strong>
                     </>
                   ) : (
-                    <>Conecta tu cuenta de Meta Ads para empezar</>
+                    <>
+                      Conecta Meta Ads desde{" "}
+                      <strong
+                        className="text-indigo-600 cursor-pointer"
+                        onClick={() => navigate("/conexiones")}
+                      >
+                        Conexiones
+                      </strong>{" "}
+                      para empezar
+                    </>
                   )}
                 </span>
               </div>
@@ -615,9 +439,6 @@ const MetaAdsConexion = () => {
             </div>
             <p className="text-sm font-semibold text-slate-700">
               Consultando métricas desde Meta...
-            </p>
-            <p className="text-xs text-slate-400 mt-1.5">
-              Esto puede tomar unos segundos
             </p>
             <style>{`@keyframes pulse { 0%,100% { opacity:0.2; transform:scale(0.8); } 50% { opacity:1; transform:scale(1.2); } }`}</style>
           </div>
@@ -927,9 +748,7 @@ const MetaAdsConexion = () => {
 
             <div className="text-center pt-6 pb-2 border-t border-slate-200 mt-4">
               <p className="text-[10px] text-slate-400">
-                Datos de Meta Marketing API ·{" "}
-                {selectedAds?.ad_account_name || selectedAds?.ad_account_id} ·{" "}
-                {currency}
+                Meta Marketing API · {adsAccountName} · {currency}
               </p>
             </div>
           </>
