@@ -84,7 +84,7 @@ import Dropiboard from "./pages/dropi/Dropiboard";
 import SelectorHerramienta from "./pages/selectorHerramienta/selectorHerramienta";
 import ForgotPassword from "./pages/login/ForgotPassword";
 import EncuestasView from "./pages/encuestas/EncuestasView";
-import MetaAdsConexion from "./components/metaAsd/MetaAdsConexion";
+import Adsboard from "./components/metaAsd/Adsboard";
 
 function App() {
   const location = useLocation();
@@ -189,7 +189,7 @@ function App() {
                   path="/adsboard"
                   element={
                     <MainLayout_conexiones>
-                      <MetaAdsConexion />
+                      <Adsboard />
                     </MainLayout_conexiones>
                   }
                 />

@@ -355,16 +355,14 @@ const Conexiones = () => {
         (response) => {
           (async () => {
             try {
-              // Implicit grant → token viene directo, no code
-              const accessToken = response?.authResponse?.accessToken;
-              if (!accessToken) {
+              const code = response?.authResponse?.code;
+              if (!code) {
                 setAdsConnectingId(null);
                 return;
               }
 
-              // Paso 1: listar ad accounts (mandamos token directo, no code)
               const { data } = await chatApi.post("/meta_ads/conectar", {
-                access_token: accessToken,
+                code,
                 id_configuracion: config.id,
                 id_usuario: userData?.id_usuario,
               });
@@ -399,14 +397,13 @@ const Conexiones = () => {
                 return;
               }
 
-              // Paso 2: confirmar
               const { data: confirmData } = await chatApi.post(
                 "/meta_ads/conectar",
                 {
                   id_configuracion: config.id,
                   id_usuario: userData?.id_usuario,
                   ad_account_id: selectedId,
-                  access_token: accessToken,
+                  access_token: data._token,
                 },
               );
               if (confirmData.success) {
@@ -431,8 +428,9 @@ const Conexiones = () => {
           })();
         },
         {
-          config_id: "2166692840537678",
-          // Sin response_type ni override — implicit grant da token directo
+          config_id: "4254210594844123",
+          response_type: "code",
+          override_default_response_type: true,
         },
       );
     },
@@ -1783,20 +1781,6 @@ const Conexiones = () => {
                             </HoverPopover>
                           </div>
                           <div className="flex items-center gap-2">
-                            {adsConectado && (
-                              <button
-                                type="button"
-                                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-orange-700 bg-orange-50 ring-1 ring-orange-200 hover:bg-orange-100 transition"
-                                onClick={() => {
-                                  setActiveConfig(config);
-                                  navigate("/meta_ads_dashboard");
-                                }}
-                                title="Ver dashboard de Ads"
-                              >
-                                <i className="bx bxs-bar-chart-alt-2 text-lg" />
-                                Ads
-                              </button>
-                            )}
                             <button
                               type="button"
                               className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-b from-emerald-700 to-emerald-500 ring-1 ring-emerald-500/30 hover:brightness-110 transition"
