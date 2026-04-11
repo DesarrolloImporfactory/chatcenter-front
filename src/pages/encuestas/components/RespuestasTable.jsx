@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { ScoreDisplay } from "./SharedComponents";
 import { SOURCE_STYLES } from "../utils/encuestasConstants";
+import chatApi from "../../../api/chatcenter";
+import Swal from "sweetalert2";
 
 const CHAT_ROUTE = "/chat";
 
@@ -14,6 +16,7 @@ export default function RespuestasTable({
   onPageChange,
   busqueda,
   onBusqueda,
+  onRefresh, // ← nuevo prop para refrescar después de resolver
 }) {
   const [expandedId, setExpandedId] = useState(null);
 
@@ -23,11 +26,60 @@ export default function RespuestasTable({
     if (r.id_configuracion) {
       localStorage.setItem("id_configuracion", String(r.id_configuracion));
     }
-    const url = `${window.location.origin}${CHAT_ROUTE}/${chatId}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(
+      `${window.location.origin}${CHAT_ROUTE}/${chatId}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
-  // Parsear datos una sola vez
+  const handleResolver = async (r) => {
+    // Si ya está resuelto, solo mostrar info
+    if (r.escalado_resuelto) {
+      Swal.fire({
+        icon: "info",
+        title: "Caso resuelto",
+        html: `<p class="text-sm text-gray-600 mb-2">${r.resolucion_comentario}</p>
+               <p class="text-xs text-gray-400">${new Date(r.resolucion_fecha).toLocaleString("es-EC")}</p>`,
+      });
+      return;
+    }
+
+    const { value: comentario } = await Swal.fire({
+      title: "Resolver caso escalado",
+      html: `<p class="text-sm text-gray-500 mb-2">Cliente: <b>${r.nombre || "—"}</b></p>`,
+      input: "textarea",
+      inputPlaceholder: "Describe cómo se resolvió el caso...",
+      inputAttributes: { style: "font-size:13px" },
+      showCancelButton: true,
+      confirmButtonText: "Resolver",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#10b981",
+      inputValidator: (v) => !v?.trim() && "Escribe un comentario",
+    });
+
+    if (!comentario) return;
+
+    try {
+      await chatApi.patch(`encuestas/respuesta/${r.id}/resolver`, {
+        comentario,
+      });
+      Swal.fire({
+        icon: "success",
+        title: "Caso resuelto",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+      onRefresh?.();
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.response?.data?.message || err.message,
+      });
+    }
+  };
+
   const parsed = useMemo(() => {
     return respuestas.map((r) => {
       let respJson = {};
@@ -64,12 +116,6 @@ export default function RespuestasTable({
       <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
         <i className="bx bx-inbox text-4xl text-gray-300 mb-2" />
         <p className="text-sm text-gray-400">Aún no hay respuestas</p>
-        {enc.tipo === "webhook_lead" && (
-          <p className="text-xs text-gray-300 mt-1">
-            Configura tu formulario para enviar datos al webhook y las
-            respuestas aparecerán aquí
-          </p>
-        )}
       </div>
     );
   }
@@ -189,6 +235,18 @@ export default function RespuestasTable({
                             : `+${entries.length - 3} más`}
                         </button>
                       )}
+                      {/* ── Resolución visible si ya fue resuelta ── */}
+                      {r.escalado === 1 && r.escalado_resuelto === 1 && (
+                        <div className="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                          <p className="text-[10px] font-bold text-emerald-700 mb-0.5">
+                            <i className="bx bx-check-circle mr-1" />
+                            Resuelto
+                          </p>
+                          <p className="text-[10px] text-emerald-600">
+                            {r.resolucion_comentario}
+                          </p>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -197,9 +255,21 @@ export default function RespuestasTable({
                         {r.source}
                       </span>
                       {r.escalado === 1 && (
-                        <span className="ml-1 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">
-                          Escalado
-                        </span>
+                        <button
+                          onClick={() => handleResolver(r)}
+                          className={`ml-1 text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors ${
+                            r.escalado_resuelto
+                              ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                              : "bg-red-50 text-red-600 hover:bg-red-100"
+                          }`}
+                        >
+                          <i
+                            className={`bx ${r.escalado_resuelto ? "bx-check-circle" : "bx-error"} mr-0.5`}
+                          />
+                          {r.escalado_resuelto
+                            ? "Resuelto"
+                            : "Escalado — Resolver"}
+                        </button>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
@@ -219,9 +289,8 @@ export default function RespuestasTable({
                       <button
                         onClick={() => openChat(r)}
                         disabled={!r.id_cliente_chat_center}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm hover:bg-amber-600 focus:outline-none focus:ring-4 focus:ring-amber-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm hover:bg-amber-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
                         title="Abrir chat"
-                        aria-label="Abrir chat"
                       >
                         <i className="bx bxs-chat text-[15px]" />
                       </button>
@@ -234,7 +303,6 @@ export default function RespuestasTable({
         </table>
       </div>
 
-      {/* Paginación */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
           <span className="text-[10px] text-gray-400">{total} resultados</span>
@@ -242,7 +310,7 @@ export default function RespuestasTable({
             <button
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 1}
-              className="px-2.5 py-1 rounded text-xs bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+              className="px-2.5 py-1 rounded text-xs bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-30"
             >
               Ant.
             </button>
@@ -252,7 +320,7 @@ export default function RespuestasTable({
             <button
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages}
-              className="px-2.5 py-1 rounded text-xs bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+              className="px-2.5 py-1 rounded text-xs bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-30"
             >
               Sig.
             </button>

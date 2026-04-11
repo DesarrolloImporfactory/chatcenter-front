@@ -379,19 +379,27 @@ const Conexiones = () => {
                   "info",
                 );
               }
-              const inputOptions = {};
-              for (const a of accounts)
-                inputOptions[a.ad_account_id] =
-                  `${a.name} (${a.currency}) — ${a.ad_account_id}`;
-              const { value: selectedId } = await Swal.fire({
-                title: "Selecciona tu cuenta de Ads",
-                input: "select",
-                inputOptions,
-                inputPlaceholder: "Elige una cuenta publicitaria",
-                showCancelButton: true,
-                confirmButtonText: "Conectar",
-                confirmButtonColor: "#4f46e5",
-              });
+
+              // Auto-selección si solo hay 1 cuenta
+              let selectedId;
+              if (accounts.length === 1) {
+                selectedId = accounts[0].ad_account_id;
+              } else {
+                const inputOptions = {};
+                for (const a of accounts)
+                  inputOptions[a.ad_account_id] =
+                    `${a.name} (${a.currency}) — ${a.ad_account_id}`;
+                const result = await Swal.fire({
+                  title: "Selecciona tu cuenta de Ads",
+                  input: "select",
+                  inputOptions,
+                  inputPlaceholder: "Elige una cuenta publicitaria",
+                  showCancelButton: true,
+                  confirmButtonText: "Conectar",
+                  confirmButtonColor: "#4f46e5",
+                });
+                selectedId = result.value;
+              }
               if (!selectedId) {
                 setAdsConnectingId(null);
                 return;

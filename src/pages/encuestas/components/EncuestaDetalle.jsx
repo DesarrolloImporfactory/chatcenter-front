@@ -390,6 +390,10 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
           onPageChange={(p) => fetchRespuestas(p, filtroEstado, busqueda)}
           busqueda={busqueda}
           onBusqueda={handleBusqueda}
+          onRefresh={() => {
+            fetchRespuestas(page, filtroEstado, busqueda);
+            fetchStats();
+          }}
         />
       )}
 

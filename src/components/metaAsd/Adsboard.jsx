@@ -378,13 +378,6 @@ const Adsboard = () => {
             {activeTab === "top-ads" && (
               <AdsboardTopAdsTable topAds={topAds} currency={currency} />
             )}
-
-            <div className="text-center pt-6 pb-2 border-t border-slate-200 mt-4">
-              <p className="text-[10px] text-slate-400">
-                Meta Marketing API · {adsAccountName} · {currency} ·{" "}
-                {dateRange.since} al {dateRange.until}
-              </p>
-            </div>
           </>
         )}
 

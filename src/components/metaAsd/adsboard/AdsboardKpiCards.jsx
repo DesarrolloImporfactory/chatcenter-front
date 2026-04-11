@@ -4,12 +4,12 @@ import React, { useState, useMemo } from "react";
  * AdsboardKpiCards
  *
  * Panel visual profesional con métricas de Meta Ads.
- * Diseñado para que cualquier persona entienda sus campañas:
+ * Diseño limpio con tarjetas blancas, acentos sutiles y gauge de ROAS.
  *
- * Sección 1 — Hero KPIs: las 4 métricas más importantes en grande
- * Sección 2 — Embudo: visualiza cómo Impresiones → Clics → Leads → Compras
- * Sección 3 — Eficiencia: CPA, CTR, CPC con barras visuales
- * Sección 4 — Conversiones: registros, WhatsApp, add to cart
+ * Sección 1 — Hero KPIs: Gasto, Revenue, Compras + ROAS gauge
+ * Sección 2 — Embudo: Impresiones → Clics → Leads → Compras
+ * Sección 3 — Eficiencia: CPA, CTR, CPC, CPM con barras
+ * Sección 4 — Conversiones: WhatsApp, Registros, Leads, Add to Cart
  */
 
 const fmt = (n, dec = 0) => {
@@ -48,7 +48,7 @@ const Tip = ({ text, children }) => {
     >
       {children}
       {show && (
-        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 px-3 py-2 rounded-lg bg-slate-900 text-white text-[11px] leading-relaxed shadow-lg pointer-events-none">
+        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1 w-60 px-3 py-2 rounded-lg bg-slate-900 text-white text-[11px] leading-relaxed shadow-lg">
           {text}
           <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-2 h-2 rotate-45 bg-slate-900" />
         </span>
@@ -57,31 +57,89 @@ const Tip = ({ text, children }) => {
   );
 };
 
-/* ── Hero Card ── */
-const HeroCard = ({ icon, label, value, sub, gradient, tooltip }) => (
-  <div
-    className="relative overflow-hidden rounded-2xl p-5 text-white"
-    style={{ background: gradient }}
-  >
-    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -mr-8 -mt-8 blur-xl" />
-    <div className="relative">
-      <div className="flex items-center gap-2 text-white/80 text-xs mb-2">
-        <i className={`bx ${icon} text-sm`} />
-        <span>{label}</span>
+/* ── Hero Stat Card (limpio, blanco, acento lateral) ── */
+const HeroStat = ({ icon, label, value, sub, accentColor, tooltip }) => (
+  <div className="relative rounded-xl bg-white ring-1 ring-slate-200 px-4 py-4 min-h-[100px] flex flex-col justify-center hover:shadow-sm transition">
+    <div
+      className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full"
+      style={{ background: accentColor }}
+    />
+    <div className="pl-2.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
+        <div
+          className="w-6 h-6 rounded-md grid place-items-center"
+          style={{ background: `${accentColor}12` }}
+        >
+          <i className={`bx ${icon} text-sm`} style={{ color: accentColor }} />
+        </div>
+        <span className="font-medium">{label}</span>
         {tooltip && (
           <Tip text={tooltip}>
-            <i className="bx bx-help-circle text-white/50 cursor-help text-[13px]" />
+            <i className="bx bx-help-circle text-slate-400 cursor-help text-[12px]" />
           </Tip>
         )}
       </div>
-      <div className="text-2xl font-extrabold tracking-tight">{value}</div>
+      <div className="text-xl font-extrabold text-slate-900 tracking-tight">
+        {value}
+      </div>
       {sub && (
-        <div className="text-xs text-white/70 mt-1 font-medium">{sub}</div>
+        <div
+          className="text-[10px] mt-0.5 font-medium"
+          style={{ color: accentColor }}
+        >
+          {sub}
+        </div>
       )}
     </div>
   </div>
 );
+/* ── ROAS Gauge ── */
+const RoasGauge = ({ roas }) => {
+  const r = Number(roas) || 0;
+  const pct = Math.min((r / 5) * 100, 100);
+  const color =
+    r >= 3 ? "#059669" : r >= 2 ? "#2563eb" : r >= 1 ? "#f59e0b" : "#ef4444";
+  const label =
+    r >= 3 ? "Excelente" : r >= 2 ? "Rentable" : r >= 1 ? "Bajo" : "Crítico";
+  const radius = 24;
+  const circ = 2 * Math.PI * radius;
+  const offset = circ - (pct / 100) * circ * 0.75;
 
+  return (
+    <div className="flex items-center gap-3">
+      <svg width="58" height="40" viewBox="0 0 58 42">
+        <path
+          d="M 5 38 A 24 24 0 1 1 53 38"
+          fill="none"
+          stroke="#e2e8f0"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 5 38 A 24 24 0 1 1 53 38"
+          fill="none"
+          stroke={color}
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={circ * 0.75}
+          strokeDashoffset={offset}
+          className="transition-all duration-1000"
+        />
+      </svg>
+      <div className="flex flex-col">
+        <span
+          className="text-xl font-extrabold tracking-tight"
+          style={{ color }}
+        >
+          {fmt(r, 2)}x
+        </span>
+        <span className="text-[10px] font-semibold" style={{ color }}>
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+};
 /* ── Funnel Step ── */
 const FunnelStep = ({ label, value, pct, color, icon, tooltip }) => (
   <div className="flex-1 min-w-0">
@@ -126,10 +184,7 @@ const MetricRow = ({ icon, label, value, bar, barColor, tooltip }) => (
       <div className="mt-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-700"
-          style={{
-            width: `${Math.min(bar, 100)}%`,
-            background: barColor,
-          }}
+          style={{ width: `${Math.min(bar, 100)}%`, background: barColor }}
         />
       </div>
     </div>
@@ -139,69 +194,7 @@ const MetricRow = ({ icon, label, value, bar, barColor, tooltip }) => (
   </div>
 );
 
-/* ── ROAS Gauge ── */
-const RoasGauge = ({ roas }) => {
-  const r = Number(roas) || 0;
-  const pct = Math.min((r / 5) * 100, 100);
-  const color =
-    r >= 3 ? "#059669" : r >= 2 ? "#2563eb" : r >= 1 ? "#f59e0b" : "#ef4444";
-  const label =
-    r >= 3 ? "Excelente" : r >= 2 ? "Rentable" : r >= 1 ? "Bajo" : "Crítico";
-  const radius = 54;
-  const circ = 2 * Math.PI * radius;
-  const offset = circ - (pct / 100) * circ * 0.75; // 270° arc
-
-  return (
-    <div className="flex flex-col items-center">
-      <svg width="130" height="100" viewBox="0 0 130 110">
-        {/* Track */}
-        <path
-          d="M 15 95 A 54 54 0 1 1 115 95"
-          fill="none"
-          stroke="#e2e8f0"
-          strokeWidth="10"
-          strokeLinecap="round"
-        />
-        {/* Value */}
-        <path
-          d="M 15 95 A 54 54 0 1 1 115 95"
-          fill="none"
-          stroke={color}
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={circ * 0.75}
-          strokeDashoffset={offset}
-          className="transition-all duration-1000"
-        />
-        <text
-          x="65"
-          y="68"
-          textAnchor="middle"
-          className="text-2xl font-extrabold"
-          fill={color}
-          fontSize="26"
-          fontWeight="800"
-        >
-          {fmt(r, 2)}x
-        </text>
-        <text
-          x="65"
-          y="88"
-          textAnchor="middle"
-          fill="#64748b"
-          fontSize="11"
-          fontWeight="600"
-        >
-          {label}
-        </text>
-      </svg>
-    </div>
-  );
-};
-
-/* ══════════════════════════════════════════════
-   MAIN COMPONENT
-   ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════ */
 
 export default function AdsboardKpiCards({ data, currency = "USD" }) {
   const d = data || {};
@@ -215,7 +208,6 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
   const leads = Number(d.leads) || 0;
   const ctr = Number(d.ctr) || 0;
 
-  // Funnel percentages (relative to impressions)
   const funnel = useMemo(() => {
     if (!impressions) return { clicks: 0, leads: 0, purchases: 0 };
     return {
@@ -232,27 +224,27 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
       {/* ═══════════════════════════════════
           SECCIÓN 1: Hero KPIs
       ═══════════════════════════════════ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <HeroCard
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <HeroStat
           icon="bx-dollar-circle"
           label="Gasto total"
           value={fmtCurrency(spend, currency)}
-          gradient="linear-gradient(135deg, #ef4444, #dc2626)"
+          accentColor="#ef4444"
           tooltip="Total invertido en anuncios de Meta (Facebook + Instagram) durante el período seleccionado."
         />
-        <HeroCard
+        <HeroStat
           icon="bx-trending-up"
           label="Revenue"
           value={fmtCurrency(revenue, currency)}
           sub={
             profit >= 0
-              ? `+${fmtCurrency(profit, currency)} beneficio`
-              : `${fmtCurrency(profit, currency)} pérdida`
+              ? `+${fmtCurrency(profit, currency)} neto`
+              : `${fmtCurrency(profit, currency)} neto`
           }
-          gradient="linear-gradient(135deg, #059669, #047857)"
-          tooltip="Valor total de las ventas atribuidas a tus anuncios. Se calcula con los eventos de compra del pixel o API de conversiones."
+          accentColor="#059669"
+          tooltip="Valor total de las ventas atribuidas a tus anuncios, vía pixel o API de conversiones."
         />
-        <HeroCard
+        <HeroStat
           icon="bx-cart"
           label="Compras"
           value={fmt(purchases)}
@@ -261,19 +253,32 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               ? `CPA: ${fmtCurrency(d.cpa_purchase, currency)}`
               : null
           }
-          gradient="linear-gradient(135deg, #7c3aed, #6d28d9)"
-          tooltip="Ventas completadas atribuidas a tus anuncios. El CPA (Costo por Adquisición) indica cuánto cuesta cada venta."
+          accentColor="#7c3aed"
+          tooltip="Ventas completadas atribuidas a tus anuncios. El CPA indica cuánto cuesta cada venta."
         />
-        {/* ROAS Hero con gauge */}
-        <div className="relative overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200 p-4 flex flex-col items-center justify-center">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
-            <i className="bx bx-target-lock text-sm" />
-            <span>ROAS</span>
-            <Tip text="Return On Ad Spend — por cada $1 que inviertes en ads, cuántos dólares generas en ventas. ROAS 3x = $3 por cada $1 invertido.">
-              <i className="bx bx-help-circle text-slate-400 cursor-help text-[13px]" />
-            </Tip>
+        <HeroStat
+          icon="bx-show"
+          label="Impresiones"
+          value={fmtCompact(impressions)}
+          sub={`${fmtCompact(clicks)} clics`}
+          accentColor="#3b82f6"
+          tooltip="Cuántas veces se mostraron tus anuncios en pantalla."
+        />
+        {/* ROAS */}
+        <div className="relative rounded-xl bg-white ring-1 ring-slate-200 px-4 py-4 min-h-[100px] flex flex-col justify-center hover:shadow-sm transition">
+          <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-indigo-500" />
+          <div className="pl-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
+              <div className="w-6 h-6 rounded-md grid place-items-center bg-indigo-500/10">
+                <i className="bx bx-target-lock text-sm text-indigo-500" />
+              </div>
+              <span className="font-medium">ROAS</span>
+              <Tip text="Return On Ad Spend — por cada $1 invertido en ads, cuántos dólares generas. ROAS 3x = $3 por cada $1.">
+                <i className="bx bx-help-circle text-slate-400 cursor-help text-[12px]" />
+              </Tip>
+            </div>
+            <RoasGauge roas={roas} />
           </div>
-          <RoasGauge roas={roas} />
         </div>
       </div>
 
@@ -290,7 +295,6 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             <i className="bx bx-help-circle text-slate-400 cursor-help text-[13px]" />
           </Tip>
         </div>
-
         <div className="flex gap-3 items-end">
           <FunnelStep
             label="Impresiones"
@@ -298,7 +302,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             pct={100}
             color="#6366f1"
             icon="bx-show"
-            tooltip="Cuántas veces se mostraron tus anuncios en pantalla. Una persona puede ver tu anuncio más de una vez."
+            tooltip="Cuántas veces se mostraron tus anuncios en pantalla."
           />
           <div className="shrink-0 text-slate-300 pb-6">
             <i className="bx bx-chevron-right" />
@@ -309,7 +313,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             pct={funnel.clicks}
             color="#3b82f6"
             icon="bx-pointer"
-            tooltip="Personas que hicieron clic en tu anuncio. El CTR (Click-Through Rate) indica qué tan atractivo es tu anuncio."
+            tooltip="Personas que hicieron clic. El CTR indica qué tan atractivo es tu anuncio."
           />
           <div className="shrink-0 text-slate-300 pb-6">
             <i className="bx bx-chevron-right" />
@@ -320,7 +324,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             pct={funnel.leads}
             color="#f59e0b"
             icon="bx-user-plus"
-            tooltip="Contactos potenciales que dejaron sus datos (formularios, registros). No todos los leads llegan a comprar."
+            tooltip="Contactos potenciales que dejaron datos. No todos llegan a comprar."
           />
           <div className="shrink-0 text-slate-300 pb-6">
             <i className="bx bx-chevron-right" />
@@ -331,7 +335,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             pct={funnel.purchases}
             color="#059669"
             icon="bx-cart"
-            tooltip="Ventas completadas. Este es el paso final del embudo — tu objetivo principal."
+            tooltip="Ventas completadas — tu objetivo principal."
           />
         </div>
       </div>
@@ -340,7 +344,6 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
           SECCIÓN 3 + 4: Eficiencia + Conversiones
       ═══════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Eficiencia */}
         <div className="rounded-2xl ring-1 ring-slate-200 bg-white p-5">
           <div className="flex items-center gap-2 mb-3">
             <i className="bx bx-tachometer text-indigo-600" />
@@ -348,7 +351,6 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               Eficiencia publicitaria
             </span>
           </div>
-
           <MetricRow
             icon="bx-dollar"
             label="CPA (Costo por compra)"
@@ -358,7 +360,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               80,
             )}
             barColor="#f59e0b"
-            tooltip="Cuánto te cuesta conseguir una venta. Se calcula: Gasto ÷ Compras. Mientras más bajo, más eficiente."
+            tooltip="Cuánto cuesta conseguir una venta. Gasto ÷ Compras. Mientras más bajo, mejor."
           />
           <MetricRow
             icon="bx-pointer"
@@ -366,7 +368,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             value={`${fmt(ctr, 2)}%`}
             bar={Math.min(ctr * 20, 100)}
             barColor="#3b82f6"
-            tooltip="Porcentaje de personas que vieron tu anuncio y le dieron clic. Promedio saludable: 1-3%. Arriba de 3% es excelente."
+            tooltip="Porcentaje de personas que vieron tu anuncio y le dieron clic. Saludable: 1-3%."
           />
           <MetricRow
             icon="bx-mouse"
@@ -374,7 +376,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             value={fmtCurrency(d.cpc, currency)}
             bar={Math.min(((Number(d.cpc) || 0) / 2) * 100, 100)}
             barColor="#6366f1"
-            tooltip="Cuánto pagas cada vez que alguien hace clic en tu anuncio. Un CPC bajo = tráfico más barato."
+            tooltip="Cuánto pagas por cada clic. CPC bajo = tráfico más barato."
           />
           <MetricRow
             icon="bx-show"
@@ -382,11 +384,10 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             value={fmtCurrency(d.cpm, currency)}
             bar={Math.min(((Number(d.cpm) || 0) / 20) * 100, 100)}
             barColor="#8b5cf6"
-            tooltip="Cuánto pagas por cada 1,000 veces que se muestra tu anuncio. Indica qué tan competitivo es alcanzar a tu audiencia."
+            tooltip="Costo por cada 1,000 impresiones. Indica qué tan competitivo es tu nicho."
           />
         </div>
 
-        {/* Conversiones secundarias */}
         <div className="rounded-2xl ring-1 ring-slate-200 bg-white p-5">
           <div className="flex items-center gap-2 mb-3">
             <i className="bx bx-transfer text-indigo-600" />
@@ -394,7 +395,6 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               Conversiones por tipo
             </span>
           </div>
-
           <MetricRow
             icon="bxl-whatsapp"
             label="Conversaciones WhatsApp"
@@ -405,7 +405,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               100,
             )}
             barColor="#25D366"
-            tooltip="Chats iniciados a través de botones Click-to-WhatsApp en tus anuncios. Cada conversación es un lead caliente."
+            tooltip="Chats iniciados por botones Click-to-WhatsApp en tus anuncios."
           />
           <MetricRow
             icon="bx-user-check"
@@ -417,7 +417,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               100,
             )}
             barColor="#2563eb"
-            tooltip="Formularios de registro completados en tu sitio web, rastreados por el pixel de Facebook."
+            tooltip="Formularios de registro completados en tu sitio web."
           />
           <MetricRow
             icon="bx-user-plus"
@@ -428,7 +428,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               100,
             )}
             barColor="#f59e0b"
-            tooltip="Contactos potenciales obtenidos vía formularios de lead de Facebook/Instagram o tu pixel."
+            tooltip="Contactos potenciales obtenidos vía formularios de lead."
           />
           <MetricRow
             icon="bx-cart-add"
@@ -439,7 +439,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               100,
             )}
             barColor="#7c3aed"
-            tooltip="Productos que las personas agregaron al carrito desde tus anuncios, aunque no hayan completado la compra."
+            tooltip="Productos agregados al carrito aunque no completaron la compra."
           />
         </div>
       </div>
