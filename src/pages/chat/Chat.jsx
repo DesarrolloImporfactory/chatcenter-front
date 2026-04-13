@@ -2367,7 +2367,7 @@ const Chat = () => {
             confirmButtonText: "OK",
           }).then(() => {
             // localStorage.removeItem("token");
-            window.location.href = "/canal-conexiones";
+            /* window.location.href = "/canal-conexiones"; */
           });
         }
       });
