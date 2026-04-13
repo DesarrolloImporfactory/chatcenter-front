@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 import Header from "../Header/pageHeader";
 import { useDropi } from "../../context/DropiContext";
 import ImportarProductosDropi from "./modales/ImportarProductosDropi";
+import CargaMasivaModal from "./modales/CargaMasivaModal";
 import ProductoModal from "./modales/ProductoModal";
 import SyncDropiSwitches from "./SyncDropiSwitches";
 
@@ -26,11 +27,6 @@ const normalizaTipo = (t) => {
   return s.startsWith("ser") ? "servicio" : "producto";
 };
 
-/*
- * FIX: Verificar visibilidad.
- * Backend guarda `es_privado`. Respuestas legacy pueden traer `is_private`.
- * Esta función es la fuente de verdad para mostrar la columna de visibilidad.
- */
 const esPrivado = (p) =>
   p.es_privado === 1 ||
   p.es_privado === true ||
@@ -57,8 +53,6 @@ const ProductosView = () => {
 
   /* Carga masiva */
   const [isOpenMasivo, setIsOpenMasivo] = useState(false);
-  const [archivoMasivo, setArchivoMasivo] = useState(null);
-  const [archivoMasivoNombre, setArchivoMasivoNombre] = useState(null);
 
   /* Dropi */
   const [dropiModalOpen, setDropiModalOpen] = useState(false);
@@ -199,30 +193,6 @@ const ProductosView = () => {
       fetchData();
     } catch {
       Swal.fire({ icon: "error", title: "No se pudo eliminar" });
-    }
-  };
-
-  /* ── Carga masiva ── */
-  const handleSubirMasivo = async (e) => {
-    e.preventDefault();
-    if (!archivoMasivo) {
-      Swal.fire({ icon: "warning", title: "Selecciona un archivo Excel" });
-      return;
-    }
-    const fd = new FormData();
-    fd.append("archivoExcel", archivoMasivo);
-    fd.append("id_configuracion", localStorage.getItem("id_configuracion"));
-    try {
-      await chatApi.post("/productos/cargaMasivaProductos", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      Swal.fire({ icon: "success", title: "Productos cargados correctamente" });
-      setIsOpenMasivo(false);
-      setArchivoMasivo(null);
-      setArchivoMasivoNombre(null);
-      fetchData();
-    } catch {
-      Swal.fire({ icon: "error", title: "Error al subir el archivo" });
     }
   };
 
@@ -428,7 +398,7 @@ const ProductosView = () => {
           </div>
           {isDropiLinked === true && (
             <div className="mt-3">
-              <SyncDropiSwitches />{" "}
+              <SyncDropiSwitches />
             </div>
           )}
         </div>
@@ -511,19 +481,17 @@ const ProductosView = () => {
                 </thead>
                 <tbody>
                   {paginated.map((p, idx) => {
-                    const priv = esPrivado(p); // ← FIX usa es_privado + fallback is_private
+                    const priv = esPrivado(p);
                     return (
                       <tr
                         key={p.id}
                         className={`border-b border-slate-50 hover:bg-indigo-50/25 transition-colors
                           ${idx % 2 !== 0 ? "bg-slate-50/30" : ""}`}
                       >
-                        {/* ID */}
                         <td className="px-4 py-3.5 text-xs text-slate-400 font-mono w-12">
                           {p.id}
                         </td>
 
-                        {/* Producto */}
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             <div
@@ -553,7 +521,6 @@ const ProductosView = () => {
                           </div>
                         </td>
 
-                        {/* Precio */}
                         <td className="px-4 py-3.5 text-center tabular-nums">
                           <div className="font-bold text-slate-800">
                             {currency.format(Number(p.precio || 0))}
@@ -567,7 +534,6 @@ const ProductosView = () => {
                             )}
                         </td>
 
-                        {/* Tipo */}
                         <td className="px-4 py-3.5">
                           <span
                             className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ${
@@ -582,12 +548,10 @@ const ProductosView = () => {
                           </span>
                         </td>
 
-                        {/* Categoría */}
                         <td className="px-4 py-3.5 text-sm text-slate-600">
                           {catMap[String(p.id_categoria)] || "—"}
                         </td>
 
-                        {/* Imagen zoom */}
                         <td className="px-4 py-3.5 text-center">
                           {p.imagen_url ? (
                             <img
@@ -607,7 +571,6 @@ const ProductosView = () => {
                           )}
                         </td>
 
-                        {/* Visibilidad — FIX: usa esPrivado() */}
                         <td className="px-4 py-3.5">
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
@@ -624,7 +587,6 @@ const ProductosView = () => {
                           </span>
                         </td>
 
-                        {/* Stock / Dropi ID */}
                         <td className="px-4 py-3.5">
                           <div className="flex flex-col gap-1.5">
                             {p.stock != null && (
@@ -691,7 +653,6 @@ const ProductosView = () => {
                           </div>
                         </td>
 
-                        {/* Acciones */}
                         <td className="px-4 py-3.5">
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -797,7 +758,7 @@ const ProductosView = () => {
         <i className="bx bx-plus text-2xl" />
       </button>
 
-      {/* ══ ProductoModal — extraído a ./modales/ProductoModal.jsx ══ */}
+      {/* ══ ProductoModal ══ */}
       <ProductoModal
         open={modalOpen}
         onClose={() => {
@@ -809,178 +770,12 @@ const ProductosView = () => {
         onSaved={fetchData}
       />
 
-      {/* ══ Modal carga masiva ══ */}
-      {isOpenMasivo && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{
-            background: "rgba(5,7,20,.72)",
-            backdropFilter: "blur(12px)",
-          }}
-          onKeyDown={(e) => e.key === "Escape" && setIsOpenMasivo(false)}
-        >
-          <div
-            className="w-full max-w-xl rounded-2xl overflow-hidden flex flex-col"
-            style={{
-              boxShadow: "0 24px 80px rgba(0,0,0,.5)",
-              animation: "pmIn .22s ease",
-            }}
-          >
-            {/* header */}
-            <div
-              className="flex items-center justify-between px-6 py-5 flex-shrink-0"
-              style={{
-                background:
-                  "linear-gradient(135deg,#171931 0%,#1e2550 60%,#2c3a8c 100%)",
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center"
-                  style={{
-                    background: "rgba(255,255,255,.12)",
-                    border: "1px solid rgba(255,255,255,.18)",
-                  }}
-                >
-                  <i className="bx bx-upload text-white text-lg" />
-                </div>
-                <div>
-                  <h2 className="text-white font-bold text-sm">
-                    Carga masiva de productos
-                  </h2>
-                  <p className="text-indigo-300 text-xs mt-0.5">
-                    Sube un archivo Excel con el formato correcto
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsOpenMasivo(false)}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-white/60 hover:text-white hover:bg-white/12"
-              >
-                <i className="bx bx-x text-xl" />
-              </button>
-            </div>
-
-            {/* body */}
-            <div className="p-6 space-y-4 bg-white">
-              <p className="text-sm text-slate-600">
-                Sube un Excel siguiendo la plantilla para importar múltiples
-                productos de una vez.
-              </p>
-
-              <div
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const f = e.dataTransfer.files?.[0];
-                  if (f) {
-                    setArchivoMasivo(f);
-                    setArchivoMasivoNombre(f.name);
-                  }
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center
-                  hover:border-indigo-300 hover:bg-slate-50 transition-colors"
-              >
-                <i className="bx bx-cloud-upload text-4xl text-slate-300 mb-2 block" />
-                <p className="text-sm text-slate-600">
-                  Arrastra tu Excel aquí o{" "}
-                  <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
-                    selecciona
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) {
-                          setArchivoMasivo(f);
-                          setArchivoMasivoNombre(f.name);
-                        }
-                      }}
-                    />
-                  </label>
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  .xlsx, .xls — máx. 10 MB
-                </p>
-              </div>
-
-              {archivoMasivoNombre && (
-                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm text-emerald-700">
-                    <i className="bx bx-check-circle text-lg" />
-                    {archivoMasivoNombre}
-                  </div>
-                  <button
-                    onClick={() => {
-                      setArchivoMasivo(null);
-                      setArchivoMasivoNombre(null);
-                    }}
-                    className="text-xs text-slate-500 hover:text-red-500 transition-colors"
-                  >
-                    Quitar
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* footer */}
-            <div
-              className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-              style={{
-                background:
-                  "linear-gradient(135deg,#171931 0%,#1e2550 60%,#2c3a8c 100%)",
-              }}
-            >
-              <a
-                href="https://chat.imporfactory.app/uploads/plantillas/plantilla_subida_masiva.xlsx"
-                target="_blank"
-                download
-                className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-lg font-medium transition-colors text-white/80 hover:text-white"
-                style={{ border: "1px solid rgba(255,255,255,.2)" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(255,255,255,.1)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                <i className="bx bx-cloud-download" />
-                Descargar plantilla
-              </a>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setIsOpenMasivo(false)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors text-white/80 hover:text-white"
-                  style={{ border: "1.5px solid rgba(255,255,255,.25)" }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "rgba(255,255,255,.1)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSubirMasivo}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-                  style={{ background: "#4f46e5" }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "#4338ca")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "#4f46e5")
-                  }
-                >
-                  <i className="bx bx-upload" />
-                  Subir archivo
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ══ Carga Masiva — extraído a ./modales/CargaMasivaModal.jsx ══ */}
+      <CargaMasivaModal
+        open={isOpenMasivo}
+        onClose={() => setIsOpenMasivo(false)}
+        onSuccess={fetchData}
+      />
 
       {/* ══ Imagen zoom modal ══ */}
       {modalImagen.abierta && (
@@ -1012,13 +807,6 @@ const ProductosView = () => {
         products={dropiProducts}
         onImport={importarDropi}
       />
-
-      <style>{`
-        @keyframes pmIn {
-          from { opacity:0; transform:scale(.96) translateY(14px); }
-          to   { opacity:1; transform:scale(1)   translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };
