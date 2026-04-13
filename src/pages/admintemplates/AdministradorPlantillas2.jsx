@@ -201,7 +201,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
           text: `Plantilla "${plantilla.name}" eliminada correctamente.`,
         });
         // Recargar la lista
-        await fetchPlantillas();
+        await fetchPlantillas({ forceRefresh: true });
       } else {
         const rawError = resp.data?.error;
         const errorText =
@@ -604,7 +604,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       if (response.data.success) {
         setResultadoPlantillas(response.data.resultados || []);
         setModalResultadosAbierto(true);
-        fetchPlantillas();
+        fetchPlantillas({ forceRefresh: true });
       } else {
         setStatusMessage({
           type: "error",
@@ -1782,7 +1782,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
           type: "success",
           text: "Plantilla creada correctamente.",
         });
-        await fetchPlantillas();
+        await fetchPlantillas({ forceRefresh: true });
         setMostrarModalPlantilla(false);
       } else {
         const rawError = resp.data?.error;
