@@ -3,7 +3,7 @@ import CustomAudioPlayer from "./CustomAudioPlayer";
 import ImageWithModal from "./modales/ImageWithModal";
 import EmojiPicker from "emoji-picker-react";
 import chatApi from "../../api/chatcenter";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 
 /* === Player estilo WhatsApp (sin autoplay) + velocidades 1x / 1.5x / 2x === */
 function WaAudioPlayer({ src }) {
@@ -275,7 +275,8 @@ const ChatPrincipal = ({
     131048: "Límite alcanzado por spam",
     131049: "Límite alcanzado por spam",
     131051: "Tipo de mensaje no soportado",
-    131031: "Cuenta de WhatsApp bloqueada o restringida por Meta. Verifica el Business Manager.",
+    131031:
+      "Cuenta de WhatsApp bloqueada o restringida por Meta. Verifica el Business Manager.",
   };
 
   const actualizar_mensaje_reenviado = async (
@@ -1642,6 +1643,131 @@ const ChatPrincipal = ({
     }
   };
 
+  // ✅ NUEVO: Ticks de estado Meta
+  const MessageStatusTicks = ({ mensaje }) => {
+    if (mensaje.rol_mensaje !== 1) return null;
+    if (mensaje.tipo_mensaje === "notificacion") return null;
+    if (selectedChat?.source !== "wa") return null;
+
+    const estado = Number(mensaje.estado_meta ?? 0);
+
+    if (estado === 2) {
+      return (
+        <span
+          title="Leído por el cliente"
+          className="inline-flex ml-1 text-blue-500"
+        >
+          <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor">
+            <path d="M11.071.653a.45.45 0 0 0-.637 0L4.982 6.104 2.566 3.688a.45.45 0 0 0-.637.637l2.735 2.734a.45.45 0 0 0 .637 0L11.07 1.29a.45.45 0 0 0 0-.637z" />
+            <path d="M15.071.653a.45.45 0 0 0-.637 0L8.982 6.104l-.955-.955a.45.45 0 0 0-.637.637l1.274 1.273a.45.45 0 0 0 .637 0L15.07 1.29a.45.45 0 0 0 0-.637z" />
+          </svg>
+        </span>
+      );
+    }
+
+    if (estado === 1) {
+      return (
+        <span
+          title="Entregado al teléfono"
+          className="inline-flex ml-1 text-gray-400"
+        >
+          <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor">
+            <path d="M11.071.653a.45.45 0 0 0-.637 0L4.982 6.104 2.566 3.688a.45.45 0 0 0-.637.637l2.735 2.734a.45.45 0 0 0 .637 0L11.07 1.29a.45.45 0 0 0 0-.637z" />
+            <path d="M15.071.653a.45.45 0 0 0-.637 0L8.982 6.104l-.955-.955a.45.45 0 0 0-.637.637l1.274 1.273a.45.45 0 0 0 .637 0L15.07 1.29a.45.45 0 0 0 0-.637z" />
+          </svg>
+        </span>
+      );
+    }
+
+    return (
+      <span title="Enviado a Meta" className="inline-flex ml-1 text-gray-400">
+        <svg width="10" height="11" viewBox="0 0 10 11" fill="currentColor">
+          <path d="M9.071.653a.45.45 0 0 0-.637 0L3.982 6.104 1.566 3.688a.45.45 0 0 0-.637.637l2.735 2.734a.45.45 0 0 0 .637 0L9.07 1.29a.45.45 0 0 0 0-.637z" />
+        </svg>
+      </span>
+    );
+  };
+
+  // ✅ NUEVO: Preview del mensaje al que responde el cliente
+  const ReplyPreview = ({ contextWamid }) => {
+    if (!contextWamid) return null;
+
+    const referencedMsg = mensajesOrdenados.find(
+      (m) => m.id_wamid_mensaje === contextWamid,
+    );
+
+    const getPreviewText = (msg) => {
+      if (!msg) return "Mensaje original no disponible";
+      switch (msg.tipo_mensaje) {
+        case "text":
+        case "edit":
+          return (
+            (msg.texto_mensaje || "")
+              .replace(/^\*[^*]+\*\s*🎤:\s*\r?\n/, "")
+              .slice(0, 80) || "Texto"
+          );
+        case "image":
+          return "🖼️ Imagen";
+        case "video":
+          return "🎥 Video";
+        case "audio":
+          return "🎧 Audio";
+        case "document":
+          return "📄 Documento";
+        case "sticker":
+          return "😀 Sticker";
+        case "location":
+          return "📍 Ubicación";
+        default:
+          return msg.texto_mensaje?.slice(0, 80) || "Mensaje";
+      }
+    };
+
+    const isFromClient = !referencedMsg || referencedMsg.rol_mensaje === 0;
+    const borderColor = isFromClient ? "border-[#25D366]" : "border-blue-400";
+    const nameColor = isFromClient ? "text-[#25D366]" : "text-blue-500";
+    const authorLabel = isFromClient
+      ? "Cliente"
+      : referencedMsg?.responsable || "Asesor";
+
+    return (
+      <div
+        className={`mb-2 px-3 py-1.5 rounded-lg text-xs cursor-pointer border-l-4 bg-black/5 hover:bg-black/10 transition ${borderColor}`}
+        onClick={() => {
+          if (!referencedMsg) return;
+          const el = document.getElementById(`msg-${referencedMsg.id}`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add(
+              "ring-2",
+              "ring-yellow-400",
+              "ring-offset-1",
+              "rounded-2xl",
+            );
+            setTimeout(() => {
+              el.classList.remove(
+                "ring-2",
+                "ring-yellow-400",
+                "ring-offset-1",
+                "rounded-2xl",
+              );
+            }, 2000);
+          }
+        }}
+        title={
+          referencedMsg
+            ? "Ir al mensaje original"
+            : "Mensaje original no disponible"
+        }
+      >
+        <div className={`font-semibold mb-0.5 ${nameColor}`}>{authorLabel}</div>
+        <div className="text-gray-600 truncate">
+          {getPreviewText(referencedMsg)}
+        </div>
+      </div>
+    );
+  };
+
   const buildFileUrl = (ruta = "") => {
     if (!ruta) return "";
     const clean = String(ruta).trim();
@@ -1785,6 +1911,7 @@ const ChatPrincipal = ({
                   items.push(
                     <div
                       key={key}
+                      id={`msg-${mensaje.id}`}
                       className={`flex ${
                         mensaje.rol_mensaje === 1
                           ? "justify-end"
@@ -1853,6 +1980,9 @@ const ChatPrincipal = ({
                             Enviado por {prettyAgentName(mensaje.responsable)}:
                           </div>
                         )}
+
+                        {/* ✅ NUEVO: Preview del mensaje al que responde */}
+                        <ReplyPreview contextWamid={mensaje.context_wamid} />
 
                         {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
                         <span className="text-[15px] md:text-sm pb-2 inline-block w-full">
@@ -2339,10 +2469,11 @@ const ChatPrincipal = ({
 
                         {/* Hora en la esquina; tooltip = fecha completa */}
                         <span
-                          className={`absolute bottom-1 right-2 text-xs ${timestampClass}`}
+                          className={`absolute bottom-1 right-2 text-xs flex items-center gap-0.5 ${timestampClass}`}
                           title={formatFecha(mensaje.created_at)}
                         >
                           {formatHora(mensaje.created_at)}
+                          <MessageStatusTicks mensaje={mensaje} />
                         </span>
                       </div>
                     </div>,

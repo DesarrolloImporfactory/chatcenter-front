@@ -3053,7 +3053,28 @@ const Chat = () => {
     };
 
     socketRef.current.on("UPDATE_CHAT", onUpdateChat);
-    return () => socketRef.current.off("UPDATE_CHAT", onUpdateChat);
+
+    // ✅ NUEVO: ticks de estado Meta (delivered/read)
+    const onMessageStatusUpdate = ({
+      id_configuracion: cfg,
+      wamid,
+      estado_meta,
+    }) => {
+      if (String(cfg) !== String(id_configuracion)) return;
+
+      setMensajesOrdenados((prev) =>
+        prev.map((m) =>
+          m.id_wamid_mensaje === wamid ? { ...m, estado_meta } : m,
+        ),
+      );
+    };
+
+    socketRef.current.on("MESSAGE_STATUS_UPDATE", onMessageStatusUpdate);
+
+    return () => {
+      socketRef.current.off("UPDATE_CHAT", onUpdateChat);
+      socketRef.current.off("MESSAGE_STATUS_UPDATE", onMessageStatusUpdate);
+    };
   }, [
     isSocketConnected,
     id_configuracion,
