@@ -1,23 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
 
 /**
  * AdsboardCampaignsTable
- *
- * Tabla de campañas con métricas de rendimiento y control de estado.
- *
- * Columnas:
- * - Campaña: nombre de la campaña en Meta Ads
- * - Estado: ACTIVE, PAUSED, etc. — con botón para pausar/activar (requiere ads_management)
- * - Gasto: total invertido en esa campaña
- * - Revenue: ventas atribuidas a esa campaña
- * - ROAS: retorno por dólar invertido en esa campaña
- * - Compras: ventas completadas de esa campaña
- * - CPA: costo por venta de esa campaña
- * - CTR: tasa de clics de esa campaña
- * - Msgs WA: conversaciones de WhatsApp iniciadas
- * - Budget/día: presupuesto diario configurado
  */
 
 const fmt = (n, decimals = 0) => {
@@ -61,6 +48,84 @@ const statusLabel = (s) => {
   };
   return map[String(s).toUpperCase()] || s;
 };
+
+/* ── Tooltip con Portal + detección de bordes del viewport ── */
+const Tip = ({ text, children, width = 224 }) => {
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, arrowLeft: "50%" });
+  const triggerRef = useRef(null);
+
+  const handleEnter = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const halfW = width / 2;
+      let left = rect.left + rect.width / 2;
+      let arrowLeft = "50%";
+
+      if (left + halfW > vw - 12) {
+        const shift = left + halfW - (vw - 12);
+        arrowLeft = `${halfW + shift}px`;
+        left = left - shift;
+      }
+      if (left - halfW < 12) {
+        const shift = 12 - (left - halfW);
+        arrowLeft = `${halfW - shift}px`;
+        left = left + shift;
+      }
+
+      setPos({ top: rect.top - 8, left, arrowLeft });
+    }
+    setShow(true);
+  }, [width]);
+
+  return (
+    <span
+      ref={triggerRef}
+      className="relative inline-flex"
+      onMouseEnter={handleEnter}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      {show &&
+        createPortal(
+          <div
+            className="fixed z-[9999] pointer-events-none"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              transform: "translate(-50%, -100%)",
+            }}
+          >
+            <div
+              className="px-3 py-2 rounded-lg bg-slate-900 text-white text-[11px] leading-relaxed shadow-lg font-normal normal-case tracking-normal break-words"
+              style={{ width }}
+            >
+              {text}
+              <span
+                className="absolute top-full -mt-px w-2 h-2 rotate-45 bg-slate-900"
+                style={{ left: pos.arrowLeft, transform: "translateX(-50%)" }}
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
+    </span>
+  );
+};
+
+const Th = ({ children, tip, className = "" }) => (
+  <th className={className}>
+    <div className="inline-flex items-center gap-1">
+      <span>{children}</span>
+      {tip && (
+        <Tip text={tip}>
+          <i className="bx bx-help-circle text-slate-300 hover:text-slate-500 cursor-help text-[11px] transition" />
+        </Tip>
+      )}
+    </div>
+  </th>
+);
 
 export default function AdsboardCampaignsTable({
   campaigns,
@@ -142,7 +207,6 @@ export default function AdsboardCampaignsTable({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      {/* Header explicativo */}
       <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-2">
           <i className="bx bx-layer text-indigo-600" />
@@ -159,16 +223,79 @@ export default function AdsboardCampaignsTable({
         <table className="w-full text-xs">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
-              <th className="px-4 pb-3 pt-4">Campaña</th>
-              <th className="pb-3 pt-4">Estado</th>
-              <th className="pb-3 pt-4 text-right">Gasto</th>
-              <th className="pb-3 pt-4 text-right">Revenue</th>
-              <th className="pb-3 pt-4 text-right">ROAS</th>
-              <th className="pb-3 pt-4 text-right">Compras</th>
-              <th className="pb-3 pt-4 text-right">CPA</th>
-              <th className="pb-3 pt-4 text-right">CTR</th>
-              <th className="pb-3 pt-4 text-right">Msgs WA</th>
-              <th className="pb-3 pt-4 pr-4 text-right">Budget/día</th>
+              <Th className="px-4 pb-3 pt-4">Campaña</Th>
+              <Th
+                className="pb-3 pt-4"
+                tip="Estado actual en Meta Ads. Puedes pausar o activar la campaña con el botón."
+              >
+                Estado
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Total invertido en esta campaña durante el período seleccionado."
+              >
+                Gasto
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Valor total de las ventas atribuidas a esta campaña vía pixel o API de conversiones."
+              >
+                Revenue
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Return On Ad Spend — por cada $1 invertido, cuántos dólares genera. ROAS 3x = $3 por cada $1."
+              >
+                ROAS
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Cantidad de ventas completadas atribuidas a esta campaña."
+              >
+                Compras
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Costo Por Adquisición — cuánto costó cada venta. Gasto ÷ Compras. Mientras más bajo, mejor."
+              >
+                CPA
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Click-Through Rate — porcentaje de personas que vieron el anuncio y dieron clic. Saludable: 1-3%."
+              >
+                CTR
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Conversaciones de WhatsApp iniciadas por botones Click-to-WhatsApp en los anuncios."
+              >
+                Msgs WA
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Costo por cada conversación de WhatsApp. Gasto de esta campaña ÷ Mensajes."
+              >
+                CPA Msg
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Contactos potenciales obtenidos vía formularios de lead en esta campaña."
+              >
+                Leads
+              </Th>
+              <Th
+                className="pb-3 pt-4 text-right"
+                tip="Costo por cada lead generado. Gasto de esta campaña ÷ Leads."
+              >
+                CPA Lead
+              </Th>
+              <Th
+                className="pb-3 pt-4 pr-4 text-right"
+                tip="Presupuesto diario configurado en Meta Ads. Si está vacío, usa presupuesto de por vida o a nivel de ad set."
+              >
+                Budget/día
+              </Th>
             </tr>
           </thead>
           <tbody>
@@ -246,6 +373,19 @@ export default function AdsboardCampaignsTable({
                   </td>
                   <td className="py-3 text-right tabular-nums">
                     {fmt(c.messaging_conversations)}
+                  </td>
+                  <td className="py-3 text-right tabular-nums text-emerald-600">
+                    {Number(c.cpa_messaging) > 0
+                      ? fmtCurrency(c.cpa_messaging, currency)
+                      : "—"}
+                  </td>
+                  <td className="py-3 text-right tabular-nums">
+                    {fmt(c.leads)}
+                  </td>
+                  <td className="py-3 text-right tabular-nums text-amber-600">
+                    {Number(c.cpa_lead) > 0
+                      ? fmtCurrency(c.cpa_lead, currency)
+                      : "—"}
                   </td>
                   <td className="py-3 pr-4 text-right tabular-nums text-slate-500">
                     {c.daily_budget

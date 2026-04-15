@@ -3,13 +3,9 @@ import React, { useState, useMemo } from "react";
 /**
  * AdsboardKpiCards
  *
- * Panel visual profesional con métricas de Meta Ads.
- * Diseño limpio con tarjetas blancas, acentos sutiles y gauge de ROAS.
- *
- * Sección 1 — Hero KPIs: Gasto, Revenue, Compras + ROAS gauge
- * Sección 2 — Embudo: Impresiones → Clics → Leads → Compras
- * Sección 3 — Eficiencia: CPA, CTR, CPC, CPM con barras
- * Sección 4 — Conversiones: WhatsApp, Registros, Leads, Add to Cart
+ * Panel visual con métricas de Meta Ads.
+ * Los CPAs se etiquetan como "CPA global" con explicación visual
+ * para que el cliente entienda que incluyen TODO el gasto (no solo el de campañas que convirtieron).
  */
 
 const fmt = (n, dec = 0) => {
@@ -48,7 +44,7 @@ const Tip = ({ text, children }) => {
     >
       {children}
       {show && (
-        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1 w-60 px-3 py-2 rounded-lg bg-slate-900 text-white text-[11px] leading-relaxed shadow-lg">
+        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1 w-64 px-3 py-2 rounded-lg bg-slate-900 text-white text-[11px] leading-relaxed shadow-lg">
           {text}
           <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-2 h-2 rotate-45 bg-slate-900" />
         </span>
@@ -57,7 +53,7 @@ const Tip = ({ text, children }) => {
   );
 };
 
-/* ── Hero Stat Card (limpio, blanco, acento lateral) ── */
+/* ── Hero Stat Card ── */
 const HeroStat = ({ icon, label, value, sub, accentColor, tooltip }) => (
   <div className="relative rounded-xl bg-white ring-1 ring-slate-200 px-4 py-4 min-h-[100px] flex flex-col justify-center hover:shadow-sm transition">
     <div
@@ -93,6 +89,7 @@ const HeroStat = ({ icon, label, value, sub, accentColor, tooltip }) => (
     </div>
   </div>
 );
+
 /* ── ROAS Gauge ── */
 const RoasGauge = ({ roas }) => {
   const r = Number(roas) || 0;
@@ -140,6 +137,7 @@ const RoasGauge = ({ roas }) => {
     </div>
   );
 };
+
 /* ── Funnel Step ── */
 const FunnelStep = ({ label, value, pct, color, icon, tooltip }) => (
   <div className="flex-1 min-w-0">
@@ -164,7 +162,7 @@ const FunnelStep = ({ label, value, pct, color, icon, tooltip }) => (
 );
 
 /* ── Metric Row ── */
-const MetricRow = ({ icon, label, value, bar, barColor, tooltip }) => (
+const MetricRow = ({ icon, label, value, bar, barColor, tooltip, sub }) => (
   <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
     <div
       className="w-8 h-8 rounded-lg grid place-items-center shrink-0"
@@ -188,9 +186,22 @@ const MetricRow = ({ icon, label, value, bar, barColor, tooltip }) => (
         />
       </div>
     </div>
-    <div className="text-sm font-bold text-slate-900 tabular-nums shrink-0">
-      {value}
+    <div className="text-right shrink-0">
+      <div className="text-sm font-bold text-slate-900 tabular-nums">
+        {value}
+      </div>
+      {sub && (
+        <div className="text-[10px] text-slate-500 tabular-nums">{sub}</div>
+      )}
     </div>
+  </div>
+);
+
+/* ── Info Banner ── */
+const InfoBanner = ({ text }) => (
+  <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-indigo-50/70 border border-indigo-100 mb-3">
+    <i className="bx bx-info-circle text-indigo-500 text-sm mt-0.5 shrink-0" />
+    <p className="text-[11px] text-indigo-700/80 leading-relaxed">{text}</p>
   </div>
 );
 
@@ -250,11 +261,11 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
           value={fmt(purchases)}
           sub={
             purchases > 0
-              ? `CPA: ${fmtCurrency(d.cpa_purchase, currency)}`
+              ? `CPA global: ${fmtCurrency(d.cpa_purchase, currency)}`
               : null
           }
           accentColor="#7c3aed"
-          tooltip="Ventas completadas atribuidas a tus anuncios. El CPA indica cuánto cuesta cada venta."
+          tooltip="Ventas completadas atribuidas a tus anuncios. El CPA global es el gasto TOTAL de la cuenta dividido entre las compras. Incluye gasto de campañas que no generaron ventas. Para ver el CPA real por campaña, revisa la pestaña Campañas."
         />
         <HeroStat
           icon="bx-show"
@@ -273,7 +284,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
                 <i className="bx bx-target-lock text-sm text-indigo-500" />
               </div>
               <span className="font-medium">ROAS</span>
-              <Tip text="Return On Ad Spend — por cada $1 invertido en ads, cuántos dólares generas. ROAS 3x = $3 por cada $1.">
+              <Tip text="Return On Ad Spend — por cada $1 invertido en ads, cuántos dólares generas. ROAS 3x = $3 por cada $1. Se calcula como Revenue ÷ Gasto total.">
                 <i className="bx bx-help-circle text-slate-400 cursor-help text-[12px]" />
               </Tip>
             </div>
@@ -313,7 +324,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             pct={funnel.clicks}
             color="#3b82f6"
             icon="bx-pointer"
-            tooltip="Personas que hicieron clic. El CTR indica qué tan atractivo es tu anuncio."
+            tooltip="Personas que hicieron clic en tu anuncio."
           />
           <div className="shrink-0 text-slate-300 pb-6">
             <i className="bx bx-chevron-right" />
@@ -324,7 +335,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             pct={funnel.leads}
             color="#f59e0b"
             icon="bx-user-plus"
-            tooltip="Contactos potenciales que dejaron datos. No todos llegan a comprar."
+            tooltip="Contactos potenciales que dejaron datos vía formularios."
           />
           <div className="shrink-0 text-slate-300 pb-6">
             <i className="bx bx-chevron-right" />
@@ -344,6 +355,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
           SECCIÓN 3 + 4: Eficiencia + Conversiones
       ═══════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Eficiencia */}
         <div className="rounded-2xl ring-1 ring-slate-200 bg-white p-5">
           <div className="flex items-center gap-2 mb-3">
             <i className="bx bx-tachometer text-indigo-600" />
@@ -351,16 +363,17 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               Eficiencia publicitaria
             </span>
           </div>
+          <InfoBanner text="Estos valores son promedios globales de toda la cuenta. Para ver la eficiencia de cada campaña individual, revisa la pestaña Campañas." />
           <MetricRow
             icon="bx-dollar"
-            label="CPA (Costo por compra)"
+            label="CPA global (Costo por compra)"
             value={fmtCurrency(d.cpa_purchase, currency)}
             bar={Math.min(
               ((Number(d.cpa_purchase) || 0) / (spend || 1)) * 100,
               80,
             )}
             barColor="#f59e0b"
-            tooltip="Cuánto cuesta conseguir una venta. Gasto ÷ Compras. Mientras más bajo, mejor."
+            tooltip="Gasto total de la cuenta ÷ Compras totales. Incluye el gasto de TODAS las campañas, incluso las que no generaron ventas. Por eso puede parecer alto. Revisa el CPA por campaña en la pestaña Campañas para ver cuáles son realmente eficientes."
           />
           <MetricRow
             icon="bx-pointer"
@@ -368,7 +381,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             value={`${fmt(ctr, 2)}%`}
             bar={Math.min(ctr * 20, 100)}
             barColor="#3b82f6"
-            tooltip="Porcentaje de personas que vieron tu anuncio y le dieron clic. Saludable: 1-3%."
+            tooltip="Porcentaje de personas que vieron tu anuncio y le dieron clic. Saludable: 1-3%. Más de 3% es muy bueno."
           />
           <MetricRow
             icon="bx-mouse"
@@ -376,7 +389,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             value={fmtCurrency(d.cpc, currency)}
             bar={Math.min(((Number(d.cpc) || 0) / 2) * 100, 100)}
             barColor="#6366f1"
-            tooltip="Cuánto pagas por cada clic. CPC bajo = tráfico más barato."
+            tooltip="Cuánto pagas en promedio por cada clic. CPC bajo = tráfico más barato a tu sitio."
           />
           <MetricRow
             icon="bx-show"
@@ -384,10 +397,11 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
             value={fmtCurrency(d.cpm, currency)}
             bar={Math.min(((Number(d.cpm) || 0) / 20) * 100, 100)}
             barColor="#8b5cf6"
-            tooltip="Costo por cada 1,000 impresiones. Indica qué tan competitivo es tu nicho."
+            tooltip="Costo por cada 1,000 impresiones. Indica qué tan competitivo es tu nicho. CPM bajo = alcanzas más gente por menos."
           />
         </div>
 
+        {/* Conversiones */}
         <div className="rounded-2xl ring-1 ring-slate-200 bg-white p-5">
           <div className="flex items-center gap-2 mb-3">
             <i className="bx bx-transfer text-indigo-600" />
@@ -395,40 +409,56 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               Conversiones por tipo
             </span>
           </div>
+          <InfoBanner text="El CPA global divide el gasto total entre las conversiones de ese tipo. Incluye gasto de campañas con otros objetivos. Para el costo real, revisa el CPA por campaña." />
           <MetricRow
             icon="bxl-whatsapp"
             label="Conversaciones WhatsApp"
             value={fmt(d.messaging_conversations)}
+            sub={
+              Number(d.cpa_messaging) > 0
+                ? `CPA global: ${fmtCurrency(d.cpa_messaging, currency)}`
+                : null
+            }
             bar={Math.min(
               ((Number(d.messaging_conversations) || 0) / Math.max(clicks, 1)) *
                 100,
               100,
             )}
             barColor="#25D366"
-            tooltip="Chats iniciados por botones Click-to-WhatsApp en tus anuncios."
+            tooltip="Chats iniciados por botones Click-to-WhatsApp. El CPA global divide el gasto de TODA la cuenta entre estos mensajes. Si la mayoría de tus campañas no son de mensajería, este CPA será alto porque incluye ese gasto no relacionado."
           />
           <MetricRow
             icon="bx-user-check"
             label="Registros completados"
             value={fmt(d.complete_registrations)}
+            sub={
+              Number(d.cpa_registration) > 0
+                ? `CPA global: ${fmtCurrency(d.cpa_registration, currency)}`
+                : null
+            }
             bar={Math.min(
               ((Number(d.complete_registrations) || 0) / Math.max(clicks, 1)) *
                 100,
               100,
             )}
             barColor="#2563eb"
-            tooltip="Formularios de registro completados en tu sitio web."
+            tooltip="Formularios de registro completados en tu sitio web. El CPA global divide el gasto total de la cuenta entre estos registros."
           />
           <MetricRow
             icon="bx-user-plus"
             label="Leads generados"
             value={fmt(d.leads)}
+            sub={
+              Number(d.cpa_lead) > 0
+                ? `CPA global: ${fmtCurrency(d.cpa_lead, currency)}`
+                : null
+            }
             bar={Math.min(
               ((Number(d.leads) || 0) / Math.max(clicks, 1)) * 100,
               100,
             )}
             barColor="#f59e0b"
-            tooltip="Contactos potenciales obtenidos vía formularios de lead."
+            tooltip="Contactos potenciales obtenidos vía formularios de lead. El CPA global divide el gasto de TODA la cuenta entre estos leads. Si solo algunas campañas generan leads, el CPA real de esas campañas será menor. Revísalo en la pestaña Campañas."
           />
           <MetricRow
             icon="bx-cart-add"
@@ -439,7 +469,7 @@ export default function AdsboardKpiCards({ data, currency = "USD" }) {
               100,
             )}
             barColor="#7c3aed"
-            tooltip="Productos agregados al carrito aunque no completaron la compra."
+            tooltip="Productos agregados al carrito aunque no completaron la compra. Indica intención de compra."
           />
         </div>
       </div>

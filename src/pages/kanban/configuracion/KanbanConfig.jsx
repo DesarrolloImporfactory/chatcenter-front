@@ -81,6 +81,9 @@ const Toast = Swal.mixin({
   showConfirmButton: false,
   timer: 3000,
   timerProgressBar: true,
+  didOpen: (toast) => {
+    toast.parentNode.style.zIndex = 99999;
+  },
 });
 
 const parseConfig = (c) => {
