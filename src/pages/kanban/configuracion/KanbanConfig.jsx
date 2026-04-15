@@ -1435,6 +1435,9 @@ const KanbanConfig = () => {
                       columnas={columnas}
                       onUpdate={(cfg) => actualizarConfigAccion(acc.id, cfg)}
                       onDelete={() => eliminarAccion(acc.id)}
+                      catalogSyncedAt={
+                        columnaSeleccionada?.catalog_synced_at || null
+                      }
                     />
                   ))}
                 </div>
@@ -1925,7 +1928,13 @@ const KanbanConfig = () => {
 // ─────────────────────────────────────────────────────────────
 // AccionCard
 // ─────────────────────────────────────────────────────────────
-const AccionCard = ({ accion, columnas, onUpdate, onDelete }) => {
+const AccionCard = ({
+  accion,
+  columnas,
+  onUpdate,
+  onDelete,
+  catalogSyncedAt,
+}) => {
   const meta = TIPOS_ACCION[accion.tipo_accion] || {
     label: accion.tipo_accion,
     icono: "bx bx-cog",
@@ -2152,8 +2161,94 @@ const AccionCard = ({ accion, columnas, onUpdate, onDelete }) => {
               className="bx bx-info-circle"
               style={{ color: meta.color, fontSize: "1.1rem", flexShrink: 0 }}
             />
-            {accion.tipo_accion === "contexto_productos" &&
-              "El catálogo se inyecta automáticamente. Usa el botón Sincronizar en la pestaña Asistente para actualizarlo."}
+            {[
+              "contexto_productos",
+              "contexto_calendario",
+              "enviar_media",
+            ].includes(accion.tipo_accion) && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: `${meta.color}08`,
+                  fontSize: "0.82rem",
+                  color: "#64748b",
+                  display: "flex",
+                  flexDirection: "column", // ← columna para todos
+                  gap: 8,
+                }}
+              >
+                {/* Texto informativo — igual para los tres tipos */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <i
+                    className="bx bx-info-circle"
+                    style={{
+                      color: meta.color,
+                      fontSize: "1.1rem",
+                      flexShrink: 0,
+                    }}
+                  />
+                  {accion.tipo_accion === "contexto_productos" &&
+                    "El catálogo se inyecta automáticamente. Usa el botón Sincronizar en la pestaña Asistente para actualizarlo."}
+                  {accion.tipo_accion === "contexto_calendario" &&
+                    "Los horarios disponibles se inyectan como contexto antes de llamar al asistente."}
+                  {accion.tipo_accion === "enviar_media" &&
+                    "Las URLs [producto_imagen_url] y [producto_video_url] de la respuesta se enviarán automáticamente por WhatsApp."}
+                </div>
+
+                {/* Badge de última sync — solo para contexto_productos */}
+                {accion.tipo_accion === "contexto_productos" &&
+                  (catalogSyncedAt ? (
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        borderRadius: 8,
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        fontSize: "0.78rem",
+                        color: "#16a34a",
+                        fontWeight: 600,
+                        alignSelf: "flex-start",
+                      }}
+                    >
+                      <i
+                        className="bx bx-check-circle"
+                        style={{ fontSize: "1rem" }}
+                      />
+                      Última sync:{" "}
+                      {new Date(catalogSyncedAt).toLocaleString("es-EC", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        borderRadius: 8,
+                        background: "#fffbeb",
+                        border: "1px solid #fde68a",
+                        fontSize: "0.78rem",
+                        color: "#b45309",
+                        fontWeight: 600,
+                        alignSelf: "flex-start",
+                      }}
+                    >
+                      <i className="bx bx-time" style={{ fontSize: "1rem" }} />
+                      Aún no sincronizado
+                    </div>
+                  ))}
+              </div>
+            )}
             {accion.tipo_accion === "contexto_calendario" &&
               "Los horarios disponibles se inyectan como contexto antes de llamar al asistente."}
             {accion.tipo_accion === "enviar_media" &&
