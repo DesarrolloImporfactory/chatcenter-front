@@ -58,11 +58,11 @@ const TIPOS_ACCION = {
     icono: "bx bx-calendar",
     color: "#3b82f6",
   },
-  enviar_media: {
+  /* enviar_media: {
     label: "Enviar imágenes/videos",
     icono: "bx bx-image",
     color: "#f59e0b",
-  },
+  }, */
   agendar_cita: {
     label: "Agendar cita",
     icono: "bx bx-calendar-check",
@@ -1428,18 +1428,231 @@ const KanbanConfig = () => {
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 12 }}
                 >
-                  {acciones.map((acc) => (
-                    <AccionCard
-                      key={acc.id}
-                      accion={acc}
-                      columnas={columnas}
-                      onUpdate={(cfg) => actualizarConfigAccion(acc.id, cfg)}
-                      onDelete={() => eliminarAccion(acc.id)}
-                      catalogSyncedAt={
-                        columnaSeleccionada?.catalog_synced_at || null
-                      }
-                    />
-                  ))}
+                  {/* ── Enviar media — siempre activo ── */}
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      border: "1.5px solid #f59e0b22",
+                      background: "#f59e0b05",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "11px 16px",
+                        borderBottom: "1px solid #f59e0b15",
+                        gap: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          background: "#f59e0b15",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <i
+                          className="bx bx-image"
+                          style={{ color: "#f59e0b", fontSize: "1.1rem" }}
+                        />
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "0.9rem",
+                            color: "#0f172a",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          Enviar imágenes/videos
+                          <span
+                            style={{
+                              fontSize: ".62rem",
+                              fontWeight: 700,
+                              background: "#fef3c7",
+                              color: "#92400e",
+                              borderRadius: 999,
+                              padding: "1px 7px",
+                            }}
+                          >
+                            Siempre activo
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "#94a3b8",
+                            fontFamily: "monospace",
+                          }}
+                        >
+                          enviar_media
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px" }}>
+                      <div
+                        style={{
+                          padding: "10px 14px",
+                          borderRadius: 10,
+                          background: "#f59e0b08",
+                          fontSize: "0.82rem",
+                          color: "#64748b",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 8,
+                          }}
+                        >
+                          <i
+                            className="bx bx-info-circle"
+                            style={{
+                              color: "#f59e0b",
+                              fontSize: "1.1rem",
+                              flexShrink: 0,
+                              marginTop: 1,
+                            }}
+                          />
+                          <span>
+                            Cuando el asistente incluya una URL de imagen o
+                            video en su respuesta usando el formato correcto, el
+                            sistema la extraerá y enviará automáticamente por
+                            WhatsApp.
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            paddingLeft: 4,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: ".75rem",
+                              fontWeight: 700,
+                              color: "#374151",
+                              marginBottom: 2,
+                            }}
+                          >
+                            Formato obligatorio en el prompt:
+                          </div>
+                          {[
+                            {
+                              tag: "[producto_imagen_url]",
+                              desc: "Imagen principal del producto",
+                            },
+                            {
+                              tag: "[producto_video_url]",
+                              desc: "Video del producto",
+                            },
+                            {
+                              tag: "[upsell_imagen_url]",
+                              desc: "Imagen del upsell",
+                            },
+                          ].map(({ tag, desc }) => (
+                            <div
+                              key={tag}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <code
+                                style={{
+                                  background: "#fef3c7",
+                                  color: "#92400e",
+                                  padding: "2px 8px",
+                                  borderRadius: 6,
+                                  fontSize: ".75rem",
+                                  fontWeight: 700,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {tag}: https://url
+                              </code>
+                              <span
+                                style={{ fontSize: ".73rem", color: "#94a3b8" }}
+                              >
+                                {desc}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${tag}: `);
+                                  Toast.fire({
+                                    icon: "success",
+                                    title: "¡Tag copiado!",
+                                  });
+                                }}
+                                style={{
+                                  marginLeft: "auto",
+                                  background: "none",
+                                  border: "1px solid #fcd34d",
+                                  borderRadius: 6,
+                                  cursor: "pointer",
+                                  color: "#92400e",
+                                  padding: "1px 6px",
+                                  fontSize: ".72rem",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  fontFamily: "inherit",
+                                }}
+                              >
+                                <i
+                                  className="bx bx-copy"
+                                  style={{ fontSize: 11 }}
+                                />{" "}
+                                Copiar
+                              </button>
+                            </div>
+                          ))}
+                          <div
+                            style={{
+                              fontSize: ".72rem",
+                              color: "#ef4444",
+                              marginTop: 4,
+                              fontStyle: "italic",
+                            }}
+                          >
+                            ⚠️ NUNCA escribas texto antes de la URL.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Acciones configuradas (sin enviar_media) ── */}
+                  {acciones
+                    .filter((acc) => acc.tipo_accion !== "enviar_media")
+                    .map((acc) => (
+                      <AccionCard
+                        key={acc.id}
+                        accion={acc}
+                        columnas={columnas}
+                        onUpdate={(cfg) => actualizarConfigAccion(acc.id, cfg)}
+                        onDelete={() => eliminarAccion(acc.id)}
+                        catalogSyncedAt={
+                          columnaSeleccionada?.catalog_synced_at || null
+                        }
+                      />
+                    ))}
                 </div>
               </div>
             )}
@@ -2142,7 +2355,7 @@ const AccionCard = ({
           </div>
         )}
 
-        {["contexto_productos", "contexto_calendario", "enviar_media"].includes(
+        {["contexto_productos", "contexto_calendario"].includes(
           accion.tipo_accion,
         ) && (
           <div
@@ -2153,106 +2366,70 @@ const AccionCard = ({
               fontSize: "0.82rem",
               color: "#64748b",
               display: "flex",
-              alignItems: "center",
+              flexDirection: "column",
               gap: 8,
             }}
           >
-            <i
-              className="bx bx-info-circle"
-              style={{ color: meta.color, fontSize: "1.1rem", flexShrink: 0 }}
-            />
-            {[
-              "contexto_productos",
-              "contexto_calendario",
-              "enviar_media",
-            ].includes(accion.tipo_accion) && (
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  background: `${meta.color}08`,
-                  fontSize: "0.82rem",
-                  color: "#64748b",
-                  display: "flex",
-                  flexDirection: "column", // ← columna para todos
-                  gap: 8,
-                }}
-              >
-                {/* Texto informativo — igual para los tres tipos */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <i
+                className="bx bx-info-circle"
+                style={{ color: meta.color, fontSize: "1.1rem", flexShrink: 0 }}
+              />
+              {accion.tipo_accion === "contexto_productos" &&
+                "El catálogo se inyecta automáticamente. Usa el botón Sincronizar en la pestaña Asistente para actualizarlo."}
+              {accion.tipo_accion === "contexto_calendario" &&
+                "Los horarios disponibles se inyectan como contexto antes de llamar al asistente."}
+            </div>
+            {accion.tipo_accion === "contexto_productos" &&
+              (catalogSyncedAt ? (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    background: "#f0fdf4",
+                    border: "1px solid #bbf7d0",
+                    fontSize: "0.78rem",
+                    color: "#16a34a",
+                    fontWeight: 600,
+                    alignSelf: "flex-start",
+                  }}
+                >
                   <i
-                    className="bx bx-info-circle"
-                    style={{
-                      color: meta.color,
-                      fontSize: "1.1rem",
-                      flexShrink: 0,
-                    }}
+                    className="bx bx-check-circle"
+                    style={{ fontSize: "1rem" }}
                   />
-                  {accion.tipo_accion === "contexto_productos" &&
-                    "El catálogo se inyecta automáticamente. Usa el botón Sincronizar en la pestaña Asistente para actualizarlo."}
-                  {accion.tipo_accion === "contexto_calendario" &&
-                    "Los horarios disponibles se inyectan como contexto antes de llamar al asistente."}
-                  {accion.tipo_accion === "enviar_media" &&
-                    "Las URLs [producto_imagen_url] y [producto_video_url] de la respuesta se enviarán automáticamente por WhatsApp."}
+                  Última sync:{" "}
+                  {new Date(catalogSyncedAt).toLocaleString("es-EC", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </div>
-
-                {/* Badge de última sync — solo para contexto_productos */}
-                {accion.tipo_accion === "contexto_productos" &&
-                  (catalogSyncedAt ? (
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        borderRadius: 8,
-                        background: "#f0fdf4",
-                        border: "1px solid #bbf7d0",
-                        fontSize: "0.78rem",
-                        color: "#16a34a",
-                        fontWeight: 600,
-                        alignSelf: "flex-start",
-                      }}
-                    >
-                      <i
-                        className="bx bx-check-circle"
-                        style={{ fontSize: "1rem" }}
-                      />
-                      Última sync:{" "}
-                      {new Date(catalogSyncedAt).toLocaleString("es-EC", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        borderRadius: 8,
-                        background: "#fffbeb",
-                        border: "1px solid #fde68a",
-                        fontSize: "0.78rem",
-                        color: "#b45309",
-                        fontWeight: 600,
-                        alignSelf: "flex-start",
-                      }}
-                    >
-                      <i className="bx bx-time" style={{ fontSize: "1rem" }} />
-                      Aún no sincronizado
-                    </div>
-                  ))}
-              </div>
-            )}
-            {accion.tipo_accion === "contexto_calendario" &&
-              "Los horarios disponibles se inyectan como contexto antes de llamar al asistente."}
-            {accion.tipo_accion === "enviar_media" &&
-              "Las URLs [producto_imagen_url] y [producto_video_url] de la respuesta se enviarán automáticamente por WhatsApp."}
+              ) : (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    background: "#fffbeb",
+                    border: "1px solid #fde68a",
+                    fontSize: "0.78rem",
+                    color: "#b45309",
+                    fontWeight: 600,
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  <i className="bx bx-time" style={{ fontSize: "1rem" }} />
+                  Aún no sincronizado
+                </div>
+              ))}
           </div>
         )}
 
