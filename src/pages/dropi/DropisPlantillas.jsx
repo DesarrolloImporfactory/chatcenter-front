@@ -303,7 +303,16 @@ const DropisPlantillas = ({ id_configuracion }) => {
             if (detected) _params = detected;
           }
 
-          parsed[key] = { ...val, _params };
+          // Auto-fill body_text si tiene template pero no tiene body_text guardado
+          let bodyText = val.body_text || null;
+          if (val.nombre_template && !bodyText) {
+            const tpl = uniquePlantillas.find(
+              (p) => p.name === val.nombre_template,
+            );
+            bodyText = getTemplateBodyText(tpl) || null;
+          }
+
+          parsed[key] = { ...val, _params, body_text: bodyText };
         }
         setConfig(parsed);
         setTotalActivos(Object.values(parsed).filter((v) => v.activo).length);
@@ -338,11 +347,13 @@ const DropisPlantillas = ({ id_configuracion }) => {
           params.body?.length || params.buttons?.length
             ? JSON.stringify(params)
             : null,
+        body_text: cfg.body_text || null,
       });
       Toast.fire({ icon: "success", title: "Guardado" });
       setTotalActivos(Object.values(config).filter((v) => v.activo).length);
-    } catch {
-      Toast.fire({ icon: "error", title: "Error al guardar" });
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Error al guardar";
+      Toast.fire({ icon: "error", title: msg });
     } finally {
       setGuardando(null);
     }
@@ -412,8 +423,11 @@ const DropisPlantillas = ({ id_configuracion }) => {
       const tpl = plantillas.find((p) => p.name === templateName);
       const detected = autoDetectParams(tpl);
       updateConfig(estado, "_params", detected || {});
+      // Guardar body_text para interpolación en el cron
+      updateConfig(estado, "body_text", getTemplateBodyText(tpl) || null);
     } else {
       updateConfig(estado, "_params", {});
+      updateConfig(estado, "body_text", null);
     }
   };
 
