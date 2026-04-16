@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { useDropi } from "../../context/DropiContext";
+import FloatingSupportChat from "../layout/FloatingSupportChat";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -1586,6 +1587,9 @@ const Cabecera = ({
           </>
         </div>
       )}
+      <FloatingSupportChat
+        bottomClass={selectedChat ? "bottom-20" : undefined}
+      />
     </>
   );
 };

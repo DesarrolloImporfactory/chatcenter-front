@@ -10,6 +10,7 @@ import Swal from "sweetalert2";
 import { useDropi } from "../../context/DropiContext";
 import usePresenceRegister from "../../hooks/usePresenceRegister";
 import { usePresence } from "../../context/PresenceProvider";
+import FloatingSupportChat from "./FloatingSupportChat";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -838,6 +839,7 @@ function MainLayout({ children }) {
         </div>
       </div>
 
+      <FloatingSupportChat />
       {/* <Footer /> */}
     </div>
   );

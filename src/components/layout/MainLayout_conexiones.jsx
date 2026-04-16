@@ -5,6 +5,7 @@ import { Footer } from "../shared/Footer";
 import { jwtDecode } from "jwt-decode";
 import Swal from "sweetalert2";
 import ModalPlanBlock from "./modales/ModalPlanBlock";
+import FloatingSupportChat from "./FloatingSupportChat";
 
 function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -313,6 +314,8 @@ function MainLayout({ children }) {
           navigate(customRedirect || "/planes");
         }}
       />
+
+      <FloatingSupportChat />
     </div>
   );
 }
