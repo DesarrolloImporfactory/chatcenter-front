@@ -79,8 +79,105 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
     if (!confirmacion.isConfirmed) return;
 
     setPaso(3);
+
+    const esGlobal = plantillaSeleccionada.tipo === "global";
+
+    // ── Solo para plantillas globales: Swal con mensajes progresivos ──
+    let intervalMensajes = null;
+    if (esGlobal) {
+      const mensajes = [
+        {
+          title: "Creando tus columnas...",
+          html: `<div style="color:#64748b;font-size:.9rem;line-height:1.6">
+          Estamos configurando las columnas del Kanban<br/>
+          y creando los asistentes de IA en OpenAI.
+        </div>`,
+          icon: "bx bx-columns",
+          color: "#6366f1",
+        },
+        {
+          title: "Configurando asistentes de IA...",
+          html: `<div style="color:#64748b;font-size:.9rem;line-height:1.6">
+          Creando los prompts personalizados<br/>
+          para <strong>${empresa}</strong>.
+        </div>`,
+          icon: "bx bx-bot",
+          color: "#10b981",
+        },
+        {
+          title: "Indexando tus productos...",
+          html: `<div style="color:#64748b;font-size:.9rem;line-height:1.6">
+          Sincronizando el catálogo de productos<br/>
+          y cargando la información en cada asistente.
+        </div>`,
+          icon: "bx bx-package",
+          color: "#f59e0b",
+        },
+        {
+          title: "Casi listo...",
+          html: `<div style="color:#64748b;font-size:.9rem;line-height:1.6">
+          Finalizando la configuración de tu Kanban.<br/>
+          <small>Esto puede tardar un poco más si tienes muchos productos.</small>
+        </div>`,
+          icon: "bx bx-loader-alt",
+          color: "#8b5cf6",
+        },
+      ];
+
+      let idx = 0;
+      const renderMensaje = () => {
+        const m = mensajes[idx];
+        Swal.update({
+          title: m.title,
+          html: `
+          <div style="display:flex;flex-direction:column;align-items:center;gap:18px;padding:10px 0">
+            <div style="
+              width:72px;height:72px;border-radius:50%;
+              background:${m.color}15;
+              border:2px solid ${m.color}30;
+              display:flex;align-items:center;justify-content:center;
+              position:relative;
+            ">
+              <i class="${m.icon}" style="font-size:2rem;color:${m.color}"></i>
+              <div style="
+                position:absolute;inset:-6px;
+                border-radius:50%;
+                border:2px solid ${m.color};
+                border-top-color:transparent;
+                animation:pk-spin 1.2s linear infinite;
+              "></div>
+            </div>
+            ${m.html}
+          </div>
+        `,
+        });
+      };
+
+      Swal.fire({
+        title: mensajes[0].title,
+        html: "",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        customClass: { container: "swal-over-modal" },
+        didOpen: () => {
+          renderMensaje();
+        },
+      });
+
+      // Cambia el mensaje cada 8 segundos (ajústalo según cuánto dure tu sync)
+      intervalMensajes = setInterval(() => {
+        idx = Math.min(idx + 1, mensajes.length - 1);
+        renderMensaje();
+        // Si ya llegamos al último, dejamos de avanzar
+        if (idx === mensajes.length - 1) {
+          clearInterval(intervalMensajes);
+          intervalMensajes = null;
+        }
+      }, 8000);
+    }
+
     try {
-      const esGlobal = plantillaSeleccionada.tipo === "global";
       const endpoint = esGlobal
         ? "/kanban_plantillas/aplicar_global"
         : "/kanban_plantillas/aplicar";
@@ -97,6 +194,11 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
           };
 
       const { data } = await chatApi.post(endpoint, body, { timeout: 180000 });
+
+      // Limpiamos el interval y cerramos el Swal de progreso
+      if (intervalMensajes) clearInterval(intervalMensajes);
+      if (esGlobal) Swal.close();
+
       if (data?.success) {
         setResultado(data.data || []);
         setPaso(4);
@@ -109,6 +211,8 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
         setPaso(2);
       }
     } catch (err) {
+      if (intervalMensajes) clearInterval(intervalMensajes);
+      if (esGlobal) Swal.close();
       Toast.fire({
         icon: "error",
         title: err?.response?.data?.message || "Error al aplicar plantilla",
