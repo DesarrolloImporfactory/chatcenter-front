@@ -29,6 +29,7 @@ import CatalogoPublicoView from "./pages/productos/CatalogoPublicoView";
 import EncuestaPublica from "./pages/encuestas/EncuestaPublica";
 import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
+import AdminUsuarios from "./components/admin/AdminUsuarios";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import AdministradorCanales from "./pages/administradorcanales/AdministradorCanales";
@@ -433,6 +434,16 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
+                {/* vista de usuariosadmin */}
+                <Route
+                  path="/usuarios_admin"
+                  element={
+                    <MainLayout_conexiones>
+                      <AdminUsuarios />
+                    </MainLayout_conexiones>
+                  }
+                />
+
                 {/* vista de departamentos */}
                 <Route
                   path="/departamentos"

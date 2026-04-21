@@ -253,7 +253,11 @@ function MainLayout({ children }) {
               </div>
             </div>
 
-            <NavBtn path="/usuarios" icon="bx-user" label="Usuarios" />
+            <NavBtn
+              path={isSuperAdmin ? "/usuarios_admin" : "/usuarios"}
+              icon={isSuperAdmin ? "bxs-shield-alt-2" : "bx-user"}
+              label={isSuperAdmin ? "Panel de Usuarios" : "Usuarios"}
+            />
             <NavBtn
               path="/departamentos"
               icon="bx-buildings"
