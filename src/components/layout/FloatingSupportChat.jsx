@@ -17,11 +17,10 @@ const WA_SUPPORT_NUMBER = "593998979214";
 function renderMarkdown(text) {
   if (!text) return null;
 
-  // Split by lines for block-level elements
   const lines = text.split("\n");
   const elements = [];
   let listItems = [];
-  let listType = null; // 'ul' | 'ol'
+  let listType = null;
 
   const flushList = () => {
     if (listItems.length > 0) {
@@ -45,7 +44,6 @@ function renderMarkdown(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Unordered list: - item or * item
     const ulMatch = line.match(/^[\s]*[-*]\s+(.+)/);
     if (ulMatch) {
       if (listType === "ol") flushList();
@@ -54,7 +52,6 @@ function renderMarkdown(text) {
       continue;
     }
 
-    // Ordered list: 1. item
     const olMatch = line.match(/^[\s]*(\d+)[.)]\s+(.+)/);
     if (olMatch) {
       if (listType === "ul") flushList();
@@ -63,16 +60,13 @@ function renderMarkdown(text) {
       continue;
     }
 
-    // Not a list item → flush any pending list
     flushList();
 
-    // Empty line → spacer
     if (line.trim() === "") {
       elements.push(<div key={`br-${i}`} className="h-1.5" />);
       continue;
     }
 
-    // Regular paragraph
     elements.push(
       <p key={`p-${i}`} className="my-0">
         {renderInline(line)}
@@ -80,7 +74,7 @@ function renderMarkdown(text) {
     );
   }
 
-  flushList(); // flush any remaining list
+  flushList();
 
   return <>{elements}</>;
 }
@@ -89,14 +83,11 @@ function renderMarkdown(text) {
 function renderInline(text) {
   if (!text) return null;
 
-  // Regex to match inline patterns
-  // Order matters: bold (**), italic (*), links [text](url), inline code `code`
   const parts = [];
   let remaining = text;
   let key = 0;
 
   while (remaining.length > 0) {
-    // Find the first match among patterns
     const patterns = [
       { regex: /\*\*(.+?)\*\*/, type: "bold" },
       { regex: /\*(.+?)\*/, type: "italic" },
@@ -118,17 +109,14 @@ function renderInline(text) {
     }
 
     if (!firstMatch) {
-      // No more matches, push the rest as text
       parts.push(<span key={key++}>{remaining}</span>);
       break;
     }
 
-    // Push text before the match
     if (firstIndex > 0) {
       parts.push(<span key={key++}>{remaining.slice(0, firstIndex)}</span>);
     }
 
-    // Push the matched element
     switch (matchedPattern) {
       case "bold":
         parts.push(
@@ -167,9 +155,10 @@ function renderInline(text) {
           </code>,
         );
         break;
+      default:
+        break;
     }
 
-    // Continue with the rest
     remaining = remaining.slice(firstIndex + firstMatch[0].length);
   }
 
@@ -222,26 +211,16 @@ const TEMAS_DROPI = [
 
 const TEMAS_PLATAFORMA = [
   {
-    id: "conexion_whatsapp",
-    icon: "bxl-whatsapp",
-    label: "Conectar WhatsApp Business",
-    kbType: "plataforma",
-    prompt:
-      "El usuario necesita ayuda para conectar su número de WhatsApp a ImporChat. Explícale los dos métodos disponibles: Coexistencia (celular + web) y Solo API. Incluye los enlaces a los video tutoriales.",
-  },
-  {
-    id: "uso_plataforma",
-    icon: "bx-help-circle",
-    label: "Ayuda con la plataforma",
-    kbType: "plataforma",
-    prompt:
-      "El usuario necesita ayuda con el uso de ImporChat. Pregúntale qué funcionalidad necesita resolver.",
-  },
-  {
     id: "asesor",
     icon: "bx-support",
     label: "Hablar con un asesor",
     isAsesor: true,
+  },
+  {
+    id: "free_chat",
+    icon: "bx-message-dots",
+    label: "Consultar al asistente IA",
+    isFreeChat: true,
   },
 ];
 
@@ -260,14 +239,14 @@ export default function FloatingSupportChat({
   bottomClass,
 }) {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState("menu"); // menu | chat
+  const [view, setView] = useState("menu");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasDropi, setHasDropi] = useState(false);
   const [checkingDropi, setCheckingDropi] = useState(true);
   const [selectedTema, setSelectedTema] = useState(null);
-  const [chatContext, setChatContext] = useState(""); // for WA link
+  const [chatContext, setChatContext] = useState("");
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -278,7 +257,6 @@ export default function FloatingSupportChat({
     parseInt(localStorage.getItem("id_configuracion"), 10) ||
     null;
 
-  /* ─── Check Dropi integration ─── */
   useEffect(() => {
     const checkDropi = async () => {
       if (!idConf) {
@@ -299,19 +277,16 @@ export default function FloatingSupportChat({
     checkDropi();
   }, [idConf]);
 
-  /* ─── Auto scroll ─── */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /* ─── Focus input on chat view ─── */
   useEffect(() => {
     if (view === "chat") {
       setTimeout(() => inputRef.current?.focus(), 200);
     }
   }, [view]);
 
-  /* ─── Close on click outside ─── */
   useEffect(() => {
     const handler = (e) => {
       if (open && chatRef.current && !chatRef.current.contains(e.target)) {
@@ -324,10 +299,26 @@ export default function FloatingSupportChat({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  /* ─── Select topic ─── */
+  const handleFreeChat = () => {
+    setSelectedTema(null);
+    setChatContext("");
+    setMessages([
+      {
+        role: "assistant",
+        content:
+          "¡Hola! 👋 Escríbeme tu consulta y haré lo posible por ayudarte.",
+      },
+    ]);
+    setView("chat");
+  };
+
   const handleSelectTema = (tema) => {
+    if (tema.isFreeChat) {
+      handleFreeChat();
+      return;
+    }
+
     if (tema.isAsesor) {
-      // Collect context from previous messages or chat context
       const contextSummary =
         chatContext ||
         messages
@@ -336,7 +327,6 @@ export default function FloatingSupportChat({
           .join(". ") ||
         "";
 
-      // Show message with WhatsApp link
       const waLink = buildWhatsAppLink(contextSummary);
 
       setMessages([
@@ -362,7 +352,6 @@ export default function FloatingSupportChat({
     setView("chat");
   };
 
-  /* ─── Send message ─── */
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || loading) return;
@@ -372,21 +361,20 @@ export default function FloatingSupportChat({
     setInput("");
     setLoading(true);
 
-    // Update context for WA link
     if (!chatContext) setChatContext(text);
 
     try {
       const res = await chatApi.post("soporte_chat/ask", {
         id_configuracion: idConf,
         messages: newMessages
-          .filter((m) => !m.waLink) // exclude WA link messages
+          .filter((m) => !m.waLink)
           .map((m) => ({
             role: m.role,
             content: m.content,
           })),
         tema_context: selectedTema?.prompt || null,
         has_dropi: hasDropi,
-        kb_type: selectedTema?.kbType || "auto", // auto-detect if free chat
+        kb_type: selectedTema?.kbType || "auto",
       });
 
       const respuesta = res.data?.respuesta || "No pude procesar tu consulta.";
@@ -407,7 +395,6 @@ export default function FloatingSupportChat({
     }
   }, [input, messages, loading, idConf, selectedTema, hasDropi, chatContext]);
 
-  /* ─── Reset to menu ─── */
   const handleBack = () => {
     setView("menu");
     setMessages([]);
@@ -416,21 +403,6 @@ export default function FloatingSupportChat({
     setChatContext("");
   };
 
-  /* ─── Free chat (no topic) ─── */
-  const handleFreeChat = () => {
-    setSelectedTema(null);
-    setChatContext("");
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          "¡Hola! 👋 Escríbeme tu consulta y haré lo posible por ayudarte.",
-      },
-    ]);
-    setView("chat");
-  };
-
-  /* ─── Go to asesor from chat ─── */
   const handleGoToAsesor = () => {
     const contextSummary =
       chatContext ||
@@ -444,7 +416,6 @@ export default function FloatingSupportChat({
     window.open(waLink, "_blank");
   };
 
-  /* ─── Build topic list ─── */
   const temas = useMemo(
     () => [...(hasDropi ? TEMAS_DROPI : []), ...TEMAS_PLATAFORMA],
     [hasDropi],
@@ -452,7 +423,6 @@ export default function FloatingSupportChat({
 
   return (
     <>
-      {/* ─── FAB Button ─── */}
       <button
         id="support-fab"
         onClick={() => setOpen((v) => !v)}
@@ -472,7 +442,6 @@ export default function FloatingSupportChat({
         )}
       </button>
 
-      {/* ─── Chat Panel ─── */}
       <div
         ref={chatRef}
         className={`fixed ${bottomClass ? "bottom-40" : "bottom-24"} right-6 z-50 w-[370px] max-w-[calc(100vw-2rem)]
@@ -484,7 +453,6 @@ export default function FloatingSupportChat({
           border: "1px solid rgba(14,116,144,0.2)",
         }}
       >
-        {/* ─── Header ─── */}
         <div
           className="px-5 py-4 flex items-center gap-3"
           style={{
@@ -518,10 +486,8 @@ export default function FloatingSupportChat({
           </button>
         </div>
 
-        {/* ─── Body ─── */}
         <div className="bg-white" style={{ maxHeight: "480px" }}>
           {view === "menu" ? (
-            /* ─── Menu View ─── */
             <div className="p-4 overflow-y-auto" style={{ maxHeight: "480px" }}>
               <p className="text-gray-600 text-sm mb-4">
                 ¿En qué puedo ayudarte hoy?
@@ -541,12 +507,12 @@ export default function FloatingSupportChat({
 
                   {temas.map((tema) => (
                     <div key={tema.id}>
-                      {tema.id === "conexion_whatsapp" && hasDropi && (
+                      {tema.id === "asesor" && hasDropi && (
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">
                           Plataforma
                         </p>
                       )}
-                      {tema.id === "conexion_whatsapp" && !hasDropi && (
+                      {tema.id === "asesor" && !hasDropi && (
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-1">
                           Soporte de Plataforma
                         </p>
@@ -571,24 +537,11 @@ export default function FloatingSupportChat({
                       </button>
                     </div>
                   ))}
-
-                  {/* Free chat */}
-                  <button
-                    onClick={handleFreeChat}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl
-                               text-left text-sm text-gray-500
-                               hover:bg-gray-50 transition-all duration-200 mt-3"
-                  >
-                    <i className="bx bx-message-dots text-lg" />
-                    <span>Escribir otra consulta...</span>
-                  </button>
                 </div>
               )}
             </div>
           ) : (
-            /* ─── Chat View ─── */
             <div className="flex flex-col" style={{ height: "440px" }}>
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.map((msg, i) => (
                   <div key={i}>
@@ -613,7 +566,6 @@ export default function FloatingSupportChat({
                       </div>
                     </div>
 
-                    {/* WhatsApp button for asesor messages */}
                     {msg.waLink && (
                       <div className="flex justify-start mt-2 ml-1">
                         <a
@@ -656,7 +608,6 @@ export default function FloatingSupportChat({
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input + Asesor shortcut */}
               <div className="p-3 border-t border-gray-100">
                 <div className="flex items-center gap-2">
                   <input
@@ -696,7 +647,6 @@ export default function FloatingSupportChat({
                   </button>
                 </div>
 
-                {/* Quick asesor button in chat view */}
                 <button
                   onClick={handleGoToAsesor}
                   className="w-full mt-2 flex items-center justify-center gap-2

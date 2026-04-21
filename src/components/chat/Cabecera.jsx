@@ -1588,7 +1588,7 @@ const Cabecera = ({
         </div>
       )}
       <FloatingSupportChat
-        bottomClass={selectedChat ? "bottom-20" : undefined}
+        bottomClass={selectedChat ? "bottom-[155px]" : undefined}
       />
     </>
   );
