@@ -1,5 +1,5 @@
 // src/pages/kanban/configuracion/componentes/PlantillasKanban.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../../api/chatcenter";
 
@@ -17,6 +17,99 @@ const ICONOS_PLANTILLA = {
   ventas: { icon: "bx bx-store", color: "#10b981", bg: "#f0fdf4" },
 };
 
+// ─────────────────────────────────────────────────────────────
+// Columnas fallback para plantillas hardcoded (por si la plantilla
+// no trae el array `columnas` desde la BD).
+// ─────────────────────────────────────────────────────────────
+const COLUMNAS_FALLBACK = {
+  ventas: [
+    {
+      nombre: "CONTACTO INICIAL",
+      estado: "contacto_inicial",
+      color: "#EFF6FF",
+      texto: "#1D4ED8",
+      icono: "bx bx-phone",
+      ia: true,
+      final: false,
+    },
+    {
+      nombre: "IA VENTAS",
+      estado: "ia_ventas",
+      color: "#F0FDF4",
+      texto: "#15803D",
+      icono: "bx bx-bot",
+      ia: true,
+      final: false,
+    },
+    {
+      nombre: "GENERAR GUIA",
+      estado: "generar_guia",
+      color: "#FFFBEB",
+      texto: "#B45309",
+      icono: "bx bx-cart",
+      ia: false,
+      final: true,
+    },
+    {
+      nombre: "SEGUIMIENTO",
+      estado: "seguimiento",
+      color: "#ECFEFF",
+      texto: "#0E7490",
+      icono: "bx bx-calendar",
+      ia: true,
+      final: false,
+    },
+    {
+      nombre: "ASESOR",
+      estado: "asesor",
+      color: "#FFF7ED",
+      texto: "#C2410C",
+      icono: "bx bx-user",
+      ia: false,
+      final: false,
+    },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────
+// Etapas de la animación del paso 3. 5 etapas x 9s = 45s.
+// ─────────────────────────────────────────────────────────────
+const STAGES = [
+  {
+    title: "Creando columnas del Kanban",
+    desc: "Estructurando el flujo de atención y estados de cada contacto.",
+    icon: "bx bx-columns",
+    color: "#6366f1",
+  },
+  {
+    title: "Configurando templates de mensajes",
+    desc: "Creando los templates en tu Business Manager de Meta.",
+    icon: "bx bx-message-square-dots",
+    color: "#3b82f6",
+  },
+  {
+    title: "Creando asistentes de IA",
+    desc: "Generando los prompts personalizados para tu empresa.",
+    icon: "bx bx-bot",
+    color: "#10b981",
+  },
+  {
+    title: "Configurando respuestas rápidas",
+    desc: "Cargando las respuestas rápidas del flujo.",
+    icon: "bx bx-reply",
+    color: "#f59e0b",
+  },
+  {
+    title: "Indexando catálogo de productos",
+    desc: "Sincronizando tu catálogo y cargándolo en los asistentes. Esto puede tomar un poco.",
+    icon: "bx bx-package",
+    color: "#8b5cf6",
+  },
+];
+
+const STAGE_DURATION_MS = 12000; // ~12s por etapa
+const MIN_TOTAL_MS = STAGES.length * STAGE_DURATION_MS; // 45s
+
 const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
   const [showModal, setShowModal] = useState(false);
   const [plantillas, setPlantillas] = useState([]);
@@ -25,6 +118,48 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState(null);
   const [empresa, setEmpresa] = useState("");
   const [resultado, setResultado] = useState([]);
+
+  // Estado animación paso 3
+  const [stageIndex, setStageIndex] = useState(0);
+  const stageTimerRef = useRef(null);
+  const abortRef = useRef(false);
+
+  // Limpieza al desmontar
+  useEffect(() => {
+    return () => {
+      if (stageTimerRef.current) clearInterval(stageTimerRef.current);
+    };
+  }, []);
+
+  // ─────────────────────────────────────────────────────────
+  // Normaliza las columnas que se mostrarán en el paso 2.
+  // Prioridad: plantillaSeleccionada.columnas (desde BD) →
+  // fallback hardcoded por `key`.
+  // ─────────────────────────────────────────────────────────
+  const columnasParaMostrar = useMemo(() => {
+    if (!plantillaSeleccionada) return [];
+
+    const cols = plantillaSeleccionada.columnas;
+    if (Array.isArray(cols) && cols.length) {
+      return cols
+        .slice()
+        .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+        .map((c) => ({
+          nombre:
+            c.nombre ||
+            (c.estado_db || c.estado || "").toUpperCase().replace(/_/g, " "),
+          estado: c.estado_db || c.estado || c.estado_contacto || "",
+          color: c.color_fondo || c.color || c.bg_color || "#EFF6FF",
+          texto: c.color_texto || c.texto || c.text_color || "#1D4ED8",
+          icono: c.icono || c.icon || "bx bx-columns",
+          ia: Boolean(c.activa_ia ?? c.ia ?? c.tiene_ia ?? false),
+          final: Boolean(c.es_estado_final ?? c.final ?? c.es_final ?? false),
+        }));
+    }
+
+    // Fallback hardcoded (plantillas key-based como "ventas")
+    return COLUMNAS_FALLBACK[plantillaSeleccionada.key] || [];
+  }, [plantillaSeleccionada]);
 
   const handleAbrir = async () => {
     setShowModal(true);
@@ -51,8 +186,15 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
   };
 
   const cerrarModal = () => {
+    // Por seguridad, si por algo se cierra el modal a la mitad
+    if (stageTimerRef.current) {
+      clearInterval(stageTimerRef.current);
+      stageTimerRef.current = null;
+    }
+    abortRef.current = true;
     setShowModal(false);
     setPaso(1);
+    setStageIndex(0);
   };
 
   const seleccionarPlantilla = (p) => {
@@ -78,141 +220,82 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
     });
     if (!confirmacion.isConfirmed) return;
 
+    // Reseteamos estado de animación y arrancamos
+    abortRef.current = false;
+    setStageIndex(0);
     setPaso(3);
 
+    const startTime = Date.now();
+
+    // Timer que avanza las etapas cada STAGE_DURATION_MS
+    if (stageTimerRef.current) clearInterval(stageTimerRef.current);
+    stageTimerRef.current = setInterval(() => {
+      if (abortRef.current) return;
+      setStageIndex((prev) => (prev >= STAGES.length - 1 ? prev : prev + 1));
+    }, STAGE_DURATION_MS);
+
     const esGlobal = plantillaSeleccionada.tipo === "global";
-
-    // ── Solo para plantillas globales: Swal con mensajes progresivos ──
-    let intervalMensajes = null;
-    if (esGlobal) {
-      const mensajes = [
-        {
-          title: "Creando tus columnas...",
-          html: `<div style="color:#64748b;font-size:.9rem;line-height:1.6">
-          Estamos configurando las columnas del Kanban<br/>
-          y creando los asistentes de IA en OpenAI.
-        </div>`,
-          icon: "bx bx-columns",
-          color: "#6366f1",
-        },
-        {
-          title: "Configurando asistentes de IA...",
-          html: `<div style="color:#64748b;font-size:.9rem;line-height:1.6">
-          Creando los prompts personalizados<br/>
-          para <strong>${empresa}</strong>.
-        </div>`,
-          icon: "bx bx-bot",
-          color: "#10b981",
-        },
-        {
-          title: "Indexando tus productos...",
-          html: `<div style="color:#64748b;font-size:.9rem;line-height:1.6">
-          Sincronizando el catálogo de productos<br/>
-          y cargando la información en cada asistente.
-        </div>`,
-          icon: "bx bx-package",
-          color: "#f59e0b",
-        },
-        {
-          title: "Casi listo...",
-          html: `<div style="color:#64748b;font-size:.9rem;line-height:1.6">
-          Finalizando la configuración de tu Kanban.<br/>
-          <small>Esto puede tardar un poco más si tienes muchos productos.</small>
-        </div>`,
-          icon: "bx bx-loader-alt",
-          color: "#8b5cf6",
-        },
-      ];
-
-      let idx = 0;
-      const renderMensaje = () => {
-        const m = mensajes[idx];
-        Swal.update({
-          title: m.title,
-          html: `
-          <div style="display:flex;flex-direction:column;align-items:center;gap:18px;padding:10px 0">
-            <div style="
-              width:72px;height:72px;border-radius:50%;
-              background:${m.color}15;
-              border:2px solid ${m.color}30;
-              display:flex;align-items:center;justify-content:center;
-              position:relative;
-            ">
-              <i class="${m.icon}" style="font-size:2rem;color:${m.color}"></i>
-              <div style="
-                position:absolute;inset:-6px;
-                border-radius:50%;
-                border:2px solid ${m.color};
-                border-top-color:transparent;
-                animation:pk-spin 1.2s linear infinite;
-              "></div>
-            </div>
-            ${m.html}
-          </div>
-        `,
-        });
-      };
-
-      Swal.fire({
-        title: mensajes[0].title,
-        html: "",
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        customClass: { container: "swal-over-modal" },
-        didOpen: () => {
-          renderMensaje();
-        },
-      });
-
-      // Cambia el mensaje cada 8 segundos (ajústalo según cuánto dure tu sync)
-      intervalMensajes = setInterval(() => {
-        idx = Math.min(idx + 1, mensajes.length - 1);
-        renderMensaje();
-        // Si ya llegamos al último, dejamos de avanzar
-        if (idx === mensajes.length - 1) {
-          clearInterval(intervalMensajes);
-          intervalMensajes = null;
+    const endpoint = esGlobal
+      ? "/kanban_plantillas/aplicar_global"
+      : "/kanban_plantillas/aplicar";
+    const body = esGlobal
+      ? {
+          id_configuracion,
+          id_plantilla: plantillaSeleccionada.id,
+          empresa: empresa.trim(),
         }
-      }, 8000);
-    }
+      : {
+          id_configuracion,
+          plantilla_key: plantillaSeleccionada.key,
+          empresa: empresa.trim(),
+        };
 
     try {
-      const endpoint = esGlobal
-        ? "/kanban_plantillas/aplicar_global"
-        : "/kanban_plantillas/aplicar";
-      const body = esGlobal
-        ? {
-            id_configuracion,
-            id_plantilla: plantillaSeleccionada.id,
-            empresa: empresa.trim(),
-          }
-        : {
-            id_configuracion,
-            plantilla_key: plantillaSeleccionada.key,
-            empresa: empresa.trim(),
-          };
-
       const { data } = await chatApi.post(endpoint, body, { timeout: 180000 });
 
-      // Limpiamos el interval y cerramos el Swal de progreso
-      if (intervalMensajes) clearInterval(intervalMensajes);
-      if (esGlobal) Swal.close();
-
-      if (data?.success) {
-        setResultado(data.data || []);
-        setPaso(4);
-        onPlantillaAplicada?.();
-      } else {
+      // La API respondió → revisamos si viene con success o error semántico
+      if (!data?.success) {
+        abortRef.current = true;
+        if (stageTimerRef.current) {
+          clearInterval(stageTimerRef.current);
+          stageTimerRef.current = null;
+        }
         Toast.fire({
           icon: "error",
           title: data?.message || "Error al aplicar",
         });
         setPaso(2);
+        return;
       }
+
+      // API OK → aseguramos que hayan pasado mínimo 45s para la animación
+      const elapsed = Date.now() - startTime;
+      if (elapsed < MIN_TOTAL_MS) {
+        const waitMs = MIN_TOTAL_MS - elapsed;
+        await new Promise((resolve) => {
+          const t = setTimeout(resolve, waitMs);
+          // Si se aborta mientras esperamos, resolvemos igual para no colgar.
+          // (No debería abortarse después de un success, pero por seguridad.)
+          return () => clearTimeout(t);
+        });
+      }
+
+      if (abortRef.current) return; // por si cerró el modal mientras esperábamos
+
+      if (stageTimerRef.current) {
+        clearInterval(stageTimerRef.current);
+        stageTimerRef.current = null;
+      }
+      setStageIndex(STAGES.length - 1);
+      setResultado(data.data || []);
+      setPaso(4);
+      onPlantillaAplicada?.();
     } catch (err) {
-      if (intervalMensajes) clearInterval(intervalMensajes);
-      if (esGlobal) Swal.close();
+      abortRef.current = true;
+      if (stageTimerRef.current) {
+        clearInterval(stageTimerRef.current);
+        stageTimerRef.current = null;
+      }
       Toast.fire({
         icon: "error",
         title: err?.response?.data?.message || "Error al aplicar plantilla",
@@ -220,6 +303,9 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
       setPaso(2);
     }
   };
+
+  // Stage activo (seguro para índices fuera de rango)
+  const currentStage = STAGES[Math.min(stageIndex, STAGES.length - 1)];
 
   return (
     <>
@@ -230,6 +316,18 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
         }
         @keyframes pk-overlayIn{from{opacity:0}to{opacity:1}}
         @keyframes pk-spin{to{transform:rotate(360deg)}}
+        @keyframes pk-pulse {
+          0%,100% { transform: scale(1); opacity: 1; }
+          50%     { transform: scale(1.08); opacity: .9; }
+        }
+        @keyframes pk-blink {
+          0%,100% { opacity: 1; }
+          50%     { opacity: .25; }
+        }
+        @keyframes pk-slideIn {
+          from { opacity:0; transform: translateY(8px); }
+          to   { opacity:1; transform: translateY(0); }
+        }
         .pk-overlay {
           position:fixed;inset:0;
           background:rgba(10,10,20,.55);
@@ -524,7 +622,6 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                       }}
                     >
                       {plantillas.map((p) => {
-                        // ← meta dinámico según tipo
                         const meta =
                           p.tipo === "global"
                             ? {
@@ -575,7 +672,6 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                 minHeight: 110,
                               }}
                             >
-                              {/* Fondo decorativo */}
                               <div
                                 style={{
                                   position: "absolute",
@@ -599,7 +695,6 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                 }}
                               />
 
-                              {/* ── Preview global — icono centrado ── */}
                               {p.tipo === "global" && (
                                 <div
                                   style={{
@@ -645,7 +740,6 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                 </div>
                               )}
 
-                              {/* ── Preview ventas — flujo de pasos ── */}
                               {p.key === "ventas" && (
                                 <>
                                   <div
@@ -1035,154 +1129,116 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                     </div>
                   </div>
 
-                  {/* Preview columnas */}
-                  <div style={{ marginBottom: 20 }}>
-                    <div
-                      style={{
-                        fontSize: ".75rem",
-                        fontWeight: 700,
-                        color: "#94a3b8",
-                        textTransform: "uppercase",
-                        letterSpacing: ".06em",
-                        marginBottom: 10,
-                      }}
-                    >
-                      Columnas que se crearán
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 6,
-                      }}
-                    >
-                      {[
-                        {
-                          nombre: "CONTACTO INICIAL",
-                          estado: "contacto_inicial",
-                          color: "#EFF6FF",
-                          texto: "#1D4ED8",
-                          icono: "bx bx-phone",
-                          ia: true,
-                        },
-                        {
-                          nombre: "IA VENTAS",
-                          estado: "ia_ventas",
-                          color: "#F0FDF4",
-                          texto: "#15803D",
-                          icono: "bx bx-bot",
-                          ia: true,
-                        },
-                        {
-                          nombre: "GENERAR GUIA",
-                          estado: "generar_guia",
-                          color: "#FFFBEB",
-                          texto: "#B45309",
-                          icono: "bx bx-cart",
-                          ia: false,
-                          final: true,
-                        },
-                        {
-                          nombre: "SEGUIMIENTO",
-                          estado: "seguimiento",
-                          color: "#ECFEFF",
-                          texto: "#0E7490",
-                          icono: "bx bx-calendar",
-                          ia: true,
-                        },
-                        {
-                          nombre: "ASESOR",
-                          estado: "asesor",
-                          color: "#FFF7ED",
-                          texto: "#C2410C",
-                          icono: "bx bx-user",
-                          ia: false,
-                        },
-                      ].map((col, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "8px 12px",
-                            borderRadius: 10,
-                            border: "1px solid rgba(0,0,0,.06)",
-                            background: "#fafafa",
-                          }}
-                        >
+                  {/* Preview columnas — ahora dinámico */}
+                  {columnasParaMostrar.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div
+                        style={{
+                          fontSize: ".75rem",
+                          fontWeight: 700,
+                          color: "#94a3b8",
+                          textTransform: "uppercase",
+                          letterSpacing: ".06em",
+                          marginBottom: 10,
+                        }}
+                      >
+                        Columnas que se crearán
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        {columnasParaMostrar.map((col, i) => (
                           <div
+                            key={`${col.estado}-${i}`}
                             style={{
-                              width: 30,
-                              height: 30,
-                              borderRadius: 8,
-                              background: col.color,
                               display: "flex",
                               alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
+                              gap: 10,
+                              padding: "8px 12px",
+                              borderRadius: 10,
+                              border: "1px solid rgba(0,0,0,.06)",
+                              background: "#fafafa",
                             }}
                           >
-                            <i
-                              className={col.icono}
-                              style={{ color: col.texto, fontSize: ".9rem" }}
-                            />
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <span
+                            <div
                               style={{
-                                fontWeight: 600,
-                                fontSize: ".82rem",
-                                color: "#0f172a",
+                                width: 30,
+                                height: 30,
+                                borderRadius: 8,
+                                background: col.color,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
                               }}
                             >
-                              {col.nombre}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: ".7rem",
-                                color: "#94a3b8",
-                                fontFamily: "monospace",
-                                marginLeft: 8,
-                              }}
-                            >
-                              {col.estado}
-                            </span>
-                          </div>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            {col.ia && (
+                              <i
+                                className={col.icono}
+                                style={{ color: col.texto, fontSize: ".9rem" }}
+                              />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
                               <span
                                 style={{
-                                  fontSize: ".62rem",
-                                  background: "#dcfce7",
-                                  color: "#16a34a",
-                                  borderRadius: 999,
-                                  padding: "1px 6px",
-                                  fontWeight: 700,
+                                  fontWeight: 600,
+                                  fontSize: ".82rem",
+                                  color: "#0f172a",
                                 }}
                               >
-                                IA
+                                {col.nombre}
                               </span>
-                            )}
-                            {col.final && (
-                              <span
-                                style={{
-                                  fontSize: ".62rem",
-                                  background: "#fef3c7",
-                                  color: "#d97706",
-                                  borderRadius: 999,
-                                  padding: "1px 6px",
-                                  fontWeight: 700,
-                                }}
-                              >
-                                FINAL
-                              </span>
-                            )}
+                              {col.estado && (
+                                <span
+                                  style={{
+                                    fontSize: ".7rem",
+                                    color: "#94a3b8",
+                                    fontFamily: "monospace",
+                                    marginLeft: 8,
+                                  }}
+                                >
+                                  {col.estado}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: "flex", gap: 4 }}>
+                              {col.ia && (
+                                <span
+                                  style={{
+                                    fontSize: ".62rem",
+                                    background: "#dcfce7",
+                                    color: "#16a34a",
+                                    borderRadius: 999,
+                                    padding: "1px 6px",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  IA
+                                </span>
+                              )}
+                              {col.final && (
+                                <span
+                                  style={{
+                                    fontSize: ".62rem",
+                                    background: "#fef3c7",
+                                    color: "#d97706",
+                                    borderRadius: 999,
+                                    padding: "1px 6px",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  FINAL
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div
                     style={{
@@ -1238,31 +1294,211 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                 </>
               )}
 
-              {/* PASO 3 — Aplicando */}
+              {/* PASO 3 — Aplicando (animación bonita 45s) */}
               {paso === 3 && (
-                <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                  <div className="pk-spinner" style={{ marginBottom: 20 }} />
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: "1rem",
-                      color: "#0f172a",
-                      marginBottom: 8,
-                    }}
-                  >
-                    Aplicando plantilla...
+                <div style={{ padding: "14px 4px 4px" }}>
+                  {/* Icono central grande animado */}
+                  <div style={{ textAlign: "center", marginBottom: 22 }}>
+                    <div
+                      key={
+                        stageIndex
+                      } /* fuerza re-mount para animar al cambiar de etapa */
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 96,
+                        height: 96,
+                        borderRadius: "50%",
+                        background: `${currentStage.color}14`,
+                        border: `2px solid ${currentStage.color}33`,
+                        position: "relative",
+                        animation: "pk-slideIn .35s ease",
+                      }}
+                    >
+                      <i
+                        className={currentStage.icon}
+                        style={{
+                          fontSize: "2.6rem",
+                          color: currentStage.color,
+                          animation: "pk-pulse 1.6s ease-in-out infinite",
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: -6,
+                          borderRadius: "50%",
+                          border: `3px solid ${currentStage.color}`,
+                          borderTopColor: "transparent",
+                          animation: "pk-spin 1.2s linear infinite",
+                        }}
+                      />
+                    </div>
                   </div>
+
+                  {/* Título y descripción de la etapa actual */}
                   <div
+                    key={`txt-${stageIndex}`}
                     style={{
-                      fontSize: ".83rem",
-                      color: "#64748b",
-                      lineHeight: 1.6,
+                      textAlign: "center",
+                      marginBottom: 18,
+                      animation: "pk-slideIn .35s ease",
                     }}
                   >
-                    Creando columnas, templates, respuestas rapidas y
-                    configurando asistentes en OpenAI.
-                    <br />
-                    Esto puede tardar unos segundos.
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: "1.02rem",
+                        color: "#0f172a",
+                        marginBottom: 6,
+                      }}
+                    >
+                      {currentStage.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: ".82rem",
+                        color: "#64748b",
+                        lineHeight: 1.55,
+                        padding: "0 8px",
+                      }}
+                    >
+                      {currentStage.desc}
+                    </div>
+                  </div>
+
+                  {/* Barra de progreso */}
+                  <div
+                    style={{
+                      height: 6,
+                      borderRadius: 999,
+                      background: "#f1f5f9",
+                      overflow: "hidden",
+                      marginBottom: 20,
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${((stageIndex + 1) / STAGES.length) * 100}%`,
+                        background: `linear-gradient(90deg, ${STAGES[0].color}, ${currentStage.color})`,
+                        transition: "width .8s ease",
+                        borderRadius: 999,
+                      }}
+                    />
+                  </div>
+
+                  {/* Lista de etapas */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    {STAGES.map((s, i) => {
+                      const done = i < stageIndex;
+                      const current = i === stageIndex;
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "7px 12px",
+                            borderRadius: 10,
+                            background: current
+                              ? `${s.color}0A`
+                              : done
+                                ? "#f0fdf4"
+                                : "#fafafa",
+                            border: `1px solid ${
+                              current
+                                ? `${s.color}40`
+                                : done
+                                  ? "#bbf7d0"
+                                  : "#e5e7eb"
+                            }`,
+                            transition: "all .3s ease",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: "50%",
+                              background: current
+                                ? s.color
+                                : done
+                                  ? "#16a34a"
+                                  : "#e5e7eb",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {done ? (
+                              <i
+                                className="bx bx-check"
+                                style={{ fontSize: 14, color: "#fff" }}
+                              />
+                            ) : current ? (
+                              <div
+                                style={{
+                                  width: 9,
+                                  height: 9,
+                                  borderRadius: "50%",
+                                  background: "#fff",
+                                  animation: "pk-blink 1s ease-in-out infinite",
+                                }}
+                              />
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: ".68rem",
+                                  color: "#94a3b8",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {i + 1}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: ".82rem",
+                              fontWeight: current ? 700 : 600,
+                              color: done
+                                ? "#166534"
+                                : current
+                                  ? s.color
+                                  : "#94a3b8",
+                            }}
+                          >
+                            {s.title}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div
+                    style={{
+                      textAlign: "center",
+                      marginTop: 18,
+                      fontSize: ".72rem",
+                      color: "#94a3b8",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <i
+                      className="bx bx-lock-alt"
+                      style={{ verticalAlign: "middle", marginRight: 4 }}
+                    />
+                    No cierres esta ventana · el proceso está en curso
                   </div>
                 </div>
               )}
