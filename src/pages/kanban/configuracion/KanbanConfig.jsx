@@ -518,6 +518,36 @@ const KanbanConfig = () => {
     }
   };
 
+  const toggleDropiPrincipal = async () => {
+    const esDropi = !!columnaSeleccionada?.es_dropi_principal;
+    try {
+      if (esDropi) {
+        const { data } = await chatApi.post(
+          "/kanban_columnas/quitar_dropi_principal",
+          { id_configuracion },
+        );
+        if (data?.success) {
+          setColumnas(data.data);
+          Toast.fire({ icon: "success", title: "Conexión Dropi removida" });
+        }
+      } else {
+        const { data } = await chatApi.post(
+          "/kanban_columnas/marcar_dropi_principal",
+          { id: columnaActiva, id_configuracion },
+        );
+        if (data?.success) {
+          setColumnas(data.data);
+          Toast.fire({
+            icon: "success",
+            title: "Conexión Dropi establecida",
+          });
+        }
+      }
+    } catch {
+      Toast.fire({ icon: "error", title: "Error al actualizar" });
+    }
+  };
+
   // ── Crear columna nueva ──────────────────────────────────
   const crearColumna = async () => {
     if (!formNueva.nombre || !formNueva.estado_db) {
@@ -841,6 +871,21 @@ const KanbanConfig = () => {
                     }}
                   >
                     IA
+                  </span>
+                )}
+                {!!col.es_dropi_principal && (
+                  <span
+                    style={{
+                      fontSize: "0.62rem",
+                      background: "#ffedd5",
+                      color: "#c2410c",
+                      borderRadius: 999,
+                      padding: "1px 5px",
+                      fontWeight: 700,
+                    }}
+                    title="Conexión principal de Dropi"
+                  >
+                    📦
                   </span>
                 )}
                 {!!col.es_principal && (
@@ -1223,6 +1268,64 @@ const KanbanConfig = () => {
                         checked={!!columnaSeleccionada?.es_principal}
                         onChange={togglePrincipal}
                         colorOn="#ca8a04"
+                      />
+                    </div>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={lbl}>Conexión principal de Dropi</label>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 12,
+                        border: `1px solid ${columnaSeleccionada?.es_dropi_principal ? "rgba(234,88,12,.3)" : "rgba(0,0,0,.07)"}`,
+                        background: columnaSeleccionada?.es_dropi_principal
+                          ? "rgba(234,88,12,.06)"
+                          : "#fafafa",
+                        marginTop: 6,
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "0.87rem",
+                            color: "#0f172a",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                          }}
+                        >
+                          <i
+                            className="bx bx-package"
+                            style={{
+                              color: columnaSeleccionada?.es_dropi_principal
+                                ? "#ea580c"
+                                : "#94a3b8",
+                            }}
+                          />
+                          {columnaSeleccionada?.es_dropi_principal
+                            ? "Esta es la conexión principal de Dropi"
+                            : "Marcar como conexión principal de Dropi"}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748b",
+                            marginTop: 2,
+                          }}
+                        >
+                          {columnaSeleccionada?.es_dropi_principal
+                            ? "Los pedidos nuevos de Dropi entrarán a esta columna"
+                            : "Solo una columna puede recibir pedidos de Dropi"}
+                        </div>
+                      </div>
+                      <ToggleSwitch
+                        checked={!!columnaSeleccionada?.es_dropi_principal}
+                        onChange={toggleDropiPrincipal}
+                        colorOn="#ea580c"
                       />
                     </div>
                   </div>
