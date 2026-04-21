@@ -25,6 +25,11 @@ export const isPendingConfirm = (o) =>
 
 export const canEditOrder = (o) => isPendingConfirm(o);
 
+export const isPending = (o) =>
+  normalizeStatus(showOrderStatus(o)) === "PENDIENTE";
+
+export const canCancelOrder = (o) => isPendingConfirm(o) || isPending(o);
+
 // ── fechas ──
 export const fmtDate = (iso) => {
   if (!iso) return "—";

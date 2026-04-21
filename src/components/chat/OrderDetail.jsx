@@ -17,6 +17,7 @@ import {
   canEditOrder,
   isPendingConfirm,
   isCancelled,
+  canCancelOrder,
   NO_IMAGE,
   hasGuide,
   getGuideUrl,
@@ -42,7 +43,6 @@ export default function OrderDetail({
 
   const editable = canEditOrder(order);
   const pendingConfirm = isPendingConfirm(order);
-  const cancelled = isCancelled(order);
 
   const inputCls =
     "w-full bg-white/[0.04] border border-white/[0.08] rounded-[7px] px-3 py-2 text-[12px] text-white outline-none transition-all focus:border-violet-400/50 focus:bg-white/[0.06] hover:border-white/15 placeholder:text-white/[0.18]";
@@ -297,7 +297,7 @@ export default function OrderDetail({
         )}
 
         {/* Cancelar orden (si no está cancelada) */}
-        {!cancelled && (
+        {canCancelOrder(order) && (
           <button
             type="button"
             onClick={() => onCancelOrder(order)}

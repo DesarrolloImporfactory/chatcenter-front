@@ -16,6 +16,7 @@ import {
   canEditOrder,
   isPendingConfirm,
   pickDistributionCompanyFromQuote,
+  canCancelOrder,
 } from "../../utils/orderHelper";
 
 /* ── Props comunes que se pasan al CreateOrderPanel ── */
@@ -178,6 +179,15 @@ export default function DropshipperClientPanel(props) {
   };
 
   const handleCancelOrder = (order) => {
+    if (!canCancelOrder(order)) {
+      Swal.fire({
+        icon: "info",
+        title: "No se puede cancelar",
+        text: "Dropi solo permite cancelar órdenes en PENDIENTE CONFIRMACION o PENDIENTE. Gestiónala como devolución/novedad.",
+      });
+      return;
+    }
+
     const orderId = showOrderId(order);
     Swal.fire({
       icon: "warning",

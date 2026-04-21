@@ -134,6 +134,8 @@ const Programados = () => {
         return "bg-red-50 text-red-700 border-red-200";
       case "procesando":
         return "bg-blue-50 text-blue-700 border-blue-200";
+      case "cancelado":
+        return "bg-slate-100 text-slate-500 border-slate-300 line-through";
       default:
         return "bg-amber-50 text-amber-700 border-amber-200";
     }
@@ -151,7 +153,24 @@ const Programados = () => {
     const pendientes = lote.items.filter(
       (i) => i.estado === "pendiente",
     ).length;
-    return { total, enviados, errores, pendientes };
+    const procesando = lote.items.filter(
+      (i) => i.estado === "procesando",
+    ).length;
+    const cancelados = lote.items.filter(
+      (i) => i.estado === "cancelado",
+    ).length;
+    const atascados = lote.items.filter(
+      (i) => i.estado === "pendiente" && i.intentos >= i.max_intentos,
+    ).length;
+    return {
+      total,
+      enviados,
+      errores,
+      pendientes,
+      procesando,
+      cancelados,
+      atascados,
+    };
   };
 
   const [expandedLotes, setExpandedLotes] = useState({});
@@ -191,6 +210,223 @@ const Programados = () => {
 
   const hasActiveFilters =
     searchQuery || templateFiltro || estadoFiltro || fechaDesde || fechaHasta;
+
+  /* ================= ACCIONES DE LOTE ================= */
+
+  const editarFecha = async (lote) => {
+    const fechaActual = lote.items?.[0]?.fecha_programada;
+    const tzActual = lote.items?.[0]?.timezone || "America/Guayaquil";
+    const resumen = getResumenLote(lote);
+
+    if (resumen.pendientes === 0) {
+      return Swal.fire(
+        "No se puede editar",
+        "Este lote ya no tiene mensajes pendientes.",
+        "info",
+      );
+    }
+
+    // datetime-local necesita formato: YYYY-MM-DDTHH:mm
+    const toInputValue = (d) => {
+      if (!d) return "";
+      const date = new Date(d);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+        date.getDate(),
+      )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    };
+
+    const { value: formValues } = await Swal.fire({
+      title: "Editar fecha del lote",
+      html: `
+        <div style="text-align:left;font-size:13px">
+          <p style="margin:0 0 8px 0;color:#64748b">
+            Se reprogramarán los <b>${resumen.pendientes}</b> mensaje(s) pendiente(s).
+            Los enviados/errores no se tocan.
+          </p>
+          <label style="font-weight:600;color:#334155">Nueva fecha y hora</label>
+          <input id="swal-fecha" type="datetime-local" class="swal2-input"
+            value="${toInputValue(fechaActual)}" />
+          <label style="font-weight:600;color:#334155;margin-top:8px;display:block">
+            Timezone
+          </label>
+          <input id="swal-tz" class="swal2-input" value="${tzActual}" />
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Reprogramar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#2563eb",
+      preConfirm: () => {
+        const f = document.getElementById("swal-fecha").value;
+        const tz =
+          document.getElementById("swal-tz").value || "America/Guayaquil";
+        if (!f) {
+          Swal.showValidationMessage("Debe ingresar una fecha válida");
+          return false;
+        }
+        const fecha_programada = f.replace("T", " ") + ":00";
+        return { fecha_programada, timezone: tz };
+      },
+    });
+
+    if (!formValues) return;
+
+    try {
+      const { data } = await chatApi.put(
+        "/whatsapp_managment/programados_editar_fecha",
+        {
+          uuid_lote: lote.uuid_lote,
+          id_configuracion: idConfiguracion,
+          ...formValues,
+        },
+      );
+
+      if (!data.ok) {
+        return Swal.fire(
+          "Atención",
+          data.msg || "No se pudo reprogramar",
+          "warning",
+        );
+      }
+
+      Swal.fire("Listo", data.msg, "success");
+      apiList(page, pageSize);
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.msg || "Error reprogramando el lote",
+        "error",
+      );
+    }
+  };
+
+  const cancelarLote = async (lote) => {
+    const resumen = getResumenLote(lote);
+
+    if (resumen.pendientes === 0) {
+      return Swal.fire(
+        "No se puede cancelar",
+        "Este lote ya no tiene pendientes. Los enviados no se pueden deshacer.",
+        "info",
+      );
+    }
+
+    const htmlMsg = `
+      <div style="text-align:left;font-size:13px">
+        <p>Se cancelarán <b>${resumen.pendientes}</b> mensaje(s) pendiente(s).</p>
+        ${
+          resumen.procesando > 0
+            ? `<p style="color:#b45309;background:#fef3c7;padding:8px;border-radius:6px;margin:8px 0">
+                 ⚠️ Hay <b>${resumen.procesando}</b> mensaje(s) actualmente procesándose. Puede que algunos se envíen antes de cancelarse.
+               </p>`
+            : ""
+        }
+        ${
+          resumen.enviados > 0
+            ? `<p style="color:#64748b;margin:4px 0">
+                 ${resumen.enviados} ya se enviaron y no se pueden deshacer.
+               </p>`
+            : ""
+        }
+      </div>
+    `;
+
+    const { isConfirmed } = await Swal.fire({
+      title: "¿Cancelar lote?",
+      html: htmlMsg,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cancelar lote",
+      cancelButtonText: "No",
+      confirmButtonColor: "#dc2626",
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const { data } = await chatApi.delete(
+        "/whatsapp_managment/programados_cancelar_lote",
+        {
+          data: {
+            uuid_lote: lote.uuid_lote,
+            id_configuracion: idConfiguracion,
+          },
+        },
+      );
+
+      if (!data.ok) {
+        return Swal.fire("Atención", data.msg, "warning");
+      }
+
+      Swal.fire("Lote cancelado", data.msg, "success");
+      apiList(page, pageSize);
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.msg || "Error cancelando el lote",
+        "error",
+      );
+    }
+  };
+
+  const reintentarLote = async (lote) => {
+    const resumen = getResumenLote(lote);
+    const total = resumen.errores + resumen.atascados;
+
+    if (total === 0) {
+      return Swal.fire(
+        "Nada para reintentar",
+        "Este lote no tiene mensajes en error ni pendientes atascados.",
+        "info",
+      );
+    }
+
+    const { isConfirmed } = await Swal.fire({
+      title: "Reintentar envíos",
+      html: `
+        <div style="text-align:left;font-size:13px">
+          <p>Se reencolarán:</p>
+          <ul style="margin:4px 0 0 18px;color:#475569">
+            <li>${resumen.errores} con error</li>
+            <li>${resumen.atascados} pendiente(s) atascado(s) (intentos agotados sin respuesta)</li>
+          </ul>
+        </div>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Reintentar ahora",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#059669",
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const { data } = await chatApi.post(
+        "/whatsapp_managment/programados_reintentar_lote",
+        {
+          uuid_lote: lote.uuid_lote,
+          id_configuracion: idConfiguracion,
+          reenviar_ahora: true,
+        },
+      );
+
+      if (!data.ok) {
+        return Swal.fire("Atención", data.msg, "warning");
+      }
+
+      Swal.fire("Reencolados", data.msg, "success");
+      apiList(page, pageSize);
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.msg || "Error reintentando el lote",
+        "error",
+      );
+    }
+  };
 
   /* ================= PAGINACIÓN ================= */
 
@@ -256,6 +492,7 @@ const Programados = () => {
             <option value="enviado">Enviado</option>
             <option value="error">Error</option>
             <option value="procesando">Procesando</option>
+            <option value="cancelado">Cancelado</option>
           </select>
         </div>
 
@@ -374,12 +611,31 @@ const Programados = () => {
           const esFuturo =
             fechaProgramadaLote && new Date(fechaProgramadaLote) > new Date();
 
+          const loteCanceladoTotal =
+            resumen.cancelados > 0 &&
+            resumen.pendientes === 0 &&
+            resumen.procesando === 0;
+
+          const loteFinalizado =
+            resumen.pendientes === 0 &&
+            resumen.errores === 0 &&
+            resumen.procesando === 0 &&
+            resumen.cancelados === 0;
+
           return (
             <div
               key={lote.uuid_lote}
-              className="rounded-xl border border-blue-900/20 shadow-sm bg-white"
+              className={`rounded-xl border shadow-sm bg-white ${
+                loteCanceladoTotal
+                  ? "border-slate-300 opacity-70"
+                  : "border-blue-900/20"
+              }`}
             >
-              <div className="px-6 py-5 border-b bg-blue-50/40">
+              <div
+                className={`px-6 py-5 border-b ${
+                  loteCanceladoTotal ? "bg-slate-50" : "bg-blue-50/40"
+                }`}
+              >
                 <div className="flex justify-between items-start gap-6">
                   <div className="space-y-3 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap">
@@ -389,10 +645,22 @@ const Programados = () => {
                       <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-[300px]">
                         {lote.uuid_lote}
                       </span>
-                      {esFuturo && (
+                      {esFuturo && !loteCanceladoTotal && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
                           <i className="bx bx-time-five text-xs" /> Programado a
                           futuro
+                        </span>
+                      )}
+                      {loteCanceladoTotal && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                          <i className="bx bx-x-circle text-xs" /> Lote
+                          cancelado
+                        </span>
+                      )}
+                      {loteFinalizado && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          <i className="bx bx-check-double text-xs" />{" "}
+                          Finalizado
                         </span>
                       )}
                     </div>
@@ -452,31 +720,83 @@ const Programados = () => {
                       value={resumen.pendientes}
                       color="amber"
                     />
+                    {resumen.cancelados > 0 && (
+                      <StatBadge
+                        label="Cancelados"
+                        value={resumen.cancelados}
+                        color="slate"
+                      />
+                    )}
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-2 text-xs">
-                  {["todos", "enviado", "error", "pendiente"].map((est) => (
-                    <button
-                      key={est}
-                      onClick={() => setFiltroLote(lote.uuid_lote, est)}
-                      className={`px-3 py-1 rounded-full border transition ${filtroActivo === est ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
-                    >
-                      {est}
-                    </button>
-                  ))}
+                {/* ═══ Tabs de filtro + acciones del lote ═══ */}
+                <div className="mt-4 flex items-center gap-2 text-xs flex-wrap">
+                  {["todos", "enviado", "error", "pendiente"]
+                    .concat(resumen.cancelados > 0 ? ["cancelado"] : [])
+                    .map((est) => (
+                      <button
+                        key={est}
+                        onClick={() => setFiltroLote(lote.uuid_lote, est)}
+                        className={`px-3 py-1 rounded-full border transition ${
+                          filtroActivo === est
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {est}
+                      </button>
+                    ))}
 
-                  <button
-                    onClick={() => toggleExpand(lote.uuid_lote)}
-                    className="ml-auto text-xs text-blue-700 font-medium hover:underline inline-flex items-center gap-1"
-                  >
-                    <i
-                      className={`bx ${expanded ? "bx-chevron-up" : "bx-chevron-down"} text-base`}
-                    />
-                    {expanded
-                      ? "Ocultar"
-                      : `Ver ${itemsFiltrados.length} detalle(s)`}
-                  </button>
+                  <div className="ml-auto flex items-center gap-2 flex-wrap">
+                    {/* Editar fecha: solo si hay pendientes y es a futuro */}
+                    {resumen.pendientes > 0 && esFuturo && (
+                      <button
+                        onClick={() => editarFecha(lote)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-100 transition"
+                        title="Cambiar fecha y hora"
+                      >
+                        <i className="bx bx-edit-alt" /> Editar hora
+                      </button>
+                    )}
+
+                    {/* Reintentar: si hay errores o pendientes atascados */}
+                    {(resumen.errores > 0 || resumen.atascados > 0) && (
+                      <button
+                        onClick={() => reintentarLote(lote)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700 hover:bg-emerald-100 transition"
+                        title="Reintentar fallidos y atascados"
+                      >
+                        <i className="bx bx-refresh" /> Reintentar (
+                        {resumen.errores + resumen.atascados})
+                      </button>
+                    )}
+
+                    {/* Cancelar: solo si hay pendientes */}
+                    {resumen.pendientes > 0 && (
+                      <button
+                        onClick={() => cancelarLote(lote)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs text-red-700 hover:bg-red-100 transition"
+                        title="Cancelar mensajes pendientes"
+                      >
+                        <i className="bx bx-x-circle" /> Cancelar
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => toggleExpand(lote.uuid_lote)}
+                      className="text-xs text-blue-700 font-medium hover:underline inline-flex items-center gap-1"
+                    >
+                      <i
+                        className={`bx ${
+                          expanded ? "bx-chevron-up" : "bx-chevron-down"
+                        } text-base`}
+                      />
+                      {expanded
+                        ? "Ocultar"
+                        : `Ver ${itemsFiltrados.length} detalle(s)`}
+                    </button>
+                  </div>
                 </div>
               </div>
 
