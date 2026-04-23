@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import chatApi from "../../../api/chatcenter";
 import Swal from "sweetalert2";
+import ConfigMensajeEnvio from "./ConfigMensajeEnvio";
 
 const DEFAULT_MENSAJE =
   "¡Hola {nombre}! 🙏\n\nGracias por comunicarte con nosotros. Nos encantaría saber cómo fue tu experiencia:\n\n👉 {link}\n\n¡Solo toma 10 segundos!";
@@ -13,6 +14,29 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
   const [mensaje, setMensaje] = useState(enc.mensaje_envio || DEFAULT_MENSAJE);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(null);
+
+  // Estado de auto-respuesta webhook
+  const [mensajeEnvio, setMensajeEnvio] = useState(() => {
+    let params = [];
+    if (enc.template_parameters) {
+      try {
+        params =
+          typeof enc.template_parameters === "string"
+            ? JSON.parse(enc.template_parameters)
+            : Array.isArray(enc.template_parameters)
+              ? enc.template_parameters
+              : [];
+      } catch {
+        params = [];
+      }
+    }
+    return {
+      mensaje_dentro_24h: enc.mensaje_dentro_24h || "",
+      template_fuera_24h: enc.template_fuera_24h || "",
+      template_parameters: Array.isArray(params) ? params : [],
+    };
+  });
+  const [savingEnvio, setSavingEnvio] = useState(false);
 
   const mensajeTieneLink = useMemo(
     () => enc.tipo !== "satisfaccion" || mensaje.includes("{link}"),
@@ -46,6 +70,35 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
       });
     } finally {
       setSaving(false);
+    }
+  };
+  const handleSaveEnvio = async () => {
+    setSavingEnvio(true);
+    try {
+      await chatApi.put(`encuestas/${enc.id}`, {
+        id_configuracion: idConfig,
+        mensaje_dentro_24h: mensajeEnvio.mensaje_dentro_24h || null,
+        template_fuera_24h: mensajeEnvio.template_fuera_24h || null,
+        template_parameters:
+          mensajeEnvio.template_parameters?.length > 0
+            ? mensajeEnvio.template_parameters
+            : null,
+      });
+      Swal.fire({
+        icon: "success",
+        title: "Auto-respuesta guardada",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+      onUpdated?.();
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al guardar",
+        text: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setSavingEnvio(false);
     }
   };
 
@@ -168,6 +221,50 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
                 respuestas.
               </p>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ═══ 🆕 Auto-respuesta (webhook_lead) ═══ */}
+      {enc.tipo === "webhook_lead" && (
+        <div className={`${cardCls} overflow-hidden`}>
+          <div className="px-6 pt-5 pb-4 border-b border-gray-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                <i className="bx bx-paper-plane text-violet-600 text-base" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-800">
+                  Respuesta automática al lead
+                </h4>
+                <p className="text-[10px] text-gray-400">
+                  Envía un mensaje por WhatsApp al recibir un lead del webhook
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-5">
+            <ConfigMensajeEnvio
+              idConfig={idConfig}
+              value={mensajeEnvio}
+              onChange={setMensajeEnvio}
+            />
+          </div>
+
+          <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-end">
+            <button
+              onClick={handleSaveEnvio}
+              disabled={savingEnvio}
+              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {savingEnvio ? (
+                <span className="flex items-center gap-2">
+                  <i className="bx bx-loader-alt bx-spin" /> Guardando...
+                </span>
+              ) : (
+                "Guardar auto-respuesta"
+              )}
+            </button>
           </div>
         </div>
       )}

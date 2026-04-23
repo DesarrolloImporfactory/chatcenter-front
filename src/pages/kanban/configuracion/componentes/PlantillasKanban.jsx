@@ -101,7 +101,7 @@ const STAGES = [
   },
   {
     title: "Indexando catálogo de productos",
-    desc: "Sincronizando tu catálogo y cargándolo en los asistentes. Esto puede tomar un poco.",
+    desc: "Sincronizando tu catálogo y cargándolo en los asistentes. Esto puede tomar un poco de tiempo.",
     icon: "bx bx-package",
     color: "#8b5cf6",
   },

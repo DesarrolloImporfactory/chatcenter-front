@@ -2,12 +2,20 @@ import React, { useState } from "react";
 import chatApi from "../../../api/chatcenter";
 import Swal from "sweetalert2";
 import { TIPO_CONFIG } from "../utils/encuestasConstants";
+import ConfigMensajeEnvio from "../components/ConfigMensajeEnvio";
 
 export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
   const [tipo, setTipo] = useState("webhook_lead");
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Config de auto-respuesta (solo para webhook_lead)
+  const [mensajeEnvio, setMensajeEnvio] = useState({
+    mensaje_dentro_24h: "",
+    template_fuera_24h: "",
+    template_parameters: [],
+  });
 
   // Estado post-creación
   const [created, setCreated] = useState(null);
@@ -18,14 +26,41 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
       return Swal.fire({ icon: "warning", title: "Ingresa un nombre" });
     setSaving(true);
     try {
-      const res = await chatApi.post("encuestas/crear", {
+      const payloadCrear = {
         id_configuracion: idConfig,
         tipo,
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || null,
         preguntas: [],
         auto_enviar_al_cerrar: tipo === "satisfaccion",
-      });
+      };
+
+      const res = await chatApi.post("encuestas/crear", payloadCrear);
+
+      //  Si es webhook_lead y configuró auto-respuesta, guardarla con PUT
+      if (
+        tipo === "webhook_lead" &&
+        res.data?.id_encuesta &&
+        (mensajeEnvio.mensaje_dentro_24h || mensajeEnvio.template_fuera_24h)
+      ) {
+        try {
+          await chatApi.put(`encuestas/${res.data.id_encuesta}`, {
+            id_configuracion: idConfig,
+            mensaje_dentro_24h: mensajeEnvio.mensaje_dentro_24h || null,
+            template_fuera_24h: mensajeEnvio.template_fuera_24h || null,
+            template_parameters:
+              mensajeEnvio.template_parameters?.length > 0
+                ? mensajeEnvio.template_parameters
+                : null,
+          });
+        } catch (updErr) {
+          console.warn(
+            "Encuesta creada pero falló guardar auto-respuesta:",
+            updErr,
+          );
+        }
+      }
+
       setCreated(res.data);
     } catch (err) {
       Swal.fire({
@@ -301,6 +336,17 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
                   placeholder="Descripción breve de para qué sirve esta encuesta..."
                 />
               </div>
+
+              {/* 🆕 Auto-respuesta (solo webhook_lead) */}
+              {tipo === "webhook_lead" && (
+                <div className="pt-4 border-t border-gray-100">
+                  <ConfigMensajeEnvio
+                    idConfig={idConfig}
+                    value={mensajeEnvio}
+                    onChange={setMensajeEnvio}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
