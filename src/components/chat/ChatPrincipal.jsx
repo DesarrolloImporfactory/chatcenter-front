@@ -361,7 +361,7 @@ const ChatPrincipal = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     const payload = {
       messaging_product: "whatsapp",
@@ -405,7 +405,7 @@ const ChatPrincipal = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     const payload = {
       messaging_product: "whatsapp",
@@ -451,7 +451,7 @@ const ChatPrincipal = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     const payload = {
       messaging_product: "whatsapp",
@@ -500,7 +500,7 @@ const ChatPrincipal = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     let rutaReal;
     try {
@@ -556,7 +556,7 @@ const ChatPrincipal = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     const payload = {
       messaging_product: "whatsapp",
@@ -604,7 +604,7 @@ const ChatPrincipal = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     let datos = {};
     try {

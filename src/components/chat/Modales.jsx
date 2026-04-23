@@ -617,7 +617,7 @@ const Modales = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     const payload = {
       messaging_product: "whatsapp",
@@ -815,7 +815,7 @@ const Modales = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     const payload = {
       messaging_product: "whatsapp",
@@ -891,7 +891,7 @@ const Modales = ({
     const files = Array.from(event.target.files);
     const newVideos = files
       .filter((file) => {
-       /*  if (file.size / (1024 * 1024) > MAX_FILE_SIZE_MB) {
+        /*  if (file.size / (1024 * 1024) > MAX_FILE_SIZE_MB) {
           Toast.fire({
             icon: "error",
             title: "El archivo excede el tamaño máximo permitido de 16 MB.",
@@ -1158,7 +1158,7 @@ const Modales = ({
 
       // ── 2. Frontend: enviar mensaje a WhatsApp ────────────────────
       const response = await fetch(
-        `https://graph.facebook.com/v19.0/${dataAdmin.id_telefono}/messages`,
+        `https://graph.facebook.com/v25.0/${dataAdmin.id_telefono}/messages`,
         {
           method: "POST",
           headers: {
@@ -3054,18 +3054,19 @@ const Modales = ({
           aria-modal="true"
         >
           <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-b from-slate-50 to-white shrink-0">
               <div className="flex items-center gap-3">
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
-                  <i className={`bx ${
-                    tipo_modalEnviarArchivo === "Imagen"
-                      ? "bx-image-alt"
-                      : tipo_modalEnviarArchivo === "Video"
-                        ? "bx-video"
-                        : "bx-file"
-                  } text-xl`} />
+                  <i
+                    className={`bx ${
+                      tipo_modalEnviarArchivo === "Imagen"
+                        ? "bx-image-alt"
+                        : tipo_modalEnviarArchivo === "Video"
+                          ? "bx-video"
+                          : "bx-file"
+                    } text-xl`}
+                  />
                 </span>
                 <div>
                   <h2 className="text-base font-semibold text-slate-900">
@@ -3091,7 +3092,6 @@ const Modales = ({
 
             {/* ── Body ── */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-
               {/* ════ IMAGEN ════ */}
               {tipo_modalEnviarArchivo === "Imagen" && (
                 <>
@@ -3116,7 +3116,9 @@ const Modales = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 text-slate-400">
                       <i className="bx bx-image-alt text-4xl mb-2" />
-                      <p className="text-sm">Selecciona imágenes para previsualizar</p>
+                      <p className="text-sm">
+                        Selecciona imágenes para previsualizar
+                      </p>
                     </div>
                   )}
 
@@ -3142,7 +3144,13 @@ const Modales = ({
                       </div>
                     ))}
                     <label className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer text-blue-500 hover:border-blue-400 hover:bg-blue-50 transition">
-                      <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
                       <i className="bx bx-plus text-2xl" />
                     </label>
                   </div>
@@ -3155,18 +3163,24 @@ const Modales = ({
                   {documentoSeleccionado ? (
                     <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
                       <div className="flex flex-col items-center justify-center py-8 gap-2">
-                        <i className={`${getFileIcon(documentoSeleccionado.name).icon} text-6xl ${getFileIcon(documentoSeleccionado.name).color}`} />
+                        <i
+                          className={`${getFileIcon(documentoSeleccionado.name).icon} text-6xl ${getFileIcon(documentoSeleccionado.name).color}`}
+                        />
                         <p className="text-sm font-medium text-slate-700 text-center px-4 truncate max-w-full">
                           {documentoSeleccionado.name}
                         </p>
-                        <span className="text-xs text-slate-400">{documentoSeleccionado.size}</span>
+                        <span className="text-xs text-slate-400">
+                          {documentoSeleccionado.size}
+                        </span>
                       </div>
                       <div className="px-3 pb-3">
                         <input
                           type="text"
                           placeholder="Añade un comentario…"
                           value={documentoSeleccionado.caption}
-                          onChange={(e) => handleDocumentCaptionChange(e.target.value)}
+                          onChange={(e) =>
+                            handleDocumentCaptionChange(e.target.value)
+                          }
                           className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm
                             focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                         />
@@ -3175,7 +3189,9 @@ const Modales = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 text-slate-400">
                       <i className="bx bx-file text-4xl mb-2" />
-                      <p className="text-sm">Selecciona documentos para previsualizar</p>
+                      <p className="text-sm">
+                        Selecciona documentos para previsualizar
+                      </p>
                     </div>
                   )}
 
@@ -3190,7 +3206,9 @@ const Modales = ({
                           }`}
                           onClick={() => selectDocument(doc)}
                         >
-                          <i className={`${getFileIcon(doc.name).icon} text-3xl ${getFileIcon(doc.name).color}`} />
+                          <i
+                            className={`${getFileIcon(doc.name).icon} text-3xl ${getFileIcon(doc.name).color}`}
+                          />
                         </div>
                         <button
                           onClick={() => deleteDocument(doc.id)}
@@ -3201,7 +3219,13 @@ const Modales = ({
                       </div>
                     ))}
                     <label className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer text-blue-500 hover:border-blue-400 hover:bg-blue-50 transition">
-                      <input type="file" accept="*/*" multiple onChange={handleDocumentUpload} className="hidden" />
+                      <input
+                        type="file"
+                        accept="*/*"
+                        multiple
+                        onChange={handleDocumentUpload}
+                        className="hidden"
+                      />
                       <i className="bx bx-plus text-2xl" />
                     </label>
                   </div>
@@ -3223,7 +3247,9 @@ const Modales = ({
                           type="text"
                           placeholder="Añade un comentario…"
                           value={videoSeleccionado.caption}
-                          onChange={(e) => handleVideoCaptionChange(e.target.value)}
+                          onChange={(e) =>
+                            handleVideoCaptionChange(e.target.value)
+                          }
                           className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm
                             focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                         />
@@ -3232,7 +3258,9 @@ const Modales = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 text-slate-400">
                       <i className="bx bx-video text-4xl mb-2" />
-                      <p className="text-sm">Selecciona videos para previsualizar</p>
+                      <p className="text-sm">
+                        Selecciona videos para previsualizar
+                      </p>
                     </div>
                   )}
 
@@ -3257,7 +3285,13 @@ const Modales = ({
                       </div>
                     ))}
                     <label className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer text-blue-500 hover:border-blue-400 hover:bg-blue-50 transition">
-                      <input type="file" accept="video/*" multiple onChange={handleVideoUpload} className="hidden" />
+                      <input
+                        type="file"
+                        accept="video/*"
+                        multiple
+                        onChange={handleVideoUpload}
+                        className="hidden"
+                      />
                       <i className="bx bx-plus text-2xl" />
                     </label>
                   </div>
@@ -3291,23 +3325,34 @@ const Modales = ({
                       : botonDeshabilitado_doc || documentos.length === 0
                 }
                 className={`inline-flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold shadow-sm transition ${
-                  (tipo_modalEnviarArchivo === "Imagen" && (botonDeshabilitado_img || imagenes.length === 0)) ||
-                  (tipo_modalEnviarArchivo === "Video" && (botonDeshabilitado_vid || videos.length === 0)) ||
-                  (tipo_modalEnviarArchivo === "Documento" && (botonDeshabilitado_doc || documentos.length === 0))
+                  (tipo_modalEnviarArchivo === "Imagen" &&
+                    (botonDeshabilitado_img || imagenes.length === 0)) ||
+                  (tipo_modalEnviarArchivo === "Video" &&
+                    (botonDeshabilitado_vid || videos.length === 0)) ||
+                  (tipo_modalEnviarArchivo === "Documento" &&
+                    (botonDeshabilitado_doc || documentos.length === 0))
                     ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                     : "bg-emerald-600 text-white hover:bg-emerald-700"
                 }`}
               >
-                <i className={`bx ${
-                  (tipo_modalEnviarArchivo === "Imagen" && botonDeshabilitado_img) ||
-                  (tipo_modalEnviarArchivo === "Video" && botonDeshabilitado_vid) ||
-                  (tipo_modalEnviarArchivo === "Documento" && botonDeshabilitado_doc)
-                    ? "bx-loader-alt animate-spin"
-                    : "bx-send"
-                }`} />
-                {(tipo_modalEnviarArchivo === "Imagen" && botonDeshabilitado_img) ||
-                 (tipo_modalEnviarArchivo === "Video" && botonDeshabilitado_vid) ||
-                 (tipo_modalEnviarArchivo === "Documento" && botonDeshabilitado_doc)
+                <i
+                  className={`bx ${
+                    (tipo_modalEnviarArchivo === "Imagen" &&
+                      botonDeshabilitado_img) ||
+                    (tipo_modalEnviarArchivo === "Video" &&
+                      botonDeshabilitado_vid) ||
+                    (tipo_modalEnviarArchivo === "Documento" &&
+                      botonDeshabilitado_doc)
+                      ? "bx-loader-alt animate-spin"
+                      : "bx-send"
+                  }`}
+                />
+                {(tipo_modalEnviarArchivo === "Imagen" &&
+                  botonDeshabilitado_img) ||
+                (tipo_modalEnviarArchivo === "Video" &&
+                  botonDeshabilitado_vid) ||
+                (tipo_modalEnviarArchivo === "Documento" &&
+                  botonDeshabilitado_doc)
                   ? "Enviando…"
                   : "Enviar"}
               </button>
