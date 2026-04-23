@@ -458,14 +458,14 @@ const ProductoModal = ({
                       value={form.descripcion}
                       onChange={(e) => {
                         const words = e.target.value.trim().split(/\s+/);
-                        if (words.length <= 200)
+                        if (words.length <= 600)
                           setF("descripcion", e.target.value);
                       }}
                       className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none
                         resize-y transition focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
                     />
                     <p className="text-xs text-slate-400 mt-1">
-                      {wordCount}/200 palabras
+                      {wordCount}/600 palabras
                     </p>
                   </div>
 
