@@ -606,6 +606,8 @@ const DropisPlantillas = ({ id_configuracion }) => {
   const [totalActivos, setTotalActivos] = useState(0);
   const [expandedParams, setExpandedParams] = useState(null);
 
+  const [columnasKanban, setColumnasKanban] = useState([]);
+
   const cacheRef = useRef({ plantillas: null, rapidas: null, at: 0 });
 
   // ── Badge inicial ──
@@ -633,27 +635,33 @@ const DropisPlantillas = ({ id_configuracion }) => {
       const cacheValido =
         cacheRef.current.plantillas && now - cacheRef.current.at < CACHE_TTL;
 
-      const [resPlantillas, resConfig, resRapidas] = await Promise.all([
-        cacheValido
-          ? Promise.resolve({ data: { data: cacheRef.current.plantillas } })
-          : chatApi.post("whatsapp_managment/obtenerTemplatesWhatsapp", {
-              id_configuracion,
-            }),
-        chatApi.post("/dropi_plantillas/obtener", { id_configuracion }),
-        cacheValido && cacheRef.current.rapidas
-          ? Promise.resolve({
-              data: { success: true, data: cacheRef.current.rapidas },
-            })
-          : chatApi.post("whatsapp_managment/obtenerRespuestasRapidas", {
-              id_configuracion,
-            }),
-      ]);
+      const [resPlantillas, resConfig, resRapidas, resKanban] =
+        await Promise.all([
+          cacheValido
+            ? Promise.resolve({ data: { data: cacheRef.current.plantillas } })
+            : chatApi.post("whatsapp_managment/obtenerTemplatesWhatsapp", {
+                id_configuracion,
+              }),
+          chatApi.post("/dropi_plantillas/obtener", { id_configuracion }),
+          cacheValido && cacheRef.current.rapidas
+            ? Promise.resolve({
+                data: { success: true, data: cacheRef.current.rapidas },
+              })
+            : chatApi.post("whatsapp_managment/obtenerRespuestasRapidas", {
+                id_configuracion,
+              }),
+          chatApi.post("/kanban_columnas/listar", { id_configuracion }),
+        ]);
 
       const rawPlantillas = resPlantillas.data?.data || [];
       const uniquePlantillas = rawPlantillas.filter(
         (t, i, s) => i === s.findIndex((x) => x.id === t.id),
       );
       setPlantillas(uniquePlantillas);
+
+      if (resKanban.data?.success) {
+        setColumnasKanban(resKanban.data.data || []);
+      }
 
       const rapidas = resRapidas.data?.data || [];
       setRespuestasRapidas(rapidas);
@@ -727,6 +735,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
             ? JSON.stringify(params)
             : null,
         body_text: cfg.body_text || null,
+        columna_destino: cfg.columna_destino || null,
       });
       Toast.fire({ icon: "success", title: "Guardado" });
       setTotalActivos(Object.values(config).filter((v) => v.activo).length);
@@ -1429,6 +1438,75 @@ const DropisPlantillas = ({ id_configuracion }) => {
                             {/* ── Respuesta rápida (ventana 24h) ── */}
                             {!esSiempreTemplate && (
                               <>
+                                {/* ── Mover a columna al enviar ── */}
+                                {!esSiempreTemplate && (
+                                  <>
+                                    <div className="dp-divider" />
+                                    <div className="dp-section-label">
+                                      <i
+                                        className="bx bx-folder-open"
+                                        style={{
+                                          fontSize: 13,
+                                          color: "#ea580c",
+                                        }}
+                                      />
+                                      Mover a columna al enviar{" "}
+                                      <span
+                                        style={{
+                                          fontWeight: 500,
+                                          color: "#94a3b8",
+                                          textTransform: "none",
+                                          letterSpacing: 0,
+                                        }}
+                                      >
+                                        (opcional)
+                                      </span>
+                                    </div>
+                                    <select
+                                      className="dp-select"
+                                      value={cfg.columna_destino || ""}
+                                      onChange={(e) =>
+                                        updateConfig(
+                                          estado,
+                                          "columna_destino",
+                                          e.target.value || null,
+                                        )
+                                      }
+                                    >
+                                      <option value="">
+                                        No mover (quedar en columna actual)
+                                      </option>
+                                      {columnasKanban.map((col) => (
+                                        <option
+                                          key={col.id}
+                                          value={col.estado_db}
+                                        >
+                                          {col.nombre} ({col.estado_db})
+                                        </option>
+                                      ))}
+                                    </select>
+                                    {cfg.columna_destino && (
+                                      <div
+                                        className="dp-hint"
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                        }}
+                                      >
+                                        <i
+                                          className="bx bx-right-arrow-alt"
+                                          style={{
+                                            fontSize: 12,
+                                            color: "#ea580c",
+                                          }}
+                                        />
+                                        Al enviar este estado, el cliente se
+                                        moverá a la columna configurada.
+                                      </div>
+                                    )}
+                                  </>
+                                )}
                                 <div className="dp-divider" />
                                 <div
                                   style={{
