@@ -76,7 +76,6 @@ function autoDetectParams(template) {
 
     for (const match of matches) {
       const idx = text.indexOf(match);
-      // Solo mirar 20 chars ANTES del placeholder (no después)
       const before = text.substring(Math.max(0, idx - 20), idx).toLowerCase();
 
       let variable = "nombre";
@@ -128,10 +127,6 @@ function safeJsonParse(str) {
     return {};
   }
 }
-
-/* ═══════════════════════════════════════════════════════════
-   Obtener body text de un template
-   ═══════════════════════════════════════════════════════════ */
 
 function getTemplateBodyText(template) {
   if (!template?.components) return null;
@@ -222,6 +217,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
   const [config, setConfig] = useState({});
   const [loading, setLoading] = useState(false);
   const [guardando, setGuardando] = useState(null);
+  const [guardadoOk, setGuardadoOk] = useState(null);
   const [totalActivos, setTotalActivos] = useState(0);
   const [expandedParams, setExpandedParams] = useState(null);
 
@@ -290,7 +286,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
         for (const [key, val] of Object.entries(resConfig.data.data)) {
           let _params = safeJsonParse(val.parametros_json);
 
-          // Auto-detect si tiene template pero no tiene params guardados
           if (
             val.nombre_template &&
             !_params.body?.length &&
@@ -303,7 +298,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
             if (detected) _params = detected;
           }
 
-          // Auto-fill body_text si tiene template pero no tiene body_text guardado
           let bodyText = val.body_text || null;
           if (val.nombre_template && !bodyText) {
             const tpl = uniquePlantillas.find(
@@ -351,6 +345,16 @@ const DropisPlantillas = ({ id_configuracion }) => {
       });
       Toast.fire({ icon: "success", title: "Guardado" });
       setTotalActivos(Object.values(config).filter((v) => v.activo).length);
+
+      // ✅ Cerrar panel "Ajustar" si estaba abierto en este estado
+      if (expandedParams === estado) setExpandedParams(null);
+
+      // ✅ Flash verde 1.5s en el card
+      setGuardadoOk(estado);
+      setTimeout(
+        () => setGuardadoOk((prev) => (prev === estado ? null : prev)),
+        1500,
+      );
     } catch (err) {
       const msg = err?.response?.data?.message || "Error al guardar";
       Toast.fire({ icon: "error", title: msg });
@@ -423,7 +427,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
       const tpl = plantillas.find((p) => p.name === templateName);
       const detected = autoDetectParams(tpl);
       updateConfig(estado, "_params", detected || {});
-      // Guardar body_text para interpolación en el cron
       updateConfig(estado, "body_text", getTemplateBodyText(tpl) || null);
     } else {
       updateConfig(estado, "_params", {});
@@ -437,6 +440,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
         @keyframes dp-fadeIn { from{opacity:0;transform:scale(.97) translateY(6px)} to{opacity:1;transform:scale(1) translateY(0)} }
         @keyframes dp-overlayIn { from{opacity:0} to{opacity:1} }
         @keyframes dp-shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+        @keyframes dp-flash { 0%{background:rgba(16,185,129,.18)} 100%{background:rgba(16,185,129,.06)} }
         .dp-skeleton { background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:400px 100%;animation:dp-shimmer 1.4s infinite;border-radius:10px; }
         .dp-trigger-btn { display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:12px;border:1.5px solid rgba(99,102,241,.3);background:rgba(99,102,241,.06);color:#4338ca;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:inherit; }
         .dp-trigger-btn:hover { background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.6);box-shadow:0 3px 12px rgba(99,102,241,.2);transform:translateY(-1px); }
@@ -444,8 +448,9 @@ const DropisPlantillas = ({ id_configuracion }) => {
         .dp-modal { background:#fff;border-radius:18px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.22);animation:dp-fadeIn .25s ease;overflow:hidden; }
         .dp-header { background:${BG_DARK};padding:20px 24px;border-radius:18px 18px 0 0;flex-shrink:0; }
         .dp-body { padding:16px 24px 24px;overflow-y:auto;-webkit-overflow-scrolling:touch; }
-        .dp-estado-card { border-radius:12px;border:1.5px solid #e5e7eb;background:#fafafa;margin-bottom:10px;overflow:hidden;transition:border-color .15s; }
+        .dp-estado-card { border-radius:12px;border:1.5px solid #e5e7eb;background:#fafafa;margin-bottom:10px;overflow:hidden;transition:all .25s; }
         .dp-estado-card.activo { border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.02); }
+        .dp-estado-card.guardado-ok { border-color:#10b981 !important;background:rgba(16,185,129,.06) !important;animation:dp-flash 1.2s ease-out; }
         .dp-estado-header { display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;user-select:none; }
         .dp-select { width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;font-size:.83rem;color:#111827;outline:none;transition:border-color .2s;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px;font-family:inherit;cursor:pointer; }
         .dp-select:focus { border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1); }
@@ -627,17 +632,21 @@ const DropisPlantillas = ({ id_configuracion }) => {
                         (params.buttons?.length || 0) >
                       0;
 
-                    // Template object para preview
                     const tplObj = cfg.nombre_template
                       ? plantillas.find((p) => p.name === cfg.nombre_template)
                       : null;
                     const bodyText = getTemplateBodyText(tplObj);
 
+                    const cardClass = [
+                      "dp-estado-card",
+                      isActivo ? "activo" : "",
+                      guardadoOk === estado ? "guardado-ok" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
                     return (
-                      <div
-                        key={estado}
-                        className={`dp-estado-card ${isActivo ? "activo" : ""}`}
-                      >
+                      <div key={estado} className={cardClass}>
                         {/* Card header */}
                         <div className="dp-estado-header">
                           <div
@@ -735,7 +744,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
                         {/* Contenido expandido */}
                         {isActivo && (
                           <div style={{ padding: "0 14px 14px" }}>
-                            {/* Template selector */}
                             <div className="dp-section-label">
                               <i
                                 className="bx bx-envelope"
@@ -761,7 +769,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
                               ))}
                             </select>
 
-                            {/* Estado aprobación */}
                             {cfg.nombre_template && (
                               <div
                                 style={{
@@ -817,10 +824,8 @@ const DropisPlantillas = ({ id_configuracion }) => {
                               </div>
                             )}
 
-                            {/* ── Preview + Parámetros ── */}
                             {cfg.nombre_template && (
                               <>
-                                {/* Preview siempre visible */}
                                 {bodyText && (
                                   <TemplatePreview
                                     templateText={bodyText}
@@ -828,7 +833,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                   />
                                 )}
 
-                                {/* Parámetros */}
                                 {hasParams ? (
                                   <div style={{ marginTop: 8 }}>
                                     <div
@@ -1176,7 +1180,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
                               </div>
                             )}
 
-                            {/* Guardar */}
                             <div
                               style={{
                                 marginTop: 12,
@@ -1196,6 +1199,14 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                       style={{ fontSize: 13 }}
                                     />{" "}
                                     Guardando
+                                  </>
+                                ) : guardadoOk === estado ? (
+                                  <>
+                                    <i
+                                      className="bx bx-check"
+                                      style={{ fontSize: 13 }}
+                                    />{" "}
+                                    Guardado
                                   </>
                                 ) : (
                                   <>
@@ -1224,7 +1235,10 @@ const DropisPlantillas = ({ id_configuracion }) => {
                               className="dp-save-btn"
                               disabled={guardando === estado}
                               onClick={() => guardarEstado(estado)}
-                              style={{ background: "#64748b" }}
+                              style={{
+                                background:
+                                  guardadoOk === estado ? "#10b981" : "#64748b",
+                              }}
                             >
                               {guardando === estado ? (
                                 <>
@@ -1233,6 +1247,14 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                     style={{ fontSize: 13 }}
                                   />{" "}
                                   Guardando
+                                </>
+                              ) : guardadoOk === estado ? (
+                                <>
+                                  <i
+                                    className="bx bx-check"
+                                    style={{ fontSize: 13 }}
+                                  />{" "}
+                                  Guardado
                                 </>
                               ) : (
                                 <>
