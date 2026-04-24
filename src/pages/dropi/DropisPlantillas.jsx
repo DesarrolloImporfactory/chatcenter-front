@@ -1,4 +1,3 @@
-// src/pages/dropi/DropisPlantillas.jsx
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
@@ -135,73 +134,459 @@ function getTemplateBodyText(template) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   Preview del template con variables resaltadas
+   Preview estilo WhatsApp real (burbuja + header + botones)
    ═══════════════════════════════════════════════════════════ */
 
-function TemplatePreview({ templateText, bodyParams }) {
-  if (!templateText) return null;
+function TemplatePreview({ template, bodyParams }) {
+  if (!template?.components) return null;
 
-  const parts = templateText.split(/(\{\{\d+\}\})/g);
+  const header = template.components.find((c) => c.type === "HEADER");
+  const body = template.components.find((c) => c.type === "BODY");
+  const footer = template.components.find((c) => c.type === "FOOTER");
+  const buttonsComp = template.components.find((c) => c.type === "BUTTONS");
+
+  const bodyText = body?.text || "";
+  const headerFmt = (header?.format || "").toUpperCase();
+
+  const headerExampleUrl =
+    (Array.isArray(header?.example?.header_handle) &&
+      header.example.header_handle[0]) ||
+    (Array.isArray(header?.example?.header_url) &&
+      header.example.header_url[0]) ||
+    null;
+
+  const isPublicUrl = (u) => /^https?:\/\//i.test(String(u || ""));
+
+  // Renderizar texto con variables {{1}} {{2}} resaltadas
+  const renderTextWithVars = (text, paramsMap) => {
+    if (!text) return null;
+    const parts = text.split(/(\{\{\d+\}\})/g);
+    return parts.map((part, i) => {
+      const match = part.match(/\{\{(\d+)\}\}/);
+      if (match) {
+        const paramIdx = parseInt(match[1]) - 1;
+        const varKey = paramsMap?.[paramIdx];
+        const label =
+          VARIABLES_DISPONIBLES.find((v) => v.key === varKey)?.label ||
+          `Param ${match[1]}`;
+        return (
+          <span
+            key={i}
+            style={{
+              background: "#e0e7ff",
+              color: "#4338ca",
+              padding: "1px 6px",
+              borderRadius: 4,
+              fontWeight: 700,
+              fontSize: ".78rem",
+              display: "inline-block",
+            }}
+          >
+            {label}
+          </span>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
+  const now = new Date();
+  const horaStr = `${now.getHours().toString().padStart(2, "0")}:${now
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+
+  // Patrón de fondo WhatsApp (SVG doodles discreto)
+  const waBgPattern = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%23d1c7b7' fill-opacity='0.25'><circle cx='10' cy='10' r='1.2'/><circle cx='40' cy='25' r='1'/><circle cx='60' cy='55' r='1.2'/><circle cx='20' cy='65' r='1'/><circle cx='70' cy='15' r='1'/></g></svg>")`;
+
+  const hasAnyContent =
+    bodyText || header?.text || headerExampleUrl || headerFmt !== "";
+
+  if (!hasAnyContent && !buttonsComp?.buttons?.length) return null;
 
   return (
     <div
       style={{
         marginTop: 8,
-        padding: "10px 12px",
-        background: "#f0fdf4",
-        border: "1px solid #bbf7d0",
-        borderRadius: 10,
-        fontSize: ".78rem",
-        lineHeight: 1.6,
-        color: "#1e293b",
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-        maxHeight: 200,
-        overflowY: "auto",
+        borderRadius: 12,
+        overflow: "hidden",
+        border: "1px solid #d1d7db",
+        boxShadow: "0 2px 8px rgba(11,20,26,.08)",
       }}
     >
+      {/* Label superior */}
       <div
         style={{
-          fontSize: ".65rem",
+          padding: "6px 12px",
+          background: "#25d366",
+          fontSize: ".62rem",
           fontWeight: 700,
-          color: "#15803d",
+          color: "#fff",
           textTransform: "uppercase",
-          letterSpacing: ".05em",
-          marginBottom: 6,
+          letterSpacing: ".08em",
           display: "flex",
           alignItems: "center",
-          gap: 4,
+          gap: 6,
         }}
       >
-        <i className="bx bx-show" style={{ fontSize: 12 }} />
-        Vista previa
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+        </svg>
+        Vista previa WhatsApp
       </div>
-      {parts.map((part, i) => {
-        const match = part.match(/\{\{(\d+)\}\}/);
-        if (match) {
-          const paramIdx = parseInt(match[1]) - 1;
-          const varKey = bodyParams?.[paramIdx];
-          const label =
-            VARIABLES_DISPONIBLES.find((v) => v.key === varKey)?.label ||
-            `Param ${match[1]}`;
-          return (
-            <span
-              key={i}
+
+      {/* Fondo estilo WhatsApp */}
+      <div
+        style={{
+          background: "#efeae2",
+          backgroundImage: waBgPattern,
+          padding: "14px 10px 14px 14px",
+          minHeight: 60,
+        }}
+      >
+        {/* Burbuja del mensaje */}
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: "0px 8px 8px 8px",
+            maxWidth: "92%",
+            boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Cola de la burbuja (triángulo izquierdo arriba) */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: -7,
+              width: 0,
+              height: 0,
+              borderTop: "0 solid transparent",
+              borderRight: "8px solid #fff",
+              borderBottom: "8px solid transparent",
+            }}
+          />
+
+          {/* HEADER media (imagen) */}
+          {headerFmt === "IMAGE" &&
+            headerExampleUrl &&
+            isPublicUrl(headerExampleUrl) && (
+              <div
+                style={{
+                  padding: 3,
+                  paddingBottom: 0,
+                }}
+              >
+                <img
+                  src={headerExampleUrl}
+                  alt="Header"
+                  style={{
+                    width: "100%",
+                    maxHeight: 180,
+                    objectFit: "cover",
+                    display: "block",
+                    borderRadius: 6,
+                  }}
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+              </div>
+            )}
+
+          {/* HEADER video */}
+          {headerFmt === "VIDEO" && (
+            <div
               style={{
-                background: "#e0e7ff",
-                color: "#4338ca",
-                padding: "1px 5px",
-                borderRadius: 4,
-                fontWeight: 700,
-                fontSize: ".75rem",
+                padding: 3,
+                paddingBottom: 0,
               }}
             >
-              {label}
-            </span>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
+              <div
+                style={{
+                  background:
+                    "linear-gradient(135deg, #1f2937 0%, #374151 100%)",
+                  height: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                  borderRadius: 6,
+                  position: "relative",
+                }}
+              >
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    background: "rgba(255,255,255,.9)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#111">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* HEADER documento */}
+          {headerFmt === "DOCUMENT" && (
+            <div
+              style={{
+                padding: "8px 10px",
+                margin: 3,
+                marginBottom: 0,
+                background: "#f5f6f6",
+                borderRadius: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 40,
+                  background: "#e53935",
+                  borderRadius: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                  fontSize: ".65rem",
+                  fontWeight: 800,
+                  flexShrink: 0,
+                }}
+              >
+                PDF
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: ".8rem",
+                    fontWeight: 600,
+                    color: "#111b21",
+                  }}
+                >
+                  Documento
+                </div>
+                <div style={{ fontSize: ".7rem", color: "#667781" }}>
+                  Archivo adjunto
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Contenido de texto */}
+          <div style={{ padding: "7px 10px 6px" }}>
+            {/* HEADER texto (negrita) */}
+            {headerFmt === "TEXT" && header?.text && (
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: ".88rem",
+                  color: "#111b21",
+                  marginBottom: 4,
+                  lineHeight: 1.3,
+                  wordBreak: "break-word",
+                  fontFamily:
+                    '"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif',
+                }}
+              >
+                {renderTextWithVars(header.text, [])}
+              </div>
+            )}
+
+            {/* BODY */}
+            {bodyText && (
+              <div
+                style={{
+                  fontSize: ".83rem",
+                  color: "#111b21",
+                  lineHeight: 1.45,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontFamily:
+                    '"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif',
+                }}
+              >
+                {renderTextWithVars(bodyText, bodyParams)}
+              </div>
+            )}
+
+            {/* FOOTER */}
+            {footer?.text && (
+              <div
+                style={{
+                  fontSize: ".72rem",
+                  color: "#667781",
+                  marginTop: 5,
+                  lineHeight: 1.3,
+                  wordBreak: "break-word",
+                }}
+              >
+                {footer.text}
+              </div>
+            )}
+
+            {/* Hora + checks azules */}
+            <div
+              style={{
+                fontSize: ".62rem",
+                color: "#667781",
+                textAlign: "right",
+                marginTop: 3,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: 3,
+                lineHeight: 1,
+              }}
+            >
+              <span>{horaStr}</span>
+              <svg
+                width="16"
+                height="11"
+                viewBox="0 0 16 11"
+                fill="none"
+                style={{ marginLeft: 1 }}
+              >
+                <path
+                  d="M11.071.653a.457.457 0 0 0-.304-.102.47.47 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.653.05L.289 7.24a.461.461 0 0 0 .05.646l3.732 3.482a.464.464 0 0 0 .655-.043L11.926 1.4a.46.46 0 0 0 .05-.646l-.905-.1z"
+                  fill="#53bdeb"
+                />
+                <path
+                  d="M15.071.653a.457.457 0 0 0-.304-.102.47.47 0 0 0-.381.178l-6.19 7.636-.692-.654-.652.806 1.375 1.291a.464.464 0 0 0 .655-.043L15.926 1.4a.46.46 0 0 0 .05-.646l-.905-.1z"
+                  fill="#53bdeb"
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* BOTONES estilo WhatsApp */}
+          {Array.isArray(buttonsComp?.buttons) &&
+            buttonsComp.buttons.length > 0 && (
+              <div>
+                {buttonsComp.buttons.map((btn, idx) => {
+                  const type = (btn.type || "").toUpperCase();
+                  let icon = null;
+
+                  if (type === "URL") {
+                    icon = (
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#00a5f4"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    );
+                  } else if (type === "PHONE_NUMBER") {
+                    icon = (
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#00a5f4"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                      </svg>
+                    );
+                  } else if (type === "COPY_CODE") {
+                    icon = (
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#00a5f4"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect
+                          x="9"
+                          y="9"
+                          width="13"
+                          height="13"
+                          rx="2"
+                          ry="2"
+                        />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    );
+                  } else {
+                    // QUICK_REPLY u otro
+                    icon = (
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#00a5f4"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="9 17 4 12 9 7" />
+                        <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+                      </svg>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: "9px 10px",
+                        textAlign: "center",
+                        fontSize: ".83rem",
+                        color: "#00a5f4",
+                        fontWeight: 500,
+                        borderTop: "1px solid #e9edef",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 7,
+                        letterSpacing: ".01em",
+                        fontFamily:
+                          '"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif',
+                      }}
+                    >
+                      {icon}
+                      <span
+                        style={{
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "85%",
+                        }}
+                      >
+                        {btn.text || "Botón"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -635,7 +1020,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
                     const tplObj = cfg.nombre_template
                       ? plantillas.find((p) => p.name === cfg.nombre_template)
                       : null;
-                    const bodyText = getTemplateBodyText(tplObj);
 
                     const cardClass = [
                       "dp-estado-card",
@@ -824,14 +1208,12 @@ const DropisPlantillas = ({ id_configuracion }) => {
                               </div>
                             )}
 
-                            {cfg.nombre_template && (
+                            {cfg.nombre_template && tplObj && (
                               <>
-                                {bodyText && (
-                                  <TemplatePreview
-                                    templateText={bodyText}
-                                    bodyParams={params.body}
-                                  />
-                                )}
+                                <TemplatePreview
+                                  template={tplObj}
+                                  bodyParams={params.body}
+                                />
 
                                 {hasParams ? (
                                   <div style={{ marginTop: 8 }}>
