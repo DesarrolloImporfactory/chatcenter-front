@@ -175,7 +175,9 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
     try {
       const [resHard, resGlobal] = await Promise.all([
         chatApi.post("/kanban_plantillas/listar"),
-        chatApi.post("/kanban_plantillas/listar_globales"),
+        chatApi.post("/kanban_plantillas/listar_globales", {
+          id_configuracion,
+        }),
       ]);
       const hardcoded = (resHard.data?.data || []).map((p) => ({
         ...p,
