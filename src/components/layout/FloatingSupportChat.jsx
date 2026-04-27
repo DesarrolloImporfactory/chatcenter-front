@@ -210,12 +210,12 @@ const TEMAS_DROPI = [
 ];
 
 const TEMAS_PLATAFORMA = [
-  {
-    id: "asesor",
-    icon: "bx-support",
-    label: "Hablar con un asesor",
-    isAsesor: true,
-  },
+  // {
+  //   id: "asesor",
+  //   icon: "bx-support",
+  //   label: "Hablar con un asesor",
+  //   isAsesor: true,
+  // },
   {
     id: "free_chat",
     icon: "bx-message-dots",

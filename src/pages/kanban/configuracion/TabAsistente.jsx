@@ -4,26 +4,12 @@
 // NO llama cargarColumnas() del padre en ningún caso.
 // Solo notifica al padre cuando se CREA un asistente nuevo
 // (para que el sidebar muestre el badge IA) vía onAssistantCreado(assistant_id).
-//
-// Uso en KanbanConfig:
-//   {tabActiva === "asistente" && (
-//     <TabAsistente
-//       columnaId={columnaActiva}
-//       columnaActiva_ia={columnaSeleccionada?.activa_ia}
-//       columnaMax_tokens={columnaSeleccionada?.max_tokens}
-//       onAssistantCreado={(assistant_id) => {
-//         // Solo actualiza el campo en la columna local — sin petición al servidor
-//         setColumnas((prev) =>
-//           prev.map((c) => c.id === columnaActiva ? { ...c, assistant_id } : c)
-//         );
-//       }}
-//     />
-//   )}
 // ─────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
-import chatApi from "../../../api/chatcenter"; // ajusta tu ruta
+import chatApi from "../../../api/chatcenter";
+import PersonalizarPromptModal from "./modales/PersonalizarPromptModal";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -70,8 +56,8 @@ const TabAsistente = ({
   columnaMax_tokens,
   onAssistantCreado,
   onColumnaActualizada,
-  idConfiguracion, // ← agregar
-  columnas, // ← agregar (para el select de estado destino)
+  idConfiguracion,
+  columnas,
 }) => {
   // ── Datos del asistente (cargados una sola vez por columna) ─
   const [asistente, setAsistente] = useState(null);
@@ -102,11 +88,12 @@ const TabAsistente = ({
   const [errorArchivo, setErrorArchivo] = useState(null);
   const [eliminandoId, setEliminandoId] = useState(null);
 
+  // ── Modal Personalizar Prompt (NUEVO) ────────────────────
+  const [showPersonalizar, setShowPersonalizar] = useState(false);
+
   // ── Cargar asistente solo cuando cambia la columna ───────
-  // ¡NO recarga cuando se guarda — solo cuando cambia columnaId!
   useEffect(() => {
     if (!columnaId) return;
-    // Resetear estado al cambiar de columna
     setAsistente(null);
     setFormEditar(null);
     setArchivos([]);
@@ -118,8 +105,6 @@ const TabAsistente = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columnaId]);
 
-  // ── Sincronizar activa_ia desde props cuando cambia ──────────
-  // (por ejemplo al recargar la página y cargar el valor de BD)
   useEffect(() => {
     setActiva_ia(columnaActiva_ia ?? 0);
   }, [columnaActiva_ia]);
@@ -180,7 +165,6 @@ const TabAsistente = ({
         Toast.fire({ icon: "success", title: "¡Asistente creado!" });
         setModoCrear(false);
 
-        // Actualizar estado local directamente sin recargar
         const nuevoAsistente = {
           assistant_id: data.assistant_id,
           nombre: data.nombre,
@@ -197,8 +181,6 @@ const TabAsistente = ({
           modelo: data.modelo,
         });
 
-        // Notificar al padre SOLO para actualizar el badge del sidebar
-        // El padre actualiza solo ese campo en su estado local — sin petición
         onAssistantCreado?.(data.assistant_id);
       }
     } catch (err) {
@@ -218,7 +200,6 @@ const TabAsistente = ({
   };
 
   // ── Guardar cambios del asistente ────────────────────────
-  // No toca el padre en absoluto — todo queda en estado local
   const guardarAsistente = async () => {
     setGuardando(true);
     try {
@@ -230,7 +211,6 @@ const TabAsistente = ({
         activa_ia,
         max_tokens,
       });
-      // Actualizar nombre/modelo en el estado local del asistente
       setAsistente((prev) => ({
         ...prev,
         nombre: formEditar.nombre,
@@ -238,7 +218,6 @@ const TabAsistente = ({
         modelo: formEditar.modelo,
       }));
       Toast.fire({ icon: "success", title: "Asistente actualizado" });
-      // ✅ Notificar al padre para que actualice su estado local
       onColumnaActualizada?.({ activa_ia, max_tokens });
     } catch (err) {
       const msg =
@@ -254,7 +233,7 @@ const TabAsistente = ({
     }
   };
 
-  // ── Subir archivo — actualiza lista local sin recargar ───
+  // ── Subir archivo ────────────────────────────────────────
   const subirArchivo = async (e) => {
     const archivo = e.target.files?.[0];
     if (!archivo) return;
@@ -282,7 +261,6 @@ const TabAsistente = ({
           title: `"${archivo.name}" subido y procesado`,
         });
 
-        // Agregar directo a la lista local sin recargar nada
         const nuevoArchivo = {
           id: data.file_id,
           nombre: data.nombre || archivo.name,
@@ -291,7 +269,6 @@ const TabAsistente = ({
         };
         setArchivos((prev) => [...prev, nuevoArchivo]);
 
-        // Si se creó un nuevo vector store, actualizar en el asistente local
         if (data.vector_store_id && asistente) {
           setAsistente((prev) => ({
             ...prev,
@@ -308,7 +285,7 @@ const TabAsistente = ({
     }
   };
 
-  // ── Eliminar archivo — solo actualiza lista local ────────
+  // ── Eliminar archivo ─────────────────────────────────────
   const eliminarArchivo = async (file_id, nombre) => {
     const res = await Swal.fire({
       title: "¿Eliminar archivo?",
@@ -329,7 +306,6 @@ const TabAsistente = ({
       });
 
       if (data?.success) {
-        // Quitar del estado local directamente
         setArchivos((prev) => prev.filter((a) => a.id !== file_id));
         Toast.fire({ icon: "success", title: "Archivo eliminado" });
       } else if (data?.errores?.length) {
@@ -339,7 +315,6 @@ const TabAsistente = ({
           icon: "warning",
           confirmButtonColor: "#6366f1",
         });
-        // Aún así, quitar de la lista local si fue removido del vector store
         setArchivos((prev) => prev.filter((a) => a.id !== file_id));
       }
     } catch (err) {
@@ -350,7 +325,7 @@ const TabAsistente = ({
     }
   };
 
-  // ── Sección de Triggers de cambio de estado ──────────────────
+  // ── Triggers ─────────────────────────────────────────────
   const [triggers, setTriggers] = useState([]);
   const [loadingTriggers, setLoadingTriggers] = useState(false);
   const [nuevoTrigger, setNuevoTrigger] = useState({
@@ -358,7 +333,6 @@ const TabAsistente = ({
     estado_destino: "",
   });
 
-  // Cargar triggers al montar / cambiar columna
   useEffect(() => {
     if (!columnaId) return;
     cargarTriggers();
@@ -375,7 +349,6 @@ const TabAsistente = ({
         (a) => a.tipo_accion === "cambiar_estado",
       );
       setTriggers(soloTriggers);
-      // ← Detectar si tiene contexto_productos
       setTieneContextoProductos(
         acciones.some((a) => a.tipo_accion === "contexto_productos"),
       );
@@ -387,7 +360,6 @@ const TabAsistente = ({
   };
 
   const sincronizarCatalogo = async () => {
-    // Abrir Swal de carga que NO se cierra solo
     Swal.fire({
       title: "Sincronizando catálogo",
       html: `
@@ -405,14 +377,12 @@ const TabAsistente = ({
     });
 
     try {
-      // Disparar el proceso en background
       await chatApi.post("/kanban_columnas/sincronizar_catalogo", {
         id: columnaId,
       });
 
-      // Polling — no cierra el Swal hasta completado/error
       let intentos = 0;
-      const maxIntentos = 60; // 3 minutos max (cada 3s)
+      const maxIntentos = 60;
 
       const checkStatus = async () => {
         intentos++;
@@ -422,7 +392,6 @@ const TabAsistente = ({
           });
           const status = data?.data?.sync_status;
 
-          // Actualizar texto visible dentro del Swal
           const el = document.getElementById("swal-sync-status");
           if (el) {
             if (status === "procesando") {
@@ -436,7 +405,6 @@ const TabAsistente = ({
 
           if (status === "completado") {
             setUltimaSync(new Date());
-            // ← Aquí sí se cierra y muestra éxito
             Swal.fire({
               icon: "success",
               title: "¡Catálogo sincronizado!",
@@ -457,7 +425,6 @@ const TabAsistente = ({
           }
 
           if (intentos >= maxIntentos) {
-            // Timeout — informar pero no es error fatal
             Swal.fire({
               icon: "info",
               title: "Proceso en curso",
@@ -467,15 +434,12 @@ const TabAsistente = ({
             return;
           }
 
-          // Aún procesando → seguir polling sin cerrar el Swal
           setTimeout(checkStatus, 3000);
         } catch {
-          // Error de red → reintentar silenciosamente
           if (intentos < maxIntentos) setTimeout(checkStatus, 3000);
         }
       };
 
-      // Primer check después de 3 segundos
       setTimeout(checkStatus, 3000);
     } catch (err) {
       Swal.fire({
@@ -544,7 +508,6 @@ const TabAsistente = ({
           orden: 0,
         });
         setTieneContextoProductos(true);
-        // ← Llamar sin await — el Swal maneja el estado
         sincronizarCatalogo();
       } else {
         const res = await chatApi.post("/kanban_acciones/listar", {
@@ -635,7 +598,7 @@ const TabAsistente = ({
 
   return (
     <div style={{ padding: 24 }}>
-      {/* Toggle IA (siempre visible) */}
+      {/* Toggle IA */}
       <div
         style={{
           display: "flex",
@@ -692,10 +655,8 @@ const TabAsistente = ({
                 activa_ia: nuevoValor,
                 max_tokens,
               });
-              // Actualizar estado local del padre
               onColumnaActualizada?.({ activa_ia: nuevoValor, max_tokens });
             } catch (err) {
-              // Revertir si falla
               setActiva_ia(v ? 0 : 1);
               Toast.fire({ icon: "error", title: "Error al guardar" });
             }
@@ -867,7 +828,7 @@ const TabAsistente = ({
       {/* Asistente existente: edición */}
       {asistente && formEditar && (
         <>
-          {/* Badge asistente activo */}
+          {/* ═══ Badge asistente activo + botones de acción ═══ */}
           <div
             style={{
               display: "flex",
@@ -878,6 +839,8 @@ const TabAsistente = ({
               background: "#f0fdf4",
               border: "1px solid #bbf7d0",
               marginBottom: 20,
+              gap: 12,
+              flexWrap: "wrap",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -907,27 +870,51 @@ const TabAsistente = ({
               </div>
             </div>
 
-            <a
-              href={`https://platform.openai.com/assistants/${asistente.assistant_id}`}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                padding: "5px 11px",
-                borderRadius: 8,
-                border: "1px solid #86efac",
-                background: "#fff",
-                color: "#16a34a",
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                textDecoration: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              <i className="bx bx-link-external" />
-              Ver en OpenAI
-            </a>
+            {/* ═══ NUEVO: botones agrupados ═══ */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                onClick={() => setShowPersonalizar(true)}
+                title="Personalizar nombre, política de envío, tono y más"
+                style={{
+                  padding: "5px 11px",
+                  borderRadius: 8,
+                  border: "1px solid #c7d2fe",
+                  background: "rgba(99,102,241,.06)",
+                  color: "#4338ca",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <i className="bx bx-edit-alt" />
+                Personalizar prompt
+              </button>
+
+              <a
+                href={`https://platform.openai.com/assistants/${asistente.assistant_id}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  padding: "5px 11px",
+                  borderRadius: 8,
+                  border: "1px solid #86efac",
+                  background: "#fff",
+                  color: "#16a34a",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <i className="bx bx-link-external" />
+                Ver en OpenAI
+              </a>
+            </div>
           </div>
 
           {/* Nombre */}
@@ -982,6 +969,38 @@ const TabAsistente = ({
           {/* Instrucciones */}
           <div style={{ marginBottom: 20 }}>
             <label style={lbl}>Instrucciones (prompt)</label>
+
+            {/* ═══ NUEVO: aviso recomendando "Personalizar prompt" ═══ */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                padding: "8px 12px",
+                borderRadius: 8,
+                background: "rgba(99,102,241,.05)",
+                border: "1px solid rgba(99,102,241,.15)",
+                fontSize: ".75rem",
+                color: "#64748b",
+                marginBottom: 8,
+                lineHeight: 1.5,
+              }}
+            >
+              <i
+                className="bx bx-info-circle"
+                style={{ color: "#6366f1", marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                Recomendado: usa{" "}
+                <strong style={{ color: "#4338ca" }}>
+                  Personalizar prompt
+                </strong>{" "}
+                arriba para editar nombre de tienda, política de envío y tono.
+                Si editas aquí a mano, tus cambios se sobrescriben la próxima
+                vez que personalices.
+              </span>
+            </div>
+
             <textarea
               value={formEditar.instrucciones}
               onChange={(e) =>
@@ -1184,7 +1203,6 @@ const TabAsistente = ({
               </div>
             </div>
 
-            {/* Indicador de subida */}
             {subiendo && (
               <div
                 style={{
@@ -1220,7 +1238,6 @@ const TabAsistente = ({
               </div>
             )}
 
-            {/* Error de archivo */}
             {errorArchivo && (
               <div
                 style={{
@@ -1275,7 +1292,6 @@ const TabAsistente = ({
               </div>
             )}
 
-            {/* Lista archivos */}
             {archivos.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {archivos.map((archivo) => (
@@ -1411,6 +1427,7 @@ const TabAsistente = ({
               )
             )}
           </div>
+
           {/* ── Triggers de cambio de estado ── */}
           <div
             style={{
@@ -1444,7 +1461,6 @@ const TabAsistente = ({
               automáticamente.
             </div>
 
-            {/* Lista de triggers existentes */}
             <div
               style={{
                 display: "flex",
@@ -1486,7 +1502,6 @@ const TabAsistente = ({
                         background: "#fafafa",
                       }}
                     >
-                      {/* Palabra clave */}
                       <span
                         style={{
                           fontSize: "0.78rem",
@@ -1504,7 +1519,6 @@ const TabAsistente = ({
                         className="bx bx-right-arrow-alt"
                         style={{ color: "#94a3b8" }}
                       />
-                      {/* Estado destino */}
                       <span
                         style={{
                           fontSize: "0.78rem",
@@ -1540,7 +1554,6 @@ const TabAsistente = ({
               )}
             </div>
 
-            {/* Formulario nuevo trigger */}
             <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
               <div style={{ flex: 1 }}>
                 <label style={lbl}>Palabra clave</label>
@@ -1556,7 +1569,6 @@ const TabAsistente = ({
                   }
                   style={inp}
                 />
-                {/* ← SIN el preview aquí */}
               </div>
               <div style={{ flex: 1 }}>
                 <label style={lbl}>Mover a columna</label>
@@ -1583,7 +1595,6 @@ const TabAsistente = ({
               </button>
             </div>
 
-            {/* Preview FUERA del row — no desplaza nada */}
             {nuevoTrigger.trigger && (
               <div
                 style={{
@@ -1641,12 +1652,26 @@ const TabAsistente = ({
           </div>
         </>
       )}
+
+      {/* ═══ Modal Personalizar Prompt (NUEVO) ═══ */}
+      <PersonalizarPromptModal
+        open={showPersonalizar}
+        onClose={() => setShowPersonalizar(false)}
+        columnaId={columnaId}
+        columnaNombre={
+          columnas?.find((c) => c.id === columnaId)?.nombre || "Columna"
+        }
+        onActualizado={() => {
+          // Recarga el asistente para ver el prompt nuevo en el textarea
+          cargarAsistente();
+        }}
+      />
     </div>
   );
 };
 
 // ─────────────────────────────────────────────────────────────
-// SelectorModelo — reutilizable
+// SelectorModelo
 // ─────────────────────────────────────────────────────────────
 const SelectorModelo = ({ valor, onChange }) => (
   <div style={{ display: "flex", gap: 10, marginTop: 6 }}>

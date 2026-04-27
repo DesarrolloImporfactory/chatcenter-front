@@ -181,7 +181,17 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
         ...p,
         tipo: "hardcoded",
       }));
-      const globales = resGlobal.data?.data || [];
+      let globales = resGlobal.data?.data || [];
+
+      const ES_DANIEL = Number(id_configuracion) === 312;
+      globales = globales.filter((p) => {
+        const esDePruebas = (p.nombre || "")
+          .toUpperCase()
+          .includes("PRUEBAS DANIEL");
+        if (esDePruebas && !ES_DANIEL) return false;
+        return true;
+      });
+
       setPlantillas([...hardcoded, ...globales]);
     } catch {
       Toast.fire({ icon: "error", title: "Error al cargar plantillas" });
@@ -698,18 +708,37 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                     {p.tipo === "global"
                                       ? "Plantilla global"
                                       : "Plantilla oficial"}
-                                    {p.tipo === "global" && (
+                                    {p.tipo === "global" &&
+                                      !(p.nombre || "")
+                                        .toUpperCase()
+                                        .includes("PRUEBAS DANIEL") && (
+                                        <span
+                                          style={{
+                                            marginLeft: 6,
+                                            background: "#fbbf24",
+                                            color: "#78350f",
+                                            padding: "1px 6px",
+                                            borderRadius: 999,
+                                            fontSize: ".58rem",
+                                          }}
+                                        >
+                                          ★ Recomendada
+                                        </span>
+                                      )}
+                                    {(p.nombre || "")
+                                      .toUpperCase()
+                                      .includes("PRUEBAS DANIEL") && (
                                       <span
                                         style={{
                                           marginLeft: 6,
-                                          background: "#fbbf24",
-                                          color: "#78350f",
+                                          background: "#a78bfa",
+                                          color: "#3b0764",
                                           padding: "1px 6px",
                                           borderRadius: 999,
                                           fontSize: ".58rem",
                                         }}
                                       >
-                                        ★ Recomendada
+                                        🧪 PRUEBAS
                                       </span>
                                     )}
                                   </div>
