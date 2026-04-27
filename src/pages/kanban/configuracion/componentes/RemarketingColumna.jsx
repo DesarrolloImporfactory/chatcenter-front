@@ -27,6 +27,9 @@ const SECUENCIA_VACIA = () => ({
   header_media_url: "",
   headerInfo: null,
   estado_destino: "",
+  // ✨ NUEVO
+  usar_respuesta_rapida: false,
+  id_template_rapido: null,
 });
 
 const RemarketingColumna = ({
@@ -37,13 +40,14 @@ const RemarketingColumna = ({
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [plantillas, setPlantillas] = useState([]);
+  const [respuestasRapidas, setRespuestasRapidas] = useState([]);
   const [loadingPlt, setLoadingPlt] = useState(false);
+  const [loadingRR, setLoadingRR] = useState(false);
   const [loadingCfg, setLoadingCfg] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [desactivando, setDesactivando] = useState(false);
   const [configActiva, setConfigActiva] = useState(false);
 
-  // Array de hasta 3 secuencias
   const [secuencias, setSecuencias] = useState([SECUENCIA_VACIA()]);
 
   // ── Check config activa al montar ──────────────────────────
@@ -60,7 +64,7 @@ const RemarketingColumna = ({
       .catch(() => {});
   }, [id_configuracion, estado_db]);
 
-  // ── Cargar plantillas ──────────────────────────────────────
+  // ── Cargar plantillas Meta ─────────────────────────────────
   const fetchPlantillas = async () => {
     setLoadingPlt(true);
     try {
@@ -79,7 +83,22 @@ const RemarketingColumna = ({
     }
   };
 
-  // ── Helper URL header ──────────────────────────────────────
+  // ── ✨ NUEVO: Cargar respuestas rápidas ────────────────────
+  const fetchRespuestasRapidas = async () => {
+    setLoadingRR(true);
+    try {
+      const res = await chatApi.post(
+        "whatsapp_managment/obtenerRespuestasRapidas",
+        { id_configuracion },
+      );
+      setRespuestasRapidas(res.data?.data || []);
+    } catch {
+      setRespuestasRapidas([]);
+    } finally {
+      setLoadingRR(false);
+    }
+  };
+
   const getHeaderUrl = (template) => {
     try {
       const hc = template?.components?.find((c) => c.type === "HEADER");
@@ -97,14 +116,12 @@ const RemarketingColumna = ({
     }
   };
 
-  // ── Actualizar campo de una secuencia ──────────────────────
   const updateSec = (idx, field, value) => {
     setSecuencias((prev) =>
       prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)),
     );
   };
 
-  // ── Cambio de plantilla en una secuencia ──────────────────
   const handlePlantillaChange = (idx, nombreTemplate) => {
     const base = {
       nombre_template: nombreTemplate,
@@ -130,7 +147,6 @@ const RemarketingColumna = ({
     );
   };
 
-  // ── Agregar / quitar secuencia ─────────────────────────────
   const agregarSecuencia = () => {
     if (secuencias.length < 3) setSecuencias((p) => [...p, SECUENCIA_VACIA()]);
   };
@@ -139,17 +155,17 @@ const RemarketingColumna = ({
       setSecuencias((p) => p.filter((_, i) => i !== idx));
   };
 
-  // ── Abrir modal ───────────────────────────────────────────
   const handleAbrir = async () => {
     setShowModal(true);
     setLoadingCfg(true);
     fetchPlantillas();
+    fetchRespuestasRapidas();
     try {
       const res = await chatApi.post("openai_assistants/obtener_remarketing", {
         id_configuracion,
         estado_contacto: estado_db,
       });
-      const rows = res.data?.data; // ahora es array
+      const rows = res.data?.data;
       if (rows?.length) {
         setSecuencias(
           rows.map((r) => ({
@@ -161,6 +177,8 @@ const RemarketingColumna = ({
               ? { format: r.header_format, url: r.header_media_url || null }
               : null,
             estado_destino: r.estado_destino || "",
+            usar_respuesta_rapida: !!r.usar_respuesta_rapida,
+            id_template_rapido: r.id_template_rapido || null,
           })),
         );
         setConfigActiva(true);
@@ -177,7 +195,6 @@ const RemarketingColumna = ({
 
   const cerrarModal = () => setShowModal(false);
 
-  // ── Desactivar ────────────────────────────────────────────
   const handleDesactivar = async () => {
     const ok = await Swal.fire({
       title: "¿Desactivar remarketing?",
@@ -209,9 +226,7 @@ const RemarketingColumna = ({
     }
   };
 
-  // ── Guardar ───────────────────────────────────────────────
   const handleGuardar = async () => {
-    // Validar que todas las secuencias tengan tiempo y plantilla
     for (let i = 0; i < secuencias.length; i++) {
       const s = secuencias[i];
       if (!s.nombre_template || s.tiempo_espera_horas === "0") {
@@ -221,9 +236,16 @@ const RemarketingColumna = ({
         });
         return;
       }
+      // Validar: si activó RR, debe tener una seleccionada
+      if (s.usar_respuesta_rapida && !s.id_template_rapido) {
+        Toast.fire({
+          icon: "warning",
+          title: `Selecciona una respuesta rápida en el seguimiento ${i + 1}`,
+        });
+        return;
+      }
     }
 
-    // Resolver header de cada secuencia desde plantillas[] si falta
     const remarketings = secuencias.map((s, i) => {
       let hFormat = s.header_format;
       let hUrl = s.header_media_url;
@@ -240,7 +262,6 @@ const RemarketingColumna = ({
         }
       }
 
-      // Solo el último remarketing mueve la columna
       const esUltimo = i === secuencias.length - 1;
 
       return {
@@ -252,6 +273,11 @@ const RemarketingColumna = ({
         header_format: hFormat || null,
         header_media_url: hUrl || null,
         header_media_name: null,
+        // ✨ NUEVO
+        usar_respuesta_rapida: !!s.usar_respuesta_rapida,
+        id_template_rapido: s.usar_respuesta_rapida
+          ? s.id_template_rapido
+          : null,
       };
     });
 
@@ -279,8 +305,23 @@ const RemarketingColumna = ({
 
   const columnasDestino = columnas.filter((c) => c.estado_db !== estado_db);
   const formularioListo = secuencias.every(
-    (s) => s.nombre_template && s.tiempo_espera_horas !== "0",
+    (s) =>
+      s.nombre_template &&
+      s.tiempo_espera_horas !== "0" &&
+      (!s.usar_respuesta_rapida || s.id_template_rapido),
   );
+
+  // Helper UI: icono por tipo de RR
+  const iconoTipoRR = (tipo) => {
+    const map = {
+      text: "bx-message-rounded-detail",
+      image: "bx-image",
+      video: "bx-video",
+      audio: "bx-microphone",
+      document: "bx-file",
+    };
+    return map[tipo] || "bx-message-rounded-detail";
+  };
 
   return (
     <>
@@ -328,9 +369,17 @@ const RemarketingColumna = ({
         .rm2-swal-top { z-index:99999 !important; }
         .rm2-remove-btn { display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:7px; border:1px solid #fecaca; background:#fff5f5; color:#dc2626; font-size:.72rem; font-weight:600; cursor:pointer; font-family:inherit; }
         .rm2-remove-btn:hover { background:#fee2e2; }
+        /* ✨ NUEVO: bloque RR */
+        .rm2-rr-card { border:1.5px solid #e0f2fe; background:#f0f9ff; border-radius:12px; padding:12px; }
+        .rm2-rr-card.active { border-color:#0ea5e9; background:#eff6ff; box-shadow:0 0 0 3px rgba(14,165,233,.08); }
+        .rm2-toggle { position:relative; display:inline-block; width:38px; height:22px; flex-shrink:0; }
+        .rm2-toggle input { opacity:0; width:0; height:0; }
+        .rm2-toggle-slider { position:absolute; cursor:pointer; inset:0; background:#cbd5e1; border-radius:999px; transition:all .2s; }
+        .rm2-toggle-slider::before { content:''; position:absolute; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+        .rm2-toggle input:checked + .rm2-toggle-slider { background:#0ea5e9; }
+        .rm2-toggle input:checked + .rm2-toggle-slider::before { transform:translateX(16px); }
       `}</style>
 
-      {/* ── Botón disparador ── */}
       <button className="rm2-trigger-btn" type="button" onClick={handleAbrir}>
         {configActiva && <span className="rm2-dot" />}
         <i className="bx bx-radar" style={{ fontSize: 13 }} />
@@ -343,7 +392,6 @@ const RemarketingColumna = ({
         )}
       </button>
 
-      {/* ── Modal ── */}
       {showModal && (
         <div
           className="rm2-overlay"
@@ -352,7 +400,6 @@ const RemarketingColumna = ({
           }}
         >
           <div className="rm2-modal">
-            {/* Header del modal */}
             <div className="rm2-modal-header">
               <div
                 style={{
@@ -419,10 +466,10 @@ const RemarketingColumna = ({
                   lineHeight: 1.5,
                 }}
               >
-                Configura hasta 3 mensajes automáticos en cadena. Si el cliente
-                responde en cualquier momento, se cancela la secuencia.
+                Hasta 3 mensajes en cadena. Si el cliente respondió en últimas
+                24h, se envía la respuesta rápida (gratis); si no, la plantilla
+                Meta.
               </p>
-              {/* Indicador de pasos */}
               <div
                 style={{
                   display: "flex",
@@ -473,14 +520,13 @@ const RemarketingColumna = ({
               </div>
             </div>
 
-            {/* Body */}
             <div className="rm2-body">
               {loadingCfg ? (
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 10 }}
                 >
-                  <div className="rm2-skeleton" style={{ height: 160 }} />
-                  <div className="rm2-skeleton" style={{ height: 160 }} />
+                  <div className="rm2-skeleton" style={{ height: 200 }} />
+                  <div className="rm2-skeleton" style={{ height: 200 }} />
                 </div>
               ) : (
                 <>
@@ -491,11 +537,12 @@ const RemarketingColumna = ({
                     const tiempoObj = TIEMPOS.find(
                       (t) => t.value === sec.tiempo_espera_horas,
                     );
-                    const esUltimo = idx === secuencias.length - 1;
+                    const rrSel = respuestasRapidas.find(
+                      (r) => r.id_template === sec.id_template_rapido,
+                    );
 
                     return (
                       <React.Fragment key={idx}>
-                        {/* Conector entre secuencias */}
                         {idx > 0 && (
                           <div className="rm2-connector">
                             <i
@@ -507,7 +554,6 @@ const RemarketingColumna = ({
                         )}
 
                         <div className="rm2-seq-block">
-                          {/* Header del bloque */}
                           <div className="rm2-seq-header">
                             <div
                               style={{
@@ -555,7 +601,6 @@ const RemarketingColumna = ({
                             )}
                           </div>
 
-                          {/* Body del bloque */}
                           <div className="rm2-seq-body">
                             {/* Tiempo */}
                             <div>
@@ -600,7 +645,7 @@ const RemarketingColumna = ({
                               </div>
                             </div>
 
-                            {/* Plantilla */}
+                            {/* Plantilla Meta */}
                             <div>
                               <div
                                 style={{
@@ -610,7 +655,7 @@ const RemarketingColumna = ({
                                   marginBottom: 6,
                                 }}
                               >
-                                💬 Plantilla de mensaje
+                                💬 Plantilla Meta (fallback fuera de 24h)
                               </div>
                               {loadingPlt ? (
                                 <div
@@ -636,7 +681,6 @@ const RemarketingColumna = ({
                                     ))}
                                   </select>
 
-                                  {/* Badges de estado de plantilla */}
                                   {sec.nombre_template && (
                                     <div
                                       style={{
@@ -676,6 +720,164 @@ const RemarketingColumna = ({
                                     </div>
                                   )}
                                 </>
+                              )}
+                            </div>
+
+                            {/* ✨ NUEVO: Respuesta rápida */}
+                            <div
+                              className={`rm2-rr-card ${sec.usar_respuesta_rapida ? "active" : ""}`}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 10,
+                                  justifyContent: "space-between",
+                                }}
+                              >
+                                <div style={{ flex: 1 }}>
+                                  <div
+                                    style={{
+                                      fontSize: ".82rem",
+                                      fontWeight: 700,
+                                      color: "#0c4a6e",
+                                    }}
+                                  >
+                                    ⚡ Respuesta rápida (si responde en 24h)
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: ".7rem",
+                                      color: "#475569",
+                                      marginTop: 2,
+                                      lineHeight: 1.4,
+                                    }}
+                                  >
+                                    Mensaje gratis (free-form). Si pasaron más
+                                    de 24h, cae a la plantilla Meta de arriba.
+                                  </div>
+                                </div>
+                                <label className="rm2-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={sec.usar_respuesta_rapida}
+                                    onChange={(e) =>
+                                      updateSec(
+                                        idx,
+                                        "usar_respuesta_rapida",
+                                        e.target.checked,
+                                      )
+                                    }
+                                  />
+                                  <span className="rm2-toggle-slider" />
+                                </label>
+                              </div>
+
+                              {sec.usar_respuesta_rapida && (
+                                <div style={{ marginTop: 10 }}>
+                                  {loadingRR ? (
+                                    <div
+                                      className="rm2-skeleton"
+                                      style={{ height: 38 }}
+                                    />
+                                  ) : respuestasRapidas.length === 0 ? (
+                                    <div
+                                      style={{
+                                        fontSize: ".72rem",
+                                        color: "#92400e",
+                                        background: "#fffbeb",
+                                        border: "1px solid #fde68a",
+                                        borderRadius: 8,
+                                        padding: "8px 10px",
+                                      }}
+                                    >
+                                      No tienes respuestas rápidas creadas.
+                                      Créalas desde "Respuestas rápidas" en el
+                                      chat.
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <select
+                                        className="rm2-select"
+                                        value={sec.id_template_rapido || ""}
+                                        onChange={(e) =>
+                                          updateSec(
+                                            idx,
+                                            "id_template_rapido",
+                                            e.target.value
+                                              ? Number(e.target.value)
+                                              : null,
+                                          )
+                                        }
+                                      >
+                                        <option value="">
+                                          Selecciona una respuesta rápida...
+                                        </option>
+                                        {respuestasRapidas.map((rr) => (
+                                          <option
+                                            key={rr.id_template}
+                                            value={rr.id_template}
+                                          >
+                                            /{rr.atajo} —{" "}
+                                            {(
+                                              rr.tipo_mensaje || "text"
+                                            ).toUpperCase()}
+                                          </option>
+                                        ))}
+                                      </select>
+
+                                      {rrSel && (
+                                        <div
+                                          style={{
+                                            marginTop: 8,
+                                            padding: "8px 10px",
+                                            background: "#fff",
+                                            border: "1px solid #e0f2fe",
+                                            borderRadius: 8,
+                                            fontSize: ".74rem",
+                                            color: "#334155",
+                                            display: "flex",
+                                            gap: 8,
+                                            alignItems: "flex-start",
+                                          }}
+                                        >
+                                          <i
+                                            className={`bx ${iconoTipoRR(rrSel.tipo_mensaje)}`}
+                                            style={{
+                                              fontSize: 16,
+                                              color: "#0ea5e9",
+                                              marginTop: 1,
+                                            }}
+                                          />
+                                          <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div
+                                              style={{
+                                                fontWeight: 600,
+                                                color: "#0c4a6e",
+                                              }}
+                                            >
+                                              /{rrSel.atajo}
+                                            </div>
+                                            <div
+                                              style={{
+                                                marginTop: 2,
+                                                color: "#475569",
+                                                whiteSpace: "nowrap",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                              }}
+                                            >
+                                              {rrSel.mensaje ||
+                                                (rrSel.file_name
+                                                  ? `📎 ${rrSel.file_name}`
+                                                  : "Sin texto")}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
                               )}
                             </div>
 
@@ -720,21 +922,6 @@ const RemarketingColumna = ({
                                   </option>
                                 ))}
                               </select>
-                              {idx < secuencias.length - 1 &&
-                                sec.estado_destino && (
-                                  <div
-                                    style={{
-                                      fontSize: ".72rem",
-                                      color: "#6b7280",
-                                      marginTop: 5,
-                                    }}
-                                  >
-                                    ℹ️ El cliente se moverá a esta columna al
-                                    enviar este mensaje. Los siguientes
-                                    remarketings seguirán verificando que el
-                                    cliente no haya respondido.
-                                  </div>
-                                )}
                             </div>
                           </div>
                         </div>
@@ -742,7 +929,6 @@ const RemarketingColumna = ({
                     );
                   })}
 
-                  {/* Botón agregar secuencia */}
                   {secuencias.length < 3 && (
                     <button
                       className="rm2-add-btn"
@@ -757,56 +943,6 @@ const RemarketingColumna = ({
                     </button>
                   )}
 
-                  {/* Resumen de la cadena */}
-                  {formularioListo && (
-                    <div
-                      style={{
-                        padding: "11px 14px",
-                        borderRadius: 12,
-                        background: "rgba(23,25,49,.04)",
-                        border: "1.5px solid rgba(23,25,49,.1)",
-                        marginBottom: 4,
-                        fontSize: ".77rem",
-                        color: BG_DARK,
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      <i
-                        className="bx bxs-zap"
-                        style={{ marginRight: 6, color: BG_DARK }}
-                      />
-                      {secuencias.map((s, i) => {
-                        const t = TIEMPOS.find(
-                          (x) => x.value === s.tiempo_espera_horas,
-                        );
-                        return (
-                          <span key={i}>
-                            {i > 0 && " → "}
-                            <strong>{t?.label}</strong>:{" "}
-                            <em>{s.nombre_template}</em>
-                          </span>
-                        );
-                      })}
-                      {secuencias[secuencias.length - 1].estado_destino && (
-                        <span>
-                          {" "}
-                          →{" "}
-                          <strong>
-                            {
-                              columnasDestino.find(
-                                (c) =>
-                                  c.estado_db ===
-                                  secuencias[secuencias.length - 1]
-                                    .estado_destino,
-                              )?.nombre
-                            }
-                          </strong>
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Botones de acción */}
                   <div
                     style={{
                       display: "flex",
