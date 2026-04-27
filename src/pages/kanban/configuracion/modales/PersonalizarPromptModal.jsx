@@ -25,7 +25,6 @@ const ESTADO_VACIO = {
   nombre_asistente_publico: "",
   instrucciones_extra: "",
   info_envio: "",
-  productos_destacados: "",
   tono_personalizado: "",
 };
 
@@ -422,16 +421,6 @@ const PersonalizarPromptModal = ({
                 value={form.info_envio}
                 onChange={(v) => set("info_envio", v)}
                 placeholder="Ej: Envío gratis sobre $30. Demora 48h en sierra."
-                multiline
-                maxLength={4000}
-              />
-
-              <Campo
-                label="Productos a destacar"
-                hint="Opcional. Default: el bot trata todos los productos por igual."
-                value={form.productos_destacados}
-                onChange={(v) => set("productos_destacados", v)}
-                placeholder="Ej: Siempre ofrecer combo 2x del Reloj X9."
                 multiline
                 maxLength={4000}
               />

@@ -88,8 +88,11 @@ const TabAsistente = ({
   const [errorArchivo, setErrorArchivo] = useState(null);
   const [eliminandoId, setEliminandoId] = useState(null);
 
-  // ── Modal Personalizar Prompt (NUEVO) ────────────────────
+  // ── Modal Personalizar Prompt ────────────────────────────
   const [showPersonalizar, setShowPersonalizar] = useState(false);
+
+  // ── Actualizar prompt (resincronizar) ────────────────────
+  const [actualizandoPrompt, setActualizandoPrompt] = useState(false);
 
   // ── Cargar asistente solo cuando cambia la columna ───────
   useEffect(() => {
@@ -230,6 +233,91 @@ const TabAsistente = ({
       });
     } finally {
       setGuardando(false);
+    }
+  };
+
+  // ── Actualizar prompt a la última versión global ─────────
+  // Re-compila el prompt usando la última versión de la plantilla
+  // global, manteniendo TODA la personalización del cliente.
+  const handleActualizarPrompt = async () => {
+    const confirm = await Swal.fire({
+      title: "¿Actualizar prompt a la última versión?",
+      html: `
+        <div style="font-size:.85rem;color:#475569;text-align:left;line-height:1.5">
+          <div style="margin-bottom:10px">
+            Vamos a aplicar la <strong>última versión del prompt</strong> que tenemos publicada.
+          </div>
+          <div style="margin-bottom:10px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px">
+            ✅ <strong>Tu personalización se mantiene:</strong> nombre de tienda, asistente, política de envío, tono e instrucciones — todo se preserva.
+          </div>
+          <div style="font-size:.78rem;color:#64748b">
+            Esto actualiza el prompt en TODAS tus columnas IA y sus asistentes en OpenAI.
+          </div>
+        </div>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#6366f1",
+      confirmButtonText: "Sí, actualizar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setActualizandoPrompt(true);
+    Swal.fire({
+      title: "Actualizando prompt...",
+      html: '<div style="font-size:.85rem;color:#64748b">Aplicando última versión a tus asistentes</div>',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_plantillas/personalizacion_resincronizar",
+        { id_configuracion: idConfiguracion },
+      );
+
+      Swal.close();
+
+      if (data?.success) {
+        const exitos = data.data?.exitos || 0;
+        await Swal.fire({
+          icon: "success",
+          title: "¡Prompt actualizado!",
+          html: `
+            <div style="font-size:.85rem;color:#475569">
+              ✓ ${exitos} columna(s) IA actualizada(s) con la última versión.
+            </div>
+          `,
+          confirmButtonColor: "#6366f1",
+        });
+        // Recargar para mostrar el prompt nuevo en el textarea
+        cargarAsistente();
+      } else {
+        await Swal.fire({
+          icon: "warning",
+          title: "Actualización parcial",
+          text: data?.message || "Algunas columnas no se actualizaron.",
+          confirmButtonColor: "#6366f1",
+        });
+        cargarAsistente();
+      }
+    } catch (err) {
+      Swal.close();
+      Swal.fire({
+        icon: "error",
+        title: "Error al actualizar",
+        text:
+          err?.response?.data?.message ||
+          err.message ||
+          "No se pudo actualizar el prompt",
+        confirmButtonColor: "#6366f1",
+      });
+    } finally {
+      setActualizandoPrompt(false);
     }
   };
 
@@ -870,8 +958,15 @@ const TabAsistente = ({
               </div>
             </div>
 
-            {/* ═══ NUEVO: botones agrupados ═══ */}
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {/* ═══ Botones agrupados ═══ */}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 onClick={() => setShowPersonalizar(true)}
                 title="Personalizar nombre, política de envío, tono y más"
@@ -891,6 +986,39 @@ const TabAsistente = ({
               >
                 <i className="bx bx-edit-alt" />
                 Personalizar prompt
+              </button>
+
+              {/* ═══ NUEVO: botón Actualizar prompt ═══ */}
+              <button
+                onClick={handleActualizarPrompt}
+                disabled={actualizandoPrompt}
+                title="Trae la última versión del prompt de la plantilla, manteniendo tu personalización"
+                style={{
+                  padding: "5px 11px",
+                  borderRadius: 8,
+                  border: "1px solid #fcd34d",
+                  background: "rgba(251,191,36,.08)",
+                  color: "#b45309",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  cursor: actualizandoPrompt ? "not-allowed" : "pointer",
+                  opacity: actualizandoPrompt ? 0.6 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                {actualizandoPrompt ? (
+                  <>
+                    <i className="bx bx-loader-alt bx-spin" />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <i className="bx bx-refresh" />
+                    Actualizar prompt
+                  </>
+                )}
               </button>
 
               <a
@@ -970,7 +1098,7 @@ const TabAsistente = ({
           <div style={{ marginBottom: 20 }}>
             <label style={lbl}>Instrucciones (prompt)</label>
 
-            {/* ═══ NUEVO: aviso recomendando "Personalizar prompt" ═══ */}
+            {/* ═══ Aviso recomendando "Personalizar prompt" ═══ */}
             <div
               style={{
                 display: "flex",
@@ -1653,7 +1781,7 @@ const TabAsistente = ({
         </>
       )}
 
-      {/* ═══ Modal Personalizar Prompt (NUEVO) ═══ */}
+      {/* ═══ Modal Personalizar Prompt ═══ */}
       <PersonalizarPromptModal
         open={showPersonalizar}
         onClose={() => setShowPersonalizar(false)}
