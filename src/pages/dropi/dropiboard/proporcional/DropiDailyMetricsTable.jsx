@@ -187,6 +187,12 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
   const [showHelp, setShowHelp] = useState(false);
   const debounceTimers = useRef({});
 
+  // Modal "Agregar día"
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [modalFecha, setModalFecha] = useState("");
+  const [modalError, setModalError] = useState("");
+  const [modalSaving, setModalSaving] = useState(false);
+
   const cargar = useCallback(async () => {
     if (!integrationId || !dateRange?.from || !dateRange?.until) return;
     setLoading(true);
@@ -240,6 +246,43 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
     },
     [integrationId, cargar],
   );
+
+  const abrirModalAgregar = useCallback(() => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    setModalFecha(hoy);
+    setModalError("");
+    setShowAddModal(true);
+  }, []);
+
+  const confirmarAgregarDia = useCallback(async () => {
+    setModalError("");
+
+    if (!modalFecha) {
+      setModalError("Selecciona una fecha");
+      return;
+    }
+
+    if (modalFecha < dateRange.from || modalFecha > dateRange.until) {
+      setModalError(
+        `La fecha debe estar entre ${dateRange.from} y ${dateRange.until}. Ajusta el rango del dashboard primero.`,
+      );
+      return;
+    }
+
+    if (rows.some((r) => r.fecha === modalFecha)) {
+      setModalError("Ese día ya está en la tabla. Edítalo directamente.");
+      return;
+    }
+
+    setModalSaving(true);
+    try {
+      // Valor mínimo 0.01 para que el filtro del backend no lo excluya
+      await guardar(modalFecha, 0.01, 0);
+      setShowAddModal(false);
+    } finally {
+      setModalSaving(false);
+    }
+  }, [modalFecha, dateRange, rows, guardar]);
 
   const onChangeField = (fecha, field, valor, currentRow) => {
     setLocalEdits((p) => ({
@@ -300,13 +343,22 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 text-[11px] text-white font-semibold transition"
-          >
-            <i className="bx bx-help-circle text-sm" />
-            {showHelp ? "Ocultar guía" : "¿Cómo se calcula?"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={abrirModalAgregar}
+              className="flex items-center gap-1.5 bg-white text-violet-700 hover:bg-violet-50 rounded-lg px-3 py-1.5 text-[11px] font-bold transition shadow-sm"
+            >
+              <i className="bx bx-plus-circle text-sm" />
+              Agregar día
+            </button>
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 text-[11px] text-white font-semibold transition"
+            >
+              <i className="bx bx-help-circle text-sm" />
+              {showHelp ? "Ocultar guía" : "¿Cómo se calcula?"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -399,19 +451,22 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
 
       {/* ═══════ TABLA ═══════ */}
       {tieneFilas && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-[11px]">
-            <thead>
+        <div className="overflow-auto" style={{ maxHeight: 480 }}>
+          <table
+            className="w-full text-[11px]"
+            style={{ borderCollapse: "separate", borderSpacing: 0 }}
+          >
+            <thead className="sticky top-0 z-20">
               <tr className="bg-slate-50 border-b-2 border-slate-200">
                 {COLS.map((col) => (
                   <th
                     key={col.key}
-                    className={`px-2.5 py-2.5 text-left font-bold ${
+                    className={`px-2.5 py-2.5 text-left font-bold border-b-2 border-slate-200 ${
                       col.type === "input"
-                        ? "bg-indigo-50/70 text-indigo-800"
+                        ? "bg-indigo-100 text-indigo-800"
                         : col.type === "formula"
-                          ? "bg-violet-50/70 text-violet-800"
-                          : "text-slate-700"
+                          ? "bg-violet-100 text-violet-800"
+                          : "bg-slate-50 text-slate-700"
                     }`}
                   >
                     <Tip content={col.tip}>
@@ -672,18 +727,18 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
 
             {/* TOTALES */}
             {totales && (
-              <tfoot>
-                <tr className="bg-gradient-to-r from-slate-100 to-slate-50 border-t-2 border-slate-300 font-extrabold">
+              <tfoot className="sticky bottom-0 z-20">
+                <tr className="bg-slate-100 border-t-2 border-slate-300 font-extrabold shadow-[0_-4px_8px_rgba(0,0,0,0.04)]">
                   <Td className="text-slate-900 uppercase text-[10px] tracking-widest">
                     TOTAL
                   </Td>
-                  <Td className="text-indigo-700 bg-indigo-50/50">
+                  <Td className="text-indigo-700 bg-indigo-100">
                     {fmtMoney(totales.gasto_diario)}
                   </Td>
-                  <Td className="text-indigo-700 bg-indigo-50/50">
+                  <Td className="text-indigo-700 bg-indigo-100">
                     {totales.num_mensajes}
                   </Td>
-                  <Td className="text-violet-700 bg-violet-50/50 font-mono">
+                  <Td className="text-violet-700 bg-violet-100 font-mono">
                     {totales.cost_x_mensaje > 0
                       ? `$${totales.cost_x_mensaje.toFixed(3)}`
                       : "—"}
@@ -726,6 +781,155 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
           </table>
         </div>
       )}
+
+      {/* ═══════ MODAL AGREGAR DÍA ═══════ */}
+      {showAddModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{
+              background: "rgba(15, 23, 42, 0.6)",
+              backdropFilter: "blur(4px)",
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !modalSaving) {
+                setShowAddModal(false);
+              }
+            }}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+              style={{
+                animation: "modalIn 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            >
+              <style>{`
+                @keyframes modalIn {
+                  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+                  to { opacity: 1; transform: scale(1) translateY(0); }
+                }
+              `}</style>
+
+              {/* Header */}
+              <div className="relative bg-gradient-to-r from-indigo-700 via-violet-600 to-fuchsia-600 px-5 py-4">
+                <div
+                  className="absolute inset-0 opacity-10"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+                    backgroundSize: "20px 20px",
+                  }}
+                />
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <i className="bx bx-calendar-plus text-white text-xl" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white leading-tight">
+                        Agregar día
+                      </h3>
+                      <p className="text-[11px] text-violet-100 mt-0.5">
+                        Registra un día con gasto en ads sin órdenes de Dropi
+                      </p>
+                    </div>
+                  </div>
+                  {!modalSaving && (
+                    <button
+                      onClick={() => setShowAddModal(false)}
+                      className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center transition"
+                    >
+                      <i className="bx bx-x text-lg" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-5">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-2">
+                  Fecha del gasto
+                </label>
+                <div className="relative">
+                  <i className="bx bx-calendar absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none" />
+                  <input
+                    type="date"
+                    value={modalFecha}
+                    min={dateRange?.from}
+                    max={dateRange?.until}
+                    onChange={(e) => {
+                      setModalFecha(e.target.value);
+                      setModalError("");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !modalSaving) {
+                        confirmarAgregarDia();
+                      }
+                    }}
+                    disabled={modalSaving}
+                    className="w-full pl-10 pr-3 py-2.5 rounded-lg border-2 border-slate-200 bg-white text-sm font-semibold text-slate-800 focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none transition"
+                    autoFocus
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
+                  <i className="bx bx-info-circle" />
+                  Solo días dentro del rango actual ({dateRange?.from} →{" "}
+                  {dateRange?.until})
+                </p>
+
+                {/* Error */}
+                {modalError && (
+                  <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                    <i className="bx bx-error-circle text-red-500 text-base shrink-0 mt-0.5" />
+                    <p className="text-[12px] text-red-700 leading-snug">
+                      {modalError}
+                    </p>
+                  </div>
+                )}
+
+                {/* Tip */}
+                <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                  <i className="bx bx-bulb text-amber-600 text-base shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-900 leading-snug">
+                    Se creará la fila para que puedas registrar tu gasto. Luego
+                    edita el <strong>Gasto en ads</strong> y los{" "}
+                    <strong>Mensajes</strong> directamente en la tabla.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  disabled={modalSaving}
+                  className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-[12px] font-semibold hover:bg-slate-50 transition disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarAgregarDia}
+                  disabled={modalSaving || !modalFecha}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-[12px] font-bold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {modalSaving ? (
+                    <>
+                      <i className="bx bx-loader-alt bx-spin text-sm" />
+                      Agregando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bx bx-check text-sm" />
+                      Agregar día
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };
