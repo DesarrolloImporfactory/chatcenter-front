@@ -360,8 +360,31 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
         .pk-header {background:${BG_DARK};padding:20px 26px;flex-shrink:0;position:relative;overflow:hidden;}
         .pk-header::before {content:"";position:absolute;top:-50%;right:-20%;width:250px;height:250px;background:radial-gradient(circle,rgba(99,102,241,.3) 0%,transparent 70%);pointer-events:none;}
         .pk-body {padding:22px 26px 26px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-        .pk-trigger-btn {display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:12px;border:1.5px solid rgba(99,102,241,.3);background:rgba(99,102,241,.06);color:#4338ca;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:inherit;}
-        .pk-trigger-btn:hover {background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.6);box-shadow:0 3px 12px rgba(99,102,241,.2);transform:translateY(-1px);}
+        .pk-trigger-btn {
+          height: 36px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,.15);
+          background: rgba(255,255,255,.06);
+          color: rgba(255,255,255,.9);
+          font-size: .78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all .15s;
+          white-space: nowrap;
+          font-family: inherit;
+          flex-shrink: 0;
+        }
+        .pk-trigger-btn:hover {
+          background: rgba(255,255,255,.12);
+          border-color: rgba(255,255,255,.28);
+          transform: none;
+          box-shadow: none;
+        }
+        .pk-trigger-btn i { color: #a5b4fc; }
         .pk-input {width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid #e5e7eb;background:#fff;font-size:.95rem;color:#111827;outline:none;transition:all .2s;font-family:inherit;box-sizing:border-box;}
         .pk-input:focus {border-color:#6366f1;box-shadow:0 0 0 4px rgba(99,102,241,.12);}
         .pk-btn-primary {display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:12px;border:none;background:linear-gradient(135deg,${BG_DARK},#2a2d50);color:#fff;font-weight:700;font-size:.875rem;cursor:pointer;transition:all .2s;font-family:inherit;box-shadow:0 6px 20px rgba(23,25,49,.3);}

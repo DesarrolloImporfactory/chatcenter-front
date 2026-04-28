@@ -836,8 +836,29 @@ const DropisPlantillas = ({ id_configuracion }) => {
         @keyframes dp-shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
         @keyframes dp-flash { 0%{background:rgba(16,185,129,.18)} 100%{background:rgba(16,185,129,.06)} }
         .dp-skeleton { background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:400px 100%;animation:dp-shimmer 1.4s infinite;border-radius:10px; }
-        .dp-trigger-btn { display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:12px;border:1.5px solid rgba(99,102,241,.3);background:rgba(99,102,241,.06);color:#4338ca;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:inherit; }
-        .dp-trigger-btn:hover { background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.6);box-shadow:0 3px 12px rgba(99,102,241,.2);transform:translateY(-1px); }
+        .dp-trigger-btn {
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.15);
+        background: rgba(255,255,255,.06);
+        color: rgba(255,255,255,.9);
+        font-size: .78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all .15s;
+        white-space: nowrap;
+        font-family: inherit;
+        flex-shrink: 0;
+      }
+      .dp-trigger-btn:hover {
+        background: rgba(255,255,255,.12);
+        border-color: rgba(255,255,255,.28);
+      }
+      .dp-trigger-btn i { color: #fdba74; }
         .dp-overlay { position:fixed;inset:0;background:rgba(10,10,20,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;animation:dp-overlayIn .2s ease; }
         .dp-modal { background:#fff;border-radius:18px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.22);animation:dp-fadeIn .25s ease;overflow:hidden; }
         .dp-header { background:${BG_DARK};padding:20px 24px;border-radius:18px 18px 0 0;flex-shrink:0; }
@@ -877,8 +898,9 @@ const DropisPlantillas = ({ id_configuracion }) => {
         {totalActivos > 0 && (
           <span
             style={{
-              background: "#6366f1",
-              color: "#fff",
+              background: "rgba(253,186,116,.2)",
+              color: "#fdba74",
+              border: "1px solid rgba(253,186,116,.35)",
               borderRadius: 999,
               fontSize: ".68rem",
               padding: "1px 7px",

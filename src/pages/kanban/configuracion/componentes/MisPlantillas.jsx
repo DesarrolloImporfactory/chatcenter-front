@@ -160,29 +160,52 @@ const MisPlantillas = ({ id_configuracion, onPlantillaAplicada }) => {
         }
         .mp-body { padding:18px 22px 22px;overflow-y:auto; }
         .mp-btn-save {
-          display:inline-flex;align-items:center;gap:7px;
-          padding:8px 14px;border-radius:11px;
-          border:1.5px solid rgba(99,102,241,.3);
-          background:rgba(99,102,241,.06);
-          color:#4338ca;font-size:.82rem;font-weight:700;
-          cursor:pointer;transition:all .15s;font-family:inherit;
+          height: 36px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,.15);
+          background: rgba(255,255,255,.06);
+          color: rgba(255,255,255,.9);
+          font-size: .78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all .15s;
+          font-family: inherit;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .mp-btn-save:hover {
-          background:rgba(99,102,241,.12);border-color:#6366f1;
-          box-shadow:0 3px 10px rgba(99,102,241,.2);transform:translateY(-1px);
+          background: rgba(255,255,255,.12);
+          border-color: rgba(255,255,255,.28);
         }
+        .mp-btn-save i { color: #c4b5fd; }
+
         .mp-btn-list {
-          display:inline-flex;align-items:center;gap:7px;
-          padding:8px 14px;border-radius:11px;
-          border:1.5px solid rgba(16,185,129,.3);
-          background:rgba(16,185,129,.06);
-          color:#047857;font-size:.82rem;font-weight:700;
-          cursor:pointer;transition:all .15s;font-family:inherit;
+          height: 36px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,.15);
+          background: rgba(255,255,255,.06);
+          color: rgba(255,255,255,.9);
+          font-size: .78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all .15s;
+          font-family: inherit;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .mp-btn-list:hover {
-          background:rgba(16,185,129,.12);border-color:#10b981;
-          box-shadow:0 3px 10px rgba(16,185,129,.2);transform:translateY(-1px);
+          background: rgba(255,255,255,.12);
+          border-color: rgba(255,255,255,.28);
         }
+        .mp-btn-list i { color: #6ee7b7; }
         .mp-input {
           width:100%;padding:9px 13px;border-radius:10px;
           border:1.5px solid #e5e7eb;background:#f9fafb;
@@ -239,7 +262,7 @@ const MisPlantillas = ({ id_configuracion, onPlantillaAplicada }) => {
         {plantillas.length > 0 && (
           <span
             style={{
-              background: "#10b981",
+              background: "rgba(110,231,183,.2)",
               color: "#fff",
               borderRadius: 999,
               fontSize: ".68rem",

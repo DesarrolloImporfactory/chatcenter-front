@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Swal from "sweetalert2";
-import chatApi from "../../../api/chatcenter"; // ajusta si tu ruta es diferente
+import chatApi from "../../../api/chatcenter";
+import PageHeader from "../../../pages/Header/pageHeader";
 import TabAsistente from "./TabAsistente";
 import RemarketingColumna from "./componentes/RemarketingColumna";
 import DropisPlantillas from "../../dropi/DropisPlantillas";
@@ -613,813 +614,811 @@ const KanbanConfig = () => {
     <div
       style={{ padding: 24, fontFamily: "'DM Sans', system-ui, sans-serif" }}
     >
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 24,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: "1.6rem",
-              fontWeight: 800,
-              margin: 0,
-              color: "#0f172a",
-              letterSpacing: "-0.5px",
-            }}
-          >
-            <i
-              className="bx bx-columns"
-              style={{ marginRight: 10, color: "#6366f1" }}
+      {/* ───── Header con PageHeader (consistente con tu marca) ───── */}
+      <PageHeader
+        tone="dark"
+        icon={
+          <i
+            className="bx bx-columns"
+            style={{ fontSize: 20, color: "#22d3ee" }}
+          />
+        }
+        title="Configuración del Kanban"
+        subtitle="Define columnas, asistentes de IA y acciones automáticas por cada etapa de tu flujo."
+        actions={
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {/* Plantillas — estilo unificado dark */}
+            <MisPlantillas
+              id_configuracion={id_configuracion}
+              onPlantillaAplicada={cargarColumnas}
             />
-            Configuración del Kanban
-          </h1>
-          <p
-            style={{ margin: "4px 0 0", color: "#64748b", fontSize: "0.9rem" }}
-          >
-            Define columnas, asistentes de IA y acciones automáticas por etapa.
-          </p>
-        </div>
+            <PlantillasKanban
+              id_configuracion={id_configuracion}
+              onPlantillaAplicada={cargarColumnas}
+            />
+            <DropisPlantillas id_configuracion={id_configuracion} />
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {/* boton de elegiar plantillas propias*/}
-          <MisPlantillas
-            id_configuracion={id_configuracion}
-            onPlantillaAplicada={cargarColumnas}
-          />
-          {/* boton de elegiar plantillas kanban*/}
-          <PlantillasKanban
-            id_configuracion={id_configuracion}
-            onPlantillaAplicada={cargarColumnas}
-          />
-          {/* boton de elegiar plantillas kanban*/}
-          {/* boton de configurar dropi */}
-          <DropisPlantillas id_configuracion={id_configuracion} />
-          {/* boton de configurar dropi */}
-          {/* boton guardar global — solo super_admin */}
-          {esSuperAdmin && (
+            {esSuperAdmin && (
+              <button
+                onClick={() => setShowGuardarGlobal(true)}
+                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 hover:border-white/25 text-white/90 text-xs font-semibold transition flex-shrink-0 whitespace-nowrap"
+              >
+                <i className="bx bx-globe text-sm text-amber-300" /> Guardar
+                global
+              </button>
+            )}
+
+            {columnas.length > 0 && (
+              <div className="mx-1 h-6 w-px bg-white/10 flex-shrink-0" />
+            )}
+
+            {/* CTA principal — cyan vibrante destaca */}
             <button
-              onClick={() => setShowGuardarGlobal(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 7,
-                padding: "8px 14px",
-                borderRadius: 12,
-                border: "1.5px solid rgba(234,179,8,.4)",
-                background: "rgba(234,179,8,.08)",
-                color: "#ca8a04",
-                fontSize: ".82rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all .15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(234,179,8,.15)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(234,179,8,.08)";
-              }}
+              onClick={() => setShowModalNueva(true)}
+              className="h-9 inline-flex items-center gap-1.5 px-4 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-[#171931] font-bold text-xs shadow-lg shadow-cyan-500/20 transition flex-shrink-0 whitespace-nowrap"
             >
-              <i className="bx bx-globe" style={{ fontSize: 15 }} />
-              Guardar global
+              <i className="bx bx-plus text-base" /> Nueva columna
             </button>
-          )}
-          {/* boton de nueva columna */}
-          <button onClick={() => setShowModalNueva(true)} style={btnPrimario}>
-            <i className="bx bx-plus" style={{ fontSize: "1.1rem" }} />
-            Nueva columna
-          </button>
-          {/* boton de nueva columna */}
-          {/* boton de reiniciar */}
-          <button
-            onClick={reiniciarConfig}
-            title="Reiniciar configuración"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              border: "1.5px solid #fecaca",
-              background: "#fef2f2",
-              color: "#ef4444",
-              cursor: "pointer",
-              transition: "all .15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#fee2e2";
-              e.currentTarget.style.borderColor = "#f87171";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#fef2f2";
-              e.currentTarget.style.borderColor = "#fecaca";
-            }}
-          >
-            <i className="bx bx-trash" style={{ fontSize: "1.1rem" }} />
-          </button>
-          {/* boton de reiniciar */}
-        </div>
-      </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "260px 1fr",
-          gap: 20,
-          alignItems: "start",
-        }}
-      >
-        {/* Sidebar columnas */}
+            {columnas.length > 0 && (
+              <button
+                onClick={reiniciarConfig}
+                title="Reiniciar configuración"
+                className="h-9 w-9 rounded-xl border border-rose-400/20 bg-rose-400/5 text-rose-300 hover:bg-rose-400/10 transition flex items-center justify-center flex-shrink-0"
+              >
+                <i className="bx bx-trash text-base" />
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      {/* ───── Body: empty hero o grid normal ───── */}
+      {columnas.length === 0 ? (
+        <EmptyHeroKanban
+          onCrearColumna={() => setShowModalNueva(true)}
+          idConfiguracion={id_configuracion}
+          onPlantillaAplicada={cargarColumnas}
+        />
+      ) : (
         <div
           style={{
-            background: "#fff",
-            borderRadius: 16,
-            border: "1px solid rgba(0,0,0,.07)",
-            overflow: "hidden",
-            boxShadow: "0 2px 12px rgba(0,0,0,.05)",
+            display: "grid",
+            gridTemplateColumns: "260px 1fr",
+            gap: 20,
+            alignItems: "start",
           }}
         >
-          <div
-            style={{
-              padding: "12px 16px",
-              borderBottom: "1px solid rgba(0,0,0,.06)",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              color: "#94a3b8",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
-            Columnas ({columnas.length})
-          </div>
-          {columnas.map((col, index) => (
-            <div
-              key={col.id}
-              draggable
-              onDragStart={() => {
-                dragItem.current = index;
-                setDraggingId(col.id);
-              }}
-              onDragEnter={() => {
-                dragOverItem.current = index;
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDragEnd={handleDragEnd}
-              onClick={() => {
-                setColumnaActiva(col.id);
-                setTabActiva("columna");
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "11px 14px",
-                cursor: "grab",
-                borderLeft:
-                  col.id === columnaActiva
-                    ? "3px solid #6366f1"
-                    : "3px solid transparent",
-                background:
-                  draggingId === col.id
-                    ? "rgba(99,102,241,.12)"
-                    : col.id === columnaActiva
-                      ? "rgba(99,102,241,.06)"
-                      : "transparent",
-                transition: "all .12s",
-                borderBottom: "1px solid rgba(0,0,0,.04)",
-                opacity: draggingId === col.id ? 0.5 : 1,
-                userSelect: "none",
-              }}
-            >
-              {/* Handle de arrastre */}
-              <i
-                className="bx bx-grid-vertical"
-                style={{
-                  color: "#cbd5e1",
-                  fontSize: "1rem",
-                  flexShrink: 0,
-                  cursor: "grab",
-                }}
-              />
-
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: col.color_fondo,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <i
-                  className={col.icono || "bx bx-circle"}
-                  style={{ color: col.color_texto, fontSize: "1rem" }}
-                />
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontWeight: 600,
-                    fontSize: "0.83rem",
-                    color: col.id === columnaActiva ? "#4338ca" : "#1e293b",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {col.nombre}
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.7rem",
-                    color: "#94a3b8",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {col.estado_db}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 3,
-                  flexShrink: 0,
-                }}
-              >
-                {!!col.activa_ia && (
-                  <span
-                    style={{
-                      fontSize: "0.62rem",
-                      background: "#dcfce7",
-                      color: "#16a34a",
-                      borderRadius: 999,
-                      padding: "1px 5px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    IA
-                  </span>
-                )}
-                {!!col.es_dropi_principal && (
-                  <span
-                    style={{
-                      fontSize: "0.62rem",
-                      background: "#ffedd5",
-                      color: "#c2410c",
-                      borderRadius: 999,
-                      padding: "1px 5px",
-                      fontWeight: 700,
-                    }}
-                    title="Conexión principal de Dropi"
-                  >
-                    📦
-                  </span>
-                )}
-                {!!col.es_principal && (
-                  <span
-                    style={{
-                      fontSize: "0.62rem",
-                      background: "#fef9c3",
-                      color: "#ca8a04",
-                      borderRadius: 999,
-                      padding: "1px 5px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    ★
-                  </span>
-                )}
-                {!col.activo && (
-                  <span
-                    style={{
-                      fontSize: "0.62rem",
-                      background: "#fee2e2",
-                      color: "#dc2626",
-                      borderRadius: 999,
-                      padding: "1px 5px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    OFF
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-          {!columnas.length && (
-            <div
-              style={{
-                padding: 24,
-                textAlign: "center",
-                color: "#94a3b8",
-                fontSize: "0.83rem",
-              }}
-            >
-              Sin columnas.
-              <br />
-              Crea la primera.
-            </div>
-          )}
-        </div>
-
-        {/* Panel principal */}
-        {columnaSeleccionada ? (
+          {/* Sidebar columnas */}
           <div
             style={{
               background: "#fff",
               borderRadius: 16,
               border: "1px solid rgba(0,0,0,.07)",
-              boxShadow: "0 2px 12px rgba(0,0,0,.05)",
               overflow: "hidden",
+              boxShadow: "0 2px 12px rgba(0,0,0,.05)",
             }}
           >
-            {/* Preview columna */}
             <div
               style={{
-                padding: "16px 24px",
+                padding: "12px 16px",
                 borderBottom: "1px solid rgba(0,0,0,.06)",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                background: "linear-gradient(135deg,#fafbff,#f1f5f9)",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
               }}
             >
+              Columnas ({columnas.length})
+            </div>
+            {columnas.map((col, index) => (
               <div
+                key={col.id}
+                draggable
+                onDragStart={() => {
+                  dragItem.current = index;
+                  setDraggingId(col.id);
+                }}
+                onDragEnter={() => {
+                  dragOverItem.current = index;
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragEnd={handleDragEnd}
+                onClick={() => {
+                  setColumnaActiva(col.id);
+                  setTabActiva("columna");
+                }}
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background:
-                    formCol?.color_fondo || columnaSeleccionada.color_fondo,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 3px 10px rgba(0,0,0,.1)",
+                  gap: 10,
+                  padding: "11px 14px",
+                  cursor: "grab",
+                  borderLeft:
+                    col.id === columnaActiva
+                      ? "3px solid #6366f1"
+                      : "3px solid transparent",
+                  background:
+                    draggingId === col.id
+                      ? "rgba(99,102,241,.12)"
+                      : col.id === columnaActiva
+                        ? "rgba(99,102,241,.06)"
+                        : "transparent",
+                  transition: "all .12s",
+                  borderBottom: "1px solid rgba(0,0,0,.04)",
+                  opacity: draggingId === col.id ? 0.5 : 1,
+                  userSelect: "none",
                 }}
               >
+                {/* Handle de arrastre */}
                 <i
-                  className={
-                    formCol?.icono ||
-                    columnaSeleccionada.icono ||
-                    "bx bx-circle"
-                  }
+                  className="bx bx-grid-vertical"
                   style={{
-                    color:
-                      formCol?.color_texto || columnaSeleccionada.color_texto,
-                    fontSize: "1.3rem",
+                    color: "#cbd5e1",
+                    fontSize: "1rem",
+                    flexShrink: 0,
+                    cursor: "grab",
                   }}
                 />
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontWeight: 800,
-                    fontSize: "1.05rem",
-                    color: "#0f172a",
-                  }}
-                >
-                  {formCol?.nombre || columnaSeleccionada.nombre}
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#64748b",
-                    fontFamily: "monospace",
-                    marginTop: 2,
-                  }}
-                >
-                  estado_db: <strong>{columnaSeleccionada.estado_db}</strong>
-                </div>
-              </div>
-            </div>
 
-            {/* Tabs */}
-            <div
-              style={{
-                display: "flex",
-                borderBottom: "1px solid rgba(0,0,0,.06)",
-                padding: "0 24px",
-              }}
-            >
-              {[
-                { key: "columna", label: "Columna", icono: "bx bx-customize" },
-                { key: "asistente", label: "Asistente", icono: "bx bx-bot" },
-                {
-                  key: "acciones",
-                  label: "Acciones",
-                  icono: "bx bx-zap",
-                  badge: acciones.length,
-                },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setTabActiva(tab.key)}
+                <div
                   style={{
-                    padding: "13px 18px",
-                    border: "none",
-                    background: "transparent",
-                    fontSize: "0.87rem",
-                    fontWeight: tabActiva === tab.key ? 700 : 500,
-                    color: tabActiva === tab.key ? "#6366f1" : "#64748b",
-                    borderBottom:
-                      tabActiva === tab.key
-                        ? "2px solid #6366f1"
-                        : "2px solid transparent",
-                    cursor: "pointer",
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: col.color_fondo,
                     display: "flex",
                     alignItems: "center",
-                    gap: 7,
-                    transition: "all .12s",
-                    marginBottom: -1,
+                    justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
-                  <i className={tab.icono} style={{ fontSize: "1rem" }} />
-                  {tab.label}
-                  {tab.badge > 0 && (
+                  <i
+                    className={col.icono || "bx bx-circle"}
+                    style={{ color: col.color_texto, fontSize: "1rem" }}
+                  />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: "0.83rem",
+                      color: col.id === columnaActiva ? "#4338ca" : "#1e293b",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {col.nombre}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.7rem",
+                      color: "#94a3b8",
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    {col.estado_db}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 3,
+                    flexShrink: 0,
+                  }}
+                >
+                  {!!col.activa_ia && (
                     <span
                       style={{
-                        background: "#6366f1",
-                        color: "#fff",
+                        fontSize: "0.62rem",
+                        background: "#dcfce7",
+                        color: "#16a34a",
                         borderRadius: 999,
-                        fontSize: "0.68rem",
-                        padding: "0 5px",
+                        padding: "1px 5px",
                         fontWeight: 700,
-                        lineHeight: "1.5",
                       }}
                     >
-                      {tab.badge}
+                      IA
                     </span>
                   )}
-                </button>
-              ))}
-            </div>
-
-            {/* ── TAB COLUMNA ──────────────────────────────── */}
-            {tabActiva === "columna" && formCol && (
-              <div style={{ padding: 24 }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 20,
-                  }}
-                >
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={lbl}>Nombre visible</label>
-                    <input
-                      value={formCol.nombre}
-                      onChange={(e) =>
-                        setFormCol((p) => ({ ...p, nombre: e.target.value }))
-                      }
-                      style={inp}
-                      placeholder="Ej: Contacto Inicial"
-                    />
-                  </div>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={lbl}>Paleta de color</label>
-                    <div
+                  {!!col.es_dropi_principal && (
+                    <span
                       style={{
-                        display: "flex",
-                        gap: 8,
-                        flexWrap: "wrap",
-                        marginTop: 6,
+                        fontSize: "0.62rem",
+                        background: "#ffedd5",
+                        color: "#c2410c",
+                        borderRadius: 999,
+                        padding: "1px 5px",
+                        fontWeight: 700,
+                      }}
+                      title="Conexión principal de Dropi"
+                    >
+                      📦
+                    </span>
+                  )}
+                  {!!col.es_principal && (
+                    <span
+                      style={{
+                        fontSize: "0.62rem",
+                        background: "#fef9c3",
+                        color: "#ca8a04",
+                        borderRadius: 999,
+                        padding: "1px 5px",
+                        fontWeight: 700,
                       }}
                     >
-                      {PALETA_COLORES.map((p) => (
-                        <button
-                          key={p.label}
-                          title={p.label}
-                          onClick={() =>
-                            setFormCol((prev) => ({
-                              ...prev,
-                              color_fondo: p.fondo,
-                              color_texto: p.texto,
-                            }))
-                          }
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 10,
-                            border:
-                              formCol.color_fondo === p.fondo
-                                ? "2.5px solid #6366f1"
-                                : "1.5px solid rgba(0,0,0,.1)",
-                            background: p.fondo,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxShadow:
-                              formCol.color_fondo === p.fondo
-                                ? "0 0 0 3px rgba(99,102,241,.2)"
-                                : "none",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 14,
-                              height: 14,
-                              borderRadius: 4,
-                              background: p.texto,
-                            }}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={lbl}>Icono</label>
-                    <div
+                      ★
+                    </span>
+                  )}
+                  {!col.activo && (
+                    <span
                       style={{
-                        display: "flex",
-                        gap: 8,
-                        flexWrap: "wrap",
-                        marginTop: 6,
+                        fontSize: "0.62rem",
+                        background: "#fee2e2",
+                        color: "#dc2626",
+                        borderRadius: 999,
+                        padding: "1px 5px",
+                        fontWeight: 700,
                       }}
                     >
-                      {ICONOS.map((ic) => (
-                        <button
-                          key={ic}
-                          onClick={() =>
-                            setFormCol((p) => ({ ...p, icono: ic }))
-                          }
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 10,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border:
-                              formCol.icono === ic
-                                ? "2px solid #6366f1"
-                                : "1px solid rgba(0,0,0,.1)",
-                            background:
-                              formCol.icono === ic
-                                ? "rgba(99,102,241,.08)"
-                                : "#fafafa",
-                            cursor: "pointer",
-                            transition: "all .1s",
-                          }}
-                        >
-                          <i
-                            className={ic}
-                            style={{
-                              fontSize: "1.2rem",
-                              color:
-                                formCol.icono === ic ? "#6366f1" : "#374151",
-                            }}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label style={lbl}>Estado de la columna</label>
-                    <SwitchRow
-                      label="Columna activa"
-                      checked={!!formCol.activo}
-                      onChange={(v) =>
-                        setFormCol((p) => ({ ...p, activo: v ? 1 : 0 }))
-                      }
-                      desc="Aparece en el tablero"
-                    />
-                  </div>
-                  <div>
-                    <label style={lbl}>Comportamiento de IA</label>
-                    <SwitchRow
-                      label="Estado final"
-                      checked={!!formCol.es_estado_final}
-                      onChange={(v) =>
-                        setFormCol((p) => ({
-                          ...p,
-                          es_estado_final: v ? 1 : 0,
-                        }))
-                      }
-                      desc="Desactiva IA en esta columna"
-                      colorOn="#ef4444"
-                    />
-                  </div>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={lbl}>Columna principal</label>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 14px",
-                        borderRadius: 12,
-                        border: `1px solid ${columnaSeleccionada?.es_principal ? "rgba(234,179,8,.3)" : "rgba(0,0,0,.07)"}`,
-                        background: columnaSeleccionada?.es_principal
-                          ? "rgba(234,179,8,.06)"
-                          : "#fafafa",
-                        marginTop: 6,
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            fontSize: "0.87rem",
-                            color: "#0f172a",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 7,
-                          }}
-                        >
-                          <i
-                            className="bx bx-star"
-                            style={{
-                              color: columnaSeleccionada?.es_principal
-                                ? "#ca8a04"
-                                : "#94a3b8",
-                            }}
-                          />
-                          {columnaSeleccionada?.es_principal
-                            ? "Esta es la columna principal"
-                            : "Marcar como columna principal"}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#64748b",
-                            marginTop: 2,
-                          }}
-                        >
-                          {columnaSeleccionada?.es_principal
-                            ? "Los chats cerrados regresarán a esta columna"
-                            : "Solo una columna puede ser la principal"}
-                        </div>
-                      </div>
-                      <ToggleSwitch
-                        checked={!!columnaSeleccionada?.es_principal}
-                        onChange={togglePrincipal}
-                        colorOn="#ca8a04"
-                      />
-                    </div>
-                  </div>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={lbl}>Conexión principal de Dropi</label>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 14px",
-                        borderRadius: 12,
-                        border: `1px solid ${columnaSeleccionada?.es_dropi_principal ? "rgba(234,88,12,.3)" : "rgba(0,0,0,.07)"}`,
-                        background: columnaSeleccionada?.es_dropi_principal
-                          ? "rgba(234,88,12,.06)"
-                          : "#fafafa",
-                        marginTop: 6,
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            fontSize: "0.87rem",
-                            color: "#0f172a",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 7,
-                          }}
-                        >
-                          <i
-                            className="bx bx-package"
-                            style={{
-                              color: columnaSeleccionada?.es_dropi_principal
-                                ? "#ea580c"
-                                : "#94a3b8",
-                            }}
-                          />
-                          {columnaSeleccionada?.es_dropi_principal
-                            ? "Esta es la conexión principal de Dropi"
-                            : "Marcar como conexión principal de Dropi"}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#64748b",
-                            marginTop: 2,
-                          }}
-                        >
-                          {columnaSeleccionada?.es_dropi_principal
-                            ? "Los pedidos nuevos de Dropi entrarán a esta columna"
-                            : "Solo una columna puede recibir pedidos de Dropi"}
-                        </div>
-                      </div>
-                      <ToggleSwitch
-                        checked={!!columnaSeleccionada?.es_dropi_principal}
-                        onChange={toggleDropiPrincipal}
-                        colorOn="#ea580c"
-                      />
-                    </div>
-                  </div>
+                      OFF
+                    </span>
+                  )}
                 </div>
-                <div
-                  style={{
-                    marginTop: 24,
-                    display: "flex",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <button onClick={guardarColumna} style={btnPrimario}>
-                    <i className="bx bx-save" /> Guardar cambios
-                  </button>
-                </div>
+              </div>
+            ))}
+          </div>
 
-                {/* ── Remarketing ── */}
+          {/* Panel principal */}
+          {columnaSeleccionada ? (
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                border: "1px solid rgba(0,0,0,.07)",
+                boxShadow: "0 2px 12px rgba(0,0,0,.05)",
+                overflow: "hidden",
+              }}
+            >
+              {/* Preview columna */}
+              <div
+                style={{
+                  padding: "16px 24px",
+                  borderBottom: "1px solid rgba(0,0,0,.06)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  background: "linear-gradient(135deg,#fafbff,#f1f5f9)",
+                }}
+              >
                 <div
                   style={{
-                    marginTop: 20,
-                    paddingTop: 20,
-                    borderTop: "1px solid rgba(0,0,0,.06)",
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background:
+                      formCol?.color_fondo || columnaSeleccionada.color_fondo,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    justifyContent: "center",
+                    boxShadow: "0 3px 10px rgba(0,0,0,.1)",
                   }}
                 >
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "0.9rem",
-                        color: "#0f172a",
-                      }}
-                    >
-                      <i
-                        className="bx bx-radar"
-                        style={{ marginRight: 7, color: "#6366f1" }}
+                  <i
+                    className={
+                      formCol?.icono ||
+                      columnaSeleccionada.icono ||
+                      "bx bx-circle"
+                    }
+                    style={{
+                      color:
+                        formCol?.color_texto || columnaSeleccionada.color_texto,
+                      fontSize: "1.3rem",
+                    }}
+                  />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      fontSize: "1.05rem",
+                      color: "#0f172a",
+                    }}
+                  >
+                    {formCol?.nombre || columnaSeleccionada.nombre}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748b",
+                      fontFamily: "monospace",
+                      marginTop: 2,
+                    }}
+                  >
+                    estado_db: <strong>{columnaSeleccionada.estado_db}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div
+                style={{
+                  display: "flex",
+                  borderBottom: "1px solid rgba(0,0,0,.06)",
+                  padding: "0 24px",
+                }}
+              >
+                {[
+                  {
+                    key: "columna",
+                    label: "Columna",
+                    icono: "bx bx-customize",
+                  },
+                  { key: "asistente", label: "Asistente", icono: "bx bx-bot" },
+                  {
+                    key: "acciones",
+                    label: "Acciones",
+                    icono: "bx bx-zap",
+                    badge: acciones.length,
+                  },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setTabActiva(tab.key)}
+                    style={{
+                      padding: "13px 18px",
+                      border: "none",
+                      background: "transparent",
+                      fontSize: "0.87rem",
+                      fontWeight: tabActiva === tab.key ? 700 : 500,
+                      color: tabActiva === tab.key ? "#6366f1" : "#64748b",
+                      borderBottom:
+                        tabActiva === tab.key
+                          ? "2px solid #6366f1"
+                          : "2px solid transparent",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      transition: "all .12s",
+                      marginBottom: -1,
+                    }}
+                  >
+                    <i className={tab.icono} style={{ fontSize: "1rem" }} />
+                    {tab.label}
+                    {tab.badge > 0 && (
+                      <span
+                        style={{
+                          background: "#6366f1",
+                          color: "#fff",
+                          borderRadius: 999,
+                          fontSize: "0.68rem",
+                          padding: "0 5px",
+                          fontWeight: 700,
+                          lineHeight: "1.5",
+                        }}
+                      >
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── TAB COLUMNA ──────────────────────────────── */}
+              {tabActiva === "columna" && formCol && (
+                <div style={{ padding: 24 }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 20,
+                    }}
+                  >
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={lbl}>Nombre visible</label>
+                      <input
+                        value={formCol.nombre}
+                        onChange={(e) =>
+                          setFormCol((p) => ({ ...p, nombre: e.target.value }))
+                        }
+                        style={inp}
+                        placeholder="Ej: Contacto Inicial"
                       />
-                      Remarketing automático
                     </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={lbl}>Paleta de color</label>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          flexWrap: "wrap",
+                          marginTop: 6,
+                        }}
+                      >
+                        {PALETA_COLORES.map((p) => (
+                          <button
+                            key={p.label}
+                            title={p.label}
+                            onClick={() =>
+                              setFormCol((prev) => ({
+                                ...prev,
+                                color_fondo: p.fondo,
+                                color_texto: p.texto,
+                              }))
+                            }
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 10,
+                              border:
+                                formCol.color_fondo === p.fondo
+                                  ? "2.5px solid #6366f1"
+                                  : "1.5px solid rgba(0,0,0,.1)",
+                              background: p.fondo,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              boxShadow:
+                                formCol.color_fondo === p.fondo
+                                  ? "0 0 0 3px rgba(99,102,241,.2)"
+                                  : "none",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: 4,
+                                background: p.texto,
+                              }}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={lbl}>Icono</label>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          flexWrap: "wrap",
+                          marginTop: 6,
+                        }}
+                      >
+                        {ICONOS.map((ic) => (
+                          <button
+                            key={ic}
+                            onClick={() =>
+                              setFormCol((p) => ({ ...p, icono: ic }))
+                            }
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 10,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              border:
+                                formCol.icono === ic
+                                  ? "2px solid #6366f1"
+                                  : "1px solid rgba(0,0,0,.1)",
+                              background:
+                                formCol.icono === ic
+                                  ? "rgba(99,102,241,.08)"
+                                  : "#fafafa",
+                              cursor: "pointer",
+                              transition: "all .1s",
+                            }}
+                          >
+                            <i
+                              className={ic}
+                              style={{
+                                fontSize: "1.2rem",
+                                color:
+                                  formCol.icono === ic ? "#6366f1" : "#374151",
+                              }}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={lbl}>Estado de la columna</label>
+                      <SwitchRow
+                        label="Columna activa"
+                        checked={!!formCol.activo}
+                        onChange={(v) =>
+                          setFormCol((p) => ({ ...p, activo: v ? 1 : 0 }))
+                        }
+                        desc="Aparece en el tablero"
+                      />
+                    </div>
+                    <div>
+                      <label style={lbl}>Comportamiento de IA</label>
+                      <SwitchRow
+                        label="Estado final"
+                        checked={!!formCol.es_estado_final}
+                        onChange={(v) =>
+                          setFormCol((p) => ({
+                            ...p,
+                            es_estado_final: v ? 1 : 0,
+                          }))
+                        }
+                        desc="Desactiva IA en esta columna"
+                        colorOn="#ef4444"
+                      />
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={lbl}>Columna principal</label>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 14px",
+                          borderRadius: 12,
+                          border: `1px solid ${columnaSeleccionada?.es_principal ? "rgba(234,179,8,.3)" : "rgba(0,0,0,.07)"}`,
+                          background: columnaSeleccionada?.es_principal
+                            ? "rgba(234,179,8,.06)"
+                            : "#fafafa",
+                          marginTop: 6,
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: "0.87rem",
+                              color: "#0f172a",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 7,
+                            }}
+                          >
+                            <i
+                              className="bx bx-star"
+                              style={{
+                                color: columnaSeleccionada?.es_principal
+                                  ? "#ca8a04"
+                                  : "#94a3b8",
+                              }}
+                            />
+                            {columnaSeleccionada?.es_principal
+                              ? "Esta es la columna principal"
+                              : "Marcar como columna principal"}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#64748b",
+                              marginTop: 2,
+                            }}
+                          >
+                            {columnaSeleccionada?.es_principal
+                              ? "Los chats cerrados regresarán a esta columna"
+                              : "Solo una columna puede ser la principal"}
+                          </div>
+                        </div>
+                        <ToggleSwitch
+                          checked={!!columnaSeleccionada?.es_principal}
+                          onChange={togglePrincipal}
+                          colorOn="#ca8a04"
+                        />
+                      </div>
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={lbl}>Conexión principal de Dropi</label>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 14px",
+                          borderRadius: 12,
+                          border: `1px solid ${columnaSeleccionada?.es_dropi_principal ? "rgba(234,88,12,.3)" : "rgba(0,0,0,.07)"}`,
+                          background: columnaSeleccionada?.es_dropi_principal
+                            ? "rgba(234,88,12,.06)"
+                            : "#fafafa",
+                          marginTop: 6,
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: "0.87rem",
+                              color: "#0f172a",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 7,
+                            }}
+                          >
+                            <i
+                              className="bx bx-package"
+                              style={{
+                                color: columnaSeleccionada?.es_dropi_principal
+                                  ? "#ea580c"
+                                  : "#94a3b8",
+                              }}
+                            />
+                            {columnaSeleccionada?.es_dropi_principal
+                              ? "Esta es la conexión principal de Dropi"
+                              : "Marcar como conexión principal de Dropi"}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#64748b",
+                              marginTop: 2,
+                            }}
+                          >
+                            {columnaSeleccionada?.es_dropi_principal
+                              ? "Los pedidos nuevos de Dropi entrarán a esta columna"
+                              : "Solo una columna puede recibir pedidos de Dropi"}
+                          </div>
+                        </div>
+                        <ToggleSwitch
+                          checked={!!columnaSeleccionada?.es_dropi_principal}
+                          onChange={toggleDropiPrincipal}
+                          colorOn="#ea580c"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 24,
+                      display: "flex",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <button onClick={guardarColumna} style={btnPrimario}>
+                      <i className="bx bx-save" /> Guardar cambios
+                    </button>
+                  </div>
+
+                  {/* ── Remarketing ── */}
+                  <div
+                    style={{
+                      marginTop: 20,
+                      paddingTop: 20,
+                      borderTop: "1px solid rgba(0,0,0,.06)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "0.9rem",
+                          color: "#0f172a",
+                        }}
+                      >
+                        <i
+                          className="bx bx-radar"
+                          style={{ marginRight: 7, color: "#6366f1" }}
+                        />
+                        Remarketing automático
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748b",
+                          marginTop: 3,
+                        }}
+                      >
+                        Si el cliente no responde en esta etapa, se le enviará
+                        un mensaje automático.
+                      </div>
+                    </div>
+                    <RemarketingColumna
+                      id_configuracion={id_configuracion}
+                      estado_db={columnaSeleccionada?.estado_db || ""}
+                      nombreColumna={columnaSeleccionada?.nombre || ""}
+                      columnas={columnas}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ── TAB ASISTENTE ────────────────────────────── */}
+              {tabActiva === "asistente" && (
+                <TabAsistente
+                  columnaId={columnaActiva}
+                  columnaActiva_ia={columnaSeleccionada?.activa_ia}
+                  columnaMax_tokens={columnaSeleccionada?.max_tokens}
+                  idConfiguracion={localStorage.getItem("id_configuracion")}
+                  columnas={columnas}
+                  onAssistantCreado={(assistant_id) => {
+                    setColumnas((prev) =>
+                      prev.map((c) =>
+                        c.id === columnaActiva
+                          ? { ...c, assistant_id, activa_ia: 1 }
+                          : c,
+                      ),
+                    );
+                  }}
+                  onColumnaActualizada={({ activa_ia, max_tokens }) => {
+                    setColumnas((prev) =>
+                      prev.map((c) =>
+                        c.id === columnaActiva
+                          ? { ...c, activa_ia, max_tokens }
+                          : c,
+                      ),
+                    );
+                  }}
+                />
+              )}
+              {/* ── TAB ACCIONES ─────────────────────────────── */}
+              {tabActiva === "acciones" && (
+                <div style={{ padding: 24 }}>
+                  <div style={{ marginBottom: 22 }}>
                     <div
                       style={{
                         fontSize: "0.75rem",
-                        color: "#64748b",
-                        marginTop: 3,
+                        fontWeight: 700,
+                        color: "#94a3b8",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        marginBottom: 10,
                       }}
                     >
-                      Si el cliente no responde en esta etapa, se le enviará un
-                      mensaje automático.
+                      Agregar acción
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {Object.entries(TIPOS_ACCION).map(([tipo, meta]) => {
+                        const yaExiste =
+                          tipo !== "cambiar_estado" &&
+                          acciones.some((a) => a.tipo_accion === tipo);
+                        return (
+                          <button
+                            key={tipo}
+                            disabled={yaExiste || guardandoAcc}
+                            onClick={() => agregarAccion(tipo)}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 7,
+                              padding: "8px 14px",
+                              borderRadius: 999,
+                              border: `1.5px solid ${yaExiste ? "#e5e7eb" : meta.color + "44"}`,
+                              background: yaExiste
+                                ? "#f9fafb"
+                                : `${meta.color}0d`,
+                              color: yaExiste ? "#9ca3af" : meta.color,
+                              fontWeight: 600,
+                              fontSize: "0.82rem",
+                              cursor: yaExiste ? "not-allowed" : "pointer",
+                              transition: "all .12s",
+                            }}
+                          >
+                            <i
+                              className={meta.icono}
+                              style={{ fontSize: "1rem" }}
+                            />
+                            {meta.label}
+                            {yaExiste && (
+                              <i
+                                className="bx bx-check"
+                                style={{ fontSize: "0.9rem" }}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                  <RemarketingColumna
-                    id_configuracion={id_configuracion}
-                    estado_db={columnaSeleccionada?.estado_db || ""}
-                    nombreColumna={columnaSeleccionada?.nombre || ""}
-                    columnas={columnas}
-                  />
-                </div>
-              </div>
-            )}
 
-            {/* ── TAB ASISTENTE ────────────────────────────── */}
-            {tabActiva === "asistente" && (
-              <TabAsistente
-                columnaId={columnaActiva}
-                columnaActiva_ia={columnaSeleccionada?.activa_ia}
-                columnaMax_tokens={columnaSeleccionada?.max_tokens}
-                idConfiguracion={localStorage.getItem("id_configuracion")}
-                columnas={columnas} // ← agregar
-                onAssistantCreado={(assistant_id) => {
-                  setColumnas((prev) =>
-                    prev.map((c) =>
-                      c.id === columnaActiva
-                        ? { ...c, assistant_id, activa_ia: 1 }
-                        : c,
-                    ),
-                  );
-                }}
-                onColumnaActualizada={({ activa_ia, max_tokens }) => {
-                  setColumnas((prev) =>
-                    prev.map((c) =>
-                      c.id === columnaActiva
-                        ? { ...c, activa_ia, max_tokens }
-                        : c,
-                    ),
-                  );
-                }}
-              />
-            )}
-            {/* ── TAB ACCIONES ─────────────────────────────── */}
-            {tabActiva === "acciones" && (
-              <div style={{ padding: 24 }}>
-                <div style={{ marginBottom: 22 }}>
                   <div
                     style={{
                       fontSize: "0.75rem",
@@ -1430,360 +1429,305 @@ const KanbanConfig = () => {
                       marginBottom: 10,
                     }}
                   >
-                    Agregar acción
+                    Configuradas ({acciones.length})
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {Object.entries(TIPOS_ACCION).map(([tipo, meta]) => {
-                      const yaExiste =
-                        tipo !== "cambiar_estado" &&
-                        acciones.some((a) => a.tipo_accion === tipo);
-                      return (
-                        <button
-                          key={tipo}
-                          disabled={yaExiste || guardandoAcc}
-                          onClick={() => agregarAccion(tipo)}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 7,
-                            padding: "8px 14px",
-                            borderRadius: 999,
-                            border: `1.5px solid ${yaExiste ? "#e5e7eb" : meta.color + "44"}`,
-                            background: yaExiste
-                              ? "#f9fafb"
-                              : `${meta.color}0d`,
-                            color: yaExiste ? "#9ca3af" : meta.color,
-                            fontWeight: 600,
-                            fontSize: "0.82rem",
-                            cursor: yaExiste ? "not-allowed" : "pointer",
-                            transition: "all .12s",
-                          }}
-                        >
-                          <i
-                            className={meta.icono}
-                            style={{ fontSize: "1rem" }}
-                          />
-                          {meta.label}
-                          {yaExiste && (
-                            <i
-                              className="bx bx-check"
-                              style={{ fontSize: "0.9rem" }}
-                            />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
 
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    marginBottom: 10,
-                  }}
-                >
-                  Configuradas ({acciones.length})
-                </div>
-
-                {loadingAcc && (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: 30,
-                      color: "#94a3b8",
-                    }}
-                  >
-                    <i
-                      className="bx bx-loader-alt bx-spin"
-                      style={{ fontSize: "1.5rem" }}
-                    />
-                  </div>
-                )}
-
-                {!loadingAcc && !acciones.length && (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: "36px 20px",
-                      borderRadius: 14,
-                      border: "2px dashed #e5e7eb",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    <i
-                      className="bx bx-zap"
-                      style={{
-                        fontSize: "2rem",
-                        marginBottom: 8,
-                        display: "block",
-                      }}
-                    />
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                      Sin acciones configuradas
-                    </div>
-                    <div style={{ fontSize: "0.82rem" }}>
-                      Agrega una acción desde los botones de arriba.
-                    </div>
-                  </div>
-                )}
-
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 12 }}
-                >
-                  {/* ── Enviar media — siempre activo ── */}
-                  <div
-                    style={{
-                      borderRadius: 14,
-                      border: "1.5px solid #f59e0b22",
-                      background: "#f59e0b05",
-                      overflow: "hidden",
-                    }}
-                  >
+                  {loadingAcc && (
                     <div
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "11px 16px",
-                        borderBottom: "1px solid #f59e0b15",
-                        gap: 10,
+                        textAlign: "center",
+                        padding: 30,
+                        color: "#94a3b8",
+                      }}
+                    >
+                      <i
+                        className="bx bx-loader-alt bx-spin"
+                        style={{ fontSize: "1.5rem" }}
+                      />
+                    </div>
+                  )}
+
+                  {!loadingAcc && !acciones.length && (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "36px 20px",
+                        borderRadius: 14,
+                        border: "2px dashed #e5e7eb",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      <i
+                        className="bx bx-zap"
+                        style={{
+                          fontSize: "2rem",
+                          marginBottom: 8,
+                          display: "block",
+                        }}
+                      />
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Sin acciones configuradas
+                      </div>
+                      <div style={{ fontSize: "0.82rem" }}>
+                        Agrega una acción desde los botones de arriba.
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                    }}
+                  >
+                    {/* ── Enviar media — siempre activo ── */}
+                    <div
+                      style={{
+                        borderRadius: 14,
+                        border: "1.5px solid #f59e0b22",
+                        background: "#f59e0b05",
+                        overflow: "hidden",
                       }}
                     >
                       <div
                         style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 10,
-                          background: "#f59e0b15",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <i
-                          className="bx bx-image"
-                          style={{ color: "#f59e0b", fontSize: "1.1rem" }}
-                        />
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            fontSize: "0.9rem",
-                            color: "#0f172a",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          Enviar imágenes/videos
-                          <span
-                            style={{
-                              fontSize: ".62rem",
-                              fontWeight: 700,
-                              background: "#fef3c7",
-                              color: "#92400e",
-                              borderRadius: 999,
-                              padding: "1px 7px",
-                            }}
-                          >
-                            Siempre activo
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "0.7rem",
-                            color: "#94a3b8",
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          enviar_media
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ padding: "14px 16px" }}>
-                      <div
-                        style={{
-                          padding: "10px 14px",
-                          borderRadius: 10,
-                          background: "#f59e0b08",
-                          fontSize: "0.82rem",
-                          color: "#64748b",
-                          display: "flex",
-                          flexDirection: "column",
+                          padding: "11px 16px",
+                          borderBottom: "1px solid #f59e0b15",
                           gap: 10,
                         }}
                       >
                         <div
                           style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            background: "#f59e0b15",
                             display: "flex",
-                            alignItems: "flex-start",
-                            gap: 8,
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
                           <i
-                            className="bx bx-info-circle"
-                            style={{
-                              color: "#f59e0b",
-                              fontSize: "1.1rem",
-                              flexShrink: 0,
-                              marginTop: 1,
-                            }}
+                            className="bx bx-image"
+                            style={{ color: "#f59e0b", fontSize: "1.1rem" }}
                           />
-                          <span>
-                            Cuando el asistente incluya una URL de imagen o
-                            video en su respuesta usando el formato correcto, el
-                            sistema la extraerá y enviará automáticamente por
-                            WhatsApp.
-                          </span>
                         </div>
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "0.9rem",
+                              color: "#0f172a",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            Enviar imágenes/videos
+                            <span
+                              style={{
+                                fontSize: ".62rem",
+                                fontWeight: 700,
+                                background: "#fef3c7",
+                                color: "#92400e",
+                                borderRadius: 999,
+                                padding: "1px 7px",
+                              }}
+                            >
+                              Siempre activo
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.7rem",
+                              color: "#94a3b8",
+                              fontFamily: "monospace",
+                            }}
+                          >
+                            enviar_media
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ padding: "14px 16px" }}>
                         <div
                           style={{
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            background: "#f59e0b08",
+                            fontSize: "0.82rem",
+                            color: "#64748b",
                             display: "flex",
                             flexDirection: "column",
-                            gap: 6,
-                            paddingLeft: 4,
+                            gap: 10,
                           }}
                         >
                           <div
                             style={{
-                              fontSize: ".75rem",
-                              fontWeight: 700,
-                              color: "#374151",
-                              marginBottom: 2,
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 8,
                             }}
                           >
-                            Formato obligatorio en el prompt:
-                          </div>
-                          {[
-                            {
-                              tag: "[producto_imagen_url]",
-                              desc: "Imagen principal del producto",
-                            },
-                            {
-                              tag: "[producto_video_url]",
-                              desc: "Video del producto",
-                            },
-                            {
-                              tag: "[upsell_imagen_url]",
-                              desc: "Imagen del upsell",
-                            },
-                          ].map(({ tag, desc }) => (
-                            <div
-                              key={tag}
+                            <i
+                              className="bx bx-info-circle"
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
+                                color: "#f59e0b",
+                                fontSize: "1.1rem",
+                                flexShrink: 0,
+                                marginTop: 1,
                               }}
-                            >
-                              <code
-                                style={{
-                                  background: "#fef3c7",
-                                  color: "#92400e",
-                                  padding: "2px 8px",
-                                  borderRadius: 6,
-                                  fontSize: ".75rem",
-                                  fontWeight: 700,
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {tag}: https://url
-                              </code>
-                              <span
-                                style={{ fontSize: ".73rem", color: "#94a3b8" }}
-                              >
-                                {desc}
-                              </span>
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(`${tag}: `);
-                                  Toast.fire({
-                                    icon: "success",
-                                    title: "¡Tag copiado!",
-                                  });
-                                }}
-                                style={{
-                                  marginLeft: "auto",
-                                  background: "none",
-                                  border: "1px solid #fcd34d",
-                                  borderRadius: 6,
-                                  cursor: "pointer",
-                                  color: "#92400e",
-                                  padding: "1px 6px",
-                                  fontSize: ".72rem",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 3,
-                                  fontFamily: "inherit",
-                                }}
-                              >
-                                <i
-                                  className="bx bx-copy"
-                                  style={{ fontSize: 11 }}
-                                />{" "}
-                                Copiar
-                              </button>
-                            </div>
-                          ))}
+                            />
+                            <span>
+                              Cuando el asistente incluya una URL de imagen o
+                              video en su respuesta usando el formato correcto,
+                              el sistema la extraerá y enviará automáticamente
+                              por WhatsApp.
+                            </span>
+                          </div>
                           <div
                             style={{
-                              fontSize: ".72rem",
-                              color: "#ef4444",
-                              marginTop: 4,
-                              fontStyle: "italic",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                              paddingLeft: 4,
                             }}
                           >
-                            ⚠️ NUNCA escribas texto antes de la URL.
+                            <div
+                              style={{
+                                fontSize: ".75rem",
+                                fontWeight: 700,
+                                color: "#374151",
+                                marginBottom: 2,
+                              }}
+                            >
+                              Formato obligatorio en el prompt:
+                            </div>
+                            {[
+                              {
+                                tag: "[producto_imagen_url]",
+                                desc: "Imagen principal del producto",
+                              },
+                              {
+                                tag: "[producto_video_url]",
+                                desc: "Video del producto",
+                              },
+                              {
+                                tag: "[upsell_imagen_url]",
+                                desc: "Imagen del upsell",
+                              },
+                            ].map(({ tag, desc }) => (
+                              <div
+                                key={tag}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <code
+                                  style={{
+                                    background: "#fef3c7",
+                                    color: "#92400e",
+                                    padding: "2px 8px",
+                                    borderRadius: 6,
+                                    fontSize: ".75rem",
+                                    fontWeight: 700,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {tag}: https://url
+                                </code>
+                                <span
+                                  style={{
+                                    fontSize: ".73rem",
+                                    color: "#94a3b8",
+                                  }}
+                                >
+                                  {desc}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${tag}: `);
+                                    Toast.fire({
+                                      icon: "success",
+                                      title: "¡Tag copiado!",
+                                    });
+                                  }}
+                                  style={{
+                                    marginLeft: "auto",
+                                    background: "none",
+                                    border: "1px solid #fcd34d",
+                                    borderRadius: 6,
+                                    cursor: "pointer",
+                                    color: "#92400e",
+                                    padding: "1px 6px",
+                                    fontSize: ".72rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 3,
+                                    fontFamily: "inherit",
+                                  }}
+                                >
+                                  <i
+                                    className="bx bx-copy"
+                                    style={{ fontSize: 11 }}
+                                  />{" "}
+                                  Copiar
+                                </button>
+                              </div>
+                            ))}
+                            <div
+                              style={{
+                                fontSize: ".72rem",
+                                color: "#ef4444",
+                                marginTop: 4,
+                                fontStyle: "italic",
+                              }}
+                            >
+                              ⚠️ NUNCA escribas texto antes de la URL.
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* ── Acciones configuradas (sin enviar_media) ── */}
-                  {acciones
-                    .filter((acc) => acc.tipo_accion !== "enviar_media")
-                    .map((acc) => (
-                      <AccionCard
-                        key={acc.id}
-                        accion={acc}
-                        columnas={columnas}
-                        onUpdate={(cfg) => actualizarConfigAccion(acc.id, cfg)}
-                        onDelete={() => eliminarAccion(acc.id)}
-                        catalogSyncedAt={
-                          columnaSeleccionada?.catalog_synced_at || null
-                        }
-                      />
-                    ))}
+                    {/* ── Acciones configuradas (sin enviar_media) ── */}
+                    {acciones
+                      .filter((acc) => acc.tipo_accion !== "enviar_media")
+                      .map((acc) => (
+                        <AccionCard
+                          key={acc.id}
+                          accion={acc}
+                          columnas={columnas}
+                          onUpdate={(cfg) =>
+                            actualizarConfigAccion(acc.id, cfg)
+                          }
+                          onDelete={() => eliminarAccion(acc.id)}
+                          catalogSyncedAt={
+                            columnaSeleccionada?.catalog_synced_at || null
+                          }
+                        />
+                      ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 16,
-              border: "1px solid rgba(0,0,0,.07)",
-              padding: 40,
-              textAlign: "center",
-              color: "#94a3b8",
-            }}
-          >
-            <i
-              className="bx bx-columns"
-              style={{ fontSize: "3rem", marginBottom: 12, display: "block" }}
-            />
-            <div style={{ fontWeight: 600 }}>
-              Selecciona una columna para editarla
+              )}
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <EmptyStateSeleccion
+              totalColumnas={columnas.length}
+              primeraColumna={columnas[0]}
+              onSeleccionar={(id) => {
+                setColumnaActiva(id);
+                setTabActiva("columna");
+              }}
+              onCrearColumna={() => setShowModalNueva(true)}
+            />
+          )}
+        </div>
+      )}
 
       {/* Modal guardar plantilla global */}
       {showGuardarGlobal && (
@@ -2576,6 +2520,383 @@ const AccionCard = ({
     </div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────
+// EmptyHeroKanban — onboarding cuando no hay columnas
+// ─────────────────────────────────────────────────────────────
+const EmptyHeroKanban = ({
+  onCrearColumna,
+  idConfiguracion,
+  onPlantillaAplicada,
+}) => (
+  <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+    {/* ═══════ HERO horizontal compacto ═══════ */}
+    <div
+      className="relative px-6 py-12 md:px-12 md:py-14 overflow-hidden"
+      style={{
+        background:
+          "linear-gradient(120deg, #171931 0%, #1e2148 50%, #0f1129 100%)",
+      }}
+    >
+      {/* Grid sutil */}
+      <div
+        className="absolute inset-0 opacity-[0.06] pointer-events-none"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)
+          `,
+          backgroundSize: "48px 48px",
+          maskImage:
+            "radial-gradient(ellipse at 30% 50%, black 30%, transparent 80%)",
+          WebkitMaskImage:
+            "radial-gradient(ellipse at 30% 50%, black 30%, transparent 80%)",
+        }}
+      />
+
+      {/* Glow cyan detrás del mockup */}
+      <div
+        className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/4 w-[28rem] h-[28rem] rounded-full blur-3xl opacity-25 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle, #22d3ee 0%, #0891b2 30%, transparent 65%)",
+        }}
+      />
+
+      {/* Línea de luz superior */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent" />
+
+      {/* ═══════ Layout horizontal — texto ancho izquierda, mockup derecha ═══════ */}
+      <div className="relative grid lg:grid-cols-[1.4fr_1fr] gap-10 lg:gap-14 items-center max-w-6xl mx-auto">
+        {/* ── LEFT: contenido (más ancho) ── */}
+        <div className="relative">
+          {/* Title */}
+          <h2 className="text-[1.85rem] md:text-[2.4rem] font-bold text-white mb-4 tracking-tight leading-[1.05]">
+            Tu equipo de ventas{" "}
+            <span
+              className="bg-clip-text text-transparent"
+              style={{
+                backgroundImage:
+                  "linear-gradient(135deg, #67e8f9 0%, #ffffff 60%, #a5f3fc 100%)",
+              }}
+            >
+              trabajando 24/7
+            </span>{" "}
+            en WhatsApp.
+          </h2>
+
+          <p className="text-white/65 text-[0.95rem] max-w-xl mb-7 leading-relaxed">
+            Organiza cada conversación por etapa, deja que la IA atienda, mueva
+            contactos y cierre ventas mientras tú duermes.
+          </p>
+
+          {/* CTAs — ambos h-12 */}
+          <div className="flex flex-col sm:flex-row gap-3 max-w-md">
+            {/* CTA Primary */}
+            <button
+              onClick={onCrearColumna}
+              className="group relative flex-1 h-12 inline-flex items-center justify-center gap-2 px-5 rounded-xl text-[#171931] font-bold text-sm transition overflow-hidden"
+              style={{
+                background: "linear-gradient(135deg, #67e8f9 0%, #22d3ee 100%)",
+                boxShadow:
+                  "0 10px 30px -8px rgba(34,211,238,0.55), 0 0 0 1px rgba(255,255,255,0.15) inset",
+              }}
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+              <span className="absolute top-0 left-3 right-3 h-px bg-white/50" />
+              <i className="bx bx-plus text-lg relative" />
+              <span className="relative">Crear primera columna</span>
+            </button>
+
+            {/* CTA Secondary — mismo h-12, override del CSS interno con !important */}
+            <div className="flex-1 [&>button]:!w-full [&>button]:!h-12 [&>button]:!justify-center [&>button]:!px-5 [&>button]:!rounded-xl [&>button]:!bg-white/[0.07] [&>button]:!border [&>button]:!border-white/15 [&>button]:!text-white [&>button]:!font-bold [&>button]:!text-sm [&>button]:hover:!bg-white/[0.12] [&>button]:hover:!border-white/25 [&>button]:!backdrop-blur-md [&>button]:!transition">
+              <PlantillasKanban
+                id_configuracion={idConfiguracion}
+                onPlantillaAplicada={onPlantillaAplicada}
+              />
+            </div>
+          </div>
+
+          {/* Stats inline */}
+          <div className="flex items-center gap-5 mt-6 text-[0.72rem] text-white/40">
+            <div className="flex items-center gap-1.5">
+              <i className="bx bx-check-circle text-cyan-400/70" />
+              <span>Setup en 2 minutos</span>
+            </div>
+            <div className="w-px h-3 bg-white/10" />
+            <div className="flex items-center gap-1.5">
+              <i className="bx bx-bolt-circle text-cyan-400/70" />
+              <span>Plantillas listas para usar</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT: Mockup kanban en perspectiva ── */}
+        <div className="relative hidden lg:block">
+          {/* Floating badge superior */}
+          <div className="absolute -top-3 right-8 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0f1129]/90 border border-cyan-400/20 shadow-xl backdrop-blur-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[0.68rem] text-white/80 font-semibold">
+              Tu Kanban en vivo
+            </span>
+          </div>
+
+          {/* Mockup */}
+          <div
+            className="relative grid grid-cols-4 gap-2.5 p-3.5 rounded-xl"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow:
+                "0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(34,211,238,0.05) inset",
+              transform: "perspective(1000px) rotateY(-6deg) rotateX(2deg)",
+            }}
+          >
+            {[
+              {
+                color: "#22d3ee",
+                title: "Contacto inicial",
+                cards: 4,
+                pulse: true,
+              },
+              { color: "#6366f1", title: "Asesor", cards: 2 },
+              { color: "#f59e0b", title: "Guía generada", cards: 3 },
+              { color: "#10b981", title: "Entregada", cards: 5 },
+            ].map((col, i) => (
+              <div
+                key={i}
+                className="rounded-lg p-2 flex flex-col gap-1.5"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  minHeight: 180,
+                }}
+              >
+                {/* Header columna */}
+                <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-white/5">
+                  <div
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{
+                      background: col.color,
+                      boxShadow: `0 0 10px ${col.color}${col.pulse ? "" : "80"}`,
+                    }}
+                  />
+                  <span
+                    className="text-[0.7rem] font-bold tracking-tight truncate"
+                    style={{ color: col.color }}
+                  >
+                    {col.title}
+                  </span>
+                  <span
+                    className="ml-auto text-[0.62rem] font-bold px-1.5 py-0.5 rounded-md shrink-0"
+                    style={{
+                      background: `${col.color}25`,
+                      color: col.color,
+                      border: `1px solid ${col.color}30`,
+                    }}
+                  >
+                    {col.cards}
+                  </span>
+                </div>
+
+                {/* Cards */}
+                {Array.from({ length: col.cards }).map((_, j) => (
+                  <div
+                    key={j}
+                    className="rounded-md p-1.5 flex flex-col gap-1"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.04)",
+                    }}
+                  >
+                    <div className="h-1 rounded-full bg-white/15 w-3/4" />
+                    <div className="h-1 rounded-full bg-white/10 w-1/2" />
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <div
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: col.color, opacity: 0.5 }}
+                      />
+                      <div className="h-0.5 rounded-full bg-white/10 w-4" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Reflejo cyan debajo */}
+          <div
+            className="absolute -bottom-8 left-8 right-8 h-12 rounded-full blur-2xl opacity-40 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(ellipse, #22d3ee 0%, transparent 70%)",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+
+    {/* ═══════ 3 pasos abajo ═══════ */}
+    <div className="grid grid-cols-1 md:grid-cols-3">
+      {[
+        {
+          icon: "bx bx-columns",
+          title: "1. Define columnas",
+          desc: "Cada columna es una etapa de tu proceso: contacto inicial, asesor, remarketing, entregada...",
+          color: "#6366f1",
+          bg: "#eef2ff",
+        },
+        {
+          icon: "bx bx-bot",
+          title: "2. Conecta asistentes IA",
+          desc: "Asigna un asistente distinto por etapa con prompts especializados para cada momento del cliente.",
+          color: "#10b981",
+          bg: "#ecfdf5",
+        },
+        {
+          icon: "bx bxs-bolt",
+          title: "3. Automatiza acciones",
+          desc: "Cambios de estado por palabra clave, seguimiento de pedidos, contexto de productos, remarketing automático.",
+          color: "#f59e0b",
+          bg: "#fffbeb",
+        },
+      ].map((s, i, arr) => (
+        <div
+          key={i}
+          className={`p-6 border-t border-slate-100 ${
+            i < arr.length - 1 ? "md:border-r" : ""
+          }`}
+        >
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center mb-3"
+            style={{ background: s.bg }}
+          >
+            <i className={s.icon} style={{ color: s.color, fontSize: 22 }} />
+          </div>
+          <h3 className="font-bold text-slate-900 mb-1.5 text-[0.95rem]">
+            {s.title}
+          </h3>
+          <p className="text-sm text-slate-600 leading-relaxed">{s.desc}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// EmptyStateSeleccion — cuando hay columnas pero ninguna activa
+// ─────────────────────────────────────────────────────────────
+const EmptyStateSeleccion = ({
+  totalColumnas,
+  primeraColumna,
+  onSeleccionar,
+  onCrearColumna,
+}) => (
+  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    {/* Hero compacto */}
+    <div className="relative bg-gradient-to-br from-[#171931] to-[#0f1129] px-8 py-10 overflow-hidden">
+      <div
+        className="absolute -top-16 -right-16 w-48 h-48 rounded-full opacity-20 blur-3xl"
+        style={{
+          background: "radial-gradient(circle, #22d3ee 0%, transparent 70%)",
+        }}
+      />
+
+      <div className="relative flex items-start gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-cyan-400/10 border border-cyan-400/30 flex items-center justify-center shrink-0">
+          <i className="bx bx-pointer text-cyan-300" style={{ fontSize: 26 }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[0.68rem] text-white/70 mb-2 backdrop-blur">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-300" />
+            {totalColumnas}{" "}
+            {totalColumnas === 1
+              ? "columna disponible"
+              : "columnas disponibles"}
+          </div>
+          <h2 className="text-xl md:text-2xl font-bold text-white mb-1 tracking-tight">
+            Elige una columna para empezar
+          </h2>
+          <p className="text-white/60 text-sm leading-relaxed max-w-lg">
+            Selecciona desde el panel izquierdo para configurar su asistente IA,
+            acciones automáticas y remarketing.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {/* Acciones rápidas */}
+    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+      {primeraColumna && (
+        <button
+          onClick={() => onSeleccionar(primeraColumna.id)}
+          className="group flex items-center gap-3 p-4 rounded-xl border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/30 transition text-left"
+        >
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: primeraColumna.color_fondo }}
+          >
+            <i
+              className={primeraColumna.icono || "bx bx-circle"}
+              style={{ color: primeraColumna.color_texto, fontSize: 20 }}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[0.68rem] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+              Empieza por la primera
+            </div>
+            <div className="font-bold text-slate-900 text-sm truncate">
+              {primeraColumna.nombre}
+            </div>
+            <div className="text-xs text-slate-500 font-mono truncate">
+              {primeraColumna.estado_db}
+            </div>
+          </div>
+          <i className="bx bx-right-arrow-alt text-slate-300 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all text-xl" />
+        </button>
+      )}
+
+      <button
+        onClick={onCrearColumna}
+        className="group flex items-center gap-3 p-4 rounded-xl border border-dashed border-slate-300 hover:border-[#171931] hover:bg-slate-50 transition text-left"
+      >
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-slate-100 group-hover:bg-[#171931] transition">
+          <i
+            className="bx bx-plus text-slate-500 group-hover:text-cyan-300 transition"
+            style={{ fontSize: 22 }}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[0.68rem] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            Otra opción
+          </div>
+          <div className="font-bold text-slate-900 text-sm">
+            Crear nueva columna
+          </div>
+          <div className="text-xs text-slate-500">
+            Agrega una etapa a tu flujo
+          </div>
+        </div>
+      </button>
+    </div>
+
+    {/* Tip */}
+    <div className="px-6 pb-6">
+      <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-gradient-to-r from-cyan-50 to-indigo-50/50 border border-cyan-100">
+        <i
+          className="bx bx-bulb text-cyan-600 mt-0.5"
+          style={{ fontSize: 16 }}
+        />
+        <div className="text-[0.8rem] text-slate-600 leading-relaxed">
+          <strong className="text-slate-800">Tip:</strong> arrastra las columnas
+          en el panel izquierdo para reordenarlas. El orden se refleja en tu
+          tablero de chats.
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 // ─────────────────────────────────────────────────────────────
 // Sub-componentes de UI

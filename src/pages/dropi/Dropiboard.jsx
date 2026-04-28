@@ -21,6 +21,8 @@ import {
   toYMD,
 } from "./dropiboard/dropiHelpers";
 
+import DropiDailyMetricsTable from "./dropiboard/proporcional/DropiDailyMetricsTable";
+
 const DROPI_LOGO =
   "https://d39ru7awumhhs2.cloudfront.net/ecuador/brands/1/logo/171275980616951779761695177976GVUXDo6TWDrk6URjLWgAFjH65gE1D1c7MAfWNF6r (2).png";
 
@@ -494,6 +496,12 @@ const Dropiboard = () => {
 
             {/* ── Utilidad Real ── */}
             <DropiProfitBar profitData={profitData} />
+
+            {/* ── Métricas diarias del negocio ── */}
+            <DropiDailyMetricsTable
+              integrationId={selectedIntegration?.id}
+              dateRange={dateRange}
+            />
 
             <DropiDevolucionPanel devolucionAnalysis={devolucionAnalysis} />
 
