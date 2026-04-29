@@ -2,11 +2,13 @@ import React, { useEffect, useState, useMemo } from "react";
 import chatApi from "../../../api/chatcenter";
 
 const PLACEHOLDERS = [
-  { key: "{nombre}", label: "Nombre" },
-  { key: "{apellido}", label: "Apellido" },
-  { key: "{email}", label: "Email" },
-  { key: "{telefono}", label: "Teléfono" },
+  { key: "{nombre}", label: "Nombre", icon: "bx-user" },
+  { key: "{apellido}", label: "Apellido", icon: "bx-user" },
+  { key: "{email}", label: "Email", icon: "bx-envelope" },
+  { key: "{telefono}", label: "Teléfono", icon: "bx-phone" },
 ];
+
+const PLACEHOLDER_KEYS = PLACEHOLDERS.map((p) => p.key);
 
 const DATOS_PREVIEW = {
   nombre: "Alisson",
@@ -51,6 +53,21 @@ function parseTemplate(tpl) {
 }
 
 /**
+ * Detecta el tipo SOLO a partir del valor guardado.
+ *  - Si coincide con un placeholder → devuelve la key
+ *  - Si tiene texto que NO es placeholder → "custom"
+ *  - Si está vacío → "" (sin elegir)
+ *
+ * NOTA: para distinguir "custom recién elegido pero vacío" de "sin elegir",
+ * combinamos esto con un estado local (customManual).
+ */
+function detectarTipo(valor) {
+  if (!valor) return "";
+  if (PLACEHOLDER_KEYS.includes(valor)) return valor;
+  return "custom";
+}
+
+/**
  * Configuración de envío automático para encuestas webhook_lead.
  *
  * Props:
@@ -63,8 +80,14 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
   const [loadingTpl, setLoadingTpl] = useState(false);
   const [errorTpl, setErrorTpl] = useState(null);
   const [stateMeta, setStateMeta] = useState(null);
-  const [focusedParamIdx, setFocusedParamIdx] = useState(null);
   const [focusedTextarea, setFocusedTextarea] = useState(false);
+
+  /**
+   * 🆕 Estado local: por cada índice de variable, marca si el usuario eligió
+   * "custom" aunque el valor esté vacío. Así el input de texto libre se
+   * mantiene visible mientras escribe, y no colapsa al dropdown vacío.
+   */
+  const [customManual, setCustomManual] = useState({});
 
   const mensaje = value?.mensaje_dentro_24h || "";
   const templateName = value?.template_fuera_24h || "";
@@ -72,7 +95,7 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
     ? value.template_parameters
     : [];
 
-  // ── Cargar templates desde endpoint existente ──
+  // ── Cargar templates ──
   useEffect(() => {
     if (!idConfig) return;
 
@@ -153,6 +176,8 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
       if (params.length > 0) {
         onChange({ ...value, template_parameters: [] });
       }
+      // Limpiar también el estado de "custom manual" si ya no hay template
+      setCustomManual({});
       return;
     }
     const needed = selectedTpl.variables_count;
@@ -171,13 +196,55 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
     update({ template_parameters: next });
   };
 
-  const insertPlaceholder = (placeholder) => {
-    if (focusedParamIdx !== null) {
-      updateParam(
-        focusedParamIdx,
-        (params[focusedParamIdx] || "") + placeholder,
-      );
-    } else if (focusedTextarea) {
+  /**
+   * Cambia el tipo de la variable {{N}}:
+   *  - placeholder fijo ({nombre}, etc.)  → guarda esa key, desmarca custom
+   *  - "custom"                            → marca custom manualmente, valor vacío
+   *  - "" (vacío)                          → desmarca custom, valor vacío
+   */
+  const cambiarTipoParam = (idx, tipo) => {
+    if (tipo === "custom") {
+      // Marcar custom manualmente; conservar valor existente si ya era texto libre
+      setCustomManual((prev) => ({ ...prev, [idx]: true }));
+      // Si el valor actual era un placeholder, limpiarlo para empezar texto libre
+      if (PLACEHOLDER_KEYS.includes(params[idx])) {
+        updateParam(idx, "");
+      }
+    } else if (tipo === "") {
+      setCustomManual((prev) => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+      updateParam(idx, "");
+    } else {
+      // placeholder fijo
+      setCustomManual((prev) => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+      updateParam(idx, tipo);
+    }
+  };
+
+  /**
+   * Tipo efectivo a mostrar en el dropdown:
+   *  - Si el valor es un placeholder → ese placeholder
+   *  - Si tiene texto libre (no placeholder) → "custom"
+   *  - Si está vacío pero el usuario eligió custom manualmente → "custom"
+   *  - Si está vacío y no eligió nada → ""
+   */
+  const tipoEfectivo = (idx) => {
+    const valor = params[idx];
+    const detectado = detectarTipo(valor);
+    if (detectado) return detectado;
+    if (customManual[idx]) return "custom";
+    return "";
+  };
+
+  const insertPlaceholderEnTextarea = (placeholder) => {
+    if (focusedTextarea) {
       update({ mensaje_dentro_24h: mensaje + placeholder });
     }
   };
@@ -187,7 +254,8 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
     if (!selectedTpl) return "";
     let text = selectedTpl.body_text;
     params.forEach((p, i) => {
-      text = text.replace(`{{${i + 1}}}`, resolverPreview(p) || `[vacío]`);
+      const resuelto = resolverPreview(p);
+      text = text.replace(`{{${i + 1}}}`, resuelto || `[vacío]`);
     });
     return text;
   }, [selectedTpl, params]);
@@ -217,47 +285,35 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
         </div>
       </div>
 
-      {/* Chips de placeholders */}
-      <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3">
-        <p className="text-[10px] font-bold text-blue-700 uppercase tracking-widest mb-2">
-          Datos del lead que puedes insertar
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {PLACEHOLDERS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => insertPlaceholder(p.key)}
-              disabled={focusedParamIdx === null && !focusedTextarea}
-              className="px-2.5 py-1 rounded-md bg-white border border-blue-200 text-xs font-mono text-blue-700 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title={`Insertar ${p.label}`}
-            >
-              + {p.key}
-            </button>
-          ))}
-        </div>
-        {focusedParamIdx === null && !focusedTextarea && (
-          <p className="text-[10px] text-gray-400 mt-2 italic">
-            Haz clic en un campo de texto para habilitar los botones
-          </p>
-        )}
-      </div>
-
       {/* Mensaje dentro 24h */}
       <div>
         <label className={labelCls}>
           <i className="bx bx-message-rounded text-emerald-500 mr-1" />
           Mensaje de texto (dentro de 24h)
         </label>
+
+        {/* Chips solo para textarea */}
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {PLACEHOLDERS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => insertPlaceholderEnTextarea(p.key)}
+              disabled={!focusedTextarea}
+              className="px-2 py-1 rounded-md bg-blue-50 border border-blue-200 text-[11px] font-mono text-blue-700 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title={`Insertar ${p.label} (haz clic primero en el textarea)`}
+            >
+              + {p.key}
+            </button>
+          ))}
+        </div>
+
         <textarea
           rows={3}
           value={mensaje}
           onChange={(e) => update({ mensaje_dentro_24h: e.target.value })}
-          onFocus={() => {
-            setFocusedTextarea(true);
-            setFocusedParamIdx(null);
-          }}
+          onFocus={() => setFocusedTextarea(true)}
           onBlur={() => setTimeout(() => setFocusedTextarea(false), 200)}
           placeholder="Hola {nombre}! Gracias por dejarnos tus datos 👋"
           className={`${inputCls} resize-none font-mono text-xs leading-relaxed`}
@@ -338,37 +394,96 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
         )}
       </div>
 
-      {/* Params dinámicos del template */}
+      {/* ════════════ Mapeo de variables del template ════════════ */}
       {selectedTpl && selectedTpl.variables_count > 0 && (
         <div>
           <label className={labelCls}>
-            <i className="bx bx-list-ol text-orange-500 mr-1" />
-            Variables del template ({selectedTpl.variables_count})
+            <i className="bx bx-link text-orange-500 mr-1" />
+            Mapear variables del template ({selectedTpl.variables_count})
           </label>
-          <div className="space-y-2">
-            {params.map((p, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold text-orange-600 w-10 shrink-0">
-                  {`{{${idx + 1}}}`}
-                </span>
-                <input
-                  type="text"
-                  value={p}
-                  onChange={(e) => updateParam(idx, e.target.value)}
-                  onFocus={() => {
-                    setFocusedParamIdx(idx);
-                    setFocusedTextarea(false);
-                  }}
-                  onBlur={() => setTimeout(() => setFocusedParamIdx(null), 200)}
-                  placeholder={`Valor para variable ${idx + 1}`}
-                  className={`${inputCls} flex-1 py-1.5`}
-                />
-              </div>
-            ))}
+
+          <div className="bg-orange-50/40 border border-orange-200/60 rounded-xl p-3 mb-3">
+            <p className="text-[11px] text-orange-800 leading-relaxed">
+              <i className="bx bx-info-circle mr-1" />
+              Asocia cada <code className="font-mono font-bold">{`{{N}}`}</code>{" "}
+              del template a un dato del lead que llega por el webhook (
+              <strong>nombre</strong>, <strong>correo</strong>,{" "}
+              <strong>teléfono</strong>) o usa un texto fijo.
+            </p>
+          </div>
+
+          <div className="space-y-2.5">
+            {params.map((p, idx) => {
+              const tipo = tipoEfectivo(idx);
+              const esCustom = tipo === "custom";
+              return (
+                <div
+                  key={idx}
+                  className="bg-white border border-gray-200 rounded-xl p-3 hover:border-orange-200 transition-colors"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 text-[11px] font-mono font-bold">
+                      {`{{${idx + 1}}}`}
+                    </span>
+                    <span className="text-[10px] text-gray-400">→</span>
+                    <select
+                      value={tipo}
+                      onChange={(e) => cambiarTipoParam(idx, e.target.value)}
+                      className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none"
+                    >
+                      <option value="">— Seleccionar —</option>
+                      <optgroup label="Datos del lead (webhook)">
+                        {PLACEHOLDERS.map((ph) => (
+                          <option key={ph.key} value={ph.key}>
+                            {ph.label} ({ph.key})
+                          </option>
+                        ))}
+                      </optgroup>
+                      <option value="custom">Texto fijo personalizado</option>
+                    </select>
+                  </div>
+
+                  {/* Si es custom, mostrar input para escribir */}
+                  {esCustom && (
+                    <input
+                      type="text"
+                      value={p}
+                      onChange={(e) => updateParam(idx, e.target.value)}
+                      placeholder="Escribe el texto fijo..."
+                      className={`${inputCls} text-xs py-1.5`}
+                      autoFocus
+                    />
+                  )}
+
+                  {/* Mini preview del valor que tomará */}
+                  {tipo && tipo !== "custom" && (
+                    <div className="text-[10px] text-gray-500 ml-2">
+                      Ejemplo:{" "}
+                      <span className="font-semibold text-gray-700">
+                        {resolverPreview(tipo)}
+                      </span>
+                    </div>
+                  )}
+                  {esCustom && p && (
+                    <div className="text-[10px] text-gray-500 ml-2 mt-1">
+                      Se enviará tal cual:{" "}
+                      <span className="font-semibold text-gray-700">"{p}"</span>
+                    </div>
+                  )}
+                  {esCustom && !p && (
+                    <div className="text-[10px] text-amber-600 ml-2 mt-1 flex items-center gap-1">
+                      <i className="bx bx-error-circle" />
+                      Escribe el texto que reemplazará{" "}
+                      <code className="font-mono font-bold">{`{{${idx + 1}}}`}</code>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {previewTemplate && (
-            <div className="mt-2 bg-violet-50 border border-violet-100 rounded-xl p-3">
+            <div className="mt-3 bg-violet-50 border border-violet-100 rounded-xl p-3">
               <p className="text-[10px] font-bold text-violet-700 uppercase tracking-widest mb-1">
                 Preview con datos de ejemplo
               </p>
