@@ -6,6 +6,7 @@ import { jwtDecode } from "jwt-decode";
 import Swal from "sweetalert2";
 import ModalPlanBlock from "./modales/ModalPlanBlock";
 import FloatingSupportChat from "./FloatingSupportChat";
+import { globalLogout } from "../../utils/globalLogout";
 
 function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -102,10 +103,7 @@ function MainLayout({ children }) {
       return !prev;
     });
   };
-  const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = "/login";
-  };
+  const handleLogout = () => globalLogout();
 
   const role = userData?.role || localStorage.getItem("user_role");
   const isSuperAdmin = role === "super_administrador";

@@ -200,6 +200,23 @@ chatApi.interceptors.response.use(
 
     const isAuthRequest = originalRequest?.url?.includes("/auth/");
 
+    // Single sign-out: token revocado por logout global desde otra app
+    if (
+      error.response?.status === 401 &&
+      error.response?.data?.code === "TOKEN_REVOKED" &&
+      !window.__tokenRevokedHandled
+    ) {
+      window.__tokenRevokedHandled = true;
+      try {
+        authService.logout();
+      } catch (_) {
+        localStorage.clear();
+      }
+      toast.error("Sesión cerrada desde otra aplicación.");
+      window.location.href = "/login";
+      return Promise.reject(error);
+    }
+
     switch (error.response?.status) {
       case 401:
         // En rutas de auth, un 401 es normal (credenciales incorrectas)

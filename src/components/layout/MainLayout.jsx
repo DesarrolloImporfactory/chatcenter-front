@@ -11,6 +11,7 @@ import { useDropi } from "../../context/DropiContext";
 import usePresenceRegister from "../../hooks/usePresenceRegister";
 import { usePresence } from "../../context/PresenceProvider";
 import FloatingSupportChat from "./FloatingSupportChat";
+import { globalLogout } from "../../utils/globalLogout";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -370,10 +371,7 @@ function MainLayout({ children }) {
     navigate("/kanban_config");
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = "/login";
-  };
+  const handleLogout = () => globalLogout();
 
   const isCalendarBlocked = userData && canAccessCalendar === false;
 

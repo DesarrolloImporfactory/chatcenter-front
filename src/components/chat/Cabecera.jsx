@@ -4,6 +4,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { useDropi } from "../../context/DropiContext";
 import FloatingSupportChat from "../layout/FloatingSupportChat";
+import { globalLogout } from "../../utils/globalLogout";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -138,10 +139,7 @@ const Cabecera = ({
     setSelectedChat(null);
   };
 
-  const handleLogout = () => {
-    localStorage.clear(); // elimina todo
-    window.location.href = "/login"; // redirige al login
-  };
+  const handleLogout = () => globalLogout();
 
   const [canAccessCalendar, setCanAccessCalendar] = useState(null);
 

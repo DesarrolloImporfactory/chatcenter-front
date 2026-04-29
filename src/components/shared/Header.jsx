@@ -3,6 +3,8 @@ import { useSelector } from "react-redux";
 import { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import "./styles/header.css";
+import AppSwitcher from "./AppSwitcher";
+import { globalLogout } from "../../utils/globalLogout";
 
 const Logo =
   "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-06-774Z-LOGOS-IMPORSUIT.png";
@@ -16,10 +18,7 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
 
   const handleImageClick = () => setShowMenu((prev) => !prev);
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
-  };
+  const handleLogout = () => globalLogout();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -69,6 +68,9 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
         >
           <i className="bx bx-menu"></i>
         </button>
+
+        {/* App Switcher (estilo AWS) */}
+        <AppSwitcher />
 
         {/* Logo centrado */}
         <div className="absolute left-1/2 transform -translate-x-1/2">

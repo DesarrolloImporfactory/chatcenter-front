@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import Header from "../shared/Header";
 import Swal from "sweetalert2";
+import { globalLogout } from "../../utils/globalLogout";
 
 function MainLayoutPlanes({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -59,10 +60,7 @@ function MainLayoutPlanes({ children }) {
     setSliderOpen(!sliderOpen);
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
-  };
+  const handleLogout = () => globalLogout();
 
   return (
     <div className="flex flex-col min-h-screen bg-white">

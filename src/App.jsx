@@ -84,6 +84,7 @@ import Dashboard from "./components/dashboard/Dashboard";
 import Dropiboard from "./pages/dropi/Dropiboard";
 import SelectorHerramienta from "./pages/selectorHerramienta/selectorHerramienta";
 import ForgotPassword from "./pages/login/ForgotPassword";
+import SsoLanding from "./pages/sso/SsoLanding";
 import EncuestasView from "./pages/encuestas/EncuestasView";
 import Adsboard from "./components/metaAsd/Adsboard";
 
@@ -536,6 +537,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot_password" element={<ForgotPassword />} />
+          <Route path="/sso" element={<SsoLanding />} />
 
           {/* 
           /administrador-whatsapp, sin envolver MainLayout 
