@@ -172,21 +172,33 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
 
   // ── Auto-ajustar cantidad de params cuando cambia template ──
   useEffect(() => {
+    if (loadingTpl) return;
+
+    if (templates.length === 0 && !errorTpl && !stateMeta) return;
+
+    if (templateName && !selectedTpl) return;
+
+    // ── Caso real: NO hay template seleccionado ──
     if (!selectedTpl) {
       if (params.length > 0) {
         onChange({ ...value, template_parameters: [] });
       }
-      // Limpiar también el estado de "custom manual" si ya no hay template
       setCustomManual({});
       return;
     }
+
+    // ── Caso real: ajustar tamaño según variables del template ──
     const needed = selectedTpl.variables_count;
     if (params.length !== needed) {
       const next = Array.from({ length: needed }, (_, i) => params[i] || "");
       onChange({ ...value, template_parameters: next });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateName, selectedTpl?.variables_count]);
+  }, [
+    templateName,
+    selectedTpl?.variables_count,
+    loadingTpl,
+    templates.length,
+  ]);
 
   const update = (patch) => onChange({ ...value, ...patch });
 
