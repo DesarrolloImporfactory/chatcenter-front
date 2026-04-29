@@ -1058,15 +1058,20 @@ const ChatPrincipal = ({
     if (Array.isArray(valores?.body_parameters)) {
       const mapped = {};
       valores.body_parameters.forEach((it, idx) => {
+        const k = String(idx + 1);
+
+        // tambien soporta para strings planos
+        if (typeof it === "string" || typeof it === "number") {
+          mapped[k] = String(it);
+          return;
+        }
+
         if (!it || typeof it !== "object") return;
-
-        const k = String(it.key ?? it.n ?? idx + 1).trim();
+        const kObj = String(it.key ?? it.n ?? idx + 1).trim();
         const v = String(it.value ?? it.text ?? "").trim();
-
-        if (k) mapped[k] = v;
+        // Si logró mapear algo, devuélvalo
+        if (kObj) mapped[kObj] = v;
       });
-
-      // Si logró mapear algo, devuélvalo
       if (Object.keys(mapped).length > 0) return mapped;
     }
 
