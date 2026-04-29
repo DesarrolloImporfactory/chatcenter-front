@@ -10,6 +10,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
 import PersonalizarPromptModal from "./modales/PersonalizarPromptModal";
+import ChatPruebaModal from "./ChatPruebaModal";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -59,6 +60,14 @@ const TabAsistente = ({
   idConfiguracion,
   columnas,
 }) => {
+  // ── Chat de pruebas ──────────────────────────────────────
+  const [showChat, setShowChat] = useState(false);
+  const [chatMensajes, setChatMensajes] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [previousResponseId, setPreviousResponseId] = useState(null);
+  const chatEndRef = useRef(null);
+
   // ── Datos del asistente (cargados una sola vez por columna) ─
   const [asistente, setAsistente] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -614,6 +623,51 @@ const TabAsistente = ({
     }
   };
 
+  const enviarMensajeChat = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+
+    const mensajeUsuario = chatInput.trim();
+    setChatInput("");
+    setChatMensajes((prev) => [
+      ...prev,
+      { rol: "user", texto: mensajeUsuario },
+    ]);
+    setChatLoading(true);
+
+    try {
+      const { data } = await chatApi.post("/kanban_columnas/chat_prueba", {
+        id: columnaId,
+        mensaje: mensajeUsuario,
+        previous_response_id: previousResponseId,
+      });
+
+      if (data?.success) {
+        setChatMensajes((prev) => [
+          ...prev,
+          { rol: "assistant", texto: data.respuesta },
+        ]);
+        setPreviousResponseId(data.response_id); // ← encadena el siguiente request
+      }
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message || "Error al conectar con el asistente";
+      setChatMensajes((prev) => [...prev, { rol: "error", texto: msg }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const reiniciarChat = () => {
+    setChatMensajes([]);
+    setPreviousResponseId(null); // ← limpia el contexto
+    setChatInput("");
+  };
+
+  // Reset al cambiar de columna
+  useEffect(() => {
+    reiniciarChat();
+  }, [columnaId]);
+
   // ─────────────────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────────────────
@@ -1042,8 +1096,43 @@ const TabAsistente = ({
                 <i className="bx bx-link-external" />
                 Ver en OpenAI
               </a>
+              <button
+                onClick={() => setShowChat(true)}
+                style={{
+                  padding: "5px 11px",
+                  borderRadius: 8,
+                  border: "1px solid #86efac",
+                  background: showChat ? "#dcfce7" : "#fff",
+                  color: "#16a34a",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <i className="bx bx-chat" />
+                {showChat ? "Cerrar chat" : "Probar asistente"}
+              </button>
             </div>
           </div>
+
+          <ChatPruebaModal
+            open={showChat}
+            onClose={() => setShowChat(false)}
+            columnaId={columnaId}
+            columnaNombre={
+              columnas?.find((c) => c.id === columnaId)?.nombre || "Asistente"
+            }
+            columnaIcono={
+              columnas?.find((c) => c.id === columnaId)?.icono || "bx bx-bot"
+            }
+            columnaColor={
+              columnas?.find((c) => c.id === columnaId)?.color_texto ||
+              "#6366f1"
+            }
+          />
 
           {/* Nombre */}
           <div style={{ marginBottom: 16 }}>
