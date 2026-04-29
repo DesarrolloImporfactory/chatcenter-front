@@ -50,9 +50,36 @@ export default function AppSwitcher() {
       });
   }, [open]);
 
-  const goImporsuit = () => {
+  const goImporsuit = async () => {
     if (hasImporsuit === false) return;
-    window.location.href = `${IMPORSUIT_URL.replace(/\/$/, "")}/dashboard/home`;
+    try {
+      const { data } = await chatApi.post(
+        "/auth/issue-imporsuit-token",
+        {},
+        { silentError: true },
+      );
+      const token = data?.token;
+      if (!token) throw new Error("No se recibió token SSO");
+
+      // POST oculto al endpoint sso_from_chatcenter de imporsuit.
+      // POST evita que el token quede en URLs/logs HTTP intermedios.
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = `${IMPORSUIT_URL.replace(/\/$/, "")}/Acceso/sso_from_chatcenter`;
+      form.style.display = "none";
+
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "token";
+      input.value = token;
+      form.appendChild(input);
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (err) {
+      // Fallback: ir al login de imporsuit y que el usuario inicie manualmente
+      window.location.href = `${IMPORSUIT_URL.replace(/\/$/, "")}/login`;
+    }
   };
 
   const importsuitBlocked = hasImporsuit === false;
