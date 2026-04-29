@@ -121,6 +121,12 @@ const COLS = [
     tip: "Lo que cuesta cada mensaje que llega. Fórmula: Gasto ÷ Mensajes.",
   },
   {
+    key: "tasa_confirmacion",
+    label: "% Confirm.",
+    type: "formula",
+    tip: "Qué porcentaje de los mensajes terminan en orden. Fórmula: Órdenes ÷ Mensajes × 100. Mientras más alto, mejor califica tu lead/copy. Verde ≥30%, ámbar 15-29%, rojo <15%.",
+  },
+  {
     key: "ordenes_dia",
     label: "Órdenes",
     type: "auto",
@@ -175,6 +181,21 @@ const COLS = [
     tip: "Lo que te queda al final del día. Fórmula: Venta total − Costo producto − Fletes − Gasto en ads.",
   },
 ];
+
+/* ════════════ Helper: tasa de confirmación ════════════ */
+const calcTasaConfirmacion = (ordenes, mensajes) => {
+  const m = Number(mensajes) || 0;
+  const o = Number(ordenes) || 0;
+  if (m <= 0 || o <= 0) return null;
+  return (o / m) * 100;
+};
+
+const colorTasa = (tasa) => {
+  if (tasa === null) return "text-slate-300";
+  if (tasa >= 30) return "text-emerald-700 bg-emerald-50";
+  if (tasa >= 15) return "text-amber-700 bg-amber-50";
+  return "text-red-700 bg-red-50";
+};
 
 /* ════════════ Componente principal ════════════ */
 const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
@@ -384,7 +405,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
               color="violet"
               iconBx="bx-calculator"
               title="Calculado"
-              cols={["Costo / Msg", "Rentabilidad"]}
+              cols={["Costo / Msg", "% Confirm.", "Rentabilidad"]}
               desc="Fórmulas automáticas. Cambian al editar gasto o mensajes."
             />
           </div>
@@ -410,6 +431,37 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
               −{" "}
               <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
                 Gasto en ads
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-violet-200 rounded-lg p-3 mt-2">
+            <div className="flex items-center gap-2 mb-2">
+              <i className="bx bx-trending-up text-violet-600" />
+              <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wide">
+                Tasa de Confirmación
+              </span>
+            </div>
+            <div className="font-mono text-[12px] text-slate-700 leading-relaxed mb-2">
+              <span className="text-violet-700 font-bold">% Confirm.</span> ={" "}
+              <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                Órdenes
+              </span>{" "}
+              ÷{" "}
+              <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                Mensajes
+              </span>{" "}
+              × 100
+            </div>
+            <div className="flex flex-wrap gap-2 text-[10px]">
+              <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">
+                ≥ 30% Excelente
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold">
+                15-29% Aceptable
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-red-700 font-bold">
+                &lt; 15% Bajo
               </span>
             </div>
           </div>
@@ -521,6 +573,8 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                 const todoEnTransito =
                   r.entregados === 0 && r.transito > 0 && r.ordenes_dia > 0;
 
+                const tasaConf = calcTasaConfirmacion(r.ordenes_dia, msgVal);
+
                 return (
                   <tr
                     key={r.fecha}
@@ -608,6 +662,41 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                             : "—"}
                         </span>
                       </Tip>
+                    </Td>
+
+                    {/* % Confirmación */}
+                    <Td className="bg-violet-50/40">
+                      {tasaConf !== null ? (
+                        <Tip
+                          content={
+                            <span>
+                              <strong>{r.ordenes_dia}</strong> órdenes ÷{" "}
+                              <strong>{msgVal}</strong> mensajes × 100 ={" "}
+                              <strong className="text-emerald-300">
+                                {tasaConf.toFixed(1)}%
+                              </strong>
+                              <br />
+                              <span className="text-[10px] text-slate-300">
+                                {tasaConf >= 30
+                                  ? "🟢 Excelente conversión"
+                                  : tasaConf >= 15
+                                    ? "🟡 Aceptable, hay margen"
+                                    : "🔴 Lead frío o copy débil"}
+                              </span>
+                            </span>
+                          }
+                        >
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded font-mono font-bold cursor-help ${colorTasa(
+                              tasaConf,
+                            )}`}
+                          >
+                            {tasaConf.toFixed(1)}%
+                          </span>
+                        </Tip>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
                     </Td>
 
                     {/* Órdenes */}
@@ -742,6 +831,25 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                     {totales.cost_x_mensaje > 0
                       ? `$${totales.cost_x_mensaje.toFixed(3)}`
                       : "—"}
+                  </Td>
+                  <Td className="text-violet-700 bg-violet-100 font-mono">
+                    {(() => {
+                      const tasaTotal = calcTasaConfirmacion(
+                        totales.ordenes_dia,
+                        totales.num_mensajes,
+                      );
+                      if (tasaTotal === null)
+                        return <span className="text-slate-400">—</span>;
+                      return (
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded ${colorTasa(
+                            tasaTotal,
+                          )}`}
+                        >
+                          {tasaTotal.toFixed(1)}%
+                        </span>
+                      );
+                    })()}
                   </Td>
                   <Td className="text-slate-900 text-center">
                     {totales.ordenes_dia}
