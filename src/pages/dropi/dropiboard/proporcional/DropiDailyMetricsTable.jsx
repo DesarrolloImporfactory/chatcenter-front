@@ -159,6 +159,14 @@ const COLS = [
     tip: "Órdenes canceladas o devueltas hoy.",
   },
   {
+    key: "devoluciones",
+    label: "Devol.",
+    iconBx: "bx-undo",
+    iconColor: "text-orange-500",
+    type: "auto",
+    tip: "Órdenes que SÍ se enviaron pero el cliente las devolvió o no aceptó. Sí pagan flete y el producto se devuelve a bodega.",
+  },
+  {
     key: "entregados",
     label: "Entreg.",
     iconBx: "bx-check-circle",
@@ -743,6 +751,19 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                       )}
                     </Td>
 
+                    {/* ⬇️ NUEVA CELDA — Devoluciones */}
+                    <Td className="text-center">
+                      {r.devoluciones > 0 ? (
+                        <Tip content="Órdenes devueltas: sí pagaste el flete pero no la venta">
+                          <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded bg-orange-50 text-orange-700 font-bold text-[10px] cursor-help">
+                            {r.devoluciones}
+                          </span>
+                        </Tip>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </Td>
+
                     {/* Entregados */}
                     <Td className="text-center">
                       {r.entregados > 0 ? (
@@ -865,6 +886,10 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                   </Td>
                   <Td className="text-red-700 text-center">
                     {totales.cancelados}
+                  </Td>
+                  {/* ⬇️ NUEVA */}
+                  <Td className="text-orange-700 text-center">
+                    {totales.devoluciones}
                   </Td>
                   <Td className="text-emerald-700 text-center">
                     {totales.entregados}
