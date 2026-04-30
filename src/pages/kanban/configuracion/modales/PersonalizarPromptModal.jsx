@@ -37,10 +37,18 @@ const DEFAULT_INFO_ENVIO_PREVIEW =
   "Envío GRATIS al cliente. Pago contraentrega: el cliente paga al recibir el producto.";
 
 // Ejemplos que aparecen como chips clickeables en "Reglas exclusivas"
-const EJEMPLOS_INSTRUCCIONES_EXTRA = [
-  "Solo confirmar pedidos. No tomar nuevos clientes.",
-  "Ofrecer descuento del 10% si el cliente menciona dudas.",
-  "Recordar al cliente que el pedido caduca en 24h.",
+// Reglas pre-armadas que el cliente puede activar con un click.
+
+const REGLAS_RAPIDAS = [
+  {
+    id: "preguntar_retiro_agencia",
+    label: "Preguntar si retira en agencia Servientrega",
+    descripcion: "Pregunta agencia vs domicilio antes de pedir dirección",
+    icono: "bx bx-store-alt",
+    texto:
+      "EN TODAS LAS INTERACCIONES:\nSiempre pregunta si el envio lo desea para retirar en una agencia Servientrega o prefiere a su domicilio, no solicites la dirección exacta hasta conocer esto.",
+  },
+  // más reglas a futuro...
 ];
 
 const PersonalizarPromptModal = ({
@@ -422,10 +430,19 @@ const PersonalizarPromptModal = ({
                   badge="opcional"
                   value={form.instrucciones_extra}
                   onChange={(v) => set("instrucciones_extra", v)}
-                  placeholder="Reglas extra que solo aplican aquí..."
+                  placeholder="Escribe aquí cualquier regla extra que solo aplique a esta etapa..."
                   multiline
-                  rows={3}
+                  rows={4}
                   maxLength={4000}
+                />
+
+                {/* Reglas rápidas — toggles preconfigurados */}
+                <ReglasRapidas
+                  reglas={REGLAS_RAPIDAS}
+                  valorActual={form.instrucciones_extra}
+                  onChange={(nuevoValor) =>
+                    set("instrucciones_extra", nuevoValor)
+                  }
                 />
               </Tarjeta>
             </>
@@ -748,6 +765,156 @@ const BloqueDefault = ({ texto }) => (
     </div>
   </div>
 );
+
+// ⭐ NUEVO — Toggles de reglas pre-armadas que se concatenan al textarea
+const ReglasRapidas = ({ reglas, valorActual, onChange }) => {
+  const valorTrim = (valorActual || "").trim();
+
+  // Detecta si una regla está actualmente activa (comparando texto)
+  const estaActiva = (regla) => valorTrim.includes(regla.texto.trim());
+
+  const toggleRegla = (regla) => {
+    const reglaTexto = regla.texto.trim();
+    const yaEsta = estaActiva(regla);
+
+    if (yaEsta) {
+      // Remover la regla del textarea
+      const limpio = valorTrim
+        .replace(reglaTexto, "")
+        .replace(/\n{3,}/g, "\n\n") // limpiar saltos de línea extra
+        .trim();
+      onChange(limpio);
+    } else {
+      // Agregar la regla al inicio del textarea
+      const nuevoValor = valorTrim
+        ? `${reglaTexto}\n\n${valorTrim}`
+        : reglaTexto;
+      onChange(nuevoValor);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div
+        style={{
+          fontSize: ".7rem",
+          color: "#64748b",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: ".05em",
+          marginBottom: 8,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        <i className="bx bx-bolt-circle" style={{ color: "#6366f1" }} />
+        Reglas rápidas (toca para activar)
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {reglas.map((regla) => {
+          const activa = estaActiva(regla);
+          return (
+            <button
+              key={regla.id}
+              onClick={() => toggleRegla(regla)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: `1.5px solid ${activa ? "#86efac" : "#e2e8f0"}`,
+                background: activa ? "#f0fdf4" : "#fff",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "all .15s",
+                width: "100%",
+                fontFamily: "inherit",
+              }}
+              onMouseEnter={(e) => {
+                if (!activa) {
+                  e.currentTarget.style.borderColor = "#c7d2fe";
+                  e.currentTarget.style.background = "#f5f3ff";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!activa) {
+                  e.currentTarget.style.borderColor = "#e2e8f0";
+                  e.currentTarget.style.background = "#fff";
+                }
+              }}
+            >
+              {/* Icono check / icono regla */}
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: activa ? "#16a34a" : "#f1f5f9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  transition: "all .15s",
+                }}
+              >
+                <i
+                  className={activa ? "bx bx-check" : regla.icono}
+                  style={{
+                    color: activa ? "#fff" : "#64748b",
+                    fontSize: "1rem",
+                  }}
+                />
+              </div>
+
+              {/* Texto */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: ".8rem",
+                    fontWeight: 700,
+                    color: activa ? "#15803d" : "#0f172a",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {regla.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: ".7rem",
+                    color: activa ? "#16a34a" : "#94a3b8",
+                    marginTop: 2,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {regla.descripcion}
+                </div>
+              </div>
+
+              {/* Indicador activo/inactivo */}
+              <div
+                style={{
+                  fontSize: ".62rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: ".05em",
+                  padding: "3px 8px",
+                  borderRadius: 999,
+                  background: activa ? "#16a34a" : "#f1f5f9",
+                  color: activa ? "#fff" : "#94a3b8",
+                  flexShrink: 0,
+                }}
+              >
+                {activa ? "Activa" : "Activar"}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const PreviewPanel = ({ text, onCerrar }) => (
   <div>
