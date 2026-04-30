@@ -127,6 +127,12 @@ const COLS = [
     tip: "Qué porcentaje de los mensajes terminan en orden. Fórmula: Órdenes ÷ Mensajes × 100. Mientras más alto, mejor califica tu lead/copy. Verde ≥30%, ámbar 15-29%, rojo <15%.",
   },
   {
+    key: "costo_x_venta",
+    label: "Costo / Venta",
+    type: "formula",
+    tip: "CPA real: cuánto te cuesta generar cada orden (sin importar si luego se entrega o cancela). Fórmula: Gasto en ads ÷ Órdenes. Solo informativo, no afecta la rentabilidad.",
+  },
+  {
     key: "ordenes_dia",
     label: "Órdenes",
     type: "auto",
@@ -190,12 +196,19 @@ const COLS = [
   },
 ];
 
-/* ════════════ Helper: tasa de confirmación ════════════ */
+/* ════════════ Helpers ════════════ */
 const calcTasaConfirmacion = (ordenes, mensajes) => {
   const m = Number(mensajes) || 0;
   const o = Number(ordenes) || 0;
   if (m <= 0 || o <= 0) return null;
   return (o / m) * 100;
+};
+
+const calcCostoPorVenta = (gasto, ordenes) => {
+  const g = Number(gasto) || 0;
+  const o = Number(ordenes) || 0;
+  if (g <= 0 || o <= 0) return null;
+  return g / o;
 };
 
 const colorTasa = (tasa) => {
@@ -413,7 +426,12 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
               color="violet"
               iconBx="bx-calculator"
               title="Calculado"
-              cols={["Costo / Msg", "% Confirm.", "Rentabilidad"]}
+              cols={[
+                "Costo / Msg",
+                "% Confirm.",
+                "Costo / Venta",
+                "Rentabilidad",
+              ]}
               desc="Fórmulas automáticas. Cambian al editar gasto o mensajes."
             />
           </div>
@@ -472,6 +490,31 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                 &lt; 15% Bajo
               </span>
             </div>
+          </div>
+
+          <div className="bg-white border border-violet-200 rounded-lg p-3 mt-2">
+            <div className="flex items-center gap-2 mb-2">
+              <i className="bx bx-purchase-tag text-violet-600" />
+              <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wide">
+                Costo por Venta (CPA informativo)
+              </span>
+            </div>
+            <div className="font-mono text-[12px] text-slate-700 leading-relaxed mb-2">
+              <span className="text-violet-700 font-bold">Costo / Venta</span> ={" "}
+              <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                Gasto en ads
+              </span>{" "}
+              ÷{" "}
+              <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                Órdenes
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-snug">
+              Es el CPA real del día: cuánto te cuesta cada orden generada (sin
+              importar si luego se entrega o cancela).{" "}
+              <strong>No afecta el cálculo de rentabilidad</strong>, es solo
+              referencia para tomar decisiones de campaña.
+            </p>
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2 flex gap-2.5">
@@ -582,6 +625,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                   r.entregados === 0 && r.transito > 0 && r.ordenes_dia > 0;
 
                 const tasaConf = calcTasaConfirmacion(r.ordenes_dia, msgVal);
+                const cpv = calcCostoPorVenta(gastoVal, r.ordenes_dia);
 
                 return (
                   <tr
@@ -666,7 +710,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                       >
                         <span className="font-mono font-bold text-violet-700 cursor-help">
                           {r.cost_x_mensaje > 0
-                            ? `$${r.cost_x_mensaje.toFixed(3)}`
+                            ? fmtMoney(r.cost_x_mensaje)
                             : "—"}
                         </span>
                       </Tip>
@@ -700,6 +744,34 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                             )}`}
                           >
                             {tasaConf.toFixed(1)}%
+                          </span>
+                        </Tip>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </Td>
+
+                    {/* Costo por Venta (CPA informativo) */}
+                    <Td className="bg-violet-50/40">
+                      {cpv !== null ? (
+                        <Tip
+                          content={
+                            <span>
+                              <strong>{fmtMoney(gastoVal)}</strong> ÷{" "}
+                              <strong>{r.ordenes_dia}</strong> órdenes ={" "}
+                              <strong className="text-emerald-300">
+                                {fmtMoney(cpv)}
+                              </strong>
+                              <br />
+                              <span className="text-[10px] text-slate-300">
+                                CPA del día (informativo, no afecta la
+                                rentabilidad)
+                              </span>
+                            </span>
+                          }
+                        >
+                          <span className="font-mono font-bold text-violet-700 cursor-help">
+                            {fmtMoney(cpv)}
                           </span>
                         </Tip>
                       ) : (
@@ -751,7 +823,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                       )}
                     </Td>
 
-                    {/* ⬇️ NUEVA CELDA — Devoluciones */}
+                    {/* Devoluciones */}
                     <Td className="text-center">
                       {r.devoluciones > 0 ? (
                         <Tip content="Órdenes devueltas: sí pagaste el flete pero no la venta">
@@ -850,7 +922,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                   </Td>
                   <Td className="text-violet-700 bg-violet-100 font-mono">
                     {totales.cost_x_mensaje > 0
-                      ? `$${totales.cost_x_mensaje.toFixed(3)}`
+                      ? fmtMoney(totales.cost_x_mensaje)
                       : "—"}
                   </Td>
                   <Td className="text-violet-700 bg-violet-100 font-mono">
@@ -872,6 +944,18 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                       );
                     })()}
                   </Td>
+                  {/* Costo / Venta TOTAL */}
+                  <Td className="text-violet-700 bg-violet-100 font-mono">
+                    {(() => {
+                      const cpvTotal = calcCostoPorVenta(
+                        totales.gasto_diario,
+                        totales.ordenes_dia,
+                      );
+                      if (cpvTotal === null)
+                        return <span className="text-slate-400">—</span>;
+                      return fmtMoney(cpvTotal);
+                    })()}
+                  </Td>
                   <Td className="text-slate-900 text-center">
                     {totales.ordenes_dia}
                   </Td>
@@ -887,7 +971,6 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                   <Td className="text-red-700 text-center">
                     {totales.cancelados}
                   </Td>
-                  {/* ⬇️ NUEVA */}
                   <Td className="text-orange-700 text-center">
                     {totales.devoluciones}
                   </Td>
