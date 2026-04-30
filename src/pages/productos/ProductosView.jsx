@@ -126,11 +126,17 @@ const ProductosView = () => {
     const q = search.trim().toLowerCase();
     let data = [...productos];
     if (q)
-      data = data.filter(
-        (p) =>
+      data = data.filter((p) => {
+        const dropiId =
+          p.external_source === "DROPI" && p.external_id != null
+            ? String(p.external_id).toLowerCase()
+            : "";
+        return (
           (p?.nombre || "").toLowerCase().includes(q) ||
-          (p?.descripcion || "").toLowerCase().includes(q),
-      );
+          (p?.descripcion || "").toLowerCase().includes(q) ||
+          (dropiId && dropiId.includes(q))
+        );
+      });
     if (filtroCategoria)
       data = data.filter(
         (p) => String(p.id_categoria) === String(filtroCategoria),
@@ -356,7 +362,7 @@ const ProductosView = () => {
               <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
               <input
                 type="text"
-                placeholder="Buscar por nombre o descripción…"
+                placeholder="Buscar por nombre o descripción o ID Dropi…"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
