@@ -23,10 +23,25 @@ const Toast = Swal.mixin({
 const ESTADO_VACIO = {
   nombre_tienda: "",
   nombre_asistente_publico: "",
-  instrucciones_extra: "",
   info_envio: "",
+  instrucciones_extra: "",
+  // Lo mantenemos en el state aunque no se muestre, para no perder
+  // valores guardados anteriormente cuando el cliente guarde de nuevo.
   tono_personalizado: "",
 };
+
+// Defaults visibles para que el cliente sepa qué pasa si deja vacío.
+// Deben coincidir con lo que define el promptCompiler.js
+const DEFAULT_ASISTENTE = "Sara";
+const DEFAULT_INFO_ENVIO_PREVIEW =
+  "Envío GRATIS al cliente. Pago contraentrega: el cliente paga al recibir el producto.";
+
+// Ejemplos que aparecen como chips clickeables en "Reglas exclusivas"
+const EJEMPLOS_INSTRUCCIONES_EXTRA = [
+  "Solo confirmar pedidos. No tomar nuevos clientes.",
+  "Ofrecer descuento del 10% si el cliente menciona dudas.",
+  "Recordar al cliente que el pedido caduca en 24h.",
+];
 
 const PersonalizarPromptModal = ({
   open,
@@ -41,7 +56,6 @@ const PersonalizarPromptModal = ({
   const [previewing, setPreviewing] = useState(false);
   const [previewText, setPreviewText] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [columna, setColumna] = useState(null);
 
   const cargar = useCallback(async () => {
     if (!columnaId) return;
@@ -52,22 +66,17 @@ const PersonalizarPromptModal = ({
         { id_kanban_columna: columnaId },
       );
       if (data?.success) {
-        setColumna(data.data.columna);
         const p = data.data.personalizacion || {};
         setForm({
           nombre_tienda: p.nombre_tienda || "",
           nombre_asistente_publico: p.nombre_asistente_publico || "",
-          instrucciones_extra: p.instrucciones_extra || "",
           info_envio: p.info_envio || "",
-          productos_destacados: p.productos_destacados || "",
+          instrucciones_extra: p.instrucciones_extra || "",
           tono_personalizado: p.tono_personalizado || "",
         });
       }
     } catch (err) {
-      Toast.fire({
-        icon: "error",
-        title: "Error al cargar personalización",
-      });
+      Toast.fire({ icon: "error", title: "Error al cargar personalización" });
     } finally {
       setLoading(false);
     }
@@ -85,10 +94,7 @@ const PersonalizarPromptModal = ({
 
   const verPreview = async () => {
     if (!form.nombre_tienda.trim()) {
-      Toast.fire({
-        icon: "warning",
-        title: "El nombre de la tienda es obligatorio",
-      });
+      Toast.fire({ icon: "warning", title: "Falta el nombre de la tienda" });
       return;
     }
     setPreviewing(true);
@@ -114,26 +120,21 @@ const PersonalizarPromptModal = ({
 
   const guardar = async () => {
     if (!form.nombre_tienda.trim()) {
-      Toast.fire({
-        icon: "warning",
-        title: "El nombre de la tienda es obligatorio",
-      });
+      Toast.fire({ icon: "warning", title: "Falta el nombre de la tienda" });
       return;
     }
 
     const confirm = await Swal.fire({
       title: "¿Aplicar personalización?",
       html: `
-        <div style="font-size:.85rem;color:#475569;text-align:left;line-height:1.5">
-          <div style="margin-bottom:10px">
-            <strong>Identidad y comportamiento</strong> (nombre de tienda, asistente, política de envío, productos, tono) se aplican a <strong>todas las columnas IA</strong> de tu kanban.
+        <div style="font-size:.85rem;color:#475569;text-align:left;line-height:1.55">
+          <div style="margin-bottom:8px">
+            <b>Identidad y envío</b> aplican a <b>todas</b> tus columnas IA.
           </div>
-          <div style="margin-bottom:10px">
-            <strong>Instrucciones específicas</strong> solo aplican a <em>"${columnaNombre}"</em>. Las otras columnas mantienen las suyas.
+          <div style="margin-bottom:8px">
+            <b>Reglas específicas</b> aplican solo a <em>"${columnaNombre}"</em>.
           </div>
-          <div style="font-size:.78rem;color:#64748b">
-            La actualización afecta directamente a OpenAI.
-          </div>
+          <div style="font-size:.78rem;color:#64748b">Se actualiza directo en OpenAI.</div>
         </div>
       `,
       icon: "question",
@@ -148,15 +149,15 @@ const PersonalizarPromptModal = ({
 
     setSaving(true);
     Swal.fire({
-      title: "Aplicando personalización...",
+      title: "Aplicando...",
       html: '<div style="font-size:.85rem;color:#64748b">Actualizando asistentes en OpenAI</div>',
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
       didOpen: () => {
         Swal.showLoading();
-        const swalContainer = document.querySelector(".swal2-container");
-        if (swalContainer) swalContainer.style.zIndex = "99999";
+        const sc = document.querySelector(".swal2-container");
+        if (sc) sc.style.zIndex = "99999";
       },
     });
 
@@ -174,8 +175,7 @@ const PersonalizarPromptModal = ({
         const errores = data.data?.errores || 0;
         Swal.fire({
           icon: errores === 0 ? "success" : "warning",
-          title:
-            errores === 0 ? "¡Personalización aplicada!" : "Aplicación parcial",
+          title: errores === 0 ? "¡Listo!" : "Aplicación parcial",
           html: `
             <div style="font-size:.85rem;color:#475569">
               ✓ ${exitos} columna(s) actualizada(s)
@@ -210,6 +210,11 @@ const PersonalizarPromptModal = ({
 
   if (!open) return null;
 
+  // Determinar si cada bloque está personalizado o usa default
+  const tienePersoIdentidad = !!form.nombre_asistente_publico.trim();
+  const tienePersoEnvio = !!form.info_envio.trim();
+  const tienePersoReglas = !!form.instrucciones_extra.trim();
+
   return (
     <div
       style={{
@@ -232,7 +237,7 @@ const PersonalizarPromptModal = ({
           background: "#fff",
           borderRadius: 18,
           width: "100%",
-          maxWidth: 640,
+          maxWidth: 660,
           maxHeight: "92vh",
           boxShadow: "0 32px 80px rgba(0,0,0,.22)",
           overflow: "hidden",
@@ -321,9 +326,10 @@ const PersonalizarPromptModal = ({
         {/* Body */}
         <div
           style={{
-            padding: "20px 22px",
+            padding: "20px 22px 18px",
             overflowY: "auto",
             flex: 1,
+            background: "#fafbff",
           }}
         >
           {loading ? (
@@ -339,7 +345,7 @@ const PersonalizarPromptModal = ({
                 style={{ fontSize: "2rem" }}
               />
               <div style={{ marginTop: 10, fontSize: ".85rem" }}>
-                Cargando personalización...
+                Cargando...
               </div>
             </div>
           ) : showPreview ? (
@@ -349,108 +355,79 @@ const PersonalizarPromptModal = ({
             />
           ) : (
             <>
-              {/* Aviso superior — explica qué es opcional */}
-              <div
-                style={{
-                  marginBottom: 18,
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  background: "rgba(99,102,241,.06)",
-                  border: "1px solid rgba(99,102,241,.18)",
-                  fontSize: ".78rem",
-                  color: "#475569",
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "flex-start",
-                  lineHeight: 1.5,
-                }}
-              >
-                <i
-                  className="bx bx-info-circle"
-                  style={{
-                    color: "#6366f1",
-                    fontSize: "1rem",
-                    flexShrink: 0,
-                    marginTop: 2,
-                  }}
-                />
-                <div>
-                  <strong>Solo el nombre de la tienda es obligatorio.</strong>{" "}
-                  El resto de los campos son opcionales: completalos solo si
-                  necesitás <strong>cambiar</strong> el comportamiento por
-                  defecto del bot. Los placeholders son ejemplos, no se aplican
-                  a tu bot.
-                </div>
-              </div>
-
-              <SectionTitle
+              {/* Tarjeta 1 — Identidad */}
+              <Tarjeta
                 icono="bx bx-store"
-                titulo="Identidad"
-                descripcion="Nombre con el que se presenta tu bot."
-              />
+                titulo="Identidad de tu bot"
+                scope="Aplica a todas las columnas IA"
+                personalizado={tienePersoIdentidad}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                  }}
+                >
+                  <Campo
+                    label="Tienda"
+                    badge="obligatorio"
+                    value={form.nombre_tienda}
+                    onChange={(v) => set("nombre_tienda", v)}
+                    placeholder="Ej: Mexve TIENDA"
+                    maxLength={100}
+                  />
+                  <Campo
+                    label="Asistente"
+                    badge="opcional"
+                    value={form.nombre_asistente_publico}
+                    onChange={(v) => set("nombre_asistente_publico", v)}
+                    placeholder={`Default: ${DEFAULT_ASISTENTE}`}
+                    maxLength={60}
+                  />
+                </div>
+              </Tarjeta>
 
-              <Campo
-                label="Nombre de tu tienda *"
-                hint="Obligatorio. Aparecerá donde el bot diga el nombre de tu tienda."
-                value={form.nombre_tienda}
-                onChange={(v) => set("nombre_tienda", v)}
-                placeholder="Ej: Mexve TIENDA"
-                maxLength={100}
-                obligatorio
-              />
-
-              <Campo
-                label="Nombre de la asistente"
-                hint="Opcional. Si lo dejás vacío, el bot se presenta como 'Sara'."
-                value={form.nombre_asistente_publico}
-                onChange={(v) => set("nombre_asistente_publico", v)}
-                placeholder="Ej: Sara, Carla, María..."
-                maxLength={60}
-              />
-
-              <SectionTitle
-                icono="bx bx-cog"
-                titulo="Comportamiento (todo opcional)"
-                descripcion="Solo completá si querés CAMBIAR el comportamiento por defecto. Si dejás vacío, el bot usa sus defaults."
+              {/* Tarjeta 2 — Política de envío */}
+              <Tarjeta
+                icono="bx bx-package"
+                titulo="Política de envío y pago"
+                scope="Aplica a todas las columnas IA"
+                personalizado={tienePersoEnvio}
                 topMargin
-              />
+              >
+                <Campo
+                  badge="opcional"
+                  value={form.info_envio}
+                  onChange={(v) => set("info_envio", v)}
+                  placeholder="Ej: Envío gratis. Pago contraentrega en tu domicilio."
+                  multiline
+                  rows={3}
+                  maxLength={4000}
+                />
+                {!tienePersoEnvio && (
+                  <BloqueDefault texto={DEFAULT_INFO_ENVIO_PREVIEW} />
+                )}
+              </Tarjeta>
 
-              <Campo
-                label="Política de envío"
-                hint="Opcional. Default del bot: envío gratis y pago contraentrega. Completá solo si tu caso es distinto."
-                value={form.info_envio}
-                onChange={(v) => set("info_envio", v)}
-                placeholder="Ej: Envío gratis sobre $30. Demora 48h en sierra."
-                multiline
-                maxLength={4000}
-              />
-
-              <Campo
-                label="Ajuste de tono"
-                hint="Opcional. Default: tono cálido, amigable y directo."
-                value={form.tono_personalizado}
-                onChange={(v) => set("tono_personalizado", v)}
-                placeholder="Ej: Tono más formal. Voseo argentino."
-                multiline
-                maxLength={4000}
-              />
-
-              <SectionTitle
+              {/* Tarjeta 3 — Reglas exclusivas */}
+              <Tarjeta
                 icono="bx bx-target-lock"
-                titulo={`Específico de "${columnaNombre || "esta columna"}"`}
-                descripcion="Reglas extra que solo aplican a esta columna."
+                titulo={`Reglas adicionales para "${columnaNombre || "esta columna"}"`}
+                scope="Solo aplica en esta etapa del kanban"
+                personalizado={tienePersoReglas}
                 topMargin
-              />
-
-              <Campo
-                label="Instrucciones adicionales para esta columna"
-                hint={`Opcional. Solo aplican a "${columnaNombre || "esta columna"}". Las otras columnas IA mantienen las suyas propias.`}
-                value={form.instrucciones_extra}
-                onChange={(v) => set("instrucciones_extra", v)}
-                placeholder="Ej: En esta etapa solo confirmar pedidos. No tomar nuevos clientes."
-                multiline
-                maxLength={4000}
-              />
+              >
+                <Campo
+                  badge="opcional"
+                  value={form.instrucciones_extra}
+                  onChange={(v) => set("instrucciones_extra", v)}
+                  placeholder="Reglas extra que solo aplican aquí..."
+                  multiline
+                  rows={3}
+                  maxLength={4000}
+                />
+              </Tarjeta>
             </>
           )}
         </div>
@@ -463,7 +440,7 @@ const PersonalizarPromptModal = ({
             display: "flex",
             justifyContent: "flex-end",
             gap: 10,
-            background: "#fafbff",
+            background: "#fff",
             flexShrink: 0,
           }}
         >
@@ -521,64 +498,193 @@ const PersonalizarPromptModal = ({
   );
 };
 
-const SectionTitle = ({ icono, titulo, descripcion, topMargin }) => (
-  <div style={{ marginTop: topMargin ? 22 : 0, marginBottom: 12 }}>
+// ─────────────── Sub-componentes ───────────────
+
+const Tarjeta = ({
+  icono,
+  titulo,
+  scope,
+  personalizado,
+  topMargin,
+  children,
+}) => (
+  <div
+    style={{
+      marginTop: topMargin ? 14 : 0,
+      background: "#fff",
+      border: "1px solid #e2e8f0",
+      borderRadius: 14,
+      padding: 16,
+      boxShadow: "0 1px 2px rgba(15,23,42,.04)",
+    }}
+  >
+    {/* Header de tarjeta */}
     <div
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        fontSize: ".88rem",
-        fontWeight: 700,
-        color: "#0f172a",
-        marginBottom: 3,
+        justifyContent: "space-between",
+        gap: 10,
+        marginBottom: 12,
       }}
     >
-      <i className={icono} style={{ color: "#6366f1", fontSize: "1.05rem" }} />
-      {titulo}
-    </div>
-    {descripcion && (
-      <div style={{ fontSize: ".75rem", color: "#64748b", lineHeight: 1.4 }}>
-        {descripcion}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 8,
+            background: "rgba(99,102,241,.1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <i className={icono} style={{ color: "#6366f1", fontSize: "1rem" }} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: ".88rem",
+              fontWeight: 700,
+              color: "#0f172a",
+              lineHeight: 1.2,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {titulo}
+          </div>
+          <div
+            style={{
+              fontSize: ".68rem",
+              color: "#94a3b8",
+              marginTop: 2,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <i className="bx bx-link" style={{ fontSize: ".82rem" }} />
+            {scope}
+          </div>
+        </div>
       </div>
-    )}
+      <ChipEstado personalizado={personalizado} />
+    </div>
+
+    {children}
   </div>
 );
 
+const ChipEstado = ({ personalizado }) => (
+  <div
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 4,
+      fontSize: ".64rem",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: ".05em",
+      padding: "3px 8px",
+      borderRadius: 999,
+      background: personalizado ? "#ecfdf5" : "#f1f5f9",
+      color: personalizado ? "#047857" : "#64748b",
+      border: `1px solid ${personalizado ? "#a7f3d0" : "#e2e8f0"}`,
+      flexShrink: 0,
+    }}
+  >
+    <span
+      style={{
+        width: 6,
+        height: 6,
+        borderRadius: "50%",
+        background: personalizado ? "#10b981" : "#cbd5e1",
+      }}
+    />
+    {personalizado ? "Personalizado" : "Default"}
+  </div>
+);
+
+const Badge = ({ tipo }) => {
+  const obligatorio = tipo === "obligatorio";
+  return (
+    <span
+      style={{
+        fontSize: ".62rem",
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: ".05em",
+        padding: "2px 7px",
+        borderRadius: 4,
+        background: obligatorio ? "#fef2f2" : "#f1f5f9",
+        color: obligatorio ? "#dc2626" : "#64748b",
+        border: `1px solid ${obligatorio ? "#fecaca" : "#e2e8f0"}`,
+      }}
+    >
+      {obligatorio ? "Obligatorio" : "Opcional"}
+    </span>
+  );
+};
+
 const Campo = ({
   label,
-  hint,
+  badge,
   value,
   onChange,
   placeholder,
   multiline,
+  rows = 3,
   maxLength,
-  obligatorio,
 }) => (
-  <div style={{ marginBottom: 14 }}>
-    <label
-      style={{
-        display: "block",
-        fontSize: ".8rem",
-        fontWeight: 700,
-        color: "#374151",
-        marginBottom: 4,
-      }}
-    >
-      {label}
-    </label>
+  <div>
+    {(label || badge) && (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 6,
+        }}
+      >
+        {label && (
+          <label
+            style={{
+              fontSize: ".78rem",
+              fontWeight: 700,
+              color: "#374151",
+            }}
+          >
+            {label}
+          </label>
+        )}
+        {badge && <Badge tipo={badge} />}
+      </div>
+    )}
     {multiline ? (
       <textarea
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
-        rows={3}
+        rows={rows}
         style={{
           ...inp,
           resize: "vertical",
           minHeight: 70,
           fontFamily: "inherit",
+          lineHeight: 1.45,
         }}
       />
     ) : (
@@ -590,22 +696,55 @@ const Campo = ({
         style={inp}
       />
     )}
+    {maxLength && (
+      <div
+        style={{
+          fontSize: ".67rem",
+          color: "#cbd5e1",
+          textAlign: "right",
+          marginTop: 3,
+        }}
+      >
+        {(value || "").length}/{maxLength}
+      </div>
+    )}
+  </div>
+);
+
+// Bloque que muestra el default que recibirá el bot si dejan vacío
+const BloqueDefault = ({ texto }) => (
+  <div
+    style={{
+      marginTop: 8,
+      padding: "8px 12px",
+      borderRadius: 8,
+      background: "#f8fafc",
+      border: "1px dashed #e2e8f0",
+      display: "flex",
+      gap: 8,
+      alignItems: "flex-start",
+    }}
+  >
+    <i
+      className="bx bx-info-circle"
+      style={{
+        fontSize: ".95rem",
+        color: "#94a3b8",
+        marginTop: 1,
+        flexShrink: 0,
+      }}
+    />
     <div
       style={{
-        display: "flex",
-        justifyContent: "space-between",
-        marginTop: 3,
-        gap: 12,
+        fontSize: ".72rem",
+        color: "#64748b",
+        lineHeight: 1.5,
       }}
     >
-      <div style={{ fontSize: ".7rem", color: "#94a3b8", lineHeight: 1.4 }}>
-        {hint}
-      </div>
-      {maxLength && (
-        <div style={{ fontSize: ".68rem", color: "#cbd5e1", flexShrink: 0 }}>
-          {(value || "").length}/{maxLength}
-        </div>
-      )}
+      <span style={{ fontWeight: 600, color: "#475569" }}>
+        Si dejas vacío, el bot usa:{" "}
+      </span>
+      {texto}
     </div>
   </div>
 );
@@ -683,7 +822,7 @@ const inp = {
   border: "1px solid rgba(0,0,0,.12)",
   fontSize: ".85rem",
   outline: "none",
-  background: "#fafafa",
+  background: "#fff",
   color: "#1e293b",
   boxSizing: "border-box",
 };
