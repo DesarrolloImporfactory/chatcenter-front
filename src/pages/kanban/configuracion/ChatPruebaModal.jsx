@@ -45,6 +45,16 @@ const parsearMensaje = (texto) => {
   return partes;
 };
 
+const renderTexto = (texto) => {
+  const partes = texto.split(/(\*\*[^*]+\*\*)/g);
+  return partes.map((parte, i) => {
+    if (parte.startsWith("**") && parte.endsWith("**")) {
+      return <strong key={i}>{parte.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{parte}</span>;
+  });
+};
+
 const ChatPruebaModal = ({
   open,
   onClose,
@@ -701,7 +711,7 @@ const ChatPruebaModal = ({
 
                   {parte.tipo === "texto" && (
                     <div className="cpm-bubble-bot">
-                      <div className="cpm-texto">{parte.contenido}</div>
+                      <div className="cpm-texto">{renderTexto(parte.contenido)}</div>
                       {pi === partes.length - 1 && (
                         <div className="cpm-hora">{formatHora(msg.ts)}</div>
                       )}
