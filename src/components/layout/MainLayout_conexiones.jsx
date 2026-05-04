@@ -256,6 +256,15 @@ function MainLayout({ children }) {
               icon={isSuperAdmin ? "bxs-shield-alt-2" : "bx-user"}
               label={isSuperAdmin ? "Panel de Usuarios" : "Usuarios"}
             />
+
+            {isSuperAdmin && (
+              <NavBtn
+                path="/plantillas_globales_admin"
+                icon="bx-globe"
+                label="Plantillas Kanban Globales"
+              />
+            )}
+
             <NavBtn
               path="/departamentos"
               icon="bx-buildings"

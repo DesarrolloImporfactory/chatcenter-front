@@ -59,21 +59,11 @@ const TIPOS_ACCION = {
     icono: "bx bx-calendar",
     color: "#3b82f6",
   },
-  /* enviar_media: {
-    label: "Enviar imágenes/videos",
-    icono: "bx bx-image",
-    color: "#f59e0b",
-  }, */
   agendar_cita: {
     label: "Agendar cita",
     icono: "bx bx-calendar-check",
     color: "#8b5cf6",
   },
-  /* separador_productos: {
-    label: "Separador de productos",
-    icono: "bx bx-list-ul",
-    color: "#ec4899",
-  }, */
 };
 
 const Toast = Swal.mixin({
@@ -125,48 +115,11 @@ const KanbanConfig = () => {
   });
   const [guardandoNueva, setGuardandoNueva] = useState(false);
 
-  // ── Plantillas globales (solo super_admin) ────────────────
-  const esSuperAdmin = localStorage.getItem("user_role") === "super_admin";
-  const [showGuardarGlobal, setShowGuardarGlobal] = useState(false);
-  const [nombreGlobal, setNombreGlobal] = useState("");
-  const [descGlobal, setDescGlobal] = useState("");
-  const [iconoGlobal, setIconoGlobal] = useState("bx bx-layout");
-  const [colorGlobal, setColorGlobal] = useState("#6366f1");
-  const [guardandoGlobal, setGuardandoGlobal] = useState(false);
-
-  const handleGuardarGlobal = async () => {
-    if (!nombreGlobal.trim()) {
-      Toast.fire({ icon: "warning", title: "Ingresa un nombre" });
-      return;
-    }
-    setGuardandoGlobal(true);
-    try {
-      const { data } = await chatApi.post("/kanban_plantillas/guardar_global", {
-        id_configuracion,
-        nombre: nombreGlobal.trim(),
-        descripcion: descGlobal.trim() || null,
-        icono: iconoGlobal,
-        color: colorGlobal,
-      });
-      if (data?.success) {
-        Toast.fire({ icon: "success", title: "Plantilla global guardada ✓" });
-        setShowGuardarGlobal(false);
-        setNombreGlobal("");
-        setDescGlobal("");
-      }
-    } catch {
-      Toast.fire({ icon: "error", title: "Error al guardar" });
-    } finally {
-      setGuardandoGlobal(false);
-    }
-  };
-
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
 
   /* reordenar */
-
   const handleDragEnd = async () => {
     if (dragItem.current === null || dragOverItem.current === null) return;
     if (dragItem.current === dragOverItem.current) {
@@ -176,19 +129,16 @@ const KanbanConfig = () => {
       return;
     }
 
-    // Reordenar localmente
     const nuevas = [...columnas];
     const [moved] = nuevas.splice(dragItem.current, 1);
     nuevas.splice(dragOverItem.current, 0, moved);
 
-    // Asignar nuevo orden
     const conOrden = nuevas.map((col, i) => ({ ...col, orden: i + 1 }));
     setColumnas(conOrden);
     setDraggingId(null);
     dragItem.current = null;
     dragOverItem.current = null;
 
-    // Persistir en backend
     try {
       await chatApi.post("/kanban_columnas/reordenar", {
         id_configuracion,
@@ -197,7 +147,7 @@ const KanbanConfig = () => {
       Toast.fire({ icon: "success", title: "Orden guardado" });
     } catch {
       Toast.fire({ icon: "error", title: "Error al guardar orden" });
-      cargarColumnas(); // revertir si falla
+      cargarColumnas();
     }
   };
 
@@ -271,7 +221,6 @@ const KanbanConfig = () => {
 
     if (!paso1.isConfirmed) return;
 
-    // Segunda confirmación
     const paso2 = await Swal.fire({
       title: "¿Estás completamente seguro?",
       html: `Escribe <strong>REINICIAR</strong> para confirmar`,
@@ -303,7 +252,6 @@ const KanbanConfig = () => {
           text: "Todas las columnas han sido eliminadas.",
           confirmButtonColor: "#6366f1",
         });
-        // Reset estado local
         setColumnas([]);
         setColumnaActiva(null);
         setAcciones([]);
@@ -437,9 +385,7 @@ const KanbanConfig = () => {
         Toast.fire({ icon: "success", title: "Acción agregada" });
         cargarAcciones(columnaActiva);
 
-        // ← AUTO-SYNC al agregar contexto_productos
         if (tipo_accion === "contexto_productos") {
-          // Lanzar sync con polling
           sincronizarDesdeKanban(columnaActiva);
         }
       }
@@ -486,7 +432,6 @@ const KanbanConfig = () => {
     const esPrincipal = !!columnaSeleccionada?.es_principal;
     try {
       if (esPrincipal) {
-        // Si ya es principal, quitar
         const { data } = await chatApi.post(
           "/kanban_columnas/quitar_principal",
           {
@@ -498,7 +443,6 @@ const KanbanConfig = () => {
           Toast.fire({ icon: "success", title: "Columna principal removida" });
         }
       } else {
-        // Marcar como principal
         const { data } = await chatApi.post(
           "/kanban_columnas/marcar_principal",
           {
@@ -627,7 +571,6 @@ const KanbanConfig = () => {
         subtitle="Define columnas, asistentes de IA y acciones automáticas por cada etapa de tu flujo."
         actions={
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            {/* Plantillas — estilo unificado dark */}
             <MisPlantillas
               id_configuracion={id_configuracion}
               onPlantillaAplicada={cargarColumnas}
@@ -638,21 +581,10 @@ const KanbanConfig = () => {
             />
             <DropisPlantillas id_configuracion={id_configuracion} />
 
-            {esSuperAdmin && (
-              <button
-                onClick={() => setShowGuardarGlobal(true)}
-                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 hover:border-white/25 text-white/90 text-xs font-semibold transition flex-shrink-0 whitespace-nowrap"
-              >
-                <i className="bx bx-globe text-sm text-amber-300" /> Guardar
-                global
-              </button>
-            )}
-
             {columnas.length > 0 && (
               <div className="mx-1 h-6 w-px bg-white/10 flex-shrink-0" />
             )}
 
-            {/* CTA principal — cyan vibrante destaca */}
             <button
               onClick={() => setShowModalNueva(true)}
               className="h-9 inline-flex items-center gap-1.5 px-4 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-[#171931] font-bold text-xs shadow-lg shadow-cyan-500/20 transition flex-shrink-0 whitespace-nowrap"
@@ -751,7 +683,6 @@ const KanbanConfig = () => {
                   userSelect: "none",
                 }}
               >
-                {/* Handle de arrastre */}
                 <i
                   className="bx bx-grid-vertical"
                   style={{
@@ -1729,240 +1660,6 @@ const KanbanConfig = () => {
         </div>
       )}
 
-      {/* Modal guardar plantilla global */}
-      {showGuardarGlobal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(10,10,20,.55)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: 16,
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowGuardarGlobal(false);
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 18,
-              width: "100%",
-              maxWidth: 440,
-              boxShadow: "0 32px 80px rgba(0,0,0,.22)",
-              overflow: "hidden",
-            }}
-          >
-            {/* Header */}
-            <div style={{ background: "rgb(23,25,49)", padding: "18px 22px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 9,
-                      background: "rgba(234,179,8,.2)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <i
-                      className="bx bx-globe"
-                      style={{ fontSize: 18, color: "#fbbf24" }}
-                    />
-                  </div>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: ".65rem",
-                        color: "rgba(255,255,255,.4)",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: ".07em",
-                      }}
-                    >
-                      Superadmin
-                    </div>
-                    <h2
-                      style={{
-                        margin: 0,
-                        fontSize: ".95rem",
-                        fontWeight: 700,
-                        color: "#fff",
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      Guardar plantilla global
-                    </h2>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowGuardarGlobal(false)}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,.15)",
-                    background: "rgba(255,255,255,.08)",
-                    color: "rgba(255,255,255,.7)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <i className="bx bx-x" style={{ fontSize: 16 }} />
-                </button>
-              </div>
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  fontSize: ".74rem",
-                  color: "rgba(255,255,255,.45)",
-                }}
-              >
-                Visible para todos los usuarios en "Plantillas Kanban".
-              </p>
-            </div>
-            {/* Body */}
-            <div
-              style={{
-                padding: "20px 22px 24px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-              }}
-            >
-              <div>
-                <label style={lbl}>Nombre *</label>
-                <input
-                  style={inp}
-                  placeholder="Ej: Ventas COD Ecuador"
-                  value={nombreGlobal}
-                  onChange={(e) => setNombreGlobal(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label style={lbl}>
-                  Descripción{" "}
-                  <span style={{ fontWeight: 400, color: "#94a3b8" }}>
-                    (opcional)
-                  </span>
-                </label>
-                <textarea
-                  style={{ ...inp, resize: "none" }}
-                  rows={2}
-                  placeholder="Flujo para..."
-                  value={descGlobal}
-                  onChange={(e) => setDescGlobal(e.target.value)}
-                />
-              </div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={lbl}>Icono</label>
-                  <select
-                    style={inp}
-                    value={iconoGlobal}
-                    onChange={(e) => setIconoGlobal(e.target.value)}
-                  >
-                    <option value="bx bx-layout">Layout</option>
-                    <option value="bx bx-store">Tienda</option>
-                    <option value="bx bx-cart">Carrito</option>
-                    <option value="bx bx-bot">Bot</option>
-                    <option value="bx bx-calendar">Calendario</option>
-                    <option value="bx bx-star">Estrella</option>
-                  </select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={lbl}>Color</label>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      marginTop: 6,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {[
-                      "#6366f1",
-                      "#10b981",
-                      "#f59e0b",
-                      "#ef4444",
-                      "#3b82f6",
-                      "#8b5cf6",
-                    ].map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setColorGlobal(c)}
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 8,
-                          background: c,
-                          border:
-                            colorGlobal === c
-                              ? "3px solid #0f172a"
-                              : "2px solid transparent",
-                          cursor: "pointer",
-                          transition: "all .12s",
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 10,
-                  marginTop: 6,
-                }}
-              >
-                <button
-                  onClick={() => setShowGuardarGlobal(false)}
-                  style={btnSecundario}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleGuardarGlobal}
-                  disabled={guardandoGlobal}
-                  style={{
-                    ...btnPrimario,
-                    background: "rgb(23,25,49)",
-                    boxShadow: "none",
-                  }}
-                >
-                  {guardandoGlobal ? (
-                    <>
-                      <i className="bx bx-loader-alt bx-spin" /> Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <i className="bx bx-globe" /> Guardar global
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal nueva columna */}
       {showModalNueva && (
         <div
@@ -2302,7 +1999,6 @@ const AccionCard = ({
                 style={inp}
                 placeholder="ej: asesor"
               />
-              {/* Preview + copiar */}
               {local.trigger && (
                 <div
                   style={{
@@ -2530,7 +2226,6 @@ const EmptyHeroKanban = ({
   onPlantillaAplicada,
 }) => (
   <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-    {/* ═══════ HERO horizontal compacto ═══════ */}
     <div
       className="relative px-6 py-12 md:px-12 md:py-14 overflow-hidden"
       style={{
@@ -2538,7 +2233,6 @@ const EmptyHeroKanban = ({
           "linear-gradient(120deg, #171931 0%, #1e2148 50%, #0f1129 100%)",
       }}
     >
-      {/* Grid sutil */}
       <div
         className="absolute inset-0 opacity-[0.06] pointer-events-none"
         style={{
@@ -2554,7 +2248,6 @@ const EmptyHeroKanban = ({
         }}
       />
 
-      {/* Glow cyan detrás del mockup */}
       <div
         className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/4 w-[28rem] h-[28rem] rounded-full blur-3xl opacity-25 pointer-events-none"
         style={{
@@ -2563,14 +2256,10 @@ const EmptyHeroKanban = ({
         }}
       />
 
-      {/* Línea de luz superior */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent" />
 
-      {/* ═══════ Layout horizontal — texto ancho izquierda, mockup derecha ═══════ */}
       <div className="relative grid lg:grid-cols-[1.4fr_1fr] gap-10 lg:gap-14 items-center max-w-6xl mx-auto">
-        {/* ── LEFT: contenido (más ancho) ── */}
         <div className="relative">
-          {/* Title */}
           <h2 className="text-[1.85rem] md:text-[2.4rem] font-bold text-white mb-4 tracking-tight leading-[1.05]">
             Tu equipo de ventas{" "}
             <span
@@ -2590,9 +2279,7 @@ const EmptyHeroKanban = ({
             contactos y cierre ventas mientras tú duermes.
           </p>
 
-          {/* CTAs — ambos h-12 */}
           <div className="flex flex-col sm:flex-row gap-3 max-w-md">
-            {/* CTA Primary */}
             <button
               onClick={onCrearColumna}
               className="group relative flex-1 h-12 inline-flex items-center justify-center gap-2 px-5 rounded-xl text-[#171931] font-bold text-sm transition overflow-hidden"
@@ -2608,7 +2295,6 @@ const EmptyHeroKanban = ({
               <span className="relative">Crear primera columna</span>
             </button>
 
-            {/* CTA Secondary — mismo h-12, override del CSS interno con !important */}
             <div className="flex-1 [&>button]:!w-full [&>button]:!h-12 [&>button]:!justify-center [&>button]:!px-5 [&>button]:!rounded-xl [&>button]:!bg-white/[0.07] [&>button]:!border [&>button]:!border-white/15 [&>button]:!text-white [&>button]:!font-bold [&>button]:!text-sm [&>button]:hover:!bg-white/[0.12] [&>button]:hover:!border-white/25 [&>button]:!backdrop-blur-md [&>button]:!transition">
               <PlantillasKanban
                 id_configuracion={idConfiguracion}
@@ -2617,7 +2303,6 @@ const EmptyHeroKanban = ({
             </div>
           </div>
 
-          {/* Stats inline */}
           <div className="flex items-center gap-5 mt-6 text-[0.72rem] text-white/40">
             <div className="flex items-center gap-1.5">
               <i className="bx bx-check-circle text-cyan-400/70" />
@@ -2631,9 +2316,7 @@ const EmptyHeroKanban = ({
           </div>
         </div>
 
-        {/* ── RIGHT: Mockup kanban en perspectiva ── */}
         <div className="relative hidden lg:block">
-          {/* Floating badge superior */}
           <div className="absolute -top-3 right-8 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0f1129]/90 border border-cyan-400/20 shadow-xl backdrop-blur-md">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[0.68rem] text-white/80 font-semibold">
@@ -2641,7 +2324,6 @@ const EmptyHeroKanban = ({
             </span>
           </div>
 
-          {/* Mockup */}
           <div
             className="relative grid grid-cols-4 gap-2.5 p-3.5 rounded-xl"
             style={{
@@ -2673,7 +2355,6 @@ const EmptyHeroKanban = ({
                   minHeight: 180,
                 }}
               >
-                {/* Header columna */}
                 <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-white/5">
                   <div
                     className="w-2 h-2 rounded-full shrink-0"
@@ -2700,7 +2381,6 @@ const EmptyHeroKanban = ({
                   </span>
                 </div>
 
-                {/* Cards */}
                 {Array.from({ length: col.cards }).map((_, j) => (
                   <div
                     key={j}
@@ -2725,7 +2405,6 @@ const EmptyHeroKanban = ({
             ))}
           </div>
 
-          {/* Reflejo cyan debajo */}
           <div
             className="absolute -bottom-8 left-8 right-8 h-12 rounded-full blur-2xl opacity-40 pointer-events-none"
             style={{
@@ -2737,7 +2416,6 @@ const EmptyHeroKanban = ({
       </div>
     </div>
 
-    {/* ═══════ 3 pasos abajo ═══════ */}
     <div className="grid grid-cols-1 md:grid-cols-3">
       {[
         {
@@ -2785,7 +2463,7 @@ const EmptyHeroKanban = ({
 );
 
 // ─────────────────────────────────────────────────────────────
-// EmptyStateSeleccion — cuando hay columnas pero ninguna activa
+// EmptyStateSeleccion
 // ─────────────────────────────────────────────────────────────
 const EmptyStateSeleccion = ({
   totalColumnas,
@@ -2794,7 +2472,6 @@ const EmptyStateSeleccion = ({
   onCrearColumna,
 }) => (
   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-    {/* Hero compacto */}
     <div className="relative bg-gradient-to-br from-[#171931] to-[#0f1129] px-8 py-10 overflow-hidden">
       <div
         className="absolute -top-16 -right-16 w-48 h-48 rounded-full opacity-20 blur-3xl"
@@ -2826,7 +2503,6 @@ const EmptyStateSeleccion = ({
       </div>
     </div>
 
-    {/* Acciones rápidas */}
     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-3">
       {primeraColumna && (
         <button
@@ -2881,7 +2557,6 @@ const EmptyStateSeleccion = ({
       </button>
     </div>
 
-    {/* Tip */}
     <div className="px-6 pb-6">
       <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-gradient-to-r from-cyan-50 to-indigo-50/50 border border-cyan-100">
         <i

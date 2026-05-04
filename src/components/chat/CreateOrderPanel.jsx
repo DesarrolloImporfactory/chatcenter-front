@@ -314,7 +314,7 @@ export default function CreateOrderPanel(props) {
 
         <div className="px-3.5 pb-3">
           <label className={labelCls}>
-            Notas para la orden{" "}
+            Notas de la orden para el proveedor{" "}
             <span className="text-white/15 normal-case">(opcional)</span>
           </label>
           <input

@@ -87,6 +87,7 @@ import ForgotPassword from "./pages/login/ForgotPassword";
 import SsoLanding from "./pages/sso/SsoLanding";
 import EncuestasView from "./pages/encuestas/EncuestasView";
 import Adsboard from "./components/metaAsd/Adsboard";
+import PlantillasGlobalesAdmin from "./pages/kanbanAdmin/PlantillasGlobalesAdmin";
 
 function App() {
   const location = useLocation();
@@ -360,6 +361,15 @@ function App() {
                     <MainLayout>
                       <KanbanConfig />
                     </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/plantillas_globales_admin"
+                  element={
+                    <MainLayout_conexiones>
+                      <PlantillasGlobalesAdmin />
+                    </MainLayout_conexiones>
                   }
                 />
 

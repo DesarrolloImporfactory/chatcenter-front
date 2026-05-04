@@ -42,11 +42,26 @@ const DEFAULT_INFO_ENVIO_PREVIEW =
 const REGLAS_RAPIDAS = [
   {
     id: "preguntar_retiro_agencia",
-    label: "Preguntar si retira en agencia Servientrega",
+    label: "Ofrecer retiro en agencia Servientrega",
     descripcion: "Pregunta agencia vs domicilio antes de pedir dirección",
     icono: "bx bx-store-alt",
     texto:
-      "EN TODAS LAS INTERACCIONES:\nSiempre pregunta si el envio lo desea para retirar en una agencia Servientrega o prefiere a su domicilio, no solicites la dirección exacta hasta conocer esto.",
+      "FLUJO MODIFICADO PARA RETIRO EN AGENCIA:\n" +
+      "Antes de pedir la dirección de domicilio, SIEMPRE haz esta pregunta primero (después del precio y foto):\n" +
+      '"¿Prefieres que te lo enviemos a tu domicilio o que lo retires en una agencia Servientrega cercana?"\n' +
+      "\n" +
+      "SI elige domicilio: pide nombre, teléfono y dirección exacta (2 calles + referencia).\n" +
+      "SI elige agencia: pide nombre, teléfono y dirección exacta (2 calles + referencia) para entregar en la agencia.\n" +
+      "\n" +
+      "PROHIBIDO: pedir dirección de domicilio sin antes preguntar agencia vs domicilio. Esto SOBRESCRIBE la INTERACCION 2 del flujo base.",
+  },
+  {
+    id: "tienda_online",
+    label: "Aclarar que es una tienda online con envíos a todo el país",
+    descripcion: "Si preguntan por local físico o cobertura, aclara modalidad",
+    icono: "bx bx-globe",
+    texto:
+      "Si el cliente pregunta por la dirección de la tienda, si tienen local físico, si pueden ir personalmente o si hacen envíos a alguna ciudad o provincia, responde siempre que somos una tienda 100% online y que realizamos envíos a todo el país con pago contraentrega. NUNCA digas que tenemos local físico ni des una dirección de tienda.",
   },
   // más reglas a futuro...
 ];
@@ -131,29 +146,6 @@ const PersonalizarPromptModal = ({
       Toast.fire({ icon: "warning", title: "Falta el nombre de la tienda" });
       return;
     }
-
-    const confirm = await Swal.fire({
-      title: "¿Aplicar personalización?",
-      html: `
-        <div style="font-size:.85rem;color:#475569;text-align:left;line-height:1.55">
-          <div style="margin-bottom:8px">
-            <b>Identidad y envío</b> aplican a <b>todas</b> tus columnas IA.
-          </div>
-          <div style="margin-bottom:8px">
-            <b>Reglas específicas</b> aplican solo a <em>"${columnaNombre}"</em>.
-          </div>
-          <div style="font-size:.78rem;color:#64748b">Se actualiza directo en OpenAI.</div>
-        </div>
-      `,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#6366f1",
-      confirmButtonText: "Sí, aplicar",
-      cancelButtonText: "Cancelar",
-      ...Z_INDEX_FIX,
-    });
-
-    if (!confirm.isConfirmed) return;
 
     setSaving(true);
     Swal.fire({

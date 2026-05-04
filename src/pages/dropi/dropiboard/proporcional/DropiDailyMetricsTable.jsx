@@ -95,6 +95,10 @@ const Tip = ({ children, content, maxWidth = 280 }) => {
 };
 
 /* ════════════ Definición de columnas ════════════ */
+/* FIX 2026-05-01:
+   - "Venta real" (verde) = solo entregadas → columna principal usada en rentabilidad
+   - "Venta tot." (gris pequeño) = todas las órdenes → solo informativo
+*/
 const COLS = [
   {
     key: "fecha",
@@ -139,10 +143,16 @@ const COLS = [
     tip: "Total de órdenes generadas en Dropi este día (todos los estados).",
   },
   {
-    key: "venta_total",
-    label: "Venta total",
+    key: "venta_entregadas",
+    label: "Venta real",
     type: "auto",
-    tip: "Suma del valor de TODAS las órdenes del día (entregadas + tránsito + canceladas).",
+    tip: "Suma del valor SOLO de las órdenes ENTREGADAS exitosamente. Es lo que realmente cobraste. Esta es la cifra que se usa en la fórmula de rentabilidad.",
+  },
+  {
+    key: "venta_total",
+    label: "Venta tot.",
+    type: "auto",
+    tip: "Suma de TODAS las órdenes del día (incluye canceladas, devueltas, en tránsito). Solo informativo — no se usa para calcular rentabilidad.",
   },
   {
     key: "costo_producto_entregadas",
@@ -192,7 +202,7 @@ const COLS = [
     key: "rentabilidad",
     label: "Rentabilidad",
     type: "formula",
-    tip: "Lo que te queda al final del día. Fórmula: Venta total − Costo producto − Fletes − Gasto en ads.",
+    tip: "Lo que te queda al final del día. Fórmula: Venta real − Costo producto − Flete movilizado − Gasto en ads. Usa SOLO los entregados (no infla con canceladas/devoluciones).",
   },
 ];
 
@@ -419,7 +429,13 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
               color="slate"
               iconBx="bx-cloud-download"
               title="Lo trae Dropi"
-              cols={["Órdenes", "Venta", "Costo prod.", "Fletes", "Estados"]}
+              cols={[
+                "Órdenes",
+                "Venta real",
+                "Costo prod.",
+                "Fletes",
+                "Estados",
+              ]}
               desc="Sincronizado en tiempo real desde tu cuenta Dropi. No editable."
             />
             <HelpCard
@@ -432,7 +448,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                 "Costo / Venta",
                 "Rentabilidad",
               ]}
-              desc="Fórmulas automáticas. Cambian al editar gasto o mensajes."
+              desc="Fórmulas automáticas. La rentabilidad usa la VENTA REAL (solo entregados), no la venta total."
             />
           </div>
 
@@ -445,20 +461,31 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
             </div>
             <div className="font-mono text-[12px] text-slate-700 leading-relaxed">
               <span className="text-emerald-700 font-bold">Rentabilidad</span> ={" "}
-              <span className="bg-slate-100 px-1.5 py-0.5 rounded">
-                Venta total
+              <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                Venta real
               </span>{" "}
               −{" "}
               <span className="bg-slate-100 px-1.5 py-0.5 rounded">
                 Costo producto
               </span>{" "}
               −{" "}
-              <span className="bg-slate-100 px-1.5 py-0.5 rounded">Fletes</span>{" "}
+              <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                Flete movilizado
+              </span>{" "}
               −{" "}
               <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
                 Gasto en ads
               </span>
             </div>
+            <p className="text-[11px] text-slate-600 leading-snug mt-2">
+              <strong className="text-emerald-700">Venta real</strong> = solo lo
+              cobrado de órdenes <strong>ENTREGADAS</strong>. No incluye
+              canceladas, devueltas ni en tránsito.
+              <br />
+              <strong>Flete movilizado</strong> = flete de órdenes que
+              físicamente se movieron del courier (entregadas, devoluciones,
+              tránsito). No incluye las que están en bodega ni canceladas.
+            </p>
           </div>
 
           <div className="bg-white border border-violet-200 rounded-lg p-3 mt-2">
@@ -522,9 +549,9 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
             <p className="text-[11px] text-amber-900 leading-snug">
               <strong>Días con etiqueta "PROV":</strong> aún no hay entregas ese
               día, todas las órdenes están en tránsito. La rentabilidad va a
-              bajar cuando se entreguen (porque ahí se cuenta el costo del
-              producto). Es info temporal, espera unos días para ver el número
-              real.
+              cambiar cuando se entreguen (porque ahí se cuenta la venta real y
+              el costo del producto). Es info temporal, espera unos días para
+              ver el número final.
             </p>
           </div>
         </div>
@@ -626,6 +653,10 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
 
                 const tasaConf = calcTasaConfirmacion(r.ordenes_dia, msgVal);
                 const cpv = calcCostoPorVenta(gastoVal, r.ordenes_dia);
+
+                // Backend devuelve venta_entregadas y flete_movilizadas (FIX 2026-05-01)
+                const ventaReal = Number(r.venta_entregadas || 0);
+                const fleteMovil = Number(r.flete_movilizadas || 0);
 
                 return (
                   <tr
@@ -784,8 +815,24 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                       {r.ordenes_dia}
                     </Td>
 
-                    {/* Venta */}
-                    <Td className="text-slate-700 font-semibold">
+                    {/* Venta REAL (solo entregadas) — FIX 2026-05-01 */}
+                    <Td className="text-emerald-700 font-bold">
+                      {ventaReal > 0 ? (
+                        fmtMoney(ventaReal)
+                      ) : r.entregados === 0 && r.ordenes_dia > 0 ? (
+                        <Tip content="Aún no hay entregas confirmadas. Cuando se entreguen, aquí aparecerá la venta real cobrada.">
+                          <span className="text-slate-400 italic cursor-help inline-flex items-center gap-1 font-normal">
+                            <i className="bx bx-time text-[11px]" />
+                            pendiente
+                          </span>
+                        </Tip>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </Td>
+
+                    {/* Venta total (todas las órdenes) — solo info */}
+                    <Td className="text-slate-500 text-[10px]">
                       {fmtMoney(r.venta_total)}
                     </Td>
 
@@ -858,16 +905,19 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                       )}
                     </Td>
 
-                    {/* Rentabilidad */}
+                    {/* Rentabilidad — FIX 2026-05-01: tooltip con nueva fórmula */}
                     <Td>
                       <Tip
                         content={
                           <span>
-                            <strong>{fmtMoney(r.venta_total)}</strong> −{" "}
+                            <span className="text-[10px] text-slate-300 block mb-1">
+                              Venta real − Costo prod − Flete movilizado − Gasto
+                            </span>
+                            <strong>{fmtMoney(ventaReal)}</strong> −{" "}
                             <strong>
                               {fmtMoney(r.costo_producto_entregadas)}
                             </strong>{" "}
-                            − <strong>{fmtMoney(r.flete_total)}</strong> −{" "}
+                            − <strong>{fmtMoney(fleteMovil)}</strong> −{" "}
                             <strong>{fmtMoney(gastoVal)}</strong> ={" "}
                             <strong className="text-emerald-300">
                               {fmtMoney(r.rentabilidad)}
@@ -959,7 +1009,12 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                   <Td className="text-slate-900 text-center">
                     {totales.ordenes_dia}
                   </Td>
-                  <Td className="text-slate-900">
+                  {/* Venta real TOTAL — FIX 2026-05-01 */}
+                  <Td className="text-emerald-700 font-bold">
+                    {fmtMoney(totales.venta_entregadas || 0)}
+                  </Td>
+                  {/* Venta tot. (info) */}
+                  <Td className="text-slate-500 text-[10px]">
                     {fmtMoney(totales.venta_total)}
                   </Td>
                   <Td className="text-slate-700">
