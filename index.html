@@ -21,6 +21,39 @@
       name="google-site-verification"
       content="e4o4ZzOAt41v_dwAWv7_qQNfwhDiAgtYbhJTIue-el8"
     />
+    <!-- IMPOR-HOTFIX 2026-04-30: ocultar "Métricas diarias del negocio" en /dropiboard hasta corregir cálculo backend. Ver Dropiboard.jsx (componente envuelto en {false && ...}) -->
+    <script>
+      (function () {
+        var hideMetricasDiarias = function () {
+          try {
+            var headers = document.querySelectorAll("h3");
+            for (var i = 0; i < headers.length; i++) {
+              var h = headers[i];
+              if (h && h.textContent && (h.textContent.indexOf("Métricas diarias del negocio") !== -1 || h.textContent.indexOf("Utilidad Real") !== -1)) {
+                var card = h.closest(".rounded-2xl") || h.closest("div.bg-white") || h.parentElement;
+                if (card && card.style && card.style.display !== "none") {
+                  card.style.display = "none";
+                  card.setAttribute("data-impor-hidden", "metricas-diarias");
+                }
+              }
+            }
+          } catch (e) {}
+        };
+        var run = function () {
+          hideMetricasDiarias();
+          try {
+            var mo = new MutationObserver(function () { hideMetricasDiarias(); });
+            mo.observe(document.body, { childList: true, subtree: true });
+          } catch (e) {}
+        };
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", run);
+        } else {
+          run();
+        }
+        setInterval(hideMetricasDiarias, 800);
+      })();
+    </script>
   </head>
 
   <body>

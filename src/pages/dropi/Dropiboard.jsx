@@ -289,6 +289,19 @@ const Dropiboard = () => {
                 </span>
               </div>
             )}
+            <a
+              href="/metricas-internas/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-white text-orange-600 hover:bg-orange-50 hover:text-orange-700 transition-all border border-white/40 rounded-lg px-3 py-1.5 shadow-md font-bold text-[11px] tracking-wide"
+              title="Abrir control diario de rentabilidad (admin)"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M3 3v18h18" />
+                <path d="M7 14l4-4 4 4 6-6" />
+              </svg>
+              Control diario de rentabilidad
+            </a>
           </div>
         </div>
       </div>
@@ -494,14 +507,16 @@ const Dropiboard = () => {
 
             <DropiKpiCards kpis={kpis} />
 
-            {/* ── Utilidad Real ── */}
-            <DropiProfitBar profitData={profitData} />
+            {/* ── Utilidad Real ── OCULTO 2026-05-02 (Daniel decidió bajar) ── */}
+            {false && <DropiProfitBar profitData={profitData} />}
 
-            {/* ── Métricas diarias del negocio ── */}
-            <DropiDailyMetricsTable
-              integrationId={selectedIntegration?.id}
-              dateRange={dateRange}
-            />
+            {/* ── Métricas diarias del negocio ── OCULTO TEMPORALMENTE (cálculo en revisión) ── */}
+            {false && (
+              <DropiDailyMetricsTable
+                integrationId={selectedIntegration?.id}
+                dateRange={dateRange}
+              />
+            )}
 
             <DropiDevolucionPanel devolucionAnalysis={devolucionAnalysis} />
 
