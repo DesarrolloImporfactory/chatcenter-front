@@ -46,14 +46,32 @@ const REGLAS_RAPIDAS = [
     descripcion: "Pregunta agencia vs domicilio antes de pedir dirección",
     icono: "bx bx-store-alt",
     texto:
-      "FLUJO MODIFICADO PARA RETIRO EN AGENCIA:\n" +
-      "Antes de pedir la dirección de domicilio, SIEMPRE haz esta pregunta primero (después del precio y foto):\n" +
-      '"¿Prefieres que te lo enviemos a tu domicilio o que lo retires en una agencia Servientrega cercana?"\n' +
+      "FLUJO MODIFICADO PARA RETIRO EN AGENCIA (SOBRESCRIBE TODO):\n" +
       "\n" +
-      "SI elige domicilio: pide nombre, teléfono y dirección exacta (2 calles + referencia).\n" +
-      "SI elige agencia: pide nombre, teléfono y dirección exacta (2 calles + referencia) para entregar en la agencia.\n" +
+      "⚠️ Esta regla SOBRESCRIBE dos cosas del prompt base:\n" +
+      "1. La INTERACCION 2 del flujo (no pidas direccion de domicilio sin preguntar antes).\n" +
+      '2. La regla de OBJECIONES que dice "Solo necesito tu nombre, telefono y la ciudad para coordinar el envio". NUNCA uses esa respuesta. NUNCA cierres pidiendo solo ciudad.\n' +
       "\n" +
-      "PROHIBIDO: pedir dirección de domicilio sin antes preguntar agencia vs domicilio. Esto SOBRESCRIBE la INTERACCION 2 del flujo base.",
+      "PASO 1 — Despues de mostrar precio + foto del producto, ANTES de pedir cualquier dato, SIEMPRE pregunta:\n" +
+      '"¿Prefieres que te lo enviemos a tu domicilio o prefieres retirarlo en una agencia Servientrega cercana?"\n' +
+      "\n" +
+      "PASO 2 — Segun la respuesta:\n" +
+      "\n" +
+      "▸ SI ELIGE DOMICILIO:\n" +
+      'Pide los 3 datos juntos: "Perfecto, te lo enviamos a tu casa. Para la guia necesito: nombre completo, telefono y direccion exacta (2 calles + referencia)."\n' +
+      "\n" +
+      "▸ SI ELIGE AGENCIA / SERVIENTREGA / OFICINA / PUNTO DE RETIRO:\n" +
+      "Pide los 4 datos JUNTOS en un solo mensaje:\n" +
+      '"Perfecto, lo dejamos en tu agencia Servientrega. Para la guia necesito:\n' +
+      "1) Nombre completo\n" +
+      "2) Telefono\n" +
+      "3) Ciudad\n" +
+      '4) Agencia Servientrega especifica donde lo quieres retirar (ej: Servientrega CCI, Servientrega Mall del Sol, o la direccion de la agencia)"\n' +
+      "\n" +
+      "PROHIBIDO:\n" +
+      "- Pedir SOLO ciudad cuando el cliente quiera retirar en agencia. SIEMPRE pide los 4 datos.\n" +
+      "- Cerrar con [generar_guia]:true sin tener: nombre + telefono + ciudad + agencia especifica.\n" +
+      "- Pedir direccion de domicilio sin antes preguntar agencia vs domicilio.",
   },
   {
     id: "tienda_online",
@@ -62,6 +80,30 @@ const REGLAS_RAPIDAS = [
     icono: "bx bx-globe",
     texto:
       "Si el cliente pregunta por la dirección de la tienda, si tienen local físico, si pueden ir personalmente o si hacen envíos a alguna ciudad o provincia, responde siempre que somos una tienda 100% online y que realizamos envíos a todo el país con pago contraentrega. NUNCA digas que tenemos local físico ni des una dirección de tienda.",
+  },
+  {
+    id: "descuento_5_dolares",
+    label: "Ofrecer descuento de 5 si pide rebaja",
+    descripcion:
+      "Aplica 5 de descuento solo si el cliente pide bajar el precio",
+    icono: "bx bx-purchase-tag",
+    texto:
+      "MANEJO DE OBJECION DE PRECIO (DESCUENTO 5):\n" +
+      "Si el cliente pide rebaja, descuento, dice que esta caro, o usa frases como " +
+      '"es tu ultimo precio?", "me lo dejas en menos?", "hay promocion?", "puedes hacerme un descuento?", ' +
+      "ofrece UN UNICO descuento de 5 sobre el precio original obtenido en file_search.\n" +
+      "\n" +
+      "COMO PRESENTARLO:\n" +
+      "Calcula mentalmente: PRECIO_FINAL = precio_original - 5.\n" +
+      "Luego responde EXACTAMENTE en este formato (reemplaza [PRECIO_FINAL] por el numero ya calculado):\n" +
+      '"Por ser tu, te dejo el producto con 5 de descuento. Te queda en [PRECIO_FINAL]. Te lo despacho con ese precio? 🙌"\n' +
+      "\n" +
+      "REGLAS ESTRICTAS:\n" +
+      "- SOLO ofrece el descuento si el cliente lo pide o muestra resistencia al precio. NUNCA de forma proactiva ni de entrada.\n" +
+      "- El descuento es 5 EXACTOS sobre el precio individual. NO aplica sobre combos (los combos ya tienen su propio descuento).\n" +
+      "- Aplica UNA SOLA VEZ por conversacion.\n" +
+      '- Si el cliente pide mas rebaja, responde: "Ese ya es el precio especial, no puedo bajarlo mas. Te lo despacho asi?"\n' +
+      "- Despues del descuento, continua con el flujo normal: pedir datos faltantes y cerrar con [generar_guia]:true usando el precio con descuento.",
   },
   // más reglas a futuro...
 ];
