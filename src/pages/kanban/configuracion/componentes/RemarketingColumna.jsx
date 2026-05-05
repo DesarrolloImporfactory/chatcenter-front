@@ -27,10 +27,688 @@ const SECUENCIA_VACIA = () => ({
   header_media_url: "",
   headerInfo: null,
   estado_destino: "",
-  // ✨ NUEVO
   usar_respuesta_rapida: false,
   id_template_rapido: null,
 });
+
+/* ═══════════════════════════════════════════════════════════
+   Helpers visuales — patrón de fondo WhatsApp y hora
+   ═══════════════════════════════════════════════════════════ */
+const WA_BG_PATTERN = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%23d1c7b7' fill-opacity='0.25'><circle cx='10' cy='10' r='1.2'/><circle cx='40' cy='25' r='1'/><circle cx='60' cy='55' r='1.2'/><circle cx='20' cy='65' r='1'/><circle cx='70' cy='15' r='1'/></g></svg>")`;
+
+const horaActual = () => {
+  const n = new Date();
+  return `${n.getHours().toString().padStart(2, "0")}:${n
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+const isPublicUrl = (u) => /^https?:\/\//i.test(String(u || ""));
+
+function VideoHeader({ url }) {
+  const [error, setError] = React.useState(false);
+
+  if (!url || !isPublicUrl(url) || error) {
+    return (
+      <div
+        style={{
+          margin: 3,
+          marginBottom: 0,
+          background: "linear-gradient(135deg,#1f2937,#374151)",
+          height: 110,
+          borderRadius: 6,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "rgba(255,255,255,.7)",
+          fontSize: ".7rem",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
+        <i className="bx bx-video-off" style={{ fontSize: 22 }} />
+        <span>Video no disponible</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 3, paddingBottom: 0 }}>
+      <video
+        src={url}
+        controls
+        playsInline
+        preload="metadata"
+        style={{
+          width: "100%",
+          maxHeight: 200,
+          borderRadius: 6,
+          display: "block",
+          background: "#000",
+        }}
+        onError={() => setError(true)}
+      />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Preview de plantilla Meta (estilo WhatsApp - burbuja entrante)
+   ═══════════════════════════════════════════════════════════ */
+function TemplatePreviewMini({ template }) {
+  if (!template?.components) return null;
+
+  const header = template.components.find((c) => c.type === "HEADER");
+  const body = template.components.find((c) => c.type === "BODY");
+  const footer = template.components.find((c) => c.type === "FOOTER");
+  const buttonsComp = template.components.find((c) => c.type === "BUTTONS");
+
+  const bodyText = body?.text || "";
+  const headerFmt = (header?.format || "").toUpperCase();
+
+  const headerExampleUrl =
+    (Array.isArray(header?.example?.header_handle) &&
+      header.example.header_handle[0]) ||
+    (Array.isArray(header?.example?.header_url) &&
+      header.example.header_url[0]) ||
+    null;
+
+  const renderTextWithVars = (text) => {
+    if (!text) return null;
+    return text.split(/(\{\{\d+\}\})/g).map((part, i) =>
+      /\{\{\d+\}\}/.test(part) ? (
+        <span
+          key={i}
+          style={{
+            background: "#e0e7ff",
+            color: "#4338ca",
+            padding: "0 5px",
+            borderRadius: 4,
+            fontSize: ".74rem",
+            fontWeight: 600,
+          }}
+        >
+          {part}
+        </span>
+      ) : (
+        <span key={i}>{part}</span>
+      ),
+    );
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        borderRadius: 12,
+        overflow: "hidden",
+        border: "1px solid #d1d7db",
+        boxShadow: "0 2px 8px rgba(11,20,26,.06)",
+      }}
+    >
+      <div
+        style={{
+          padding: "5px 10px",
+          background: "#25d366",
+          fontSize: ".6rem",
+          fontWeight: 700,
+          color: "#fff",
+          textTransform: "uppercase",
+          letterSpacing: ".07em",
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+        }}
+      >
+        <i className="bx bxl-whatsapp" style={{ fontSize: 12 }} />
+        Vista previa — Plantilla Meta (fuera de 24h)
+      </div>
+
+      <div
+        style={{
+          background: "#efeae2",
+          backgroundImage: WA_BG_PATTERN,
+          padding: "12px 10px",
+        }}
+      >
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: "0 8px 8px 8px",
+            maxWidth: "94%",
+            boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
+            overflow: "hidden",
+          }}
+        >
+          {/* Header media */}
+          {headerFmt === "IMAGE" &&
+            headerExampleUrl &&
+            isPublicUrl(headerExampleUrl) && (
+              <div style={{ padding: 3, paddingBottom: 0 }}>
+                <img
+                  src={headerExampleUrl}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    maxHeight: 140,
+                    objectFit: "cover",
+                    borderRadius: 6,
+                    display: "block",
+                  }}
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+              </div>
+            )}
+          {headerFmt === "VIDEO" && <VideoHeader url={headerExampleUrl} />}
+          {headerFmt === "DOCUMENT" && (
+            <div
+              style={{
+                padding: "8px 10px",
+                margin: 3,
+                marginBottom: 0,
+                background: "#f5f6f6",
+                borderRadius: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  width: 30,
+                  height: 36,
+                  background: "#e53935",
+                  borderRadius: 4,
+                  color: "#fff",
+                  fontSize: ".6rem",
+                  fontWeight: 800,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                PDF
+              </div>
+              <div
+                style={{
+                  fontSize: ".76rem",
+                  color: "#111b21",
+                  fontWeight: 600,
+                }}
+              >
+                Documento
+              </div>
+            </div>
+          )}
+
+          {/* Contenido */}
+          <div style={{ padding: "7px 10px 5px" }}>
+            {headerFmt === "TEXT" && header?.text && (
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: ".84rem",
+                  color: "#111b21",
+                  marginBottom: 3,
+                  lineHeight: 1.3,
+                  wordBreak: "break-word",
+                }}
+              >
+                {renderTextWithVars(header.text)}
+              </div>
+            )}
+            {bodyText && (
+              <div
+                style={{
+                  fontSize: ".82rem",
+                  color: "#111b21",
+                  lineHeight: 1.45,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {renderTextWithVars(bodyText)}
+              </div>
+            )}
+            {footer?.text && (
+              <div
+                style={{
+                  fontSize: ".7rem",
+                  color: "#667781",
+                  marginTop: 4,
+                  lineHeight: 1.3,
+                }}
+              >
+                {footer.text}
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: ".6rem",
+                color: "#667781",
+                textAlign: "right",
+                marginTop: 3,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: 3,
+              }}
+            >
+              <span>{horaActual()}</span>
+              <svg width="14" height="10" viewBox="0 0 16 11" fill="none">
+                <path
+                  d="M11.071.653a.457.457 0 0 0-.304-.102.47.47 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.653.05L.289 7.24a.461.461 0 0 0 .05.646l3.732 3.482a.464.464 0 0 0 .655-.043L11.926 1.4a.46.46 0 0 0 .05-.646l-.905-.1z"
+                  fill="#53bdeb"
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* Botones */}
+          {Array.isArray(buttonsComp?.buttons) &&
+            buttonsComp.buttons.length > 0 && (
+              <div>
+                {buttonsComp.buttons.map((btn, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "8px 10px",
+                      textAlign: "center",
+                      fontSize: ".8rem",
+                      color: "#00a5f4",
+                      fontWeight: 500,
+                      borderTop: "1px solid #e9edef",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {btn.text || "Botón"}
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+
+        {bodyText && /\{\{\d+\}\}/.test(bodyText) && (
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: ".66rem",
+              color: "#475569",
+              lineHeight: 1.4,
+            }}
+          >
+            <i
+              className="bx bx-info-circle"
+              style={{ fontSize: 11, color: "#6366f1" }}
+            />{" "}
+            Las variables{" "}
+            <span
+              style={{
+                background: "#e0e7ff",
+                padding: "0 4px",
+                borderRadius: 3,
+                fontWeight: 600,
+                color: "#4338ca",
+              }}
+            >
+              {`{{1}}`}
+            </span>{" "}
+            las llena Meta automáticamente con los datos de cada cliente.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Preview de Respuesta Rápida (estilo WhatsApp - burbuja saliente)
+   Soporta: text, image, video, audio, document
+   ═══════════════════════════════════════════════════════════ */
+function RespuestaRapidaPreview({ rr }) {
+  if (!rr) return null;
+
+  const tipo = (rr.tipo_mensaje || "text").toLowerCase();
+  const texto = rr.mensaje || "";
+
+  // Resolver URL del archivo (intentamos varios campos por si el backend usa nombres distintos)
+  const mediaUrl =
+    rr.media_url ||
+    rr.file_url ||
+    rr.url ||
+    rr.archivo_url ||
+    rr.media_path ||
+    null;
+
+  const fileName = rr.file_name || rr.filename || rr.nombre_archivo || null;
+
+  const renderMedia = () => {
+    if (tipo === "image") {
+      return mediaUrl && isPublicUrl(mediaUrl) ? (
+        <div style={{ padding: 3, paddingBottom: 0 }}>
+          <img
+            src={mediaUrl}
+            alt=""
+            style={{
+              width: "100%",
+              maxHeight: 200,
+              objectFit: "cover",
+              borderRadius: 6,
+              display: "block",
+            }}
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+        </div>
+      ) : (
+        <PlaceholderMedia tipo="image" fileName={fileName} />
+      );
+    }
+
+    if (tipo === "video") {
+      return mediaUrl && isPublicUrl(mediaUrl) ? (
+        <div style={{ padding: 3, paddingBottom: 0 }}>
+          <video
+            src={mediaUrl}
+            controls
+            style={{
+              width: "100%",
+              maxHeight: 200,
+              borderRadius: 6,
+              display: "block",
+              background: "#000",
+            }}
+          />
+        </div>
+      ) : (
+        <PlaceholderMedia tipo="video" fileName={fileName} />
+      );
+    }
+
+    if (tipo === "audio") {
+      return (
+        <div style={{ padding: "8px 10px 4px" }}>
+          {mediaUrl && isPublicUrl(mediaUrl) ? (
+            <audio
+              src={mediaUrl}
+              controls
+              style={{ width: "100%", height: 36 }}
+            />
+          ) : (
+            <PlaceholderMedia tipo="audio" fileName={fileName} />
+          )}
+        </div>
+      );
+    }
+
+    if (tipo === "document") {
+      return (
+        <a
+          href={mediaUrl && isPublicUrl(mediaUrl) ? mediaUrl : undefined}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            padding: "8px 10px",
+            margin: 3,
+            marginBottom: 0,
+            background: "rgba(0,0,0,.06)",
+            borderRadius: 6,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            textDecoration: "none",
+            color: "inherit",
+            cursor: mediaUrl ? "pointer" : "default",
+          }}
+        >
+          <div
+            style={{
+              width: 32,
+              height: 38,
+              background: "#0b5394",
+              borderRadius: 4,
+              color: "#fff",
+              fontSize: ".58rem",
+              fontWeight: 800,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            DOC
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: ".78rem",
+                fontWeight: 600,
+                color: "#111b21",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {fileName || "Documento adjunto"}
+            </div>
+            <div style={{ fontSize: ".66rem", color: "#667781" }}>
+              {mediaUrl ? "Click para abrir" : "Archivo adjunto"}
+            </div>
+          </div>
+        </a>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        borderRadius: 12,
+        overflow: "hidden",
+        border: "1px solid #bae6fd",
+        boxShadow: "0 2px 8px rgba(11,20,26,.06)",
+      }}
+    >
+      <div
+        style={{
+          padding: "5px 10px",
+          background: "#0ea5e9",
+          fontSize: ".6rem",
+          fontWeight: 700,
+          color: "#fff",
+          textTransform: "uppercase",
+          letterSpacing: ".07em",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 5,
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <i className="bx bxs-zap" style={{ fontSize: 12 }} />
+          Vista previa — Respuesta rápida (dentro de 24h)
+        </span>
+        <span
+          style={{
+            background: "rgba(255,255,255,.25)",
+            padding: "1px 7px",
+            borderRadius: 999,
+            fontSize: ".58rem",
+          }}
+        >
+          /{rr.atajo} · {tipo}
+        </span>
+      </div>
+
+      <div
+        style={{
+          background: "#efeae2",
+          backgroundImage: WA_BG_PATTERN,
+          padding: "12px 10px",
+          display: "flex",
+          justifyContent: "flex-end",
+        }}
+      >
+        <div
+          style={{
+            background: "#d9fdd3",
+            borderRadius: "8px 0 8px 8px",
+            maxWidth: "94%",
+            boxShadow: "0 1px 0.5px rgba(11,20,26,.13)",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          {/* Cola de la burbuja saliente */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: -7,
+              width: 0,
+              height: 0,
+              borderTop: "0 solid transparent",
+              borderLeft: "8px solid #d9fdd3",
+              borderBottom: "8px solid transparent",
+            }}
+          />
+
+          {/* Media */}
+          {tipo !== "text" && renderMedia()}
+
+          {/* Texto / caption */}
+          {(texto || tipo === "text") && (
+            <div style={{ padding: "7px 10px 5px" }}>
+              {texto ? (
+                <div
+                  style={{
+                    fontSize: ".82rem",
+                    color: "#111b21",
+                    lineHeight: 1.45,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {texto}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: ".75rem",
+                    color: "#667781",
+                    fontStyle: "italic",
+                  }}
+                >
+                  (sin caption)
+                </div>
+              )}
+              <div
+                style={{
+                  fontSize: ".6rem",
+                  color: "#667781",
+                  textAlign: "right",
+                  marginTop: 3,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  gap: 3,
+                }}
+              >
+                <span>{horaActual()}</span>
+                <svg width="14" height="10" viewBox="0 0 16 11" fill="none">
+                  <path
+                    d="M11.071.653a.457.457 0 0 0-.304-.102.47.47 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.653.05L.289 7.24a.461.461 0 0 0 .05.646l3.732 3.482a.464.464 0 0 0 .655-.043L11.926 1.4a.46.46 0 0 0 .05-.646l-.905-.1z"
+                    fill="#53bdeb"
+                  />
+                </svg>
+              </div>
+            </div>
+          )}
+
+          {/* Si es media sin texto, hora va en barra inferior */}
+          {!texto && tipo !== "text" && (
+            <div
+              style={{
+                padding: "2px 10px 5px",
+                fontSize: ".6rem",
+                color: "#667781",
+                textAlign: "right",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: 3,
+              }}
+            >
+              <span>{horaActual()}</span>
+              <svg width="14" height="10" viewBox="0 0 16 11" fill="none">
+                <path
+                  d="M11.071.653a.457.457 0 0 0-.304-.102.47.47 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.363 0 0 0-.653.05L.289 7.24a.461.461 0 0 0 .05.646l3.732 3.482a.464.464 0 0 0 .655-.043L11.926 1.4a.46.46 0 0 0 .05-.646l-.905-.1z"
+                  fill="#53bdeb"
+                />
+              </svg>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: "6px 10px",
+          background: "#f0f9ff",
+          fontSize: ".66rem",
+          color: "#075985",
+          lineHeight: 1.4,
+          borderTop: "1px solid #bae6fd",
+        }}
+      >
+        <i className="bx bx-info-circle" style={{ fontSize: 11 }} /> Esto es lo
+        que recibirá el cliente si ha escrito en las últimas 24h (envío gratis,
+        fuera de plantilla).
+      </div>
+    </div>
+  );
+}
+
+function PlaceholderMedia({ tipo, fileName }) {
+  const map = {
+    image: { icon: "bx bx-image", label: "Imagen" },
+    video: { icon: "bx bx-video", label: "Video" },
+    audio: { icon: "bx bx-microphone", label: "Audio" },
+  };
+  const meta = map[tipo] || { icon: "bx bx-file", label: "Archivo" };
+  return (
+    <div
+      style={{
+        margin: 3,
+        marginBottom: 0,
+        background: "rgba(0,0,0,.06)",
+        height: 90,
+        borderRadius: 6,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
+        color: "#475569",
+      }}
+    >
+      <i className={meta.icon} style={{ fontSize: 22 }} />
+      <div style={{ fontSize: ".7rem", fontWeight: 600 }}>{meta.label}</div>
+      {fileName && (
+        <div style={{ fontSize: ".62rem", opacity: 0.7 }}>{fileName}</div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Componente principal
+   ═══════════════════════════════════════════════════════════ */
 
 const RemarketingColumna = ({
   id_configuracion,
@@ -50,7 +728,6 @@ const RemarketingColumna = ({
 
   const [secuencias, setSecuencias] = useState([SECUENCIA_VACIA()]);
 
-  // ── Check config activa al montar ──────────────────────────
   useEffect(() => {
     if (!id_configuracion || !estado_db) return;
     chatApi
@@ -64,7 +741,6 @@ const RemarketingColumna = ({
       .catch(() => {});
   }, [id_configuracion, estado_db]);
 
-  // ── Cargar plantillas Meta ─────────────────────────────────
   const fetchPlantillas = async () => {
     setLoadingPlt(true);
     try {
@@ -83,7 +759,6 @@ const RemarketingColumna = ({
     }
   };
 
-  // ── ✨ NUEVO: Cargar respuestas rápidas ────────────────────
   const fetchRespuestasRapidas = async () => {
     setLoadingRR(true);
     try {
@@ -236,7 +911,6 @@ const RemarketingColumna = ({
         });
         return;
       }
-      // Validar: si activó RR, debe tener una seleccionada
       if (s.usar_respuesta_rapida && !s.id_template_rapido) {
         Toast.fire({
           icon: "warning",
@@ -273,7 +947,6 @@ const RemarketingColumna = ({
         header_format: hFormat || null,
         header_media_url: hUrl || null,
         header_media_name: null,
-        // ✨ NUEVO
         usar_respuesta_rapida: !!s.usar_respuesta_rapida,
         id_template_rapido: s.usar_respuesta_rapida
           ? s.id_template_rapido
@@ -311,7 +984,6 @@ const RemarketingColumna = ({
       (!s.usar_respuesta_rapida || s.id_template_rapido),
   );
 
-  // Helper UI: icono por tipo de RR
   const iconoTipoRR = (tipo) => {
     const map = {
       text: "bx-message-rounded-detail",
@@ -369,7 +1041,6 @@ const RemarketingColumna = ({
         .rm2-swal-top { z-index:99999 !important; }
         .rm2-remove-btn { display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:7px; border:1px solid #fecaca; background:#fff5f5; color:#dc2626; font-size:.72rem; font-weight:600; cursor:pointer; font-family:inherit; }
         .rm2-remove-btn:hover { background:#fee2e2; }
-        /* ✨ NUEVO: bloque RR */
         .rm2-rr-card { border:1.5px solid #e0f2fe; background:#f0f9ff; border-radius:12px; padding:12px; }
         .rm2-rr-card.active { border-color:#0ea5e9; background:#eff6ff; box-shadow:0 0 0 3px rgba(14,165,233,.08); }
         .rm2-toggle { position:relative; display:inline-block; width:38px; height:22px; flex-shrink:0; }
@@ -719,11 +1390,16 @@ const RemarketingColumna = ({
                                       )}
                                     </div>
                                   )}
+
+                                  {/* ✨ Preview de la plantilla Meta */}
+                                  {sec.nombre_template && tplObj && (
+                                    <TemplatePreviewMini template={tplObj} />
+                                  )}
                                 </>
                               )}
                             </div>
 
-                            {/* ✨ NUEVO: Respuesta rápida */}
+                            {/* Respuesta rápida */}
                             <div
                               className={`rm2-rr-card ${sec.usar_respuesta_rapida ? "active" : ""}`}
                             >
@@ -826,6 +1502,7 @@ const RemarketingColumna = ({
                                         ))}
                                       </select>
 
+                                      {/* Resumen breve */}
                                       {rrSel && (
                                         <div
                                           style={{
@@ -856,7 +1533,19 @@ const RemarketingColumna = ({
                                                 color: "#0c4a6e",
                                               }}
                                             >
-                                              /{rrSel.atajo}
+                                              /{rrSel.atajo}{" "}
+                                              <span
+                                                style={{
+                                                  fontWeight: 500,
+                                                  color: "#94a3b8",
+                                                  fontSize: ".68rem",
+                                                  marginLeft: 4,
+                                                  textTransform: "uppercase",
+                                                  letterSpacing: ".05em",
+                                                }}
+                                              >
+                                                {rrSel.tipo_mensaje || "text"}
+                                              </span>
                                             </div>
                                             <div
                                               style={{
@@ -875,13 +1564,18 @@ const RemarketingColumna = ({
                                           </div>
                                         </div>
                                       )}
+
+                                      {/* ✨ Preview WhatsApp completo */}
+                                      {rrSel && (
+                                        <RespuestaRapidaPreview rr={rrSel} />
+                                      )}
                                     </>
                                   )}
                                 </div>
                               )}
                             </div>
 
-                            {/* Estado destino — solo en el último */}
+                            {/* Estado destino */}
                             <div>
                               <div
                                 style={{
