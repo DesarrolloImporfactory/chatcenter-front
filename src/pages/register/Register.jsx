@@ -1,10 +1,35 @@
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { registerThunk } from "../../store/slices/user.slice";
+import { fetchComunidadesThunk } from "../../store/slices/comunidad.slice";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef, useMemo } from "react";
 
+/* ============================================================
+   Países LATAM + ES
+   ============================================================ */
+const PAISES = [
+  { code: "+593", flag: "🇪🇨", name: "Ecuador" },
+  { code: "+57", flag: "🇨🇴", name: "Colombia" },
+  { code: "+51", flag: "🇵🇪", name: "Perú" },
+  { code: "+52", flag: "🇲🇽", name: "México" },
+  { code: "+56", flag: "🇨🇱", name: "Chile" },
+  { code: "+54", flag: "🇦🇷", name: "Argentina" },
+  { code: "+55", flag: "🇧🇷", name: "Brasil" },
+  { code: "+58", flag: "🇻🇪", name: "Venezuela" },
+  { code: "+591", flag: "🇧🇴", name: "Bolivia" },
+  { code: "+595", flag: "🇵🇾", name: "Paraguay" },
+  { code: "+598", flag: "🇺🇾", name: "Uruguay" },
+  { code: "+507", flag: "🇵🇦", name: "Panamá" },
+  { code: "+506", flag: "🇨🇷", name: "Costa Rica" },
+  { code: "+34", flag: "🇪🇸", name: "España" },
+  { code: "+1", flag: "🇺🇸", name: "USA" },
+];
+
+/* ============================================================
+   MeshBg
+   ============================================================ */
 const MeshBg = () => (
   <div className="absolute inset-0 overflow-hidden">
     <div
@@ -74,6 +99,9 @@ const MeshBg = () => (
   </div>
 );
 
+/* ============================================================
+   Counter animado
+   ============================================================ */
 const Counter = ({ target, label, color, suffix = "" }) => {
   const [val, setVal] = useState(0);
   useEffect(() => {
@@ -104,6 +132,9 @@ const Counter = ({ target, label, color, suffix = "" }) => {
   );
 };
 
+/* ============================================================
+   EyeIcon
+   ============================================================ */
 const EyeIcon = ({ show }) => (
   <svg
     className="w-[18px] h-[18px]"
@@ -127,10 +158,239 @@ const EyeIcon = ({ show }) => (
   </svg>
 );
 
+/* ============================================================
+   Combobox de comunidades — solo selección (sin crear)
+   ============================================================ */
+const ComunidadCombobox = ({ value, onChange }) => {
+  const dispatch = useDispatch();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [lista, setLista] = useState([]);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    dispatch(fetchComunidadesThunk(""))
+      .unwrap()
+      .then(setLista)
+      .catch(() => setLista([]));
+  }, [dispatch]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtradas = useMemo(() => {
+    if (!query.trim()) return lista;
+    const q = query.toLowerCase().trim();
+    return lista.filter((c) => c.nombre.toLowerCase().includes(q));
+  }, [lista, query]);
+
+  const handleSelect = (com) => {
+    onChange({ id_comunidad: com.id_comunidad, nombre: com.nombre });
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center gap-2 pl-10 pr-10 py-3 rounded-xl text-sm bg-white text-left border-2 transition-all ${open ? "border-emerald-600 shadow-[0_0_0_3px_rgba(16,185,129,0.08)]" : "border-slate-200/80"}`}
+      >
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+          <svg
+            className="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 00-3-3.87" />
+            <path d="M16 3.13a4 4 0 010 7.75" />
+          </svg>
+        </div>
+        <span className={value?.nombre ? "text-[#0B1426]" : "text-slate-400"}>
+          {value?.nombre || "Seleccionar comunidad..."}
+        </span>
+        <svg
+          className={`absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute z-30 mt-1.5 w-full rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden"
+          >
+            <div className="p-2 border-b border-slate-100 bg-slate-50">
+              <div className="relative">
+                <svg
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  autoFocus
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar comunidad..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white rounded-md border border-slate-200 outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="max-h-[200px] overflow-y-auto">
+              {filtradas.length === 0 && (
+                <p className="px-3 py-4 text-xs text-slate-400 text-center">
+                  No encontramos esa comunidad
+                </p>
+              )}
+
+              {filtradas.map((c) => (
+                <button
+                  key={c.id_comunidad}
+                  type="button"
+                  onClick={() => handleSelect(c)}
+                  className={`w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 transition flex items-center justify-between ${value?.id_comunidad === c.id_comunidad ? "bg-emerald-50/60" : ""}`}
+                >
+                  <span className="text-[#0B1426]">{c.nombre}</span>
+                  {value?.id_comunidad === c.id_comunidad && (
+                    <svg
+                      className="w-3.5 h-3.5 text-emerald-600"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+
+              {value?.id_comunidad && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(null);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-[10px] border-t border-slate-100 hover:bg-rose-50 text-rose-500 transition"
+                >
+                  Quitar selección
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/* ============================================================
+   Selector de país (compacto, embebido en input WA)
+   ============================================================ */
+const PaisSelect = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const sel = PAISES.find((p) => p.code === value) || PAISES[0];
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-slate-50 transition text-xs"
+      >
+        <span className="text-base leading-none">{sel.flag}</span>
+        <span className="font-medium text-[#0B1426]">{sel.code}</span>
+        <svg
+          className="w-3 h-3 text-slate-400"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.1 }}
+            className="absolute z-30 left-0 top-full mt-1 w-[180px] max-h-[220px] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl"
+          >
+            {PAISES.map((p) => (
+              <li key={p.code}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(p.code);
+                    setOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-emerald-50 text-left"
+                >
+                  <span className="text-base">{p.flag}</span>
+                  <span className="text-[#0B1426] flex-1">{p.name}</span>
+                  <span className="text-slate-500 font-mono">{p.code}</span>
+                </button>
+              </li>
+            ))}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/* ============================================================
+   COMPONENTE PRINCIPAL
+   ============================================================ */
 export default function Register() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [showPwd, setShowPwd] = useState(false);
+
+  const [comunidad, setComunidad] = useState(null);
+  const [waPais, setWaPais] = useState("+593");
 
   const {
     register,
@@ -142,17 +402,24 @@ export default function Register() {
   const acepta = watch("acepta", false);
 
   const onSubmit = (data) => {
-    // Solo enviamos los 3 campos reales — backend auto-deriva nombre y usuario
+    const waDigits = (data.whatsapp_lead || "").replace(/\D/g, "");
+
     const payload = {
       email: data.email,
       nombre_encargado: data.nombre_encargado,
       password: data.password,
+      whatsapp_lead: waDigits,
+      whatsapp_lead_pais: waPais,
+      ...(comunidad?.id_comunidad && {
+        id_comunidad: comunidad.id_comunidad,
+      }),
     };
 
     dispatch(registerThunk(payload))
       .unwrap()
       .then(() => {
         reset();
+        setComunidad(null);
         navigate("/login");
       });
   };
@@ -167,7 +434,7 @@ export default function Register() {
       <MeshBg />
 
       <div className="grid gap-8 lg:gap-12 md:grid-cols-[1.1fr_1fr] items-center w-full max-w-[1100px] z-10">
-        {/* PANEL */}
+        {/* PANEL IZQUIERDO */}
         <motion.section
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -389,7 +656,7 @@ export default function Register() {
           </div>
         </motion.section>
 
-        {/* FORM — 4 campos: nombre, email, contraseña, confirmar */}
+        {/* FORM */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -480,6 +747,59 @@ export default function Register() {
               {errors.email && (
                 <p className="text-rose-500 text-xs mt-1">
                   {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            {/* WhatsApp — obligatorio con framing pro */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <label
+                  htmlFor="whatsapp_lead"
+                  className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
+                >
+                  WhatsApp
+                </label>
+                <span className="text-[9px] text-emerald-600 italic font-medium">
+                  Para notificar alertas de tu cuenta
+                </span>
+              </div>
+              <div
+                className={`flex items-stretch gap-1 rounded-xl border-2 transition-all bg-white pr-4 focus-within:border-emerald-600 focus-within:shadow-[0_0_0_3px_rgba(16,185,129,0.08)] ${errors.whatsapp_lead ? "border-rose-400" : "border-slate-200/80"}`}
+              >
+                <div className="flex items-center pl-3 border-r border-slate-100">
+                  <svg
+                    className="w-4 h-4 mr-1.5"
+                    viewBox="0 0 24 24"
+                    fill="#10B981"
+                  >
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                  </svg>
+                  <PaisSelect value={waPais} onChange={setWaPais} />
+                </div>
+                <input
+                  id="whatsapp_lead"
+                  type="tel"
+                  placeholder="99 123 4567"
+                  {...register("whatsapp_lead", {
+                    required: "Necesitamos tu WhatsApp para alertas",
+                    pattern: {
+                      value: /^[\d\s\-()]{7,20}$/,
+                      message: "Número inválido",
+                    },
+                    validate: (v) => {
+                      const digits = (v || "").replace(/\D/g, "");
+                      return digits.length >= 7 || "Mínimo 7 dígitos";
+                    },
+                  })}
+                  className="flex-1 py-3 px-3 text-sm bg-transparent text-[#0B1426] placeholder-slate-400 outline-none"
+                  autoComplete="tel"
+                />
+              </div>
+
+              {errors.whatsapp_lead && (
+                <p className="text-rose-500 text-xs mt-1">
+                  {errors.whatsapp_lead.message}
                 </p>
               )}
             </div>
@@ -575,6 +895,19 @@ export default function Register() {
                   {errors.password2.message}
                 </p>
               )}
+            </div>
+
+            {/* Comunidad — opcional */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  ¿Vienes de alguna comunidad?
+                </label>
+                <span className="text-[9px] text-slate-400 italic">
+                  Opcional
+                </span>
+              </div>
+              <ComunidadCombobox value={comunidad} onChange={setComunidad} />
             </div>
 
             {/* Terms */}
