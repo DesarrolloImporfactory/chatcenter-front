@@ -2357,17 +2357,31 @@ const Chat = () => {
         setDataAdmin(data);
 
         if (data.metodo_pago == 0) {
+          const businessId = data.meta_business_id;
+
+          const metaUrl = businessId
+            ? `https://business.facebook.com/latest/settings/whatsapp_account/?business_id=${businessId}`
+            : "https://business.facebook.com/latest/settings/whatsapp_account/";
+
           Swal.fire({
-            icon: "error",
-            title: "Problema con el método de pago",
-            text: "Tu cuenta de WhatsApp tiene problemas con el método de pago. Debes resolverlo en Business Manager para continuar.",
+            icon: "warning",
+            title: "Acción requerida en Meta",
+            html: `
+              <div style="font-size:14px; line-height:1.5;">
+                Detectamos un inconveniente con el método de pago en tu cuenta de WhatsApp Business.
+                <br/><br/>
+                Para continuar enviando mensajes correctamente debes revisar la configuración de facturación en Meta Business Suite.
+              </div>
+            `,
             allowOutsideClick: false,
             allowEscapeKey: false,
-            allowEnterKey: true,
-            confirmButtonText: "OK",
-          }).then(() => {
-            // localStorage.removeItem("token");
-            /* window.location.href = "/canal-conexiones"; */
+            confirmButtonText: "Abrir Meta Business Suite",
+            showCancelButton: true,
+            cancelButtonText: "Más tarde",
+          }).then((result) => {
+            if (result.isConfirmed) {
+              window.open(metaUrl, "_blank");
+            }
           });
         }
       });

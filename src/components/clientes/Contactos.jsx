@@ -746,38 +746,6 @@ export default function Contactos() {
     };
   }, []);
 
-  useEffect(() => {
-    if (isSocketConnected && socketRef.current) {
-      const id_configuracion = localStorage.getItem("id_configuracion");
-
-      socketRef.current.emit("GET_DATA_ADMIN", id_configuracion);
-
-      socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
-        setDataAdmin(data);
-
-        if (data.metodo_pago === 0) {
-          Swal.fire({
-            icon: "error",
-            title: "Problema con el método de pago",
-            text: "Tu cuenta de WhatsApp tiene problemas con el método de pago. Debes resolverlo en Business Manager para continuar.",
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            allowEnterKey: true,
-            confirmButtonText: "OK",
-          }).then(() => {
-            window.location.href = "/canal-conexiones";
-          });
-        }
-      });
-    }
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.off("DATA_ADMIN_RESPONSE");
-      }
-    };
-  }, [isSocketConnected]);
-
   const [templates, setTemplates] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
