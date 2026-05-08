@@ -276,7 +276,7 @@ const ChatPrincipal = ({
     131049: "Límite alcanzado por spam",
     131051: "Tipo de mensaje no soportado",
     131031:
-      "Cuenta de WhatsApp bloqueada o restringida por Meta. Verifica el Business Manager.",
+      "Cuenta de WhatsApp bloqueada o restringida por Meta. Puede deberse a que alcanzaste el límite de plantillas diarias, o a que tu número fue bloqueado — revisa el Business Manager.",
   };
 
   const actualizar_mensaje_reenviado = async (
@@ -596,8 +596,8 @@ const ChatPrincipal = ({
   const reenviarTemplate = async (
     template_name,
     language_code,
-    ruta_archivo, // JSON string con body y url_0_1, url_1_1, etc.
-    texto_mensaje, // texto BODY con {{1}}, {{2}}...
+    ruta_archivo,
+    texto_mensaje,
     id_wamid_mensaje,
     id,
   ) => {
@@ -605,6 +605,15 @@ const ChatPrincipal = ({
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
     const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
+
+    // ============ DEBUG TEMPORAL ============
+    console.log("=== DEBUG REENVIO TEMPLATE ===");
+    console.log("template_name:", template_name);
+    console.log("language_code:", language_code);
+    console.log("texto_mensaje:", texto_mensaje);
+    console.log("ruta_archivo:", ruta_archivo);
+    console.log("¿Tiene {{ }} el texto?:", texto_mensaje?.includes("{{"));
+    // ============ FIN DEBUG ============
 
     let datos = {};
     try {
@@ -689,6 +698,13 @@ const ChatPrincipal = ({
         components,
       },
     };
+
+    // ============ DEBUG PAYLOAD ============
+    console.log(
+      "Payload final que se manda a Meta:",
+      JSON.stringify(payload, null, 2),
+    );
+    // ============ FIN DEBUG ============
 
     try {
       const response = await fetch(apiUrl, {
