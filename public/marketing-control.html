@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 Sala de Control de Marketing — GRUPO IMPOR</title>
+<style>
+:root {
+  --bg: #0f172a;
+  --bg2: #1e293b;
+  --card: #1e293b;
+  --card2: #0f1729;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --primary: #6366f1;
+  --primary2: #818cf8;
+  --green: #10b981;
+  --green-bg: rgba(16,185,129,0.12);
+  --amber: #f59e0b;
+  --amber-bg: rgba(245,158,11,0.12);
+  --red: #ef4444;
+  --red-bg: rgba(239,68,68,0.12);
+  --cyan: #06b6d4;
+  --purple: #a855f7;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+.mc-wrap { max-width: 1500px; margin: 0 auto; padding: 24px; }
+
+/* ── Header ── */
+.mc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.mc-title h1 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mc-title .sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text3);
+}
+
+/* ── Filtros ── */
+.mc-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mc-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mc-filter label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text3);
+}
+.mc-filter select, .mc-filter input {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  min-width: 120px;
+}
+.mc-filter select:focus, .mc-filter input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.mc-range-pills { display: flex; gap: 4px; background: var(--card); padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
+.mc-range-pill {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+}
+.mc-range-pill:hover { color: var(--text); }
+.mc-range-pill.active { background: var(--primary); color: white; }
+
+.mc-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 0;
+  font-family: inherit;
+  background: var(--primary);
+  color: white;
+  transition: opacity 0.15s;
+}
+.mc-btn:hover { opacity: 0.85; }
+.mc-btn-secondary { background: var(--card); color: var(--text2); border: 1px solid var(--border2); }
+
+/* ── Tabs ── */
+.mc-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.mc-tab {
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text3);
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+  margin-bottom: -1px;
+}
+.mc-tab:hover { color: var(--text2); }
+.mc-tab.active { color: var(--primary2); border-bottom-color: var(--primary); }
+
+.mc-tab-content { display: none; }
+.mc-tab-content.active { display: block; }
+
+/* ── Caveat banner ── */
+.mc-caveat {
+  background: var(--amber-bg);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #fbbf24;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.mc-caveat .icon { font-size: 18px; flex-shrink: 0; }
+
+/* ── KPI Cards ── */
+.mc-grid-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.mc-kpi {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.mc-kpi .lbl {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.mc-kpi .val {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+.mc-kpi .delta { font-size: 11px; color: var(--text2); font-weight: 600; }
+.mc-kpi-roas { background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.12)); border-color: rgba(99,102,241,0.4); }
+.mc-kpi-roas .val { color: var(--primary2); }
+.mc-kpi-revenue { background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.08)); border-color: rgba(16,185,129,0.35); }
+.mc-kpi-revenue .val { color: #34d399; }
+.mc-kpi-gasto .val { color: #fbbf24; }
+
+/* ── Embudo (barras) ── */
+.mc-funnel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.mc-funnel h3 { font-size: 15px; font-weight: 800; margin-bottom: 14px; color: var(--text); }
+.mc-funnel-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 100px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.mc-funnel-row:last-child { border-bottom: 0; }
+.mc-funnel-label { font-size: 13px; font-weight: 600; color: var(--text2); }
+.mc-funnel-label .sub { display: block; font-size: 10px; color: var(--text3); font-weight: 500; margin-top: 2px; }
+.mc-funnel-bar {
+  height: 24px;
+  background: var(--card2);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+.mc-funnel-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--purple));
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  white-space: nowrap;
+  min-width: 24px;
+  transition: width 0.6s ease;
+}
+.mc-funnel-value { font-size: 14px; font-weight: 800; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── Tasas grid ── */
+.mc-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media (max-width: 800px) { .mc-grid-2 { grid-template-columns: 1fr; } }
+.mc-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.mc-card h3 { font-size: 14px; font-weight: 800; margin-bottom: 14px; color: var(--text); }
+.mc-kv-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.mc-kv-row:last-child { border-bottom: 0; }
+.mc-kv-row .k { color: var(--text2); font-weight: 600; }
+.mc-kv-row .v { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ── Tabla top ads ── */
+.mc-table-wrap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.mc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.mc-table th {
+  background: var(--card2);
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.mc-table th:hover { color: var(--primary2); }
+.mc-table th.sorted { color: var(--primary2); }
+.mc-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.mc-table tr:hover td { background: rgba(99,102,241,0.04); }
+.mc-table tr:last-child td { border-bottom: 0; }
+.mc-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--card2);
+  border: 1px solid var(--border);
+}
+.mc-thumb-placeholder {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  background: var(--card2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: var(--text3);
+  border: 1px solid var(--border);
+}
+.mc-ad-name { font-weight: 700; color: var(--text); max-width: 240px; }
+.mc-ad-campaign { font-size: 11px; color: var(--text3); margin-top: 2px; max-width: 240px; }
+.mc-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.mc-pill-roas-hi { background: var(--green-bg); color: #34d399; }
+.mc-pill-roas-mid { background: rgba(99,102,241,0.18); color: var(--primary2); }
+.mc-pill-roas-low { background: var(--amber-bg); color: #fbbf24; }
+.mc-pill-roas-bad { background: var(--red-bg); color: #fca5a5; }
+
+/* ── Loading / Empty ── */
+.mc-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 14px;
+}
+.mc-loading::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--text3);
+  border-top-color: var(--primary2);
+  border-radius: 50%;
+  animation: mc-spin 0.8s linear infinite;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+@keyframes mc-spin { to { transform: rotate(360deg); } }
+.mc-empty { padding: 40px; text-align: center; color: var(--text3); font-size: 14px; }
+.mc-error {
+  padding: 20px;
+  background: var(--red-bg);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 10px;
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+</style>
+</head>
+<body>
+<div class="mc-wrap">
+
+  <!-- HEADER -->
+  <div class="mc-header">
+    <div class="mc-title">
+      <h1>📊 Sala de Control de Marketing</h1>
+      <div class="sub">Cruce Meta Ads + IMPORCHAT + Dropi · El ÁNGULO GANADOR aparece arriba en Top Ads</div>
+    </div>
+    <div class="mc-filters">
+      <div class="mc-filter">
+        <label>Empresa</label>
+        <select id="mc-empresa">
+          <option value="4">IMPORSHOP EC</option>
+          <option value="5">IMPORFACTORY</option>
+          <option value="8">IMPORSHOP MX</option>
+        </select>
+      </div>
+      <div class="mc-filter">
+        <label>Configuración Meta</label>
+        <select id="mc-config">
+          <option value="277">Compra por · 277 (única con Meta Ads)</option>
+        </select>
+      </div>
+      <div class="mc-filter">
+        <label>Rango</label>
+        <div class="mc-range-pills">
+          <button class="mc-range-pill" data-range="hoy">Hoy</button>
+          <button class="mc-range-pill" data-range="7d">7 días</button>
+          <button class="mc-range-pill active" data-range="30d">30 días</button>
+          <button class="mc-range-pill" data-range="custom">Custom</button>
+        </div>
+      </div>
+      <div class="mc-filter" id="mc-custom-range" style="display:none">
+        <label>Desde / Hasta</label>
+        <div style="display:flex;gap:6px">
+          <input type="date" id="mc-since">
+          <input type="date" id="mc-until">
+        </div>
+      </div>
+      <button class="mc-btn" id="mc-refresh">🔄 Cargar</button>
+    </div>
+  </div>
+
+  <!-- CAVEAT GLOBAL — atribución EXACTA via canal Compra por -->
+  <div class="mc-caveat" style="background:rgba(16,185,129,0.10);border-color:rgba(16,185,129,0.3);color:#34d399">
+    <span class="icon">✅</span>
+    <div>
+      <strong>Atribución exacta:</strong>
+      las órdenes vienen del canal Dropi <strong>"Compra por"</strong> (cuenta IMPORSUIT, sub=94375),
+      que recibe SOLO el tráfico generado por la conexión IMPORCHAT 277 (Meta Ads). 1:1 real, sin
+      contaminación de canales orgánicos. El embudo refleja exactamente lo que produjo este gasto Meta.
+      <span style="opacity:0.7">· Top Ads usa share-of-messages para repartir las órdenes entre creativos
+      (Phase 2 con <code style="color:#fbbf24">ctwa_clid</code> dará 1:1 también por ad).</span>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="mc-tabs">
+    <button class="mc-tab active" data-tab="funnel">📊 Funnel completo</button>
+    <button class="mc-tab" data-tab="topads">🏆 Top Ads enriquecido</button>
+  </div>
+
+  <!-- TAB FUNNEL -->
+  <div class="mc-tab-content active" id="mc-tab-funnel">
+    <div id="mc-funnel-content"><div class="mc-loading">Cargando funnel…</div></div>
+  </div>
+
+  <!-- TAB TOP ADS -->
+  <div class="mc-tab-content" id="mc-tab-topads">
+    <div id="mc-topads-content"><div class="mc-loading">Cargando top ads…</div></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// MARKETING CONTROL — Dashboard ads → ventas
+// ═══════════════════════════════════════════════════════
+
+const MC_API = 'https://chat.imporfactory.app/api/v1/marketing-control';
+let _mcCurrentRange = '30d';
+let _mcSortKey = 'roas_estimado';
+let _mcSortDir = 'desc';
+let _mcLastAds = [];
+
+// ── helpers ──
+function $(id){ return document.getElementById(id); }
+function fmtMoney(v){ return '$' + Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(v){ return Number(v||0).toLocaleString('en-US'); }
+function fmtPct(v){ return (Number(v||0)).toFixed(1) + '%'; }
+function safeEl(s){ return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+
+function _getRangeDates(label){
+  const today = new Date();
+  const fmt = d => d.toISOString().slice(0,10);
+  if (label === 'hoy') return { since: fmt(today), until: fmt(today) };
+  if (label === '30d'){ const d = new Date(today); d.setDate(d.getDate()-29); return { since: fmt(d), until: fmt(today) }; }
+  if (label === '7d'){ const d = new Date(today); d.setDate(d.getDate()-6); return { since: fmt(d), until: fmt(today) }; }
+  // custom
+  return { since: $('mc-since').value, until: $('mc-until').value };
+}
+
+function _getJWT(){
+  // Reusar el token del ERP (cookie/localStorage)
+  return localStorage.getItem('token') || localStorage.getItem('access_token') || '';
+}
+
+async function _api(path){
+  const tok = _getJWT();
+  const r = await fetch(MC_API + path, {
+    headers: { 'Authorization': 'Bearer ' + tok, 'Accept': 'application/json' }
+  });
+  if (r.status === 401){
+    // En chatcenter el login está en /login; si no hay JWT, mandar allá
+    window.location.href = '/login';
+    return;
+  }
+  if (!r.ok){
+    const txt = await r.text();
+    throw new Error('HTTP ' + r.status + ': ' + txt.slice(0,200));
+  }
+  return r.json();
+}
+
+// ── Loaders ──
+async function mcLoad(){
+  const { since, until } = _getRangeDates(_mcCurrentRange);
+  if (!since || !until){
+    alert('Selecciona un rango válido');
+    return;
+  }
+  const empresa = $('mc-empresa').value;
+  const config = $('mc-config').value;
+  const qs = `?empresa_id=${empresa}&id_configuracion=${config}&since=${since}&until=${until}`;
+
+  // Loaders
+  $('mc-funnel-content').innerHTML = '<div class="mc-loading">Cargando funnel…</div>';
+  $('mc-topads-content').innerHTML = '<div class="mc-loading">Cargando top ads…</div>';
+
+  // Lanzar en paralelo
+  try {
+    const [funnel, topads] = await Promise.all([
+      _api('/funnel' + qs),
+      _api('/top-ads' + qs + '&limit=20'),
+    ]);
+    renderFunnel(funnel);
+    _mcLastAds = topads.items || [];
+    renderTopAds(topads);
+  } catch (e){
+    const msg = '<div class="mc-error">Error: ' + safeEl(e.message) + '</div>';
+    $('mc-funnel-content').innerHTML = msg;
+    $('mc-topads-content').innerHTML = msg;
+  }
+}
+
+// ── Render Funnel ──
+function renderFunnel(d){
+  const e = d.embudo || {};
+  const $$ = d.dinero || {};
+  const t = d.tasas_pct || {};
+
+  // Calc bar widths (% relativo a impresiones)
+  const maxV = e.impresiones || 1;
+  const bw = v => Math.max(1, Math.min(100, (v / maxV) * 100));
+
+  // ROAS pill class
+  const roas = $$.roas_real || 0;
+  const roasCls = roas >= 2 ? 'mc-pill-roas-hi' : roas >= 1 ? 'mc-pill-roas-mid' : 'mc-pill-roas-low';
+
+  const html = `
+    <!-- KPIs principales -->
+    <div class="mc-grid-kpis">
+      <div class="mc-kpi mc-kpi-gasto">
+        <div class="lbl">Gasto Meta Ads</div>
+        <div class="val">${fmtMoney($$.gasto_ads)}</div>
+        <div class="delta">CPC ${fmtMoney(($$.gasto_ads||0) / Math.max(e.clicks||1,1))} · CPM ${fmtMoney(($$.gasto_ads||0)*1000 / Math.max(e.impresiones||1,1))}</div>
+      </div>
+      <div class="mc-kpi mc-kpi-revenue">
+        <div class="lbl">Revenue entregado</div>
+        <div class="val">${fmtMoney($$.revenue_entregado)}</div>
+        <div class="delta">${fmtInt(e.entregadas)} órdenes · ticket ${fmtMoney($$.ticket_promedio_entrega)}</div>
+      </div>
+      <div class="mc-kpi mc-kpi-roas">
+        <div class="lbl">ROAS REAL (canal Compra por)</div>
+        <div class="val">${roas.toFixed(2)}x</div>
+        <div class="delta">revenue / gasto · 1.0 = punto de equilibrio</div>
+      </div>
+      <div class="mc-kpi">
+        <div class="lbl">Mensajes WA</div>
+        <div class="val">${fmtInt(e.msgs_wa)}</div>
+        <div class="delta">CPA msg ${fmtMoney($$.cpa_mensaje)}</div>
+      </div>
+      <div class="mc-kpi">
+        <div class="lbl">Órdenes Dropi (rango)</div>
+        <div class="val">${fmtInt(e.ordenes_dropi)}</div>
+        <div class="delta">${fmtInt(e.en_camino)} en camino · ${fmtInt(e.devueltas)} devueltas</div>
+      </div>
+    </div>
+
+    <!-- Embudo -->
+    <div class="mc-funnel">
+      <h3>📉 Embudo del rango (${d.rango.since} → ${d.rango.until})</h3>
+      ${[
+        {label:'Impresiones', sub:'mostrado en feeds', value:e.impresiones, pct:100},
+        {label:'Clicks', sub:`CTR ${fmtPct(t.ctr)}`, value:e.clicks, pct:bw(e.clicks)},
+        {label:'Mensajes WA', sub:`click→msg ${fmtPct(t.click_to_msg)}`, value:e.msgs_wa, pct:bw(e.msgs_wa)},
+        {label:'Órdenes Dropi (Compra por)', sub:'✅ 1:1 — solo canal Meta', value:e.ordenes_dropi, pct:bw(e.ordenes_dropi)},
+        {label:'Entregadas', sub:`orden→entrega ${fmtPct(t.orden_to_entrega)}`, value:e.entregadas, pct:bw(e.entregadas)},
+      ].map(r => `
+        <div class="mc-funnel-row">
+          <div class="mc-funnel-label">${r.label}<span class="sub">${r.sub}</span></div>
+          <div class="mc-funnel-bar"><div class="mc-funnel-fill" style="width:${r.pct}%">${r.pct.toFixed(1)}%</div></div>
+          <div class="mc-funnel-value">${fmtInt(r.value)}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Dinero + Tasas -->
+    <div class="mc-grid-2">
+      <div class="mc-card">
+        <h3>💰 Dinero</h3>
+        <div class="mc-kv-row"><span class="k">Gasto ads</span><span class="v">${fmtMoney($$.gasto_ads)}</span></div>
+        <div class="mc-kv-row"><span class="k">Revenue entregado (costo proveedor)</span><span class="v">${fmtMoney($$.revenue_entregado)}</span></div>
+        <div class="mc-kv-row"><span class="k">Venta bruta (total cliente)</span><span class="v">${fmtMoney($$.venta_bruta)}</span></div>
+        <div class="mc-kv-row"><span class="k">Ticket promedio entrega</span><span class="v">${fmtMoney($$.ticket_promedio_entrega)}</span></div>
+        <div class="mc-kv-row"><span class="k">ROAS real</span><span class="v"><span class="mc-pill ${roasCls}">${roas.toFixed(2)}x</span></span></div>
+        <div class="mc-kv-row"><span class="k">CPA por mensaje</span><span class="v">${fmtMoney($$.cpa_mensaje)}</span></div>
+        <div class="mc-kv-row"><span class="k">CPA por orden</span><span class="v">${fmtMoney($$.cpa_orden)}</span></div>
+        <div class="mc-kv-row"><span class="k">CPA por entrega</span><span class="v">${fmtMoney($$.cpa_entrega)}</span></div>
+      </div>
+      <div class="mc-card">
+        <h3>📈 Tasas de conversión</h3>
+        <div class="mc-kv-row"><span class="k">CTR (clicks / impresiones)</span><span class="v">${fmtPct(t.ctr)}</span></div>
+        <div class="mc-kv-row"><span class="k">Click → Mensaje WA</span><span class="v">${fmtPct(t.click_to_msg)}</span></div>
+        <div class="mc-kv-row"><span class="k">Mensaje → Orden Dropi (rango)</span><span class="v">${fmtPct(t.msg_to_orden)}</span></div>
+        <div class="mc-kv-row"><span class="k">Orden → Entrega</span><span class="v">${fmtPct(t.orden_to_entrega)}</span></div>
+        <div style="margin-top:14px;padding:12px;background:rgba(99,102,241,0.08);border-radius:8px;font-size:11px;color:#94a3b8;line-height:1.5">
+          💡 <strong style="color:#a5b4fc">Cómo leer esto:</strong> si "Click → Mensaje WA" es bajo (&lt;30%) tu landing/copy no engancha.
+          Si "Orden → Entrega" es bajo (&lt;30%) tu producto/logística falla. El ROAS real es la
+          métrica reina — si está abajo de 1.0 estás quemando plata.
+        </div>
+      </div>
+    </div>
+  `;
+  $('mc-funnel-content').innerHTML = html;
+}
+
+// ── Render Top Ads ──
+function renderTopAds(d){
+  const items = d.items || [];
+  const tot = d.totales_rango || {};
+  if (items.length === 0){
+    $('mc-topads-content').innerHTML = '<div class="mc-empty">Sin ads para este rango.</div>';
+    return;
+  }
+
+  // Re-sort según _mcSortKey/_mcSortDir
+  const sorted = [...items].sort((a,b) => {
+    const va = a[_mcSortKey] ?? 0, vb = b[_mcSortKey] ?? 0;
+    return _mcSortDir === 'desc' ? vb - va : va - vb;
+  });
+
+  const cols = [
+    { key: 'thumbnail_url', label: 'Img', sortable: false },
+    { key: 'ad_name', label: 'Ad / Campaña', sortable: false },
+    { key: 'spend', label: 'Gasto', fmt: 'money', sortable: true },
+    { key: 'impressions', label: 'Impr', fmt: 'int', sortable: true },
+    { key: 'clicks', label: 'Clicks', fmt: 'int', sortable: true },
+    { key: 'ctr', label: 'CTR%', fmt: 'pct', sortable: true },
+    { key: 'msgs', label: 'Msgs', fmt: 'int', sortable: true },
+    { key: 'cpa_msg', label: 'CPA msg', fmt: 'money', sortable: true },
+    { key: 'share_msgs_pct', label: '% Msgs', fmt: 'pct', sortable: true },
+    { key: 'ordenes_estimadas', label: 'Órd Est', fmt: 'dec1', sortable: true },
+    { key: 'entregadas_estimadas', label: 'Entr Est', fmt: 'dec1', sortable: true },
+    { key: 'revenue_estimado', label: 'Rev Est', fmt: 'money', sortable: true },
+    { key: 'roas_estimado', label: 'ROAS Est', fmt: 'roas', sortable: true },
+  ];
+
+  const fmtCell = (col, v) => {
+    if (col.fmt === 'money') return fmtMoney(v);
+    if (col.fmt === 'int') return fmtInt(v);
+    if (col.fmt === 'pct') return (Number(v||0)).toFixed(2) + '%';
+    if (col.fmt === 'dec1') return Number(v||0).toFixed(1);
+    if (col.fmt === 'roas'){
+      const x = Number(v||0);
+      const cls = x >= 5 ? 'mc-pill-roas-hi' : x >= 1.5 ? 'mc-pill-roas-mid' : x > 0 ? 'mc-pill-roas-low' : 'mc-pill-roas-bad';
+      return `<span class="mc-pill ${cls}">${x.toFixed(2)}x</span>`;
+    }
+    return safeEl(v);
+  };
+
+  const arrow = key => _mcSortKey === key ? (_mcSortDir === 'desc' ? ' ▼' : ' ▲') : '';
+
+  const thead = cols.map(c => `
+    <th ${c.sortable ? `data-sort="${c.key}" class="${_mcSortKey===c.key?'sorted':''}"` : ''}>${c.label}${c.sortable ? arrow(c.key) : ''}</th>
+  `).join('');
+
+  const tbody = sorted.map((ad, idx) => {
+    const thumb = ad.thumbnail_url
+      ? `<img src="${safeEl(ad.thumbnail_url)}" class="mc-thumb" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'mc-thumb-placeholder',innerHTML:'🖼️'}))">`
+      : `<div class="mc-thumb-placeholder">🖼️</div>`;
+    const nameCell = `
+      <div class="mc-ad-name">${safeEl(ad.ad_name || '(sin nombre)')}</div>
+      <div class="mc-ad-campaign">${safeEl(ad.campaign_name || '')}</div>
+    `;
+    return `<tr>
+      <td>${thumb}</td>
+      <td>${nameCell}</td>
+      ${cols.slice(2).map(c => `<td>${fmtCell(c, ad[c.key])}</td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  $('mc-topads-content').innerHTML = `
+    <div style="margin-bottom:14px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:#94a3b8">
+      💡 <strong style="color:#a5b4fc">Cómo leerlo:</strong> ordenados por <strong>ROAS estimado descendente</strong> — los de arriba son los ÁNGULOS GANADORES.
+      Las columnas <em>Est</em> usan atribución por % de mensajes del ad sobre el total. Click en cualquier header para reordenar.
+      Totales del rango: ${fmtInt(tot.msgs_meta)} msgs Meta · ${fmtInt(tot.ordenes_dropi)} órdenes Dropi · ${fmtMoney(tot.revenue_entregado)} revenue · ${fmtMoney(tot.gasto_total)} gasto.
+    </div>
+    <div class="mc-table-wrap">
+      <table class="mc-table">
+        <thead><tr>${thead}</tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>
+  `;
+
+  // Hook sort en headers
+  document.querySelectorAll('.mc-table th[data-sort]').forEach(th => {
+    th.onclick = () => {
+      const k = th.dataset.sort;
+      if (_mcSortKey === k) _mcSortDir = (_mcSortDir === 'desc' ? 'asc' : 'desc');
+      else { _mcSortKey = k; _mcSortDir = 'desc'; }
+      renderTopAds({ items: _mcLastAds, totales_rango: tot });
+    };
+  });
+}
+
+// ── Wiring ──
+document.querySelectorAll('.mc-tab').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.mc-tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.mc-tab-content').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('mc-tab-' + b.dataset.tab).classList.add('active');
+  };
+});
+
+document.querySelectorAll('.mc-range-pill').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.mc-range-pill').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    _mcCurrentRange = b.dataset.range;
+    $('mc-custom-range').style.display = (_mcCurrentRange === 'custom') ? 'flex' : 'none';
+    if (_mcCurrentRange !== 'custom') mcLoad();
+  };
+});
+
+$('mc-refresh').onclick = mcLoad;
+
+// Init: cargar custom date defaults a últimos 7 días
+(function init(){
+  const today = new Date();
+  const sevenAgo = new Date(today); sevenAgo.setDate(sevenAgo.getDate()-6);
+  $('mc-since').value = sevenAgo.toISOString().slice(0,10);
+  $('mc-until').value = today.toISOString().slice(0,10);
+  mcLoad();
+})();
+</script>
+</body>
+</html>
