@@ -88,6 +88,7 @@ import SsoLanding from "./pages/sso/SsoLanding";
 import EncuestasView from "./pages/encuestas/EncuestasView";
 import Adsboard from "./components/metaAsd/Adsboard";
 import PlantillasGlobalesAdmin from "./pages/kanbanAdmin/PlantillasGlobalesAdmin";
+import ControlCenter from "./components/controlCenter/ControlCenter";
 
 function App() {
   const location = useLocation();
@@ -185,14 +186,6 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <Dashboard />
-                    </MainLayout_conexiones>
-                  }
-                />
-                <Route
-                  path="/adsboard"
-                  element={
-                    <MainLayout_conexiones>
-                      <Adsboard />
                     </MainLayout_conexiones>
                   }
                 />
@@ -369,6 +362,15 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <PlantillasGlobalesAdmin />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                <Route
+                  path="/dashboard"
+                  element={
+                    <MainLayout_conexiones>
+                      <ControlCenter />
                     </MainLayout_conexiones>
                   }
                 />

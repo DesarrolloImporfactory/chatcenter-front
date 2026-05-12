@@ -349,14 +349,14 @@ export default function SelectorHerramienta() {
             animation: "orbDrift 32s ease-in-out infinite reverse",
           }}
         />
-        {/* Orb dorado para Dropiboard */}
+        {/* Orb dorado para Dashboard */}
         <div
           className="absolute w-[400px] h-[400px] rounded-full"
           style={{
             top: "30%",
             left: "35%",
             background:
-              "radial-gradient(circle, rgba(234,179,8,.05), transparent 55%)",
+              "radial-gradient(circle, rgba(234,179,8,.07), transparent 55%)",
             filter: "blur(60px)",
             animation: "orbDrift 28s ease-in-out infinite",
           }}
@@ -439,20 +439,20 @@ export default function SelectorHerramienta() {
         />
 
         <ToolCard
-          title="Dropiboard"
-          tagline="Métricas & Utilidad en Tiempo Real"
-          description="Analiza todas tus órdenes Dropi en un solo lugar. Estados de guías, tasa de entrega, devoluciones, productos top, retiros en agencia y utilidad real calculada automáticamente."
-          badges={["Órdenes Live", "Utilidad Real", "KPIs", "Top Productos"]}
+          title="Dashboard"
+          tagline="Centro de Control · 3 vistas en 1"
+          description="Tu cerebro operacional unificado. Cruza ventas con Dropi, anuncios ganadores en Meta y mensajes de WhatsApp Business en un solo lugar. Decisiones rápidas con todos tus datos a la vista."
+          badges={["Multi-vista", "Tiempo Real", "ROI Real", "Centralizado"]}
           stats={[
+            { value: "3 en 1", label: "Vistas" },
             { value: "Live", label: "Sync" },
-            { value: "$$$", label: "Profit" },
-            { value: "∞", label: "Órdenes" },
+            { value: "ROI", label: "Real" },
           ]}
           accent="#EAB308"
           locked={!canDropiboard}
           lockedLabel="Disponible en Pro Ecosistema"
           delay={0.14}
-          onClick={() => navigate(canDropiboard ? "/dropiboard" : "/planes")}
+          onClick={() => navigate(canDropiboard ? "/dashboard" : "/planes")}
           icon={
             <svg
               className="w-5 h-5"
@@ -464,9 +464,6 @@ export default function SelectorHerramienta() {
               <rect x="3" y="12" width="4" height="9" rx="1" />
               <rect x="10" y="7" width="4" height="14" rx="1" />
               <rect x="17" y="3" width="4" height="18" rx="1" />
-              <circle cx="5" cy="10" r="1.5" fill="#EAB308" />
-              <circle cx="12" cy="5" r="1.5" fill="#EAB308" />
-              <circle cx="19" cy="1.5" r="1.5" fill="#EAB308" />
             </svg>
           }
         />

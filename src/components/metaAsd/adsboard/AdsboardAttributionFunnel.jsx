@@ -1,15 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
-/**
- * AdsboardAttributionFunnel
- *
- * Cruce REAL Meta Ads + Dropi (canal "Compra por") para ver:
- * - ROAS REAL (revenue entregado / gasto ads), no el de pixel
- * - Estado de las órdenes generadas
- * - Tasas de conversión completas: impresión → click → msg → orden → entrega
- */
-
 const fmt = (n, dec = 0) => {
   if (n == null || isNaN(n)) return "—";
   return Number(n).toLocaleString("en-US", {
@@ -37,7 +28,6 @@ const fmtCompact = (n) => {
 
 const fmtPct = (n) => `${fmt(n, 2)}%`;
 
-/* ── Tooltip con Portal + detección de bordes del viewport ── */
 const Tip = ({ text, children, width = 260 }) => {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, arrowLeft: "50%" });
@@ -104,7 +94,6 @@ const TipIcon = () => (
   <i className="bx bx-help-circle text-slate-300 hover:text-slate-500 cursor-help text-[12px] transition" />
 );
 
-/* ── Hero stat ── */
 const HeroStat = ({ icon, label, value, sub, accentColor, hint, tooltip }) => (
   <div className="relative rounded-xl bg-white ring-1 ring-slate-200 px-4 py-4 min-h-[100px] flex flex-col justify-center hover:shadow-sm transition">
     <div
@@ -142,7 +131,6 @@ const HeroStat = ({ icon, label, value, sub, accentColor, hint, tooltip }) => (
   </div>
 );
 
-/* ── Funnel row ── */
 const FunnelRow = ({
   label,
   sub,
@@ -190,7 +178,6 @@ const FunnelRow = ({
   </div>
 );
 
-/* ── Status card ── */
 const StatusCard = ({ icon, label, value, total, color, tooltip }) => {
   const pct = total > 0 ? (value / total) * 100 : 0;
   return (
@@ -228,8 +215,6 @@ const StatusCard = ({ icon, label, value, total, color, tooltip }) => {
     </div>
   );
 };
-
-/* ══════════════════════════════════════════════ */
 
 export default function AdsboardAttributionFunnel({
   data,
@@ -292,29 +277,39 @@ export default function AdsboardAttributionFunnel({
   const t = data.funnel?.tasas_pct || {};
   const cacheInfo = data.cache || {};
 
+  // Utilidad: si el back ya manda utilidad_entregada usa eso, sino fallback a revenue_entregado
+  const utilidad = Number(m.utilidad_entregada ?? 0);
+  const ticketUtilidad = Number(
+    m.ticket_promedio_utilidad ??
+      (e.entregadas > 0 ? utilidad / e.entregadas : 0),
+  );
+  const gastoAds = Number(m.gasto_ads || 0);
+  const roi = Number(m.roi_real ?? (gastoAds > 0 ? utilidad / gastoAds : 0));
+  const gananciaNeta = utilidad - gastoAds;
+
   const totalEstados =
     (e.entregadas || 0) +
     (e.en_camino || 0) +
     (e.devueltas || 0) +
     (e.canceladas || 0);
   const topFunnel = e.impresiones || 1;
-  const roas = m.roas_real || 0;
-  const roasColor =
-    roas >= 3
+
+  const roiColor =
+    roi >= 2
       ? "#059669"
-      : roas >= 2
+      : roi >= 1.5
         ? "#2563eb"
-        : roas >= 1
+        : roi >= 1
           ? "#f59e0b"
           : "#ef4444";
-  const roasLabel =
-    roas >= 3
+  const roiLabel =
+    roi >= 2
       ? "Excelente"
-      : roas >= 2
-        ? "Rentable"
-        : roas >= 1
+      : roi >= 1.5
+        ? "Muy bueno"
+        : roi >= 1
           ? "Punto de equilibrio"
-          : "Quema dinero";
+          : "Pérdida";
 
   return (
     <div className="space-y-6">
@@ -323,9 +318,9 @@ export default function AdsboardAttributionFunnel({
         <HeroStat
           icon="bx-dollar-circle"
           label="Gasto Meta Ads"
-          value={fmtCurrency(m.gasto_ads, currency)}
+          value={fmtCurrency(gastoAds, currency)}
           accentColor="#ef4444"
-          hint={`${fmt(e.clicks)} clics · CPM ${fmtCurrency((m.gasto_ads * 1000) / Math.max(e.impresiones, 1), currency)}`}
+          hint={`${fmt(e.clicks)} clics · CPM ${fmtCurrency((gastoAds * 1000) / Math.max(e.impresiones, 1), currency)}`}
           tooltip="Total invertido en anuncios de Meta (Facebook + Instagram) durante el período seleccionado."
         />
         <HeroStat
@@ -335,25 +330,25 @@ export default function AdsboardAttributionFunnel({
           accentColor="#7c3aed"
           sub={`${fmt(e.entregadas)} entregadas`}
           hint={`CPA orden: ${fmtCurrency(m.cpa_orden, currency)}`}
-          tooltip="Órdenes creadas en Dropi durante el período seleccionado. Incluye todos los estados: entregadas, en camino, devueltas y canceladas."
+          tooltip="Órdenes creadas en Dropi durante el período. Incluye todos los estados: entregadas, en camino, devueltas y canceladas."
         />
         <HeroStat
-          icon="bx-check-double"
-          label="Revenue entregado"
-          value={fmtCurrency(m.revenue_entregado, currency)}
+          icon="bx-wallet"
+          label="Utilidad entregada"
+          value={fmtCurrency(utilidad, currency)}
           accentColor="#059669"
-          sub={`Ticket: ${fmtCurrency(m.ticket_promedio_entrega, currency)}`}
-          hint={`Venta bruta: ${fmtCurrency(m.venta_bruta, currency)}`}
-          tooltip="Solo cuenta dinero de órdenes con estado ENTREGADA (cliente recibió y pagó). NO incluye órdenes en camino, devueltas o canceladas. Es el dinero REAL en tu bolsillo."
+          sub={`Promedio: ${fmtCurrency(ticketUtilidad, currency)} por entrega`}
+          hint={`Facturación bruta: ${fmtCurrency(m.revenue_entregado, currency)}`}
+          tooltip="Lo que REALMENTE te queda de las órdenes entregadas (ya descontado costo del producto y flete COD por Dropi). Es tu ganancia antes de pagar publicidad."
         />
         <HeroStat
           icon="bx-target-lock"
-          label="ROAS REAL"
-          value={`${fmt(roas, 2)}x`}
-          accentColor={roasColor}
-          sub={roasLabel}
-          hint="Revenue entregado ÷ Gasto ads"
-          tooltip="Return On Ad Spend REAL: por cada $1 invertido en ads, cuántos $ generaste en ventas ENTREGADAS Dropi. Es el ROAS que importa para tu negocio, no el de Meta (que cuenta compras del pixel, no entregas reales)."
+          label="ROI REAL"
+          value={`${fmt(roi, 2)}x`}
+          accentColor={roiColor}
+          sub={roiLabel}
+          hint="Utilidad entregada ÷ Gasto ads"
+          tooltip="Por cada $1 invertido en ads, cuántos $ de utilidad neta generaste. ROI 2x = duplicaste tu inversión. Es la métrica que IMPORTA, no el ROAS de Meta (que cuenta facturación bruta sin descontar costos)."
         />
         <HeroStat
           icon="bxl-whatsapp"
@@ -400,7 +395,7 @@ export default function AdsboardAttributionFunnel({
           pctOfTop={(e.clicks / topFunnel) * 100}
           conversionFromPrev={t.ctr}
           color="#3b82f6"
-          tooltip="Clicks totales en tus anuncios. La conversión 'CTR' saludable está entre 1-3% (más de 3% es muy bueno; menos de 1% indica que el creativo o público no engancha)."
+          tooltip="Clicks totales en tus anuncios. CTR saludable entre 1-3% (más de 3% es muy bueno; menos de 1% indica que el creativo o público no engancha)."
         />
         <FunnelRow
           label="Mensajes WhatsApp"
@@ -409,7 +404,7 @@ export default function AdsboardAttributionFunnel({
           pctOfTop={(e.msgs_wa / topFunnel) * 100}
           conversionFromPrev={t.click_to_msg}
           color="#06b6d4"
-          tooltip="Personas que hicieron click y SÍ enviaron el mensaje a WhatsApp. Conversión saludable: >30%. Si está bajo, el copy del WhatsApp template o el flujo asusta al cliente."
+          tooltip="Personas que hicieron click y SÍ enviaron el mensaje a WhatsApp. Saludable: >30%. Si está bajo, el copy del template o el flujo asusta al cliente."
         />
         <FunnelRow
           label="Órdenes Dropi"
@@ -418,7 +413,7 @@ export default function AdsboardAttributionFunnel({
           pctOfTop={(e.ordenes_dropi / topFunnel) * 100}
           conversionFromPrev={t.msg_to_orden}
           color="#7c3aed"
-          tooltip="Órdenes generadas en Dropi a partir de mensajes WhatsApp. Conversión saludable: >15%. Si está bajo, el agente no cierra ventas en chat o el producto/precio no convence."
+          tooltip="Órdenes generadas en Dropi a partir de mensajes WhatsApp. Saludable: >15%. Si está bajo, el agente no cierra o el producto/precio no convence."
         />
         <FunnelRow
           label="Entregadas"
@@ -427,7 +422,7 @@ export default function AdsboardAttributionFunnel({
           pctOfTop={(e.entregadas / topFunnel) * 100}
           conversionFromPrev={t.orden_to_entrega}
           color="#059669"
-          tooltip="Órdenes que el cliente efectivamente recibió y pagó (COD entregado). Conversión saludable: >60%. Si está bajo, hay problema de logística, validación de orden, precio o producto."
+          tooltip="Órdenes que el cliente recibió y pagó (COD entregado). Saludable: >60%. Si está bajo: problema de logística, validación, precio o producto."
         />
 
         <div className="mt-4 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
@@ -448,7 +443,7 @@ export default function AdsboardAttributionFunnel({
             <span className="text-sm font-bold text-slate-800">
               Estado de las {fmt(totalEstados)} órdenes generadas
             </span>
-            <Tip text="Distribución actual de todas las órdenes generadas en este período. Útil para detectar problemas: muchas en camino = retraso logístico; muchas devueltas = problema de producto o validación; muchas canceladas = filtro inicial muy permisivo.">
+            <Tip text="Distribución actual de todas las órdenes generadas en este período. Muchas en camino = retraso logístico; muchas devueltas = problema de producto o validación; muchas canceladas = filtro inicial muy permisivo.">
               <TipIcon />
             </Tip>
           </div>
@@ -475,7 +470,7 @@ export default function AdsboardAttributionFunnel({
               value={e.devueltas}
               total={totalEstados}
               color="#f59e0b"
-              tooltip="Cliente rechazó la entrega o no estuvo disponible. El producto vuelve a bodega. >15% es señal de alerta (validación o producto)."
+              tooltip="Cliente rechazó la entrega o no estuvo disponible. El producto vuelve a bodega. >15% es señal de alerta."
             />
             <StatusCard
               icon="bx-x-circle"
@@ -559,7 +554,7 @@ export default function AdsboardAttributionFunnel({
                 lbl: "CPA por mensaje",
                 v: m.cpa_mensaje,
                 color: "#06b6d4",
-                tip: "Gasto Meta ÷ Mensajes WhatsApp. Cuánto te cuesta cada chat iniciado. En Ecuador COD un buen CPA mensaje está en $0.10-$0.30.",
+                tip: "Gasto Meta ÷ Mensajes WhatsApp. Cuánto te cuesta cada chat iniciado. En Ecuador COD un buen CPA mensaje está entre $0.10-$0.30.",
               },
               {
                 lbl: "CPA por orden",
@@ -571,7 +566,7 @@ export default function AdsboardAttributionFunnel({
                 lbl: "CPA por entrega",
                 v: m.cpa_entrega,
                 color: "#059669",
-                tip: "Gasto Meta ÷ Órdenes ENTREGADAS. El costo de cada venta REAL. Es el CPA que importa: si tu CPA entrega > margen del producto, estás perdiendo plata.",
+                tip: "Gasto Meta ÷ Órdenes ENTREGADAS. El costo de cada venta REAL. Si tu CPA entrega supera tu utilidad por orden, estás perdiendo plata.",
               },
             ].map((r) => (
               <div
@@ -600,15 +595,15 @@ export default function AdsboardAttributionFunnel({
             ))}
             <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-800 inline-flex items-center gap-1">
-                Profit neto (revenue − gasto)
-                <Tip text="Revenue entregado MENOS gasto Meta Ads. NO descuenta costo del producto, flete, ni operación — para profit operacional real revisa el dashboard Dropi.">
+                Ganancia neta (utilidad − gasto ads)
+                <Tip text="Lo que te queda LIMPIO después de pagar publicidad. Si es positivo, ganas; si es negativo, pierdes plata.">
                   <TipIcon />
                 </Tip>
               </span>
               <span
-                className={`text-base font-extrabold tabular-nums ${m.revenue_entregado - m.gasto_ads >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                className={`text-base font-extrabold tabular-nums ${gananciaNeta >= 0 ? "text-emerald-600" : "text-rose-600"}`}
               >
-                {fmtCurrency(m.revenue_entregado - m.gasto_ads, currency)}
+                {fmtCurrency(gananciaNeta, currency)}
               </span>
             </div>
           </div>

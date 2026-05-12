@@ -139,9 +139,12 @@ const buildFeatures = (plan) => {
       },
       { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
       { label: "Respuestas auto 24/7", enabled: true, section: "ic" },
-      { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
-      { label: "Utilidad real por orden", enabled: true, section: "db" },
-      { label: "Dashboard básico", enabled: true, section: "extra" },
+      {
+        label: "Dashboard centralizado (3 en 1)",
+        enabled: true,
+        section: "db",
+      },
+      { label: "Cruce real Ads ↔ Dropi ↔ Chat", enabled: true, section: "db" },
       { label: "Precio exclusivo comunidad", enabled: true, section: "extra" },
     ];
   }
@@ -168,12 +171,12 @@ const buildFeatures = (plan) => {
         label: `Dropi (${plan.max_productos_dropi > 0 ? plan.max_productos_dropi : 20} productos)`,
         enabled: true,
       },
-      // ✅ NUEVO: Conexión Shopify
+      //  NUEVO: Conexión Shopify
       { label: "Conexión con Shopify", enabled: true },
       { label: "+280 templates", enabled: true },
       { label: "Editor textos AI", enabled: true },
       { label: "Sin ImporChat", enabled: false },
-      { label: "Sin Dropiboard", enabled: false },
+      { label: "Sin Dashboard centralizado", enabled: false },
     ];
   }
 
@@ -190,7 +193,7 @@ const buildFeatures = (plan) => {
       { label: "1 número WhatsApp", enabled: true },
       { label: "Dashboard básico", enabled: true },
       { label: "Sin Insta Landing", enabled: false },
-      { label: "Sin Dropiboard", enabled: false },
+      { label: "Sin Dashboard centralizado", enabled: false },
     ];
   }
 
@@ -226,8 +229,12 @@ const buildFeatures = (plan) => {
         section: "ic",
       },
       { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
-      { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
-      { label: "Utilidad real por orden", enabled: true, section: "db" },
+      {
+        label: "Dashboard centralizado (3 en 1)",
+        enabled: true,
+        section: "db",
+      },
+      { label: "Cruce real Ads ↔ Dropi ↔ Chat", enabled: true, section: "db" },
       {
         label: "Landing → WhatsApp auto-link",
         enabled: true,
@@ -275,8 +282,12 @@ const buildFeatures = (plan) => {
     { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
     { label: "Multi-número WhatsApp", enabled: true, section: "ic" },
     { label: "Bot entrenado con catálogo", enabled: true, section: "ic" },
-    { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
-    { label: "Utilidad real + profit", enabled: true, section: "db" },
+    { label: "Dashboard centralizado (3 en 1)", enabled: true, section: "db" },
+    {
+      label: "Cruce real Ads ↔ Dropi ↔ Chat + ROI",
+      enabled: true,
+      section: "db",
+    },
     { label: "Analytics + heatmaps", enabled: true, section: "extra" },
     {
       label: `Sub-cuentas (${plan.max_subcuentas || 5})`,
@@ -1061,10 +1072,7 @@ const PlanesView = () => {
                               <SectionLabel label={icLabel} color="#10B981" />
                             )}
                             {showHeader && f.section === "db" && (
-                              <SectionLabel
-                                label="DROPIBOARD"
-                                color="#EAB308"
-                              />
+                              <SectionLabel label="DASHBOARD" color="#6366F1" />
                             )}
                             {showHeader && f.section === "extra" && (
                               <SectionLabel

@@ -54,7 +54,7 @@ const Adsboard = () => {
   const [topAds, setTopAds] = useState([]);
   const [dashLoading, setDashLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("attribution");
 
   // Marketing Control (atribución 1:1 con Dropi) — 1 fetch sirve a ambas tabs
   const [mcData, setMcData] = useState(null);
@@ -404,18 +404,18 @@ const Adsboard = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
               <div className="flex gap-1 flex-wrap">
                 {[
-                  { key: "overview", icon: "bx-grid-alt", label: "Resumen" },
+                  // { key: "overview", icon: "bx-grid-alt", label: "Resumen" },
                   {
                     key: "attribution",
                     icon: "bx-target-lock",
                     label: "Atribución real",
                   },
-                  { key: "campaigns", icon: "bx-layer", label: "Campañas" },
-                  {
-                    key: "top-ads",
-                    icon: "bx-trophy",
-                    label: "Top Ads ",
-                  },
+                  // { key: "campaigns", icon: "bx-layer", label: "Campañas" },
+                  // {
+                  //   key: "top-ads",
+                  //   icon: "bx-trophy",
+                  //   label: "Top Ads ",
+                  // },
                   {
                     key: "attributed-ads",
                     icon: "bx-medal",
@@ -477,6 +477,8 @@ const Adsboard = () => {
                 loading={mcLoading}
                 error={mcError}
                 currency={currency}
+                id_configuracion={selectedConfigId}
+                onRefresh={fetchMarketingControl}
                 onRetry={fetchMarketingControl}
               />
             )}

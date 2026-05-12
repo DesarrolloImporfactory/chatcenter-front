@@ -169,21 +169,9 @@ function MainLayout({ children }) {
             />
 
             <NavBtn
-              path="/chatboard"
-              icon="bx-message-rounded-dots"
-              label="Chatboard"
-            />
-
-            {/* <NavBtn
-              path="/adsboard"
+              path="/dashboard"
               icon="bxs-bar-chart-alt-2"
-              label="Adsboard"
-            /> */}
-
-            <NavBtn
-              path="/dropiboard"
-              icon="bx-store -chart-alt-2"
-              label="Dropiboard"
+              label="Dashboard"
             />
 
             <div>

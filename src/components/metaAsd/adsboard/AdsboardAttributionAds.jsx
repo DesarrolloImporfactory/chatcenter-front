@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import Swal from "sweetalert2";
+import chatApi from "../../../api/chatcenter";
 
 const fmt = (n, dec = 0) => {
   if (n == null || isNaN(n)) return "—";
@@ -18,10 +20,10 @@ const fmtCurrency = (n, cur = "USD") => {
   });
 };
 
-const roasBadge = (roas) => {
-  const r = Number(roas || 0);
-  if (r >= 3) return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-  if (r >= 1.5) return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
+const roiBadge = (roi) => {
+  const r = Number(roi || 0);
+  if (r >= 2) return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+  if (r >= 1) return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
   if (r > 0) return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
   return "bg-slate-50 text-slate-400 ring-1 ring-slate-200";
 };
@@ -31,7 +33,6 @@ const sortIcon = (active, dir) => {
   return dir === "desc" ? "bx-sort-down" : "bx-sort-up";
 };
 
-/* ── Tooltip con Portal ── */
 const Tip = ({ text, children, width = 240 }) => {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, arrowLeft: "50%" });
@@ -121,7 +122,6 @@ const Th = ({
   </th>
 );
 
-/* ── Thumbnail clickeable que abre Facebook ── */
 const AdThumbnail = ({ ad }) => {
   const fbUrl = ad.post_id ? `https://www.facebook.com/${ad.post_id}` : null;
 
@@ -178,7 +178,6 @@ const AdThumbnail = ({ ad }) => {
   );
 };
 
-/* ── KPI compacto del banner ── */
 const BannerKPI = ({ label, value, tone = "slate", primary = false }) => (
   <div className="text-right shrink-0">
     <div className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">
@@ -201,21 +200,22 @@ export default function AdsboardAttributionAds({
   loading,
   error,
   currency = "USD",
+  id_configuracion,
+  onRefresh,
   onRetry,
 }) {
-  const [sortKey, setSortKey] = useState("roas_estimado");
+  const [sortKey, setSortKey] = useState("roi_estimado");
   const [sortDir, setSortDir] = useState("desc");
-  const [minRoas, setMinRoas] = useState(0);
+  const [minRoi, setMinRoi] = useState(0);
   const [onlyWithSales, setOnlyWithSales] = useState(false);
   const [expandedAdId, setExpandedAdId] = useState(null);
+  const [togglingAdId, setTogglingAdId] = useState(null);
 
   const items = data?.attribution?.items || [];
   const totals = data?.attribution?.totales_rango || {};
 
   const sortedItems = useMemo(() => {
-    let filtered = items.filter(
-      (it) => Number(it.roas_estimado || 0) >= minRoas,
-    );
+    let filtered = items.filter((it) => Number(it.roi_estimado || 0) >= minRoi);
     if (onlyWithSales) {
       filtered = filtered.filter((it) => Number(it.ordenes_estimadas || 0) > 0);
     }
@@ -224,13 +224,69 @@ export default function AdsboardAttributionAds({
       const vb = Number(b[sortKey] || 0);
       return sortDir === "desc" ? vb - va : va - vb;
     });
-  }, [items, sortKey, sortDir, minRoas, onlyWithSales]);
+  }, [items, sortKey, sortDir, minRoi, onlyWithSales]);
 
   const handleSort = (key) => {
     if (sortKey === key) setSortDir(sortDir === "desc" ? "asc" : "desc");
     else {
       setSortKey(key);
       setSortDir("desc");
+    }
+  };
+
+  const handleToggleAd = async (ad) => {
+    const currentStatus = String(ad.effective_status || "").toUpperCase();
+    const newStatus = currentStatus === "ACTIVE" ? "PAUSED" : "ACTIVE";
+    const actionText =
+      newStatus === "PAUSED" ? "Pausar anuncio" : "Activar anuncio";
+
+    const ask = await Swal.fire({
+      title: actionText,
+      html: `<p class="text-sm text-slate-600">¿${newStatus === "PAUSED" ? "Pausar" : "Activar"} el anuncio <b>${ad.ad_name || ad.ad_id}</b>?</p>
+             <p class="text-xs text-slate-400 mt-2">Este cambio se aplica directamente en tu cuenta de Meta Ads.</p>`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: newStatus === "PAUSED" ? "Sí, pausar" : "Sí, activar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: newStatus === "PAUSED" ? "#f59e0b" : "#059669",
+    });
+
+    if (!ask.isConfirmed) return;
+
+    try {
+      setTogglingAdId(ad.ad_id);
+      const { data: resp } = await chatApi.post("/meta_ads/ads/toggle", {
+        id_configuracion,
+        ad_id: ad.ad_id,
+        status: newStatus,
+      });
+
+      if (resp.success) {
+        Swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "success",
+          title: `Anuncio ${newStatus === "PAUSED" ? "pausado" : "activado"}`,
+          showConfirmButton: false,
+          timer: 2000,
+        });
+        onRefresh?.();
+      } else {
+        Swal.fire(
+          "Error",
+          resp.message || "No se pudo cambiar el estado.",
+          "error",
+        );
+      }
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message ||
+          "No se pudo cambiar el estado. Verifica permisos ads_management.",
+        "error",
+      );
+    } finally {
+      setTogglingAdId(null);
     }
   };
 
@@ -299,9 +355,7 @@ export default function AdsboardAttributionAds({
   const winnerIds = new Set(
     [...items]
       .filter((a) => Number(a.entregadas_estimadas || 0) > 0)
-      .sort(
-        (a, b) => Number(b.roas_estimado || 0) - Number(a.roas_estimado || 0),
-      )
+      .sort((a, b) => Number(b.roi_estimado || 0) - Number(a.roi_estimado || 0))
       .slice(0, 3)
       .map((a) => a.ad_id),
   );
@@ -325,11 +379,10 @@ export default function AdsboardAttributionAds({
 
   return (
     <div className="space-y-4">
-      {/* ─── Banner compacto en una sola fila ─── */}
+      {/* ─── Banner ─── */}
       <div
         className={`rounded-xl bg-white ring-1 ${accent.ring} px-4 py-3 flex flex-wrap items-center justify-between gap-5`}
       >
-        {/* Lado izquierdo */}
         <div className="flex items-center gap-3 min-w-0">
           <div
             className={`w-9 h-9 rounded-lg bg-gradient-to-br ${accent.iconBg} grid place-items-center shrink-0`}
@@ -351,13 +404,12 @@ export default function AdsboardAttributionAds({
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
               {isInitial
-                ? "Está funcionalidad se implementó desde el 12 de mayo · Las ventas anteriores no se atribuirán, las nuevas sí"
+                ? "Esta funcionalidad se implementó desde el 12 de mayo · Las ventas anteriores no se atribuirán, las nuevas sí"
                 : "Cada venta vinculada con el anuncio que la generó"}
             </p>
           </div>
         </div>
 
-        {/* Lado derecho — KPIs en línea */}
         <div className="flex items-center gap-5">
           <BannerKPI
             label="Conectadas"
@@ -368,8 +420,8 @@ export default function AdsboardAttributionAds({
           <div className="h-9 w-px bg-slate-200" />
           <BannerKPI label="Órdenes" value={fmt(totals.ordenes_dropi_total)} />
           <BannerKPI
-            label="Revenue"
-            value={fmtCurrency(totals.revenue_entregado_atribuido, currency)}
+            label="Utilidad"
+            value={fmtCurrency(totals.utilidad_entregada_atribuida, currency)}
             tone="emerald"
           />
           <BannerKPI
@@ -383,15 +435,15 @@ export default function AdsboardAttributionAds({
       <div className="rounded-xl bg-white ring-1 ring-slate-200 px-4 py-3 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold text-slate-500 uppercase">
-            ROAS mín.
+            ROI mín.
           </span>
           <div className="flex gap-1">
             {[0, 1, 1.5, 2, 3].map((v) => (
               <button
                 key={v}
-                onClick={() => setMinRoas(v)}
+                onClick={() => setMinRoi(v)}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
-                  minRoas === v
+                  minRoi === v
                     ? "bg-indigo-600 text-white"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
@@ -471,24 +523,24 @@ export default function AdsboardAttributionAds({
                   Entreg.
                 </Th>
                 <Th
-                  sortKey="revenue_estimado"
+                  sortKey="utilidad_estimada"
                   currentSort={sortKey}
                   sortDir={sortDir}
                   onSort={handleSort}
-                  tip="Total facturado por las órdenes entregadas."
+                  tip="Utilidad real generada por las órdenes entregadas de este anuncio. Ya descontado producto y flete."
                   className="py-3 text-right"
                 >
-                  Revenue
+                  Utilidad
                 </Th>
                 <Th
-                  sortKey="roas_estimado"
+                  sortKey="roi_estimado"
                   currentSort={sortKey}
                   sortDir={sortDir}
                   onSort={handleSort}
-                  tip="Por cada $1 invertido, cuántos $ regresaron. Más de 3x es excelente."
+                  tip="Utilidad ÷ Gasto del anuncio. Por cada $1 invertido, cuántos $ de utilidad neta. >1x es rentable, >2x es ángulo ganador."
                   className="py-3 text-right"
                 >
-                  ROAS
+                  ROI
                 </Th>
                 <Th
                   sortKey="cpa_orden_estimado"
@@ -501,9 +553,9 @@ export default function AdsboardAttributionAds({
                   CPA orden
                 </Th>
                 <th className="py-3 pr-4 text-center">
-                  <Tip text="Ver las órdenes específicas que generó este anuncio.">
+                  <Tip text="Acciones: ver órdenes, pausar/activar, abrir en Facebook.">
                     <span className="inline-flex items-center gap-1">
-                      Detalle
+                      Acciones
                       <i className="bx bx-help-circle text-slate-300 cursor-help text-[11px]" />
                     </span>
                   </Tip>
@@ -518,6 +570,10 @@ export default function AdsboardAttributionAds({
                   Array.isArray(ad.sample_orders) &&
                   ad.sample_orders.length > 0;
                 const noAttribution = Number(ad.ordenes_estimadas || 0) === 0;
+
+                const status = String(ad.effective_status || "").toUpperCase();
+                const canToggle = status === "ACTIVE" || status === "PAUSED";
+                const isToggling = togglingAdId === ad.ad_id;
 
                 return (
                   <React.Fragment key={ad.ad_id || idx}>
@@ -544,8 +600,15 @@ export default function AdsboardAttributionAds({
                         <div className="flex items-center gap-3">
                           <AdThumbnail ad={ad} />
                           <div className="min-w-0">
-                            <div className="font-bold text-slate-800 max-w-[220px] truncate">
-                              {ad.ad_name || "(sin nombre)"}
+                            <div className="flex items-center gap-1.5">
+                              <div className="font-bold text-slate-800 max-w-[200px] truncate">
+                                {ad.ad_name || "(sin nombre)"}
+                              </div>
+                              {status === "PAUSED" && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200 uppercase tracking-wider">
+                                  Pausado
+                                </span>
+                              )}
                             </div>
                             {ad.product_attributed && (
                               <div className="text-[10px] text-indigo-600 font-medium max-w-[220px] truncate">
@@ -584,13 +647,13 @@ export default function AdsboardAttributionAds({
                           noAttribution ? "text-slate-300" : "text-emerald-700"
                         }`}
                       >
-                        {fmtCurrency(ad.revenue_estimado, currency)}
+                        {fmtCurrency(ad.utilidad_estimada, currency)}
                       </td>
                       <td className="py-3 text-right">
                         <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${roasBadge(ad.roas_estimado)}`}
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${roiBadge(ad.roi_estimado)}`}
                         >
-                          {fmt(ad.roas_estimado, 2)}x
+                          {fmt(ad.roi_estimado, 2)}x
                         </span>
                       </td>
                       <td className="py-3 text-right tabular-nums">
@@ -610,6 +673,32 @@ export default function AdsboardAttributionAds({
                             >
                               <i
                                 className={`bx ${isExpanded ? "bx-chevron-up" : "bx-chevron-down"} text-sm`}
+                              />
+                            </button>
+                          )}
+                          {canToggle && (
+                            <button
+                              onClick={() => handleToggleAd(ad)}
+                              disabled={isToggling}
+                              className={`inline-flex items-center justify-center w-7 h-7 rounded-lg ring-1 transition ${
+                                status === "ACTIVE"
+                                  ? "bg-amber-50 text-amber-600 ring-amber-200 hover:bg-amber-100"
+                                  : "bg-emerald-50 text-emerald-600 ring-emerald-200 hover:bg-emerald-100"
+                              } ${isToggling ? "opacity-50 cursor-not-allowed" : ""}`}
+                              title={
+                                status === "ACTIVE"
+                                  ? "Pausar anuncio"
+                                  : "Activar anuncio"
+                              }
+                            >
+                              <i
+                                className={`bx ${
+                                  isToggling
+                                    ? "bx-loader-alt animate-spin"
+                                    : status === "ACTIVE"
+                                      ? "bx-pause"
+                                      : "bx-play"
+                                } text-sm`}
                               />
                             </button>
                           )}
@@ -666,7 +755,10 @@ export default function AdsboardAttributionAds({
                                   {o.client_name || "—"}
                                 </div>
                                 <div className="text-sm font-extrabold text-emerald-700">
-                                  {fmtCurrency(o.total, currency)}
+                                  {fmtCurrency(o.profit ?? 0, currency)}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  Bruto: {fmtCurrency(o.total, currency)}
                                 </div>
                                 <div className="text-[10px] text-slate-400 mt-1">
                                   msg → orden:{" "}
