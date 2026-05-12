@@ -7,17 +7,14 @@ import AdsboardFilters from "./adsboard/AdsboardFilters";
 import AdsboardKpiCards from "./adsboard/AdsboardKpiCards";
 import AdsboardCampaignsTable from "./adsboard/AdsboardCampaignsTable";
 import AdsboardTopAdsTable from "./adsboard/AdsboardTopAdsTable";
+import AdsboardAttributionFunnel from "./adsboard/AdsboardAttributionFunnel";
+import AdsboardAttributionAds from "./adsboard/AdsboardAttributionAds";
 
 /**
  * Adsboard
  *
  * Dashboard analítico de Meta Ads integrado en ImporChat.
- * Permite a los clientes ver el rendimiento de sus campañas
- * de Facebook e Instagram sin salir de la plataforma.
- *
- * La conexión de Meta Ads se realiza desde Conexiones.
- * Este dashboard solo consulta y muestra datos.
- * Con el permiso ads_management también permite pausar/activar campañas.
+ * Incluye análisis nativo de Meta + atribución 1:1 REAL con ventas Dropi.
  */
 
 function todayISO() {
@@ -47,7 +44,7 @@ const Adsboard = () => {
   const [selectedConfigId, setSelectedConfigId] = useState(null);
   const [loadingConexiones, setLoadingConexiones] = useState(true);
 
-  // Dashboard
+  // Dashboard Meta nativo
   const [dateRange, setDateRange] = useState({
     since: daysAgoISO(30),
     until: todayISO(),
@@ -58,6 +55,11 @@ const Adsboard = () => {
   const [dashLoading, setDashLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Marketing Control (atribución 1:1 con Dropi) — 1 fetch sirve a ambas tabs
+  const [mcData, setMcData] = useState(null);
+  const [mcLoading, setMcLoading] = useState(false);
+  const [mcError, setMcError] = useState(null);
 
   // Cargar conexiones
   const fetchConexiones = useCallback(async () => {
@@ -100,7 +102,7 @@ const Adsboard = () => {
   const isAdsConnected = Number(selectedConfig?.meta_ads_conectado) === 1;
   const adsAccountName = selectedConfig?.meta_ads_account_name || null;
 
-  // Fetch dashboard — siempre usa time_range (since/until)
+  // Fetch Meta Ads (Resumen / Campañas / Top Ads nativos)
   const fetchDashboard = useCallback(async () => {
     if (!selectedConfigId || !isAdsConnected) return;
     try {
@@ -138,6 +140,65 @@ const Adsboard = () => {
     }
   }, [selectedConfigId, isAdsConnected, dateRange]);
 
+  // Fetch Marketing Control (1 sola call, sirve a ambas tabs nuevas)
+  const fetchMarketingControl = useCallback(async () => {
+    if (
+      !selectedConfigId ||
+      !isAdsConnected ||
+      !dateRange?.since ||
+      !dateRange?.until
+    )
+      return;
+    try {
+      setMcLoading(true);
+      setMcError(null);
+      const { data } = await chatApi.get("/marketing-control/dashboard", {
+        params: {
+          id_configuracion: selectedConfigId,
+          since: dateRange.since,
+          until: dateRange.until,
+          limit: 30,
+        },
+      });
+      setMcData(data);
+    } catch (err) {
+      console.error("MC fetch error:", err);
+      setMcError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "No se pudo cargar la atribución con Dropi.",
+      );
+    } finally {
+      setMcLoading(false);
+    }
+  }, [selectedConfigId, isAdsConnected, dateRange?.since, dateRange?.until]);
+
+  // Auto-fetch MC al entrar a una tab de atribución (si no hay data aún)
+  useEffect(() => {
+    if (
+      (activeTab === "attribution" || activeTab === "attributed-ads") &&
+      !mcData &&
+      !mcLoading &&
+      !mcError &&
+      hasFetched
+    ) {
+      fetchMarketingControl();
+    }
+  }, [
+    activeTab,
+    mcData,
+    mcLoading,
+    mcError,
+    hasFetched,
+    fetchMarketingControl,
+  ]);
+
+  // Limpiar MC si cambia config o rango
+  useEffect(() => {
+    setMcData(null);
+    setMcError(null);
+  }, [selectedConfigId, dateRange?.since, dateRange?.until]);
+
   const currency = accountData?.currency || "USD";
 
   const handleChangeConfig = (id) => {
@@ -146,6 +207,15 @@ const Adsboard = () => {
     setAccountData(null);
     setCampaigns([]);
     setTopAds([]);
+    setMcData(null);
+    setMcError(null);
+  };
+
+  const handleRefreshAll = () => {
+    setMcData(null);
+    setMcError(null);
+    fetchDashboard();
+    // MC se vuelve a cargar automáticamente al entrar a su tab
   };
 
   return (
@@ -173,7 +243,7 @@ const Adsboard = () => {
                 Dashboard analítico de Meta Ads
               </h1>
               <p className="text-[11px] text-white/70 mt-0.5">
-                Métricas de campañas, ROAS, CPA y top ads en tiempo real
+                Métricas Meta + atribución 1:1 real con ventas Dropi
               </p>
             </div>
           </div>
@@ -241,8 +311,8 @@ const Adsboard = () => {
                 Tus campañas de Meta Ads en un solo lugar
               </h3>
               <p className="text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
-                Visualiza gasto total, ROAS, CPA, embudo de conversión, campañas
-                activas, top ads por rendimiento y más.
+                Visualiza gasto, ROAS, embudo, campañas activas, top ads y
+                atribución 1:1 real con tus órdenes Dropi.
               </p>
               <div className="flex flex-wrap justify-center gap-2 mt-6">
                 {[
@@ -251,24 +321,24 @@ const Adsboard = () => {
                     color: "bg-rose-50 text-rose-700 border-rose-200",
                   },
                   {
-                    label: "ROAS & CPA",
-                    color: "bg-blue-50 text-blue-700 border-blue-200",
+                    label: "ROAS REAL Dropi",
+                    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
                   },
                   {
-                    label: "Embudo de conversión",
+                    label: "Embudo completo",
                     color: "bg-violet-50 text-violet-700 border-violet-200",
+                  },
+                  {
+                    label: "Atribución 1:1",
+                    color: "bg-indigo-50 text-indigo-700 border-indigo-200",
                   },
                   {
                     label: "Pausar campañas",
                     color: "bg-amber-50 text-amber-700 border-amber-200",
                   },
                   {
-                    label: "Msgs WhatsApp",
-                    color: "bg-green-50 text-green-700 border-green-200",
-                  },
-                  {
-                    label: "Top Ads + Post ID",
-                    color: "bg-amber-50 text-amber-700 border-amber-200",
+                    label: "Ángulo ganador",
+                    color: "bg-cyan-50 text-cyan-700 border-cyan-200",
                   },
                 ].map((f) => (
                   <span
@@ -332,11 +402,25 @@ const Adsboard = () => {
         {hasFetched && !dashLoading && accountData && (
           <>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {[
                   { key: "overview", icon: "bx-grid-alt", label: "Resumen" },
+                  {
+                    key: "attribution",
+                    icon: "bx-target-lock",
+                    label: "Atribución real",
+                  },
                   { key: "campaigns", icon: "bx-layer", label: "Campañas" },
-                  { key: "top-ads", icon: "bx-trophy", label: "Top Ads" },
+                  {
+                    key: "top-ads",
+                    icon: "bx-trophy",
+                    label: "Top Ads ",
+                  },
+                  {
+                    key: "attributed-ads",
+                    icon: "bx-medal",
+                    label: "Ads atribuidos",
+                  },
                 ].map((t) => (
                   <button
                     key={t.key}
@@ -353,12 +437,12 @@ const Adsboard = () => {
                 ))}
               </div>
               <button
-                onClick={fetchDashboard}
-                disabled={dashLoading}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+                onClick={handleRefreshAll}
+                disabled={dashLoading || mcLoading}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition disabled:opacity-50"
               >
                 <i
-                  className={`bx bx-refresh text-sm ${dashLoading ? "animate-spin" : ""}`}
+                  className={`bx bx-refresh text-sm ${dashLoading || mcLoading ? "animate-spin" : ""}`}
                 />{" "}
                 Actualizar
               </button>
@@ -366,6 +450,15 @@ const Adsboard = () => {
 
             {activeTab === "overview" && (
               <AdsboardKpiCards data={accountData} currency={currency} />
+            )}
+            {activeTab === "attribution" && (
+              <AdsboardAttributionFunnel
+                data={mcData}
+                loading={mcLoading}
+                error={mcError}
+                currency={currency}
+                onRetry={fetchMarketingControl}
+              />
             )}
             {activeTab === "campaigns" && (
               <AdsboardCampaignsTable
@@ -377,6 +470,15 @@ const Adsboard = () => {
             )}
             {activeTab === "top-ads" && (
               <AdsboardTopAdsTable topAds={topAds} currency={currency} />
+            )}
+            {activeTab === "attributed-ads" && (
+              <AdsboardAttributionAds
+                data={mcData}
+                loading={mcLoading}
+                error={mcError}
+                currency={currency}
+                onRetry={fetchMarketingControl}
+              />
             )}
           </>
         )}
