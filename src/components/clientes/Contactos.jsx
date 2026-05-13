@@ -173,6 +173,9 @@ function mapRow(row) {
     ultimo_rol_mensaje: row.ultimo_rol_mensaje ?? null,
     ultimo_msg_id: row.ultimo_msg_id ?? null,
 
+    ultimo_producto_ad: row.ultimo_producto_ad || null,
+    ultimo_producto_ad_at: row.ultimo_producto_ad_at || null,
+
     estado: row.estado_cliente,
     id_etiqueta: row.id_etiqueta ?? null,
     id_plataforma: row.id_plataforma ?? null,

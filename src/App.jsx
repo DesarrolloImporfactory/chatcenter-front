@@ -67,6 +67,10 @@ import PoliticasTikTokIndex from "./pages/politicas/PoliticasTikTokIndex";
 // Páginas de autenticación
 import TikTokCallback from "./pages/auth/TikTokCallback";
 
+// Páginas de Shopify
+import IntegracionShopify from "./pages/shopify/IntegracionShopify";
+import CarritosAbandonados from "./pages/shopify/CarritosAbandonados";
+
 // Componentes de protección y layout
 import ProtectedRoutes from "./pages/shared/ProtectedRoutes";
 import MainLayout from "./components/layout/MainLayout";
@@ -281,6 +285,24 @@ function App() {
                   element={
                     <MainLayout>
                       <Asistentes />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/shopify"
+                  element={
+                    <MainLayout>
+                      <IntegracionShopify />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/shopify/abandonados"
+                  element={
+                    <MainLayout>
+                      <CarritosAbandonados />
                     </MainLayout>
                   }
                 />

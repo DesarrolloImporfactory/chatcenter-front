@@ -5,6 +5,8 @@ import Swal from "sweetalert2";
 import { useDropi } from "../../context/DropiContext";
 import FloatingSupportChat from "../layout/FloatingSupportChat";
 import { globalLogout } from "../../utils/globalLogout";
+import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
+import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -101,6 +103,11 @@ const Cabecera = ({
     }
   };
 
+  useEffect(() => {
+    checkOpenAIStatus();
+    checkWhatsappStatus();
+  }, []);
+
   const [openMenu, setOpenMenu] = useState(null);
   const [openSubMenu, setOpenSubMenu] = useState(null);
 
@@ -156,9 +163,14 @@ const Cabecera = ({
     } else if (["/calendario"].includes(location.pathname)) {
       setOpenMenu("agentes");
     } else if (
-      ["/canal-conexiones", "/dropi", "/asistentes"].includes(location.pathname)
+      ["/canal-conexiones", "/dropi", "/asistentes", "/shopify"].some((p) =>
+        location.pathname.startsWith(p),
+      )
     ) {
       setOpenMenu("integraciones");
+      if (location.pathname.startsWith("/shopify")) {
+        setOpenSubMenu("shopify");
+      }
     } else if (
       [
         "/canal-conexiones",
@@ -710,8 +722,8 @@ const Cabecera = ({
               type="button"
               onClick={() => toggleMenu("integraciones")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                ["/canal-conexiones", "/dropi", "/asistentes"].some((p) =>
-                  location.pathname.startsWith(p),
+                ["/canal-conexiones", "/dropi", "/asistentes", "/shopify"].some(
+                  (p) => location.pathname.startsWith(p),
                 )
                   ? "bg-gray-200 font-semibold"
                   : ""
@@ -833,6 +845,70 @@ const Cabecera = ({
                           <span>Pedidos</span>
                         </button>
                       )}
+                    </div>
+                  </div>
+                </div>
+                {/* ===== Shopify (submenu) ===== */}
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    className={`group flex items-center justify-between w-full text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/shopify")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                    onClick={() => toggleSubMenu("shopify")}
+                  >
+                    <span className="flex items-center gap-3">
+                      <i className="bx bxl-shopify text-xl text-gray-600 group-hover:text-blue-600"></i>
+                      <span>Shopify</span>
+                    </span>
+
+                    <i
+                      className={`bx bx-chevron-down text-xl text-gray-500 transition-transform duration-300 ${
+                        openSubMenu === "shopify" ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  <div
+                    className="overflow-hidden transition-all duration-[600ms] ease-out"
+                    style={{
+                      maxHeight: openSubMenu === "shopify" ? "220px" : "0px",
+                    }}
+                  >
+                    <div className="ml-6 flex flex-col py-2">
+                      <button
+                        className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                          location.pathname === "/shopify"
+                            ? "font-semibold text-blue-600"
+                            : ""
+                        }`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          goTo("/shopify");
+                          setSliderOpen(false);
+                        }}
+                      >
+                        <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
+                        <span>Configuración</span>
+                      </button>
+
+                      <button
+                        className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                          location.pathname.startsWith("/shopify/abandonados")
+                            ? "font-semibold text-blue-600"
+                            : ""
+                        }`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          goTo("/shopify/abandonados");
+                          setSliderOpen(false);
+                        }}
+                      >
+                        <i className="bx bx-cart text-lg text-gray-600 group-hover:text-blue-600"></i>
+                        <span>Carritos abandonados</span>
+                      </button>
                     </div>
                   </div>
                 </div>

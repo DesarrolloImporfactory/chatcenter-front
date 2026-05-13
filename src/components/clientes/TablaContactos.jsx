@@ -219,6 +219,10 @@ const TablaContactos = ({
               Ciclo
             </th>
 
+            <th className="w-48 text-left text-[11px] font-semibold tracking-wide text-slate-600">
+              Último producto ad
+            </th>
+
             <th className="w-24 text-right">Acciones</th>
           </tr>
         </thead>
@@ -382,6 +386,28 @@ const TablaContactos = ({
                       <i className="bx bx-revision text-xs" />
                       {c.ciclo_nombre}
                     </span>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </td>
+
+                {/* CELDA ÚLTIMO PRODUCTO AD — NUEVO */}
+                <td className="py-2 text-xs text-left">
+                  {c.ultimo_producto_ad ? (
+                    <div className="flex flex-col gap-0.5 max-w-[180px]">
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-orange-600 text-[11px] font-medium truncate"
+                        title={c.ultimo_producto_ad}
+                      >
+                        <i className="bx bx-purchase-tag text-xs flex-shrink-0" />
+                        <span className="truncate">{c.ultimo_producto_ad}</span>
+                      </span>
+                      {c.ultimo_producto_ad_at && (
+                        <span className="text-[10px] text-slate-400 pl-1">
+                          {fmtDate(c.ultimo_producto_ad_at)}
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-slate-400">—</span>
                   )}
