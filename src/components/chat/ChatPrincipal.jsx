@@ -2483,6 +2483,77 @@ const ChatPrincipal = ({
                               }
                               alt="Sticker"
                             />
+                          ) : mensaje.tipo_mensaje === "media_failed" ? (
+                            (() => {
+                              // Parsear info del error guardada en ruta_archivo
+                              let errorInfo = {};
+                              try {
+                                errorInfo = mensaje.ruta_archivo
+                                  ? JSON.parse(mensaje.ruta_archivo)
+                                  : {};
+                              } catch {
+                                errorInfo = {};
+                              }
+
+                              const codigoError =
+                                errorInfo?.codigo_error || "131052";
+                              const details =
+                                errorInfo?.details ||
+                                "Failed to download media";
+
+                              return (
+                                <div className="flex flex-col gap-2 w-full">
+                                  {/* Card de aviso */}
+                                  <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                                    <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 shrink-0">
+                                      <i className="bx bx-error-circle text-xl text-amber-700" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-semibold text-amber-900 leading-tight">
+                                        Archivo no recibido
+                                      </p>
+                                      <p className="text-xs text-amber-800 mt-1 leading-snug">
+                                        El cliente envió un archivo pero
+                                        WhatsApp no pudo descargarlo por un
+                                        error interno de Meta. No es necesario
+                                        hacer nada — si el cliente lo reenvía,
+                                        llegará normalmente.
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Detalles técnicos colapsables */}
+                                  <details className="mt-0.5">
+                                    <summary className="text-[11px] text-amber-700/80 cursor-pointer hover:text-amber-900 select-none px-1">
+                                      <i className="bx bx-info-circle align-middle mr-1" />
+                                      Ver detalles técnicos
+                                    </summary>
+                                    <div className="mt-1.5 px-2.5 py-2 rounded-lg bg-amber-100/70 text-[11px] text-amber-900 font-mono space-y-1 border border-amber-200/60">
+                                      <div>
+                                        <span className="font-bold">
+                                          Código Meta:
+                                        </span>{" "}
+                                        {codigoError}
+                                      </div>
+                                      <div className="break-all">
+                                        <span className="font-bold">
+                                          Detalle:
+                                        </span>{" "}
+                                        {details}
+                                      </div>
+                                      {mensaje.id_wamid_mensaje && (
+                                        <div className="break-all">
+                                          <span className="font-bold">
+                                            wamid:
+                                          </span>{" "}
+                                          {mensaje.id_wamid_mensaje}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </details>
+                                </div>
+                              );
+                            })()
                           ) : (
                             "Mensaje no reconocido"
                           )}
