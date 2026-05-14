@@ -173,9 +173,11 @@ const ProductoModal = ({
   const dropUpsellRef = useRef(null);
 
   const [videoRemoved, setVideoRemoved] = useState(false);
+  const [upsellRemoved, setUpsellRemoved] = useState(false);
 
   /* ── Populate on open ── */
   useEffect(() => {
+    setUpsellRemoved(false);
     setVideoRemoved(false);
     if (!open) return;
     if (editingProduct) {
@@ -336,6 +338,10 @@ const ProductoModal = ({
 
       if (videoRemoved && !form.video) {
         data.append("remove_video", "1");
+      }
+
+      if (upsellRemoved && !form.imagen_upsell) {
+        data.append("remove_imagen_upsell", "1");
       }
 
       if (editingProduct) data.append("id_producto", editingProduct.id);
@@ -946,6 +952,7 @@ const ProductoModal = ({
                           URL.revokeObjectURL(previewUpsell);
                         setPreviewUpsell(null);
                         setF("imagen_upsell", null);
+                        setUpsellRemoved(true); // ← agregar esto
                       }}
                     />
                   </div>
