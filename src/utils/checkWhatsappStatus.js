@@ -3,24 +3,24 @@ import chatApi from "../api/chatcenter";
 
 const MENSAJES = {
   BANNED: {
-    title: "Numero de WhatsApp bloqueado",
-    text: "Tu numero fue bloqueado por Meta. No puedes enviar ni recibir mensajes. Revisa tu cuenta de WhatsApp Business.",
+    title: "Número de WhatsApp bloqueado",
+    text: "Tu número fue bloqueado por Meta. No puedes enviar ni recibir mensajes. Revisa tu cuenta de WhatsApp Business.",
   },
   SUSPENDED: {
     title: "Cuenta suspendida",
-    text: "Tu cuenta de WhatsApp Business fue suspendida por Meta. Contacta al soporte de Meta para resolverlo.",
+    text: "Tu cuenta de WhatsApp Business fue suspendida o desconectada por Meta. Debes reconectar tu número en la sección de Conexiones.",
   },
   TOKEN_EXPIRED: {
     title: "Token de acceso vencido",
-    text: "El token de acceso de WhatsApp expiro. Debes reconectar tu numero en Canal de Conexiones.",
+    text: "El token de acceso de WhatsApp expiró. Debes reconectar tu número en la sección de Conexiones.",
   },
   FLAGGED: {
-    title: "Numero con baja calidad",
-    text: "Tu numero tiene calificacion roja en Meta. Esto puede limitar el envio de mensajes. Revisa tu cuenta.",
+    title: "Número con baja calidad",
+    text: "Tu número tiene calificación roja en Meta. Esto puede limitar el envío de mensajes. Revisa tu cuenta.",
   },
   RATE_LIMITED: {
-    title: "Limite de mensajes alcanzado",
-    text: "Alcanzaste el limite de mensajes de Meta temporalmente. Esto se resuelve solo en unas horas.",
+    title: "Límite de mensajes alcanzado",
+    text: "Alcanzaste el límite de mensajes de Meta temporalmente. Esto se resuelve solo en unas horas.",
   },
 };
 
@@ -36,20 +36,15 @@ export async function checkWhatsappStatus() {
     });
 
     const status = data?.status;
-
-    // estados que no notifican
-    if (!status || status === "CONNECTED" || status === "UNKNOWN") {
-      return;
-    }
+    if (!status || status === "CONNECTED" || status === "UNKNOWN") return;
 
     const info = MENSAJES[status];
     if (!info) return;
 
-    // =========================
-    // CONTROL DE NOTIFICACIONES
-    // =========================
-
+    // Control de notificaciones (aporte del compañero)
     const saved = localStorage.getItem(STORAGE_KEY);
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
 
     let lastStatus = null;
     let lastDate = null;
@@ -60,47 +55,55 @@ export async function checkWhatsappStatus() {
       lastDate = parsed.date;
     }
 
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-
-    // mostrar si:
-    // 1. es un status nuevo
-    // 2. o ya pasó otro día
     const shouldNotify = status !== lastStatus || today !== lastDate;
-
     if (!shouldNotify) return;
 
-    // guardar nueva notificación
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        status,
-        date: today,
-      }),
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ status, date: today }));
 
-    await Swal.fire({
+    const shouldClearCredentials =
+      status === "TOKEN_EXPIRED" || status === "SUSPENDED";
+
+    const confirmButtonText = shouldClearCredentials
+      ? "Ir a Conexiones"
+      : "Ir al Meta Business";
+
+    // Limpiar backend SIEMPRE si aplica, sin importar lo que elija el usuario
+    if (shouldClearCredentials) {
+      try {
+        await chatApi.post(
+          "/whatsapp_managment/limpiar_credenciales_whatsapp",
+          { id_configuracion },
+        );
+      } catch (e) {
+        console.error("Error al limpiar credenciales:", e);
+      }
+    }
+
+    const result = await Swal.fire({
       icon: "warning",
       title: info.title,
-      html: `
-        <div style="font-size:14px; line-height:1.5;">
-          ${info.text}
-        </div>
-      `,
+      html: `<div style="font-size:14px; line-height:1.5;">${info.text}</div>`,
       allowOutsideClick: false,
       allowEscapeKey: false,
-      confirmButtonText: "Ir a WhatsApp Business",
+      confirmButtonText,
       showCancelButton: true,
-      cancelButtonText: "Mas tarde",
+      cancelButtonText: "Más tarde",
       confirmButtonColor: "#6366f1",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        window.open(
-          "https://business.facebook.com/latest/settings/whatsapp_account/",
-          "_blank",
-        );
-      }
     });
+
+    if (!result.isConfirmed) return;
+
+    if (shouldClearCredentials) {
+      localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("tipo_configuracion");
+      localStorage.removeItem("id_plataforma_conf");
+      window.location.href = "/conexiones";
+    } else {
+      window.open(
+        "https://business.facebook.com/latest/settings/whatsapp_account/",
+        "_blank",
+      );
+    }
   } catch (err) {
     console.error("Error al verificar estado WhatsApp:", err);
   }
