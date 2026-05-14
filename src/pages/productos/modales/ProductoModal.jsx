@@ -323,16 +323,24 @@ const ProductoModal = ({
       const idc = parseInt(localStorage.getItem("id_configuracion"));
       const data = new FormData();
 
+      const CAMPOS_BORRABLES = [
+        "nombre_upsell",
+        "descripcion_upsell",
+        "precio_upsell",
+        "material",
+        "landing_url",
+        "precio_proveedor",
+      ];
+
       Object.entries(form).forEach(([k, v]) => {
         if (k === "combos_producto") {
           data.append(k, JSON.stringify(v));
-        } else if (v !== null && v !== undefined && v !== "") {
-          /*
-           * FIX: el campo en BD es `es_privado`.
-           * Enviamos exactamente ese nombre al backend.
-           * NO enviamos `is_private` (campo legacy incorrecto).
-           */
-          data.append(k, v);
+        } else if (v === null || v === undefined) {
+          // archivos no seleccionados → no enviar
+        } else if (v === "" && !CAMPOS_BORRABLES.includes(k)) {
+          // campos vacíos no borrables → no enviar
+        } else {
+          data.append(k, v); // envía incluso "" para los borrables
         }
       });
 
