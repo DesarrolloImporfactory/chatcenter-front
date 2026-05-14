@@ -24,6 +24,8 @@ const MENSAJES = {
   },
 };
 
+const STORAGE_KEY = "whatsapp_status_notification";
+
 export async function checkWhatsappStatus() {
   const id_configuracion = localStorage.getItem("id_configuracion");
   if (!id_configuracion) return;
@@ -34,15 +36,57 @@ export async function checkWhatsappStatus() {
     });
 
     const status = data?.status;
-    if (!status || status === "CONNECTED" || status === "UNKNOWN") return;
+
+    // estados que no notifican
+    if (!status || status === "CONNECTED" || status === "UNKNOWN") {
+      return;
+    }
 
     const info = MENSAJES[status];
     if (!info) return;
 
+    // =========================
+    // CONTROL DE NOTIFICACIONES
+    // =========================
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+
+    let lastStatus = null;
+    let lastDate = null;
+
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      lastStatus = parsed.status;
+      lastDate = parsed.date;
+    }
+
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+
+    // mostrar si:
+    // 1. es un status nuevo
+    // 2. o ya pasó otro día
+    const shouldNotify = status !== lastStatus || today !== lastDate;
+
+    if (!shouldNotify) return;
+
+    // guardar nueva notificación
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        status,
+        date: today,
+      }),
+    );
+
     await Swal.fire({
       icon: "warning",
       title: info.title,
-      html: `<div style="font-size:14px; line-height:1.5;">${info.text}</div>`,
+      html: `
+        <div style="font-size:14px; line-height:1.5;">
+          ${info.text}
+        </div>
+      `,
       allowOutsideClick: false,
       allowEscapeKey: false,
       confirmButtonText: "Ir a WhatsApp Business",
@@ -51,10 +95,12 @@ export async function checkWhatsappStatus() {
       confirmButtonColor: "#6366f1",
     }).then((result) => {
       if (result.isConfirmed) {
-        window.open("https://business.facebook.com/latest/settings/whatsapp_account/", "_blank");
+        window.open(
+          "https://business.facebook.com/latest/settings/whatsapp_account/",
+          "_blank",
+        );
       }
     });
-
   } catch (err) {
     console.error("Error al verificar estado WhatsApp:", err);
   }
