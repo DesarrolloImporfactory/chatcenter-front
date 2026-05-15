@@ -173,9 +173,11 @@ const ProductoModal = ({
   const dropUpsellRef = useRef(null);
 
   const [videoRemoved, setVideoRemoved] = useState(false);
+  const [upsellRemoved, setUpsellRemoved] = useState(false);
 
   /* ── Populate on open ── */
   useEffect(() => {
+    setUpsellRemoved(false);
     setVideoRemoved(false);
     if (!open) return;
     if (editingProduct) {
@@ -321,21 +323,33 @@ const ProductoModal = ({
       const idc = parseInt(localStorage.getItem("id_configuracion"));
       const data = new FormData();
 
+      const CAMPOS_BORRABLES = [
+        "nombre_upsell",
+        "descripcion_upsell",
+        "precio_upsell",
+        "material",
+        "landing_url",
+        "precio_proveedor",
+      ];
+
       Object.entries(form).forEach(([k, v]) => {
         if (k === "combos_producto") {
           data.append(k, JSON.stringify(v));
-        } else if (v !== null && v !== undefined && v !== "") {
-          /*
-           * FIX: el campo en BD es `es_privado`.
-           * Enviamos exactamente ese nombre al backend.
-           * NO enviamos `is_private` (campo legacy incorrecto).
-           */
-          data.append(k, v);
+        } else if (v === null || v === undefined) {
+          // archivos no seleccionados → no enviar
+        } else if (v === "" && !CAMPOS_BORRABLES.includes(k)) {
+          // campos vacíos no borrables → no enviar
+        } else {
+          data.append(k, v); // envía incluso "" para los borrables
         }
       });
 
       if (videoRemoved && !form.video) {
         data.append("remove_video", "1");
+      }
+
+      if (upsellRemoved && !form.imagen_upsell) {
+        data.append("remove_imagen_upsell", "1");
       }
 
       if (editingProduct) data.append("id_producto", editingProduct.id);
@@ -946,6 +960,7 @@ const ProductoModal = ({
                           URL.revokeObjectURL(previewUpsell);
                         setPreviewUpsell(null);
                         setF("imagen_upsell", null);
+                        setUpsellRemoved(true); // ← agregar esto
                       }}
                     />
                   </div>

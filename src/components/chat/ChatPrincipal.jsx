@@ -2008,7 +2008,123 @@ const ChatPrincipal = ({
                         {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
                         <span className="text-[15px] md:text-sm pb-2 inline-block w-full">
                           {/* Tipo: TEXT / TEMPLATE */}
-                          {mensaje.tipo_mensaje === "postback" ? (
+                          {mensaje.tipo_mensaje === "referral" ? (
+                            (() => {
+                              let adData = {};
+                              try {
+                                adData = mensaje.ruta_archivo
+                                  ? JSON.parse(mensaje.ruta_archivo)
+                                  : {};
+                              } catch {
+                                adData = {};
+                              }
+
+                              const headline = adData.headline || "";
+                              const body_ad = adData.body_ad || "";
+                              const source_url = adData.source_url || "";
+                              const thumbnail_url = adData.thumbnail_url || "";
+                              const source_type = adData.source_type || "";
+                              const original_type =
+                                adData.original_type || "text";
+                              const original_media =
+                                adData.original_media || "";
+
+                              return (
+                                <div className="space-y-2">
+                                  {/* Mini-card del anuncio */}
+                                  <div className="rounded-xl overflow-hidden border border-violet-300/70 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 shadow-sm">
+                                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-violet-100/70 border-b border-violet-200/60">
+                                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-violet-600 text-white shrink-0">
+                                        <i className="bx bx-target-lock text-[9px]" />
+                                      </span>
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">
+                                        Vino desde un anuncio
+                                      </span>
+                                      {source_type && (
+                                        <span className="ml-auto text-[8.5px] font-bold uppercase text-violet-500 bg-white/70 px-1.5 py-0.5 rounded-full border border-violet-200">
+                                          {String(source_type).replace(
+                                            /_/g,
+                                            " ",
+                                          )}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {thumbnail_url && (
+                                      <div className="w-full max-h-40 overflow-hidden bg-slate-100">
+                                        <img
+                                          src={thumbnail_url}
+                                          alt="Anuncio"
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.currentTarget.style.display =
+                                              "none";
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+
+                                    {(headline || body_ad) && (
+                                      <div className="px-3 py-2 space-y-0.5">
+                                        {headline && (
+                                          <div className="text-[12.5px] font-bold text-slate-800 leading-tight line-clamp-2">
+                                            {headline}
+                                          </div>
+                                        )}
+                                        {body_ad && (
+                                          <div className="text-[11.5px] text-slate-600 leading-snug line-clamp-3">
+                                            {body_ad}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {source_url && (
+                                      <a
+                                        href={source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-between px-3 py-1.5 bg-white/80 border-t border-violet-200/60 hover:bg-violet-100/70 transition group"
+                                      >
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700">
+                                          <i className="bx bx-link-external text-[12px]" />
+                                          Ver anuncio
+                                        </span>
+                                        <i className="bx bx-chevron-right text-[13px] text-violet-500 group-hover:translate-x-0.5 transition-transform" />
+                                      </a>
+                                    )}
+                                  </div>
+
+                                  {/* Mensaje real del cliente */}
+                                  {original_type === "audio" &&
+                                  original_media ? (
+                                    <WaAudioPlayer src={original_media} />
+                                  ) : original_type === "image" &&
+                                    original_media ? (
+                                    <img
+                                      src={
+                                        /^https?:\/\//.test(original_media)
+                                          ? original_media
+                                          : `https://new.imporsuitpro.com/${original_media}`
+                                      }
+                                      alt="Imagen"
+                                      className="max-w-[320px] rounded-xl"
+                                    />
+                                  ) : original_type === "video" &&
+                                    original_media ? (
+                                    <PremiumVideoPlayer
+                                      src={original_media}
+                                      token={localStorage.getItem("token")}
+                                    />
+                                  ) : mensaje.texto_mensaje ? (
+                                    <p className="text-[15px] whitespace-pre-wrap break-words">
+                                      {linkify(mensaje.texto_mensaje)}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              );
+                            })()
+                          ) : mensaje.tipo_mensaje === "postback" ? (
                             (() => {
                               const pb = getPostbackUI(mensaje);
 
