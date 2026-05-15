@@ -1623,6 +1623,24 @@ const Cabecera = ({
                   </span>
                 </div>
               )}
+
+              {/* Último producto del anuncio */}
+              {selectedChat?.ultimo_producto_ad && (
+                <div
+                  className="group inline-flex items-center gap-2 rounded-full border border-violet-200 bg-gradient-to-r from-violet-50 via-white to-fuchsia-50 px-3 py-1.5 shadow-sm max-w-full"
+                  title={`Último producto del anuncio: ${selectedChat.ultimo_producto_ad}`}
+                >
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-violet-600 shrink-0">
+                    <i className="bx bx-target-lock text-[12px]" />
+                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-violet-500 shrink-0">
+                    Ad
+                  </span>
+                  <span className="text-xs font-semibold text-violet-800 truncate max-w-[220px]">
+                    {selectedChat.ultimo_producto_ad}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
