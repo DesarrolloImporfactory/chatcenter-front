@@ -185,7 +185,8 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
       }));
       let globales = resGlobal.data?.data || [];
 
-      const ES_DANIEL = Number(id_configuracion) === 277;
+      const ES_DANIEL =
+        Number(id_configuracion) === 277 || Number(id_configuracion) === 10;
       globales = globales.filter((p) => {
         const esDePruebas = (p.nombre || "")
           .toUpperCase()
