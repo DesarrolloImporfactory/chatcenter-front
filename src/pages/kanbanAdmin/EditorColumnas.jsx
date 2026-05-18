@@ -50,7 +50,8 @@ const contarOcurrencias = (texto, substring) => {
 
 /**
  * Valida la integridad del prompt de UNA columna.
- * Solo valida que los placeholders que estaban en el original sigan presentes.
+ * Solo bloquea si un placeholder que estaba en el original fue
+ * BORRADO POR COMPLETO (0 ocurrencias). Reducir el conteo es válido.
  *
  * Retorna: { ok: boolean, faltantes: string[] }
  */
@@ -68,9 +69,10 @@ export const validarPromptIntegridad = (
   for (const ph of PLACEHOLDERS_RECONOCIDOS) {
     const enOriginal = contarOcurrencias(original, ph);
     const enActual = contarOcurrencias(actual, ph);
-    if (enOriginal > 0 && enActual < enOriginal) {
+    // Solo bloquea si estaba en el original Y ahora no aparece NI UNA vez
+    if (enOriginal > 0 && enActual === 0) {
       faltantes.push(
-        `Falta el placeholder ${ph} (estaba ${enOriginal} vez/veces, ahora hay ${enActual})`,
+        `Falta el placeholder ${ph} — debe aparecer al menos 1 vez (estaba ${enOriginal} vez/veces, ahora 0)`,
       );
     }
   }
@@ -801,7 +803,7 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
                       >
                         {!integridadCol.ok && (
                           <span
-                            title="Placeholder borrado"
+                            title="Placeholder borrado por completo"
                             style={{ fontSize: 12 }}
                           >
                             ⚠️
@@ -1262,7 +1264,8 @@ const TabColumna = ({
 };
 
 // ═════════════════════════════════════════════════════════════
-// TabAsistenteAdmin — solo valida placeholders preservados
+// TabAsistenteAdmin — valida que cada placeholder original
+// siga existiendo al menos 1 vez (reducir conteo es válido)
 // ═════════════════════════════════════════════════════════════
 const TabAsistenteAdmin = ({
   col,
@@ -1278,9 +1281,14 @@ const TabAsistenteAdmin = ({
     const enActual = contarOcurrencias(col.instrucciones || "", ph);
     let estado;
     if (enOriginal > 0) {
-      if (enActual >= enOriginal) estado = "preservado_ok";
-      else estado = "borrado";
+      // Estaba en el original
+      if (enActual === 0)
+        estado = "borrado"; // BLOQUEA guardado
+      else if (enActual < enOriginal)
+        estado = "reducido"; // OK, solo informa
+      else estado = "preservado_ok";
     } else {
+      // No estaba en el original
       if (enActual > 0) estado = "agregado";
       else estado = "no_aplica";
     }
@@ -1359,7 +1367,7 @@ const TabAsistenteAdmin = ({
                 }
               />
               {hayProblemas
-                ? "PLACEHOLDER BORRADO — corrige antes de guardar"
+                ? "PLACEHOLDER BORRADO POR COMPLETO — corrige antes de guardar"
                 : "Integridad de placeholders"}
             </div>
 
@@ -1377,6 +1385,11 @@ const TabAsistenteAdmin = ({
                     bg: "#dcfce7",
                     text: "#15803d",
                     icon: "bx-check-circle",
+                  },
+                  reducido: {
+                    bg: "#fef3c7",
+                    text: "#a16207",
+                    icon: "bx-info-circle",
                   },
                   agregado: {
                     bg: "#dbeafe",
@@ -1397,8 +1410,9 @@ const TabAsistenteAdmin = ({
                 const c = colors[e.estado];
                 const tooltip = {
                   preservado_ok: `Presente (${e.enActual}x)`,
+                  reducido: `Presente, reducido (${e.enActual} de ${e.enOriginal} originales) — OK, no bloquea`,
                   agregado: `Agregado por ti (${e.enActual}x)`,
-                  borrado: `BORRADO — estaba ${e.enOriginal}x. CLICK PARA INSERTAR`,
+                  borrado: `BORRADO POR COMPLETO — estaba ${e.enOriginal}x. CLICK PARA INSERTAR`,
                   no_aplica: "No estaba en el original (opcional)",
                 }[e.estado];
                 const clickeable =
