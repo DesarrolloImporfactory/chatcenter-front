@@ -5,6 +5,7 @@ import { fetchComunidadesThunk } from "../../store/slices/comunidad.slice";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 
 /* ============================================================
    Países LATAM + ES
@@ -313,26 +314,79 @@ const ComunidadCombobox = ({ value, onChange }) => {
 };
 
 /* ============================================================
-   Selector de país (compacto, embebido en input WA)
+   PaisSelect con portal + buscador
    ============================================================ */
 const PaisSelect = ({ value, onChange }) => {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
+  const [query, setQuery] = useState("");
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 260 });
+  const btnRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    const handler = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target))
-        setOpen(false);
+    if (!open) return;
+
+    const updateCoords = () => {
+      const rect = btnRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = 260;
+      const desiredLeft = rect.left;
+      const maxLeft = window.innerWidth - width - 8;
+      setCoords({
+        top: rect.bottom + 4,
+        left: Math.min(desiredLeft, Math.max(8, maxLeft)),
+        width,
+      });
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+    updateCoords();
+
+    setTimeout(() => inputRef.current?.focus(), 60);
+
+    const handleClickOutside = (e) => {
+      if (
+        !btnRef.current?.contains(e.target) &&
+        !dropdownRef.current?.contains(e.target)
+      ) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    const handleKey = (e) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKey);
+    window.addEventListener("resize", updateCoords);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKey);
+      window.removeEventListener("resize", updateCoords);
+    };
+  }, [open]);
 
   const sel = PAISES.find((p) => p.code === value) || PAISES[0];
 
+  const q = query.toLowerCase().trim();
+  const qDigits = q.replace(/[^\d]/g, "");
+  const filtered = !q
+    ? PAISES
+    : PAISES.filter((p) => {
+        const matchName = p.name.toLowerCase().includes(q);
+        const matchCodeText = p.code.toLowerCase().includes(q);
+        const matchCodeDigits = qDigits && p.code.includes(qDigits);
+        return matchName || matchCodeText || matchCodeDigits;
+      });
+
   return (
-    <div ref={wrapRef} className="relative">
+    <>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-slate-50 transition text-xs"
@@ -349,35 +403,94 @@ const PaisSelect = ({ value, onChange }) => {
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      <AnimatePresence>
-        {open && (
-          <motion.ul
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.1 }}
-            className="absolute z-30 left-0 top-full mt-1 w-[180px] max-h-[220px] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl"
-          >
-            {PAISES.map((p) => (
-              <li key={p.code}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange(p.code);
-                    setOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-emerald-50 text-left"
-                >
-                  <span className="text-base">{p.flag}</span>
-                  <span className="text-[#0B1426] flex-1">{p.name}</span>
-                  <span className="text-slate-500 font-mono">{p.code}</span>
-                </button>
-              </li>
-            ))}
-          </motion.ul>
+
+      {open &&
+        createPortal(
+          <AnimatePresence>
+            <motion.div
+              ref={dropdownRef}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.12 }}
+              className="fixed bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden"
+              style={{
+                top: coords.top,
+                left: coords.left,
+                width: coords.width,
+                zIndex: 100000,
+              }}
+            >
+              {/* Buscador */}
+              <div className="p-2 border-b border-slate-100 bg-slate-50">
+                <div className="relative">
+                  <svg
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Buscar país..."
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white rounded-md border border-slate-200 outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Lista */}
+              <ul className="max-h-[260px] overflow-y-auto">
+                {filtered.length === 0 ? (
+                  <li className="px-3 py-4 text-xs text-slate-400 text-center">
+                    No encontramos ese país
+                  </li>
+                ) : (
+                  filtered.map((p) => (
+                    <li key={p.code}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onChange(p.code);
+                          setOpen(false);
+                          setQuery("");
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-emerald-50 text-left transition ${
+                          value === p.code ? "bg-emerald-50/70" : ""
+                        }`}
+                      >
+                        <span className="text-base">{p.flag}</span>
+                        <span className="text-[#0B1426] flex-1">{p.name}</span>
+                        <span className="text-slate-500 font-mono">
+                          {p.code}
+                        </span>
+                        {value === p.code && (
+                          <svg
+                            className="w-3.5 h-3.5 text-emerald-600"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </motion.div>
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
-    </div>
+    </>
   );
 };
 

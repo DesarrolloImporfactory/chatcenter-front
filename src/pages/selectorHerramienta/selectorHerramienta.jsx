@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { motion } from "framer-motion";
 import chatApi from "../../api/chatcenter";
+import WhatsAppCaptureModal from "./modales/WhatsAppCaptureModal";
 
 /* ═══════════════════════════════════════════════════════════
    Tool Card
@@ -233,6 +234,8 @@ export default function SelectorHerramienta() {
   const [toolsAccess, setToolsAccess] = useState(null);
   const [planName, setPlanName] = useState("");
   const [userName, setUserName] = useState("");
+  const [needsCapture, setNeedsCapture] = useState(false);
+  const [idUsuario, setIdUsuario] = useState(null);
 
   useEffect(() => {
     const init = async () => {
@@ -257,6 +260,9 @@ export default function SelectorHerramienta() {
           "stripe_plan/obtenerSuscripcionActiva",
           { id_usuario: decoded.id_usuario },
         );
+
+        setIdUsuario(decoded.id_usuario);
+        setNeedsCapture(!!data?.user_flags?.needs_whatsapp_capture);
 
         const plan = data?.plan;
         if (!plan) return navigate("/planes");
@@ -512,6 +518,13 @@ export default function SelectorHerramienta() {
           Imporfactory © {new Date().getFullYear()}
         </p>
       </motion.footer>
+
+      {needsCapture && idUsuario && (
+        <WhatsAppCaptureModal
+          id_usuario={idUsuario}
+          onSuccess={() => setNeedsCapture(false)}
+        />
+      )}
     </div>
   );
 }
