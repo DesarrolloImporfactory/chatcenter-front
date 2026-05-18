@@ -376,6 +376,7 @@ function RespuestaRapidaPreview({ rr }) {
 
   // Resolver URL del archivo (intentamos varios campos por si el backend usa nombres distintos)
   const mediaUrl =
+    rr.ruta_archivo ||
     rr.media_url ||
     rr.file_url ||
     rr.url ||
