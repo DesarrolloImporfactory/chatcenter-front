@@ -708,46 +708,106 @@ export default function Contactos() {
   const [useDefaultHeaderAssetMasivo, setUseDefaultHeaderAssetMasivo] =
     useState(true);
 
+  // ====== 1) Conectar socket (igual que Chat) ======
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token) {
-      const decoded = jwtDecode(token);
-
-      setNombre_encargado_global(decoded.nombre_encargado);
-
-      if (decoded.exp < Date.now() / 1000) {
-        localStorage.clear();
-        window.location.href = "/login";
-      }
-
-      setUserData(decoded);
-
-      const socket = io(import.meta.env.VITE_socket, {
-        transports: ["websocket", "polling"],
-        secure: true,
-      });
-
-      socket.on("connect", () => {
-        console.log("Conectado al servidor de WebSockets");
-        socketRef.current = socket;
-        setIsSocketConnected(true);
-      });
-
-      socket.on("disconnect", () => {
-        console.log("Desconectado del servidor de WebSockets");
-        setIsSocketConnected(false);
-      });
-    } else {
+    if (!token) {
       window.location.href = "/login";
+      return;
     }
+
+    const decoded = jwtDecode(token);
+    setNombre_encargado_global(decoded.nombre_encargado);
+
+    if (decoded.exp < Date.now() / 1000) {
+      localStorage.clear();
+      window.location.href = "/login";
+      return;
+    }
+
+    setUserData(decoded);
+
+    const socket = io(import.meta.env.VITE_socket, {
+      transports: ["websocket", "polling"],
+      secure: true,
+    });
+
+    socket.on("connect", () => {
+      console.log("Conectado al servidor de WebSockets");
+      socketRef.current = socket;
+      setIsSocketConnected(true);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Desconectado del servidor de WebSockets");
+      setIsSocketConnected(false);
+    });
 
     return () => {
       if (socketRef.current) {
         socketRef.current.off("DATA_ADMIN_RESPONSE");
+        socketRef.current.off("USER_ADDED");
         socketRef.current.disconnect();
       }
     };
   }, []);
+
+  // ====== 2) Cuando hay socket + userData, pedir DATA_ADMIN (igual que Chat) ======
+  useEffect(() => {
+    if (!isSocketConnected || !userData) return;
+    if (!socketRef.current) return;
+
+    const cfgId = Number(localStorage.getItem("id_configuracion"));
+    if (!cfgId) return;
+
+    // ADD_USER (igual que Chat)
+    socketRef.current.emit("ADD_USER", userData);
+    socketRef.current.on("USER_ADDED", (data) => {});
+
+    // GET_DATA_ADMIN (igual que Chat) — id_configuracion va directo, no en objeto
+    socketRef.current.emit("GET_DATA_ADMIN", cfgId);
+
+    socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
+      setDataAdmin(data);
+
+      if (data.metodo_pago == 0) {
+        const businessId = data.meta_business_id;
+
+        const metaUrl = businessId
+          ? `https://business.facebook.com/latest/settings/whatsapp_account/?business_id=${businessId}`
+          : "https://business.facebook.com/latest/settings/whatsapp_account/";
+
+        Swal.fire({
+          icon: "warning",
+          title: "Acción requerida en Meta",
+          html: `
+          <div style="font-size:14px; line-height:1.5;">
+            Detectamos un inconveniente con el método de pago en tu cuenta de WhatsApp Business.
+            <br/><br/>
+            Para continuar enviando mensajes correctamente debes revisar la configuración de facturación en Meta Business Suite.
+          </div>
+        `,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          confirmButtonText: "Abrir Meta Business Suite",
+          showCancelButton: true,
+          cancelButtonText: "Más tarde",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.open(metaUrl, "_blank");
+          }
+        });
+      }
+    });
+
+    // cleanup de listeners cuando cambien las deps
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off("USER_ADDED");
+        socketRef.current.off("DATA_ADMIN_RESPONSE");
+      }
+    };
+  }, [isSocketConnected, userData]);
 
   const [templates, setTemplates] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
