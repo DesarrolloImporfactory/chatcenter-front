@@ -20,20 +20,141 @@ const TIEMPOS = [
 
 const BG_DARK = "rgb(23, 25, 49)";
 
+/* Métodos disponibles si el cliente respondió en últimas 24h */
+const METODOS_24H = [
+  {
+    value: "ninguno",
+    label: "Solo plantilla",
+    desc: "Envía siempre la plantilla Meta",
+    icon: "bx-shield",
+    color: "#6b7280",
+  },
+  {
+    value: "respuesta_rapida",
+    label: "Respuesta rápida",
+    desc: "Mensaje pre-armado (gratis)",
+    icon: "bxs-zap",
+    color: "#0ea5e9",
+  },
+  {
+    value: "ia",
+    label: "Generado por IA",
+    desc: "Personalizado por cliente",
+    icon: "bx-bot",
+    color: "#8b5cf6",
+  },
+];
+
+/* Prompts DEFAULT para IA (uno por número de seguimiento) */
+const PROMPTS_DEFAULT = {
+  1: `Genera UN mensaje de remarketing para el cliente de esta conversación. PRIMER intento de reactivación.
+
+ÁNGULO
+"Tu problema sigue ahí". Recordar que el dolor/motivo que llevó al cliente a interesarse sigue sin resolverse, y que su solución ya está empacada esperándolo.
+
+CONFIGURACIÓN DE TU NEGOCIO (edita estos valores)
+- Tiempo de entrega: 48-72 horas
+- Forma de pago: contra entrega
+
+ESTRUCTURA DEL MENSAJE
+1. Emoji 🚛 + título corto: el pedido está empacado y listo para salir
+2. Un párrafo retomando el dolor/motivo específico que el cliente mencionó en la conversación
+3. Tres bullets cortos con emojis: estado del pedido, tiempo de entrega, forma de pago
+4. Cierre breve pidiendo la ubicación con emoji 📍
+
+REGLAS
+- Tuteo natural LATAM
+- En el párrafo del medio, RETOMA puntualmente lo que el cliente dijo (sin inventar)
+- USA los datos exactos de CONFIGURACIÓN
+- NO inventes precios, descuentos ni promociones
+- NO uses falsa urgencia
+- Largo total: 5-7 líneas
+
+Solo devuelve el texto del mensaje, sin comillas.`,
+
+  2: `Genera UN mensaje de remarketing para el cliente de esta conversación. SEGUNDO intento de reactivación.
+
+ÁNGULO
+"Estás perdiendo plata". Le asignaste envío gratis hoy, pero se cae al cerrar el día. Si compra mañana, paga el envío.
+
+CONFIGURACIÓN DE TU NEGOCIO (edita estos valores)
+- Costo normal del envío: $8
+- Validez de la promoción: solo hoy
+- Forma de pago: contra entrega
+
+ESTRUCTURA DEL MENSAJE
+1. Emoji 🎁 + título: envío GRATIS pero se cae hoy
+2. Un párrafo explicando cuánto cuesta normalmente y por qué pierde plata si no aprovecha hoy
+3. Tres bullets cortos con emojis: estado del paquete, beneficio (envío gratis hoy), forma de pago
+4. Cierre breve pidiendo la ubicación con emoji 📍
+
+REGLAS
+- Tuteo natural LATAM
+- USA los datos exactos de CONFIGURACIÓN (no inventes el costo)
+- NO ofrezcas descuento, eso es del tercer mensaje
+- NO uses urgencia falsa más allá de "solo hoy"
+- Largo total: 5-7 líneas
+
+Solo devuelve el texto del mensaje, sin comillas.`,
+
+  3: `Genera UN mensaje de remarketing para el cliente de esta conversación. TERCER y ÚLTIMO intento.
+
+ÁNGULO
+"Última oportunidad". Activaste un descuento directo sobre el pedido, ya aplicado, pero vence hoy a las 23:59. Es tu última escritura para no insistir más.
+
+CONFIGURACIÓN DE TU NEGOCIO (edita estos valores)
+- Porcentaje de descuento: 10%
+- Vencimiento: hoy a las 23:59
+- Forma de pago: contra entrega
+
+ESTRUCTURA DEL MENSAJE
+1. Emoji 💸 + título: descuento aplicado + aclaración de que es el último mensaje
+2. Un párrafo reconociendo que tal vez el precio fue lo que frenó al cliente, y por eso lo activas
+3. Tres bullets cortos con emojis: descuento aplicado, vencimiento, forma de pago
+4. Frase corta con ✅ tipo "si el precio era lo que te frenaba, ya no hay excusa"
+5. Cierre breve pidiendo la ubicación con emoji 📍
+
+REGLAS
+- Tuteo natural LATAM
+- USA los datos exactos de CONFIGURACIÓN (no inventes %)
+- NO supliques ni te victimices
+- NO ofrezcas más descuentos
+- Largo total: 6-8 líneas
+
+Solo devuelve el texto del mensaje, sin comillas.`,
+};
+
+const getDefaultPrompt = (secuenciaIdx) => {
+  const n = (secuenciaIdx || 0) + 1;
+  return PROMPTS_DEFAULT[n] || PROMPTS_DEFAULT[1];
+};
+
 const SECUENCIA_VACIA = () => ({
   tiempo_espera_horas: "0",
   nombre_template: "",
   header_format: null,
   header_media_url: "",
   headerInfo: null,
-  estado_destino: "",
-  usar_respuesta_rapida: false,
+  metodo_dentro_24h: "ninguno",
   id_template_rapido: null,
+  prompt_ia: "",
+  estado_destino: "",
 });
 
-/* ═══════════════════════════════════════════════════════════
-   Helpers visuales — patrón de fondo WhatsApp y hora
-   ═══════════════════════════════════════════════════════════ */
+/* Detectar si una plantilla tiene variables {{N}} en HEADER o BODY */
+const templateHasVars = (template) => {
+  if (!template?.components) return false;
+  return template.components.some((c) => {
+    if (c.type === "HEADER" && c.format === "TEXT" && c.text) {
+      return /\{\{\d+\}\}/.test(c.text);
+    }
+    if (c.type === "BODY" && c.text) {
+      return /\{\{\d+\}\}/.test(c.text);
+    }
+    return false;
+  });
+};
+
 const WA_BG_PATTERN = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%23d1c7b7' fill-opacity='0.25'><circle cx='10' cy='10' r='1.2'/><circle cx='40' cy='25' r='1'/><circle cx='60' cy='55' r='1.2'/><circle cx='20' cy='65' r='1'/><circle cx='70' cy='15' r='1'/></g></svg>")`;
 
 const horaActual = () => {
@@ -45,6 +166,17 @@ const horaActual = () => {
 };
 
 const isPublicUrl = (u) => /^https?:\/\//i.test(String(u || ""));
+
+const DOMINIO_MEDIA = "https://chat.imporfactory.app";
+
+const buildMediaUrl = (raw) => {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/")) return `${DOMINIO_MEDIA}${s}`;
+  return `${DOMINIO_MEDIA}/uploads/respuestas_rapidas/${s}`;
+};
 
 function VideoHeader({ url }) {
   const [error, setError] = React.useState(false);
@@ -93,9 +225,6 @@ function VideoHeader({ url }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   Preview de plantilla Meta (estilo WhatsApp - burbuja entrante)
-   ═══════════════════════════════════════════════════════════ */
 function TemplatePreviewMini({ template }) {
   if (!template?.components) return null;
 
@@ -113,29 +242,6 @@ function TemplatePreviewMini({ template }) {
     (Array.isArray(header?.example?.header_url) &&
       header.example.header_url[0]) ||
     null;
-
-  const renderTextWithVars = (text) => {
-    if (!text) return null;
-    return text.split(/(\{\{\d+\}\})/g).map((part, i) =>
-      /\{\{\d+\}\}/.test(part) ? (
-        <span
-          key={i}
-          style={{
-            background: "#e0e7ff",
-            color: "#4338ca",
-            padding: "0 5px",
-            borderRadius: 4,
-            fontSize: ".74rem",
-            fontWeight: 600,
-          }}
-        >
-          {part}
-        </span>
-      ) : (
-        <span key={i}>{part}</span>
-      ),
-    );
-  };
 
   return (
     <div
@@ -181,7 +287,6 @@ function TemplatePreviewMini({ template }) {
             overflow: "hidden",
           }}
         >
-          {/* Header media */}
           {headerFmt === "IMAGE" &&
             headerExampleUrl &&
             isPublicUrl(headerExampleUrl) && (
@@ -242,7 +347,6 @@ function TemplatePreviewMini({ template }) {
             </div>
           )}
 
-          {/* Contenido */}
           <div style={{ padding: "7px 10px 5px" }}>
             {headerFmt === "TEXT" && header?.text && (
               <div
@@ -255,7 +359,7 @@ function TemplatePreviewMini({ template }) {
                   wordBreak: "break-word",
                 }}
               >
-                {renderTextWithVars(header.text)}
+                {header.text}
               </div>
             )}
             {bodyText && (
@@ -268,7 +372,7 @@ function TemplatePreviewMini({ template }) {
                   wordBreak: "break-word",
                 }}
               >
-                {renderTextWithVars(bodyText)}
+                {bodyText}
               </div>
             )}
             {footer?.text && (
@@ -305,7 +409,6 @@ function TemplatePreviewMini({ template }) {
             </div>
           </div>
 
-          {/* Botones */}
           {Array.isArray(buttonsComp?.buttons) &&
             buttonsComp.buttons.length > 0 && (
               <div>
@@ -330,65 +433,50 @@ function TemplatePreviewMini({ template }) {
               </div>
             )}
         </div>
-
-        {bodyText && /\{\{\d+\}\}/.test(bodyText) && (
-          <div
-            style={{
-              marginTop: 8,
-              fontSize: ".66rem",
-              color: "#475569",
-              lineHeight: 1.4,
-            }}
-          >
-            <i
-              className="bx bx-info-circle"
-              style={{ fontSize: 11, color: "#6366f1" }}
-            />{" "}
-            Las variables{" "}
-            <span
-              style={{
-                background: "#e0e7ff",
-                padding: "0 4px",
-                borderRadius: 3,
-                fontWeight: 600,
-                color: "#4338ca",
-              }}
-            >
-              {`{{1}}`}
-            </span>{" "}
-            las llena Meta automáticamente con los datos de cada cliente.
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   Preview de Respuesta Rápida (estilo WhatsApp - burbuja saliente)
-   Soporta: text, image, video, audio, document
-   ═══════════════════════════════════════════════════════════ */
 function RespuestaRapidaPreview({ rr }) {
   if (!rr) return null;
 
   const tipo = (rr.tipo_mensaje || "text").toLowerCase();
   const texto = rr.mensaje || "";
 
-  // Resolver URL del archivo (intentamos varios campos por si el backend usa nombres distintos)
-  const mediaUrl =
-    rr.ruta_archivo ||
+  const rawMedia =
     rr.media_url ||
     rr.file_url ||
     rr.url ||
     rr.archivo_url ||
     rr.media_path ||
-    null;
+    rr.ruta_archivo ||
+    rr.archivo ||
+    rr.path ||
+    rr.url_archivo ||
+    rr.multimedia ||
+    rr.multimedia_url ||
+    (rr.tipo_mensaje !== "text" &&
+    /^https?:\/\//i.test(String(rr.mensaje || ""))
+      ? rr.mensaje
+      : null);
+
+  const mediaUrl = buildMediaUrl(rawMedia);
+
+  // 🔧 LOG TEMPORAL — quítalo cuando confirmemos que funciona
+  console.log("[RR DEBUG]", {
+    atajo: rr.atajo,
+    tipo: rr.tipo_mensaje,
+    rawMedia,
+    mediaUrl,
+    rrCompleto: rr,
+  });
 
   const fileName = rr.file_name || rr.filename || rr.nombre_archivo || null;
 
   const renderMedia = () => {
     if (tipo === "image") {
-      return mediaUrl && isPublicUrl(mediaUrl) ? (
+      return mediaUrl ? (
         <div style={{ padding: 3, paddingBottom: 0 }}>
           <img
             src={mediaUrl}
@@ -409,7 +497,7 @@ function RespuestaRapidaPreview({ rr }) {
     }
 
     if (tipo === "video") {
-      return mediaUrl && isPublicUrl(mediaUrl) ? (
+      return mediaUrl ? (
         <div style={{ padding: 3, paddingBottom: 0 }}>
           <video
             src={mediaUrl}
@@ -431,7 +519,7 @@ function RespuestaRapidaPreview({ rr }) {
     if (tipo === "audio") {
       return (
         <div style={{ padding: "8px 10px 4px" }}>
-          {mediaUrl && isPublicUrl(mediaUrl) ? (
+          {mediaUrl ? (
             <audio
               src={mediaUrl}
               controls
@@ -447,7 +535,7 @@ function RespuestaRapidaPreview({ rr }) {
     if (tipo === "document") {
       return (
         <a
-          href={mediaUrl && isPublicUrl(mediaUrl) ? mediaUrl : undefined}
+          href={mediaUrl || undefined}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -565,7 +653,6 @@ function RespuestaRapidaPreview({ rr }) {
             position: "relative",
           }}
         >
-          {/* Cola de la burbuja saliente */}
           <div
             style={{
               position: "absolute",
@@ -579,10 +666,8 @@ function RespuestaRapidaPreview({ rr }) {
             }}
           />
 
-          {/* Media */}
           {tipo !== "text" && renderMedia()}
 
-          {/* Texto / caption */}
           {(texto || tipo === "text") && (
             <div style={{ padding: "7px 10px 5px" }}>
               {texto ? (
@@ -631,7 +716,6 @@ function RespuestaRapidaPreview({ rr }) {
             </div>
           )}
 
-          {/* Si es media sin texto, hora va en barra inferior */}
           {!texto && tipo !== "text" && (
             <div
               style={{
@@ -823,6 +907,39 @@ const RemarketingColumna = ({
     );
   };
 
+  /* Cambio de método dentro de 24h
+     Si elige IA y aún no hay prompt → carga el default según índice */
+  const handleMetodoChange = (idx, nuevoMetodo) => {
+    setSecuencias((prev) =>
+      prev.map((s, i) => {
+        if (i !== idx) return s;
+        const updates = { metodo_dentro_24h: nuevoMetodo };
+        if (nuevoMetodo === "ia" && !String(s.prompt_ia || "").trim()) {
+          updates.prompt_ia = getDefaultPrompt(idx);
+        }
+        return { ...s, ...updates };
+      }),
+    );
+  };
+
+  const handleRestaurarPrompt = async (idx) => {
+    const ok = await Swal.fire({
+      title: "¿Restaurar prompt por defecto?",
+      text: "Se perderán los cambios que hayas hecho en este prompt.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, restaurar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#8b5cf6",
+      cancelButtonColor: "#6b7280",
+      reverseButtons: true,
+      customClass: { container: "rm2-swal-top" },
+    });
+    if (!ok.isConfirmed) return;
+    updateSec(idx, "prompt_ia", getDefaultPrompt(idx));
+    Toast.fire({ icon: "success", title: "Prompt restaurado" });
+  };
+
   const agregarSecuencia = () => {
     if (secuencias.length < 3) setSecuencias((p) => [...p, SECUENCIA_VACIA()]);
   };
@@ -852,9 +969,13 @@ const RemarketingColumna = ({
             headerInfo: r.header_format
               ? { format: r.header_format, url: r.header_media_url || null }
               : null,
-            estado_destino: r.estado_destino || "",
-            usar_respuesta_rapida: !!r.usar_respuesta_rapida,
+            // Compat: si viene 'metodo_dentro_24h' lo usa, si no, mapea desde el legacy
+            metodo_dentro_24h:
+              r.metodo_dentro_24h ||
+              (r.usar_respuesta_rapida ? "respuesta_rapida" : "ninguno"),
             id_template_rapido: r.id_template_rapido || null,
+            prompt_ia: r.prompt_ia || "",
+            estado_destino: r.estado_destino || "",
           })),
         );
         setConfigActiva(true);
@@ -905,6 +1026,7 @@ const RemarketingColumna = ({
   const handleGuardar = async () => {
     for (let i = 0; i < secuencias.length; i++) {
       const s = secuencias[i];
+
       if (!s.nombre_template || s.tiempo_espera_horas === "0") {
         Toast.fire({
           icon: "warning",
@@ -912,10 +1034,29 @@ const RemarketingColumna = ({
         });
         return;
       }
-      if (s.usar_respuesta_rapida && !s.id_template_rapido) {
+
+      // Validar que la plantilla NO tenga variables
+      const tpl = plantillas.find((p) => p.name === s.nombre_template);
+      if (tpl && templateHasVars(tpl)) {
+        Toast.fire({
+          icon: "warning",
+          title: `Seguimiento ${i + 1}: usa una plantilla sin {{N}}`,
+        });
+        return;
+      }
+
+      // Validar método dentro de 24h
+      if (s.metodo_dentro_24h === "respuesta_rapida" && !s.id_template_rapido) {
         Toast.fire({
           icon: "warning",
           title: `Selecciona una respuesta rápida en el seguimiento ${i + 1}`,
+        });
+        return;
+      }
+      if (s.metodo_dentro_24h === "ia" && !String(s.prompt_ia || "").trim()) {
+        Toast.fire({
+          icon: "warning",
+          title: `El prompt de IA no puede estar vacío (seguimiento ${i + 1})`,
         });
         return;
       }
@@ -937,21 +1078,27 @@ const RemarketingColumna = ({
         }
       }
 
-      const esUltimo = i === secuencias.length - 1;
-
       return {
         secuencia: i + 1,
         tiempo_espera_horas: Number(s.tiempo_espera_horas),
         nombre_template: s.nombre_template,
         language_code: "es",
-        estado_destino: esUltimo ? s.estado_destino || null : null,
+        estado_destino: s.estado_destino || null,
         header_format: hFormat || null,
         header_media_url: hUrl || null,
         header_media_name: null,
-        usar_respuesta_rapida: !!s.usar_respuesta_rapida,
-        id_template_rapido: s.usar_respuesta_rapida
-          ? s.id_template_rapido
-          : null,
+
+        // Nuevos campos
+        metodo_dentro_24h: s.metodo_dentro_24h || "ninguno",
+        id_template_rapido:
+          s.metodo_dentro_24h === "respuesta_rapida"
+            ? s.id_template_rapido
+            : null,
+        prompt_ia: s.metodo_dentro_24h === "ia" ? s.prompt_ia : null,
+
+        // Compat con código legacy
+        usar_respuesta_rapida:
+          s.metodo_dentro_24h === "respuesta_rapida" ? 1 : 0,
       };
     });
 
@@ -978,12 +1125,21 @@ const RemarketingColumna = ({
   };
 
   const columnasDestino = columnas.filter((c) => c.estado_db !== estado_db);
-  const formularioListo = secuencias.every(
-    (s) =>
-      s.nombre_template &&
-      s.tiempo_espera_horas !== "0" &&
-      (!s.usar_respuesta_rapida || s.id_template_rapido),
-  );
+
+  // Plantillas filtradas: solo las que NO tienen variables
+  const plantillasSinVars = plantillas.filter((tpl) => !templateHasVars(tpl));
+  const plantillasConVarsCount = plantillas.length - plantillasSinVars.length;
+
+  const formularioListo = secuencias.every((s) => {
+    if (!s.nombre_template || s.tiempo_espera_horas === "0") return false;
+    const tpl = plantillas.find((p) => p.name === s.nombre_template);
+    if (tpl && templateHasVars(tpl)) return false;
+    if (s.metodo_dentro_24h === "respuesta_rapida" && !s.id_template_rapido)
+      return false;
+    if (s.metodo_dentro_24h === "ia" && !String(s.prompt_ia || "").trim())
+      return false;
+    return true;
+  });
 
   const iconoTipoRR = (tipo) => {
     const map = {
@@ -1008,12 +1164,12 @@ const RemarketingColumna = ({
         .rm2-trigger-btn:hover { background:rgba(99,102,241,.15); border-color:rgba(99,102,241,.6); box-shadow:0 2px 10px rgba(99,102,241,.18); transform:translateY(-1px); }
         .rm2-dot { width:6px; height:6px; border-radius:50%; background:#22c55e; animation:rm2-pulse-dot 2s infinite; box-shadow:0 0 0 2px rgba(34,197,94,.2); }
         .rm2-overlay { position:fixed; inset:0; background:rgba(10,10,20,.6); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; animation:rm2-overlayIn .2s ease; }
-        .rm2-modal { background:#fff; border-radius:16px; width:100%; max-width:560px; max-height:92vh; display:flex; flex-direction:column; box-shadow:0 32px 80px rgba(0,0,0,.22),0 0 0 1px rgba(0,0,0,.07); animation:rm2-fadeIn .25s ease; overflow:hidden; }
+        .rm2-modal { background:#fff; border-radius:16px; width:100%; max-width:580px; max-height:92vh; display:flex; flex-direction:column; box-shadow:0 32px 80px rgba(0,0,0,.22),0 0 0 1px rgba(0,0,0,.07); animation:rm2-fadeIn .25s ease; overflow:hidden; }
         .rm2-modal-header { background:${BG_DARK}; padding:20px 24px 16px; border-radius:16px 16px 0 0; flex-shrink:0; }
         .rm2-body { padding:20px 24px 24px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
         .rm2-seq-block { border:1.5px solid #e5e7eb; border-radius:14px; margin-bottom:10px; overflow:hidden; }
         .rm2-seq-header { display:flex; align-items:center; justify-content:space-between; padding:11px 14px; background:#f8fafc; border-bottom:1px solid #e5e7eb; }
-        .rm2-seq-body { padding:14px; display:flex; flex-direction:column; gap:10px; }
+        .rm2-seq-body { padding:14px; display:flex; flex-direction:column; gap:12px; }
         .rm2-seq-num { width:24px; height:24px; border-radius:50%; background:${BG_DARK}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; flex-shrink:0; }
         .rm2-connector { display:flex; align-items:center; gap:8px; padding:6px 0 2px; color:#6b7280; font-size:.75rem; font-weight:600; }
         .rm2-connector::before, .rm2-connector::after { content:''; flex:1; height:1px; background:#e5e7eb; }
@@ -1024,8 +1180,17 @@ const RemarketingColumna = ({
         .rm2-time-chip .tl { font-size:.78rem; font-weight:700; color:#111827; }
         .rm2-time-chip .ts { font-size:.62rem; color:#6b7280; margin-top:1px; }
         .rm2-time-chip.sel .tl { color:${BG_DARK}; }
+        .rm2-metodo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+        .rm2-metodo-card { display:flex; flex-direction:column; align-items:flex-start; padding:10px; border-radius:10px; border:1.5px solid #e5e7eb; background:#f9fafb; cursor:pointer; transition:all .15s; text-align:left; gap:4px; }
+        .rm2-metodo-card:hover { border-color:#cbd5e1; background:#f1f5f9; }
+        .rm2-metodo-card.sel { border-width:2px; box-shadow:0 0 0 3px rgba(0,0,0,.04); }
+        .rm2-metodo-card .mc-icon { font-size:1.1rem; }
+        .rm2-metodo-card .mc-label { font-size:.78rem; font-weight:700; color:#111827; }
+        .rm2-metodo-card .mc-desc { font-size:.66rem; color:#6b7280; line-height:1.3; }
         .rm2-select { width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid #e5e7eb; background:#f9fafb; font-size:.85rem; color:#111827; outline:none; transition:border-color .2s; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:32px; cursor:pointer; font-family:inherit; }
         .rm2-select:focus { border-color:${BG_DARK}; box-shadow:0 0 0 3px rgba(23,25,49,.1); background-color:#fff; }
+        .rm2-textarea { width:100%; min-height:140px; padding:10px 12px; border-radius:10px; border:1.5px solid #ddd6fe; background:#fff; font-size:.78rem; color:#1f2937; outline:none; transition:border-color .2s; font-family:'SF Mono','Consolas','Menlo',monospace; line-height:1.5; resize:vertical; box-sizing:border-box; }
+        .rm2-textarea:focus { border-color:#8b5cf6; box-shadow:0 0 0 3px rgba(139,92,246,.12); }
         .rm2-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; font-size:.72rem; font-weight:600; }
         .rm2-badge-ok   { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
         .rm2-badge-warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
@@ -1037,19 +1202,15 @@ const RemarketingColumna = ({
         .rm2-btn-save:disabled { opacity:.5; cursor:not-allowed; transform:none; }
         .rm2-btn-cancel { padding:10px 16px; border-radius:12px; border:1.5px solid #e5e7eb; background:#fff; color:#374151; font-weight:600; font-size:.875rem; cursor:pointer; transition:all .15s; font-family:inherit; }
         .rm2-btn-cancel:hover { background:#f9fafb; }
+        .rm2-btn-tiny { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:7px; border:1px solid #ddd6fe; background:#faf5ff; color:#7c3aed; font-size:.7rem; font-weight:600; cursor:pointer; font-family:inherit; transition:all .12s; }
+        .rm2-btn-tiny:hover { background:#ede9fe; }
         .rm2-close-btn { width:28px; height:28px; border-radius:8px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.08); color:rgba(255,255,255,.7); cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:inherit; }
         .rm2-close-btn:hover { background:rgba(255,255,255,.18); color:#fff; }
         .rm2-swal-top { z-index:99999 !important; }
         .rm2-remove-btn { display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:7px; border:1px solid #fecaca; background:#fff5f5; color:#dc2626; font-size:.72rem; font-weight:600; cursor:pointer; font-family:inherit; }
         .rm2-remove-btn:hover { background:#fee2e2; }
-        .rm2-rr-card { border:1.5px solid #e0f2fe; background:#f0f9ff; border-radius:12px; padding:12px; }
-        .rm2-rr-card.active { border-color:#0ea5e9; background:#eff6ff; box-shadow:0 0 0 3px rgba(14,165,233,.08); }
-        .rm2-toggle { position:relative; display:inline-block; width:38px; height:22px; flex-shrink:0; }
-        .rm2-toggle input { opacity:0; width:0; height:0; }
-        .rm2-toggle-slider { position:absolute; cursor:pointer; inset:0; background:#cbd5e1; border-radius:999px; transition:all .2s; }
-        .rm2-toggle-slider::before { content:''; position:absolute; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:all .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
-        .rm2-toggle input:checked + .rm2-toggle-slider { background:#0ea5e9; }
-        .rm2-toggle input:checked + .rm2-toggle-slider::before { transform:translateX(16px); }
+        .rm2-helper-text { font-size:.7rem; color:#64748b; margin-top:5px; line-height:1.4; display:flex; align-items:flex-start; gap:5px; }
+        .rm2-warning-box { padding:8px 10px; border-radius:8px; background:#fef3c7; border:1px solid #fde68a; color:#92400e; font-size:.72rem; line-height:1.4; display:flex; align-items:flex-start; gap:6px; margin-top:6px; }
       `}</style>
 
       <button className="rm2-trigger-btn" type="button" onClick={handleAbrir}>
@@ -1138,9 +1299,8 @@ const RemarketingColumna = ({
                   lineHeight: 1.5,
                 }}
               >
-                Hasta 3 mensajes en cadena. Si el cliente respondió en últimas
-                24h, se envía la respuesta rápida (gratis); si no, la plantilla
-                Meta.
+                Hasta 3 mensajes en cadena. La plantilla Meta es el fallback;
+                dentro de 24h puedes mandar respuesta rápida o IA personalizada.
               </p>
               <div
                 style={{
@@ -1213,6 +1373,10 @@ const RemarketingColumna = ({
                       (r) => r.id_template === sec.id_template_rapido,
                     );
 
+                    const tplTieneVars = tplObj
+                      ? templateHasVars(tplObj)
+                      : false;
+
                     return (
                       <React.Fragment key={idx}>
                         {idx > 0 && (
@@ -1249,7 +1413,8 @@ const RemarketingColumna = ({
                                     : "Tercer seguimiento"}
                               </span>
                               {sec.nombre_template &&
-                                sec.tiempo_espera_horas !== "0" && (
+                                sec.tiempo_espera_horas !== "0" &&
+                                !tplTieneVars && (
                                   <span className="rm2-badge rm2-badge-ok">
                                     <i
                                       className="bx bx-check"
@@ -1327,7 +1492,7 @@ const RemarketingColumna = ({
                                   marginBottom: 6,
                                 }}
                               >
-                                💬 Plantilla Meta (fallback fuera de 24h)
+                                💬 Plantilla Meta (fuera de 24h)
                               </div>
                               {loadingPlt ? (
                                 <div
@@ -1346,12 +1511,90 @@ const RemarketingColumna = ({
                                     <option value="">
                                       Selecciona una plantilla...
                                     </option>
-                                    {plantillas.map((tpl) => (
+                                    {sec.nombre_template &&
+                                      tplObj &&
+                                      tplTieneVars && (
+                                        <option value={sec.nombre_template}>
+                                          {sec.nombre_template} ⚠ (con
+                                          variables)
+                                        </option>
+                                      )}
+                                    {plantillasSinVars.map((tpl) => (
                                       <option key={tpl.id} value={tpl.name}>
                                         {tpl.name}
                                       </option>
                                     ))}
                                   </select>
+
+                                  <div className="rm2-helper-text">
+                                    <i
+                                      className="bx bx-info-circle"
+                                      style={{
+                                        fontSize: 12,
+                                        color: "#6366f1",
+                                        marginTop: 1,
+                                      }}
+                                    />
+                                    <span>
+                                      Solo se permiten plantillas{" "}
+                                      <strong>sin variables</strong>{" "}
+                                      <code
+                                        style={{
+                                          background: "#e0e7ff",
+                                          color: "#4338ca",
+                                          padding: "0 4px",
+                                          borderRadius: 3,
+                                          fontWeight: 700,
+                                          fontSize: ".7rem",
+                                        }}
+                                      >
+                                        {`{{N}}`}
+                                      </code>
+                                      .
+                                      {plantillasConVarsCount > 0 && (
+                                        <>
+                                          {" "}
+                                          {plantillasConVarsCount} plantilla
+                                          {plantillasConVarsCount > 1
+                                            ? "s están"
+                                            : " está"}{" "}
+                                          oculta
+                                          {plantillasConVarsCount > 1
+                                            ? "s"
+                                            : ""}{" "}
+                                          por tener variables.
+                                        </>
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  {sec.nombre_template && tplTieneVars && (
+                                    <div className="rm2-warning-box">
+                                      <i
+                                        className="bx bx-error"
+                                        style={{
+                                          fontSize: 14,
+                                          marginTop: 1,
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                      <span>
+                                        Esta plantilla tiene variables y ya no
+                                        se puede usar. Selecciona otra sin{" "}
+                                        <code
+                                          style={{
+                                            background: "#fef3c7",
+                                            padding: "0 3px",
+                                            borderRadius: 3,
+                                            fontWeight: 700,
+                                          }}
+                                        >
+                                          {`{{N}}`}
+                                        </code>
+                                        .
+                                      </span>
+                                    </div>
+                                  )}
 
                                   {sec.nombre_template && (
                                     <div
@@ -1392,189 +1635,305 @@ const RemarketingColumna = ({
                                     </div>
                                   )}
 
-                                  {/* ✨ Preview de la plantilla Meta */}
-                                  {sec.nombre_template && tplObj && (
-                                    <TemplatePreviewMini template={tplObj} />
-                                  )}
+                                  {sec.nombre_template &&
+                                    tplObj &&
+                                    !tplTieneVars && (
+                                      <TemplatePreviewMini template={tplObj} />
+                                    )}
                                 </>
                               )}
                             </div>
 
-                            {/* Respuesta rápida */}
-                            <div
-                              className={`rm2-rr-card ${sec.usar_respuesta_rapida ? "active" : ""}`}
-                            >
+                            {/* Selector de método dentro de 24h */}
+                            <div>
                               <div
                                 style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 10,
-                                  justifyContent: "space-between",
+                                  fontSize: ".78rem",
+                                  fontWeight: 700,
+                                  color: "#374151",
+                                  marginBottom: 6,
                                 }}
                               >
-                                <div style={{ flex: 1 }}>
-                                  <div
-                                    style={{
-                                      fontSize: ".82rem",
-                                      fontWeight: 700,
-                                      color: "#0c4a6e",
-                                    }}
-                                  >
-                                    ⚡ Respuesta rápida (si responde en 24h)
-                                  </div>
-                                  <div
-                                    style={{
-                                      fontSize: ".7rem",
-                                      color: "#475569",
-                                      marginTop: 2,
-                                      lineHeight: 1.4,
-                                    }}
-                                  >
-                                    Mensaje gratis (free-form). Si pasaron más
-                                    de 24h, cae a la plantilla Meta de arriba.
-                                  </div>
-                                </div>
-                                <label className="rm2-toggle">
-                                  <input
-                                    type="checkbox"
-                                    checked={sec.usar_respuesta_rapida}
-                                    onChange={(e) =>
-                                      updateSec(
-                                        idx,
-                                        "usar_respuesta_rapida",
-                                        e.target.checked,
-                                      )
-                                    }
-                                  />
-                                  <span className="rm2-toggle-slider" />
-                                </label>
+                                ⚡ Si respondió en últimas 24h
                               </div>
-
-                              {sec.usar_respuesta_rapida && (
-                                <div style={{ marginTop: 10 }}>
-                                  {loadingRR ? (
+                              <div className="rm2-metodo-grid">
+                                {METODOS_24H.map((m) => {
+                                  const sel = sec.metodo_dentro_24h === m.value;
+                                  return (
                                     <div
-                                      className="rm2-skeleton"
-                                      style={{ height: 38 }}
-                                    />
-                                  ) : respuestasRapidas.length === 0 ? (
-                                    <div
-                                      style={{
-                                        fontSize: ".72rem",
-                                        color: "#92400e",
-                                        background: "#fffbeb",
-                                        border: "1px solid #fde68a",
-                                        borderRadius: 8,
-                                        padding: "8px 10px",
-                                      }}
+                                      key={m.value}
+                                      className={`rm2-metodo-card ${sel ? "sel" : ""}`}
+                                      onClick={() =>
+                                        handleMetodoChange(idx, m.value)
+                                      }
+                                      style={
+                                        sel
+                                          ? {
+                                              borderColor: m.color,
+                                              background: `${m.color}0d`,
+                                            }
+                                          : {}
+                                      }
                                     >
-                                      No tienes respuestas rápidas creadas.
-                                      Créalas desde "Respuestas rápidas" en el
-                                      chat.
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <select
-                                        className="rm2-select"
-                                        value={sec.id_template_rapido || ""}
-                                        onChange={(e) =>
-                                          updateSec(
-                                            idx,
-                                            "id_template_rapido",
-                                            e.target.value
-                                              ? Number(e.target.value)
-                                              : null,
-                                          )
-                                        }
+                                      <i
+                                        className={`bx ${m.icon} mc-icon`}
+                                        style={{
+                                          color: sel ? m.color : "#94a3b8",
+                                        }}
+                                      />
+                                      <span
+                                        className="mc-label"
+                                        style={sel ? { color: m.color } : {}}
                                       >
-                                        <option value="">
-                                          Selecciona una respuesta rápida...
-                                        </option>
-                                        {respuestasRapidas.map((rr) => (
-                                          <option
-                                            key={rr.id_template}
-                                            value={rr.id_template}
-                                          >
-                                            /{rr.atajo} —{" "}
-                                            {(
-                                              rr.tipo_mensaje || "text"
-                                            ).toUpperCase()}
-                                          </option>
-                                        ))}
-                                      </select>
+                                        {m.label}
+                                      </span>
+                                      <span className="mc-desc">{m.desc}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
 
-                                      {/* Resumen breve */}
-                                      {rrSel && (
-                                        <div
-                                          style={{
-                                            marginTop: 8,
-                                            padding: "8px 10px",
-                                            background: "#fff",
-                                            border: "1px solid #e0f2fe",
-                                            borderRadius: 8,
-                                            fontSize: ".74rem",
-                                            color: "#334155",
-                                            display: "flex",
-                                            gap: 8,
-                                            alignItems: "flex-start",
-                                          }}
+                            {/* Config según método seleccionado */}
+                            {sec.metodo_dentro_24h === "respuesta_rapida" && (
+                              <div>
+                                {loadingRR ? (
+                                  <div
+                                    className="rm2-skeleton"
+                                    style={{ height: 38 }}
+                                  />
+                                ) : respuestasRapidas.length === 0 ? (
+                                  <div
+                                    style={{
+                                      fontSize: ".72rem",
+                                      color: "#92400e",
+                                      background: "#fffbeb",
+                                      border: "1px solid #fde68a",
+                                      borderRadius: 8,
+                                      padding: "8px 10px",
+                                    }}
+                                  >
+                                    No tienes respuestas rápidas creadas.
+                                    Créalas desde "Respuestas rápidas" en el
+                                    chat.
+                                  </div>
+                                ) : (
+                                  <>
+                                    <select
+                                      className="rm2-select"
+                                      value={sec.id_template_rapido || ""}
+                                      onChange={(e) =>
+                                        updateSec(
+                                          idx,
+                                          "id_template_rapido",
+                                          e.target.value
+                                            ? Number(e.target.value)
+                                            : null,
+                                        )
+                                      }
+                                    >
+                                      <option value="">
+                                        Selecciona una respuesta rápida...
+                                      </option>
+                                      {respuestasRapidas.map((rr) => (
+                                        <option
+                                          key={rr.id_template}
+                                          value={rr.id_template}
                                         >
-                                          <i
-                                            className={`bx ${iconoTipoRR(rrSel.tipo_mensaje)}`}
+                                          /{rr.atajo} —{" "}
+                                          {(
+                                            rr.tipo_mensaje || "text"
+                                          ).toUpperCase()}
+                                        </option>
+                                      ))}
+                                    </select>
+
+                                    {rrSel && (
+                                      <div
+                                        style={{
+                                          marginTop: 8,
+                                          padding: "8px 10px",
+                                          background: "#fff",
+                                          border: "1px solid #e0f2fe",
+                                          borderRadius: 8,
+                                          fontSize: ".74rem",
+                                          color: "#334155",
+                                          display: "flex",
+                                          gap: 8,
+                                          alignItems: "flex-start",
+                                        }}
+                                      >
+                                        <i
+                                          className={`bx ${iconoTipoRR(rrSel.tipo_mensaje)}`}
+                                          style={{
+                                            fontSize: 16,
+                                            color: "#0ea5e9",
+                                            marginTop: 1,
+                                          }}
+                                        />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div
                                             style={{
-                                              fontSize: 16,
-                                              color: "#0ea5e9",
-                                              marginTop: 1,
+                                              fontWeight: 600,
+                                              color: "#0c4a6e",
                                             }}
-                                          />
-                                          <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div
+                                          >
+                                            /{rrSel.atajo}{" "}
+                                            <span
                                               style={{
-                                                fontWeight: 600,
-                                                color: "#0c4a6e",
+                                                fontWeight: 500,
+                                                color: "#94a3b8",
+                                                fontSize: ".68rem",
+                                                marginLeft: 4,
+                                                textTransform: "uppercase",
+                                                letterSpacing: ".05em",
                                               }}
                                             >
-                                              /{rrSel.atajo}{" "}
-                                              <span
-                                                style={{
-                                                  fontWeight: 500,
-                                                  color: "#94a3b8",
-                                                  fontSize: ".68rem",
-                                                  marginLeft: 4,
-                                                  textTransform: "uppercase",
-                                                  letterSpacing: ".05em",
-                                                }}
-                                              >
-                                                {rrSel.tipo_mensaje || "text"}
-                                              </span>
-                                            </div>
-                                            <div
-                                              style={{
-                                                marginTop: 2,
-                                                color: "#475569",
-                                                whiteSpace: "nowrap",
-                                                overflow: "hidden",
-                                                textOverflow: "ellipsis",
-                                              }}
-                                            >
-                                              {rrSel.mensaje ||
-                                                (rrSel.file_name
-                                                  ? `📎 ${rrSel.file_name}`
-                                                  : "Sin texto")}
-                                            </div>
+                                              {rrSel.tipo_mensaje || "text"}
+                                            </span>
+                                          </div>
+                                          <div
+                                            style={{
+                                              marginTop: 2,
+                                              color: "#475569",
+                                              whiteSpace: "nowrap",
+                                              overflow: "hidden",
+                                              textOverflow: "ellipsis",
+                                            }}
+                                          >
+                                            {rrSel.mensaje ||
+                                              (rrSel.file_name
+                                                ? `📎 ${rrSel.file_name}`
+                                                : "Sin texto")}
                                           </div>
                                         </div>
-                                      )}
+                                      </div>
+                                    )}
 
-                                      {/* ✨ Preview WhatsApp completo */}
-                                      {rrSel && (
-                                        <RespuestaRapidaPreview rr={rrSel} />
-                                      )}
-                                    </>
-                                  )}
+                                    {rrSel && (
+                                      <RespuestaRapidaPreview rr={rrSel} />
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            )}
+
+                            {sec.metodo_dentro_24h === "ia" && (
+                              <div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    marginBottom: 6,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: ".72rem",
+                                      fontWeight: 600,
+                                      color: "#6d28d9",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 5,
+                                    }}
+                                  >
+                                    <i
+                                      className="bx bx-edit"
+                                      style={{ fontSize: 13 }}
+                                    />
+                                    Prompt para la IA
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="rm2-btn-tiny"
+                                    onClick={() => handleRestaurarPrompt(idx)}
+                                    title="Restaurar prompt por defecto"
+                                  >
+                                    <i
+                                      className="bx bx-reset"
+                                      style={{ fontSize: 11 }}
+                                    />
+                                    Restaurar default
+                                  </button>
                                 </div>
-                              )}
-                            </div>
+                                <textarea
+                                  className="rm2-textarea"
+                                  value={sec.prompt_ia || ""}
+                                  onChange={(e) =>
+                                    updateSec(idx, "prompt_ia", e.target.value)
+                                  }
+                                  placeholder="Escribe el prompt o usa el default..."
+                                />
+                                <div
+                                  style={{
+                                    fontSize: ".68rem",
+                                    color: "#7c3aed",
+                                    background: "#faf5ff",
+                                    padding: "10px 12px",
+                                    borderRadius: 8,
+                                    marginTop: 6,
+                                    lineHeight: 1.5,
+                                    border: "1px solid #ede9fe",
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 7,
+                                  }}
+                                >
+                                  <i
+                                    className="bx bx-bot"
+                                    style={{
+                                      fontSize: 14,
+                                      marginTop: 1,
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                  <span>
+                                    El asistente ya conoce el contexto de la
+                                    conversación (cliente, historial, productos
+                                    mencionados).{" "}
+                                    <strong>
+                                      Edita la sección CONFIGURACIÓN
+                                    </strong>{" "}
+                                    del prompt con los datos reales de tu
+                                    negocio (precio del envío, % descuento,
+                                    etc.) antes de activar.
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {sec.metodo_dentro_24h === "ninguno" && (
+                              <div
+                                style={{
+                                  fontSize: ".72rem",
+                                  color: "#64748b",
+                                  background: "#f8fafc",
+                                  padding: "8px 10px",
+                                  borderRadius: 8,
+                                  border: "1px solid #e2e8f0",
+                                  display: "flex",
+                                  alignItems: "flex-start",
+                                  gap: 6,
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                <i
+                                  className="bx bx-info-circle"
+                                  style={{
+                                    fontSize: 13,
+                                    marginTop: 1,
+                                    flexShrink: 0,
+                                    color: "#6b7280",
+                                  }}
+                                />
+                                <span>
+                                  Siempre se enviará la plantilla Meta (incluso
+                                  si el cliente respondió en últimas 24h). Útil
+                                  cuando quieres mantener un mensaje uniforme.
+                                </span>
+                              </div>
+                            )}
 
                             {/* Estado destino */}
                             <div>
