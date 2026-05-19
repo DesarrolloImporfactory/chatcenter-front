@@ -18,217 +18,6 @@ import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
 import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? useEffect : () => {};
-
-const useSpotlight = (targetRef, deps = []) => {
-  const [rect, setRect] = useState(null);
-  const update = useCallback(() => {
-    if (!targetRef?.current || typeof window === "undefined") return;
-    const r = targetRef.current.getBoundingClientRect();
-    const margin = 10;
-    setRect({
-      top: Math.max(8, r.top - margin),
-      left: Math.max(8, r.left - margin),
-      width: r.width + margin * 2,
-      height: r.height + margin * 2,
-      centerX: r.left + r.width / 2,
-      centerY: r.top + r.height / 2,
-      vw: window.innerWidth,
-      vh: window.innerHeight,
-    });
-  }, [targetRef]);
-  useIsomorphicLayoutEffect(() => {
-    update();
-    const onResize = () => update();
-    const onScroll = () => update();
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, deps);
-  return { rect, update };
-};
-
-const Spotlight = ({ rect }) => {
-  if (!rect) return null;
-  const haloPad = 28;
-  return (
-    <>
-      <div
-        className="fixed z-[60] pointer-events-none transition-[top,left,width,height] duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
-        style={{
-          top: rect.top - haloPad,
-          left: rect.left - haloPad,
-          width: rect.width + haloPad * 2,
-          height: rect.height + haloPad * 2,
-          filter: "blur(6px)",
-        }}
-      />
-      <div
-        className="fixed z-[61] pointer-events-none rounded-xl ring-2 ring-offset-[3px] ring-offset-white transition-[top,left,width,height] duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
-        style={{
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height,
-          borderRadius: 14,
-          border: "1px solid rgba(99,102,241,.35)",
-          boxShadow:
-            "0 12px 40px rgba(59,130,246,.28), inset 0 0 0 1px rgba(255,255,255,.9)",
-        }}
-      />
-      <div
-        className="fixed z-[59] pointer-events-none"
-        style={{
-          top: rect.top - 8,
-          left: rect.left - 8,
-          width: rect.width + 16,
-          height: rect.height + 16,
-          borderRadius: 16,
-          boxShadow: "0 0 0 0 rgba(99,102,241,.35)",
-          animation: "pulseGlow 2s ease-out infinite",
-        }}
-      />
-      <style>{`@keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(99,102,241,.35); } 70% { box-shadow: 0 0 0 12px rgba(99,102,241,0); } 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } } @keyframes floatUp { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } @keyframes sheetIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } @keyframes dashDraw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }`}</style>
-    </>
-  );
-};
-
-const Balloon = ({ rect, children, placement = "auto", offset = 16 }) => {
-  if (!rect || typeof window === "undefined") return null;
-  const isMobile = window.innerWidth < 640;
-  if (isMobile)
-    return (
-      <div
-        className="fixed inset-x-0 bottom-2 z-[73] px-3"
-        role="dialog"
-        aria-live="polite"
-      >
-        <div className="mx-auto max-w-md rounded-2xl bg-white/95 p-4 text-sm text-slate-700 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.35)] backdrop-blur animate-[sheetIn_.24s_ease-out]">
-          {children}
-        </div>
-      </div>
-    );
-  const spaceBelow =
-    rect.top + rect.height + offset + 240 < window.scrollY + rect.vh;
-  const spaceAbove = rect.top - offset - 240 > window.scrollY;
-  const spaceRight =
-    rect.left + rect.width + offset + 400 < window.scrollX + rect.vw;
-  let place = placement;
-  if (placement === "auto") {
-    if (spaceRight) place = "right";
-    else if (spaceBelow) place = "bottom";
-    else if (spaceAbove) place = "top";
-    else place = "left";
-  }
-  const style = {
-    transition:
-      "top .28s cubic-bezier(.22,1,.36,1), left .28s cubic-bezier(.22,1,.36,1)",
-  };
-  let anchorX = rect.left + rect.width / 2,
-    anchorY = rect.top + rect.height / 2;
-  if (place === "bottom") {
-    style.top = rect.top + rect.height + offset;
-    style.left = Math.min(rect.left, window.scrollX + rect.vw - 400);
-    anchorX = rect.left + 24;
-    anchorY = rect.top + rect.height;
-  } else if (place === "top") {
-    style.top = Math.max(8, rect.top - offset - 220);
-    style.left = Math.min(rect.left, window.scrollX + rect.vw - 400);
-    anchorX = rect.left + 24;
-    anchorY = rect.top;
-  } else if (place === "right") {
-    style.top = Math.max(8, rect.top);
-    style.left = rect.left + rect.width + offset;
-    anchorX = rect.left + rect.width;
-    anchorY = rect.top + 20;
-  } else {
-    style.top = Math.max(8, rect.top);
-    style.left = Math.max(8, rect.left - offset - 380);
-    anchorX = rect.left;
-    anchorY = rect.top + 20;
-  }
-  const balloonX = style.left ?? 0,
-    balloonY = style.top ?? 0;
-  let tipX = balloonX + 22,
-    tipY = balloonY - 6;
-  if (place === "bottom") {
-    tipX = balloonX + 22;
-    tipY = balloonY;
-  } else if (place === "top") {
-    tipX = balloonX + 22;
-    tipY = balloonY + 220;
-  } else if (place === "right") {
-    tipX = balloonX;
-    tipY = balloonY + 22;
-  } else {
-    tipX = balloonX + 380;
-    tipY = balloonY + 22;
-  }
-  return (
-    <>
-      <svg
-        className="fixed z-[72] pointer-events-none"
-        width="0"
-        height="0"
-        style={{ inset: 0 }}
-        viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`}
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="14"
-            markerHeight="14"
-            refX="10"
-            refY="5"
-            orient="auto"
-          >
-            <path d="M0,0 L10,5 L0,10 Z" fill="url(#grad)" />
-          </marker>
-          <linearGradient id="grad" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="#60a5fa" />
-            <stop offset="100%" stopColor="#6366f1" />
-          </linearGradient>
-          <filter id="glow">
-            <feDropShadow
-              dx="0"
-              dy="0"
-              stdDeviation="3"
-              floodColor="rgba(99,102,241,.6)"
-            />
-          </filter>
-        </defs>
-        <path
-          d={`M ${tipX} ${tipY} Q ${(tipX + anchorX) / 2} ${(tipY + anchorY) / 2 - 20}, ${anchorX} ${anchorY}`}
-          stroke="url(#grad)"
-          strokeWidth="3"
-          fill="none"
-          markerEnd="url(#arrowhead)"
-          filter="url(#glow)"
-          pathLength="100"
-          style={{
-            strokeDasharray: 100,
-            strokeDashoffset: 0,
-            animation: "dashDraw .35s ease-out both",
-          }}
-        />
-      </svg>
-      <div
-        className="fixed z-[71] max-w-[380px] rounded-2xl bg-white/95 p-4 text-sm text-slate-700 ring-1 ring-slate-200 shadow-[0_30px_80px_rgba(2,6,23,.25)] backdrop-blur animate-[floatUp_.22s_ease-out]"
-        style={style}
-        role="dialog"
-        aria-live="polite"
-      >
-        {children}
-      </div>
-    </>
-  );
-};
-
 const HeaderStat = ({ label, value }) => (
   <div className="px-4 py-3 rounded-xl bg-white/30 backdrop-blur ring-1 ring-white/50 shadow-sm">
     <div className="text-xs uppercase tracking-wide text-white/80">{label}</div>
@@ -265,40 +54,102 @@ const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
   );
 };
 
+/**
+ * Popover en position: fixed.
+ * - Recibe el rect del botón disparador (triggerRect) y se posiciona en el viewport.
+ * - Z-index alto: escapa de cualquier stacking context (cards siguientes en el grid).
+ * - Auto-flip: si no cabe a la derecha, se va a la izquierda; si no cabe abajo, se sube.
+ */
 const HoverPopover = ({
   open,
+  triggerRect,
   onMouseEnter,
   onMouseLeave,
   children,
-  side = "right",
 }) => {
-  if (!open) return null;
-  const sideStyles =
-    side === "right"
-      ? "left-full top-0 ml-2"
-      : side === "left"
-        ? "right-full top-0 mr-2"
-        : side === "top"
-          ? "left-1/2 -translate-x-1/2 bottom-full mb-2"
-          : "left-1/2 -translate-x-1/2 top-full mt-2";
+  if (!open || !triggerRect || typeof window === "undefined") return null;
+
+  const POPOVER_W = 340;
+  const POPOVER_MAX_H = 260;
+  const GAP = 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Preferencia: derecha del botón. Si no cabe, izquierda. Si tampoco, abajo.
+  const spaceRight = vw - (triggerRect.right + GAP);
+  const spaceLeft = triggerRect.left - GAP;
+  const spaceBelow = vh - (triggerRect.bottom + GAP);
+
+  let side = "right";
+  if (spaceRight < POPOVER_W + 12) {
+    if (spaceLeft >= POPOVER_W + 12) side = "left";
+    else side = "bottom";
+  }
+
+  let top, left;
+  if (side === "right") {
+    left = triggerRect.right + GAP;
+    top = triggerRect.top;
+  } else if (side === "left") {
+    left = triggerRect.left - GAP - POPOVER_W;
+    top = triggerRect.top;
+  } else {
+    left = Math.min(Math.max(8, triggerRect.left), vw - POPOVER_W - 8);
+    top = triggerRect.bottom + GAP;
+  }
+
+  // Clamp vertical para que no se salga del viewport
+  if (top + POPOVER_MAX_H > vh - 8) {
+    top = Math.max(8, vh - POPOVER_MAX_H - 8);
+  }
+  if (top < 8) top = 8;
+
+  // Flechita pequeña al lado del trigger
+  const arrowStyle = {
+    position: "fixed",
+    width: 10,
+    height: 10,
+    background: "white",
+    border: "1px solid rgb(226, 232, 240)",
+    transform: "rotate(45deg)",
+    zIndex: 81,
+  };
+  if (side === "right") {
+    arrowStyle.left = triggerRect.right + GAP - 5;
+    arrowStyle.top = triggerRect.top + 14;
+  } else if (side === "left") {
+    arrowStyle.left = triggerRect.left - GAP - 5;
+    arrowStyle.top = triggerRect.top + 14;
+  } else {
+    arrowStyle.left = triggerRect.left + 14;
+    arrowStyle.top = triggerRect.bottom + GAP - 5;
+  }
+
   return (
-    <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className={`absolute z-30 ${sideStyles}`}
-      role="dialog"
-      aria-live="polite"
-    >
-      <div className="relative">
-        <div
-          aria-hidden
-          className={`absolute ${side === "right" ? "-left-1 top-3" : side === "left" ? "-right-1 top-3" : side === "top" ? "left-1/2 -translate-x-1/2 -bottom-1" : "left-1/2 -translate-x-1/2 -top-1"} w-3 h-3 rotate-45 bg-white ring-1 ring-slate-200`}
-        />
-        <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.20)] backdrop-blur w-[340px] max-h-[240px] overflow-auto">
-          {children}
-        </div>
+    <>
+      <div aria-hidden style={arrowStyle} />
+      <div
+        id="detalles-popover"
+        data-popover="detalles"
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        role="dialog"
+        aria-live="polite"
+        style={{
+          position: "fixed",
+          top,
+          left,
+          width: POPOVER_W,
+          maxHeight: POPOVER_MAX_H,
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          zIndex: 80,
+        }}
+        className="rounded-xl bg-white p-3 ring-1 ring-slate-200 shadow-[0_20px_60px_rgba(2,6,23,.20)]"
+      >
+        {children}
       </div>
-    </div>
+    </>
   );
 };
 
@@ -324,16 +175,75 @@ const Conexiones = () => {
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroPago, setFiltroPago] = useState("");
   const [suspendiendoId, setSuspendiendoId] = useState(null);
+
+  // --- Popover "Ver detalles" ---
   const [hoveredId, setHoveredId] = useState(null);
+  const [hoveredRect, setHoveredRect] = useState(null);
   const closeTimerRef = useRef(null);
-  const openPopover = (id) => {
+  // Referencia al elemento botón que abrió el popover (para reposicionar)
+  const triggerElRef = useRef(null);
+
+  const openPopover = (id, btnEl) => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    if (btnEl && typeof btnEl.getBoundingClientRect === "function") {
+      triggerElRef.current = btnEl;
+      setHoveredRect(btnEl.getBoundingClientRect());
+    }
     setHoveredId(id);
   };
   const scheduleClose = () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = setTimeout(() => setHoveredId(null), 120);
+    closeTimerRef.current = setTimeout(() => {
+      setHoveredId(null);
+      setHoveredRect(null);
+      triggerElRef.current = null;
+    }, 120);
   };
+
+  // En scroll/resize: REPOSICIONAR el popover siguiendo al botón.
+  // Ignora scrolls que vienen del propio popover (para permitir scroll interno).
+  // Solo cierra si el botón sale del viewport.
+  useEffect(() => {
+    if (!hoveredId) return;
+
+    const reposition = (e) => {
+      // Si el scroll proviene del popover o cualquier descendiente, ignorar
+      if (
+        e &&
+        e.target &&
+        typeof e.target.closest === "function" &&
+        e.target.closest('[data-popover="detalles"]')
+      ) {
+        return;
+      }
+      const el = triggerElRef.current;
+      if (!el || !document.body.contains(el)) {
+        setHoveredId(null);
+        setHoveredRect(null);
+        triggerElRef.current = null;
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      // Si el botón quedó fuera del viewport, cerramos
+      const fueraVertical = r.bottom < 0 || r.top > window.innerHeight;
+      const fueraHorizontal = r.right < 0 || r.left > window.innerWidth;
+      if (fueraVertical || fueraHorizontal) {
+        setHoveredId(null);
+        setHoveredRect(null);
+        triggerElRef.current = null;
+        return;
+      }
+      setHoveredRect(r);
+    };
+
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [hoveredId]);
+
   const [syncingId, setSyncingId] = useState(null);
   const [guideModal, setGuideModal] = useState(null);
 
@@ -461,7 +371,7 @@ const Conexiones = () => {
       await chatApi.post("/meta_ads/desconectar", {
         id_configuracion: config.id,
       });
-      await fetchConfiguracionAutomatizada(); // refresca todo con 1 sola petición
+      await fetchConfiguracionAutomatizada();
       Swal.fire({
         toast: true,
         position: "top-end",
@@ -474,59 +384,6 @@ const Conexiones = () => {
       Swal.fire("Error", "No se pudo desconectar.", "error");
     }
   }, []);
-
-  const headerRef = useRef(null);
-  const statsRef = useRef(null);
-  const newBtnRef = useRef(null);
-  const searchRef = useRef(null);
-  const filtersRef = useRef(null);
-  const gridRef = useRef(null);
-  const firstCardRef = useRef(null);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    if (!menuRef.current && typeof document !== "undefined")
-      menuRef.current = document.querySelector('[data-tour="hamburger"]');
-  }, []);
-
-  const [tourOpen, setTourOpen] = useState(false);
-  const [step, setStep] = useState(0);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
-  const [loadingTourPref, setLoadingTourPref] = useState(true);
-
-  useEffect(() => {
-    const loadPref = async () => {
-      if (!userData?.id_usuario) return;
-      try {
-        const { data } = await chatApi.post(
-          "usuarios_chat_center/tour-conexiones/get",
-          { id_usuario: userData.id_usuario },
-        );
-        const dismissed = Number(data?.tour_conexiones_dismissed) === 1;
-        setDontShowAgain(dismissed);
-        setTourOpen(!dismissed);
-      } catch (e) {
-        setDontShowAgain(false);
-        setTourOpen(true);
-      } finally {
-        setLoadingTourPref(false);
-      }
-    };
-    loadPref();
-  }, [userData?.id_usuario]);
-
-  const persistTourPref = useCallback(
-    async (value) => {
-      if (!userData?.id_usuario) return;
-      try {
-        await chatApi.post("usuarios_chat_center/tour-conexiones/set", {
-          id_usuario: userData.id_usuario,
-          tour_conexiones_dismissed: value ? 1 : 0,
-        });
-      } catch {}
-    },
-    [userData?.id_usuario],
-  );
 
   const isConectado = (c) => {
     if (typeof c?.status_whatsapp === "string")
@@ -572,113 +429,6 @@ const Conexiones = () => {
     }
     return data;
   }, [configuracionAutomatizada, search, filtroEstado, filtroPago]);
-
-  const hasCards = listaFiltrada.length > 0;
-  const tourSteps = useMemo(() => {
-    const base = [
-      {
-        key: "header",
-        ref: headerRef,
-        title: "Panel de conexiones",
-        body: "Aquí gestionás todos tus canales.",
-        placement: "auto",
-      },
-      {
-        key: "new",
-        ref: newBtnRef,
-        title: "Crear nueva configuración",
-        body: "Usá este botón para iniciar el asistente y conectar un negocio con sus respectivos canales.",
-        placement: "auto",
-      },
-      {
-        key: "search",
-        ref: searchRef,
-        title: "Búsqueda instantánea",
-        body: "Filtrá por nombre o teléfono para encontrar una conexión rápidamente.",
-        placement: "auto",
-      },
-      {
-        key: "filters",
-        ref: filtersRef,
-        title: "Filtros por estado y pagos",
-        body: "Filtra tus negocios por estado conectado/pendiente y con pagos activos/inactivos.",
-        placement: "auto",
-      },
-      {
-        key: "stats",
-        ref: statsRef,
-        title: "KPI de cabecera",
-        body: "Visión general: totales, conectados, pendientes y pagos activos.",
-        placement: "auto",
-      },
-    ];
-    if (hasCards) {
-      base.push({
-        key: "card",
-        ref: firstCardRef,
-        title: "Tarjeta de conexión",
-        body: 'Pasá el mouse por "Ver detalles" para conocer todas las acciones disponibles.',
-        placement: "auto",
-      });
-      base.push({
-        key: "menu",
-        ref: menuRef,
-        title: "Menú principal (☰)",
-        body: "Plan y facturación, Usuarios, Departamentos y Cerrar sesión.",
-        placement: "auto",
-      });
-    }
-    return base;
-  }, [hasCards]);
-
-  const currentRef = tourSteps[step]?.ref || null;
-  const { rect, update } = useSpotlight(currentRef, [
-    tourOpen,
-    step,
-    currentRef,
-    listaFiltrada.length,
-  ]);
-
-  useEffect(() => {
-    if (!tourOpen) return;
-    const onLayoutChanged = () => {
-      update?.();
-      setTimeout(() => update?.(), 320);
-    };
-    window.addEventListener("layout:changed", onLayoutChanged);
-    return () => window.removeEventListener("layout:changed", onLayoutChanged);
-  }, [tourOpen, update]);
-  useEffect(() => {
-    if (!tourOpen) return;
-    const el = currentRef?.current;
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [tourOpen, step, currentRef]);
-  useEffect(() => {
-    if (!tourOpen) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") handleSkip();
-      if (e.key === "ArrowRight") handleNext();
-      if (e.key === "ArrowLeft") handlePrev();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [tourOpen, step]);
-
-  const handleSkip = useCallback(async () => {
-    await persistTourPref(dontShowAgain);
-    setTourOpen(false);
-  }, [dontShowAgain, persistTourPref]);
-  const handleNext = useCallback(async () => {
-    setStep((s) => {
-      if (s + 1 < tourSteps.length) return s + 1;
-      (async () => {
-        await persistTourPref(dontShowAgain);
-        setTourOpen(false);
-      })();
-      return s;
-    });
-  }, [tourSteps.length, dontShowAgain, persistTourPref]);
-  const handlePrev = useCallback(() => setStep((s) => Math.max(0, s - 1)), []);
 
   const handleAbrirConfiguracionAutomatizada = () =>
     setModalConfiguracionAutomatizada(true);
@@ -1045,7 +795,6 @@ const Conexiones = () => {
         );
         setConfiguracionAutomatizada(response.data.data || []);
         setMostrarErrorBot(false);
-        // ✅ meta_ads_conectado ya viene del SQL — 0 peticiones extra
       } catch (error) {
         if (error._handledByInterceptor) return;
         if (error.response?.status === 403) {
@@ -1225,14 +974,17 @@ const Conexiones = () => {
 
   const [showExportModal, setShowExportModal] = useState(false);
 
+  // Config actualmente con popover abierto (para renderizar su detalle desde el portal)
+  const hoveredConfig = useMemo(
+    () => listaFiltrada.find((c) => c.id === hoveredId) || null,
+    [listaFiltrada, hoveredId],
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
       <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
         <header className="relative isolate overflow-hidden">
-          <div
-            ref={headerRef}
-            className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl"
-          >
+          <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
             <div className="flex items-start sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
@@ -1245,7 +997,6 @@ const Conexiones = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  ref={newBtnRef}
                   onClick={handleAbrirConfiguracionAutomatizada}
                   className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 rounded-lg font-semibold shadow-sm transition group relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
                 >
@@ -1254,10 +1005,7 @@ const Conexiones = () => {
                 </button>
               </div>
             </div>
-            <div
-              ref={statsRef}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-            >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <HeaderStat label="Total conexiones" value={stats.total} />
               <HeaderStat label="Conectados" value={stats.conectados} />
               <HeaderStat label="Pendientes" value={stats.pendientes} />
@@ -1269,14 +1017,13 @@ const Conexiones = () => {
         <div className="p-6 border-b border-slate-100 bg-white">
           <div className="max-w-8xl mx-auto flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <input
-              ref={searchRef}
               type="text"
               placeholder="Buscar por nombre o teléfono…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full lg:w-1/2 px-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
             />
-            <div ref={filtersRef} className="flex gap-3 w-full lg:w-auto">
+            <div className="flex gap-3 w-full lg:w-auto">
               <select
                 className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 outline-none"
                 value={filtroEstado}
@@ -1348,7 +1095,7 @@ const Conexiones = () => {
         )}
 
         <div className="p-6">
-          <div ref={gridRef} className="max-w-8xl mx-auto">
+          <div className="max-w-8xl mx-auto">
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {[...Array(8)].map((_, i) => (
@@ -1382,19 +1129,17 @@ const Conexiones = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {listaFiltrada.map((config, idx) => {
+                {listaFiltrada.map((config) => {
                   const conectado = isConectado(config);
                   const pagoActivo = Number(config.metodo_pago) === 1;
                   const yaSincronizo =
                     Number(config?.sincronizo_coexistencia) === 1;
-                  // ✅ Directo del SQL — 0 peticiones extra
                   const adsConectado = Number(config.meta_ads_conectado) === 1;
                   const adsAccountName = config.meta_ads_account_name || null;
 
                   return (
                     <div
                       key={config.id}
-                      ref={idx === 0 ? firstCardRef : null}
                       className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-6 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1675,119 +1420,23 @@ const Conexiones = () => {
                         </div>
 
                         <div className="mt-2 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-                          <div
-                            className="relative"
-                            onMouseEnter={() => openPopover(config.id)}
+                          <button
+                            type="button"
+                            onMouseEnter={(e) =>
+                              openPopover(config.id, e.currentTarget)
+                            }
                             onMouseLeave={scheduleClose}
-                            onFocus={() => openPopover(config.id)}
-                            onBlur={() => setHoveredId(null)}
+                            onFocus={(e) =>
+                              openPopover(config.id, e.currentTarget)
+                            }
+                            onBlur={scheduleClose}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold text-slate-700 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+                            aria-label="Ver detalles"
                           >
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold text-slate-700 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
-                              aria-label="Ver detalles"
-                            >
-                              <i className="bx bx-info-circle text-base text-indigo-600" />
-                              Ver detalles
-                            </button>
-                            <HoverPopover
-                              open={hoveredId === config.id}
-                              onMouseEnter={() => openPopover(config.id)}
-                              onMouseLeave={scheduleClose}
-                              side="right"
-                            >
-                              <div className="space-y-3 pr-1">
-                                <ActionDetailRow
-                                  icon={<i className="bx bx-cog" />}
-                                  title="Canal de conexiones"
-                                  desc="Administra plantillas, perfiles, etc."
-                                />
-                                <ActionDetailRow
-                                  icon={<i className="bx bxl-messenger" />}
-                                  title={`Messenger ${isMessengerConectado(config) ? "(conectado)" : "(pendiente)"}`}
-                                  tone={
-                                    isMessengerConectado(config)
-                                      ? "success"
-                                      : "neutral"
-                                  }
-                                  desc={
-                                    isMessengerConectado(config)
-                                      ? "Página conectada al inbox."
-                                      : "Conecta tu Página de Facebook."
-                                  }
-                                />
-                                <ActionDetailRow
-                                  icon={<i className="bx bxl-instagram" />}
-                                  title={`Instagram ${isInstagramConectado(config) ? "(conectado)" : "(pendiente)"}`}
-                                  tone={
-                                    isInstagramConectado(config)
-                                      ? "success"
-                                      : "neutral"
-                                  }
-                                  desc={
-                                    isInstagramConectado(config)
-                                      ? "Instagram conectado al inbox."
-                                      : "Requiere IG vinculado a una Página."
-                                  }
-                                />
-                                <ActionDetailRow
-                                  icon={<i className="bx bxl-meta" />}
-                                  title={`Meta Business ${conectado ? "(conectado)" : "(requerido)"}`}
-                                  tone={conectado ? "success" : "warning"}
-                                  desc={
-                                    conectado
-                                      ? "Integración operativa para WhatsApp Business."
-                                      : "Primero configura el Business Manager."
-                                  }
-                                />
-                                <ActionDetailRow
-                                  icon={<i className="bx bxl-whatsapp" />}
-                                  title={`WhatsApp ${conectado ? "(conectado)" : "(pendiente)"}`}
-                                  tone={conectado ? "success" : "neutral"}
-                                  desc={
-                                    conectado
-                                      ? "Número activo y listo."
-                                      : "Vincula tu número desde Business Manager."
-                                  }
-                                />
-                                <ActionDetailRow
-                                  icon={<i className="bx bx-refresh" />}
-                                  title="Coexistencia"
-                                  tone={
-                                    !conectado
-                                      ? "neutral"
-                                      : yaSincronizo
-                                        ? "success"
-                                        : "warning"
-                                  }
-                                  desc={
-                                    !conectado
-                                      ? "Disponible al conectar WhatsApp."
-                                      : yaSincronizo
-                                        ? "Ya sincronizado."
-                                        : "Ejecuta una vez para traer mensajes existentes."
-                                  }
-                                />
-                                <ActionDetailRow
-                                  icon={
-                                    <i className="bx bxs-bar-chart-alt-2" />
-                                  }
-                                  title={`Meta Ads ${adsConectado ? "(conectado)" : "(pendiente)"}`}
-                                  tone={adsConectado ? "success" : "neutral"}
-                                  desc={
-                                    adsConectado
-                                      ? `Cuenta ${adsAccountName || ""} vinculada. Métricas en el dashboard.`
-                                      : "Conecta tu cuenta publicitaria de Meta."
-                                  }
-                                />
-                                <ActionDetailRow
-                                  icon={<i className="bx bx-chat" />}
-                                  title="Chat"
-                                  desc="Bandeja omnicanal para conversar con clientes."
-                                />
-                              </div>
-                            </HoverPopover>
-                          </div>
+                            <i className="bx bx-info-circle text-base text-indigo-600" />
+                            Ver detalles
+                          </button>
+
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -1813,6 +1462,110 @@ const Conexiones = () => {
         </div>
       </div>
 
+      {/* Popover único, renderizado fuera de las cards (position fixed) */}
+      {hoveredConfig && (
+        <HoverPopover
+          open={true}
+          triggerRect={hoveredRect}
+          onMouseEnter={() => openPopover(hoveredConfig.id, null)}
+          onMouseLeave={scheduleClose}
+        >
+          {(() => {
+            const conectado = isConectado(hoveredConfig);
+            const yaSincronizo =
+              Number(hoveredConfig?.sincronizo_coexistencia) === 1;
+            const adsConectado = Number(hoveredConfig.meta_ads_conectado) === 1;
+            const adsAccountName = hoveredConfig.meta_ads_account_name || null;
+            return (
+              <div className="space-y-3 pr-1">
+                <ActionDetailRow
+                  icon={<i className="bx bx-cog" />}
+                  title="Canal de conexiones"
+                  desc="Administra plantillas, perfiles, etc."
+                />
+                <ActionDetailRow
+                  icon={<i className="bx bxl-messenger" />}
+                  title={`Messenger ${isMessengerConectado(hoveredConfig) ? "(conectado)" : "(pendiente)"}`}
+                  tone={
+                    isMessengerConectado(hoveredConfig) ? "success" : "neutral"
+                  }
+                  desc={
+                    isMessengerConectado(hoveredConfig)
+                      ? "Página conectada al inbox."
+                      : "Conecta tu Página de Facebook."
+                  }
+                />
+                <ActionDetailRow
+                  icon={<i className="bx bxl-instagram" />}
+                  title={`Instagram ${isInstagramConectado(hoveredConfig) ? "(conectado)" : "(pendiente)"}`}
+                  tone={
+                    isInstagramConectado(hoveredConfig) ? "success" : "neutral"
+                  }
+                  desc={
+                    isInstagramConectado(hoveredConfig)
+                      ? "Instagram conectado al inbox."
+                      : "Requiere IG vinculado a una Página."
+                  }
+                />
+                <ActionDetailRow
+                  icon={<i className="bx bxl-meta" />}
+                  title={`Meta Business ${conectado ? "(conectado)" : "(requerido)"}`}
+                  tone={conectado ? "success" : "warning"}
+                  desc={
+                    conectado
+                      ? "Integración operativa para WhatsApp Business."
+                      : "Primero configura el Business Manager."
+                  }
+                />
+                <ActionDetailRow
+                  icon={<i className="bx bxl-whatsapp" />}
+                  title={`WhatsApp ${conectado ? "(conectado)" : "(pendiente)"}`}
+                  tone={conectado ? "success" : "neutral"}
+                  desc={
+                    conectado
+                      ? "Número activo y listo."
+                      : "Vincula tu número desde Business Manager."
+                  }
+                />
+                <ActionDetailRow
+                  icon={<i className="bx bx-refresh" />}
+                  title="Coexistencia"
+                  tone={
+                    !conectado
+                      ? "neutral"
+                      : yaSincronizo
+                        ? "success"
+                        : "warning"
+                  }
+                  desc={
+                    !conectado
+                      ? "Disponible al conectar WhatsApp."
+                      : yaSincronizo
+                        ? "Ya sincronizado."
+                        : "Ejecuta una vez para traer mensajes existentes."
+                  }
+                />
+                <ActionDetailRow
+                  icon={<i className="bx bxs-bar-chart-alt-2" />}
+                  title={`Meta Ads ${adsConectado ? "(conectado)" : "(pendiente)"}`}
+                  tone={adsConectado ? "success" : "neutral"}
+                  desc={
+                    adsConectado
+                      ? `Cuenta ${adsAccountName || ""} vinculada. Métricas en el dashboard.`
+                      : "Conecta tu cuenta publicitaria de Meta."
+                  }
+                />
+                <ActionDetailRow
+                  icon={<i className="bx bx-chat" />}
+                  title="Chat"
+                  desc="Bandeja omnicanal para conversar con clientes."
+                />
+              </div>
+            );
+          })()}
+        </HoverPopover>
+      )}
+
       {ModalConfiguracionAutomatizada && (
         <CrearConfiguracionModal
           onClose={() => setModalConfiguracionAutomatizada(false)}
@@ -1831,74 +1584,11 @@ const Conexiones = () => {
         />
       )}
 
-      {tourOpen && !loadingTourPref && (
-        <>
-          <Spotlight rect={rect} />
-          {rect && (
-            <Balloon
-              rect={rect}
-              placement={tourSteps[step]?.placement || "auto"}
-            >
-              <div className="text-slate-900 font-semibold text-[15px]">
-                {tourSteps[step].title}
-              </div>
-              <p className="mt-1 text-[13px] leading-5 text-slate-600">
-                {tourSteps[step].body}
-              </p>
-              <div className="mt-3 flex items-center justify-between">
-                <div className="rounded-lg bg-slate-50 px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
-                  Paso {step + 1} / {tourSteps.length}
-                </div>
-                <div className="text-[11px] text-slate-500">← → • Esc</div>
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                <button
-                  onClick={handleSkip}
-                  className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-slate-600 hover:text-slate-800"
-                >
-                  <i className="bx bx-x" /> Omitir
-                </button>
-                <div className="flex items-center gap-2">
-                  <label className="mr-2 inline-flex items-center gap-2 text-[12px] text-slate-600">
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5 accent-indigo-600"
-                      checked={dontShowAgain}
-                      onChange={(e) => setDontShowAgain(e.target.checked)}
-                    />
-                    No volver a mostrar
-                  </label>
-                  <button
-                    onClick={handlePrev}
-                    disabled={step === 0}
-                    className={[
-                      "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px] font-semibold ring-1 transition",
-                      step === 0
-                        ? "text-slate-400 ring-slate-200 cursor-not-allowed"
-                        : "text-slate-700 ring-slate-200 hover:bg-slate-50",
-                    ].join(" ")}
-                  >
-                    <i className="bx bx-left-arrow-alt" /> Atrás
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-indigo-600 to-indigo-500 px-3 py-1.5 text-[12px] font-semibold text-white ring-1 ring-indigo-500/30 hover:brightness-110"
-                  >
-                    {step === tourSteps.length - 1 ? "Terminar" : "Siguiente"}
-                    <i className="bx bx-right-arrow-alt" />
-                  </button>
-                </div>
-              </div>
-            </Balloon>
-          )}
-        </>
-      )}
-
       {metaConnecting && (
         <>
           <div className="fixed inset-0 z-[999] bg-slate-950/60 backdrop-blur-sm" />
           <div className="fixed inset-0 z-[1000] grid place-items-center px-4">
-            <div className="w-full max-w-md rounded-2xl bg-white/95 p-5 ring-1 ring-slate-200 shadow-[0_30px_80px_rgba(2,6,23,.35)] animate-[sheetIn_.22s_ease-out]">
+            <div className="w-full max-w-md rounded-2xl bg-white/95 p-5 ring-1 ring-slate-200 shadow-[0_30px_80px_rgba(2,6,23,.35)]">
               <div className="flex items-start gap-4">
                 <div className="shrink-0 w-12 h-12 rounded-2xl grid place-items-center bg-indigo-50 ring-1 ring-indigo-200">
                   <i className="bx bx-loader-alt text-3xl text-indigo-600 animate-spin" />
