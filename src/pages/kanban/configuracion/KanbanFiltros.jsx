@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import chatApi from "../../../api/chatcenter";
 
-// ─────────────────────────────────────────────────────────────
+import ModalPersonalizarVista from "./modales/ModalPersonalizarVista";
+
 // Helpers de fecha
-// ─────────────────────────────────────────────────────────────
 const hoy = () => new Date().toISOString().slice(0, 10);
 const hace7 = () => {
   const d = new Date();
@@ -22,9 +22,6 @@ const RANGOS = [
   { label: "Todos", fd: () => "", fh: () => "" },
 ];
 
-// ─────────────────────────────────────────────────────────────
-// Componente chip de filtro activo
-// ─────────────────────────────────────────────────────────────
 const Chip = ({ label, onRemove }) => (
   <div
     style={{
@@ -59,18 +56,22 @@ const Chip = ({ label, onRemove }) => (
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────
-// KanbanFiltros
-// Props:
-//   id_configuracion : number
-//   onChange(filtros): emite { id_encargado, bot_openia, fecha_desde, fecha_hasta }
-// ─────────────────────────────────────────────────────────────
-const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
+const KanbanFiltros = ({
+  id_configuracion,
+  onChange,
+  onSearch,
+  // ⭐ NUEVOS props
+  kanbanColumnas = [],
+  columnasVisibles = null,
+  onColumnasVisiblesChange,
+  mostrarHuerfanos = true,
+  onMostrarHuerfanosChange,
+}) => {
   const [agentes, setAgentes] = useState([]);
   const [loadingAg, setLoadingAg] = useState(false);
   const [abierto, setAbierto] = useState(false);
-
   const [busqueda, setBusqueda] = useState("");
+  const [modalVistaOpen, setModalVistaOpen] = useState(false);
 
   const handleBusqueda = (value) => {
     setBusqueda(value);
@@ -86,14 +87,19 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
 
   const set = (k, v) => setLocal((p) => ({ ...p, [k]: v }));
 
-  // ── cuántos filtros están activos ──────────────────────
+  // ⭐ NUEVO: derivar info de la vista
+  const totalCols = kanbanColumnas.length;
+  const visiblesCount = columnasVisibles?.size ?? totalCols;
+  const todasVisibles = visiblesCount === totalCols;
+
   const activos = [
     local.id_encargado !== "",
     local.bot_openia !== "",
     local.fecha_desde !== "" || local.fecha_hasta !== "",
+    !todasVisibles, // ⭐ contar como filtro activo si no se muestran todas
+    !mostrarHuerfanos, // ⭐ contar como filtro activo si están ocultos
   ].filter(Boolean).length;
 
-  // ── cargar agentes solo cuando se abre el panel ────────
   const cargarAgentes = useCallback(async () => {
     if (!id_configuracion || agentes.length) return;
     setLoadingAg(true);
@@ -114,7 +120,6 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
     if (abierto) cargarAgentes();
   }, [abierto, cargarAgentes]);
 
-  // ── convertir local → objeto filtros para el padre ────
   const buildFiltros = (l = local) => ({
     id_encargado: l.id_encargado !== "" ? Number(l.id_encargado) : null,
     bot_openia: l.bot_openia !== "" ? Number(l.bot_openia) : null,
@@ -141,6 +146,11 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
       fecha_desde: null,
       fecha_hasta: null,
     });
+    // ⭐ NUEVO: también reset de vista
+    if (onColumnasVisiblesChange) {
+      onColumnasVisiblesChange(kanbanColumnas.map((c) => c.estado_db));
+    }
+    if (onMostrarHuerfanosChange) onMostrarHuerfanosChange(true);
     setAbierto(false);
   };
 
@@ -154,9 +164,31 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
     return a ? a.nombre : "—";
   };
 
+  // ⭐ NUEVO: toggle de una columna
+  const toggleColumna = (estado_db) => {
+    if (!columnasVisibles) return;
+    const nuevo = new Set(columnasVisibles);
+    if (nuevo.has(estado_db)) {
+      nuevo.delete(estado_db);
+    } else {
+      nuevo.add(estado_db);
+    }
+    onColumnasVisiblesChange?.([...nuevo]);
+  };
+
+  const seleccionarTodas = () => {
+    onColumnasVisiblesChange?.(kanbanColumnas.map((c) => c.estado_db));
+  };
+  const deseleccionarTodas = () => {
+    // Mantener al menos 1 (la primera) — el padre también valida
+    if (kanbanColumnas.length > 0) {
+      onColumnasVisiblesChange?.([kanbanColumnas[0].estado_db]);
+    }
+  };
+
   return (
     <div style={{ marginBottom: "1.2rem" }}>
-      {/* ── Fila de trigger + chips ──────────────────────── */}
+      {/* Trigger + chips */}
       <div
         style={{
           display: "flex",
@@ -165,7 +197,6 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
           flexWrap: "wrap",
         }}
       >
-        {/* Botón principal */}
         <button
           onClick={() => setAbierto((p) => !p)}
           style={{
@@ -184,7 +215,7 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
           }}
         >
           <i className="bx bx-filter-alt" style={{ fontSize: "1rem" }} />
-          Filtros
+          Filtros y vista
           {activos > 0 && (
             <span
               style={{
@@ -205,7 +236,7 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
           />
         </button>
 
-        {/* Chips activos */}
+        {/* Chips filtros existentes */}
         {local.id_encargado !== "" && (
           <Chip
             label={`Agente: ${nombreAgente(local.id_encargado)}`}
@@ -238,6 +269,21 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
             }}
           />
         )}
+
+        {/* ⭐ NUEVO: Chip vista */}
+        {!todasVisibles && (
+          <Chip
+            label={`Viendo ${visiblesCount} de ${totalCols} columnas`}
+            onRemove={seleccionarTodas}
+          />
+        )}
+        {!mostrarHuerfanos && (
+          <Chip
+            label="Sin clasificar oculto"
+            onRemove={() => onMostrarHuerfanosChange?.(true)}
+          />
+        )}
+
         {activos > 0 && (
           <button
             onClick={limpiar}
@@ -254,7 +300,7 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
           </button>
         )}
 
-        {/* ── Buscador global ── */}
+        {/* Buscador global */}
         <div
           style={{
             display: "flex",
@@ -306,7 +352,7 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
         </div>
       </div>
 
-      {/* ── Panel expandible ─────────────────────────────── */}
+      {/* Panel expandible */}
       {abierto && (
         <div
           style={{
@@ -316,17 +362,112 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
             border: "1px solid rgba(0,0,0,.08)",
             padding: "18px 20px",
             boxShadow: "0 4px 16px rgba(0,0,0,.07)",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
-            gap: 16,
           }}
         >
-          {/* ── Agente ──────────────────────────────────── */}
-          <div>
-            <label style={lbl}>
-              <i className="bx bx-user" style={{ marginRight: 5 }} />
-              Agente encargado
-            </label>
+          {/* ⭐ NUEVO: Sección vista del tablero */}
+          {/* Botón compacto para abrir modal de personalización de vista */}
+          <div style={{ marginBottom: 16 }}>
+            <button
+              onClick={() => setModalVistaOpen(true)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: `1.5px solid ${!todasVisibles || !mostrarHuerfanos ? "#6366f1" : "rgba(0,0,0,.1)"}`,
+                background:
+                  !todasVisibles || !mostrarHuerfanos
+                    ? "rgba(99,102,241,.05)"
+                    : "#fafafa",
+                cursor: "pointer",
+                transition: "all .15s",
+                textAlign: "left",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.borderColor = "#6366f1")
+              }
+              onMouseLeave={(e) => {
+                if (todasVisibles && mostrarHuerfanos) {
+                  e.currentTarget.style.borderColor = "rgba(0,0,0,.1)";
+                }
+              }}
+            >
+              <span
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: "linear-gradient(135deg,#6366f1,#4f46e5)",
+                  display: "grid",
+                  placeItems: "center",
+                  color: "#fff",
+                  flexShrink: 0,
+                }}
+              >
+                <i className="bx bx-columns" style={{ fontSize: 18 }} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "0.88rem",
+                    color: "#0f172a",
+                  }}
+                >
+                  Personalizar vista del tablero
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.76rem",
+                    color: "#64748b",
+                    marginTop: 2,
+                  }}
+                >
+                  Viendo{" "}
+                  <strong style={{ color: "#4338ca" }}>{visiblesCount}</strong>{" "}
+                  de {totalCols} columnas
+                  {!mostrarHuerfanos && (
+                    <span style={{ color: "#92400e" }}>
+                      {" "}
+                      · "Sin clasificar" oculto
+                    </span>
+                  )}
+                </div>
+              </div>
+              <i
+                className="bx bx-chevron-right"
+                style={{ fontSize: 20, color: "#94a3b8", flexShrink: 0 }}
+              />
+            </button>
+          </div>
+
+          {/* Wrapper: filtros (crece) + acciones (derecha fija) */}
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              flexWrap: "wrap",
+              alignItems: "stretch",
+            }}
+          >
+            {/* Grid interno de los 3 filtros */}
+            <div
+              style={{
+                flex: "1 1 400px",
+                minWidth: 0,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {/* Agente */}
+              <div>
+                <label style={lbl}>
+                  <i className="bx bx-user" style={{ marginRight: 5 }} />
+                  Agente encargado
+                </label>
             {loadingAg ? (
               <p style={{ fontSize: "0.8rem", color: "#888", margin: "8px 0" }}>
                 <i className="bx bx-loader-alt bx-spin" /> Cargando...
@@ -348,7 +489,7 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
             )}
           </div>
 
-          {/* ── Bot ─────────────────────────────────────── */}
+          {/* Bot */}
           <div>
             <label style={lbl}>
               <i className="bx bx-bot" style={{ marginRight: 5 }} />
@@ -385,7 +526,7 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
             </div>
           </div>
 
-          {/* ── Fecha último mensaje ─────────────────────── */}
+          {/* Fecha */}
           <div>
             <label style={lbl}>
               <i className="bx bx-calendar" style={{ marginRight: 5 }} />
@@ -413,12 +554,6 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
                     cursor: "pointer",
                     color: "#374151",
                   }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "#e5e7eb")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "#f3f4f6")
-                  }
                 >
                   {r.label}
                 </button>
@@ -440,16 +575,19 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
               />
             </div>
           </div>
+            </div>
+            {/* fin grid interno de filtros */}
 
-          {/* ── Acciones ─────────────────────────────────── */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "flex-end",
-              gap: 8,
-            }}
-          >
+            {/* Acciones - ancho fijo a la derecha */}
+            <div
+              style={{
+                flex: "0 0 180px",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-end",
+                gap: 8,
+              }}
+            >
             <button
               onClick={() => aplicar()}
               style={{
@@ -487,13 +625,25 @@ const KanbanFiltros = ({ id_configuracion, onChange, onSearch }) => {
               Limpiar
             </button>
           </div>
+          </div>
+          {/* fin wrapper flex filtros + acciones */}
         </div>
       )}
+      {/* Modal personalizar vista */}
+      <ModalPersonalizarVista
+        open={modalVistaOpen}
+        onClose={() => setModalVistaOpen(false)}
+        kanbanColumnas={kanbanColumnas}
+        columnasVisibles={columnasVisibles}
+        onColumnasVisiblesChange={onColumnasVisiblesChange}
+        mostrarHuerfanos={mostrarHuerfanos}
+        onMostrarHuerfanosChange={onMostrarHuerfanosChange}
+      />
     </div>
   );
 };
 
-// ── Estilos inline reutilizables ───────────────────────────────
+// Estilos compartidos
 const lbl = {
   display: "block",
   fontSize: "0.8rem",
@@ -520,5 +670,18 @@ const inp = {
   background: "#fafafa",
   color: "#374151",
 };
+const quickBtnStyle = (active) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  padding: "6px 12px",
+  borderRadius: 999,
+  border: `1.5px solid ${active ? "#6366f1" : "rgba(0,0,0,.1)"}`,
+  background: active ? "rgba(99,102,241,.08)" : "#fafafa",
+  color: active ? "#4338ca" : "#6b7280",
+  cursor: "pointer",
+  fontSize: "0.78rem",
+  fontWeight: 600,
+});
 
 export default KanbanFiltros;
