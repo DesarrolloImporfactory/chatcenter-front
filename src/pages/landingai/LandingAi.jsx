@@ -161,15 +161,15 @@ const LandingAi = () => {
         setProductPortada(productState.imagen_portada);
         setLoadingPortada(true);
         const createFileAndSet = (blob) => {
-          const file = new File([blob], "portada-producto.png", {
-            type: blob.type || "image/png",
+          const file = new File([blob], "portada-producto.webp", {
+            type: blob.type || "image/webp",
           });
           setUserImages([
             {
               id: Date.now() + Math.random(),
               file,
               dataUrl: productState.imagen_portada,
-              name: "portada-producto.png",
+              name: "portada-producto.webp",
               fromProduct: true,
             },
           ]);

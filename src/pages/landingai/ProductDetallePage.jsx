@@ -29,7 +29,7 @@ const forceDownload = async (url) => {
     const u = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = u;
-    a.download = `landing-ia-${Date.now()}.png`;
+    a.download = `landing-ia-${Date.now()}.webp`; // ← .png → .webp
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -293,8 +293,9 @@ const ProductoDetallePage = () => {
     ) {
       portadaLoadedRef.current = true;
       const createFileAndSet = (blob) => {
-        const file = new File([blob], "portada.png", {
-          type: blob.type || "image/png",
+        const file = new File([blob], "portada.webp", {
+          // ← portada.png → portada.webp
+          type: blob.type || "image/webp", // ← image/png → image/webp
         });
         setUserImages([
           { file, preview: producto.imagen_portada, fromProduct: true },

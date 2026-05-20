@@ -8,7 +8,7 @@ const forceDownload = async (url, fileName) => {
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = objectUrl;
-    a.download = fileName || `landing-ia-${Date.now()}.png`;
+    a.download = fileName || `landing-ia-${Date.now()}.webp`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -16,7 +16,7 @@ const forceDownload = async (url, fileName) => {
   } catch {
     const a = document.createElement("a");
     a.href = url;
-    a.download = fileName || `landing-ia-${Date.now()}.png`;
+    a.download = fileName || `landing-ia-${Date.now()}.webp`;
     a.target = "_blank";
     document.body.appendChild(a);
     a.click();
@@ -81,9 +81,9 @@ const ResultCard = ({
   if (!visible) return null;
 
   const imgSrc =
-    result.image_url || `data:image/png;base64,${result.image_base64}`;
+    result.image_url || `data:image/webp;base64,${result.image_base64}`;
 
-  const fileName = `landing-ia-${result.etapa?.nombre?.replace(/\s+/g, "-").toLowerCase() || "seccion"}-${Date.now()}.png`;
+  const fileName = `landing-ia-${result.etapa?.nombre?.replace(/\s+/g, "-").toLowerCase() || "seccion"}-${Date.now()}.webp`;
 
   const handleDownloadClick = (e) => {
     e.stopPropagation();

@@ -93,7 +93,7 @@ const StepResults = ({
     if (!src) return;
     const a = document.createElement("a");
     a.href = src;
-    a.download = `landing-ia-${Date.now()}.png`;
+    a.download = `landing-ia-${Date.now()}.webp`;
     a.click();
   };
 
@@ -101,7 +101,7 @@ const StepResults = ({
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       if (!r.success) continue;
-      const src = r.image_url || `data:image/png;base64,${r.image_base64}`;
+      const src = r.image_url || `data:image/webp;base64,${r.image_base64}`;
       await handleDownload(src);
       await new Promise((res) => setTimeout(res, 500));
     }

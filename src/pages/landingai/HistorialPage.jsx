@@ -25,7 +25,7 @@ const forceDownload = async (url) => {
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = blobUrl;
-    a.download = `landing-ia-${Date.now()}.png`;
+    a.download = `landing-ia-${Date.now()}.webp`; // ← .png → .webp
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

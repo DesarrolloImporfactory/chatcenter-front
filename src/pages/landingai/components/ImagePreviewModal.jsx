@@ -40,9 +40,9 @@ const ImagePreviewModal = ({ open, onClose, result }) => {
   if (!open || !result) return null;
 
   const imgSrc =
-    result.image_url || `data:image/png;base64,${result.image_base64}`;
+    result.image_url || `data:image/webp;base64,${result.image_base64}`;
 
-  const fileName = `landing-ia-${result.etapa?.nombre?.replace(/\s+/g, "-").toLowerCase() || "seccion"}-${Date.now()}.png`;
+  const fileName = `landing-ia-${result.etapa?.nombre?.replace(/\s+/g, "-").toLowerCase() || "seccion"}-${Date.now()}.webp`;
 
   const handleDownload = async () => {
     if (result.image_url) {
