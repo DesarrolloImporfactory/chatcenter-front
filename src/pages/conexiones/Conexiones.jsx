@@ -153,6 +153,204 @@ const HoverPopover = ({
   );
 };
 
+/**
+ * Bloque hero de WhatsApp. Siempre en verde (color de marca WhatsApp).
+ * Encapsula los 3 estados: pendiente, conectado-sin-sync, conectado-con-sync.
+ */
+const WaHero = ({
+  conectado,
+  yaSincronizo,
+  telefono,
+  onConectarApi,
+  onConectarManual,
+  onSync,
+  onCopiar,
+  syncing,
+}) => {
+  return (
+    <div className="mt-3 p-3.5 rounded-xl bg-emerald-50 ring-1 ring-emerald-200">
+      <div className="flex items-center gap-3">
+        <div className="shrink-0 w-10 h-10 rounded-full bg-white grid place-items-center ring-1 ring-emerald-100">
+          <i className="bx bxl-whatsapp text-[22px] text-emerald-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          {!conectado ? (
+            <>
+              <div className="text-[10.5px] font-semibold text-emerald-700 uppercase tracking-wider">
+                canal principal
+              </div>
+              <div className="text-[14px] font-semibold text-emerald-800 leading-tight mt-0.5">
+                Conecta tu WhatsApp
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-[15px] font-semibold text-emerald-800 tracking-tight truncate">
+                {telefono}
+              </div>
+              <div className="text-[11px] text-emerald-700 flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                {yaSincronizo ? "Conectado · chats sincronizados" : "Conectado"}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Acciones icono cuando está conectado: [Sync] [Copiar] */}
+        {conectado && (
+          <div className="shrink-0 flex items-center gap-1">
+            {!yaSincronizo && (
+              <button
+                type="button"
+                onClick={onSync}
+                disabled={syncing}
+                className={[
+                  "w-8 h-8 rounded-lg grid place-items-center text-emerald-600 hover:bg-emerald-100 transition relative",
+                  syncing ? "opacity-60 cursor-wait" : "",
+                ].join(" ")}
+                title={
+                  syncing
+                    ? "Sincronizando…"
+                    : "Sincronizar chats existentes (solo Coexistencia)"
+                }
+                aria-label="Sincronizar chats"
+              >
+                <i
+                  className={`bx bx-refresh text-base ${syncing ? "animate-spin" : ""}`}
+                />
+                {/* Indicador discreto de acción pendiente */}
+                {!syncing && (
+                  <span
+                    className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-50"
+                    aria-hidden
+                  />
+                )}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onCopiar}
+              className="w-8 h-8 rounded-lg grid place-items-center text-emerald-600 hover:bg-emerald-100 transition"
+              title="Copiar número"
+              aria-label="Copiar número"
+            >
+              <i className="bx bx-copy text-base" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Acciones de conexión inicial (solo cuando pendiente) */}
+      {!conectado && (
+        <>
+          {/* Número de teléfono también copiable cuando aún no se conecta */}
+          {telefono && String(telefono).trim() && (
+            <div className="mt-3 pt-3 border-t border-emerald-200/70 flex items-center gap-2">
+              <i className="bx bx-phone text-[15px] text-emerald-600" />
+              <span className="flex-1 text-[12.5px] font-medium text-emerald-800 tracking-tight truncate">
+                {telefono}
+              </span>
+              <button
+                type="button"
+                onClick={onCopiar}
+                className="shrink-0 w-7 h-7 rounded-md grid place-items-center text-emerald-600 hover:bg-emerald-100 transition"
+                title="Copiar número"
+                aria-label="Copiar número"
+              >
+                <i className="bx bx-copy text-[15px]" />
+              </button>
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={onConectarApi}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12.5px] font-semibold transition shadow-sm"
+            >
+              <i className="bx bx-rocket text-base" />
+              Conectar ahora
+            </button>
+            <button
+              type="button"
+              onClick={onConectarManual}
+              className="text-[11px] font-medium text-emerald-700 hover:text-emerald-900 underline decoration-emerald-300 underline-offset-2 transition"
+            >
+              Conexión manual
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Tile compacto de canal secundario (Messenger / Instagram / Meta Ads).
+ * Color de marca cuando está activo; gris cuando pendiente.
+ */
+const ChannelChip = ({
+  icon,
+  label,
+  active,
+  brandColor = "slate",
+  onClick,
+  title,
+  busy = false,
+  stateLabel,
+}) => {
+  const brandText = {
+    blue: "text-blue-600",
+    pink: "text-pink-600",
+    orange: "text-orange-600",
+    slate: "text-slate-600",
+  }[brandColor];
+
+  const cls = [
+    "group relative px-2.5 py-2.5 rounded-lg border transition-all flex flex-col items-center justify-center gap-1 select-none",
+    active
+      ? "bg-slate-50 border-slate-200 hover:border-slate-300"
+      : "bg-white border-slate-200 hover:border-indigo-300 hover:-translate-y-px hover:shadow-sm cursor-pointer",
+    busy ? "opacity-60 cursor-wait" : "",
+  ].join(" ");
+
+  return (
+    <button
+      type="button"
+      onClick={busy ? undefined : onClick}
+      disabled={busy}
+      title={title}
+      className={cls}
+    >
+      <i
+        className={[
+          icon,
+          "text-[20px] leading-none",
+          active ? brandText : "text-slate-400",
+          busy ? "animate-pulse" : "",
+        ].join(" ")}
+      />
+      <span
+        className={[
+          "text-[11px] font-semibold leading-none",
+          active ? "text-slate-800" : "text-slate-700",
+        ].join(" ")}
+      >
+        {label}
+      </span>
+      <span className="flex items-center gap-1 text-[10px] text-slate-500 leading-none">
+        <span
+          className={[
+            "w-1.5 h-1.5 rounded-full",
+            active ? "bg-emerald-500" : "bg-slate-300",
+          ].join(" ")}
+        />
+        {stateLabel || (active ? "Activo" : "Conectar")}
+      </span>
+    </button>
+  );
+};
+
 const Conexiones = () => {
   const [configuracionAutomatizada, setConfiguracionAutomatizada] = useState(
     [],
@@ -243,6 +441,17 @@ const Conexiones = () => {
       window.removeEventListener("resize", reposition);
     };
   }, [hoveredId]);
+
+  // --- Menu (3 puntitos) por card ---
+  const [menuOpenId, setMenuOpenId] = useState(null);
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const onDown = (e) => {
+      if (!e.target.closest("[data-card-menu]")) setMenuOpenId(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpenId]);
 
   const [syncingId, setSyncingId] = useState(null);
   const [guideModal, setGuideModal] = useState(null);
@@ -883,6 +1092,7 @@ const Conexiones = () => {
       const { data } = await chatApi.post(
         "/whatsapp_managment/coexistencia/sync",
         { id_configuracion: config.id },
+        { silentError: true },
       );
       if (data?.success) {
         setConfiguracionAutomatizada((prev) =>
@@ -1128,31 +1338,66 @@ const Conexiones = () => {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {listaFiltrada.map((config) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr">
+                {listaFiltrada.map((config, idx) => {
                   const conectado = isConectado(config);
                   const pagoActivo = Number(config.metodo_pago) === 1;
+                  const msgConectado = isMessengerConectado(config);
+                  const igConectado = isInstagramConectado(config);
                   const yaSincronizo =
                     Number(config?.sincronizo_coexistencia) === 1;
                   const adsConectado = Number(config.meta_ads_conectado) === 1;
                   const adsAccountName = config.meta_ads_account_name || null;
 
+                  // Borde superior tintado según conexión principal
+                  const topBarBg = conectado
+                    ? "rgb(16, 185, 129)"
+                    : "rgb(226, 232, 240)";
+
+                  const copiarNumero = async () => {
+                    try {
+                      await navigator.clipboard.writeText(
+                        String(config.telefono || "").trim(),
+                      );
+                      Swal.fire({
+                        toast: true,
+                        position: "top-end",
+                        icon: "success",
+                        title: "Número copiado",
+                        showConfirmButton: false,
+                        timer: 1400,
+                      });
+                    } catch {
+                      Swal.fire("Error", "No se pudo copiar.", "error");
+                    }
+                  };
+
                   return (
                     <div
                       key={config.id}
-                      className="relative bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-6 transition hover:shadow-lg hover:-translate-y-0.5 card-hover"
+                      className="relative bg-white rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200 p-4 transition hover:-translate-y-0.5 animate-card-in overflow-hidden flex flex-col"
+                      style={{
+                        animationDelay: `${Math.min(idx, 8) * 50}ms`,
+                      }}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="text-base font-semibold text-slate-800 truncate">
+                      <div
+                        className="absolute top-0 left-0 right-0 h-[3px]"
+                        style={{ background: topBarBg }}
+                        aria-hidden
+                      />
+
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-[15px] font-semibold text-slate-900 truncate leading-tight">
                             {config.nombre_configuracion}
                           </h3>
-                          <div className="mt-2 flex items-center gap-2">
+                          <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                             {pill(
                               conectado
                                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-                              conectado ? "Conectado" : "Pendiente",
+                                : "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+                              conectado ? "Activo" : "Pendiente",
                             )}
                             {pill(
                               pagoActivo
@@ -1162,264 +1407,145 @@ const Conexiones = () => {
                             )}
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => confirmarEliminar(config)}
-                          disabled={suspendiendoId === config.id}
-                          className={[
-                            "shrink-0 w-10 h-10 rounded-xl grid place-items-center ring-1 transition",
-                            "bg-rose-50 ring-rose-200 text-rose-600",
-                            suspendiendoId === config.id
-                              ? "opacity-60 cursor-not-allowed"
-                              : "hover:scale-105 hover:bg-rose-100",
-                          ].join(" ")}
-                          title="Eliminar conexión"
-                        >
-                          <i className="bx bx-trash text-xl"></i>
-                        </button>
-                      </div>
 
-                      <div className="mt-5 flex items-center justify-between gap-2 text-sm text-slate-700">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <i className="bx bx-phone-call text-xl text-green-600"></i>
-                          <span className="font-medium truncate">
-                            {config.telefono}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(
-                                String(config.telefono || "").trim(),
-                              );
-                              Swal.fire({
-                                toast: true,
-                                position: "top-end",
-                                icon: "success",
-                                title: "Número copiado",
-                                showConfirmButton: false,
-                                timer: 1400,
-                              });
-                            } catch {
-                              Swal.fire("Error", "No se pudo copiar.", "error");
+                        {/* Menu 3 puntitos */}
+                        <div className="relative" data-card-menu>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setMenuOpenId(
+                                menuOpenId === config.id ? null : config.id,
+                              )
                             }
-                          }}
-                          className="shrink-0 w-9 h-9 rounded-xl grid place-items-center ring-1 ring-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
-                          title="Copiar número"
-                        >
-                          <i className="bx bx-copy text-lg" />
-                        </button>
-                      </div>
-
-                      <div className="mt-6 space-y-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div
-                            className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                            onClick={() => {
-                              setActiveConfig(config);
-                              navigate("/canal-conexiones");
-                            }}
-                            title="Ir al canal de conexiones"
+                            className="shrink-0 w-8 h-8 rounded-lg grid place-items-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                            aria-label="Más opciones"
+                            aria-haspopup="menu"
+                            aria-expanded={menuOpenId === config.id}
                           >
-                            <i className="bx bx-cog text-2xl text-blue-600"></i>
-                            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                              Ir al canal de conexiones
-                            </span>
-                          </div>
-
-                          {!isMessengerConectado(config) ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleConectarFacebookInbox(config)
-                              }
-                              className="relative group cursor-pointer text-gray-500 hover:text-blue-600 transition transform hover:scale-110"
-                              title="Conectar Messenger"
-                            >
-                              <i className="bx bxl-messenger text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Conectar Inbox de Messenger
-                              </span>
-                            </button>
-                          ) : (
+                            <i className="bx bx-dots-vertical-rounded text-xl" />
+                          </button>
+                          {menuOpenId === config.id && (
                             <div
-                              className="relative group text-blue-600"
-                              title="Messenger conectado"
+                              role="menu"
+                              className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl ring-1 ring-slate-200 py-1.5 z-20"
                             >
-                              <i className="bx bxl-messenger text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Inbox de Messenger conectado
-                              </span>
-                            </div>
-                          )}
-
-                          {!isInstagramConectado(config) ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleConectarInstagramInbox(config)
-                              }
-                              className="relative group cursor-pointer text-gray-500 hover:text-pink-600 transition transform hover:scale-110"
-                              title="Conectar Instagram"
-                            >
-                              <i className="bx bxl-instagram text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Conectar Inbox de Instagram
-                              </span>
-                            </button>
-                          ) : (
-                            <div
-                              className="relative group text-pink-600"
-                              title="Instagram conectado"
-                            >
-                              <i className="bx bxl-instagram text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-pink-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Inbox de Instagram conectado
-                              </span>
-                            </div>
-                          )}
-
-                          {!conectado ? (
-                            <div
-                              className="relative group cursor-pointer text-gray-500 hover:text-blue-700 transition transform hover:scale-110"
-                              onClick={() =>
-                                handleConectarMetaDeveloper(config)
-                              }
-                              title="Conectar Business Manager"
-                            >
-                              <i className="bx bxl-meta text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Conectar Business Manager
-                              </span>
-                            </div>
-                          ) : (
-                            <div
-                              className="relative group text-blue-600"
-                              title="Meta Business conectado"
-                            >
-                              <i className="bx bxl-meta text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Meta Business conectado
-                              </span>
-                            </div>
-                          )}
-
-                          {!conectado ? (
-                            <div
-                              className="relative group cursor-pointer text-gray-500 hover:text-green-700 transition transform hover:scale-110"
-                              onClick={() => {
-                                setIdConfiguracion(config.id);
-                                setNombreConfiguracion(
-                                  config.nombre_configuracion,
-                                );
-                                setTelefono(config.telefono);
-                                setModalConfiguracionWhatsappBusiness(true);
-                              }}
-                              title="Conectar WhatsApp Business"
-                            >
-                              <i className="bx bxl-whatsapp text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Conectar WhatsApp Business
-                              </span>
-                            </div>
-                          ) : (
-                            <div
-                              className="relative group text-green-600"
-                              title="WhatsApp vinculado"
-                            >
-                              <i className="bx bxl-whatsapp text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-green-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                WhatsApp vinculado
-                              </span>
-                            </div>
-                          )}
-
-                          {!conectado ? (
-                            <div
-                              className="relative group text-slate-400"
-                              title="Disponible al conectar WhatsApp"
-                            >
-                              <i className="bx bx-refresh text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Disponible al conectar WhatsApp
-                              </span>
-                            </div>
-                          ) : yaSincronizo ? (
-                            <div
-                              className="relative group text-emerald-600"
-                              title="Chats sincronizados"
-                            >
-                              <i className="bx bx-check-circle text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-emerald-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Chats sincronizados
-                              </span>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleSyncCoexistencia(config)}
-                              disabled={syncingId === config.id}
-                              className={[
-                                "relative group cursor-pointer transition transform hover:scale-110",
-                                "text-indigo-600 hover:text-indigo-700",
-                                syncingId === config.id
-                                  ? "opacity-60 cursor-not-allowed"
-                                  : "",
-                              ].join(" ")}
-                              title="Sincronizar"
-                            >
-                              <i
-                                className={`bx bx-refresh text-2xl ${syncingId === config.id ? "animate-spin" : ""}`}
-                              />
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-indigo-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                {syncingId === config.id
-                                  ? "Procesando..."
-                                  : "Sincronizar chats"}
-                              </span>
-                            </button>
-                          )}
-
-                          {/* META ADS */}
-                          {!adsConectado ? (
-                            <button
-                              type="button"
-                              onClick={() => handleConectarMetaAds(config)}
-                              disabled={adsConnectingId === config.id}
-                              className={[
-                                "relative group cursor-pointer transition transform hover:scale-110",
-                                "text-gray-500 hover:text-orange-600",
-                                adsConnectingId === config.id
-                                  ? "opacity-60 cursor-not-allowed"
-                                  : "",
-                              ].join(" ")}
-                              title="Conectar Meta Ads"
-                            >
-                              <i
-                                className={`bx bxs-bar-chart-alt-2 text-2xl ${adsConnectingId === config.id ? "animate-pulse" : ""}`}
-                              />
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                {adsConnectingId === config.id
-                                  ? "Conectando…"
-                                  : "Conectar Meta Ads"}
-                              </span>
-                            </button>
-                          ) : (
-                            <div
-                              className="relative group text-orange-600 cursor-pointer"
-                              title={`Meta Ads: ${adsAccountName || "conectado"}`}
-                              onClick={() => handleDesconectarMetaAds(config)}
-                            >
-                              <i className="bx bxs-bar-chart-alt-2 text-2xl"></i>
-                              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-orange-700 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                                Ads: {adsAccountName || "conectado"} (click para
-                                desconectar)
-                              </span>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setMenuOpenId(null);
+                                  copiarNumero();
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition"
+                              >
+                                <i className="bx bx-copy text-base text-slate-500" />
+                                Copiar número
+                              </button>
+                              <div className="my-1 h-px bg-slate-100" />
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setMenuOpenId(null);
+                                  confirmarEliminar(config);
+                                }}
+                                disabled={suspendiendoId === config.id}
+                                className="w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition disabled:opacity-50"
+                              >
+                                <i className="bx bx-trash text-base" />
+                                Eliminar conexión
+                              </button>
                             </div>
                           )}
                         </div>
+                      </div>
 
-                        <div className="mt-2 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                      {/* Hero WhatsApp */}
+                      <WaHero
+                        conectado={conectado}
+                        yaSincronizo={yaSincronizo}
+                        telefono={config.telefono}
+                        onConectarApi={() =>
+                          handleConectarMetaDeveloper(config)
+                        }
+                        onConectarManual={() => {
+                          setIdConfiguracion(config.id);
+                          setNombreConfiguracion(config.nombre_configuracion);
+                          setTelefono(config.telefono);
+                          setModalConfiguracionWhatsappBusiness(true);
+                        }}
+                        onSync={() => handleSyncCoexistencia(config)}
+                        onCopiar={copiarNumero}
+                        syncing={syncingId === config.id}
+                      />
+
+                      {/* 3 canales secundarios */}
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <ChannelChip
+                          icon="bx bxl-messenger"
+                          label="Messenger"
+                          brandColor="blue"
+                          active={msgConectado}
+                          title={
+                            msgConectado
+                              ? "Inbox de Messenger conectado"
+                              : "Conectar Inbox de Messenger"
+                          }
+                          onClick={
+                            msgConectado
+                              ? undefined
+                              : () => handleConectarFacebookInbox(config)
+                          }
+                        />
+                        <ChannelChip
+                          icon="bx bxl-instagram"
+                          label="Instagram"
+                          brandColor="pink"
+                          active={igConectado}
+                          title={
+                            igConectado
+                              ? "Inbox de Instagram conectado"
+                              : "Conectar Inbox de Instagram"
+                          }
+                          onClick={
+                            igConectado
+                              ? undefined
+                              : () => handleConectarInstagramInbox(config)
+                          }
+                        />
+                        <ChannelChip
+                          icon="bx bxs-bar-chart-alt-2"
+                          label="Meta Ads"
+                          brandColor="orange"
+                          active={adsConectado}
+                          busy={adsConnectingId === config.id}
+                          stateLabel={
+                            adsConnectingId === config.id
+                              ? "Conectando…"
+                              : adsConectado
+                                ? "Activo"
+                                : "Conectar"
+                          }
+                          title={
+                            adsConnectingId === config.id
+                              ? "Conectando…"
+                              : adsConectado
+                                ? `Ads: ${adsAccountName || "conectado"} (click para desconectar)`
+                                : "Conectar Meta Ads"
+                          }
+                          onClick={
+                            adsConnectingId === config.id
+                              ? undefined
+                              : adsConectado
+                                ? () => handleDesconectarMetaAds(config)
+                                : () => handleConectarMetaAds(config)
+                          }
+                        />
+                      </div>
+
+                      {/* Footer */}
+                      <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onMouseEnter={(e) =>
@@ -1430,28 +1556,58 @@ const Conexiones = () => {
                               openPopover(config.id, e.currentTarget)
                             }
                             onBlur={scheduleClose}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold text-slate-700 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition"
                             aria-label="Ver detalles"
                           >
-                            <i className="bx bx-info-circle text-base text-indigo-600" />
-                            Ver detalles
+                            <i className="bx bx-info-circle text-base" />
+                            Detalles
                           </button>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-b from-emerald-700 to-emerald-500 ring-1 ring-emerald-500/30 hover:brightness-110 transition"
-                              onClick={() => {
-                                setActiveConfig(config);
-                                navigate("/chat");
-                              }}
-                              title="Ir al chat"
-                            >
-                              <i className="bx bx-message-rounded-dots text-lg" />
-                              Ir al Chat
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveConfig(config);
+                              navigate("/canal-conexiones");
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition"
+                            title="Configuración del canal"
+                          >
+                            <i className="bx bx-cog text-base" />
+                            Ajustes
+                          </button>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!conectado) {
+                              Swal.fire({
+                                toast: true,
+                                position: "top-end",
+                                icon: "info",
+                                title: "Conecta WhatsApp primero",
+                                showConfirmButton: false,
+                                timer: 1800,
+                              });
+                              return;
+                            }
+                            setActiveConfig(config);
+                            navigate("/chat");
+                          }}
+                          className={[
+                            "inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition",
+                            conectado
+                              ? "text-white bg-slate-900 hover:bg-slate-800 shadow-sm"
+                              : "text-slate-400 bg-slate-100 cursor-not-allowed",
+                          ].join(" ")}
+                          title={
+                            conectado
+                              ? "Ir al chat"
+                              : "Disponible al conectar WhatsApp"
+                          }
+                        >
+                          <i className="bx bx-message-rounded-dots text-base" />
+                          Ir al Chat
+                        </button>
                       </div>
                     </div>
                   );
@@ -1634,6 +1790,16 @@ const Conexiones = () => {
           onClose={() => setShowExportModal(false)}
         />
       )}
+
+      <style>{`
+        @keyframes cardIn {
+          from { opacity: 0; transform: translateY(10px) scale(.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-card-in {
+          animation: cardIn .42s cubic-bezier(.22,1,.36,1) both;
+        }
+      `}</style>
     </div>
   );
 };
