@@ -69,6 +69,7 @@ const IntegracionShopify = () => {
 
   // form
   const [shopDomain, setShopDomain] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
   const [prefijoPaisOpt, setPrefijoPaisOpt] = useState(
     COUNTRY_PHONE_OPTIONS.find((x) => x.value === "593") ||
       COUNTRY_PHONE_OPTIONS[0],
@@ -78,6 +79,9 @@ const IntegracionShopify = () => {
 
   // Wizard
   const [showWizard, setShowWizard] = useState(false);
+
+  // Input del secret dentro del wizard
+  const [newSecretInput, setNewSecretInput] = useState("");
 
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
@@ -116,6 +120,7 @@ const IntegracionShopify = () => {
   const openCreate = () => {
     setMode("create");
     setShopDomain("");
+    setWebhookSecret("");
     setPrefijoPaisOpt(
       COUNTRY_PHONE_OPTIONS.find((x) => x.value === "593") ||
         COUNTRY_PHONE_OPTIONS[0],
@@ -128,6 +133,7 @@ const IntegracionShopify = () => {
     if (!activeIntegration) return;
     setMode("edit");
     setShopDomain(activeIntegration.shop_domain ?? "");
+    setWebhookSecret(activeIntegration.webhook_secret ?? "");
     const pp = String(activeIntegration.prefijo_pais ?? "593");
     setPrefijoPaisOpt(
       COUNTRY_PHONE_OPTIONS.find((x) => x.value === pp) ||
@@ -173,6 +179,16 @@ const IntegracionShopify = () => {
       return false;
     }
 
+    if (!webhookSecret || webhookSecret.trim().length < 16) {
+      Swal.fire({
+        icon: "warning",
+        title: "Token de webhook requerido",
+        html: `Debes pegar el token que aparece en tu Shopify en <strong>Configuración → Notificaciones → Webhooks</strong> donde dice "Tus webhooks se firmarán con token".`,
+        confirmButtonColor: "#171931",
+      });
+      return false;
+    }
+
     if (!prefijoPaisOpt?.value) {
       Swal.fire({
         icon: "warning",
@@ -205,6 +221,7 @@ const IntegracionShopify = () => {
         const payload = {
           id_configuracion,
           shop_domain: String(shopDomain).trim().toLowerCase(),
+          webhook_secret: webhookSecret.trim(),
           prefijo_pais: prefijoPaisOpt.value,
           tiempo_espera_horas: parseInt(tiempoEsperaHoras, 10) || 1,
         };
@@ -228,6 +245,7 @@ const IntegracionShopify = () => {
 
         const payload = {
           shop_domain: String(shopDomain).trim().toLowerCase(),
+          webhook_secret: webhookSecret.trim(),
           prefijo_pais: prefijoPaisOpt.value,
           tiempo_espera_horas: parseInt(tiempoEsperaHoras, 10) || 1,
         };
@@ -308,39 +326,37 @@ const IntegracionShopify = () => {
     }
   };
 
-  const handleRegenerarSecret = async () => {
+  const handleActualizarSecret = async () => {
     if (!activeIntegration?.id) return;
-
-    const r = await Swal.fire({
-      icon: "warning",
-      title: "Regenerar webhook secret",
-      html: `Si regeneras el secret, los webhooks actuales <strong>dejarán de funcionar</strong> hasta que actualices el secret en Shopify.<br/><br/>¿Continuar?`,
-      showCancelButton: true,
-      confirmButtonText: "Sí, regenerar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#171931",
-    });
-
-    if (!r.isConfirmed) return;
+    if (!newSecretInput || newSecretInput.trim().length < 16) {
+      Swal.fire({
+        icon: "warning",
+        title: "Token requerido",
+        text: "Pega el token completo que aparece en Shopify.",
+        confirmButtonColor: "#171931",
+      });
+      return;
+    }
 
     setSaving(true);
     try {
       const res = await chatApi.post(
-        `shopify_configuraciones/${activeIntegration.id}/regenerar-secret`,
+        `shopify_configuraciones/${activeIntegration.id}/actualizar-secret`,
+        { webhook_secret: newSecretInput.trim() },
       );
       if (res?.data?.isSuccess) {
         Swal.fire({
           icon: "success",
-          title: "Secret regenerado",
-          text: "Recuerda actualizarlo en cada webhook de tu Shopify.",
+          title: "Secret actualizado",
+          text: "Los webhooks ahora deberían validarse correctamente.",
           confirmButtonColor: "#171931",
         });
+        setNewSecretInput("");
         await fetchIntegraciones();
-        setShowWizard(true);
       }
     } catch (error) {
-      const msg = error?.response?.data?.message || "No se pudo regenerar.";
+      const msg =
+        error?.response?.data?.message || "No se pudo actualizar el secret.";
       Swal.fire({ icon: "error", title: "Error", text: msg });
     } finally {
       setSaving(false);
@@ -530,54 +546,63 @@ const IntegracionShopify = () => {
               </ul>
             </div>
 
-            {/* Paso 4 - Webhook secret */}
+            {/* Paso 4 - Webhook secret (nuevo flujo) */}
             <div className="border rounded-xl p-4 bg-blue-50 border-blue-200">
               <h4 className="font-semibold text-[#171931]">
-                Paso 4 — Configura tu webhook secret
+                Paso 4 — Copia el token de firma de Shopify y pégalo aquí
               </h4>
               <p className="text-sm text-gray-700 mt-1">
-                Shopify firma cada webhook con un secret. Necesitas que sea{" "}
-                <strong>el mismo</strong> que tienes registrado aquí:
+                En la misma pantalla de Shopify (Configuración → Notificaciones
+                → Webhooks), arriba de la lista de webhooks vas a ver un texto
+                que dice:
+              </p>
+              <div className="mt-2 bg-white border rounded p-3 text-sm font-mono text-gray-700">
+                "Tus webhooks se firmarán con token:{" "}
+                <span className="text-emerald-700">abc123def456...</span>"
+              </div>
+              <p className="text-sm text-gray-700 mt-2">
+                <strong>Copia ese token completo</strong> y pégalo aquí abajo
+                para que podamos validar que los webhooks vienen realmente de tu
+                tienda:
               </p>
 
               <div className="mt-3 flex items-center gap-2 flex-wrap">
                 <input
                   type={showSecret ? "text" : "password"}
-                  readOnly
-                  value={activeIntegration.webhook_secret || ""}
+                  placeholder={
+                    activeIntegration?.webhook_secret
+                      ? "Pegar nuevo token (deja vacío si no quieres cambiar)"
+                      : "Pega el token de Shopify aquí"
+                  }
+                  value={newSecretInput}
+                  onChange={(e) => setNewSecretInput(e.target.value)}
                   className="flex-1 min-w-[200px] px-3 py-2 border rounded-lg bg-white text-sm font-mono"
                 />
                 <button
                   onClick={() => setShowSecret((v) => !v)}
                   className="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-lg"
-                  title={showSecret ? "Ocultar" : "Mostrar"}
                 >
                   <i className={`bx ${showSecret ? "bx-hide" : "bx-show"}`} />
                 </button>
                 <button
-                  onClick={() =>
-                    copyToClipboard(
-                      activeIntegration.webhook_secret,
-                      "Secret copiado",
-                    )
-                  }
-                  className="text-sm bg-[#171931] text-white px-3 py-2 rounded-lg hover:opacity-90"
+                  onClick={handleActualizarSecret}
+                  disabled={saving}
+                  className="text-sm bg-[#171931] text-white px-3 py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
                 >
-                  📋 Copiar secret
+                  💾 Guardar token
                 </button>
               </div>
 
+              {activeIntegration?.webhook_secret && (
+                <p className="text-xs text-emerald-700 mt-2">
+                  ✅ Ya tienes un token guardado. Solo pega uno nuevo si lo
+                  cambiaste en Shopify.
+                </p>
+              )}
+
               <p className="text-xs text-gray-500 mt-2">
-                💡 En Shopify, este secret se configura automáticamente cuando
-                creas un webhook desde el panel admin (no necesitas pegarlo
-                manualmente — Shopify lo genera y lo usa internamente).
-                <strong>
-                  {" "}
-                  Importante: para que coincida, debes regenerar tu secret aquí
-                  con el que aparece en Shopify después de crear cada webhook
-                </strong>
-                , o usar la API de Shopify para crear los webhooks
-                programáticamente (lo veremos más adelante).
+                ⚠️ Si Shopify rota su token (cosa rara, pero pasa si lo
+                regeneras), vuelve a copiarlo y pegarlo aquí.
               </p>
             </div>
 
@@ -811,11 +836,11 @@ const IntegracionShopify = () => {
                     Ver guía de webhooks
                   </button>
                   <button
-                    onClick={handleRegenerarSecret}
+                    onClick={() => setShowWizard(true)}
                     className="w-full text-center bg-amber-100 text-amber-900 font-semibold py-2 rounded-lg hover:bg-amber-200 transition"
                     disabled={saving}
                   >
-                    🔄 Regenerar webhook secret
+                    🔄 Actualizar webhook secret
                   </button>
                 </>
               )}
@@ -848,7 +873,7 @@ const IntegracionShopify = () => {
         {/* MODAL */}
         {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6 relative animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6 relative animate-fade-in max-h-[90vh] overflow-y-auto">
               <button
                 onClick={closeModal}
                 className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl"
@@ -896,6 +921,38 @@ const IntegracionShopify = () => {
                   ⚠️ NO uses tu dominio público (ej: <code>mitienda.com</code>).
                   Usa el interno que termina en <code>.myshopify.com</code>. Lo
                   encuentras en Shopify → Configuración → Detalles de la tienda.
+                </p>
+              </div>
+
+              {/* webhook_secret */}
+              <div className="mt-4">
+                <label className="text-sm font-semibold text-gray-700">
+                  Token de firma de webhooks (de Shopify)
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    type={showSecret ? "text" : "password"}
+                    placeholder="Pega aquí el token que muestra Shopify"
+                    className="w-full px-4 py-2 pr-20 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931] font-mono text-sm"
+                    value={webhookSecret}
+                    onChange={(e) => setWebhookSecret(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSecret((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+                  >
+                    {showSecret ? "Ocultar" : "Mostrar"}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  En Shopify ve a{" "}
+                  <strong>Configuración → Notificaciones → Webhooks</strong>.
+                  Arriba de la lista de webhooks dice{" "}
+                  <em>"Tus webhooks se firmarán con token: XXXX"</em>. Copia ese
+                  token y pégalo aquí.
                 </p>
               </div>
 
