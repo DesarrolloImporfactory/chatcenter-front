@@ -68,6 +68,69 @@ export default function WhatsappSection() {
     fetchConfig();
   }, []);
 
+  const MOCK_SCENARIO = "null"; // null | "disconnected" | "no_numbers" | "rate_limited"
+
+  const MOCKS = {
+    disconnected: {
+      success: true,
+      data: [
+        {
+          id: "1034056473127736",
+          display_phone_number: "+593 96 894 1552",
+          verified_name: "Importadora Tercera Via",
+          quality_rating: "GREEN",
+          messaging_limit_tier: "TIER_250",
+          status: "DISCONNECTED",
+          profile: [
+            {
+              description: "🌟IMPORTADORA TERCERA VIA TU TIENDA EN LINEA...",
+              address: "Quito, Ecuador",
+              email: "terceravia.online@gmail.com",
+              vertical: "RETAIL",
+              websites: ["https://otrovia.myshopify.com"],
+              profile_picture_url: "",
+              messaging_product: "whatsapp",
+            },
+          ],
+          portfolio_owner_id: "103291228332178",
+          portfolio_owner_name: "Grupo Viserco Conocoto",
+        },
+      ],
+      waba_info: {
+        id: "1369024041661432",
+        name: "Importadora Tercera Via",
+      },
+      portfolio_owner: {
+        id: "103291228332178",
+        name: "Grupo Viserco Conocoto",
+        marketing_messages_onboarding_status: "NOT_STARTED",
+      },
+      on_behalf_of: {
+        id: "103291228332178",
+        name: "Grupo Viserco Conocoto",
+        status: "APPROVED",
+        type: "SELF",
+      },
+    },
+
+    no_numbers: {
+      success: true,
+      data: [],
+      waba_info: null,
+      portfolio_owner: null,
+      on_behalf_of: null,
+    },
+
+    rate_limited: {
+      success: true,
+      data: [],
+      hint: "meta_rate_limited",
+      waba_info: null,
+      portfolio_owner: null,
+      on_behalf_of: null,
+    },
+  };
+
   const fetchNumbers = async () => {
     if (!id_configuracion) {
       setInit(false);
@@ -77,16 +140,23 @@ export default function WhatsappSection() {
       setLoading(true);
       setFetched(false);
       const minHold = new Promise((r) => setTimeout(r, 300));
-      const req = chatApi.post("/whatsapp_managment/ObtenerNumeros", {
-        id_configuracion,
-      });
-      const [{ data }] = await Promise.all([req, minHold]);
 
-      // ★ Si Meta está rate limited, NO cambiar el estado de conexión
+      // ⚠️ MOCK SWITCH
+      let data;
+      if (MOCK_SCENARIO && MOCKS[MOCK_SCENARIO]) {
+        await minHold;
+        data = MOCKS[MOCK_SCENARIO];
+        console.warn(`🧪 MOCK activo: ${MOCK_SCENARIO}`);
+      } else {
+        const req = chatApi.post("/whatsapp_managment/ObtenerNumeros", {
+          id_configuracion,
+        });
+        const [{ data: realData }] = await Promise.all([req, minHold]);
+        data = realData;
+      }
+
       const hint = data?.hint || "";
       if (hint === "meta_rate_limited") {
-        // Si ya sabíamos que estaba conectado, mantener ese estado
-        // Si es la primera carga, usar estadoConexion como fallback
         if (!fetched) {
           try {
             const fallback = await chatApi.post(
@@ -96,9 +166,7 @@ export default function WhatsappSection() {
             const isConn = fallback?.data?.connectedLike === true;
             setConnected(isConn);
             setHasNumbers(isConn);
-          } catch {
-            // mantener estado actual
-          }
+          } catch {}
         }
         return;
       }
@@ -117,7 +185,6 @@ export default function WhatsappSection() {
       setInit(false);
     }
   };
-
   useEffect(() => {
     fetchNumbers();
   }, [id_configuracion]);
@@ -235,7 +302,8 @@ export default function WhatsappSection() {
   const connectEnabled = fetched && !connected;
   const connectLabel = connected ? "WhatsApp Conectado" : "Conectar WhatsApp";
   const showOnboarding = fetched && !connected;
-
+  const numberDisconnected = fetched && hasNumbers && !connected;
+  const noNumbers = fetched && !hasNumbers;
   if (init) {
     return (
       <div className="space-y-6">
@@ -268,48 +336,38 @@ export default function WhatsappSection() {
         </div>
       )}
 
-      {showOnboarding && (
+      {numberDisconnected && (
         <ChannelCard
           brand="whatsapp"
           title="WhatsApp Business"
-          description="Conecta tu número de WhatsApp Business (Cloud API) y gestiona plantillas, respuestas rápidas y números en una sola vista."
-          tags={["Embedded Signup", "WABA", "Plantillas"]}
+          description="Tu número está registrado pero desconectado de WhatsApp Business e Imporchat. No puede enviar ni recibir mensajes."
+          tags={["WABA", "Desconectado"]}
           status={<StatusPill status="disconnected" />}
           action={
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  onClick={handleConnectWhatsApp}
-                  disabled={loading || !fetched || !connectEnabled}
-                  className={`px-4 py-2 rounded-xl border ${
-                    connected
-                      ? "bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed"
-                      : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                  } disabled:opacity-50`}
-                >
-                  {connectLabel}
-                </button>
+            <a
+              href="/conexiones"
+              className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 inline-block"
+            >
+              Ir a Conexiones para reconectar
+            </a>
+          }
+        />
+      )}
 
-                <button
-                  onClick={() => {
-                    fetchNumbers().finally(() => {
-                      adminRef.current?.scrollToNumbers?.();
-                    });
-                  }}
-                  disabled={loading}
-                  className="px-4 py-2 rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {loading ? "Cargando..." : "Listar números"}
-                </button>
-              </div>
-
-              {!hasNumbers && fetched && !connected && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Aún no hay líneas cargadas. Conéctate para obtener y
-                  administrar tus números.
-                </p>
-              )}
-            </>
+      {noNumbers && (
+        <ChannelCard
+          brand="whatsapp"
+          title="WhatsApp Business"
+          description="No hay números asociados a esta cuenta. Conecta uno desde la sección Conexiones."
+          tags={["WABA"]}
+          status={<StatusPill status="disconnected" />}
+          action={
+            <a
+              href="/conexiones"
+              className="px-4 py-2 rounded-xl bg-gray-900 text-white hover:bg-gray-800 inline-block"
+            >
+              Ir a Conexiones
+            </a>
           }
         />
       )}
