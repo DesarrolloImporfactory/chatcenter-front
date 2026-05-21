@@ -604,6 +604,10 @@ export default function Contactos() {
 
   const [opcionesEstadoContacto, setOpcionesEstadoContacto] = useState([]);
 
+  // ── Filtro: Último producto Ad ──
+  const [productosAdFiltro, setProductosAdFiltro] = useState([]);
+  const [opcionesProductoAd, setOpcionesProductoAd] = useState([]);
+
   const closeRowMenu = (ev) => {
     const details = ev.currentTarget.closest("details");
     if (details) details.removeAttribute("open");
@@ -1814,11 +1818,31 @@ export default function Contactos() {
     }
   }
 
+  async function cargarOpcionesProductoAd() {
+    try {
+      const { data } = await chatApi.get(
+        "/clientes_chat_center/productos_ad_distintos",
+        {
+          params: {
+            id_configuracion: localStorage.getItem("id_configuracion"),
+            limit: 500,
+          },
+          timeout: 150000,
+        },
+      );
+      setOpcionesProductoAd(Array.isArray(data?.data) ? data.data : []);
+    } catch (e) {
+      console.warn("Error cargando productos ad:", e?.message);
+      setOpcionesProductoAd([]);
+    }
+  }
+
   // Dentro del useEffect inicial:
   useEffect(() => {
     cargarOpcionesFiltroEtiquetas();
     cargarOpcionesCustomLabels();
-    cargarOpcionesEstadoContacto(); // ← agregar
+    cargarOpcionesEstadoContacto();
+    cargarOpcionesProductoAd();
   }, []);
 
   async function cargarOpcionesCustomLabels() {
@@ -1978,6 +2002,9 @@ export default function Contactos() {
           : undefined,
         estado_contacto: idsEstadoContactoFiltro.length
           ? idsEstadoContactoFiltro.join(",")
+          : undefined,
+        ultimo_producto_ad: productosAdFiltro.length
+          ? productosAdFiltro.join(",")
           : undefined,
         fecha_tipo: filtroFecha?.tipo || undefined,
         fecha_desde: filtroFecha?.desde || undefined,
@@ -2244,6 +2271,7 @@ export default function Contactos() {
     idsAsesorFiltro,
     idsCicloFiltro,
     idsEstadoContactoFiltro,
+    productosAdFiltro,
     filtroFecha,
   ]);
 
@@ -2311,6 +2339,9 @@ export default function Contactos() {
             : undefined,
           estado_contacto: idsEstadoContactoFiltro.length
             ? idsEstadoContactoFiltro.join(",")
+            : undefined,
+          ultimo_producto_ad: productosAdFiltro.length
+            ? productosAdFiltro.join(",")
             : undefined,
           fecha_tipo: filtroFecha?.tipo || undefined,
           fecha_desde: filtroFecha?.desde || undefined,
@@ -2827,6 +2858,9 @@ export default function Contactos() {
             idsEstadoContactoFiltro={idsEstadoContactoFiltro}
             setIdsEstadoContactoFiltro={setIdsEstadoContactoFiltro}
             opcionesEstadoContacto={opcionesEstadoContacto}
+            productosAdFiltro={productosAdFiltro}
+            setProductosAdFiltro={setProductosAdFiltro}
+            opcionesProductoAd={opcionesProductoAd}
             orden={orden}
             setOrden={setOrden}
             selectedCount={selected.length}
@@ -2842,6 +2876,7 @@ export default function Contactos() {
               setIdsAsesorFiltro([]);
               setIdsCicloFiltro([]);
               setIdsEstadoContactoFiltro([]);
+              setProductosAdFiltro([]);
               setSelected([]);
               setFiltroFecha(null);
             }}

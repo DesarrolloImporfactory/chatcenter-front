@@ -259,9 +259,12 @@ export default function FilterBar({
   idsEstadoContactoFiltro, // array
   setIdsEstadoContactoFiltro, // setter array
   opcionesEstadoContacto,
+  // producto ad (MULTI select)
+  productosAdFiltro, // array de strings
+  setProductosAdFiltro,
+  opcionesProductoAd, // array de strings
   // orden
   orden,
-  setOrden,
   // selección
   selectedCount,
   // acciones etiquetas
@@ -361,6 +364,19 @@ export default function FilterBar({
             onChange={setIdsEstadoContactoFiltro}
             placeholder="Estado contacto"
             colorBadge="#94a3b8"
+          />
+
+          {/* Último producto Ad (MULTI) */}
+          <MultiLabelSelect
+            options={(opcionesProductoAd || []).map((p) => ({
+              id: p,
+              nombre: p,
+              color: "#f59e0b",
+            }))}
+            value={productosAdFiltro}
+            onChange={setProductosAdFiltro}
+            placeholder="Producto Ad"
+            colorBadge="#f59e0b"
           />
 
           <DateRangeFilter value={filtroFecha} onChange={setFiltroFecha} />
