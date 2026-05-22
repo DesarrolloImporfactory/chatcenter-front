@@ -2320,7 +2320,7 @@ const EmptyHeroKanban = ({
           <div className="absolute -top-3 right-8 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0f1129]/90 border border-cyan-400/20 shadow-xl backdrop-blur-md">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[0.68rem] text-white/80 font-semibold">
-              Tu Kanban en vivo
+              El flujo de tus clientes en tiempo real
             </span>
           </div>
 

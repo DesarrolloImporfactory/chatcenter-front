@@ -11,6 +11,16 @@ const Toast = Swal.mixin({
   timerProgressBar: true,
 });
 
+// Toast que sale por encima del modal (z-index alto vía customClass)
+const ToastOverModal = Swal.mixin({
+  toast: true,
+  position: "top-end",
+  showConfirmButton: false,
+  timer: 4500,
+  timerProgressBar: true,
+  customClass: { container: "swal-over-modal" },
+});
+
 const BG_DARK = "rgb(23, 25, 49)";
 
 const ICONOS_PLANTILLA = {
@@ -122,6 +132,7 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState(null);
   const [empresa, setEmpresa] = useState("");
   const [resultado, setResultado] = useState(null);
+  const [errorAlert, setErrorAlert] = useState(null);
 
   const [stageIndex, setStageIndex] = useState(0);
   const stageTimerRef = useRef(null);
@@ -171,6 +182,7 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
     setPaso(1);
     setPlantillaSeleccionada(null);
     setEmpresa("");
+    setErrorAlert(null);
     setLoading(true);
     try {
       const [resHard, resGlobal] = await Promise.all([
@@ -197,7 +209,10 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
 
       setPlantillas([...hardcoded, ...globales]);
     } catch {
-      Toast.fire({ icon: "error", title: "Error al cargar plantillas" });
+      ToastOverModal.fire({
+        icon: "error",
+        title: "Error al cargar plantillas",
+      });
     } finally {
       setLoading(false);
     }
@@ -212,19 +227,25 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
     setShowModal(false);
     setPaso(1);
     setStageIndex(0);
+    setErrorAlert(null);
   };
 
   const seleccionarPlantilla = (p) => {
+    setErrorAlert(null);
     setPlantillaSeleccionada(p);
     setPaso(2);
   };
 
   const aplicarPlantilla = async () => {
     if (!empresa.trim()) {
-      Toast.fire({ icon: "warning", title: "Ingresa el nombre de tu empresa" });
+      ToastOverModal.fire({
+        icon: "warning",
+        title: "Ingresa el nombre de tu empresa",
+      });
       return;
     }
 
+    setErrorAlert(null);
     abortRef.current = false;
     setStageIndex(0);
     setPaso(3);
@@ -253,7 +274,12 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
         };
 
     try {
-      const { data } = await chatApi.post(endpoint, body, { timeout: 180000 });
+      const { data } = await chatApi.post(
+        endpoint,
+        body,
+        { silentError: true },
+        { timeout: 180000 },
+      );
 
       if (!data?.success) {
         abortRef.current = true;
@@ -261,10 +287,9 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
           clearInterval(stageTimerRef.current);
           stageTimerRef.current = null;
         }
-        Toast.fire({
-          icon: "error",
-          title: data?.message || "Error al aplicar",
-        });
+        const msg = data?.message || "Error al aplicar la plantilla";
+        setErrorAlert(msg);
+        ToastOverModal.fire({ icon: "error", title: msg });
         setPaso(2);
         return;
       }
@@ -291,10 +316,9 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
         clearInterval(stageTimerRef.current);
         stageTimerRef.current = null;
       }
-      Toast.fire({
-        icon: "error",
-        title: err?.response?.data?.message || "Error al aplicar plantilla",
-      });
+      const msg = err?.response?.data?.message || "Error al aplicar plantilla";
+      setErrorAlert(msg);
+      ToastOverModal.fire({ icon: "error", title: msg });
       setPaso(2);
     }
   };
@@ -938,6 +962,116 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
               {/* ─────── PASO 2: Personalizar ─────── */}
               {paso === 2 && plantillaSeleccionada && (
                 <>
+                  {/* Banner de error persistente */}
+                  {errorAlert && (
+                    <div
+                      style={{
+                        padding: "14px 16px",
+                        borderRadius: 14,
+                        background: "linear-gradient(135deg, #fef2f2, #fff5f5)",
+                        border: "1.5px solid #fecaca",
+                        marginBottom: 18,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 12,
+                        animation: "pk-slideIn .3s ease",
+                        boxShadow: "0 4px 12px rgba(220,38,38,.08)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          background: "#fee2e2",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <i
+                          className="bx bx-error"
+                          style={{ fontSize: "1.3rem", color: "#dc2626" }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: ".7rem",
+                            color: "#991b1b",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            letterSpacing: ".07em",
+                            marginBottom: 4,
+                          }}
+                        >
+                          No se pudo aplicar la plantilla
+                        </div>
+                        <div
+                          style={{
+                            fontSize: ".85rem",
+                            color: "#7f1d1d",
+                            fontWeight: 600,
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {errorAlert}
+                        </div>
+                        {/(api[_\s-]?key|openai|asistente|assistant)/i.test(
+                          errorAlert,
+                        ) && (
+                          <div
+                            style={{
+                              marginTop: 10,
+                              padding: "8px 10px",
+                              background: "#fff",
+                              border: "1px dashed #fca5a5",
+                              borderRadius: 8,
+                              fontSize: ".78rem",
+                              color: "#7f1d1d",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            <i
+                              className="bx bx-info-circle"
+                              style={{
+                                marginRight: 5,
+                                verticalAlign: "middle",
+                                color: "#dc2626",
+                              }}
+                            />
+                            <strong>¿Cómo lo soluciono?</strong> Necesitas
+                            configurar tu <strong>API key de OpenAI</strong> en
+                            la sección de{" "}
+                            <strong>Integraciones → Asistentes</strong> antes de
+                            aplicar una plantilla, porque esto creará tus
+                            asistentes de IA.
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setErrorAlert(null)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#991b1b",
+                          cursor: "pointer",
+                          padding: 4,
+                          borderRadius: 6,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          fontFamily: "inherit",
+                        }}
+                        title="Cerrar"
+                      >
+                        <i className="bx bx-x" style={{ fontSize: 18 }} />
+                      </button>
+                    </div>
+                  )}
+
                   {/* Banner plantilla seleccionada */}
                   <div
                     style={{
