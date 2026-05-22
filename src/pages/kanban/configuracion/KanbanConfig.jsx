@@ -428,6 +428,146 @@ const KanbanConfig = () => {
     }
   };
 
+  // ── Eliminar columna ──────────────────────────────────────────
+  const eliminarColumna = async () => {
+    if (!columnaSeleccionada) return;
+
+    // Validaciones frontend (UX inmediato — el backend también valida)
+    if (columnas.length <= 1) {
+      Swal.fire({
+        icon: "warning",
+        title: "No se puede eliminar",
+        text: "El kanban debe tener al menos una columna.",
+        confirmButtonColor: "#6366f1",
+      });
+      return;
+    }
+
+    if (columnaSeleccionada.es_principal) {
+      Swal.fire({
+        icon: "warning",
+        title: "Es la columna principal",
+        html: `Esta columna recibe los chats cerrados.<br><br>Primero marca <strong>otra columna como principal</strong> y luego podrás eliminar esta.`,
+        confirmButtonColor: "#6366f1",
+      });
+      return;
+    }
+
+    if (columnaSeleccionada.es_dropi_principal) {
+      Swal.fire({
+        icon: "warning",
+        title: "Es la conexión principal de Dropi",
+        html: `Esta columna recibe los pedidos nuevos de Dropi.<br><br>Primero asigna esa conexión a <strong>otra columna</strong> y luego podrás eliminar esta.`,
+        confirmButtonColor: "#6366f1",
+      });
+      return;
+    }
+
+    // Opciones de destino (todas las columnas menos la que se va a borrar)
+    const opcionesDestino = columnas
+      .filter((c) => c.id !== columnaSeleccionada.id)
+      .reduce((acc, c) => {
+        acc[c.estado_db] =
+          `${c.nombre}${c.es_principal ? " ⭐ (principal)" : ""}`;
+        return acc;
+      }, {});
+
+    const principal = columnas.find((c) => c.es_principal);
+    const destinoDefault =
+      principal?.estado_db ||
+      columnas.find((c) => c.id !== columnaSeleccionada.id)?.estado_db;
+
+    // Paso 1: elegir destino de los chats
+    const paso1 = await Swal.fire({
+      title: `Eliminar "${columnaSeleccionada.nombre}"`,
+      html: `
+      <div style="text-align:left;font-size:.9rem;color:#475569;margin-bottom:14px">
+        Los chats que estén actualmente en esta columna se moverán a otra.<br>
+        <strong style="color:#0f172a">¿A qué columna moverlos?</strong>
+      </div>
+    `,
+      input: "select",
+      inputOptions: opcionesDestino,
+      inputValue: destinoDefault,
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Siguiente",
+      cancelButtonText: "Cancelar",
+      inputValidator: (v) => (!v ? "Selecciona una columna destino" : null),
+    });
+    if (!paso1.isConfirmed) return;
+    const destinoEstadoDb = paso1.value;
+
+    // Paso 2: confirmación final con typing
+    const paso2 = await Swal.fire({
+      title: "¿Estás seguro?",
+      html: `
+      <div style="text-align:left;font-size:.88rem;color:#475569;line-height:1.6">
+        Se eliminarán:<br>
+        • La columna <strong>"${columnaSeleccionada.nombre}"</strong><br>
+        • Todas sus <strong>acciones automáticas</strong><br>
+        • Todos sus <strong>remarketings</strong> configurados<br><br>
+        Los chats activos se moverán a <strong>${opcionesDestino[destinoEstadoDb]}</strong>.<br><br>
+        <span style="color:#ef4444;font-weight:600">Esta acción no se puede deshacer.</span><br><br>
+        Escribe <strong>ELIMINAR</strong> para confirmar:
+      </div>
+    `,
+      input: "text",
+      inputPlaceholder: "ELIMINAR",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Eliminar definitivamente",
+      cancelButtonText: "Cancelar",
+      preConfirm: (valor) => {
+        if (valor !== "ELIMINAR") {
+          Swal.showValidationMessage("Debes escribir ELIMINAR exactamente");
+          return false;
+        }
+        return true;
+      },
+    });
+    if (!paso2.isConfirmed) return;
+
+    // Ejecutar eliminación
+    try {
+      const { data } = await chatApi.post("/kanban_columnas/eliminar", {
+        id: columnaSeleccionada.id,
+        id_configuracion,
+        mover_a_estado_db: destinoEstadoDb,
+      });
+      if (data?.success) {
+        Toast.fire({
+          icon: "success",
+          title: `Columna eliminada · chats movidos a ${data.chats_movidos_a}`,
+        });
+        // Refrescar UI
+        const nuevas = data.data || [];
+        setColumnas(nuevas);
+        setAcciones([]);
+        // Seleccionar la primera columna que quede
+        if (nuevas.length) {
+          setColumnaActiva(nuevas[0].id);
+          setTabActiva("columna");
+        } else {
+          setColumnaActiva(null);
+          setFormCol(null);
+        }
+      } else {
+        Toast.fire({
+          icon: "error",
+          title: data?.message || "Error al eliminar",
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al eliminar",
+        text: err?.response?.data?.message || "Intenta nuevamente.",
+        confirmButtonColor: "#6366f1",
+      });
+    }
+  };
+
   const togglePrincipal = async () => {
     const esPrincipal = !!columnaSeleccionada?.es_principal;
     try {
@@ -531,6 +671,16 @@ const KanbanConfig = () => {
   };
 
   const columnaSeleccionada = columnas.find((c) => c.id === columnaActiva);
+
+  const razonNoEliminar =
+    columnas.length <= 1
+      ? "Es la única columna del kanban. Debe quedar al menos una."
+      : columnaSeleccionada?.es_principal
+        ? "Es la columna principal: aquí regresan los chats cerrados. Primero marca otra columna como principal arriba ↑"
+        : columnaSeleccionada?.es_dropi_principal
+          ? "Es la conexión principal de Dropi: aquí entran los pedidos nuevos. Primero asigna esa conexión a otra columna arriba ↑"
+          : null;
+  const bloqueado = !!razonNoEliminar;
 
   // ── Loading ──────────────────────────────────────────────
   if (loadingCol)
@@ -1225,6 +1375,7 @@ const KanbanConfig = () => {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
+                      gap: 16,
                     }}
                   >
                     <div>
@@ -1258,6 +1409,155 @@ const KanbanConfig = () => {
                       nombreColumna={columnaSeleccionada?.nombre || ""}
                       columnas={columnas}
                     />
+                  </div>
+
+                  {/* ── Zona peligrosa ── */}
+                  <div style={{ marginTop: 32 }}>
+                    <div
+                      style={{
+                        fontSize: "0.7rem",
+                        fontWeight: 800,
+                        color: "#dc2626",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        marginBottom: 10,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <i
+                        className="bx bx-shield-x"
+                        style={{ fontSize: "0.95rem" }}
+                      />
+                      Zona peligrosa
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                        padding: "16px 18px",
+                        borderRadius: 14,
+                        border: "1.5px solid rgba(239,68,68,.25)",
+                        background:
+                          "linear-gradient(180deg, rgba(254,242,242,.6) 0%, rgba(254,226,226,.35) 100%)",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 12,
+                          background: "rgba(239,68,68,.12)",
+                          border: "1px solid rgba(239,68,68,.2)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <i
+                          className="bx bx-trash"
+                          style={{ fontSize: "1.4rem", color: "#dc2626" }}
+                        />
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "0.92rem",
+                            color: "#7f1d1d",
+                            marginBottom: 3,
+                          }}
+                        >
+                          Eliminar esta columna
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.78rem",
+                            color: "#991b1b",
+                            lineHeight: 1.55,
+                            opacity: 0.85,
+                          }}
+                        >
+                          Borrará la columna, sus acciones y remarketings.
+                          Elegirás a qué otra columna mover los chats activos.
+                        </div>
+
+                        {/* ── Mensaje de bloqueo visible ── */}
+                        {bloqueado && (
+                          <div
+                            style={{
+                              marginTop: 10,
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 8,
+                              padding: "8px 12px",
+                              borderRadius: 10,
+                              background: "rgba(255,255,255,.7)",
+                              border: "1px solid rgba(239,68,68,.2)",
+                              fontSize: "0.78rem",
+                              color: "#7f1d1d",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            <i
+                              className="bx bx-lock-alt"
+                              style={{
+                                fontSize: "1rem",
+                                color: "#dc2626",
+                                flexShrink: 0,
+                                marginTop: 1,
+                              }}
+                            />
+                            <span>
+                              <strong style={{ fontWeight: 700 }}>
+                                No se puede eliminar:
+                              </strong>{" "}
+                              {razonNoEliminar}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={eliminarColumna}
+                        disabled={bloqueado}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 7,
+                          padding: "10px 18px",
+                          borderRadius: 10,
+                          border: "1px solid",
+                          borderColor: bloqueado
+                            ? "rgba(239,68,68,.2)"
+                            : "transparent",
+                          background: bloqueado
+                            ? "transparent"
+                            : "linear-gradient(135deg,#ef4444,#dc2626)",
+                          color: bloqueado ? "#fca5a5" : "#fff",
+                          fontWeight: 700,
+                          fontSize: "0.83rem",
+                          cursor: bloqueado ? "not-allowed" : "pointer",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                          boxShadow: bloqueado
+                            ? "none"
+                            : "0 3px 10px rgba(239,68,68,.25)",
+                          transition: "all .15s",
+                        }}
+                      >
+                        <i
+                          className="bx bx-trash"
+                          style={{ fontSize: "1rem" }}
+                        />
+                        Eliminar columna
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
