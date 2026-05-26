@@ -231,14 +231,13 @@ export default function DropshipperClientPanel(props) {
     if (!data) return;
     setIsOpen(true);
     openCreateOrderPanel();
-    // Pequeño delay para que el reset del create-order termine antes de buscar
     setTimeout(() => {
       const term = String(
         data.external_id || data.producto_nombre || "",
       ).trim();
       if (!term) return;
       createHook.setKeywords(term);
-      createHook.emitGetProducts(false);
+      createHook.emitGetProducts(true, term);
     }, 150);
   };
 

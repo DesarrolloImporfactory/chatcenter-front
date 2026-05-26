@@ -44,7 +44,37 @@ export default function useCreateOrder({
 
   // sync phone del chat
   useEffect(() => setPhoneInput(phone || ""), [phone]);
+
   useEffect(() => {
+    // Cambió el chat → limpiar todo el create-order
+    setCreateOrderOpen(false);
+    setStep(1);
+    setProdList([]);
+    setProdError(null);
+    setProdLoading(false);
+    setKeywords("");
+    setStartData(0);
+    setSelectedProduct(null);
+    setProductsCart([]);
+    setSelectedDepartmentId(null);
+    setSelectedDepartmentName("");
+    setSelectedCityId(null);
+    setSelectedCityName("");
+    setSelectedCityCodDane("");
+    setCities([]);
+    setStates([]);
+    setRateType("CON RECAUDO");
+    setRemitCodDane("");
+    setShippingQuotes([]);
+    setShippingQuotesError(null);
+    setShippingQuotesLoading(false);
+    setSelectedShipping(null);
+    setDir("");
+    setNotes("");
+    setCustomerHistory(null);
+    setCustomerHistoryLoading(false);
+
+    // Sincronizar nombre y apellido con el nuevo chat
     setName(selectedChat?.nombre_cliente || "");
     setSurname(selectedChat?.apellido_cliente || "");
   }, [selectedChat?.id, selectedChat?.psid]);
@@ -119,7 +149,7 @@ export default function useCreateOrder({
 
   // ── emitters ──
   const emitGetProducts = useCallback(
-    (reset = false) => {
+    (reset = false, overrideKeywords = null) => {
       const s = socketRef?.current;
       if (!s) return setProdError("Socket no disponible");
       setProdLoading(true);
@@ -132,7 +162,7 @@ export default function useCreateOrder({
         no_count: true,
         order_by: "id",
         order_type: "desc",
-        keywords: keywords || "",
+        keywords: overrideKeywords !== null ? overrideKeywords : keywords || "",
         favorite: false,
         privated_product: false,
       });
