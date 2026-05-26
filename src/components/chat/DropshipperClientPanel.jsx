@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 
 import CreateOrderPanel from "./CreateOrderPanel";
@@ -226,6 +227,21 @@ export default function DropshipperClientPanel(props) {
     createHook.emitGetStates();
   };
 
+  const handleUsarProductoEnOrden = (data) => {
+    if (!data) return;
+    setIsOpen(true);
+    openCreateOrderPanel();
+    // Pequeño delay para que el reset del create-order termine antes de buscar
+    setTimeout(() => {
+      const term = String(
+        data.external_id || data.producto_nombre || "",
+      ).trim();
+      if (!term) return;
+      createHook.setKeywords(term);
+      createHook.emitGetProducts(false);
+    }, 150);
+  };
+
   const { selectedOrder } = ordersHook;
   const { orders, ordersLoading, ordersError, phone } = ordersHook;
   const createPanelProps = buildCreateOrderPanelProps(createHook);
@@ -255,6 +271,7 @@ export default function DropshipperClientPanel(props) {
           phone={phone}
           openEditContact={openEditContact}
           id_configuracion={id_configuracion}
+          onUsarProductoEnOrden={handleUsarProductoEnOrden}
         />
 
         {/* ===== Botonera superior ===== */}
@@ -454,6 +471,7 @@ function ClientHeader({
   phone,
   openEditContact,
   id_configuracion,
+  onUsarProductoEnOrden,
 }) {
   return (
     <div className="mb-3">
@@ -512,7 +530,14 @@ function ClientHeader({
           />
         </div>
 
-        <EtiquetasCustomSelect clienteId={selectedChat?.id} />
+        {/* Producto del anuncio por el que vino el cliente */}
+        <ProductoOrigenAnuncio
+          idCliente={selectedChat?.id}
+          idConfiguracion={id_configuracion}
+          onUsarEnOrden={onUsarProductoEnOrden}
+        />
+
+        {/* <EtiquetasCustomSelect clienteId={selectedChat?.id} /> */}
         <HistorialEncargados clienteId={selectedChat?.id} />
         <EncuestasCliente
           clienteId={selectedChat?.id}
@@ -577,5 +602,235 @@ function TopButton({
       />
       <span className="text-white">{label}</span>
     </button>
+  );
+}
+
+function ProductoOrigenAnuncio({ idCliente, idConfiguracion, onUsarEnOrden }) {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    if (!idCliente || !idConfiguracion) {
+      setData(null);
+      return;
+    }
+    let cancel = false;
+    setLoading(true);
+    setData(null);
+
+    chatApi
+      .get(
+        `/clientes_chat_center/origen_anuncio?id_cliente=${idCliente}&id_configuracion=${idConfiguracion}`,
+      )
+      .then((r) => {
+        if (cancel) return;
+        if (r.data?.status === 200 && r.data?.data?.id_anuncio) {
+          setData(r.data.data);
+        } else {
+          setData(null);
+        }
+      })
+      .catch(() => !cancel && setData(null))
+      .finally(() => !cancel && setLoading(false));
+
+    return () => {
+      cancel = true;
+    };
+  }, [idCliente, idConfiguracion]);
+
+  const copy = (val, label) => {
+    if (!val) return;
+    navigator.clipboard?.writeText(String(val));
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: "success",
+      title: `${label} copiado`,
+      showConfirmButton: false,
+      timer: 1200,
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="mx-3 my-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[10px] text-white/60">
+        <i className="bx bx-loader-alt bx-spin mr-1" />
+        Buscando producto del anuncio...
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const tieneProducto = !!data.id_producto;
+  const tieneIdDropi = !!data.external_id;
+  const matchAprox = data.match_tipo === "aproximado";
+
+  /* ─── SIN PRODUCTO VINCULADO ─── */
+  if (!tieneProducto) {
+    return (
+      <div className="mx-3 my-2 rounded-lg border border-amber-400/25 bg-gradient-to-br from-amber-500/[0.08] via-amber-500/[0.03] to-transparent overflow-hidden">
+        <div className="flex items-start gap-2 px-2.5 py-2">
+          <i className="bx bxs-error-circle text-amber-400 text-[14px] mt-px shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[8.5px] font-bold uppercase tracking-wider text-amber-300">
+                Anuncio sin vincular
+              </span>
+              {data.source_url && (
+                <a
+                  href={data.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-auto inline-flex items-center gap-0.5 text-[9px] text-white/50 hover:text-amber-200 transition"
+                  title="Ver anuncio en Meta"
+                >
+                  <i className="bx bx-link-external text-[10px]" />
+                  Ver
+                </a>
+              )}
+            </div>
+            <p
+              className="text-[11px] text-white/85 mt-0.5 leading-tight truncate italic"
+              title={data.headline}
+            >
+              "{data.headline || "Sin titular"}"
+            </p>
+            <p className="text-[9.5px] text-amber-200/70 mt-1 leading-snug">
+              💡 Nombra tu anuncio igual al producto de tu listado para
+              vincularlo automáticamente.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── CON PRODUCTO VINCULADO ─── */
+  // Match exacto = naranja, aproximado = ámbar (color de advertencia leve)
+  const accent = matchAprox
+    ? {
+        text: "text-amber-300",
+        border: "border-amber-400/25",
+        dot: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]",
+        btnBg:
+          "bg-gradient-to-r from-amber-500/20 to-amber-500/10 hover:from-amber-500/30 hover:to-amber-500/20 text-amber-100",
+      }
+    : {
+        text: "text-orange-300",
+        border: "border-orange-400/25",
+        dot: "bg-orange-400 shadow-[0_0_6px_rgba(251,146,60,0.6)]",
+        btnBg:
+          "bg-gradient-to-r from-orange-500/20 to-orange-500/10 hover:from-orange-500/30 hover:to-orange-500/20 text-orange-100",
+      };
+
+  return (
+    <div
+      className={`mx-3 my-2 rounded-lg overflow-hidden border ${accent.border} bg-white/[0.025] shadow-sm`}
+    >
+      {/* Body principal */}
+      <div className="flex items-center gap-2.5 p-2">
+        {/* Imagen producto */}
+        {data.producto_imagen ? (
+          <img
+            src={data.producto_imagen}
+            alt=""
+            className="w-12 h-12 rounded-md object-cover bg-white/5 border border-white/10 shrink-0"
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-md bg-white/5 border border-white/10 shrink-0 flex items-center justify-center">
+            <i className="bx bx-package text-xl text-white/30" />
+          </div>
+        )}
+
+        {/* Columna info */}
+        <div className="min-w-0 flex-1">
+          {/* Label + Ver anuncio */}
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span
+              className={`inline-block w-1.5 h-1.5 rounded-full ${accent.dot}`}
+            />
+            <span
+              className={`text-[8.5px] font-bold uppercase tracking-wider ${accent.text}`}
+              title={
+                matchAprox
+                  ? `Match aproximado (${Math.round(
+                      (data.match_score || 0) * 100,
+                    )}%)`
+                  : "Match exacto"
+              }
+            >
+              Producto del anuncio
+              {matchAprox && (
+                <span className="opacity-70 normal-case ml-1">(aprox.)</span>
+              )}
+            </span>
+            {data.source_url && (
+              <a
+                href={data.source_url}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto inline-flex items-center gap-0.5 text-[9px] text-white/50 hover:text-white transition"
+                title="Ver anuncio en Meta"
+              >
+                <i className="bx bx-link-external text-[10px]" />
+                Ver
+              </a>
+            )}
+          </div>
+
+          {/* Nombre producto */}
+          <p
+            className="text-[12px] font-semibold text-white leading-tight truncate"
+            title={data.producto_nombre}
+          >
+            {data.producto_nombre}
+          </p>
+
+          {/* Metadata en una línea */}
+          <div className="flex items-center gap-1.5 mt-1 text-[10px] flex-wrap">
+            <span className="font-semibold text-white/95">
+              ${Number(data.producto_precio || 0).toFixed(2)}
+            </span>
+            <span className="text-white/20">·</span>
+            <span className="text-white/70">
+              <b
+                className={
+                  Number(data.stock) > 0 ? "text-emerald-300" : "text-red-300"
+                }
+              >
+                {data.stock ?? "?"}
+              </b>{" "}
+              stock
+            </span>
+            {tieneIdDropi && (
+              <>
+                <span className="text-white/20">·</span>
+                <button
+                  onClick={() => copy(data.external_id, "ID Dropi")}
+                  className="inline-flex items-center gap-0.5 text-orange-200 hover:text-white font-semibold transition"
+                  title="Copiar ID Dropi"
+                >
+                  #{data.external_id}
+                  <i className="bx bx-copy-alt text-[11px]" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer CTA */}
+      {onUsarEnOrden && (
+        <button
+          onClick={() => onUsarEnOrden(data)}
+          className={`w-full px-2 py-1.5 border-t ${accent.border} ${accent.btnBg} text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition`}
+        >
+          Usar en nueva orden
+          <i className="bx bx-right-arrow-alt text-[13px]" />
+        </button>
+      )}
+    </div>
   );
 }
