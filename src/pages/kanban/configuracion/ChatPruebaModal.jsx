@@ -96,11 +96,17 @@ const ChatPruebaModal = ({
     setCargando(true);
 
     try {
-      const { data } = await chatApi.post("/kanban_columnas/chat_prueba", {
-        id: columnaId,
-        mensaje: texto,
-        previous_response_id: previousResponseId,
-      });
+      const { data } = await chatApi.post(
+        "/kanban_columnas/chat_prueba",
+        {
+          id: columnaId,
+          mensaje: texto,
+          previous_response_id: previousResponseId,
+        },
+        {
+          timeout: 150000,
+        },
+      );
       if (data?.success) {
         setMensajes((prev) => [
           ...prev,
@@ -711,7 +717,9 @@ const ChatPruebaModal = ({
 
                   {parte.tipo === "texto" && (
                     <div className="cpm-bubble-bot">
-                      <div className="cpm-texto">{renderTexto(parte.contenido)}</div>
+                      <div className="cpm-texto">
+                        {renderTexto(parte.contenido)}
+                      </div>
                       {pi === partes.length - 1 && (
                         <div className="cpm-hora">{formatHora(msg.ts)}</div>
                       )}
