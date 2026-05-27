@@ -237,6 +237,7 @@ function buildWhatsAppLink(context) {
 export default function FloatingSupportChat({
   idConfiguracion: propIdConf,
   bottomClass,
+  position = "right",
 }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState("menu");
@@ -256,6 +257,16 @@ export default function FloatingSupportChat({
     propIdConf ||
     parseInt(localStorage.getItem("id_configuracion"), 10) ||
     null;
+
+  const isLeft = position === "left";
+  const sideClass = isLeft ? "left-6" : "right-6";
+  const originClass = isLeft ? "origin-bottom-left" : "origin-bottom-right";
+  const fabBottom = bottomClass || "bottom-6";
+  const panelBottom = isLeft
+    ? "bottom-24"
+    : bottomClass
+      ? "bottom-40"
+      : "bottom-24";
 
   useEffect(() => {
     const checkDropi = async () => {
@@ -426,9 +437,9 @@ export default function FloatingSupportChat({
       <button
         id="support-fab"
         onClick={() => setOpen((v) => !v)}
-        className={`fixed ${bottomClass || "bottom-6"} right-6 z-50 w-14 h-14 rounded-full shadow-lg
-                   flex items-center justify-center transition-all duration-300
-                   hover:scale-110 active:scale-95`}
+        className={`fixed ${fabBottom} ${sideClass} z-50 w-14 h-14 rounded-full shadow-lg
+             flex items-center justify-center transition-all duration-300
+             hover:scale-110 active:scale-95`}
         style={{
           background: "linear-gradient(135deg, #0A1628 0%, #0e7490 100%)",
         }}
@@ -444,10 +455,10 @@ export default function FloatingSupportChat({
 
       <div
         ref={chatRef}
-        className={`fixed ${bottomClass ? "bottom-40" : "bottom-24"} right-6 z-50 w-[370px] max-w-[calc(100vw-2rem)]
-                     rounded-2xl shadow-2xl overflow-hidden
-                     transition-all duration-300 origin-bottom-right
-                     ${open ? "scale-100 opacity-100 pointer-events-auto" : "scale-75 opacity-0 pointer-events-none"}`}
+        className={`fixed ${panelBottom} ${sideClass} z-50 w-[370px] max-w-[calc(100vw-2rem)]
+               rounded-2xl shadow-2xl overflow-hidden
+               transition-all duration-300 ${originClass}
+               ${open ? "scale-100 opacity-100 pointer-events-auto" : "scale-75 opacity-0 pointer-events-none"}`}
         style={{
           maxHeight: "min(600px, calc(100vh - 8rem))",
           border: "1px solid rgba(14,116,144,0.2)",

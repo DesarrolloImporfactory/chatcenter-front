@@ -261,8 +261,8 @@ export default function DropshipperClientPanel(props) {
   );
 
   return (
-    <div className="relative col-span-1 h-[calc(100vh_-_130px)] overflow-y-auto custom-scrollbar text-white px-2 duration-700 transition-all animate-slide-in bg-[#171931]">
-      <div className="w-full max-w-2xl mx-auto">
+    <div className="relative h-full text-white flex flex-col">
+      <div className="w-full max-w-2xl mx-auto h-full flex flex-col flex-1 min-h-0 px-2 pt-2">
         {/* ===== Header cliente ===== */}
         <ClientHeader
           selectedChat={selectedChat}

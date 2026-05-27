@@ -107,62 +107,62 @@ export default function HistorialEncargados({ clienteId }) {
       return (
         <div
           key={item.id}
-          className={`rounded-xl overflow-hidden transition-all ${
+          className={`rounded-lg overflow-hidden transition-all ${
             isLast
-              ? "border border-amber-500/30 shadow-lg shadow-amber-500/5"
-              : "border border-white/8 hover:border-white/15"
+              ? "border border-amber-500/30 shadow-md shadow-amber-500/5"
+              : "border border-white/[0.08] hover:border-white/15"
           }`}
         >
           {/* Barra superior */}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/15">
-            <div className="flex items-center gap-1.5">
-              <i className="bx bx-transfer-alt text-xs text-amber-400" />
-              <span className="text-[10px] font-semibold text-amber-300 uppercase tracking-wider">
+          <div className="flex items-center justify-between px-2.5 py-1 bg-amber-500/10 border-b border-amber-500/15">
+            <div className="flex items-center gap-1">
+              <i className="bx bx-transfer-alt text-[10px] text-amber-400" />
+              <span className="text-[9px] font-semibold text-amber-300 uppercase tracking-wider">
                 Transferencia
               </span>
             </div>
-            <span className="text-[10px] text-white/30">
+            <span className="text-[9px] text-white/30">
               {fmtHora(item.fecha_registro)}
             </span>
           </div>
 
           {/* Flujo visual: DE → A */}
-          <div className="px-3 py-3 bg-white/[0.02]">
+          <div className="px-2.5 py-2 bg-white/[0.02]">
             <div className="flex items-stretch gap-0">
               {/* DE */}
               <div className="flex-1 min-w-0">
-                <p className="text-[9px] text-rose-400/60 uppercase tracking-wider font-semibold mb-1.5">
+                <p className="text-[8px] text-rose-400/60 uppercase tracking-wider font-semibold mb-1">
                   De
                 </p>
-                <div className="flex items-center gap-2 rounded-lg bg-rose-500/8 border border-rose-500/15 px-2.5 py-2">
-                  <div className="h-7 w-7 rounded-full bg-rose-500/20 flex items-center justify-center shrink-0">
-                    <i className="bx bx-user text-sm text-rose-400" />
+                <div className="flex items-center gap-1.5 rounded-md bg-rose-500/[0.08] border border-rose-500/15 px-2 py-1.5">
+                  <div className="h-5 w-5 rounded-full bg-rose-500/20 flex items-center justify-center shrink-0">
+                    <i className="bx bx-user text-[10px] text-rose-400" />
                   </div>
-                  <span className="text-xs text-white/75 font-medium truncate">
+                  <span className="text-[11px] text-white/75 font-medium truncate">
                     {item.nombre_anterior || `#${item.id_encargado_anterior}`}
                   </span>
                 </div>
               </div>
 
               {/* Flecha central */}
-              <div className="flex flex-col items-center justify-end px-2 pb-2">
-                <div className="w-px h-3 bg-white/10" />
-                <div className="h-6 w-6 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
-                  <i className="bx bx-right-arrow-alt text-sm text-amber-400" />
+              <div className="flex flex-col items-center justify-end px-1.5 pb-1.5">
+                <div className="w-px h-2 bg-white/10" />
+                <div className="h-5 w-5 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                  <i className="bx bx-right-arrow-alt text-[11px] text-amber-400" />
                 </div>
-                <div className="w-px h-3 bg-white/10" />
+                <div className="w-px h-2 bg-white/10" />
               </div>
 
               {/* A */}
               <div className="flex-1 min-w-0">
-                <p className="text-[9px] text-emerald-400/60 uppercase tracking-wider font-semibold mb-1.5">
+                <p className="text-[8px] text-emerald-400/60 uppercase tracking-wider font-semibold mb-1">
                   A
                 </p>
-                <div className="flex items-center gap-2 rounded-lg bg-emerald-500/8 border border-emerald-500/15 px-2.5 py-2">
-                  <div className="h-7 w-7 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-                    <i className="bx bx-user-check text-sm text-emerald-400" />
+                <div className="flex items-center gap-1.5 rounded-md bg-emerald-500/[0.08] border border-emerald-500/15 px-2 py-1.5">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <i className="bx bx-user-check text-[10px] text-emerald-400" />
                   </div>
-                  <span className="text-xs text-white/90 font-medium truncate">
+                  <span className="text-[11px] text-white/90 font-medium truncate">
                     {item.nombre_nuevo || `#${item.id_encargado_nuevo}`}
                   </span>
                 </div>
@@ -171,9 +171,9 @@ export default function HistorialEncargados({ clienteId }) {
 
             {/* Departamento */}
             {item.nombre_departamento && (
-              <div className="mt-2.5 flex items-center gap-1.5">
+              <div className="mt-2 flex items-center gap-1">
                 <i
-                  className="bx bx-buildings text-xs"
+                  className="bx bx-buildings text-[10px]"
                   style={{ color: item.color_departamento || "#6366f1" }}
                 />
                 <span
@@ -187,11 +187,11 @@ export default function HistorialEncargados({ clienteId }) {
 
             {/* Motivo completo */}
             {item.motivo && (
-              <div className="mt-2.5 rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
-                <p className="text-[9px] text-white/30 uppercase tracking-wider font-semibold mb-1">
+              <div className="mt-2 rounded-md bg-white/[0.03] border border-white/5 px-2.5 py-1.5">
+                <p className="text-[8px] text-white/30 uppercase tracking-wider font-semibold mb-0.5">
                   Motivo
                 </p>
-                <p className="text-[11px] text-white/55 leading-relaxed">
+                <p className="text-[10px] text-white/55 leading-relaxed">
                   {item.motivo}
                 </p>
               </div>
@@ -205,35 +205,35 @@ export default function HistorialEncargados({ clienteId }) {
       return (
         <div
           key={item.id}
-          className={`rounded-xl overflow-hidden transition-all ${
+          className={`rounded-lg overflow-hidden transition-all ${
             isLast
-              ? "border border-emerald-500/30 shadow-lg shadow-emerald-500/5"
-              : "border border-white/8 hover:border-white/15"
+              ? "border border-emerald-500/30 shadow-md shadow-emerald-500/5"
+              : "border border-white/[0.08] hover:border-white/15"
           }`}
         >
           {/* Barra superior */}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-500/10 border-b border-emerald-500/15">
-            <div className="flex items-center gap-1.5">
-              <i className="bx bx-log-in text-xs text-emerald-400" />
-              <span className="text-[10px] font-semibold text-emerald-300 uppercase tracking-wider">
+          <div className="flex items-center justify-between px-2.5 py-1 bg-emerald-500/10 border-b border-emerald-500/15">
+            <div className="flex items-center gap-1">
+              <i className="bx bx-log-in text-[10px] text-emerald-400" />
+              <span className="text-[9px] font-semibold text-emerald-300 uppercase tracking-wider">
                 Asignación
               </span>
             </div>
-            <span className="text-[10px] text-white/30">
+            <span className="text-[9px] text-white/30">
               {fmtHora(item.fecha_registro)}
             </span>
           </div>
 
-          <div className="px-3 py-3 bg-white/[0.02]">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <i className="bx bx-user-check text-base text-emerald-400" />
+          <div className="px-2.5 py-2 bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <i className="bx bx-user-check text-[13px] text-emerald-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-white/90 font-medium truncate">
+                <p className="text-[11px] text-white/90 font-medium truncate">
                   {item.nombre_nuevo || `#${item.id_encargado_nuevo}`}
                 </p>
-                <p className="text-[10px] text-white/35 mt-0.5">
+                <p className="text-[9px] text-white/35 mt-0.5">
                   fue asignado como encargado del chat
                 </p>
               </div>
@@ -241,9 +241,9 @@ export default function HistorialEncargados({ clienteId }) {
 
             {/* Departamento */}
             {item.nombre_departamento && (
-              <div className="mt-2.5 flex items-center gap-1.5">
+              <div className="mt-2 flex items-center gap-1">
                 <i
-                  className="bx bx-buildings text-xs"
+                  className="bx bx-buildings text-[10px]"
                   style={{ color: item.color_departamento || "#6366f1" }}
                 />
                 <span
@@ -257,11 +257,11 @@ export default function HistorialEncargados({ clienteId }) {
 
             {/* Motivo */}
             {item.motivo && (
-              <div className="mt-2.5 rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
-                <p className="text-[9px] text-white/30 uppercase tracking-wider font-semibold mb-1">
+              <div className="mt-2 rounded-md bg-white/[0.03] border border-white/5 px-2.5 py-1.5">
+                <p className="text-[8px] text-white/30 uppercase tracking-wider font-semibold mb-0.5">
                   Motivo
                 </p>
-                <p className="text-[11px] text-white/55 leading-relaxed">
+                <p className="text-[10px] text-white/55 leading-relaxed">
                   {item.motivo}
                 </p>
               </div>
@@ -275,41 +275,41 @@ export default function HistorialEncargados({ clienteId }) {
       return (
         <div
           key={item.id}
-          className={`rounded-xl overflow-hidden border border-white/8 hover:border-white/15 transition-all`}
+          className="rounded-lg overflow-hidden border border-white/[0.08] hover:border-white/15 transition-all"
         >
-          <div className="flex items-center justify-between px-3 py-1.5 bg-rose-500/10 border-b border-rose-500/15">
-            <div className="flex items-center gap-1.5">
-              <i className="bx bx-log-out text-xs text-rose-400" />
-              <span className="text-[10px] font-semibold text-rose-300 uppercase tracking-wider">
+          <div className="flex items-center justify-between px-2.5 py-1 bg-rose-500/10 border-b border-rose-500/15">
+            <div className="flex items-center gap-1">
+              <i className="bx bx-log-out text-[10px] text-rose-400" />
+              <span className="text-[9px] font-semibold text-rose-300 uppercase tracking-wider">
                 Desasignación
               </span>
             </div>
-            <span className="text-[10px] text-white/30">
+            <span className="text-[9px] text-white/30">
               {fmtHora(item.fecha_registro)}
             </span>
           </div>
 
-          <div className="px-3 py-3 bg-white/[0.02]">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-rose-500/15 border border-rose-500/20 flex items-center justify-center shrink-0">
-                <i className="bx bx-user-x text-base text-rose-400" />
+          <div className="px-2.5 py-2 bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-full bg-rose-500/15 border border-rose-500/20 flex items-center justify-center shrink-0">
+                <i className="bx bx-user-x text-[13px] text-rose-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-white/70 font-medium truncate">
+                <p className="text-[11px] text-white/70 font-medium truncate">
                   {item.nombre_anterior || `#${item.id_encargado_anterior}`}
                 </p>
-                <p className="text-[10px] text-white/35 mt-0.5">
+                <p className="text-[9px] text-white/35 mt-0.5">
                   fue removido como encargado
                 </p>
               </div>
             </div>
 
             {item.motivo && (
-              <div className="mt-2.5 rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
-                <p className="text-[9px] text-white/30 uppercase tracking-wider font-semibold mb-1">
+              <div className="mt-2 rounded-md bg-white/[0.03] border border-white/5 px-2.5 py-1.5">
+                <p className="text-[8px] text-white/30 uppercase tracking-wider font-semibold mb-0.5">
                   Motivo
                 </p>
-                <p className="text-[11px] text-white/55 leading-relaxed">
+                <p className="text-[10px] text-white/55 leading-relaxed">
                   {item.motivo}
                 </p>
               </div>
@@ -323,7 +323,7 @@ export default function HistorialEncargados({ clienteId }) {
   };
 
   return (
-    <div className="px-5 py-4 bg-[#0d1a30] border-t border-white/10">
+    <div className="px-3 py-2.5 bg-[#0d1a30] border-t border-white/10">
       {/* ═══ Header ═══ */}
       <button
         type="button"
@@ -331,17 +331,17 @@ export default function HistorialEncargados({ clienteId }) {
         className="w-full group"
       >
         <div className="flex items-center justify-between">
-          <p className="text-[11px] text-white/45 uppercase tracking-wider flex items-center gap-1.5">
-            <i className="bx bx-history text-sm text-violet-400" />
+          <p className="text-[9px] text-white/45 uppercase tracking-[0.15em] flex items-center gap-1 font-semibold">
+            <i className="bx bx-history text-[11px] text-violet-400" />
             Historial de encargados
             {!loading && historial.length > 0 && (
-              <span className="ml-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-violet-500/20 text-[10px] text-violet-300 font-medium">
+              <span className="ml-0.5 inline-flex items-center justify-center h-3.5 min-w-[14px] px-1 rounded-full bg-violet-500/20 text-[9px] text-violet-300 font-medium">
                 {historial.length}
               </span>
             )}
           </p>
           <i
-            className={`bx bx-chevron-down text-white/40 text-lg transition-transform duration-200 ${
+            className={`bx bx-chevron-down text-white/40 text-[14px] transition-transform duration-200 ${
               expanded ? "rotate-180" : ""
             }`}
           />
@@ -349,15 +349,15 @@ export default function HistorialEncargados({ clienteId }) {
 
         {/* Mini resumen colapsado */}
         {!loading && encargadoActual && !expanded && (
-          <div className="flex items-center gap-2.5 mt-2.5 mb-0.5">
-            <div className="h-8 w-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-              <i className="bx bx-user-check text-base text-emerald-400" />
+          <div className="flex items-center gap-2 mt-2 mb-0.5">
+            <div className="h-7 w-7 rounded-md bg-emerald-500/15 flex items-center justify-center shrink-0">
+              <i className="bx bx-user-check text-[13px] text-emerald-400" />
             </div>
-            <div className="min-w-0 text-left">
-              <p className="text-xs text-white/85 font-medium truncate">
+            <div className="min-w-0 text-left flex-1">
+              <p className="text-[11px] text-white/85 font-medium truncate">
                 {encargadoActual}
               </p>
-              <p className="text-[10px] text-white/35 truncate">
+              <p className="text-[9px] text-white/35 truncate">
                 {deptoActual && (
                   <span style={{ color: colorDepto }}>{deptoActual}</span>
                 )}
@@ -366,7 +366,7 @@ export default function HistorialEncargados({ clienteId }) {
               </p>
             </div>
             {ultimo?.fecha_registro && (
-              <span className="ml-auto text-[10px] text-white/25 shrink-0">
+              <span className="ml-auto text-[9px] text-white/25 shrink-0">
                 {timeAgo(ultimo.fecha_registro)}
               </span>
             )}
@@ -376,20 +376,22 @@ export default function HistorialEncargados({ clienteId }) {
 
       {/* ═══ Expandido ═══ */}
       {expanded && (
-        <div className="mt-3 space-y-4">
+        <div className="mt-2.5 space-y-3">
           {loading && (
-            <div className="flex items-center gap-2 py-6 justify-center">
-              <div className="h-3 w-3 rounded-full bg-violet-500/40 animate-pulse" />
-              <span className="text-xs text-white/40">Cargando historial…</span>
+            <div className="flex items-center gap-1.5 py-4 justify-center">
+              <div className="h-2.5 w-2.5 rounded-full bg-violet-500/40 animate-pulse" />
+              <span className="text-[10px] text-white/40">
+                Cargando historial…
+              </span>
             </div>
           )}
 
           {!loading && historial.length === 0 && (
-            <div className="text-center py-8">
-              <div className="h-12 w-12 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-2">
-                <i className="bx bx-history text-2xl text-white/15" />
+            <div className="text-center py-5">
+              <div className="h-10 w-10 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1.5">
+                <i className="bx bx-history text-lg text-white/15" />
               </div>
-              <p className="text-xs text-white/30">
+              <p className="text-[10px] text-white/30">
                 Sin historial de encargados
               </p>
             </div>
@@ -397,23 +399,23 @@ export default function HistorialEncargados({ clienteId }) {
 
           {/* Card encargado actual destacada */}
           {!loading && encargadoActual && (
-            <div className="rounded-xl border border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-transparent to-emerald-500/5 p-4">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="h-11 w-11 rounded-xl bg-violet-500/20 border border-violet-500/25 flex items-center justify-center">
-                    <i className="bx bx-user-check text-xl text-violet-300" />
+            <div className="rounded-lg border border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-transparent to-emerald-500/5 p-3">
+              <div className="flex items-center gap-2.5">
+                <div className="relative shrink-0">
+                  <div className="h-9 w-9 rounded-lg bg-violet-500/20 border border-violet-500/25 flex items-center justify-center">
+                    <i className="bx bx-user-check text-base text-violet-300" />
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[#0d1a30] animate-pulse" />
+                  <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-[#0d1a30] animate-pulse" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold">
+                  <p className="text-[9px] text-white/30 uppercase tracking-wider font-semibold">
                     Encargado actual
                   </p>
-                  <p className="text-sm text-white/90 font-semibold truncate mt-0.5">
+                  <p className="text-[12px] text-white/90 font-semibold truncate mt-0.5">
                     {encargadoActual}
                   </p>
                   {deptoActual && (
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1 mt-0.5">
                       <span
                         className="h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: colorDepto }}
@@ -429,10 +431,10 @@ export default function HistorialEncargados({ clienteId }) {
                 </div>
                 {ultimo?.fecha_registro && (
                   <div className="shrink-0 text-right">
-                    <p className="text-[10px] text-white/25">
+                    <p className="text-[9px] text-white/25">
                       {fmtFechaCorta(ultimo.fecha_registro)}
                     </p>
-                    <p className="text-[10px] text-white/20">
+                    <p className="text-[9px] text-white/20">
                       {fmtHora(ultimo.fecha_registro)}
                     </p>
                   </div>
@@ -443,17 +445,17 @@ export default function HistorialEncargados({ clienteId }) {
 
           {/* Timeline agrupado por fecha */}
           {!loading && historial.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {fechasOrdenadas.map((fecha) => {
                 const eventos = agrupadoPorFecha[fecha];
                 return (
                   <div key={fecha}>
                     {/* Separador fecha */}
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
                       <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <i className="bx bx-calendar text-xs text-white/25" />
-                        <span className="text-[10px] text-white/35 font-medium">
+                      <div className="flex items-center gap-1 shrink-0">
+                        <i className="bx bx-calendar text-[10px] text-white/25" />
+                        <span className="text-[9px] text-white/35 font-medium">
                           {fecha}
                         </span>
                       </div>
@@ -461,7 +463,7 @@ export default function HistorialEncargados({ clienteId }) {
                     </div>
 
                     {/* Eventos */}
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       {eventos.map((item) => {
                         const isLast =
                           item.id === historial[historial.length - 1]?.id;
@@ -479,9 +481,9 @@ export default function HistorialEncargados({ clienteId }) {
             <button
               type="button"
               onClick={() => setExpanded(false)}
-              className="w-full py-2 text-[10px] text-white/25 hover:text-white/40 transition flex items-center justify-center gap-1 rounded-lg hover:bg-white/[0.02]"
+              className="w-full py-1.5 text-[10px] text-white/25 hover:text-white/40 transition flex items-center justify-center gap-1 rounded-md hover:bg-white/[0.02]"
             >
-              <i className="bx bx-chevron-up text-sm" />
+              <i className="bx bx-chevron-up text-[12px]" />
               Ocultar historial
             </button>
           )}

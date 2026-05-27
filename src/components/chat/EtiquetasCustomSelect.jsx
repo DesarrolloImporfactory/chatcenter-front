@@ -171,8 +171,6 @@ export default function EtiquetasCustomSelect({ clienteId }) {
   };
 
   // ── Autocompletar asesor desde sub_usuario ─────────
-  // Si la etiqueta con ese nombre ya existe → solo asigna
-  // Si no existe → la crea y luego asigna
   const handleQuickAsesor = async (subUsuario, closeDropdown) => {
     const id_configuracion = getIdConfiguracion();
     if (!id_configuracion) return;
@@ -216,13 +214,13 @@ export default function EtiquetasCustomSelect({ clienteId }) {
   if (!clienteId) return null;
 
   return (
-    <div className="px-5 py-4 bg-[#0d1a30] border-t border-white/10">
-      <p className="text-[11px] text-white/45 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-        <i className="bx bx-purchase-tag text-sm text-violet-400" />
+    <div className="px-3 py-2.5 bg-[#0d1a30] border-t border-white/10">
+      <p className="text-[9px] text-white/45 uppercase tracking-[0.15em] mb-1.5 flex items-center gap-1">
+        <i className="bx bx-purchase-tag text-[11px] text-violet-400" />
         Etiquetas adicionales
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {/* Asesor — con sugerencias rápidas de sub_usuarios dentro del dropdown */}
         <CustomSelectField
           label="Asesor"
@@ -245,7 +243,7 @@ export default function EtiquetasCustomSelect({ clienteId }) {
           onQuickSelect={handleQuickAsesor}
         />
 
-        {/* Ciclo — sin cambios */}
+        {/* Ciclo */}
         <CustomSelectField
           label="Ciclo"
           icon="bx-revision"
@@ -275,17 +273,15 @@ function CustomSelectField({
   onChange,
   onCreate,
   onDelete,
-  // Opciones rápidas (sub_usuarios) — solo para Asesor
   quickOptions = [],
-  isQuickSelected, // fn(u) => bool
-  onQuickSelect, // fn(u, closeFn)
+  isQuickSelected,
+  onQuickSelect,
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   const close = () => setOpen(false);
 
-  // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
@@ -300,8 +296,8 @@ function CustomSelectField({
 
   return (
     <div ref={ref} className="relative">
-      <p className="text-[10px] text-white/40 mb-1 flex items-center gap-1">
-        <i className={`bx ${icon} text-xs ${iconColor}`} />
+      <p className="text-[9px] text-white/40 mb-0.5 flex items-center gap-1">
+        <i className={`bx ${icon} text-[10px] ${iconColor}`} />
         {label}
       </p>
 
@@ -310,22 +306,22 @@ function CustomSelectField({
         type="button"
         onClick={() => setOpen((p) => !p)}
         className={`
-          w-full flex items-center justify-between gap-2
-          bg-white/5 border border-white/10 rounded-lg
-          px-3 py-2 text-sm text-left
+          w-full flex items-center justify-between gap-1.5
+          bg-white/5 border border-white/10 rounded-md
+          px-2 py-1 text-[11px] text-left
           hover:bg-white/10 hover:border-white/20
           transition-all duration-200
-          ${open ? "border-violet-400/50 bg-white/8" : ""}
+          ${open ? "border-violet-400/50 bg-white/[0.08]" : ""}
         `}
         disabled={loading}
       >
         <span
-          className={selectedName ? "text-white/90" : "text-white/35 italic"}
+          className={`truncate ${selectedName ? "text-white/90" : "text-white/35 italic"}`}
         >
           {loading ? "Cargando…" : selectedName || "Sin asignar"}
         </span>
         <i
-          className={`bx bx-chevron-down text-white/40 transition-transform duration-200 ${
+          className={`bx bx-chevron-down text-[12px] text-white/40 transition-transform duration-200 shrink-0 ${
             open ? "rotate-180" : ""
           }`}
         />
@@ -333,17 +329,17 @@ function CustomSelectField({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-[#151d35] border border-white/15 rounded-lg shadow-xl overflow-hidden animate-slideInDown">
-          {/* ── Sección sugerencias rápidas (solo si hay quickOptions) ── */}
+        <div className="absolute z-50 mt-1 w-full bg-[#151d35] border border-white/15 rounded-md shadow-xl animate-slideInDown max-h-[300px] overflow-y-auto custom-scrollbar">
+          {/* ── Sección sugerencias rápidas (Agentes) ── */}
           {quickOptions.length > 0 && (
             <>
-              <div className="px-3 pt-2 pb-1">
-                <span className="text-[10px] text-white/30 uppercase tracking-wider flex items-center gap-1">
+              <div className="px-2.5 pt-2 pb-1">
+                <span className="text-[9px] text-white/30 uppercase tracking-wider flex items-center gap-1 font-semibold">
                   <i className="bx bx-zap text-[10px] text-sky-400" />
-                  Agentes
+                  Agentes disponibles
                 </span>
               </div>
-              <div className="px-2 pb-2 flex flex-wrap gap-1.5">
+              <div className="px-2 pb-2 flex flex-wrap gap-1">
                 {quickOptions.map((u) => {
                   const isActive = isQuickSelected?.(u);
                   return (
@@ -352,7 +348,7 @@ function CustomSelectField({
                       type="button"
                       onClick={() => onQuickSelect(u, close)}
                       className={`
-                        flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px]
+                        flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px]
                         border transition-all duration-150
                         ${
                           isActive
@@ -362,16 +358,16 @@ function CustomSelectField({
                       `}
                     >
                       {isActive ? (
-                        <i className="bx bx-check text-[10px]" />
+                        <i className="bx bx-check text-[9px]" />
                       ) : (
-                        <i className="bx bx-user text-[10px]" />
+                        <i className="bx bx-user text-[9px]" />
                       )}
                       {u.nombre_encargado}
                     </button>
                   );
                 })}
               </div>
-              <div className="border-t border-white/8" />
+              <div className="border-t border-white/[0.08]" />
             </>
           )}
 
@@ -383,17 +379,19 @@ function CustomSelectField({
               setOpen(false);
             }}
             className={`
-              w-full text-left px-3 py-2 text-sm
-              hover:bg-white/10 transition flex items-center gap-2
+              w-full text-left px-2.5 py-1.5 text-[11px]
+              hover:bg-white/10 transition flex items-center gap-1.5
               ${!selected ? "text-violet-300 bg-white/5" : "text-white/50 italic"}
             `}
           >
-            <i className="bx bx-minus-circle text-xs" />
+            <i className="bx bx-minus-circle text-[12px]" />
             Sin asignar
           </button>
 
           {/* Separador */}
-          {options.length > 0 && <div className="border-t border-white/8" />}
+          {options.length > 0 && (
+            <div className="border-t border-white/[0.08]" />
+          )}
 
           {/* Opciones (etiquetas guardadas) */}
           <div className="max-h-40 overflow-y-auto custom-scrollbar">
@@ -401,23 +399,23 @@ function CustomSelectField({
               <div
                 key={opt.id}
                 className={`
-                  flex items-center justify-between px-3 py-2
+                  flex items-center justify-between px-2.5 py-1.5
                   hover:bg-white/10 transition group
                   ${selected === opt.id ? "bg-violet-500/15 text-violet-300" : "text-white/80"}
                 `}
               >
                 <button
                   type="button"
-                  className="flex-1 text-left text-sm truncate"
+                  className="flex-1 text-left text-[11px] truncate flex items-center gap-1.5"
                   onClick={() => {
                     onChange(opt.id);
                     setOpen(false);
                   }}
                 >
                   {selected === opt.id && (
-                    <i className="bx bx-check text-violet-400 mr-1.5" />
+                    <i className="bx bx-check text-violet-400 text-[12px] shrink-0" />
                   )}
-                  {opt.nombre}
+                  <span className="truncate">{opt.nombre}</span>
                 </button>
 
                 {/* Botón eliminar (solo visible en hover) */}
@@ -427,17 +425,17 @@ function CustomSelectField({
                     e.stopPropagation();
                     onDelete(opt.id);
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-500/20 transition"
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-rose-500/20 transition shrink-0"
                   title="Eliminar opción"
                 >
-                  <i className="bx bx-trash text-xs text-rose-400" />
+                  <i className="bx bx-trash text-[11px] text-rose-400" />
                 </button>
               </div>
             ))}
           </div>
 
           {/* Separador */}
-          <div className="border-t border-white/8" />
+          <div className="border-t border-white/[0.08]" />
 
           {/* Crear nuevo */}
           <button
@@ -446,9 +444,9 @@ function CustomSelectField({
               setOpen(false);
               onCreate();
             }}
-            className="w-full text-left px-3 py-2.5 text-sm text-violet-300 hover:bg-violet-500/10 transition flex items-center gap-2"
+            className="w-full text-left px-2.5 py-1.5 text-[11px] font-medium text-violet-300 hover:bg-violet-500/10 transition flex items-center gap-1.5"
           >
-            <i className="bx bx-plus-circle text-base" />
+            <i className="bx bx-plus-circle text-[13px]" />
             Crear nuevo
           </button>
         </div>

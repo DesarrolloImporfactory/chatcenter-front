@@ -1119,51 +1119,87 @@ const Cabecera = ({
         >
           {/* Encabezado del chat seleccionado */}
           <div className="border-b border-slate-200/70 bg-white">
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-4 py-3">
-              {/* Botón para volver en móvil + imagen de usuario + nombre/teléfono */}
-              <div className="flex gap-3 items-center min-w-0">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              {/* ─── Lado izquierdo: avatar + info ─── */}
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                {/* Botón volver (mobile) */}
                 <button
                   className="
-                  inline-flex items-center justify-center
-                  w-10 h-10 rounded-xl
-                  text-slate-700
-                  hover:bg-slate-100 hover:text-slate-900
-                  transition
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300
-                  block sm:hidden
-                "
+          shrink-0 inline-flex items-center justify-center
+          w-9 h-9 rounded-lg
+          text-slate-600 hover:bg-slate-100 hover:text-slate-900
+          transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300
+          block sm:hidden
+        "
                   onClick={volver_seccion_principal}
                   aria-label="Volver"
                   title="Volver"
                 >
-                  <i className="bx bx-arrow-back text-[22px]" />
+                  <i className="bx bx-arrow-back text-[20px]" />
                 </button>
 
-                <img
-                  src={
-                    selectedChat?.imagePath
-                      ? selectedChat.imagePath
-                      : "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png"
-                  }
-                  alt="Avatar"
-                  className="h-11 w-11 rounded-full object-cover bg-white ring-2 ring-slate-200"
-                  loading="lazy"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src =
-                      "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
-                  }}
-                />
+                {/* Avatar con badge del canal */}
+                <div className="relative shrink-0">
+                  <img
+                    src={
+                      selectedChat?.imagePath ||
+                      "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png"
+                    }
+                    alt="Avatar"
+                    className="h-11 w-11 rounded-full object-cover bg-white ring-2 ring-white shadow-sm border border-slate-200"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src =
+                        "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-19-944Z-user.png";
+                    }}
+                  />
+                  {/* Badge del canal */}
+                  <span
+                    className={`absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full ring-2 ring-white shadow-sm ${
+                      selectedChat?.source === "wa"
+                        ? "bg-emerald-500"
+                        : selectedChat?.source === "ig"
+                          ? "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400"
+                          : selectedChat?.source === "ms"
+                            ? "bg-blue-500"
+                            : "bg-slate-400"
+                    }`}
+                    title={
+                      selectedChat?.source === "wa"
+                        ? "WhatsApp"
+                        : selectedChat?.source === "ig"
+                          ? "Instagram"
+                          : selectedChat?.source === "ms"
+                            ? "Messenger"
+                            : "Canal"
+                    }
+                  >
+                    <i
+                      className={`bx text-white text-[9px] ${
+                        selectedChat?.source === "wa"
+                          ? "bxl-whatsapp"
+                          : selectedChat?.source === "ig"
+                            ? "bxl-instagram"
+                            : selectedChat?.source === "ms"
+                              ? "bxl-messenger"
+                              : "bx-user"
+                      }`}
+                    />
+                  </span>
+                </div>
 
-                <div className="min-w-0">
+                {/* Info del cliente: 2 líneas */}
+                <div className="min-w-0 flex-1">
+                  {/* Línea 1: nombre + planes */}
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="block text-slate-900 font-semibold text-[15px] truncate">
+                    <span className="text-slate-900 font-semibold text-[15px] truncate">
                       {selectedChat
                         ? selectedChat.nombre_cliente
                         : "SELECCIONE UN CHAT"}
                     </span>
 
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1 shrink-0">
                       {dataPlanes &&
                         typeof dataPlanes === "object" &&
                         Object.keys(dataPlanes).length > 0 &&
@@ -1175,7 +1211,7 @@ const Cabecera = ({
                           .map(([planName]) => (
                             <span
                               key={planName}
-                              className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100"
+                              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-100"
                             >
                               {planName
                                 .replace(/_/g, " ")
@@ -1185,72 +1221,83 @@ const Cabecera = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <span className="block text-[12px] text-slate-500 truncate">
+                  {/* Línea 2: teléfono · suscripción · estado */}
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {/* Teléfono / ID */}
+                    <span className="inline-flex items-center gap-1 text-[12px] text-slate-500 font-medium">
+                      <i className="bx bx-phone text-[12px] text-slate-400" />
                       {selectedChat
                         ? selectedChat.source === "wa"
                           ? selectedChat.celular_cliente
                             ? `+${selectedChat.celular_cliente}`
                             : "—"
-                          : selectedChat.source === "ms"
-                            ? selectedChat.external_id
-                              ? `MS • ${selectedChat.external_id}`
-                              : "MS • —"
-                            : selectedChat.source === "ig"
-                              ? selectedChat.external_id
-                                ? `IG • ${selectedChat.external_id}`
-                                : "IG • —"
-                              : selectedChat.external_id ||
-                                selectedChat.celular_cliente ||
-                                "—"
+                          : selectedChat.external_id ||
+                            selectedChat.celular_cliente ||
+                            "—"
                         : "—"}
                     </span>
 
-                    {/* Contador de tiempo restante */}
+                    {/* Suscripción */}
                     {timeRemaining && dataPlanes?.fecha_suscripcion && (
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold border ${
-                          timeRemaining.expired
-                            ? "bg-red-50 text-red-700 border-red-100"
+                      <>
+                        <span className="text-slate-300">·</span>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                            timeRemaining.expired
+                              ? "text-rose-600"
+                              : timeRemaining.days === 0
+                                ? "text-orange-600"
+                                : timeRemaining.days <= 5
+                                  ? "text-yellow-600"
+                                  : "text-emerald-600"
+                          }`}
+                          title={
+                            timeRemaining.expired
+                              ? "Suscripción vencida"
+                              : `Vence en ${timeRemaining.days} día(s)`
+                          }
+                        >
+                          <i
+                            className={`bx ${
+                              timeRemaining.expired
+                                ? "bx-x-circle"
+                                : "bx-time-five"
+                            } text-[12px]`}
+                          />
+                          {timeRemaining.expired
+                            ? "Vencida"
                             : timeRemaining.days === 0
-                              ? "bg-orange-50 text-orange-700 border-orange-100"
-                              : timeRemaining.days <= 5
-                                ? "bg-yellow-50 text-yellow-700 border-yellow-100"
-                                : "bg-emerald-50 text-emerald-700 border-emerald-100"
-                        }`}
-                      >
-                        <i
-                          className={`bx ${timeRemaining.expired ? "bx-x-circle" : "bx-time-five"}`}
-                        />
-                        {timeRemaining.expired
-                          ? "Suscripción vencida"
-                          : timeRemaining.days === 0
-                            ? "Vence hoy"
-                            : `${timeRemaining.days} ${timeRemaining.days === 1 ? "día" : "días"}`}
-                      </span>
+                              ? "Vence hoy"
+                              : `${timeRemaining.days}d`}
+                        </span>
+                      </>
                     )}
 
-                    {/* ─── PILL ESTADO CONTACTO ─────────────────────────────────────── */}
-                    <div className="relative mt-1.5" ref={estadoDropdownRef}>
+                    {/* Separador */}
+                    <span className="text-slate-300">·</span>
+
+                    {/* Pill estado contacto */}
+                    <div className="relative" ref={estadoDropdownRef}>
                       <button
                         type="button"
                         onClick={() => setEstadoDropdownOpen((p) => !p)}
                         disabled={loadingEstado}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 shadow-sm text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-0.5 shadow-sm text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
                         title="Cambiar estado del contacto"
                       >
                         {loadingEstado ? (
-                          <i className="bx bx-loader-alt animate-spin text-[12px] text-slate-400" />
+                          <i className="bx bx-loader-alt animate-spin text-[11px] text-slate-400" />
                         ) : selectedChat?.nombre_estado ? (
                           <>
                             <span
-                              className="h-2 w-2 rounded-full shrink-0"
+                              className="h-1.5 w-1.5 rounded-full shrink-0"
                               style={{
                                 backgroundColor:
                                   selectedChat.color_fondo_estado || "#94a3b8",
                               }}
                             />
                             <span
+                              className="truncate max-w-[110px]"
                               style={{
                                 color:
                                   selectedChat.color_fondo_estado || "#475569",
@@ -1261,21 +1308,21 @@ const Cabecera = ({
                           </>
                         ) : (
                           <>
-                            <span className="h-2 w-2 rounded-full bg-slate-300 shrink-0" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-300 shrink-0" />
                             <span className="text-slate-400">Sin estado</span>
                           </>
                         )}
                         <i
-                          className={`bx bx-chevron-down text-[11px] text-slate-400 transition-transform ${estadoDropdownOpen ? "rotate-180" : ""}`}
+                          className={`bx bx-chevron-down text-[10px] text-slate-400 transition-transform ${
+                            estadoDropdownOpen ? "rotate-180" : ""
+                          }`}
                         />
                       </button>
 
-                      {/* Dropdown de estados */}
+                      {/* Dropdown estados (tu mismo dropdown) */}
                       {estadoDropdownOpen && (
                         <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[180px] max-w-[240px] rounded-2xl border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(2,6,23,0.28)] ring-1 ring-black/5 p-1.5 overflow-hidden">
-                          {/* caret */}
                           <span className="pointer-events-none absolute -top-1.5 left-4 h-3 w-3 rotate-45 bg-white border-t border-l border-slate-200/70" />
-
                           {estadosKanban.length === 0 ? (
                             <div className="px-3 py-2 text-[11px] text-slate-400">
                               Sin estados configurados
@@ -1328,10 +1375,10 @@ const Cabecera = ({
                 </div>
               </div>
 
-              {/* Botones de acciones en la esquina derecha */}
-              <div className="flex items-center gap-3 justify-end sm:justify-start shrink-0">
-                {/* Apagar/Encender bot */}
-                <div className="rounded-xl border border-slate-200/70 bg-white px-2 py-1 shadow-sm">
+              {/* ─── Lado derecho: acciones ─── */}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* SwitchBot */}
+                <div className="rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-sm">
                   <SwitchBot
                     botActivo={selectedChat.bot_openia === 1}
                     onToggle={() =>
@@ -1342,6 +1389,7 @@ const Cabecera = ({
                   />
                 </div>
 
+                {/* Menú tres puntos */}
                 <div
                   className="relative inline-block text-left"
                   ref={menuOpcionesRef}
@@ -1353,48 +1401,39 @@ const Cabecera = ({
                     aria-expanded={opcionesMenuOpen}
                     aria-controls="menu-opciones"
                     className="
-                    group inline-flex items-center justify-center
-                    w-10 h-10
-                    rounded-xl
-                    text-white/90
-                    shadow-sm
-                    hover:bg-white/10 hover:shadow-md
-                    transition-all duration-200
-                    focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20
-                    !bg-[#171931]
-                  "
-                    title="Menú"
-                    aria-label="Menú"
+            inline-flex items-center justify-center
+            w-9 h-9 rounded-lg
+            border border-slate-200 bg-white
+            text-slate-700 shadow-sm
+            hover:bg-slate-50 hover:border-slate-300
+            transition-all duration-200
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+          "
+                    title="Más opciones"
+                    aria-label="Más opciones"
                   >
-                    <i
-                      className={`bx bx-chevron-down text-2xl transition-transform duration-200 ${
-                        opcionesMenuOpen ? "rotate-180" : ""
-                      }`}
-                      aria-hidden="true"
-                    />
+                    <i className="bx bx-dots-vertical-rounded text-[20px]" />
                   </button>
 
-                  {/* Menú desplegable */}
+                  {/* Menú dropdown (igual al que tenías) */}
                   {opcionesMenuOpen && (
                     <div
                       id="menu-opciones"
                       role="menu"
                       aria-labelledby="menu-opciones-boton"
                       className="
-                      absolute right-0 mt-2 w-56 origin-top-right
-                      rounded-2xl border border-slate-200/70
-                      bg-white/90 backdrop-blur-xl
-                      shadow-[0_18px_60px_-20px_rgba(0,0,0,0.35)]
-                      ring-1 ring-black/5 p-2 z-50
-                    "
+              absolute right-0 mt-2 w-56 origin-top-right
+              rounded-2xl border border-slate-200/70
+              bg-white/95 backdrop-blur-xl
+              shadow-[0_18px_60px_-20px_rgba(0,0,0,0.35)]
+              ring-1 ring-black/5 p-2 z-50
+            "
                     >
-                      {/* caret */}
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute -top-1.5 right-6 h-3 w-3 rotate-45 bg-white border-t border-l border-slate-200/70"
                       />
 
-                      {/* Opción: Abrir/Cerrar chat */}
                       <button
                         role="menuitem"
                         onClick={() =>
@@ -1402,22 +1441,18 @@ const Cabecera = ({
                             selectedChat.chat_cerrado === 0 ? 1 : 0,
                           )
                         }
-                        className={`flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm rounded-xl transition-colors
-                        focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                        ${
+                        className={`flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                           selectedChat.chat_cerrado === 0
                             ? "text-red-700 hover:bg-red-50"
                             : "text-emerald-700 hover:bg-emerald-50"
                         }`}
                       >
                         <span
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl
-                          ${
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
                             selectedChat.chat_cerrado === 0
                               ? "bg-red-100"
                               : "bg-emerald-100"
                           }`}
-                          aria-hidden="true"
                         >
                           <i
                             className={`bx bx-power-off text-base ${
@@ -1439,16 +1474,9 @@ const Cabecera = ({
                       <button
                         role="menuitem"
                         onClick={toggleTransferirChatModal}
-                        className="
-                        flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
-                        text-slate-700 hover:bg-slate-100 rounded-xl transition-colors
-                        focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                      "
+                        className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       >
-                        <span
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100"
-                          aria-hidden="true"
-                        >
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
                           <i className="bx bx-transfer-alt text-base text-slate-700" />
                         </span>
                         <span className="flex-1 truncate">Transferir chat</span>
@@ -1456,20 +1484,12 @@ const Cabecera = ({
 
                       <hr className="my-2 border-slate-200/70" />
 
-                      {/* Opción: Etiquetas */}
                       <button
                         role="menuitem"
                         onClick={toggleAsignarEtiquetaModal}
-                        className="
-                        flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
-                        text-slate-700 hover:bg-slate-100 rounded-xl transition-colors
-                        focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                      "
+                        className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       >
-                        <span
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100"
-                          aria-hidden="true"
-                        >
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
                           <i className="bx bxs-purchase-tag text-base text-slate-700" />
                         </span>
                         <span className="flex-1 truncate">
@@ -1480,16 +1500,9 @@ const Cabecera = ({
                       <button
                         role="menuitem"
                         onClick={toggleCrearEtiquetaModal}
-                        className="
-                        mt-1 flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm
-                        text-slate-700 hover:bg-slate-100 rounded-xl transition-colors
-                        focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                      "
+                        className="mt-1 flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       >
-                        <span
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100"
-                          aria-hidden="true"
-                        >
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
                           <i className="bx bx-plus text-base text-slate-700" />
                         </span>
                         <span className="flex-1 truncate">Crear etiqueta</span>
@@ -1498,28 +1511,28 @@ const Cabecera = ({
                   )}
                 </div>
 
-                {/* Botón de información (opciones) */}
+                {/* Botón info del cliente */}
                 <button
                   onClick={handleOpciones}
                   className="
-                  inline-flex items-center justify-center
-                  w-10 h-10 rounded-xl
-                  border border-slate-200/70 bg-white
-                  text-slate-700 shadow-sm
-                  hover:bg-slate-50 hover:shadow
-                  transition
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300
-                "
-                  title="Información"
+          inline-flex items-center justify-center
+          w-9 h-9 rounded-lg
+          border border-slate-200 bg-white
+          text-slate-700 shadow-sm
+          hover:bg-slate-50 hover:border-slate-300 hover:shadow
+          transition
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+        "
+                  title="Información del cliente"
                   aria-label="Información"
                 >
-                  <i className="bx bx-info-circle text-xl" />
+                  <i className="bx bx-detail text-[18px]" />
                 </button>
               </div>
             </div>
 
-            {/* Sección de etiquetas asignadas debajo del encabezado */}
-            <div className="flex flex-wrap gap-2 px-4 py-3 bg-slate-50 border-t border-slate-200/70">
+            {/* Sección de etiquetas - mejorada */}
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 bg-gradient-to-b from-slate-50/80 to-slate-50 border-t border-slate-200/70">
               {tagList && tagList.length > 0 ? (
                 tagList
                   .filter((tag) =>
@@ -1530,39 +1543,19 @@ const Cabecera = ({
                   )
                   .map((tag) => {
                     const color = tag.color_etiqueta || "#64748b";
-
                     return (
                       <div
                         key={tag.id_etiqueta}
-                        className="
-                        group inline-flex items-center gap-2
-                        rounded-full border border-slate-200 bg-white
-                        px-3 py-1.5 shadow-sm
-                        transition hover:border-slate-300 hover:shadow
-                        max-w-full
-                      "
+                        className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 shadow-sm transition hover:border-slate-300 hover:shadow max-w-full"
                         title={tag.nombre_etiqueta}
                       >
-                        <span className="relative flex h-3.5 w-3.5 items-center justify-center">
-                          <span
-                            className="absolute inset-0 rounded-full"
-                            style={{ backgroundColor: color }}
-                            aria-hidden="true"
-                          />
-                          <span
-                            className="absolute inset-[-2px] rounded-full ring-2 ring-white"
-                            aria-hidden="true"
-                          />
-                          <span
-                            className="absolute inset-[-3px] rounded-full ring-1 ring-slate-200"
-                            aria-hidden="true"
-                          />
-                        </span>
-
-                        <span className="text-xs font-semibold text-slate-800 truncate max-w-[180px]">
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="text-[11px] font-semibold text-slate-700 truncate max-w-[180px]">
                           {tag.nombre_etiqueta}
                         </span>
-
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1573,52 +1566,48 @@ const Cabecera = ({
                               selectedChat.id,
                             );
                           }}
-                          className="
-                          ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full
-                          text-slate-400 hover:text-slate-700 hover:bg-slate-100
-                          transition
-                          focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                        "
-                          aria-label={`Quitar etiqueta ${tag.nombre_etiqueta}`}
+                          className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          aria-label={`Quitar ${tag.nombre_etiqueta}`}
                           title="Quitar"
                         >
-                          <i className="bx bx-x text-base" />
+                          <i className="bx bx-x text-sm" />
                         </button>
                       </div>
                     );
                   })
               ) : (
-                <p className="text-gray-500 text-sm">
-                  No hay etiquetas asignadas.
-                </p>
+                <span className="text-[11px] text-slate-400 italic">
+                  Sin etiquetas asignadas
+                </span>
               )}
 
-              {/* Etiquetas custom: Asesor y Ciclo */}
+              {/* Etiqueta Asesor */}
               {customLabels?.nombre_asesor && (
                 <div
-                  className="group inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 shadow-sm max-w-full"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 shadow-sm"
                   title={`Asesor: ${customLabels.nombre_asesor}`}
                 >
-                  <i className="bx bx-user-voice text-sm text-sky-600" />
-                  <span className="text-xs font-semibold text-sky-800 truncate max-w-[180px]">
+                  <i className="bx bx-user-voice text-[12px] text-sky-600" />
+                  <span className="text-[11px] font-semibold text-sky-800 truncate max-w-[180px]">
                     {customLabels.nombre_asesor}
                   </span>
-                  <span className="text-[10px] text-sky-500 font-medium uppercase">
+                  <span className="text-[9px] text-sky-500 font-bold uppercase tracking-wider">
                     Asesor
                   </span>
                 </div>
               )}
 
+              {/* Etiqueta Ciclo */}
               {customLabels?.nombre_ciclo && (
                 <div
-                  className="group inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 shadow-sm max-w-full"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 shadow-sm"
                   title={`Ciclo: ${customLabels.nombre_ciclo}`}
                 >
-                  <i className="bx bx-revision text-sm text-emerald-600" />
-                  <span className="text-xs font-semibold text-emerald-800 truncate max-w-[180px]">
+                  <i className="bx bx-revision text-[12px] text-emerald-600" />
+                  <span className="text-[11px] font-semibold text-emerald-800 truncate max-w-[180px]">
                     {customLabels.nombre_ciclo}
                   </span>
-                  <span className="text-[10px] text-emerald-500 font-medium uppercase">
+                  <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-wider">
                     Ciclo
                   </span>
                 </div>
@@ -1627,16 +1616,16 @@ const Cabecera = ({
               {/* Último producto del anuncio */}
               {selectedChat?.ultimo_producto_ad && (
                 <div
-                  className="group inline-flex items-center gap-2 rounded-full border border-violet-200 bg-gradient-to-r from-violet-50 via-white to-fuchsia-50 px-3 py-1.5 shadow-sm max-w-full"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-gradient-to-r from-violet-50 via-white to-fuchsia-50 px-2.5 py-1 shadow-sm"
                   title={`Último producto del anuncio: ${selectedChat.ultimo_producto_ad}`}
                 >
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-violet-600 shrink-0">
-                    <i className="bx bx-target-lock text-[12px]" />
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                    <i className="bx bx-target-lock text-[10px]" />
                   </span>
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-violet-500 shrink-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-violet-500">
                     Ad
                   </span>
-                  <span className="text-xs font-semibold text-violet-800 truncate max-w-[220px]">
+                  <span className="text-[11px] font-semibold text-violet-800 truncate max-w-[200px]">
                     {selectedChat.ultimo_producto_ad}
                   </span>
                 </div>
@@ -1646,42 +1635,7 @@ const Cabecera = ({
         </div>
       )}
 
-      {/* Sección de detalle (Historial, etc) */}
-      {opciones && (
-        <div
-          className={`relative col-span-1 bg-[#171931] text-white animate-slide-in ${
-            animateOut ? "animate-slide-out" : "animate-slide-in"
-          }`}
-        >
-          <>
-            <div className="flex justify-center p-4 border-b border-white/10">
-              <h2 className="text-white text-lg font-bold tracking-wide uppercase">
-                Información del cliente
-              </h2>
-            </div>
-
-            {/* Cerrar la sección (opciones) */}
-            <div className="absolute top-3 right-4">
-              <button
-                onClick={handleOpciones}
-                className="
-                inline-flex items-center justify-center
-                w-10 h-10 rounded-xl
-                hover:bg-white/10 transition
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20
-              "
-                aria-label="Cerrar panel"
-                title="Cerrar"
-              >
-                <i className="bx bx-x text-white text-3xl"></i>
-              </button>
-            </div>
-          </>
-        </div>
-      )}
-      <FloatingSupportChat
-        bottomClass={selectedChat ? "bottom-[155px]" : undefined}
-      />
+      <FloatingSupportChat position={selectedChat ? "left" : "right"} />
     </>
   );
 };
