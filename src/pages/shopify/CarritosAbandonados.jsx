@@ -43,6 +43,20 @@ const SourceBadge = ({ source }) => {
   );
 };
 
+// Parser seguro: si line_items/shipping_address vienen como string desde BD, los parsea
+const safeJsonParse = (val, fallback = null) => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === "object") return val; // ya es objeto/array
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+};
+
 const formatFecha = (fecha) => {
   if (!fecha) return "—";
   const d = new Date(fecha);
@@ -185,7 +199,7 @@ const CarritosAbandonados = () => {
     }
 
     const nombre = carrito.nombre_cliente || "Hola";
-    const productos = (carrito.line_items || [])
+    const productos = safeJsonParse(carrito.line_items, [])
       .map((p) => p.title)
       .filter(Boolean)
       .join(", ");
@@ -439,7 +453,7 @@ ${recoveryUrl}
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {carritos.map((c) => {
-                    const productos = c.line_items || [];
+                    const productos = safeJsonParse(c.line_items, []);
                     const primerProducto = productos[0];
                     const masProductos = productos.length - 1;
 
@@ -620,27 +634,29 @@ ${recoveryUrl}
                   Productos
                 </h3>
                 <div className="space-y-2">
-                  {(detalleCarrito.line_items || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center bg-gray-50 rounded-lg p-3 text-sm"
-                    >
-                      <div>
+                  {safeJsonParse(detalleCarrito.line_items, []).map(
+                    (item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-center bg-gray-50 rounded-lg p-3 text-sm"
+                      >
+                        <div>
+                          <div className="font-semibold text-gray-800">
+                            {item.title}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Cantidad: {item.quantity} • SKU: {item.sku || "—"}
+                          </div>
+                        </div>
                         <div className="font-semibold text-gray-800">
-                          {item.title}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Cantidad: {item.quantity} • SKU: {item.sku || "—"}
+                          {formatMoney(
+                            parseFloat(item.price) * item.quantity,
+                            detalleCarrito.currency,
+                          )}
                         </div>
                       </div>
-                      <div className="font-semibold text-gray-800">
-                        {formatMoney(
-                          parseFloat(item.price) * item.quantity,
-                          detalleCarrito.currency,
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
                 <div className="flex justify-end mt-2 text-sm font-bold text-gray-800">
                   Total:{" "}
@@ -652,22 +668,23 @@ ${recoveryUrl}
               </div>
 
               {/* Dirección */}
-              {detalleCarrito.shipping_address && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 uppercase mb-2">
-                    Dirección de envío
-                  </h3>
-                  <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
-                    {detalleCarrito.shipping_address.address1}
-                    {detalleCarrito.shipping_address.city &&
-                      `, ${detalleCarrito.shipping_address.city}`}
-                    {detalleCarrito.shipping_address.province &&
-                      `, ${detalleCarrito.shipping_address.province}`}
-                    {detalleCarrito.shipping_address.country &&
-                      ` (${detalleCarrito.shipping_address.country})`}
+              {(() => {
+                const addr = safeJsonParse(detalleCarrito.shipping_address);
+                if (!addr) return null;
+                return (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase mb-2">
+                      Dirección de envío
+                    </h3>
+                    <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
+                      {addr.address1}
+                      {addr.city && `, ${addr.city}`}
+                      {addr.province && `, ${addr.province}`}
+                      {addr.country && ` (${addr.country})`}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Recovery URL */}
               {detalleCarrito.abandoned_checkout_url && (

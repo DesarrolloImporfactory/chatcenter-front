@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import Select from "react-select";
+import ShopifyPlantillaRecuperacion from "./ShopifyPlantillaRecuperacion";
 
 const SHOPIFY_LOGO_URL =
   "https://upload.wikimedia.org/wikipedia/commons/0/0e/Shopify_logo_2018.svg";
@@ -74,7 +75,7 @@ const IntegracionShopify = () => {
     COUNTRY_PHONE_OPTIONS.find((x) => x.value === "593") ||
       COUNTRY_PHONE_OPTIONS[0],
   );
-  const [tiempoEsperaHoras, setTiempoEsperaHoras] = useState(1);
+
   const [showSecret, setShowSecret] = useState(false);
 
   // Wizard
@@ -125,7 +126,6 @@ const IntegracionShopify = () => {
       COUNTRY_PHONE_OPTIONS.find((x) => x.value === "593") ||
         COUNTRY_PHONE_OPTIONS[0],
     );
-    setTiempoEsperaHoras(1);
     setShowModal(true);
   };
 
@@ -139,7 +139,6 @@ const IntegracionShopify = () => {
       COUNTRY_PHONE_OPTIONS.find((x) => x.value === pp) ||
         COUNTRY_PHONE_OPTIONS[0],
     );
-    setTiempoEsperaHoras(activeIntegration.tiempo_espera_horas ?? 1);
     setShowModal(true);
   };
 
@@ -223,7 +222,6 @@ const IntegracionShopify = () => {
           shop_domain: String(shopDomain).trim().toLowerCase(),
           webhook_secret: webhookSecret.trim(),
           prefijo_pais: prefijoPaisOpt.value,
-          tiempo_espera_horas: parseInt(tiempoEsperaHoras, 10) || 1,
         };
 
         const res = await chatApi.post("shopify_configuraciones", payload);
@@ -247,7 +245,6 @@ const IntegracionShopify = () => {
           shop_domain: String(shopDomain).trim().toLowerCase(),
           webhook_secret: webhookSecret.trim(),
           prefijo_pais: prefijoPaisOpt.value,
-          tiempo_espera_horas: parseInt(tiempoEsperaHoras, 10) || 1,
         };
 
         const res = await chatApi.patch(
@@ -723,10 +720,6 @@ const IntegracionShopify = () => {
                       <strong>Prefijo país:</strong> +
                       {activeIntegration.prefijo_pais}
                     </div>
-                    <div>
-                      <strong>Tiempo de espera:</strong>{" "}
-                      {activeIntegration.tiempo_espera_horas}h
-                    </div>
                   </div>
                 </div>
               )}
@@ -829,6 +822,13 @@ const IntegracionShopify = () => {
                 </button>
               ) : (
                 <>
+                  {/* 🆕 Plantilla de recuperación (modal) */}
+                  <div className="w-full">
+                    <ShopifyPlantillaRecuperacion
+                      id_configuracion={id_configuracion}
+                    />
+                  </div>
+
                   <button
                     onClick={() => setShowWizard(true)}
                     className="w-full text-center bg-[#171931] text-white font-semibold py-2 rounded-lg hover:opacity-95 transition"
@@ -973,25 +973,6 @@ const IntegracionShopify = () => {
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
                   Se usa para normalizar los teléfonos de los clientes.
-                </p>
-              </div>
-
-              {/* tiempo_espera_horas */}
-              <div className="mt-4">
-                <label className="text-sm font-semibold text-gray-700">
-                  Tiempo de espera (horas)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={72}
-                  className="mt-1 w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
-                  value={tiempoEsperaHoras}
-                  onChange={(e) => setTiempoEsperaHoras(e.target.value)}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Cuánto esperar antes de enviar el WhatsApp de recuperación
-                  (próximamente).
                 </p>
               </div>
 
