@@ -247,6 +247,14 @@ function MainLayout({ children }) {
 
             {isSuperAdmin && (
               <NavBtn
+                path="/dashboard_admin"
+                icon="bx-globe"
+                label="Dashboard Admin"
+              />
+            )}
+
+            {isSuperAdmin && (
+              <NavBtn
                 path="/plantillas_globales_admin"
                 icon="bx-globe"
                 label="Plantillas Kanban Globales"
