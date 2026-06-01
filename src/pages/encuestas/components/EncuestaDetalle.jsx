@@ -114,6 +114,40 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
 
   const cardCls = "bg-white rounded-2xl border border-gray-200/80 shadow-sm";
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const res = await chatApi.get(
+        `encuestas/${enc.id}/export?id_configuracion=${idConfig}`,
+        { responseType: "blob" },
+      );
+      const blob = new Blob([res.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safe = (enc.nombre || "encuesta")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .toLowerCase();
+      a.download = `reporte_${safe}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo generar el reporte",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -133,6 +167,16 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
             <p className="text-xs text-gray-400 mt-0.5">{enc.descripcion}</p>
           )}
         </div>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="px-3 py-2 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 transition-colors disabled:opacity-50"
+        >
+          <i
+            className={`bx ${exporting ? "bx-loader-alt bx-spin" : "bx-download"} mr-1`}
+          />
+          {exporting ? "Generando..." : "Exportar Excel"}
+        </button>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleToggle}
