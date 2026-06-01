@@ -254,6 +254,10 @@ export default function SelectorHerramienta() {
           return navigate("/administrador-conexiones");
         }
 
+        if (role === "gestor_clientes") {
+          return navigate("/usuarios_admin");
+        }
+
         setUserName(decoded.nombre || decoded.usuario || "");
 
         const { data } = await chatApi.post(

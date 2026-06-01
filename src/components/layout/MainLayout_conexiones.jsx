@@ -107,7 +107,9 @@ function MainLayout({ children }) {
 
   const role = userData?.role || localStorage.getItem("user_role");
   const isSuperAdmin = role === "super_administrador";
-  const isAdmin = role === "administrador" || role === "super_administrador";
+  const isGestorClientes = role === "gestor_clientes";
+  const puedePanelUsuarios = isSuperAdmin || isGestorClientes;
+
   const conexionPath = isSuperAdmin
     ? "/administrador-conexiones"
     : "/conexiones";
@@ -156,123 +158,157 @@ function MainLayout({ children }) {
           aria-hidden={!sliderOpen}
         >
           <div className="mt-6">
-            <NavBtn
-              path={conexionPath}
-              icon="bx-network-chart"
-              label={isSuperAdmin ? "Conexiones Admin" : "Conexiones"}
-              onClick={() => {
-                localStorage.removeItem("id_configuracion");
-                localStorage.removeItem("tipo_configuracion");
-                localStorage.removeItem("id_plataforma_conf");
-                navigate(conexionPath);
-              }}
-            />
-
-            <NavBtn
-              path="/dashboard"
-              icon="bxs-bar-chart-alt-2"
-              label="Dashboard"
-            />
-
-            <div>
-              <button
-                type="button"
-                onClick={() => toggleMenu("instaLanding")}
-                className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${location.pathname.startsWith("/insta_landing") ? "bg-gray-200 font-semibold" : ""}`}
-              >
-                <span className="flex items-center">
-                  <i
-                    className={`bx bx-image-add text-2xl mr-3 transition-colors ${location.pathname.startsWith("/insta_landing") ? "text-blue-600" : "text-gray-600 group-hover:text-blue-600"}`}
-                  />
-                  <span
-                    className={`text-lg transition-colors group-hover:text-blue-600 ${location.pathname.startsWith("/insta_landing") ? "text-blue-600" : "text-gray-700"}`}
-                  >
-                    {instaLandingLabel}
-                  </span>
-                </span>
-                <i
-                  className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${openMenu === "instaLanding" ? "rotate-180" : ""}`}
-                />
-              </button>
-              <div
-                className="overflow-hidden transition-all duration-[600ms] ease-out"
-                style={{
-                  maxHeight: openMenu === "instaLanding" ? "220px" : "0px",
-                }}
-              >
-                <div className="ml-10 flex flex-col py-2">
-                  <button
-                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive(instaLandingPath) ? "font-semibold text-blue-600" : ""}`}
-                    onClick={() => navigate(instaLandingPath)}
-                  >
-                    <i className="bx bx-palette text-xl text-gray-600 group-hover:text-blue-600" />
-                    <span>Generador</span>
-                  </button>
-                  <button
-                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/insta_landing_historial") ? "font-semibold text-blue-600" : ""}`}
-                    onClick={() => navigate("/insta_landing_historial")}
-                  >
-                    <i className="bx bx-history text-xl text-gray-600 group-hover:text-blue-600" />
-                    <span>Historial</span>
-                  </button>
-                  <button
-                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/insta_landing_productos") ? "font-semibold text-blue-600" : ""}`}
-                    onClick={() => navigate("/insta_landing_productos")}
-                  >
-                    <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600" />
-                    <span>Productos</span>
-                  </button>
-
-                  {isSuperAdmin && (
-                    <>
-                      <div className="h-px bg-slate-200 my-1.5 mx-2" />
-                      <button
-                        className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/codigos_promocionales") ? "font-semibold text-blue-600" : ""}`}
-                        onClick={() => navigate("/codigos_promocionales_admin")}
-                      >
-                        <i className="bx bx-purchase-tag text-xl text-gray-600 group-hover:text-blue-600" />
-                        <span>Códigos Promo</span>
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <NavBtn
-              path={isSuperAdmin ? "/usuarios_admin" : "/usuarios"}
-              icon={isSuperAdmin ? "bxs-shield-alt-2" : "bx-user"}
-              label={isSuperAdmin ? "Panel de Usuarios" : "Usuarios"}
-            />
-
-            {isSuperAdmin && (
+            {/* Conexiones*/}
+            {!isGestorClientes && (
               <NavBtn
-                path="/dashboard_admin"
-                icon="bx-globe"
-                label="Dashboard Admin"
+                path={conexionPath}
+                icon="bx-network-chart"
+                label={isSuperAdmin ? "Conexiones Admin" : "Conexiones"}
+                onClick={() => {
+                  localStorage.removeItem("id_configuracion");
+                  localStorage.removeItem("tipo_configuracion");
+                  localStorage.removeItem("id_plataforma_conf");
+                  navigate(conexionPath);
+                }}
               />
             )}
 
+            {/* Dashboard */}
+            {isSuperAdmin ? (
+              <NavBtn
+                path="/dashboard_admin"
+                icon="bxs-bar-chart-alt-2"
+                label="Dashboard Admin"
+              />
+            ) : !isGestorClientes ? (
+              <NavBtn
+                path="/dashboard"
+                icon="bxs-bar-chart-alt-2"
+                label="Dashboard"
+              />
+            ) : null}
+
+            {/* InstaLanding */}
+            {!isGestorClientes && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => toggleMenu("instaLanding")}
+                  className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${location.pathname.startsWith("/insta_landing") ? "bg-gray-200 font-semibold" : ""}`}
+                >
+                  <span className="flex items-center">
+                    <i
+                      className={`bx bx-image-add text-2xl mr-3 transition-colors ${location.pathname.startsWith("/insta_landing") ? "text-blue-600" : "text-gray-600 group-hover:text-blue-600"}`}
+                    />
+                    <span
+                      className={`text-lg transition-colors group-hover:text-blue-600 ${location.pathname.startsWith("/insta_landing") ? "text-blue-600" : "text-gray-700"}`}
+                    >
+                      {instaLandingLabel}
+                    </span>
+                  </span>
+                  <i
+                    className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${openMenu === "instaLanding" ? "rotate-180" : ""}`}
+                  />
+                </button>
+                <div
+                  className="overflow-hidden transition-all duration-[600ms] ease-out"
+                  style={{
+                    maxHeight: openMenu === "instaLanding" ? "220px" : "0px",
+                  }}
+                >
+                  <div className="ml-10 flex flex-col py-2">
+                    <button
+                      className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive(instaLandingPath) ? "font-semibold text-blue-600" : ""}`}
+                      onClick={() => navigate(instaLandingPath)}
+                    >
+                      <i className="bx bx-palette text-xl text-gray-600 group-hover:text-blue-600" />
+                      <span>Generador</span>
+                    </button>
+                    <button
+                      className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/insta_landing_historial") ? "font-semibold text-blue-600" : ""}`}
+                      onClick={() => navigate("/insta_landing_historial")}
+                    >
+                      <i className="bx bx-history text-xl text-gray-600 group-hover:text-blue-600" />
+                      <span>Historial</span>
+                    </button>
+                    <button
+                      className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/insta_landing_productos") ? "font-semibold text-blue-600" : ""}`}
+                      onClick={() => navigate("/insta_landing_productos")}
+                    >
+                      <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600" />
+                      <span>Productos</span>
+                    </button>
+                    {isSuperAdmin && (
+                      <>
+                        <div className="h-px bg-slate-200 my-1.5 mx-2" />
+                        <button
+                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/codigos_promocionales") ? "font-semibold text-blue-600" : ""}`}
+                          onClick={() =>
+                            navigate("/codigos_promocionales_admin")
+                          }
+                        >
+                          <i className="bx bx-purchase-tag text-xl text-gray-600 group-hover:text-blue-600" />
+                          <span>Códigos Promo</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Panel de Usuarios: super_administrador + gestor_clientes */}
+            {puedePanelUsuarios && (
+              <NavBtn
+                path="/usuarios_admin"
+                icon="bxs-shield-alt-2"
+                label={
+                  isGestorClientes ? "Panel de Clientes" : "Panel de Usuarios"
+                }
+              />
+            )}
+
+            {/* Mis Subusuarios: solo super_administrador */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/usuarios"
+                icon="bx-user-plus"
+                label="Mis Subusuarios"
+              />
+            )}
+
+            {/* Usuarios*/}
+            {!isSuperAdmin && !isGestorClientes && (
+              <NavBtn path="/usuarios" icon="bx-user" label="Usuarios" />
+            )}
+
+            {/* Plantillas Kanban Globales: solo super_administrador */}
             {isSuperAdmin && (
               <NavBtn
                 path="/plantillas_globales_admin"
-                icon="bx-globe"
+                icon="bxs-grid-alt"
                 label="Plantillas Kanban Globales"
               />
             )}
 
-            <NavBtn
-              path="/departamentos"
-              icon="bx-buildings"
-              label="Departamentos"
-            />
-            {!isSuperAdmin && (
+            {/* Departamentos */}
+            {!isSuperAdmin && !isGestorClientes && (
+              <NavBtn
+                path="/departamentos"
+                icon="bx-buildings"
+                label="Departamentos"
+              />
+            )}
+
+            {/* Planes*/}
+            {!isSuperAdmin && !isGestorClientes && (
               <NavBtn
                 path="/plan"
                 icon="bxs-credit-card"
                 label="Planes y Facturación"
               />
             )}
+
             <button
               onClick={handleLogout}
               className="group flex items-center w-full px-5 py-4 text-left transition-colors hover:bg-gray-100"
