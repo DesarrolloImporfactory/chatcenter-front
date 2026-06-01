@@ -18,14 +18,32 @@ import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
 import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 
-const HeaderStat = ({ label, value }) => (
-  <div className="px-4 py-3 rounded-xl bg-white/30 backdrop-blur ring-1 ring-white/50 shadow-sm">
-    <div className="text-xs uppercase tracking-wide text-white/80">{label}</div>
-    <div className="text-lg font-semibold text-white">{value}</div>
+const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
+  <div className="group relative overflow-hidden rounded-xl bg-white/[0.07] ring-1 ring-white/10 backdrop-blur-xl px-3.5 py-2.5 transition-all duration-300 hover:bg-white/[0.11] hover:ring-white/20">
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+    />
+    <div className="relative flex items-center justify-between">
+      <span
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/10 ${accent}`}
+      >
+        <i className={`${icon} text-base`} />
+      </span>
+      <span className="text-2xl font-extrabold tracking-tight text-white tabular-nums leading-none">
+        {value}
+      </span>
+    </div>
+    <div className="relative mt-2 text-[10px] font-medium uppercase tracking-[0.12em] text-white/55">
+      {label}
+    </div>
   </div>
 );
+
 const pill = (classes, text) => (
-  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>
+  <span
+    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}
+  >
     {text}
   </span>
 );
@@ -56,9 +74,6 @@ const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
 
 /**
  * Popover en position: fixed.
- * - Recibe el rect del botón disparador (triggerRect) y se posiciona en el viewport.
- * - Z-index alto: escapa de cualquier stacking context (cards siguientes en el grid).
- * - Auto-flip: si no cabe a la derecha, se va a la izquierda; si no cabe abajo, se sube.
  */
 const HoverPopover = ({
   open,
@@ -75,7 +90,6 @@ const HoverPopover = ({
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // Preferencia: derecha del botón. Si no cabe, izquierda. Si tampoco, abajo.
   const spaceRight = vw - (triggerRect.right + GAP);
   const spaceLeft = triggerRect.left - GAP;
   const spaceBelow = vh - (triggerRect.bottom + GAP);
@@ -98,13 +112,11 @@ const HoverPopover = ({
     top = triggerRect.bottom + GAP;
   }
 
-  // Clamp vertical para que no se salga del viewport
   if (top + POPOVER_MAX_H > vh - 8) {
     top = Math.max(8, vh - POPOVER_MAX_H - 8);
   }
   if (top < 8) top = 8;
 
-  // Flechita pequeña al lado del trigger
   const arrowStyle = {
     position: "fixed",
     width: 10,
@@ -154,8 +166,7 @@ const HoverPopover = ({
 };
 
 /**
- * Bloque hero de WhatsApp. Siempre en verde (color de marca WhatsApp).
- * Encapsula los 3 estados: pendiente, conectado-sin-sync, conectado-con-sync.
+ * Bloque hero de WhatsApp (verde de marca WhatsApp).
  */
 const WaHero = ({
   conectado,
@@ -196,7 +207,6 @@ const WaHero = ({
           )}
         </div>
 
-        {/* Acciones icono cuando está conectado: [Sync] [Copiar] */}
         {conectado && (
           <div className="shrink-0 flex items-center gap-1">
             {!yaSincronizo && (
@@ -218,7 +228,6 @@ const WaHero = ({
                 <i
                   className={`bx bx-refresh text-base ${syncing ? "animate-spin" : ""}`}
                 />
-                {/* Indicador discreto de acción pendiente */}
                 {!syncing && (
                   <span
                     className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-50"
@@ -240,10 +249,8 @@ const WaHero = ({
         )}
       </div>
 
-      {/* Acciones de conexión inicial (solo cuando pendiente) */}
       {!conectado && (
         <>
-          {/* Número de teléfono también copiable cuando aún no se conecta */}
           {telefono && String(telefono).trim() && (
             <div className="mt-3 pt-3 border-t border-emerald-200/70 flex items-center gap-2">
               <i className="bx bx-phone text-[15px] text-emerald-600" />
@@ -287,7 +294,6 @@ const WaHero = ({
 
 /**
  * Tile compacto de canal secundario (Messenger / Instagram / Meta Ads).
- * Color de marca cuando está activo; gris cuando pendiente.
  */
 const ChannelChip = ({
   icon,
@@ -378,7 +384,6 @@ const Conexiones = () => {
   const [hoveredId, setHoveredId] = useState(null);
   const [hoveredRect, setHoveredRect] = useState(null);
   const closeTimerRef = useRef(null);
-  // Referencia al elemento botón que abrió el popover (para reposicionar)
   const triggerElRef = useRef(null);
 
   const openPopover = (id, btnEl) => {
@@ -398,14 +403,10 @@ const Conexiones = () => {
     }, 120);
   };
 
-  // En scroll/resize: REPOSICIONAR el popover siguiendo al botón.
-  // Ignora scrolls que vienen del propio popover (para permitir scroll interno).
-  // Solo cierra si el botón sale del viewport.
   useEffect(() => {
     if (!hoveredId) return;
 
     const reposition = (e) => {
-      // Si el scroll proviene del popover o cualquier descendiente, ignorar
       if (
         e &&
         e.target &&
@@ -422,7 +423,6 @@ const Conexiones = () => {
         return;
       }
       const r = el.getBoundingClientRect();
-      // Si el botón quedó fuera del viewport, cerramos
       const fueraVertical = r.bottom < 0 || r.top > window.innerHeight;
       const fueraHorizontal = r.right < 0 || r.left > window.innerWidth;
       if (fueraVertical || fueraHorizontal) {
@@ -456,7 +456,6 @@ const Conexiones = () => {
   const [syncingId, setSyncingId] = useState(null);
   const [guideModal, setGuideModal] = useState(null);
 
-  // Meta Ads — solo tracking del id que está conectando (no N+1)
   const [adsConnectingId, setAdsConnectingId] = useState(null);
 
   // Conectar Meta Ads
@@ -499,7 +498,6 @@ const Conexiones = () => {
                 );
               }
 
-              // Auto-selección si solo hay 1 cuenta
               let selectedId;
               if (accounts.length === 1) {
                 selectedId = accounts[0].ad_account_id;
@@ -1184,7 +1182,6 @@ const Conexiones = () => {
 
   const [showExportModal, setShowExportModal] = useState(false);
 
-  // Config actualmente con popover abierto (para renderizar su detalle desde el portal)
   const hoveredConfig = useMemo(
     () => listaFiltrada.find((c) => c.id === hoveredId) || null,
     [listaFiltrada, hoveredId],
@@ -1193,49 +1190,103 @@ const Conexiones = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
       <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
-        <header className="relative isolate overflow-hidden">
-          <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                  Conexiones configuradas
+        <header className="relative isolate overflow-hidden rounded-t-2xl">
+          {/* Fondo navy de marca + capas de profundidad */}
+          <div className="absolute inset-0 bg-[#171931]" aria-hidden />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.6]"
+            style={{
+              backgroundImage:
+                "radial-gradient(600px circle at 0% 0%, rgba(79,70,229,0.25), transparent 45%), radial-gradient(500px circle at 100% 120%, rgba(99,102,241,0.18), transparent 40%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
+
+          <div className="relative px-5 py-4 md:px-7 md:py-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70 ring-1 ring-white/15">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  </span>
+                  ImporChat · Conexiones
+                </span>
+                <h1 className="mt-2 text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                  Tus conexiones,{" "}
+                  <span className="bg-gradient-to-r from-indigo-300 to-violet-200 bg-clip-text text-transparent">
+                    en un solo lugar
+                  </span>
                 </h1>
-                <p className="text-white/80 text-sm">
-                  Administra tus números y canales de WhatsApp Business,
-                  Messenger, Instagram y Meta Ads.
+                <p className="mt-0.5 text-white/55 text-[13px] leading-snug truncate">
+                  WhatsApp, Messenger, Instagram y Meta Ads de cada negocio en
+                  un mismo panel.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleAbrirConfiguracionAutomatizada}
-                  className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 rounded-lg font-semibold shadow-sm transition group relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
-                >
-                  <i className="bx bx-plus text-2xl transition-all duration-300 group-hover:brightness-125"></i>
-                  <span className="tooltip">Nueva configuración</span>
-                </button>
-              </div>
+
+              <button
+                onClick={handleAbrirConfiguracionAutomatizada}
+                className="group shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-white text-[#171931] rounded-xl font-semibold text-sm shadow-lg shadow-black/20 ring-1 ring-white/40 hover:shadow-xl hover:shadow-indigo-900/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+              >
+                <i className="bx bx-plus text-xl text-[#4f46e5] transition-transform duration-200 group-hover:rotate-90" />
+                Nuevo negocio
+              </button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <HeaderStat label="Total conexiones" value={stats.total} />
-              <HeaderStat label="Conectados" value={stats.conectados} />
-              <HeaderStat label="Pendientes" value={stats.pendientes} />
-              <HeaderStat label="Pagos activos" value={stats.pagosActivos} />
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              <HeaderStat
+                label="Total conexiones"
+                value={stats.total}
+                icon="bx bx-layer"
+                accent="text-indigo-300"
+              />
+              <HeaderStat
+                label="Conectados"
+                value={stats.conectados}
+                icon="bx bx-check-circle"
+                accent="text-emerald-300"
+              />
+              <HeaderStat
+                label="Pendientes"
+                value={stats.pendientes}
+                icon="bx bx-time-five"
+                accent="text-amber-300"
+              />
+              <HeaderStat
+                label="Pagos activos"
+                value={stats.pagosActivos}
+                icon="bx bx-credit-card-front"
+                accent="text-sky-300"
+              />
             </div>
           </div>
         </header>
 
+        {/* ===================== TOOLBAR ===================== */}
         <div className="p-6 border-b border-slate-100 bg-white">
           <div className="max-w-8xl mx-auto flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-            <input
-              type="text"
-              placeholder="Buscar por nombre o teléfono…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full lg:w-1/2 px-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-            />
-            <div className="flex gap-3 w-full lg:w-auto">
+            <div className="relative w-full lg:w-1/2">
+              <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o teléfono…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none transition"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
               <select
-                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 outline-none"
+                className="w-full sm:w-44 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-200 outline-none transition"
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value)}
               >
@@ -1243,10 +1294,19 @@ const Conexiones = () => {
                 <option value="conectado">Conectado</option>
                 <option value="pendiente">Pendiente</option>
               </select>
+              <select
+                className="w-full sm:w-44 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-200 outline-none transition"
+                value={filtroPago}
+                onChange={(e) => setFiltroPago(e.target.value)}
+              >
+                <option value="">Todos los pagos</option>
+                <option value="activo">Pago activo</option>
+                <option value="inactivo">Pago inactivo</option>
+              </select>
               <button
                 type="button"
                 onClick={() => setShowExportModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#171931] bg-white ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 transition whitespace-nowrap"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#171931] bg-white ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 transition whitespace-nowrap"
               >
                 <i className="bx bx-download text-lg" />
                 Exportar mensajes
@@ -1304,6 +1364,7 @@ const Conexiones = () => {
           </div>
         )}
 
+        {/* ===================== GRID ===================== */}
         <div className="p-6">
           <div className="max-w-8xl mx-auto">
             {loading ? (
@@ -1331,10 +1392,10 @@ const Conexiones = () => {
                 </p>
                 <button
                   onClick={handleAbrirConfiguracionAutomatizada}
-                  className="mt-4 inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition"
+                  className="mt-4 inline-flex items-center gap-2 bg-[#4f46e5] text-white hover:bg-[#4338ca] px-4 py-2.5 rounded-lg shadow-sm transition font-semibold"
                 >
-                  <i className="bx bx-plus text-2xl"></i>
-                  <span className="tooltip">Agregar configuración</span>
+                  <i className="bx bx-plus text-xl" />
+                  Nuevo negocio
                 </button>
               </div>
             ) : (
@@ -1349,7 +1410,6 @@ const Conexiones = () => {
                   const adsConectado = Number(config.meta_ads_conectado) === 1;
                   const adsAccountName = config.meta_ads_account_name || null;
 
-                  // Borde superior tintado según conexión principal
                   const topBarBg = conectado
                     ? "rgb(16, 185, 129)"
                     : "rgb(226, 232, 240)";
@@ -1375,7 +1435,7 @@ const Conexiones = () => {
                   return (
                     <div
                       key={config.id}
-                      className="relative bg-white rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200 p-4 transition hover:-translate-y-0.5 animate-card-in overflow-hidden flex flex-col"
+                      className="relative bg-white rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200 hover:ring-slate-300 p-4 transition hover:-translate-y-0.5 animate-card-in overflow-hidden flex flex-col"
                       style={{
                         animationDelay: `${Math.min(idx, 8) * 50}ms`,
                       }}
@@ -1386,7 +1446,7 @@ const Conexiones = () => {
                         aria-hidden
                       />
 
-                      {/* Header */}
+                      {/* Header card */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <h3 className="text-[15px] font-semibold text-slate-900 truncate leading-tight">
@@ -1397,7 +1457,12 @@ const Conexiones = () => {
                               conectado
                                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
                                 : "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
-                              conectado ? "Activo" : "Pendiente",
+                              <>
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${conectado ? "bg-emerald-500" : "bg-slate-400"}`}
+                                />
+                                {conectado ? "Activo" : "Pendiente"}
+                              </>,
                             )}
                             {pill(
                               pagoActivo
@@ -1523,7 +1588,7 @@ const Conexiones = () => {
                             adsConnectingId === config.id
                               ? "Conectando…"
                               : adsConectado
-                                ? "Activo"
+                                ? "Desconectar"
                                 : "Conectar"
                           }
                           title={
@@ -1556,6 +1621,9 @@ const Conexiones = () => {
                               openPopover(config.id, e.currentTarget)
                             }
                             onBlur={scheduleClose}
+                            onClick={(e) =>
+                              openPopover(config.id, e.currentTarget)
+                            }
                             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition"
                             aria-label="Ver detalles"
                           >
@@ -1596,7 +1664,7 @@ const Conexiones = () => {
                           className={[
                             "inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition",
                             conectado
-                              ? "text-white bg-slate-900 hover:bg-slate-800 shadow-sm"
+                              ? "text-white bg-[#4f46e5] hover:bg-[#4338ca] shadow-sm"
                               : "text-slate-400 bg-slate-100 cursor-not-allowed",
                           ].join(" ")}
                           title={
@@ -1618,7 +1686,7 @@ const Conexiones = () => {
         </div>
       </div>
 
-      {/* Popover único, renderizado fuera de las cards (position fixed) */}
+      {/* Popover único (position fixed) */}
       {hoveredConfig && (
         <HoverPopover
           open={true}
@@ -1770,7 +1838,7 @@ const Conexiones = () => {
                 </div>
               </div>
               <div className="mt-4 h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-2 w-1/2 bg-indigo-500 animate-[progressBar_1.1s_ease-in-out_infinite]" />
+                <div className="h-2 w-1/2 bg-indigo-600 animate-[progressBar_1.1s_ease-in-out_infinite]" />
               </div>
               <style>{`@keyframes progressBar { 0% { transform: translateX(-80%); } 50% { transform: translateX(40%); } 100% { transform: translateX(180%); } }`}</style>
             </div>

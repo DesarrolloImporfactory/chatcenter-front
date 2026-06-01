@@ -19,6 +19,21 @@ const CrearConfiguracionModal = ({
   const [showUpgradeOptions, setShowUpgradeOptions] = useState(false);
   const [limitMessage, setLimitMessage] = useState("");
 
+  // Placeholder rotativo para el nombre del negocio
+  const placeholdersNombre = [
+    "Ej.: Power Online",
+    "Ej.: Compra EC",
+    "Ej.: Mega Ofertas Pro",
+  ];
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPlaceholderIndex((i) => (i + 1) % placeholdersNombre.length);
+    }, 3000);
+    return () => clearInterval(id);
+  }, []);
+
   const countries = [
     { code: "EC", flag: "🇪🇨", name: "Ecuador", phoneCode: "+593" },
     { code: "CO", flag: "🇨🇴", name: "Colombia", phoneCode: "+57" },
@@ -67,7 +82,7 @@ const CrearConfiguracionModal = ({
                             : phoneWithoutLeadingZero;
   };
 
-  // CTA upgrade/cómprar adicional
+  // CTA upgrade/comprar adicional
   const onUpgradeClick = () => {
     window.location.href = "/planes";
   };
@@ -190,7 +205,7 @@ const CrearConfiguracionModal = ({
     }, 300);
   };
 
-  // Animaciones (puedes dejarlas)
+  // Animaciones
   const containerVariants = {
     hidden: { opacity: 0, y: 12 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.28 } },
@@ -198,217 +213,212 @@ const CrearConfiguracionModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-[#0a1a36]/50 backdrop-blur-md z-50 flex items-center justify-center p-4">
       <div
-        className={`bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all duration-300 ${
+        className={`bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 ${
           isClosing ? "animate-slide-out" : "animate-slide-in"
         }`}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h5 className="text-xl font-semibold text-gray-800">
-            {showUpgradeOptions ? "Límite de conexiones" : "Agregar Negocio"}
-          </h5>
-          <button
-            onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <i className="fas fa-times"></i>
-          </button>
-        </div>
+        <AnimatePresence mode="wait">
+          {showUpgradeOptions ? (
+            /* ====================== VISTA UPGRADE ====================== */
+            <motion.div
+              key="upgrade-view"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              {/* Cabecera con degradé azul de marca */}
+              <div className="relative bg-gradient-to-br from-[#0a1a36] via-[#102a5c] to-[#1e4fd6] px-6 pt-6 pb-7 text-center">
+                <button
+                  onClick={handleClose}
+                  className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="Cerrar"
+                >
+                  <i className="fas fa-times text-sm"></i>
+                </button>
 
-        <div className="p-8 space-y-6 bg-white rounded-2xl shadow-xl border border-gray-100">
-          <AnimatePresence mode="wait">
-            {showUpgradeOptions ? (
-              <motion.div
-                key="upgrade-view"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="space-y-6"
-              >
-                {limitMessage && (
-                  <div className="rounded-xl border border-amber-300/70 bg-amber-50/90 text-amber-900 px-4 py-3 text-sm font-medium">
-                    {limitMessage}
-                  </div>
-                )}
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/20 backdrop-blur">
+                  <i className="bx bx-trending-up text-2xl"></i>
+                </span>
+                <h3 className="mt-3 text-base font-bold tracking-tight text-white">
+                  Tu operación está creciendo
+                </h3>
+                <p className="mx-auto mt-1 max-w-xs text-[12px] leading-4 text-white/70">
+                  Has alcanzado el límite de conexiones disponibles en tu plan.
+                  Agrega una nueva conexión en segundos o actualiza tu plan para
+                  acceder a más capacidad y beneficios.
+                </p>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
-                  {/* Card: Actualizar plan */}
-                  <div
-                    onClick={onUpgradeClick}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 overflow-hidden transition-colors duration-200 hover:border-[#6d28d9] focus-within:border-[#6d28d9]"
-                  >
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute top-[1px] bottom-[1px] left-[1px] w-[6px] rounded-l-2xl bg-gradient-to-b from-[#8b5cf6] to-[#6d28d9]"
-                    />
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#f5f3ff] text-[#6d28d9]">
-                          <i class="bx bx-refresh"></i>
-                        </span>
-                        <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
-                          Actualizar plan
-                        </h3>
-                      </div>
-                      <span className="inline-flex items-center rounded-full border border-[#6d28d9]/40 bg-[#f5f3ff] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9]">
-                        Recomendado
-                      </span>
-                    </div>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      Desbloquee más conexiones elevando su plan actual.
-                    </p>
-                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
-                      Ver planes disponibles
-                      <svg
-                        className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
-                      </svg>
-                    </div>
-                  </div>
+              {/* Cuerpo compacto */}
+              <div className="px-5 py-5 space-y-2.5">
+                {/* Opción principal: Actualizar plan */}
+                <button
+                  onClick={onUpgradeClick}
+                  className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border-2 border-[#1d4ed8] bg-gradient-to-r from-[#eff6ff] to-white p-3.5 text-left transition-all duration-200 hover:shadow-md hover:shadow-[#1d4ed8]/15"
+                >
+                  <span className="absolute right-2.5 top-2.5 inline-flex items-center rounded-full bg-[#1d4ed8] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                    Recomendado
+                  </span>
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1d4ed8] text-white shadow-sm">
+                    <i className="bx bx-rocket text-xl"></i>
+                  </span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-bold text-[#171931]">
+                      Mejorar mi plan
+                    </span>
+                    <span className="mt-0.5 block text-[12px] leading-4 text-slate-500">
+                      Más conexiones incluidas y mejores beneficios por cada
+                      herramienta.
+                    </span>
+                  </span>
+                  <i className="bx bx-chevron-right text-xl text-[#1d4ed8] transition-transform group-hover:translate-x-1"></i>
+                </button>
 
-                  {/* Card: Comprar conexión adicional */}
-                  <div
-                    onClick={onBuyAddonClick}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 overflow-hidden transition-colors duration-200 hover:border-[#1d4ed8] focus-within:border-[#1d4ed8]"
-                  >
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute top-[1px] bottom-[1px] left-[1px] w-[6px] rounded-l-2xl bg-gradient-to-b from-[#93c5fd] to-[#1d4ed8]"
-                    />
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#eff6ff] text-[#1d4ed8]">
-                          <i class="bx bx-plug"></i>
-                        </span>
-                        <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
-                          Comprar conexión adicional
-                        </h3>
-                      </div>
-                      <div className="text-right leading-none">
-                        <p className="text-3xl font-extrabold text-[#171931]">
-                          $10
-                        </p>
-                        <p className="text-[11px] text-slate-500">
-                          por conexión
-                        </p>
-                      </div>
-                    </div>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      Añada una conexión extra asociada a su cuenta.
-                    </p>
-                    <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
-                      Continuar con la compra
-                      <svg
-                        className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
+                {/* Opción secundaria: Conexión adicional (tono neutro) */}
+                <button
+                  onClick={onBuyAddonClick}
+                  className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-all duration-200 hover:border-[#171931]/40 hover:shadow-sm"
+                >
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[#171931]">
+                    <i className="bx bx-plus-circle text-xl"></i>
+                  </span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-bold text-[#171931]">
+                      Solo una conexión más
+                    </span>
+                    <span className="mt-0.5 block text-[12px] leading-4 text-slate-500">
+                      Se suma a tu plan de forma recurrente.
+                    </span>
+                  </span>
+                  <span className="text-right leading-none">
+                    <span className="block text-base font-extrabold text-[#171931]">
+                      +$10
+                    </span>
+                    <span className="block text-[9px] text-slate-400">
+                      /mes
+                    </span>
+                  </span>
+                </button>
 
-                <div className="mt-1 border-t border-slate-200 pt-4">
-                  <div className="flex items-start gap-3 text-[12px] text-slate-600">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 mt-[2px] text-slate-500"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M12 2a10 10 0 100 20 10 10 0 000-20Zm1 15h-2v-6h2v6Zm-2-8V7h2v2h-2Z" />
-                    </svg>
-                    <p>
-                      <span className="font-semibold text-[#171931]">
-                        Aviso:
-                      </span>{" "}
-                      las conexiones adicionales
-                      <span className="font-semibold">
-                        {" "}
-                        solo permanecerán activas
-                      </span>{" "}
-                      mientras exista un
-                      <span className="font-semibold"> plan activo</span> en la
-                      cuenta.
+                {/* Nota de cobro */}
+                <p className="flex items-start gap-1.5 px-0.5 pt-0.5 text-[10px] leading-3.5 text-slate-400">
+                  <i className="bx bx-info-circle text-[12px] mt-px"></i>
+                  <span>
+                    Ej.: un plan de $29/mes pasaría a $39/mes. La conexión
+                    adicional se mantiene activa mientras tu plan siga activo.
+                  </span>
+                </p>
+
+                {/* Salida discreta */}
+                <button
+                  onClick={handleClose}
+                  className="w-full rounded-lg py-1.5 text-center text-[12px] font-medium text-slate-400 transition-colors hover:text-slate-600"
+                >
+                  Ahora no
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            /* ====================== VISTA CREAR (compacta) ====================== */
+            <motion.div
+              key="step-create"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#eff6ff] text-[#1d4ed8]">
+                    <i className="bx bx-store-alt text-xl"></i>
+                  </span>
+                  <div>
+                    <h5 className="text-base font-semibold text-[#171931] leading-tight">
+                      Agregar negocio
+                    </h5>
+                    <p className="text-[12px] text-slate-500">
+                      Conéctalo a WhatsApp y vende en piloto automático con IA.
                     </p>
                   </div>
                 </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="step-create"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-              >
-                {/* Crear configuración (único paso) */}
-                <div className="mb-6">
-                  <label className="block text-gray-900 text-sm font-medium mb-2 tracking-wide">
+                <button
+                  onClick={handleClose}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+
+              <div className="px-5 py-5 space-y-4 bg-white">
+                {/* Nombre del negocio */}
+                <div>
+                  <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
                     Nombre del negocio
                   </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
-                    placeholder="Ingrese el nombre de su negocio."
-                    value={nombreConfiguracion}
-                    onChange={(e) => setNombreConfiguracion(e.target.value)}
-                  />
+                  <div className="relative">
+                    <i className="bx bx-purchase-tag absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
+                    <input
+                      type="text"
+                      className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                      placeholder={placeholdersNombre[placeholderIndex]}
+                      value={nombreConfiguracion}
+                      onChange={(e) => setNombreConfiguracion(e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                <div className="mb-6">
-                  <label className="block text-gray-900 text-sm font-medium mb-2 tracking-wide">
+                {/* Teléfono */}
+                <div>
+                  <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
                     Teléfono
                   </label>
-                  <div className="flex gap-4">
+                  <div className="flex gap-2">
                     <select
-                      className="w-1/3 px-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
+                      className="w-1/3 px-2 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] transition-all duration-200"
                       value={countryCode}
                       onChange={(e) => setCountryCode(e.target.value)}
                     >
                       {countries.map((country) => (
                         <option key={country.code} value={country.code}>
-                          {country.flag} {country.name} {country.phoneCode}
+                          {country.flag} {country.phoneCode}
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="text"
-                      className="w-2/3 px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
-                      placeholder="Número de teléfono"
-                      value={telefono}
-                      onChange={(e) => setTelefono(e.target.value)}
-                    />
+                    <div className="relative w-2/3">
+                      <i className="bx bx-phone absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
+                      <input
+                        type="text"
+                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                        placeholder="Número de teléfono"
+                        value={telefono}
+                        onChange={(e) => setTelefono(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              </div>
 
-        <div className="flex justify-end bg-white p-6 border-t border-gray-100 space-x-3">
-          <button
-            onClick={handleClose}
-            className="px-5 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200"
-          >
-            Cerrar
-          </button>
-
-          {!showUpgradeOptions && (
-            <button
-              onClick={handleAgregarConfiguracion}
-              className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 shadow-sm transition-all duration-200"
-            >
-              Guardar configuración
-            </button>
+              <div className="flex justify-end bg-gray-50/60 px-5 py-4 border-t border-gray-100 space-x-2.5">
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200"
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={handleAgregarConfiguracion}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8] text-sm text-white font-semibold hover:bg-[#1e40af] shadow-sm transition-all duration-200"
+                >
+                  <i className="bx bx-check"></i>
+                  Guardar
+                </button>
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </div>
     </div>
   );
