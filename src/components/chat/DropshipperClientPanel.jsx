@@ -8,6 +8,7 @@ import HistorialEncargados from "./HistorialEncargados";
 import OrderList from "./OrderList";
 import OrderDetail from "./OrderDetail";
 import EncuestasCliente from "./EncuestasCliente";
+import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
 
 import useDropiOrders from "../../hooks/useDropiOrders";
 import useCreateOrder from "../../hooks/UseCreateOrders";
@@ -271,6 +272,12 @@ export default function DropshipperClientPanel(props) {
           openEditContact={openEditContact}
           id_configuracion={id_configuracion}
           onUsarProductoEnOrden={handleUsarProductoEnOrden}
+        />
+
+        {/* ===== Cartera Imporsuit (deudas / pagos) ===== */}
+        <CarteraImporsuitSection
+          selectedChat={selectedChat}
+          idConfiguracion={id_configuracion}
         />
 
         {/* ===== Botonera superior ===== */}

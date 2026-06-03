@@ -2,6 +2,7 @@ import React from "react";
 import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
 import HistorialEncargados from "./HistorialEncargados";
 import EncuestasCliente from "./EncuestasCliente";
+import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
 
 export default function BasicClientPanel({
   selectedChat,
@@ -127,6 +128,12 @@ export default function BasicClientPanel({
             </div>
           </div>
         </div>
+
+        {/* Cartera Imporsuit (deudas / pagos) */}
+        <CarteraImporsuitSection
+          selectedChat={selectedChat}
+          idConfiguracion={id_configuracion}
+        />
 
         {/* Botones */}
         <div className="grid grid-cols-2 gap-1.5 mb-3 opacity-0 animate-slideInRightOnce delay-[0ms]">
