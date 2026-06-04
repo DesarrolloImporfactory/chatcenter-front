@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getActorChatcenter, getCarteraCtx } from "../services/imporsuit/actor";
 
 /**
  * Instancia axios para las APIs "libres" de Imporsuit (controlador Carterachat).
@@ -36,6 +37,29 @@ const imporsuitApi = axios.create({
     Accept: "application/json",
     ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),
   },
+});
+
+/**
+ * Auditoría: inyecta el actor (agente chatcenter) en el body de las MUTACIONES
+ * como `_cc_actor`. El backend `Carterachat` lo persiste para saber quién hizo
+ * cada cosa. Se manda por body (no header) para no requerir cambios de CORS.
+ * Nunca rompe la request: si algo falla, sigue sin el actor.
+ */
+imporsuitApi.interceptors.request.use((config) => {
+  try {
+    const method = (config.method || "get").toLowerCase();
+    if (method !== "get" && method !== "head") {
+      const actor = { ...getActorChatcenter(), ...getCarteraCtx() };
+      if (config.data && typeof config.data === "object" && !Array.isArray(config.data)) {
+        config.data = { ...config.data, _cc_actor: actor };
+      } else if (config.data == null) {
+        config.data = { _cc_actor: actor };
+      }
+    }
+  } catch {
+    // noop — la auditoría jamás debe impedir la operación real
+  }
+  return config;
 });
 
 export default imporsuitApi;

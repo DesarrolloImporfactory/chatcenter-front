@@ -268,6 +268,15 @@ function MainLayout({ children }) {
               />
             )}
 
+            {/* Auditoría de Cartera: solo super_administrador */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/auditoria-cartera"
+                icon="bx-receipt"
+                label="Auditoría de Cartera"
+              />
+            )}
+
             {/* Mis Subusuarios: solo super_administrador */}
             {isSuperAdmin && (
               <NavBtn

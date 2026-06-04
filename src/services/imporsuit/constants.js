@@ -7,15 +7,8 @@
 
 /** Roles asignables al crear un usuario (id_rol). */
 export const ROLES_ASIGNABLES = [
-  { id: 3, label: "Usuario Normal" },
-  { id: 4, label: "Ecommerce" },
-  { id: 5, label: "Vendedor" },
-  { id: 12, label: "Asesor" },
-  { id: 13, label: "Agente" },
-  { id: 15, label: "Call Center" },
   { id: 16, label: "Estudiantes" },
   { id: 18, label: "Desafío" },
-  { id: 19, label: "Instructor" },
 ];
 
 /** Paquetes/membresías — cada key es una columna flag (0/1) en `users`. */
@@ -52,6 +45,7 @@ export const TIPOS_VENTA = [
 
 /** Asesores a los que se puede atribuir una deuda (id_users en Imporsuit). */
 export const ASESORES = [
+  { id: 9884, nombre: "Sin Asesor" },
   { id: 5753, nombre: "Kathy Mallitaxi" },
   { id: 9262, nombre: "Diego" },
   { id: 5752, nombre: "Adrián Velez" },
@@ -68,4 +62,16 @@ export const ESTADO_DEUDA = {
   0: "Pendiente",
   1: "Pagada",
   2: "Anulada",
+};
+
+/**
+ * Acciones registradas por la auditoría de cartera (columna `accion`).
+ * Para mostrar etiquetas e iconos en la vista de auditoría.
+ */
+export const ACCIONES_AUDITORIA = {
+  crear_cliente: { label: "Crear / asignar cliente", icon: "bx-user-plus", color: "indigo" },
+  generar_cartera: { label: "Generar cartera", icon: "bx-wallet", color: "emerald" },
+  agregar_deuda: { label: "Agregar deuda", icon: "bx-receipt", color: "amber" },
+  agregar_pago: { label: "Registrar pago", icon: "bx-dollar-circle", color: "green" },
+  eliminar_deuda: { label: "Eliminar deuda", icon: "bx-trash", color: "red" },
 };

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { CarteraClientePanel } from "./CarteraClientePanel";
-import { CARTERA_CONFIGS_HABILITADAS } from "../../services/imporsuit";
+import {
+  CARTERA_CONFIGS_HABILITADAS,
+  setCarteraCtx,
+} from "../../services/imporsuit";
 
 /**
  * Entrada a la cartera de Imporsuit desde el panel "Información del cliente".
@@ -19,6 +22,8 @@ export default function CarteraImporsuitSection({
 }) {
   const [open, setOpen] = useState(false);
   const correo = selectedChat?.email_cliente || "";
+  const nombre = selectedChat?.nombre_cliente || "";
+  const telefono = selectedChat?.celular_cliente || "";
 
   // Solo se muestra en las configuraciones habilitadas (ver constants).
   if (!CARTERA_CONFIGS_HABILITADAS.includes(Number(idConfiguracion))) {
@@ -31,7 +36,11 @@ export default function CarteraImporsuitSection({
       {/* Barra en el panel (tema oscuro, acorde al panel) */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          // Contexto para la auditoría (id_configuracion + correo del cliente).
+          setCarteraCtx({ id_configuracion: idConfiguracion, correo });
+          setOpen(true);
+        }}
         className="mx-1 mb-3 mt-1 flex w-full items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.04] px-4 py-3 text-left transition hover:bg-white/[0.07]"
       >
         <span className="flex items-center gap-2.5">
@@ -69,6 +78,8 @@ export default function CarteraImporsuitSection({
               <CarteraClientePanel
                 key={correo || "sin-correo"}
                 correoInicial={correo}
+                nombreInicial={nombre}
+                telefonoInicial={telefono}
                 onClose={() => setOpen(false)}
               />
             </div>

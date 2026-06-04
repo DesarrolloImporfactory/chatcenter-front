@@ -18,6 +18,10 @@ export {
 
 export { getCursosDisponibles, crearUsuarioFull } from "./usuarios.service";
 
+export { listarAuditoria } from "./auditoria.service";
+
+export { getActorChatcenter, setCarteraCtx, getCarteraCtx } from "./actor";
+
 export {
   ROLES_ASIGNABLES,
   PAQUETES,
@@ -27,4 +31,5 @@ export {
   ASESORES,
   CARTERA_CONFIGS_HABILITADAS,
   ESTADO_DEUDA,
+  ACCIONES_AUDITORIA,
 } from "./constants";

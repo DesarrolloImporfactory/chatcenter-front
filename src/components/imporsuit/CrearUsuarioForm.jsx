@@ -10,17 +10,28 @@ import {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Normaliza el teléfono del chat al formato del form (+<código><número>). */
+const normalizarTelefono = (tel) => {
+  const t = String(tel ?? "").trim();
+  if (!t) return "+593";
+  return t.startsWith("+") ? t : `+${t.replace(/\D/g, "")}`;
+};
+
 /**
  * Crear usuario nuevo o asignar paquetes/cursos a uno existente.
  *
  * Props:
  *  - correoInicial: string
+ *  - nombreInicial: string    (nombre del chat; solo pre-carga al CREAR uno nuevo)
+ *  - telefonoInicial: string  (teléfono del chat; solo pre-carga al CREAR uno nuevo)
  *  - clienteExistente: object|null  (si existe, pre-carga flags para NO borrarlos)
  *  - onClose: () => void
  *  - onSaved: (resultado) => void
  */
 export function CrearUsuarioForm({
   correoInicial = "",
+  nombreInicial = "",
+  telefonoInicial = "",
   clienteExistente = null,
   onClose,
   onSaved,
@@ -28,9 +39,9 @@ export function CrearUsuarioForm({
   const yaExiste = Boolean(clienteExistente?.id_users);
 
   const [form, setForm] = useState(() => ({
-    nombre: clienteExistente?.nombre_users ?? "",
+    nombre: clienteExistente?.nombre_users ?? nombreInicial ?? "",
     correo: clienteExistente?.email_users ?? correoInicial,
-    telefono: "+593",
+    telefono: clienteExistente ? "+593" : normalizarTelefono(telefonoInicial),
     rol: clienteExistente?.id_rol ? String(clienteExistente.id_rol) : "",
     // Pre-carga de flags vigentes (clave para no sobrescribir paquetes).
     membresia_ecommerce: !!clienteExistente?.membresia_ecommerce,

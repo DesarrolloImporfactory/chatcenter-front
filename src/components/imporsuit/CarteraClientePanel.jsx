@@ -22,10 +22,17 @@ const fmtDate = (s) => {
  * asignarle paquetes/cursos, ver/crear su cartera y registrar deudas y pagos.
  *
  * Props:
- *  - correoInicial?: string  (ej. el email del cliente del chat)
- *  - onClose?: () => void    (opcional, si se monta como panel cerrable)
+ *  - correoInicial?: string    (ej. el email del cliente del chat)
+ *  - nombreInicial?: string    (nombre del cliente del chat, para pre-cargar al crear)
+ *  - telefonoInicial?: string  (teléfono del cliente del chat, para pre-cargar al crear)
+ *  - onClose?: () => void      (opcional, si se monta como panel cerrable)
  */
-export function CarteraClientePanel({ correoInicial = "", onClose }) {
+export function CarteraClientePanel({
+  correoInicial = "",
+  nombreInicial = "",
+  telefonoInicial = "",
+  onClose,
+}) {
   const {
     correo,
     setCorreo,
@@ -190,6 +197,8 @@ export function CarteraClientePanel({ correoInicial = "", onClose }) {
       {(modal === "crear" || modal === "paquetes") && (
         <CrearUsuarioForm
           correoInicial={correo}
+          nombreInicial={nombreInicial}
+          telefonoInicial={telefonoInicial}
           clienteExistente={modal === "paquetes" ? cliente : null}
           onClose={() => setModal(null)}
           onSaved={() => recargar()}

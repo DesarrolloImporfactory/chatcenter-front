@@ -31,6 +31,7 @@ import Categorias from "./pages/categorias/CategoriasView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import AdminUsuarios from "./components/admin/usuarios/AdminUsuarios";
 import AdminDashboard from "./components/admin/dashboard/AdminDashboard";
+import AuditoriaCarteraView from "./pages/auditoria/AuditoriaCarteraView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import AdministradorCanales from "./pages/administradorcanales/AdministradorCanales";
@@ -485,6 +486,15 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <AdminDashboard />
+                    </MainLayout_conexiones>
+                  }
+                />
+                {/* auditoría de cartera imporsuit */}
+                <Route
+                  path="/auditoria-cartera"
+                  element={
+                    <MainLayout_conexiones>
+                      <AuditoriaCarteraView />
                     </MainLayout_conexiones>
                   }
                 />
