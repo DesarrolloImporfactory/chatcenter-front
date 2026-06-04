@@ -805,26 +805,6 @@ function MainLayout({ children }) {
                         Configurar agentes
                       </span>
                     </button>
-
-                    <button
-                      className={`group flex items-center gap-3 text-left px-4 py-2 ${
-                        location.pathname === "/kanban_config_v2"
-                          ? "font-semibold text-blue-600"
-                          : ""
-                      }`}
-                      onClick={handleKanbanConfigV2Click}
-                    >
-                      <i
-                        className={`bx text-xl ${"bx-cog text-gray-600 group-hover:text-blue-600"}`}
-                      ></i>
-
-                      <span className="flex items-center gap-2">
-                        Configurar agentes V2
-                        <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-emerald-100 text-emerald-700">
-                          BETA
-                        </span>
-                      </span>
-                    </button>
                   </div>
                 )}
               </div>
