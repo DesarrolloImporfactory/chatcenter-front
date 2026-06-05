@@ -178,20 +178,25 @@ const WaHero = ({
   onCopiar,
   syncing,
 }) => {
+  const tieneTelefono = telefono && String(telefono).trim();
+
   return (
     <div className="mt-3 p-3.5 rounded-xl bg-emerald-50 ring-1 ring-emerald-200">
       <div className="flex items-center gap-3">
+        {/* Icono WhatsApp */}
         <div className="shrink-0 w-10 h-10 rounded-full bg-white grid place-items-center ring-1 ring-emerald-100">
           <i className="bx bxl-whatsapp text-[22px] text-emerald-600" />
         </div>
+
+        {/* Texto (izquierda) */}
         <div className="flex-1 min-w-0">
           {!conectado ? (
             <>
-              <div className="text-[10.5px] font-semibold text-emerald-700 uppercase tracking-wider">
+              <div className="text-[10.5px] font-semibold text-emerald-700 uppercase tracking-wider leading-none">
                 canal principal
               </div>
-              <div className="text-[14px] font-semibold text-emerald-800 leading-tight mt-0.5">
-                Conecta tu WhatsApp
+              <div className="text-[14px] font-semibold text-emerald-800 leading-tight mt-1 truncate">
+                {tieneTelefono ? telefono : "Conecta tu WhatsApp"}
               </div>
             </>
           ) : (
@@ -207,7 +212,8 @@ const WaHero = ({
           )}
         </div>
 
-        {conectado && (
+        {/* Acciones (derecha) */}
+        {conectado ? (
           <div className="shrink-0 flex items-center gap-1">
             {!yaSincronizo && (
               <button
@@ -246,48 +252,26 @@ const WaHero = ({
               <i className="bx bx-copy text-base" />
             </button>
           </div>
-        )}
-      </div>
-
-      {!conectado && (
-        <>
-          {telefono && String(telefono).trim() && (
-            <div className="mt-3 pt-3 border-t border-emerald-200/70 flex items-center gap-2">
-              <i className="bx bx-phone text-[15px] text-emerald-600" />
-              <span className="flex-1 text-[12.5px] font-medium text-emerald-800 tracking-tight truncate">
-                {telefono}
-              </span>
-              <button
-                type="button"
-                onClick={onCopiar}
-                className="shrink-0 w-7 h-7 rounded-md grid place-items-center text-emerald-600 hover:bg-emerald-100 transition"
-                title="Copiar número"
-                aria-label="Copiar número"
-              >
-                <i className="bx bx-copy text-[15px]" />
-              </button>
-            </div>
-          )}
-
-          <div className="mt-3 flex items-center gap-2 flex-wrap">
+        ) : (
+          <div className="shrink-0 flex flex-col items-stretch gap-1">
             <button
               type="button"
               onClick={onConectarApi}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12.5px] font-semibold transition shadow-sm"
+              className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold transition shadow-sm whitespace-nowrap"
             >
-              <i className="bx bx-rocket text-base" />
-              Conectar ahora
+              <i className="bx bx-rocket text-sm" />
+              Conectar
             </button>
             <button
               type="button"
               onClick={onConectarManual}
-              className="text-[11px] font-medium text-emerald-700 hover:text-emerald-900 underline decoration-emerald-300 underline-offset-2 transition"
+              className="text-[10.5px] font-medium text-emerald-700 hover:text-emerald-900 underline decoration-emerald-300 underline-offset-2 transition whitespace-nowrap text-center"
             >
               Conexión manual
             </button>
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 };
@@ -1664,7 +1648,7 @@ const Conexiones = () => {
                           className={[
                             "inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition",
                             conectado
-                              ? "text-white bg-[#4f46e5] hover:bg-[#4338ca] shadow-sm"
+                              ? "text-white bg-[#0e0958] hover:bg-[#01011d] shadow-sm"
                               : "text-slate-400 bg-slate-100 cursor-not-allowed",
                           ].join(" ")}
                           title={
