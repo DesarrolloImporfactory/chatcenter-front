@@ -1,4 +1,3 @@
-// src/views/plan.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
@@ -174,6 +173,35 @@ const MiPlan = () => {
     } catch (error) {
       console.error("Error al cancelar:", error);
       Swal.fire("Error", "No se pudo cancelar la suscripción", "error");
+    }
+  };
+
+  const cancelarDowngradePend = async () => {
+    const confirm = await Swal.fire({
+      title: "¿Cancelar el cambio programado?",
+      text: "Seguirás en tu plan actual y no se aplicará la bajada.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cancelar cambio",
+      cancelButtonText: "No",
+      reverseButtons: true,
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      const id_usuario = getIdUsuarioFromToken();
+      const res = await chatApi.post(
+        "/stripe_plan/cancelarDowngrade",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      Swal.fire("Listo", res.data?.message || "Cambio cancelado.", "success");
+      await obtenerPlanActivo();
+    } catch (e) {
+      Swal.fire(
+        "Error",
+        e?.response?.data?.message || "No se pudo cancelar el cambio.",
+        "error",
+      );
     }
   };
 
@@ -584,6 +612,52 @@ const MiPlan = () => {
                     .
                   </p>
                 </div>
+              </div>
+            )}
+            {Number(plan?.conexiones_adicionales || 0) > 0 && (
+              <div className="rounded-xl border border-indigo-300/20 bg-indigo-500/10 text-indigo-100 px-4 py-3 text-sm flex items-start gap-2">
+                <FaCheckCircle className="mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-semibold">Complementos activos</p>
+                  <p className="text-indigo-100/80">
+                    Tu plan incluye{" "}
+                    <span className="font-semibold">
+                      +{plan.conexiones_adicionales} conexión
+                      {Number(plan.conexiones_adicionales) === 1
+                        ? ""
+                        : "es"}{" "}
+                      adicional
+                      {Number(plan.conexiones_adicionales) === 1 ? "" : "es"}
+                    </span>{" "}
+                    (+${Number(plan.conexiones_adicionales) * 10}/mes).
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {plan?.pending_change === "downgrade" && plan?.pending_plan_id && (
+              <div className="rounded-xl border border-amber-300/20 bg-amber-500/10 text-amber-100 px-4 py-3 text-sm flex items-start gap-2">
+                <FaExclamationCircle className="mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-semibold">Cambio de plan programado</p>
+                  <p className="text-amber-100/80">
+                    Tu plan cambiará el{" "}
+                    <span className="font-semibold">
+                      {plan.pending_effective_at
+                        ? new Date(
+                            plan.pending_effective_at,
+                          ).toLocaleDateString()
+                        : "próximo corte"}
+                    </span>
+                    . Hasta entonces mantienes el plan actual.
+                  </p>
+                </div>
+                <button
+                  onClick={cancelarDowngradePend}
+                  className="mt-2 text-xs font-semibold text-amber-100 underline underline-offset-2 hover:text-white"
+                >
+                  Cancelar cambio y mantener mi plan
+                </button>
               </div>
             )}
           </div>

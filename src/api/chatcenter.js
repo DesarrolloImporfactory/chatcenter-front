@@ -160,7 +160,7 @@ chatApi.interceptors.response.use(
               // Mostrar loading
               Swal.fire({
                 title: "Preparando checkout...",
-                text: "Serás redirigido a Stripe en un momento.",
+                text: "Serás redirigido de forma segura a la plataforma de pago en unos momentos.",
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 didOpen: () => Swal.showLoading(),

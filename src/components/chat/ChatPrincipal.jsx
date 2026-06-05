@@ -2177,15 +2177,14 @@ const ChatPrincipal = ({
                                 )}
                               </p>
                             ) : // ✅ Si es text: mantiene tu lógica actual (templates si tiene {{ }} y ruta_archivo)
-                            mensaje.texto_mensaje.includes("{{") &&
+                            (mensaje.texto_mensaje || "").includes("{{") &&
                               mensaje.ruta_archivo ? (
                               <p>
-                                {mensaje.texto_mensaje.replace(
+                                {(mensaje.texto_mensaje || "").replace(
                                   /\{\{(.*?)\}\}/g,
                                   (match, key) => {
-                                    const valores = JSON.parse(
-                                      mensaje.ruta_archivo,
-                                    );
+                                    const valores =
+                                      safeParseJSON(mensaje.ruta_archivo) || {};
                                     return valores[key.trim()] || match;
                                   },
                                 )}

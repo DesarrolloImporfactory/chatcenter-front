@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import ModalTrialActivated from "./modales/ModalTrialActivated";
 import ModalCodigoPromo from "./modales/ModalCodigoPromo";
+import ModalSeleccionConexiones from "./modales/ModalSeleccionConexiones";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -52,6 +53,21 @@ const detectPlanType = (plan) => {
   if (id === 3 || id === 17) return "pro";
   return "pro";
 };
+
+// ✅ Fuente de verdad alineada al backend:
+//   - Nº de agentes (tarjetas) -> limiteConexiones.middleware.js usa (n_conexiones ?? max_conexiones)
+//   - Subusuarios              -> limiteSub_usuarios.middleware.js usa max_subusuarios
+// (max_agentes_whatsapp y max_subcuentas NO se usan para estos límites)
+// Cada "agente de venta IA" = una tarjeta que conecta WhatsApp + catálogo + Dropi al ecosistema.
+const getAgentes = (plan) =>
+  Number((plan?.n_conexiones ?? plan?.max_conexiones) || 0);
+
+const labelAgentes = (plan) => {
+  const n = getAgentes(plan);
+  return `${n} agente${n === 1 ? "" : "s"} de venta IA`;
+};
+
+const getSubusuarios = (plan) => Number(plan?.max_subusuarios || 0);
 
 const PLAN_THEMES = {
   insta_landing: {
@@ -127,11 +143,8 @@ const buildFeatures = (plan) => {
         section: "il",
       },
       { label: "Conexión con Shopify", enabled: true, section: "il" },
-      {
-        label: `${plan.max_agentes_whatsapp || 1} agente WhatsApp AI`,
-        enabled: true,
-        section: "ic",
-      },
+      // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
+      { label: labelAgentes(plan), enabled: true, section: "ic" },
       { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
       { label: "Respuestas auto 24/7", enabled: true, section: "ic" },
       { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
@@ -173,15 +186,14 @@ const buildFeatures = (plan) => {
 
   if (tipo === "imporchat") {
     return [
-      {
-        label: `${plan.max_agentes_whatsapp || 1} agente WhatsApp AI`,
-        enabled: true,
-      },
+      // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
+      { label: labelAgentes(plan), enabled: true },
       { label: "Conversaciones ILIMITADAS", enabled: true },
       { label: "Respuestas auto 24/7", enabled: true },
       { label: "Manejo objeciones AI", enabled: true },
       { label: "Seguimiento automático", enabled: true },
-      { label: "1 número WhatsApp", enabled: true },
+      // ✅ Subusuarios reales (max_subusuarios)
+      { label: `${getSubusuarios(plan)} subusuarios`, enabled: true },
       { label: "Dashboard básico", enabled: true },
       { label: "Sin Insta Landing", enabled: false },
       { label: "Sin Dropiboard", enabled: false },
@@ -213,11 +225,8 @@ const buildFeatures = (plan) => {
       { label: "Dropi ILIMITADO + sync", enabled: true, section: "il" },
       { label: "Conexión con Shopify", enabled: true, section: "il" },
       { label: "A/B Testing visual", enabled: true, section: "il" },
-      {
-        label: `${plan.max_agentes_whatsapp || 1} agente WhatsApp AI`,
-        enabled: true,
-        section: "ic",
-      },
+      // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
+      { label: labelAgentes(plan), enabled: true, section: "ic" },
       { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
       { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
       { label: "Utilidad real por orden", enabled: true, section: "db" },
@@ -227,6 +236,12 @@ const buildFeatures = (plan) => {
         section: "extra",
       },
       { label: "Analytics unificado", enabled: true, section: "extra" },
+      // ✅ Equipo real (max_subusuarios)
+      {
+        label: `Equipo: ${getSubusuarios(plan)} subusuarios`,
+        enabled: true,
+        section: "extra",
+      },
     ];
   }
 
@@ -258,19 +273,15 @@ const buildFeatures = (plan) => {
       enabled: true,
       section: "il",
     },
-    {
-      label: `${plan.max_agentes_whatsapp || 3} agentes WhatsApp AI`,
-      enabled: true,
-      section: "ic",
-    },
+    // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
+    { label: labelAgentes(plan), enabled: true, section: "ic" },
     { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
-    { label: "Multi-número WhatsApp", enabled: true, section: "ic" },
-    { label: "Bot entrenado con catálogo", enabled: true, section: "ic" },
     { label: "Dropiboard — métricas Dropi", enabled: true, section: "db" },
     { label: "Utilidad real + profit", enabled: true, section: "db" },
     { label: "Analytics + heatmaps", enabled: true, section: "extra" },
+    // ✅ Equipo real (max_subusuarios) — antes usaba max_subcuentas (campo muerto)
     {
-      label: `Sub-cuentas (${plan.max_subcuentas || 5})`,
+      label: `Equipo: ${getSubusuarios(plan)} subusuarios`,
       enabled: true,
       section: "extra",
     },
@@ -359,6 +370,26 @@ const PlanesViewPrueba = () => {
   const [showTrialActivated, setShowTrialActivated] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [unlockedPlans, setUnlockedPlans] = useState([]);
+  const [pendingPlanId, setPendingPlanId] = useState(null);
+  const [pendingChange, setPendingChange] = useState(null);
+  const [pendingEffectiveAt, setPendingEffectiveAt] = useState(null);
+  const [addonConexiones, setAddonConexiones] = useState(0);
+  const [modalSusp, setModalSusp] = useState({
+    open: false,
+    idPlan: null,
+    planNombre: "",
+    conexiones: [],
+    limite: 1,
+  });
+  const [modalSuspLoading, setModalSuspLoading] = useState(false);
+  const cerrarModalSusp = () =>
+    setModalSusp({
+      open: false,
+      idPlan: null,
+      planNombre: "",
+      conexiones: [],
+      limite: 1,
+    });
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -400,6 +431,10 @@ const PlanesViewPrueba = () => {
       estado.includes("activo") || estado.includes("trial") || isTU || isPU;
     setHasActivePlan(Boolean(plan?.id_plan) && isActive);
     setUnlockedPlans(flags?.unlocked_plans || []);
+    setPendingPlanId(plan?.pending_plan_id ?? null);
+    setPendingChange(plan?.pending_change ?? null);
+    setPendingEffectiveAt(plan?.pending_effective_at ?? null);
+    setAddonConexiones(Number(plan?.conexiones_adicionales || 0));
     return plan;
   };
 
@@ -624,6 +659,133 @@ const PlanesViewPrueba = () => {
     }
   };
 
+  // Conexiones ACTIVAS del usuario (suspendido = 0)
+  const fetchConexionesActivas = async () => {
+    const token = localStorage.getItem("token");
+    const decoded = JSON.parse(atob(token.split(".")[1]));
+    const id_usuario = decoded.id_usuario || decoded.id_users;
+    const res = await chatApi.post(
+      "configuraciones/listar_conexiones",
+      { id_usuario },
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    return res?.data?.data || [];
+  };
+
+  // Envoltura: si un downgrade reduce el cupo de conexiones, primero hace elegir cuáles desactivar
+  const iniciarCambioPlan = async (idPlan) => {
+    // Solo intercepta cambios de plan reales (cliente con plan de pago activo).
+    // Trial/promo usage o sin plan → checkout normal.
+    const esCambioReal =
+      hasActivePlan && !isTrialUsageActive && !isPromoUsageActive;
+
+    if (esCambioReal) {
+      const planDestino =
+        (planes || []).find((p) => Number(p.id_plan) === Number(idPlan)) ||
+        null;
+      const precioActual = Number(
+        (planes || []).find((p) => Number(p.id_plan) === Number(currentPlanId))
+          ?.precio_plan || 0,
+      );
+      const precioDestino = Number(planDestino?.precio_plan || 0);
+      const esDowngrade = precioActual > 0 && precioDestino < precioActual;
+
+      if (esDowngrade) {
+        const limite = getAgentes(planDestino) + Number(addonConexiones || 0);
+        let conexiones = [];
+        try {
+          conexiones = await fetchConexionesActivas();
+        } catch {
+          conexiones = [];
+        }
+        const sobrantes = conexiones.length - limite;
+        if (sobrantes > 0) {
+          setModalSusp({
+            open: true,
+            idPlan: Number(idPlan),
+            planNombre: planDestino?.nombre_plan || "",
+            conexiones,
+            limite,
+            addon: Number(addonConexiones || 0),
+          });
+          return;
+        }
+      }
+    }
+
+    // Flujo normal (upgrade / downgrade sin sobrantes / mismo precio / checkout)
+    return seleccionarPlan(idPlan);
+  };
+
+  // Confirmar el downgrade enviando las conexiones que se desactivarán al corte
+  const confirmarDowngradeConSuspension = async (idsSuspender) => {
+    setModalSuspLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const id_usuario = decoded.id_usuario || decoded.id_users;
+      const res = await chatApi.post(
+        "stripe_plan/cambiarPlan",
+        {
+          id_usuario,
+          id_plan_nuevo: modalSusp.idPlan,
+          conexiones_suspender: idsSuspender,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      cerrarModalSusp();
+      await Swal.fire(
+        "Cambio programado",
+        res.data?.message || "Tu plan bajará en el próximo corte.",
+        "success",
+      );
+      await refreshPlanActual();
+    } catch (e) {
+      await Swal.fire(
+        "Error",
+        e?.response?.data?.message || "No se pudo programar el cambio.",
+        "error",
+      );
+    } finally {
+      setModalSuspLoading(false);
+    }
+  };
+
+  const cancelarDowngrade = async () => {
+    const confirm = await Swal.fire({
+      title: "¿Cancelar el cambio programado?",
+      text: "Seguirás en tu plan actual y no se aplicará la bajada.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cancelar cambio",
+      cancelButtonText: "No",
+      focusCancel: true,
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const id_usuario = decoded.id_usuario || decoded.id_users;
+      const res = await chatApi.post(
+        "stripe_plan/cancelarDowngrade",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      await Swal.fire(
+        "Listo",
+        res.data?.message || "Cambio cancelado.",
+        "success",
+      );
+      await refreshPlanActual();
+    } catch (e) {
+      await Swal.fire(
+        "Error",
+        e?.response?.data?.message || "No se pudo cancelar el cambio.",
+        "error",
+      );
+    }
+  };
+
   const visiblePlans = useMemo(() => {
     const baseVisible = new Set(PLANES_VISIBLES);
     unlockedPlans.forEach((id) => baseVisible.add(Number(id)));
@@ -637,6 +799,24 @@ const PlanesViewPrueba = () => {
           (SORT_ORDER[Number(b.id_plan)] ?? 99),
       );
   }, [planes, unlockedPlans, currentPlanId]);
+
+  const fmtFecha = (d) =>
+    d
+      ? new Date(d).toLocaleDateString("es-EC", {
+          day: "numeric",
+          month: "long",
+        })
+      : "";
+
+  const hayDowngradePendiente =
+    pendingChange === "downgrade" && !!pendingPlanId;
+
+  const downgradePlan = useMemo(
+    () =>
+      (planes || []).find((p) => Number(p.id_plan) === Number(pendingPlanId)) ||
+      null,
+    [planes, pendingPlanId],
+  );
 
   return (
     <div className="min-h-screen bg-white">
@@ -747,6 +927,41 @@ const PlanesViewPrueba = () => {
             </span>
           </div>
         )}
+        {hayDowngradePendiente && (
+          <div
+            className="mt-4 mx-auto max-w-lg px-5 py-3 rounded-2xl"
+            style={{
+              background: "rgba(245,158,11,0.06)",
+              border: "1px solid rgba(245,158,11,0.18)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-700">
+                  Cambio de plan programado
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Bajarás al plan{" "}
+                  <b>{downgradePlan?.nombre_plan || "seleccionado"}</b> el{" "}
+                  <b>{fmtFecha(pendingEffectiveAt)}</b>. Hasta entonces
+                  conservas tu plan actual y todos sus beneficios.
+                </p>
+              </div>
+              <span
+                className="shrink-0 text-[10px] font-bold px-3 py-1 rounded-full"
+                style={{ color: "#D97706", background: "rgba(245,158,11,0.1)" }}
+              >
+                Programado
+              </span>
+            </div>
+            <button
+              onClick={cancelarDowngrade}
+              className="mt-2 text-[11px] font-semibold text-amber-700 hover:text-amber-800 underline underline-offset-2"
+            >
+              Cancelar cambio y quedarme en mi plan
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="px-3 sm:px-4 pb-16">
@@ -774,6 +989,8 @@ const PlanesViewPrueba = () => {
             const isCurrentPromoUsage = isCurrent && isPromoUsageActive;
             const isCurrentFreeUsage =
               isCurrentTrialUsage || isCurrentPromoUsage;
+            const isDowngradeTarget =
+              hayDowngradePendiente && Number(pendingPlanId) === planId;
             const canTrialIL =
               planId === TRIAL_USAGE_PLAN_ID && !ilTrialUsed && !hasActivePlan;
             const canTrialDays =
@@ -790,17 +1007,23 @@ const PlanesViewPrueba = () => {
             const isDisabled =
               loading ||
               (isCurrent && isPlanActualActivo && !isCurrentFreeUsage) ||
+              isDowngradeTarget ||
               !!actionPlanId;
             const ilLabel =
               tipo === "avanzado" ? "INSTA LANDING MAX" : "INSTA LANDING";
             const icLabel = tipo === "avanzado" ? "IMPORCHAT PRO" : "IMPORCHAT";
 
             const getCTAText = () => {
+              if (isDowngradeTarget)
+                return `Se activa el ${fmtFecha(pendingEffectiveAt)}`;
               if (isCurrentFreeUsage)
                 return showPromo
                   ? `Suscribirse — $${PROMO_FIRST_MONTH} primer mes`
                   : "Suscribirse ahora";
-              if (isCurrent && isPlanActualActivo) return "Tu plan actual";
+              if (isCurrent && isPlanActualActivo)
+                return hayDowngradePendiente
+                  ? `Plan actual · hasta ${fmtFecha(pendingEffectiveAt)}`
+                  : "Tu plan actual";
               if (isCurrentVencido) return "Renovar plan";
               if (isAction)
                 return (
@@ -823,7 +1046,7 @@ const PlanesViewPrueba = () => {
             const handleClick = () => {
               if (isCurrentFreeUsage) seleccionarPlan(planId);
               else if (canTrialIL && !hasActivePlan) activarTrialIL();
-              else seleccionarPlan(planId);
+              else iniciarCambioPlan(planId); // ← antes: seleccionarPlan(planId)
             };
 
             return (
@@ -970,6 +1193,20 @@ const PlanesViewPrueba = () => {
                           {TRIAL_DAYS} días gratis
                         </span>
                       )}
+                      {isCurrent && addonConexiones > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold"
+                          style={{
+                            color: "#4F46E5",
+                            background: "rgba(99,102,241,0.08)",
+                            border: "1px solid rgba(99,102,241,0.15)",
+                          }}
+                        >
+                          + {addonConexiones} conexión
+                          {addonConexiones === 1 ? "" : "es"} adicional
+                          {addonConexiones === 1 ? "" : "es"}
+                        </span>
+                      )}
                       <span className="text-[9px] text-slate-400 text-center leading-relaxed">
                         {isCurrentFreeUsage && showPromo ? (
                           <>
@@ -1027,11 +1264,7 @@ const PlanesViewPrueba = () => {
                     >
                       {getCTAText()}
                     </button>
-                    {canTrialIL && !hasActivePlan && (
-                      <p className="text-[10px] text-center text-slate-400 -mt-3 mb-4">
-                        Sin tarjeta de crédito
-                      </p>
-                    )}
+
                     <div className="flex-1">
                       {features.map((f, idx) => {
                         const prevSection =
@@ -1101,6 +1334,18 @@ const PlanesViewPrueba = () => {
         }}
         idUsuario={getIdUsuario()}
         chatApi={chatApi}
+      />
+
+      <ModalSeleccionConexiones
+        open={modalSusp.open}
+        onClose={() => !modalSuspLoading && cerrarModalSusp()}
+        conexiones={modalSusp.conexiones}
+        limite={modalSusp.limite}
+        addon={modalSusp.addon}
+        planNombre={modalSusp.planNombre}
+        fechaEfectiva={null}
+        loading={modalSuspLoading}
+        onConfirm={confirmarDowngradeConSuspension}
       />
     </div>
   );

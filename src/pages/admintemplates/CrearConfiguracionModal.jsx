@@ -2,6 +2,20 @@ import React, { useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import { jwtDecode } from "jwt-decode";
 import { motion, AnimatePresence } from "framer-motion";
+import Swal from "sweetalert2";
+
+// Toast flotante (esquina superior derecha) — se monta sobre el modal, no lo tapa el blur
+const Toast = Swal.mixin({
+  toast: true,
+  position: "top-end",
+  showConfirmButton: false,
+  timer: 3500,
+  timerProgressBar: true,
+  didOpen: (el) => {
+    el.addEventListener("mouseenter", Swal.stopTimer);
+    el.addEventListener("mouseleave", Swal.resumeTimer);
+  },
+});
 
 const CrearConfiguracionModal = ({
   onClose,
@@ -18,6 +32,10 @@ const CrearConfiguracionModal = ({
   // Vista de upgrade si backend devuelve límite
   const [showUpgradeOptions, setShowUpgradeOptions] = useState(false);
   const [limitMessage, setLimitMessage] = useState("");
+
+  // Estados de carga (evitan doble clic / peticiones duplicadas)
+  const [addonLoading, setAddonLoading] = useState(false);
+  const [savingNegocio, setSavingNegocio] = useState(false);
 
   // Placeholder rotativo para el nombre del negocio
   const placeholdersNombre = [
@@ -82,85 +100,142 @@ const CrearConfiguracionModal = ({
                             : phoneWithoutLeadingZero;
   };
 
-  // CTA upgrade/comprar adicional
+  // CTA upgrade
   const onUpgradeClick = () => {
+    if (addonLoading) return;
     window.location.href = "/planes";
   };
 
-  const onBuyAddonClick = async () => {
+  // CTA comprar conexión adicional (addon)
+  const onBuyAddonClick = async (cantidad = 1) => {
+    if (addonLoading) return; // guard anti doble clic
+    setAddonLoading(true);
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        return window.Swal?.fire?.({
-          icon: "error",
-          title: "Token faltante",
-          text: "No se encontró token",
-        });
+        Toast.fire({ icon: "error", title: "Sesión expirada. Inicia sesión." });
+        return;
       }
       const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario;
 
-      const base = window.location.origin;
-      const res = await chatApi.post("/stripe_plan/crearSesionAddonConexion", {
+      const res = await chatApi.post("/stripe_plan/comprarAddon", {
         id_usuario,
-        success_url: `${base}/conexiones?addon=ok`,
-        cancel_url: `${base}/conexiones?addon=cancel`,
+        clave: "conexion_adicional",
+        cantidad,
       });
+      const data = res?.data || {};
 
-      if (res?.data?.url) {
-        window.location.href = res.data.url; // Stripe Checkout
-      } else {
-        throw new Error("No se recibió la URL de Stripe.");
+      // Cobrado y aplicado al instante
+      if (data.success && !data.actionRequired) {
+        await Swal.fire({
+          icon: "success",
+          iconColor: "#16a34a",
+          title: data.en_trial
+            ? "¡Activada en tu prueba!"
+            : "¡Conexión adicional activada!",
+          html: `
+            <p style="margin:6px 0 0;color:#475569;font-size:14px;line-height:1.55">
+              ${
+                data.en_trial
+                  ? "La usarás <b style='color:#0a1a36'>gratis durante tu prueba</b>. Se cobrará junto con tu plan cuando termine el período."
+                  : "Tu nueva conexión ya está disponible.<br/>Ya puedes crear tu negocio."
+              }
+            </p>
+          `,
+          timer: 5000,
+          timerProgressBar: true,
+          showConfirmButton: true,
+          confirmButtonText: "Crear ahora",
+          confirmButtonColor: "#1d4ed8",
+          allowOutsideClick: false,
+          customClass: { popup: "rounded-2xl" },
+        });
+        setShowUpgradeOptions(false);
+        return;
       }
+
+      // Requiere completar pago (3DS) → página de Stripe
+      if (data.actionRequired && data.hosted_invoice_url) {
+        window.location.href = data.hosted_invoice_url;
+        return;
+      }
+
+      throw new Error(data.message || "No se pudo procesar la conexión.");
     } catch (e) {
-      window.Swal?.fire?.({
+      Swal.fire({
         icon: "error",
-        title: "No se pudo iniciar el pago",
+        title: "No se pudo agregar la conexión",
         text: e?.response?.data?.message || e.message || "Intente nuevamente.",
+        confirmButtonColor: "#1d4ed8",
+        customClass: { popup: "rounded-2xl" },
       });
+    } finally {
+      setAddonLoading(false);
     }
   };
 
   const handleAgregarConfiguracion = async () => {
-    if (!nombreConfiguracion || !telefono) {
-      setStatusMessage?.({
-        type: "error",
-        text: "Por favor, rellene todos los campos obligatorios.",
+    if (savingNegocio) return;
+
+    const soloDigitos = (telefono || "").replace(/[^0-9]/g, "");
+    const nacional = soloDigitos.startsWith("0")
+      ? soloDigitos.slice(1)
+      : soloDigitos;
+
+    if (!nombreConfiguracion.trim() || !nacional) {
+      Toast.fire({
+        icon: "warning",
+        title: "Completa el nombre y el teléfono.",
+      });
+      return;
+    }
+
+    // Evita guardar solo con el código de país
+    if (nacional.length < 7) {
+      Toast.fire({
+        icon: "warning",
+        title: "Ingresa un número válido.",
       });
       return;
     }
 
     const cleanNumber = cleanPhoneNumber(telefono);
 
+    setSavingNegocio(true);
     try {
-      const resp = await chatApi.post("/configuraciones/agregarConfiguracion", {
-        nombre_configuracion: nombreConfiguracion,
-        telefono: cleanNumber,
-        id_usuario: userData.id_usuario,
-      });
+      const resp = await chatApi.post(
+        "/configuraciones/agregarConfiguracion",
+        {
+          nombre_configuracion: nombreConfiguracion,
+          telefono: cleanNumber,
+          id_usuario: userData.id_usuario,
+        },
+        { silentError: true },
+      );
 
       if (resp.data.status === 200) {
         setStatusMessage?.({
           type: "success",
           text: "Negocio agregado correctamente. Podrá conectar con Meta desde la tarjeta cuando desee.",
         });
-        // refrescar lista en el padre y cerrar
         await fetchConfiguraciones?.();
         onClose?.();
       } else {
-        setStatusMessage?.({
-          type: "error",
-          text: resp.data.message || "Error al agregar el negocio.",
+        Toast.fire({
+          icon: "error",
+          title: resp.data.message || "Error al agregar el negocio.",
         });
       }
     } catch (error) {
       const httpStatus = error?.response?.status;
-      // límite de plan
+      const backendMsg = error?.response?.data?.message;
+
+      // límite de plan → vista de upgrade
       if (
         httpStatus === 403 &&
         error?.response?.data?.code === "QUOTA_EXCEEDED"
       ) {
-        const backendMsg = error?.response?.data?.message;
         setLimitMessage(
           backendMsg || "Ha alcanzado el límite de conexiones de su plan.",
         );
@@ -168,17 +243,27 @@ const CrearConfiguracionModal = ({
         return;
       }
       if (httpStatus === 409) {
-        const backendMsg = error?.response?.data?.message;
         setLimitMessage(backendMsg || "Límite del plan alcanzado.");
         setShowUpgradeOptions(true);
         return;
       }
 
       console.error("Error al agregar configuración:", error);
-      setStatusMessage?.({
-        type: "error",
-        text: "Error al conectar con el servidor.",
-      });
+
+      if (error?.response) {
+        Toast.fire({
+          icon: "error",
+          title: backendMsg || "No se pudo agregar el negocio.",
+        });
+      } else {
+        // Sin response = error de red de verdad (timeout, CORS, server caído)
+        Toast.fire({
+          icon: "error",
+          title: "Error al conectar con el servidor.",
+        });
+      }
+    } finally {
+      setSavingNegocio(false);
     }
   };
 
@@ -198,6 +283,7 @@ const CrearConfiguracionModal = ({
   }, []);
 
   const handleClose = () => {
+    if (addonLoading || savingNegocio) return; // no cerrar a mitad de una petición
     setIsClosing(true);
     setTimeout(() => {
       onClose?.();
@@ -233,7 +319,8 @@ const CrearConfiguracionModal = ({
               <div className="relative bg-gradient-to-br from-[#0a1a36] via-[#102a5c] to-[#1e4fd6] px-6 pt-6 pb-7 text-center">
                 <button
                   onClick={handleClose}
-                  className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                  disabled={addonLoading}
+                  className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label="Cerrar"
                 >
                   <i className="fas fa-times text-sm"></i>
@@ -257,7 +344,8 @@ const CrearConfiguracionModal = ({
                 {/* Opción principal: Actualizar plan */}
                 <button
                   onClick={onUpgradeClick}
-                  className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border-2 border-[#1d4ed8] bg-gradient-to-r from-[#eff6ff] to-white p-3.5 text-left transition-all duration-200 hover:shadow-md hover:shadow-[#1d4ed8]/15"
+                  disabled={addonLoading}
+                  className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border-2 border-[#1d4ed8] bg-gradient-to-r from-[#eff6ff] to-white p-3.5 text-left transition-all duration-200 hover:shadow-md hover:shadow-[#1d4ed8]/15 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span className="absolute right-2.5 top-2.5 inline-flex items-center rounded-full bg-[#1d4ed8] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
                     Recomendado
@@ -277,30 +365,47 @@ const CrearConfiguracionModal = ({
                   <i className="bx bx-chevron-right text-xl text-[#1d4ed8] transition-transform group-hover:translate-x-1"></i>
                 </button>
 
-                {/* Opción secundaria: Conexión adicional (tono neutro) */}
+                {/* Opción secundaria: Conexión adicional */}
                 <button
-                  onClick={onBuyAddonClick}
-                  className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-all duration-200 hover:border-[#171931]/40 hover:shadow-sm"
+                  onClick={() => onBuyAddonClick(1)}
+                  disabled={addonLoading}
+                  className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-all duration-200 hover:border-[#171931]/40 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-80"
                 >
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[#171931]">
-                    <i className="bx bx-plus-circle text-xl"></i>
+                  <span
+                    className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                      addonLoading
+                        ? "bg-[#eff6ff] text-[#1d4ed8]"
+                        : "bg-slate-100 text-[#171931]"
+                    }`}
+                  >
+                    <i
+                      className={`bx text-xl ${
+                        addonLoading
+                          ? "bx-loader-alt bx-spin"
+                          : "bx-plus-circle"
+                      }`}
+                    ></i>
                   </span>
                   <span className="flex-1">
                     <span className="block text-sm font-bold text-[#171931]">
-                      Solo una conexión más
+                      {addonLoading ? "Procesando…" : "Solo una conexión más"}
                     </span>
                     <span className="mt-0.5 block text-[12px] leading-4 text-slate-500">
-                      Se suma a tu plan de forma recurrente.
+                      {addonLoading
+                        ? "Estamos activando tu conexión, un momento."
+                        : "Se suma a tu plan de forma recurrente."}
                     </span>
                   </span>
-                  <span className="text-right leading-none">
-                    <span className="block text-base font-extrabold text-[#171931]">
-                      +$10
+                  {!addonLoading && (
+                    <span className="text-right leading-none">
+                      <span className="block text-base font-extrabold text-[#171931]">
+                        +$10
+                      </span>
+                      <span className="block text-[9px] text-slate-400">
+                        /mes
+                      </span>
                     </span>
-                    <span className="block text-[9px] text-slate-400">
-                      /mes
-                    </span>
-                  </span>
+                  )}
                 </button>
 
                 {/* Nota de cobro */}
@@ -315,7 +420,8 @@ const CrearConfiguracionModal = ({
                 {/* Salida discreta */}
                 <button
                   onClick={handleClose}
-                  className="w-full rounded-lg py-1.5 text-center text-[12px] font-medium text-slate-400 transition-colors hover:text-slate-600"
+                  disabled={addonLoading}
+                  className="w-full rounded-lg py-1.5 text-center text-[12px] font-medium text-slate-400 transition-colors hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Ahora no
                 </button>
@@ -346,7 +452,8 @@ const CrearConfiguracionModal = ({
                 </div>
                 <button
                   onClick={handleClose}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={savingNegocio}
+                  className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <i className="fas fa-times"></i>
                 </button>
@@ -362,7 +469,8 @@ const CrearConfiguracionModal = ({
                     <i className="bx bx-purchase-tag absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
                     <input
                       type="text"
-                      className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                      disabled={savingNegocio}
+                      className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
                       placeholder={placeholdersNombre[placeholderIndex]}
                       value={nombreConfiguracion}
                       onChange={(e) => setNombreConfiguracion(e.target.value)}
@@ -377,7 +485,8 @@ const CrearConfiguracionModal = ({
                   </label>
                   <div className="flex gap-2">
                     <select
-                      className="w-1/3 px-2 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] transition-all duration-200"
+                      disabled={savingNegocio}
+                      className="w-1/3 px-2 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] transition-all duration-200 disabled:opacity-60"
                       value={countryCode}
                       onChange={(e) => setCountryCode(e.target.value)}
                     >
@@ -391,7 +500,9 @@ const CrearConfiguracionModal = ({
                       <i className="bx bx-phone absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
                       <input
                         type="text"
-                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                        inputMode="numeric"
+                        disabled={savingNegocio}
+                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
                         placeholder="Número de teléfono"
                         value={telefono}
                         onChange={(e) => setTelefono(e.target.value)}
@@ -404,16 +515,22 @@ const CrearConfiguracionModal = ({
               <div className="flex justify-end bg-gray-50/60 px-5 py-4 border-t border-gray-100 space-x-2.5">
                 <button
                   onClick={handleClose}
-                  className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200"
+                  disabled={savingNegocio}
+                  className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cerrar
                 </button>
                 <button
                   onClick={handleAgregarConfiguracion}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8] text-sm text-white font-semibold hover:bg-[#1e40af] shadow-sm transition-all duration-200"
+                  disabled={savingNegocio}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8] text-sm text-white font-semibold hover:bg-[#1e40af] shadow-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  <i className="bx bx-check"></i>
-                  Guardar
+                  <i
+                    className={`bx ${
+                      savingNegocio ? "bx-loader-alt bx-spin" : "bx-check"
+                    }`}
+                  ></i>
+                  {savingNegocio ? "Guardando…" : "Guardar"}
                 </button>
               </div>
             </motion.div>

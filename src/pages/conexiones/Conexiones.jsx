@@ -640,11 +640,15 @@ const Conexiones = () => {
     if (!res.isConfirmed) return;
     try {
       setSuspendiendoId(config.id);
-      await chatApi.post("configuraciones/toggle_suspension", {
-        id_configuracion: config.id,
-        id_usuario: userData.id_usuario,
-        suspendido: true,
-      });
+      await chatApi.post(
+        "configuraciones/toggle_suspension",
+        {
+          id_configuracion: config.id,
+          id_usuario: userData.id_usuario,
+          suspendido: true,
+        },
+        { silentError: true },
+      );
       setConfiguracionAutomatizada((prev) =>
         prev.filter((c) => c.id !== config.id),
       );
