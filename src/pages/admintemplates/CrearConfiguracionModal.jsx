@@ -228,10 +228,19 @@ const CrearConfiguracionModal = ({
         });
       }
     } catch (error) {
+      // CARD_CAPTURE_REQUIRED y los plan-block ya abren su propio modal global
+      // en el interceptor. Si disparamos un Toast aquí, SweetAlert2 lo reemplaza
+      // y el usuario nunca ve "Registrar tarjeta".
+      if (
+        error?._handledByInterceptor ||
+        error?.response?.data?.code === "CARD_CAPTURE_REQUIRED"
+      ) {
+        return;
+      }
+
       const httpStatus = error?.response?.status;
       const backendMsg = error?.response?.data?.message;
 
-      // límite de plan → vista de upgrade
       if (
         httpStatus === 403 &&
         error?.response?.data?.code === "QUOTA_EXCEEDED"
@@ -256,7 +265,6 @@ const CrearConfiguracionModal = ({
           title: backendMsg || "No se pudo agregar el negocio.",
         });
       } else {
-        // Sin response = error de red de verdad (timeout, CORS, server caído)
         Toast.fire({
           icon: "error",
           title: "Error al conectar con el servidor.",
