@@ -9,6 +9,7 @@ import OrderList from "./OrderList";
 import OrderDetail from "./OrderDetail";
 import EncuestasCliente from "./EncuestasCliente";
 import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
+import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
 
 import useDropiOrders from "../../hooks/useDropiOrders";
 import useCreateOrder from "../../hooks/UseCreateOrders";
@@ -276,6 +277,12 @@ export default function DropshipperClientPanel(props) {
 
         {/* ===== Cartera Imporsuit (deudas / pagos) ===== */}
         <CarteraImporsuitSection
+          selectedChat={selectedChat}
+          idConfiguracion={id_configuracion}
+        />
+
+        {/* ===== Checklist del alumno (solo lectura) ===== */}
+        <ChecklistImporsuitSection
           selectedChat={selectedChat}
           idConfiguracion={id_configuracion}
         />

@@ -3,6 +3,7 @@ import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
 import HistorialEncargados from "./HistorialEncargados";
 import EncuestasCliente from "./EncuestasCliente";
 import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
+import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
 
 export default function BasicClientPanel({
   selectedChat,
@@ -131,6 +132,12 @@ export default function BasicClientPanel({
 
         {/* Cartera Imporsuit (deudas / pagos) */}
         <CarteraImporsuitSection
+          selectedChat={selectedChat}
+          idConfiguracion={id_configuracion}
+        />
+
+        {/* Checklist del alumno (solo lectura) */}
+        <ChecklistImporsuitSection
           selectedChat={selectedChat}
           idConfiguracion={id_configuracion}
         />

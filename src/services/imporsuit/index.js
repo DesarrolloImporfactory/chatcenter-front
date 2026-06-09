@@ -18,6 +18,8 @@ export {
 
 export { getCursosDisponibles, crearUsuarioFull } from "./usuarios.service";
 
+export { getChecklistUsuario } from "./checklist.service";
+
 export { listarAuditoria } from "./auditoria.service";
 
 export { getActorChatcenter, setCarteraCtx, getCarteraCtx } from "./actor";
