@@ -32,8 +32,10 @@ function unwrap(data) {
  * Busca un CLIENTE por correo (Carterachat/buscar_cliente).
  * @returns {Promise<{exists: boolean, data: object|null}>}
  *   data (si exists): { id_users, nombre_users, email_users, suspendido,
- *   id_rol, id_cartera, membresia_ecommerce, ecommerce, importacion,
- *   infoaduana, kit, tiendas, franquicias }. `id_cartera` es el uuid o 0.
+ *   id_rol, id_cartera, telefono, cursos[], membresia_ecommerce, ecommerce,
+ *   importacion, infoaduana, kit, tiendas, franquicias }. `id_cartera` es el
+ *   uuid o 0; `telefono` sale de plataformas.whatsapp (o perfil.telefono), ""
+ *   si no tiene; `cursos` es un array de id_curso (cursos_usuarios).
  */
 export async function buscarPorCorreo(correo, { signal } = {}) {
   const { data } = await imporsuitApi.post(

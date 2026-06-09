@@ -18,6 +18,13 @@ const normalizarTelefono = (tel) => {
 };
 
 /**
+ * Coerción robusta de flags de paquete. El backend los manda desde MySQL como
+ * TINYINT, que PDO devuelve como STRING ("0"/"1"). `!!"0"` es `true` (string no
+ * vacío), así que `!!` marcaría TODOS los checkboxes. Solo 1/"1"/true => true.
+ */
+const toFlag = (v) => v === true || v === 1 || v === "1";
+
+/**
  * Crear usuario nuevo o asignar paquetes/cursos a uno existente.
  *
  * Props:
@@ -41,20 +48,26 @@ export function CrearUsuarioForm({
   const [form, setForm] = useState(() => ({
     nombre: clienteExistente?.nombre_users ?? nombreInicial ?? "",
     correo: clienteExistente?.email_users ?? correoInicial,
-    telefono: clienteExistente ? "+593" : normalizarTelefono(telefonoInicial),
+    // Existente: su teléfono real de Imporsuit (plataformas.whatsapp). Nuevo: el del chat.
+    telefono: normalizarTelefono(
+      clienteExistente ? clienteExistente.telefono : telefonoInicial,
+    ),
     rol: clienteExistente?.id_rol ? String(clienteExistente.id_rol) : "",
     // Pre-carga de flags vigentes (clave para no sobrescribir paquetes).
-    membresia_ecommerce: !!clienteExistente?.membresia_ecommerce,
-    ecommerce: !!clienteExistente?.ecommerce,
-    importacion: !!clienteExistente?.importacion,
-    infoaduana: !!clienteExistente?.infoaduana,
-    kit: !!clienteExistente?.kit,
-    tiendas: !!clienteExistente?.tiendas,
-    franquicias: !!clienteExistente?.franquicias,
+    membresia_ecommerce: toFlag(clienteExistente?.membresia_ecommerce),
+    ecommerce: toFlag(clienteExistente?.ecommerce),
+    importacion: toFlag(clienteExistente?.importacion),
+    infoaduana: toFlag(clienteExistente?.infoaduana),
+    kit: toFlag(clienteExistente?.kit),
+    tiendas: toFlag(clienteExistente?.tiendas),
+    franquicias: toFlag(clienteExistente?.franquicias),
   }));
 
   const [cursos, setCursos] = useState([]);
-  const [cursosSel, setCursosSel] = useState(() => new Set());
+  // Pre-selecciona los cursos que el usuario ya tiene (ids de cursos_usuarios).
+  const [cursosSel, setCursosSel] = useState(
+    () => new Set((clienteExistente?.cursos ?? []).map(Number)),
+  );
   const [loadingCursos, setLoadingCursos] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -198,6 +211,12 @@ export function CrearUsuarioForm({
 
           <section className="rounded-xl border border-gray-200 p-3">
             <p className="mb-2 text-sm font-semibold text-gray-700">Cursos opcionales</p>
+            {yaExiste && (
+              <p className="mb-2 text-[11px] text-amber-600">
+                Se pre-cargaron los cursos actuales del usuario. Lo que dejes
+                marcado será su estado final: destildar un curso lo quita.
+              </p>
+            )}
             {loadingCursos ? (
               <p className="text-xs text-gray-400">Cargando cursos…</p>
             ) : cursos.length === 0 ? (

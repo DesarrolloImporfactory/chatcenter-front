@@ -164,6 +164,18 @@ VITE_IMPORSUIT_CHATCENTER_TOKEN=131e6297e92c8d57bdf00ae82c9ad1db0e3d1394c3941a89
 - **Cliente existente en `crear_cliente`**: SOBRESCRIBE los flags de paquete con
   lo que se mande, y NO devuelve `id_users`. El front pre-carga los flags
   actuales (vía `buscar_cliente`) y refresca por correo.
+- **Edición real al guardar (paquetes + cursos = estado final):** `buscar_cliente`
+  ahora devuelve también `telefono` (de `plataformas.whatsapp`, fallback
+  `perfil.telefono`) y `cursos` (ids de `cursos_usuarios` con `origen='individual'`),
+  para que el modal precargue los datos reales del usuario. Los flags de paquete
+  los sobrescribe `crear_usuario_con_cursos` (UsuariosModel, sin tocar). Los
+  cursos los AGREGA ese mismo método (`asignarCursoSiNoExiste`), pero **el borrado
+  de los que se destildan lo hace `Carterachat::crear_cliente`** vía
+  `CarterachatModel::sincronizar_cursos_individuales()` (DELETE solo de
+  `origen='individual'`, mismo criterio que `CursosModel::eliminarAsignacion`;
+  NO toca cursos de paquete). Respeta la regla `franquicias=1 ⇒ curso 55` (no se
+  quita mientras el flag esté activo). Es best-effort: si el sync falla, se loguea
+  y la operación principal no se rompe.
 - **`id_cartera`**: `0` (número) si no tiene cartera; si tiene, es el `uuid`.
 - **No usar el nombre "Chatcenter"** para nada nuevo en imporsutipro: colisiona
   con el controlador `ChatCenter` existente (PHP class case-insensitive + FS
