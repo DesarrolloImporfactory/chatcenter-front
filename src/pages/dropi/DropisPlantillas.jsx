@@ -16,7 +16,6 @@ const Toast = Swal.mixin({
 const ESTADOS_DROPI = [
   "PENDIENTE CONFIRMACION",
   "CANCELADO",
-  "CARRITOS ABANDONADOS",
   "PENDIENTE",
   "GUIA GENERADA",
   "EN TRANSITO",
@@ -29,7 +28,6 @@ const ESTADOS_DROPI = [
 const ESTADO_ICONS = {
   "PENDIENTE CONFIRMACION": { icon: "bx bx-time", color: "#f59e0b" },
   CANCELADO: { icon: "bx bx-x-circle", color: "#ef4444" },
-  "CARRITOS ABANDONADOS": { icon: "bx bx-cart", color: "#f97316" },
   PENDIENTE: { icon: "bx bx-loader", color: "#eab308" },
   "GUIA GENERADA": { icon: "bx bx-file", color: "#6366f1" },
   "EN TRANSITO": { icon: "bx bx-car", color: "#3b82f6" },

@@ -165,20 +165,28 @@ const UsuariosView = () => {
       }
 
       if (editingId) {
-        await chatApi.post("/usuarios_chat_center/actualizarUsuario", {
-          id_sub_usuario: editingId,
-          ...payload,
-        });
+        await chatApi.post(
+          "/usuarios_chat_center/actualizarUsuario",
+          {
+            id_sub_usuario: editingId,
+            ...payload,
+          },
+          { silentError: true },
+        );
         Swal.fire({
           icon: "success",
           title: "Usuario actualizado",
           text: "Los datos del usuario fueron actualizados correctamente",
         });
       } else {
-        await chatApi.post("/usuarios_chat_center/agregarUsuario", {
-          id_usuario,
-          ...payload,
-        });
+        await chatApi.post(
+          "/usuarios_chat_center/agregarUsuario",
+          {
+            id_usuario,
+            ...payload,
+          },
+          { silentError: true },
+        );
         Swal.fire({
           icon: "success",
           title: "Usuario creado",
@@ -257,6 +265,7 @@ const UsuariosView = () => {
       try {
         await chatApi.delete("/usuarios_chat_center/eliminarSubUsuario", {
           data: { id_sub_usuario: u.id_sub_usuario },
+          silentError: true,
         });
         Swal.fire({
           icon: "success",
@@ -1009,7 +1018,9 @@ const UsuariosView = () => {
                           <option value="">Seleccione rol</option>
                           <option value="administrador">Administrador</option>
                           <option value="ventas">Ventas</option>
-                          <option value="admin_limitado">Administrador limitado</option>
+                          <option value="admin_limitado">
+                            Administrador limitado
+                          </option>
                         </select>
                       </div>
                     </div>

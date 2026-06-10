@@ -409,12 +409,15 @@ const PlanesView = () => {
   const [pendingChange, setPendingChange] = useState(null);
   const [pendingEffectiveAt, setPendingEffectiveAt] = useState(null);
   const [addonConexiones, setAddonConexiones] = useState(0);
+  const [addonSubusuarios, setAddonSubusuarios] = useState(0);
   const [modalSusp, setModalSusp] = useState({
     open: false,
     idPlan: null,
     planNombre: "",
     conexiones: [],
-    limite: 1,
+    limiteConexiones: 0,
+    subusuarios: [],
+    limiteSubusuarios: 0,
   });
   const [modalSuspLoading, setModalSuspLoading] = useState(false);
   const cerrarModalSusp = () =>
@@ -423,7 +426,9 @@ const PlanesView = () => {
       idPlan: null,
       planNombre: "",
       conexiones: [],
-      limite: 1,
+      limiteConexiones: 0,
+      subusuarios: [],
+      limiteSubusuarios: 0,
     });
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -471,6 +476,33 @@ const PlanesView = () => {
     setPendingEffectiveAt(plan?.pending_effective_at ?? null);
     setAddonConexiones(Number(plan?.conexiones_adicionales || 0));
     return plan;
+  };
+
+  // Subusuarios ACTIVOS elegibles (excluye al admin principal, que nunca se suspende)
+  const fetchSubusuariosActivos = async () => {
+    const token = localStorage.getItem("token");
+    const decoded = JSON.parse(atob(token.split(".")[1]));
+    const id_usuario = decoded.id_usuario || decoded.id_users;
+    let lista = [];
+    try {
+      const res = await chatApi.post(
+        "usuarios_chat_center/listarUsuarios",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      lista = res?.data?.data || [];
+    } catch {
+      lista = []; // listarUsuarios responde 400 si no hay subusuarios
+    }
+    // Solo activos
+    const activos = lista.filter((s) => Number(s.suspendido || 0) === 0);
+    // Admin principal = el más antiguo con rol 'administrador'
+    const admins = activos
+      .filter((s) => String(s.rol || "").toLowerCase() === "administrador")
+      .sort((a, b) => Number(a.id_sub_usuario) - Number(b.id_sub_usuario));
+    const adminPrincipalId = admins[0]?.id_sub_usuario ?? null;
+    // Elegibles a suspender = activos menos el admin principal
+    return activos.filter((s) => s.id_sub_usuario !== adminPrincipalId);
   };
 
   const waitForWebhookSync = async ({
@@ -726,22 +758,40 @@ const PlanesView = () => {
       const esDowngrade = precioActual > 0 && precioDestino < precioActual;
 
       if (esDowngrade) {
-        const limite = getAgentes(planDestino) + Number(addonConexiones || 0);
+        // Límite de conexiones del plan destino (plan + addon)
+        const limiteConexiones =
+          getAgentes(planDestino) + Number(addonConexiones || 0);
+        // Límite de subusuarios elegibles (max + addon − 1; el admin principal siempre se queda)
+        const limiteSubusuarios = Math.max(
+          0,
+          getSubusuarios(planDestino) + Number(addonSubusuarios || 0) - 1,
+        );
+
         let conexiones = [];
+        let subusuarios = [];
         try {
-          conexiones = await fetchConexionesActivas();
+          [conexiones, subusuarios] = await Promise.all([
+            fetchConexionesActivas(),
+            fetchSubusuariosActivos(),
+          ]);
         } catch {
-          conexiones = [];
+          conexiones = conexiones || [];
+          subusuarios = subusuarios || [];
         }
-        const sobrantes = conexiones.length - limite;
-        if (sobrantes > 0) {
+
+        const sobrantesConex = conexiones.length - limiteConexiones;
+        const sobrantesSub = subusuarios.length - limiteSubusuarios;
+
+        // Abrir el modal si CUALQUIERA de los dos recursos se excede
+        if (sobrantesConex > 0 || sobrantesSub > 0) {
           setModalSusp({
             open: true,
             idPlan: Number(idPlan),
             planNombre: planDestino?.nombre_plan || "",
             conexiones,
-            limite,
-            addon: Number(addonConexiones || 0),
+            limiteConexiones,
+            subusuarios,
+            limiteSubusuarios,
           });
           return;
         }
@@ -752,8 +802,11 @@ const PlanesView = () => {
     return seleccionarPlan(idPlan);
   };
 
-  // Confirmar el downgrade enviando las conexiones que se desactivarán al corte
-  const confirmarDowngradeConSuspension = async (idsSuspender) => {
+  // Confirmar el downgrade enviando conexiones Y subusuarios a desactivar al corte
+  const confirmarDowngradeConSuspension = async ({
+    conexionesSuspender = [],
+    subusuariosSuspender = [],
+  } = {}) => {
     setModalSuspLoading(true);
     try {
       const token = localStorage.getItem("token");
@@ -764,7 +817,8 @@ const PlanesView = () => {
         {
           id_usuario,
           id_plan_nuevo: modalSusp.idPlan,
-          conexiones_suspender: idsSuspender,
+          conexiones_suspender: conexionesSuspender,
+          subusuarios_suspender: subusuariosSuspender,
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -1379,13 +1433,14 @@ const PlanesView = () => {
       <ModalSeleccionConexiones
         open={modalSusp.open}
         onClose={() => !modalSuspLoading && cerrarModalSusp()}
-        conexiones={modalSusp.conexiones}
-        limite={modalSusp.limite}
-        limiteBase={modalSusp.limiteBase}
-        addon={modalSusp.addon}
         planNombre={modalSusp.planNombre}
         fechaEfectiva={null}
         loading={modalSuspLoading}
+        conexiones={modalSusp.conexiones}
+        limiteConexiones={modalSusp.limiteConexiones}
+        addonConexiones={addonConexiones}
+        subusuarios={modalSusp.subusuarios}
+        limiteSubusuarios={modalSusp.limiteSubusuarios}
         onConfirm={confirmarDowngradeConSuspension}
       />
     </div>
