@@ -337,6 +337,17 @@ function MainLayout({ children }) {
     navigate(path);
   };
 
+  // ─────────────────────────────────────────────────────────────
+  const handleNavClick = (e, path) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) {
+      setSliderOpen(false);
+      return;
+    }
+    e.preventDefault();
+    goTo(path);
+    setSliderOpen(false);
+  };
+
   const rutaEstados =
     tipo_configuracion === "ventas"
       ? "/estados_contactos_ventas"
@@ -413,7 +424,8 @@ function MainLayout({ children }) {
           aria-hidden={!sliderOpen}
         >
           <div className="mt-6">
-            {/* Conexiones */}
+            {/* Conexiones — SIN href a propósito: NO debe abrirse en pestaña
+                nueva porque borra el localStorage (id_configuracion, etc.) */}
             <a
               onClick={(e) => {
                 e.preventDefault();
@@ -430,7 +442,7 @@ function MainLayout({ children }) {
               </span>
             </a>
 
-            {/* Chat Center */}
+            {/* Chat Center — se deja igual (no se habilita pestaña nueva) */}
             <a
               href="/chat"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
@@ -472,52 +484,44 @@ function MainLayout({ children }) {
               style={{ maxHeight: openMenu === "contacto" ? "260px" : "0px" }}
             >
               <div className="ml-10 flex flex-col py-2">
-                <button
+                <a
+                  href="/contactos"
+                  onClick={(e) => handleNavClick(e, "/contactos")}
                   className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                     location.pathname === "/contactos"
                       ? "font-semibold text-blue-600"
                       : ""
                   }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    goTo("/contactos");
-                  }}
                 >
                   <i className="bx bx-book-content text-xl text-gray-600 group-hover:text-blue-600"></i>
                   <span>Lista de contactos</span>
-                </button>
+                </a>
 
-                <button
+                <a
+                  href={rutaEstados}
+                  onClick={(e) => handleNavClick(e, rutaEstados)}
                   className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                     location.pathname === rutaEstados
                       ? "font-semibold text-blue-600"
                       : ""
                   }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    goTo(rutaEstados);
-                    setSliderOpen(false);
-                  }}
                 >
                   <i className="bx bx-check-shield text-xl text-gray-600 group-hover:text-blue-600"></i>
                   <span>Estado de contactos</span>
-                </button>
+                </a>
 
-                <button
+                <a
+                  href="/valoraciones"
+                  onClick={(e) => handleNavClick(e, "/valoraciones")}
                   className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                     location.pathname === "/valoraciones"
                       ? "font-semibold text-blue-600"
                       : ""
                   }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    goTo("/valoraciones");
-                    setSliderOpen(false);
-                  }}
                 >
                   <i className="bx bx-bar-chart-alt-2 text-xl text-gray-600 group-hover:text-blue-600"></i>
                   <span>Valoraciones</span>
-                </button>
+                </a>
               </div>
             </div>
 
@@ -555,43 +559,31 @@ function MainLayout({ children }) {
                 }}
               >
                 <div className="ml-10 flex flex-col py-2">
-                  <button
+                  <a
+                    href="/canal-conexiones"
+                    onClick={(e) => handleNavClick(e, "/canal-conexiones")}
                     className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                       location.pathname === "/canal-conexiones"
                         ? "font-semibold text-blue-600"
                         : ""
                     }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      localStorage.setItem(
-                        "id_configuracion",
-                        id_configuracion,
-                      );
-                      localStorage.setItem(
-                        "id_plataforma_conf",
-                        id_plataforma_conf,
-                      );
-                      navigate("/canal-conexiones");
-                    }}
                   >
                     <i className="bx bx-network-chart text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Canal de Conexiones</span>
-                  </button>
+                  </a>
 
-                  <button
+                  <a
+                    href="/asistentes"
+                    onClick={(e) => handleNavClick(e, "/asistentes")}
                     className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                       location.pathname === "/asistentes"
                         ? "font-semibold text-blue-600"
                         : ""
                     }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      goTo("/asistentes");
-                    }}
                   >
                     <i className="bx bx-support text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Asistentes</span>
-                  </button>
+                  </a>
 
                   {/* ===== Dropi (submenu) ===== */}
                   <div className="mt-1">
@@ -625,36 +617,32 @@ function MainLayout({ children }) {
                       }}
                     >
                       <div className="ml-6 flex flex-col py-2">
-                        <button
+                        <a
+                          href="/dropi"
+                          onClick={(e) => handleNavClick(e, "/dropi")}
                           className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                             location.pathname === "/dropi"
                               ? "font-semibold text-blue-600"
                               : ""
                           }`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            goTo("/dropi");
-                          }}
                         >
                           <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
                           <span>Configuración</span>
-                        </button>
+                        </a>
 
                         {isDropiLinked && (
-                          <button
+                          <a
+                            href="/dropi/pedidos"
+                            onClick={(e) => handleNavClick(e, "/dropi/pedidos")}
                             className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                               location.pathname.startsWith("/dropi/pedidos")
                                 ? "font-semibold text-blue-600"
                                 : ""
                             }`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              goTo("/dropi/pedidos");
-                            }}
                           >
                             <i className="bx bx-package text-lg text-gray-600 group-hover:text-blue-600"></i>
                             <span>Pedidos</span>
-                          </button>
+                          </a>
                         )}
                       </div>
                     </div>
@@ -691,35 +679,33 @@ function MainLayout({ children }) {
                       }}
                     >
                       <div className="ml-6 flex flex-col py-2">
-                        <button
+                        <a
+                          href="/shopify"
+                          onClick={(e) => handleNavClick(e, "/shopify")}
                           className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                             location.pathname === "/shopify"
                               ? "font-semibold text-blue-600"
                               : ""
                           }`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            goTo("/shopify");
-                          }}
                         >
                           <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
                           <span>Configuración</span>
-                        </button>
+                        </a>
 
-                        <button
+                        <a
+                          href="/shopify/abandonados"
+                          onClick={(e) =>
+                            handleNavClick(e, "/shopify/abandonados")
+                          }
                           className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                             location.pathname.startsWith("/shopify/abandonados")
                               ? "font-semibold text-blue-600"
                               : ""
                           }`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            goTo("/shopify/abandonados");
-                          }}
                         >
                           <i className="bx bx-cart text-lg text-gray-600 group-hover:text-blue-600"></i>
                           <span>Carritos abandonados</span>
-                        </button>
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -758,8 +744,27 @@ function MainLayout({ children }) {
                 }}
               >
                 <div className="ml-10 flex flex-col py-2">
-                  <button
-                    className={`group flex items-center gap-3 text-left px-4 py-2 ${
+                  {/* Calendario: href solo si tiene acceso (si está bloqueado no se
+                      abre en pestaña nueva y el click normal muestra el aviso) */}
+                  <a
+                    href={canAccessCalendar ? "/calendario" : undefined}
+                    onClick={(e) => {
+                      // pestaña nueva solo si tiene acceso
+                      if (
+                        canAccessCalendar &&
+                        (e.metaKey ||
+                          e.ctrlKey ||
+                          e.shiftKey ||
+                          e.altKey ||
+                          e.button === 1)
+                      ) {
+                        setSliderOpen(false);
+                        return;
+                      }
+                      handleCalendarioClick(e); // preventDefault + lógica de bloqueo
+                      setSliderOpen(false);
+                    }}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 cursor-pointer ${
                       location.pathname === "/calendario"
                         ? "font-semibold text-blue-600"
                         : ""
@@ -768,7 +773,6 @@ function MainLayout({ children }) {
                         ? "text-gray-700 hover:text-red-600"
                         : "hover:text-blue-600"
                     }`}
-                    onClick={handleCalendarioClick}
                   >
                     <i
                       className={`bx text-xl ${
@@ -784,18 +788,32 @@ function MainLayout({ children }) {
                         {isCalendarBlocked ? "Bloqueado" : "Beta"}
                       </span>
                     </span>
-                  </button>
+                  </a>
                 </div>
 
                 {tipo_configuracion === "kanban" && (
                   <div className="ml-10 flex flex-col py-2">
-                    <button
-                      className={`group flex items-center gap-3 text-left px-4 py-2 ${
+                    <a
+                      href="/kanban_config"
+                      onClick={(e) => {
+                        if (
+                          e.metaKey ||
+                          e.ctrlKey ||
+                          e.shiftKey ||
+                          e.altKey ||
+                          e.button === 1
+                        ) {
+                          setSliderOpen(false);
+                          return;
+                        }
+                        handleKanbanConfigClick(e); // preventDefault + setItem + navigate
+                        setSliderOpen(false);
+                      }}
+                      className={`group flex items-center gap-3 text-left px-4 py-2 cursor-pointer ${
                         location.pathname === "/kanban_config"
                           ? "font-semibold text-blue-600"
                           : ""
                       }`}
-                      onClick={handleKanbanConfigClick}
                     >
                       <i
                         className={`bx text-xl ${"bx-bot text-gray-600 group-hover:text-blue-600"}`}
@@ -804,7 +822,7 @@ function MainLayout({ children }) {
                       <span className="flex items-center gap-2">
                         Configurar agentes
                       </span>
-                    </button>
+                    </a>
                   </div>
                 )}
               </div>
@@ -843,12 +861,9 @@ function MainLayout({ children }) {
                 }}
               >
                 <div className="ml-10 flex flex-col py-2">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate("/productos");
-                    }}
+                  <a
+                    href="/productos"
+                    onClick={(e) => handleNavClick(e, "/productos")}
                     className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                       location.pathname === "/productos"
                         ? "font-semibold text-blue-600"
@@ -857,14 +872,11 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bx-list-ul text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Listado</span>
-                  </button>
+                  </a>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate("/categorias");
-                    }}
+                  <a
+                    href="/categorias"
+                    onClick={(e) => handleNavClick(e, "/categorias")}
                     className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                       location.pathname === "/categorias"
                         ? "font-semibold text-blue-600"
@@ -873,14 +885,11 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bx-grid-alt text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Categorías</span>
-                  </button>
+                  </a>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate("/catalogos");
-                    }}
+                  <a
+                    href="/catalogos"
+                    onClick={(e) => handleNavClick(e, "/catalogos")}
                     className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
                       location.pathname === "/catalogos"
                         ? "font-semibold text-blue-600"
@@ -889,7 +898,7 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bx-collection text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Catálogos</span>
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
@@ -919,7 +928,7 @@ function MainLayout({ children }) {
         </div>
       </div>
 
-      <FloatingSupportChat />
+      {/* <FloatingSupportChat /> */}
       {/* <Footer /> */}
     </div>
   );

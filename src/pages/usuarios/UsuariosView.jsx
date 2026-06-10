@@ -3,8 +3,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
-import { motion, AnimatePresence } from "framer-motion";
-import "./usuarios.css";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+
+// Toast flotante (esquina superior derecha) — no lo tapa el blur del modal
+const Toast = Swal.mixin({
+  toast: true,
+  position: "top-end",
+  showConfirmButton: false,
+  timer: 3500,
+  timerProgressBar: true,
+  didOpen: (el) => {
+    el.addEventListener("mouseenter", Swal.stopTimer);
+    el.addEventListener("mouseleave", Swal.resumeTimer);
+  },
+});
 
 const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
   <th
@@ -41,17 +53,32 @@ const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
   </th>
 );
 
-const HeaderStat = ({ label, value }) => (
-  <div className="px-4 py-3 rounded-xl bg-white/30 backdrop-blur ring-1 ring-white/50 shadow-sm">
-    <div className="text-xs uppercase tracking-wide text-white/80">{label}</div>
-    <div className="text-lg font-semibold text-white">{value}</div>
+const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
+  <div className="group relative overflow-hidden rounded-xl bg-white/[0.07] ring-1 ring-white/10 backdrop-blur-xl px-3.5 py-2.5 transition-all duration-300 hover:bg-white/[0.11] hover:ring-white/20">
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+    />
+    <div className="relative flex items-center justify-between">
+      <span
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/10 ${accent}`}
+      >
+        <i className={`${icon} text-base`} />
+      </span>
+      <span className="text-2xl font-extrabold tracking-tight text-white tabular-nums leading-none">
+        {value}
+      </span>
+    </div>
+    <div className="relative mt-2 text-[10px] font-medium uppercase tracking-[0.12em] text-white/55">
+      {label}
+    </div>
   </div>
 );
 
 const rolBadge = (rol) => {
   const r = String(rol || "").toLowerCase();
   if (r.includes("admin"))
-    return "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200";
+    return "bg-[#eff6ff] text-[#1d4ed8] ring-1 ring-[#1d4ed8]/20";
   return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
 };
 
@@ -77,16 +104,45 @@ const UsuariosView = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false); // opciones de upgrade
+  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false); // vista upgrade
   const [limitMessage, setLimitMessage] = useState(""); // mensaje límite
   const [isClosing, setIsClosing] = useState(false);
 
-  // Variantes para las transiciones (igual que en CrearConfiguracionModal.jsx)
+  // Estados de carga (anti doble clic)
+  const [subuLoading, setSubuLoading] = useState(false); // comprando subusuario
+  const [savingUsuario, setSavingUsuario] = useState(false); // guardando usuario
+
+  const reduce = useReducedMotion();
+
+  // Variantes para el switch interno de vistas (form ↔ upgrade)
   const containerVariants = {
     hidden: { opacity: 0, y: 12 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.28 } },
     exit: { opacity: 0, y: 12, transition: { duration: 0.2 } },
   };
+
+  // Animación del modal sin depender de CSS externo + reduced-motion
+  const overlayV = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.2 } },
+    exit: { opacity: 0, transition: { duration: 0.2 } },
+  };
+  const panelV = reduce
+    ? {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { duration: 0.2 } },
+        exit: { opacity: 0, transition: { duration: 0.15 } },
+      }
+    : {
+        hidden: { opacity: 0, scale: 0.96, y: 12 },
+        visible: {
+          opacity: 1,
+          scale: 1,
+          y: 0,
+          transition: { type: "spring", stiffness: 280, damping: 24 },
+        },
+        exit: { opacity: 0, scale: 0.97, y: 8, transition: { duration: 0.18 } },
+      };
 
   const fetchUsuarios = async () => {
     const token = localStorage.getItem("token");
@@ -123,29 +179,29 @@ const UsuariosView = () => {
   }, []);
 
   const handleClose = () => {
-    setIsClosing(true); // Activa la animación de cierre (si usas clases CSS propias)
+    if (subuLoading || savingUsuario) return; // no cerrar a mitad de una petición
+    setIsClosing(true);
     setTimeout(() => {
-      setModalOpen(false); // Cierra el modal
+      setModalOpen(false);
       setForm({
         usuario: "",
         password: "",
         email: "",
         nombre_encargado: "",
         rol: "",
-      }); // Limpia el formulario
-      setEditingId(null); // Asegura que no esté en modo de edición
-      setShowPassword(false); // Restablece el estado de la contraseña
-      setShowUpgradeOptions(false); // Oculta upgrade
-      setLimitMessage(""); // Limpia el mensaje de error
-      // Evita error si no existe en este componente
-      if (typeof setUserData === "function") setUserData(null);
-
-      setIsClosing(false); // Termina la animación
+      });
+      setEditingId(null);
+      setShowPassword(false);
+      setShowUpgradeOptions(false);
+      setLimitMessage("");
+      setIsClosing(false);
     }, 300);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (savingUsuario) return;
+
     const token = localStorage.getItem("token");
     if (!token) {
       return Swal.fire({
@@ -158,8 +214,9 @@ const UsuariosView = () => {
     const id_usuario = decoded.id_usuario;
 
     const payload = { ...form };
+    setSavingUsuario(true);
     try {
-      // ✅ si estoy editando y password está vacío/espacios, no lo mando
+      // si edito y password está vacío, no lo mando
       if (editingId && !payload.password?.trim()) {
         delete payload.password;
       }
@@ -167,30 +224,22 @@ const UsuariosView = () => {
       if (editingId) {
         await chatApi.post(
           "/usuarios_chat_center/actualizarUsuario",
-          {
-            id_sub_usuario: editingId,
-            ...payload,
-          },
+          { id_sub_usuario: editingId, ...payload },
           { silentError: true },
         );
-        Swal.fire({
+        Toast.fire({
           icon: "success",
-          title: "Usuario actualizado",
-          text: "Los datos del usuario fueron actualizados correctamente",
+          title: "Usuario actualizado correctamente.",
         });
       } else {
         await chatApi.post(
           "/usuarios_chat_center/agregarUsuario",
-          {
-            id_usuario,
-            ...payload,
-          },
+          { id_usuario, ...payload },
           { silentError: true },
         );
-        Swal.fire({
+        Toast.fire({
           icon: "success",
-          title: "Usuario creado",
-          text: "El usuario fue creado correctamente",
+          title: "Usuario creado correctamente.",
         });
       }
       setModalOpen(false);
@@ -205,26 +254,30 @@ const UsuariosView = () => {
       fetchUsuarios();
     } catch (error) {
       const httpStatus = error?.response?.status;
+      const code = error?.response?.data?.code;
+      const backendMsg = error?.response?.data?.message;
 
-      // Límite de plan
+      // Límite de plan → vista upgrade
       if (
-        httpStatus === 403 &&
-        error?.response?.data?.code === "QUOTA_EXCEEDED"
+        (httpStatus === 403 && code === "QUOTA_EXCEEDED") ||
+        httpStatus === 409
       ) {
-        const backendMsg = error?.response?.data?.message;
         setLimitMessage(
-          backendMsg || "Ha alcanzado el límite de conexiones de su plan.",
+          backendMsg || "Has alcanzado el límite de usuarios de tu plan.",
         );
         setShowUpgradeOptions(true);
         return;
       }
 
-      // Otros errores
       Swal.fire({
         icon: "error",
         title: "Error al guardar",
-        text: error.response?.data?.message || "No se pudo guardar el usuario",
+        text: backendMsg || "No se pudo guardar el usuario",
+        confirmButtonColor: "#1d4ed8",
+        customClass: { popup: "rounded-2xl" },
       });
+    } finally {
+      setSavingUsuario(false);
     }
   };
 
@@ -249,6 +302,8 @@ const UsuariosView = () => {
       setEditingId(null);
     }
     setShowPassword(false);
+    setShowUpgradeOptions(false);
+    setLimitMessage("");
     setModalOpen(true);
   };
 
@@ -260,6 +315,9 @@ const UsuariosView = () => {
       showCancelButton: true,
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      customClass: { popup: "rounded-2xl" },
     });
     if (result.isConfirmed) {
       try {
@@ -267,12 +325,9 @@ const UsuariosView = () => {
           data: { id_sub_usuario: u.id_sub_usuario },
           silentError: true,
         });
-        Swal.fire({
+        Toast.fire({
           icon: "success",
-          title: "Usuario eliminado",
-          text: u.usuario,
-          timer: 1500,
-          showConfirmButton: false,
+          title: "Usuario eliminado.",
         });
         fetchUsuarios();
       } catch {
@@ -280,6 +335,8 @@ const UsuariosView = () => {
           icon: "error",
           title: "Error al eliminar",
           text: "No se pudo eliminar el usuario",
+          confirmButtonColor: "#1d4ed8",
+          customClass: { popup: "rounded-2xl" },
         });
       }
     }
@@ -344,31 +401,15 @@ const UsuariosView = () => {
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
-    const addon = qs.get("addon"); // conexiones extra
-    const subu = qs.get("subu"); // subusuarios extra
-
-    if (addon === "ok") {
-      Swal.fire({
-        icon: "success",
-        title: "Pago exitoso",
-        text: "Se añadió 1 conexión adicional a tu cuenta.",
-      });
-      fetchUsuarios();
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (addon === "cancel") {
-      Swal.fire({
-        icon: "info",
-        title: "Pago cancelado",
-        text: "No se realizó ningún cargo.",
-      });
-      window.history.replaceState({}, "", window.location.pathname);
-    }
+    const subu = qs.get("subu"); // retorno opcional de pago
 
     if (subu === "ok") {
       Swal.fire({
         icon: "success",
         title: "Pago exitoso",
         text: "Se añadió 1 subusuario adicional a tu cuenta.",
+        confirmButtonColor: "#1d4ed8",
+        customClass: { popup: "rounded-2xl" },
       });
       fetchUsuarios();
       window.history.replaceState({}, "", window.location.pathname);
@@ -377,92 +418,169 @@ const UsuariosView = () => {
         icon: "info",
         title: "Pago cancelado",
         text: "No se realizó ningún cargo.",
+        confirmButtonColor: "#1d4ed8",
+        customClass: { popup: "rounded-2xl" },
       });
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
 
   const onUpgradeClick = () => {
-    window.location.href = "/planes"; // Redirige a la página de planes
+    if (subuLoading) return;
+    window.location.href = "/planes";
   };
 
-  // NUEVO: Crea la sesión de Stripe - Subusuario adicional
+  // Comprar subusuario adicional — mismo endpoint genérico que conexión, cambia la clave
   const onBuyAddonSubusuarioClick = async () => {
+    if (subuLoading) return;
+    setSubuLoading(true);
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        return Swal.fire({
-          icon: "error",
-          title: "Token faltante",
-          text: "No se encontró token",
-        });
+        Toast.fire({ icon: "error", title: "Sesión expirada. Inicia sesión." });
+        return;
       }
       const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario;
 
-      const base = window.location.origin;
-      const res = await chatApi.post(
-        "/stripe_plan/crearSesionAddonSubusuario",
-        {
-          id_usuario,
-          success_url: `${base}/usuarios?addon_subusuario=ok`,
-          cancel_url: `${base}/usuarios?addon_subusuario=cancel`,
-        },
-      );
+      const res = await chatApi.post("/stripe_plan/comprarAddon", {
+        id_usuario,
+        clave: "subusuario_adicional",
+        cantidad: 1,
+      });
+      const data = res?.data || {};
 
-      if (res?.data?.url) {
-        window.location.href = res.data.url; // Stripe Checkout
-      } else {
-        throw new Error("No se recibió la URL de Stripe.");
+      // Cobrado y aplicado al instante (o gratis en trial)
+      if (data.success && !data.actionRequired) {
+        await Swal.fire({
+          icon: "success",
+          iconColor: "#16a34a",
+          title: data.en_trial
+            ? "¡Activado en tu prueba!"
+            : "¡Subusuario adicional activado!",
+          html: `
+            <p style="margin:6px 0 0;color:#475569;font-size:14px;line-height:1.55">
+              ${
+                data.en_trial
+                  ? "Lo usarás <b style='color:#0a1a36'>gratis durante tu prueba</b>. Se cobrará junto con tu plan cuando termine el período."
+                  : "Tu nuevo cupo ya está disponible.<br/>Ya puedes crear un usuario más."
+              }
+            </p>
+          `,
+          timer: 5000,
+          timerProgressBar: true,
+          showConfirmButton: true,
+          confirmButtonText: "Crear ahora",
+          confirmButtonColor: "#1d4ed8",
+          allowOutsideClick: false,
+          customClass: { popup: "rounded-2xl" },
+        });
+        setShowUpgradeOptions(false);
+        fetchUsuarios();
+        return;
       }
+
+      // Requiere completar pago (3DS) → página de Stripe
+      if (data.actionRequired && data.hosted_invoice_url) {
+        window.location.href = data.hosted_invoice_url;
+        return;
+      }
+
+      throw new Error(data.message || "No se pudo procesar el subusuario.");
     } catch (e) {
       Swal.fire({
         icon: "error",
-        title: "No se pudo iniciar el pago",
+        title: "No se pudo agregar el subusuario",
         text: e?.response?.data?.message || e.message || "Intente nuevamente.",
+        confirmButtonColor: "#1d4ed8",
+        customClass: { popup: "rounded-2xl" },
       });
+    } finally {
+      setSubuLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 md:px-6">
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
-        {/* Header */}
-        <header className="relative isolate overflow-hidden">
-          <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                  Gestión de Usuarios
+        {/* Header — mismo estilo que Conexiones */}
+        <header className="relative isolate overflow-hidden rounded-t-2xl">
+          {/* Fondo navy de marca + capas de profundidad */}
+          <div className="absolute inset-0 bg-[#171931]" aria-hidden />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.6]"
+            style={{
+              backgroundImage:
+                "radial-gradient(600px circle at 0% 0%, rgba(79,70,229,0.25), transparent 45%), radial-gradient(500px circle at 100% 120%, rgba(99,102,241,0.18), transparent 40%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
+
+          <div className="relative px-5 py-4 md:px-7 md:py-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70 ring-1 ring-white/15">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  </span>
+                  ImporChat · Usuarios
+                </span>
+                <h1 className="mt-2 text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                  Tu equipo,{" "}
+                  <span className="bg-gradient-to-r from-indigo-300 to-violet-200 bg-clip-text text-transparent">
+                    listo para crecer
+                  </span>
                 </h1>
-                <p className="text-white/80 text-sm">
-                  Crea, edita y controla accesos del equipo.
+                <p className="mt-0.5 text-white/55 text-[13px] leading-snug truncate">
+                  Crea accesos, asigna roles y controla qué puede hacer cada
+                  miembro.
                 </p>
               </div>
+
               <button
                 onClick={() => openModal()}
-                className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+                className="group shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-white text-[#171931] rounded-xl font-semibold text-sm shadow-lg shadow-black/20 ring-1 ring-white/40 hover:shadow-xl hover:shadow-indigo-900/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
               >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-                </svg>
-                Nuevo
+                <i className="bx bx-plus text-xl text-[#4f46e5] transition-transform duration-200 group-hover:rotate-90" />
+                Nuevo usuario
               </button>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <HeaderStat label="Total usuarios" value={usuarios.length} />
-              <HeaderStat label="En esta vista" value={listaProcesada.length} />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              <HeaderStat
+                label="Total usuarios"
+                value={usuarios.length}
+                icon="bx bx-group"
+                accent="text-indigo-300"
+              />
+              <HeaderStat
+                label="En esta vista"
+                value={listaProcesada.length}
+                icon="bx bx-show"
+                accent="text-emerald-300"
+              />
               <HeaderStat
                 label="Página"
                 value={`${currentPage}/${totalPages}`}
+                icon="bx bx-book-open"
+                accent="text-amber-300"
               />
-              <HeaderStat label="Resultados/página" value={itemsPerPage} />
+              <HeaderStat
+                label="Por página"
+                value={itemsPerPage}
+                icon="bx bx-list-ul"
+                accent="text-sky-300"
+              />
             </div>
           </div>
         </header>
@@ -472,13 +590,7 @@ const UsuariosView = () => {
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <div className="relative w-full lg:w-1/2">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path d="M12.9 14.32a8 8 0 1 1 1.41-1.41l3.39 3.38a1 1 0 0 1-1.42 1.42l-3.38-3.39zM14 8a6 6 0 1 0-12 0 6 6 0 0 0 12 0z" />
-                </svg>
+                <i className="bx bx-search text-lg"></i>
               </span>
               <input
                 type="text"
@@ -488,13 +600,13 @@ const UsuariosView = () => {
                   setSearch(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] outline-none transition-all"
               />
             </div>
 
             <div className="flex gap-3 w-full lg:w-auto">
               <select
-                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                className="w-full lg:w-56 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] outline-none transition-all"
                 value={rolFiltro}
                 onChange={(e) => setRolFiltro(e.target.value)}
               >
@@ -519,14 +631,8 @@ const UsuariosView = () => {
             </div>
           ) : listaProcesada.length === 0 ? (
             <div className="flex-1 p-10 text-center flex flex-col items-center justify-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg
-                  className="w-10 h-10 text-slate-400"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M21 19l-5.6-5.6a7 7 0 1 0-2 2L19 21l2-2zM5 10a5 5 0 1 1 10 0A5 5 0 0 1 5 10z" />
-                </svg>
+              <div className="w-20 h-20 rounded-full bg-[#eff6ff] flex items-center justify-center">
+                <i className="bx bx-user-x text-4xl text-[#1d4ed8]"></i>
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-800">
@@ -538,15 +644,9 @@ const UsuariosView = () => {
               </div>
               <button
                 onClick={() => openModal()}
-                className="inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition"
+                className="inline-flex items-center gap-2 bg-[#1d4ed8] text-white hover:bg-[#1e40af] px-4 py-2.5 rounded-lg shadow-sm transition"
               >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-                </svg>
+                <i className="bx bx-plus text-xl"></i>
                 Agregar usuario
               </button>
             </div>
@@ -592,7 +692,7 @@ const UsuariosView = () => {
                         </td>
                         <td className="p-3">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-semibold ${rolBadge(
+                            className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${rolBadge(
                               u.rol,
                             )}`}
                           >
@@ -603,30 +703,18 @@ const UsuariosView = () => {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => openModal(u)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 hover:bg-[#eff6ff] hover:border-[#1d4ed8]/30 hover:text-[#1d4ed8] text-slate-700 transition-colors"
                               title="Editar"
                             >
-                              <svg
-                                className="w-4 h-4"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                              >
-                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
-                              </svg>
+                              <i className="bx bx-edit-alt text-base"></i>
                               Editar
                             </button>
                             <button
                               onClick={() => handleDelete(u)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
                               title="Eliminar"
                             >
-                              <svg
-                                className="w-4 h-4"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                              >
-                                <path d="M9 3a1 1 0 0 0-1 1v1H4a1 1 0 1 0 0 2h1v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7h1a1 1 0 1 0 0-2h-4V4a1 1 0 0 0-1-1H9zm2 4a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7zm6 0a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7z" />
-                              </svg>
+                              <i className="bx bx-trash text-base"></i>
                               Eliminar
                             </button>
                           </div>
@@ -661,7 +749,7 @@ const UsuariosView = () => {
                 </div>
                 <div className="inline-flex items-center gap-2">
                   <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50 hover:bg-slate-50"
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                     aria-label="Primera página"
@@ -669,7 +757,7 @@ const UsuariosView = () => {
                     «
                   </button>
                   <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50 hover:bg-slate-50"
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     aria-label="Anterior"
@@ -681,7 +769,7 @@ const UsuariosView = () => {
                     <strong>{totalPages}</strong>
                   </span>
                   <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50 hover:bg-slate-50"
                     onClick={() =>
                       setCurrentPage((p) => Math.min(totalPages, p + 1))
                     }
@@ -691,7 +779,7 @@ const UsuariosView = () => {
                     ›
                   </button>
                   <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50 hover:bg-slate-50"
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
                     aria-label="Última página"
@@ -708,210 +796,226 @@ const UsuariosView = () => {
       {/* FAB mobile */}
       <button
         onClick={() => openModal()}
-        className="fixed bottom-5 right-5 md:hidden inline-flex items-center justify-center h-12 w-12 rounded-full shadow-lg bg-indigo-600 text-white hover:bg-indigo-700"
+        className="fixed bottom-5 right-5 md:hidden inline-flex items-center justify-center h-12 w-12 rounded-full shadow-lg bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
         aria-label="Agregar usuario"
       >
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-        </svg>
+        <i className="bx bx-plus text-2xl"></i>
       </button>
 
-      {/* Modal agregar/editar */}
+      {/* Modal */}
       {modalOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+        <motion.div
+          variants={overlayV}
+          initial="hidden"
+          animate={isClosing ? "exit" : "visible"}
+          className="fixed inset-0 bg-[#0a1a36]/50 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          onMouseDown={(e) => e.target === e.currentTarget && handleClose()}
           onKeyDown={(e) => e.key === "Escape" && handleClose()}
         >
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-3overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="text-xl font-semibold">
-                {editingId ? "Editar usuario" : "Agregar usuario"}
-              </h2>
-              <button
-                onClick={() => handleClose()}
-                className="p-2 rounded-lg hover:bg-slate-100"
-                aria-label="Cerrar"
-              >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
+          <motion.div
+            variants={panelV}
+            initial="hidden"
+            animate={isClosing ? "exit" : "visible"}
+            className={`bg-white rounded-2xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5 transition-[max-width] duration-300 ${
+              showUpgradeOptions ? "max-w-md" : "max-w-2xl"
+            }`}
+          >
+            <AnimatePresence mode="wait">
+              {showUpgradeOptions ? (
+                /* ====================== VISTA UPGRADE ====================== */
+                <motion.div
+                  key="upgrade-view"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                 >
-                  <path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z" />
-                </svg>
-              </button>
-            </div>
+                  {/* Cabecera con degradé azul de marca */}
+                  <div className="relative bg-gradient-to-br from-[#0a1a36] via-[#102a5c] to-[#1e4fd6] px-6 pt-6 pb-7 text-center">
+                    <button
+                      onClick={handleClose}
+                      disabled={subuLoading}
+                      className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Cerrar"
+                    >
+                      <i className="fas fa-times text-sm"></i>
+                    </button>
 
-            {/* Contenido con animaciones */}
-            <div className="p-8 space-y-6 bg-white rounded-2xl shadow-xl border border-gray-100">
-              <AnimatePresence mode="wait">
-                {showUpgradeOptions ? (
-                  <motion.div
-                    key="upgrade-view"
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    className="space-y-4"
-                  >
-                    {limitMessage && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
-                        {limitMessage}
-                      </div>
-                    )}
+                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/20 backdrop-blur">
+                      <i className="bx bxs-group text-2xl"></i>
+                    </span>
+                    <h3 className="mt-3 text-base font-bold tracking-tight text-white">
+                      Tu equipo está creciendo
+                    </h3>
+                    <p className="mx-auto mt-1 max-w-xs text-[12px] leading-4 text-white/70">
+                      {limitMessage ||
+                        "Has alcanzado el límite de usuarios de tu plan."}{" "}
+                      Suma un usuario en segundos o mejora tu plan para tener
+                      más cupos y beneficios.
+                    </p>
+                  </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
-                      {/* Card: Actualizar plan */}
-                      <div
-                        onClick={onUpgradeClick}
-                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 overflow-hidden transition-colors duration-200 hover:border-[#6d28d9] focus-within:border-[#6d28d9]"
+                  {/* Cuerpo compacto */}
+                  <div className="px-5 py-5 space-y-2.5">
+                    {/* Opción principal: Mejorar plan */}
+                    <button
+                      onClick={onUpgradeClick}
+                      disabled={subuLoading}
+                      className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border-2 border-[#1d4ed8] bg-gradient-to-r from-[#eff6ff] to-white p-3.5 text-left transition-all duration-200 hover:shadow-md hover:shadow-[#1d4ed8]/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <span className="absolute right-2.5 top-2.5 inline-flex items-center rounded-full bg-[#1d4ed8] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                        Recomendado
+                      </span>
+                      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1d4ed8] text-white shadow-sm">
+                        <i className="bx bx-rocket text-xl"></i>
+                      </span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-bold text-[#171931]">
+                          Mejorar mi plan
+                        </span>
+                        <span className="mt-0.5 block text-[12px] leading-4 text-slate-500">
+                          Más usuarios incluidos y mejores beneficios en cada
+                          herramienta.
+                        </span>
+                      </span>
+                      <i className="bx bx-chevron-right text-xl text-[#1d4ed8] transition-transform group-hover:translate-x-1"></i>
+                    </button>
+
+                    {/* Opción secundaria: Subusuario adicional */}
+                    <button
+                      onClick={onBuyAddonSubusuarioClick}
+                      disabled={subuLoading}
+                      className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-all duration-200 hover:border-[#171931]/40 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-80"
+                    >
+                      <span
+                        className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                          subuLoading
+                            ? "bg-[#eff6ff] text-[#1d4ed8]"
+                            : "bg-slate-100 text-[#171931]"
+                        }`}
                       >
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute top-[1px] bottom-[1px] left-[1px] w-[6px] rounded-l-2xl bg-gradient-to-b from-[#8b5cf6] to-[#6d28d9]"
-                        />
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#f5f3ff] text-[#6d28d9]">
-                              <i className="bx bx-refresh" />
-                            </span>
-                            <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
-                              Actualizar plan
-                            </h3>
-                          </div>
-                          <span className="inline-flex items-center rounded-full border border-[#6d28d9]/40 bg-[#f5f3ff] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9]">
-                            Recomendado
+                        <i
+                          className={`bx text-xl ${
+                            subuLoading
+                              ? "bx-loader-alt bx-spin"
+                              : "bxs-user-plus"
+                          }`}
+                        ></i>
+                      </span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-bold text-[#171931]">
+                          {subuLoading ? "Procesando…" : "Solo un usuario más"}
+                        </span>
+                        <span className="mt-0.5 block text-[12px] leading-4 text-slate-500">
+                          {subuLoading
+                            ? "Estamos activando tu cupo, un momento."
+                            : "Se suma a tu plan de forma recurrente."}
+                        </span>
+                      </span>
+                      {!subuLoading && (
+                        <span className="text-right leading-none">
+                          <span className="block text-base font-extrabold text-[#171931]">
+                            +$5
                           </span>
-                        </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">
-                          Desbloquee más conexiones elevando su plan actual.
-                        </p>
-                        <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
-                          Ver planes disponibles
-                          <svg
-                            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
-                          </svg>
-                        </div>
-                      </div>
+                          <span className="block text-[9px] text-slate-400">
+                            /mes
+                          </span>
+                        </span>
+                      )}
+                    </button>
 
-                      {/* Card: Comprar subusuario adicional */}
-                      <div
-                        onClick={onBuyAddonSubusuarioClick}
-                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 overflow-hidden transition-colors duration-200 hover:border-[#16a34a] focus-within:border-[#16a34a]"
-                      >
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute top-[1px] bottom-[1px] left-[1px] w-[6px] rounded-l-2xl bg-gradient-to-b from-[#bbf7d0] to-[#16a34a]"
-                        />
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#dcfce7] text-[#16a34a]">
-                              <i className="bx bxs-user-plus" />
-                            </span>
-                            <h3 className="text-xl font-semibold tracking-tight text-[#171931]">
-                              Comprar subusuario adicional
-                            </h3>
-                          </div>
-                          <div className="text-right leading-none">
-                            <p className="text-3xl font-extrabold text-[#171931]">
-                              $5
-                            </p>
-                            <p className="text-[11px] text-slate-500">
-                              por usuario
-                            </p>
-                          </div>
-                        </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">
-                          Agrega un subusuario extra a tu cuenta para gestionar
-                          mensajes.
-                        </p>
-                        <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#171931]">
-                          Continuar con la compra
-                          <svg
-                            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707A1 1 0 118.707 5.293l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
+                    {/* Nota de cobro */}
+                    <p className="flex items-start gap-1.5 px-0.5 pt-0.5 text-[10px] leading-3.5 text-slate-400">
+                      <i className="bx bx-info-circle text-[12px] mt-px"></i>
+                      <span>
+                        Ej.: un plan de $29/mes pasaría a $34/mes. El subusuario
+                        adicional se mantiene activo mientras tu plan siga
+                        activo.
+                      </span>
+                    </p>
 
-                    {/* Aviso */}
-                    <div className="mt-1 border-t border-slate-200 pt-4">
-                      <div className="flex items-start gap-3 text-[12px] text-slate-600">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 mt-[2px] text-slate-500"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path d="M12 2a10 10 0 100 20 10 10 0 000-20Zm1 15h-2v-6h2v6Zm-2-8V7h2v2h-2Z" />
-                        </svg>
-                        <p>
-                          <span className="font-semibold text-[#171931]">
-                            Aviso:
-                          </span>{" "}
-                          los subusuarios adicionales
-                          <span className="font-semibold">
-                            {" "}
-                            solo permanecerán activas
-                          </span>{" "}
-                          mientras exista un{" "}
-                          <span className="font-semibold">plan activo</span> en
-                          la cuenta.
+                    {/* Salida discreta */}
+                    <button
+                      onClick={handleClose}
+                      disabled={subuLoading}
+                      className="w-full rounded-lg py-1.5 text-center text-[12px] font-medium text-slate-400 transition-colors hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Ahora no
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                /* ====================== VISTA CREAR / EDITAR ====================== */
+                <motion.div
+                  key="form-view"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  {/* Cabecera */}
+                  <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#eff6ff] text-[#1d4ed8]">
+                        <i
+                          className={`bx text-xl ${
+                            editingId ? "bx-edit-alt" : "bx-user-plus"
+                          }`}
+                        ></i>
+                      </span>
+                      <div>
+                        <h5 className="text-base font-semibold text-[#171931] leading-tight">
+                          {editingId ? "Editar usuario" : "Agregar usuario"}
+                        </h5>
+                        <p className="text-[12px] text-slate-500">
+                          {editingId
+                            ? "Actualiza los datos y permisos del usuario."
+                            : "Crea un acceso para un miembro de tu equipo."}
                         </p>
                       </div>
                     </div>
+                    <button
+                      onClick={handleClose}
+                      disabled={savingUsuario}
+                      className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Cerrar"
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </div>
 
-                    {/* ⬇️ Botón Cerrar debajo del aviso */}
-                    <div className="mt-6 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleClose}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      >
-                        Cerrar
-                      </button>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.form
-                    key="form-view"
+                  {/* Formulario */}
+                  <form
                     onSubmit={handleSubmit}
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                    className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-5 bg-white"
                   >
+                    {/* Columna izquierda */}
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
                           Usuario
                         </label>
-                        <input
-                          required
-                          placeholder="usuario"
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                          value={form.usuario}
-                          onChange={(e) =>
-                            setForm({ ...form, usuario: e.target.value })
-                          }
-                        />
+                        <div className="relative">
+                          <i className="bx bx-at absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
+                          <input
+                            required
+                            disabled={savingUsuario}
+                            placeholder="usuario"
+                            className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
+                            value={form.usuario}
+                            onChange={(e) =>
+                              setForm({ ...form, usuario: e.target.value })
+                            }
+                          />
+                        </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
                           {editingId ? "Nueva contraseña" : "Contraseña"}
                         </label>
-
                         <div className="relative">
+                          <i className="bx bx-lock-alt absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
                           <input
                             placeholder={
                               editingId
@@ -919,47 +1023,32 @@ const UsuariosView = () => {
                                 : "••••••••"
                             }
                             type={showPassword ? "text" : "password"}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                            disabled={savingUsuario}
+                            className="w-full pl-9 pr-10 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
                             value={form.password}
                             onChange={(e) =>
                               setForm({ ...form, password: e.target.value })
                             }
-                            required={!editingId} // ✅ solo obligatorio al crear
-                            autoComplete={
-                              editingId ? "new-password" : "new-password"
-                            }
+                            required={!editingId}
+                            autoComplete="new-password"
                           />
-
                           <button
                             type="button"
                             onClick={() => setShowPassword((s) => !s)}
-                            className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                            className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                             aria-label={
                               showPassword
                                 ? "Ocultar contraseña"
                                 : "Mostrar contraseña"
                             }
                           >
-                            {showPassword ? (
-                              <svg
-                                className="w-5 h-5"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                              >
-                                <path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="w-5 h-5"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                              >
-                                <path d="M3.53 2.47 2.47 3.53 5.2 6.26C3.44 7.54 2.23 9.16 2 9.5c0 0 3 7 10 7 2.05 0 3.82-.5 5.33-1.3l2.14 2.14 1.06-1.06-17-17zM12 6c2.82 0 5.09 1.16 6.78 2.5.78.62 1.42 1.27 1.89 1.81-.29.37-1.42 1.75-3.26 2.86l-2.02-2.02A5 5 0 0 0 9.85 7.7L7.73 5.58C9.03 5.2 10.47 6 12 6z" />
-                              </svg>
-                            )}
+                            <i
+                              className={`bx ${
+                                showPassword ? "bx-hide" : "bx-show"
+                              } text-lg`}
+                            ></i>
                           </button>
                         </div>
-
                         {editingId && (
                           <p className="mt-1 text-xs text-slate-500">
                             Si no escribes nada, la contraseña no se cambia.
@@ -968,84 +1057,109 @@ const UsuariosView = () => {
                       </div>
                     </div>
 
+                    {/* Columna derecha */}
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
                           Email
                         </label>
-                        <input
-                          required
-                          type="email"
-                          placeholder="correo@dominio.com"
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                          value={form.email}
-                          onChange={(e) =>
-                            setForm({ ...form, email: e.target.value })
-                          }
-                        />
+                        <div className="relative">
+                          <i className="bx bx-envelope absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
+                          <input
+                            required
+                            type="email"
+                            disabled={savingUsuario}
+                            placeholder="correo@dominio.com"
+                            className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
+                            value={form.email}
+                            onChange={(e) =>
+                              setForm({ ...form, email: e.target.value })
+                            }
+                          />
+                        </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
                           Nombre encargado
                         </label>
-                        <input
-                          required
-                          placeholder="Nombre y apellido"
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                          value={form.nombre_encargado}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              nombre_encargado: e.target.value,
-                            })
-                          }
-                        />
+                        <div className="relative">
+                          <i className="bx bx-id-card absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
+                          <input
+                            required
+                            disabled={savingUsuario}
+                            placeholder="Nombre y apellido"
+                            className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
+                            value={form.nombre_encargado}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                nombre_encargado: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
                           Rol
                         </label>
-                        <select
-                          required
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                          value={form.rol}
-                          onChange={(e) =>
-                            setForm({ ...form, rol: e.target.value })
-                          }
-                        >
-                          <option value="">Seleccione rol</option>
-                          <option value="administrador">Administrador</option>
-                          <option value="ventas">Ventas</option>
-                          <option value="admin_limitado">
-                            Administrador limitado
-                          </option>
-                        </select>
+                        <div className="relative">
+                          <i className="bx bx-shield-quarter absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
+                          <select
+                            required
+                            disabled={savingUsuario}
+                            className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
+                            value={form.rol}
+                            onChange={(e) =>
+                              setForm({ ...form, rol: e.target.value })
+                            }
+                          >
+                            <option value="">Seleccione rol</option>
+                            <option value="administrador">Administrador</option>
+                            <option value="ventas">Ventas</option>
+                            <option value="admin_limitado">
+                              Administrador limitado
+                            </option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+                    {/* Footer */}
+                    <div className="md:col-span-2 flex justify-end gap-2.5 pt-1 mt-1 border-t border-gray-100 -mx-6 px-6 pt-4">
                       <button
                         type="button"
-                        onClick={() => handleClose()}
-                        className="border border-slate-200 px-4 py-2.5 rounded-lg hover:bg-slate-50"
+                        onClick={handleClose}
+                        disabled={savingUsuario}
+                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-sm"
+                        disabled={savingUsuario}
+                        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#1d4ed8] text-sm text-white font-semibold hover:bg-[#1e40af] shadow-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                       >
-                        {editingId ? "Actualizar" : "Agregar"}
+                        <i
+                          className={`bx ${
+                            savingUsuario ? "bx-loader-alt bx-spin" : "bx-check"
+                          }`}
+                        ></i>
+                        {savingUsuario
+                          ? "Guardando…"
+                          : editingId
+                            ? "Actualizar"
+                            : "Agregar"}
                       </button>
                     </div>
-                  </motion.form>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

@@ -14,6 +14,31 @@ import {
   FaCogs,
 } from "react-icons/fa";
 
+// Stat glass del header (mismo lenguaje visual que Conexiones, adaptado a texto)
+const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
+  <div className="group relative overflow-hidden rounded-xl bg-white/[0.07] ring-1 ring-white/10 backdrop-blur-xl px-3.5 py-2.5 transition-all duration-300 hover:bg-white/[0.11] hover:ring-white/20">
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+    />
+    <div className="relative flex items-center gap-2.5">
+      <span
+        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/10 ${accent}`}
+      >
+        <i className={`${icon} text-base`} />
+      </span>
+      <div className="min-w-0">
+        <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/55 leading-none">
+          {label}
+        </div>
+        <div className="mt-1 text-sm font-bold text-white truncate leading-tight">
+          {value}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const MiPlan = () => {
   const navigate = useNavigate();
 
@@ -484,17 +509,46 @@ const MiPlan = () => {
 
       {/* Contenedor tipo "Departamentos" */}
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
-        {/* Header */}
-        <header className="relative isolate overflow-hidden">
-          <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl border-b border-white/10 shadow-[0_20px_60px_-40px_rgba(23,25,49,0.55)]">
+        {/* Header — mismo estilo que Conexiones */}
+        <header className="relative isolate overflow-hidden rounded-t-2xl">
+          <div className="absolute inset-0 bg-[#171931]" aria-hidden />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.6]"
+            style={{
+              backgroundImage:
+                "radial-gradient(600px circle at 0% 0%, rgba(79,70,229,0.25), transparent 45%), radial-gradient(500px circle at 100% 120%, rgba(99,102,241,0.18), transparent 40%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
+
+          <div className="relative px-5 py-4 md:px-7 md:py-5 flex flex-col gap-4 border-b border-white/10">
             {/* Top row: título + acciones */}
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                  Planes y Facturación
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70 ring-1 ring-white/15">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  </span>
+                  ImporChat · Facturación
+                </span>
+                <h1 className="mt-2 text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                  Planes y{" "}
+                  <span className="bg-gradient-to-r from-indigo-300 to-violet-200 bg-clip-text text-transparent">
+                    facturación
+                  </span>
                 </h1>
-                <p className="text-white/80 text-sm max-w-3xl">
-                  Administre su suscripción, métodos de pago y consulte su
+                <p className="mt-0.5 text-white/55 text-[13px] leading-snug max-w-3xl">
+                  Administra tu suscripción, métodos de pago y consulta tu
                   historial de facturación.
                 </p>
 
@@ -520,16 +574,16 @@ const MiPlan = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => navigate("/planes")}
-                  className="inline-flex items-center gap-2 bg-white text-[#171931] hover:bg-white/90 active:bg-white/80 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+                  className="group inline-flex items-center gap-2 bg-white text-[#171931] rounded-lg px-4 py-2.5 font-semibold text-sm shadow-lg shadow-black/20 ring-1 ring-white/40 hover:shadow-xl hover:shadow-indigo-900/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
                 >
-                  <FaCogs />
+                  <FaCogs className="text-[#4f46e5]" />
                   Administrar planes
                 </button>
 
                 {requierePago && (
                   <button
                     onClick={renovarMismoPlan}
-                    className="inline-flex items-center gap-2 bg-emerald-700 text-white hover:bg-emerald-600 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-300"
+                    className="inline-flex items-center gap-2 bg-emerald-600 text-white hover:bg-emerald-500 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-300"
                   >
                     <FaCreditCard />
                     Renovar plan
@@ -541,7 +595,7 @@ const MiPlan = () => {
                     obtenerPlanActivo();
                     obtenerFacturas();
                   }}
-                  className="inline-flex items-center gap-2 bg-white/10 text-white hover:bg-white/15 active:bg-white/20 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition border border-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+                  className="inline-flex items-center gap-2 bg-white/10 text-white hover:bg-white/15 active:bg-white/20 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition border border-white/15 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
                 >
                   <FaSyncAlt
                     className={
@@ -553,47 +607,40 @@ const MiPlan = () => {
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="px-4 py-3 rounded-xl bg-white/10 backdrop-blur ring-1 ring-white/15 shadow-sm">
-                <div className="text-xs uppercase tracking-wide text-white/70">
-                  Plan actual
-                </div>
-                <div className="text-lg font-semibold text-white">
-                  {loadingPlan ? "Cargando…" : plan?.nombre_plan || "Sin plan"}
-                </div>
-              </div>
-
-              <div className="px-4 py-3 rounded-xl bg-white/10 backdrop-blur ring-1 ring-white/15 shadow-sm">
-                <div className="text-xs uppercase tracking-wide text-white/70">
-                  Renovación
-                </div>
-                <div className="text-lg font-semibold text-white">
-                  {infoPeriodo?.fin
-                    ? infoPeriodo.fin.toLocaleDateString()
-                    : "—"}
-                </div>
-              </div>
-
-              <div className="px-4 py-3 rounded-xl bg-white/10 backdrop-blur ring-1 ring-white/15 shadow-sm">
-                <div className="text-xs uppercase tracking-wide text-white/70">
-                  Días restantes
-                </div>
-                <div className="text-lg font-semibold text-white">
-                  {infoPeriodo?.fin ? infoPeriodo.diasRestantes : "—"}
-                </div>
-              </div>
-
-              <div className="px-4 py-3 rounded-xl bg-white/10 backdrop-blur ring-1 ring-white/15 shadow-sm">
-                <div className="text-xs uppercase tracking-wide text-white/70">
-                  Facturas
-                </div>
-                <div className="text-lg font-semibold text-white">
-                  {cargandoFacturas
+            {/* Stats glass */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              <HeaderStat
+                label="Plan actual"
+                value={
+                  loadingPlan ? "Cargando…" : plan?.nombre_plan || "Sin plan"
+                }
+                icon="bx bx-crown"
+                accent="text-indigo-300"
+              />
+              <HeaderStat
+                label="Renovación"
+                value={
+                  infoPeriodo?.fin ? infoPeriodo.fin.toLocaleDateString() : "—"
+                }
+                icon="bx bx-calendar"
+                accent="text-emerald-300"
+              />
+              <HeaderStat
+                label="Días restantes"
+                value={infoPeriodo?.fin ? infoPeriodo.diasRestantes : "—"}
+                icon="bx bx-time-five"
+                accent="text-amber-300"
+              />
+              <HeaderStat
+                label="Facturas"
+                value={
+                  cargandoFacturas
                     ? "Actualizando…"
-                    : `${facturas?.length || 0}`}
-                </div>
-              </div>
+                    : `${facturas?.length || 0}`
+                }
+                icon="bx bx-receipt"
+                accent="text-sky-300"
+              />
             </div>
 
             {/* Aviso cancelación programada */}
@@ -636,25 +683,27 @@ const MiPlan = () => {
             )}
 
             {plan?.pending_change === "downgrade" && plan?.pending_plan_id && (
-              <div className="rounded-xl border border-amber-300/20 bg-amber-500/10 text-amber-100 px-4 py-3 text-sm flex items-start gap-2">
-                <FaExclamationCircle className="mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <p className="font-semibold">Cambio de plan programado</p>
-                  <p className="text-amber-100/80">
-                    Tu plan cambiará el{" "}
-                    <span className="font-semibold">
-                      {plan.pending_effective_at
-                        ? new Date(
-                            plan.pending_effective_at,
-                          ).toLocaleDateString()
-                        : "próximo corte"}
-                    </span>
-                    . Hasta entonces mantienes el plan actual.
-                  </p>
+              <div className="rounded-xl border border-amber-300/20 bg-amber-500/10 text-amber-100 px-4 py-3 text-sm flex flex-col items-start gap-1">
+                <div className="flex items-start gap-2">
+                  <FaExclamationCircle className="mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-semibold">Cambio de plan programado</p>
+                    <p className="text-amber-100/80">
+                      Tu plan cambiará el{" "}
+                      <span className="font-semibold">
+                        {plan.pending_effective_at
+                          ? new Date(
+                              plan.pending_effective_at,
+                            ).toLocaleDateString()
+                          : "próximo corte"}
+                      </span>
+                      . Hasta entonces mantienes el plan actual.
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={cancelarDowngradePend}
-                  className="mt-2 text-xs font-semibold text-amber-100 underline underline-offset-2 hover:text-white"
+                  className="mt-1 ml-6 text-xs font-semibold text-amber-100 underline underline-offset-2 hover:text-white"
                 >
                   Cancelar cambio y mantener mi plan
                 </button>

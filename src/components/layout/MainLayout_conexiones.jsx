@@ -129,12 +129,40 @@ function MainLayout({ children }) {
       setOpenMenu("instaLanding");
   }, [location.pathname]);
 
-  const NavBtn = ({ path, icon, label, onClick }) => {
+  // ─────────────────────────────────────────────────────────────
+  const handleNavLink = (e, path) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) {
+      return;
+    }
+    e.preventDefault();
+    navigate(path);
+  };
+
+  // NavBtn ahora es un <a href> real => habilita click derecho "abrir en
+  // pestaña nueva".
+  // - newTab=true (default): renderiza href={path} y respeta los modificadores.
+  // - newTab=false: sin href (ej. Conexiones, que limpia el localStorage y
+  //   NO debe abrirse en otra pestaña). Solo corre su onClick en click normal.
+  const NavBtn = ({ path, icon, label, onClick, newTab = true }) => {
     const active = isActive(path);
+
+    const handleClick = (e) => {
+      if (
+        newTab &&
+        (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1)
+      ) {
+        return; // el href abre la nueva pestaña
+      }
+      e.preventDefault();
+      if (onClick) onClick();
+      else navigate(path);
+    };
+
     return (
-      <button
-        onClick={onClick ?? (() => navigate(path))}
-        className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded ${active ? "bg-gray-100 font-semibold" : "hover:bg-gray-100 text-gray-700"}`}
+      <a
+        href={newTab ? path : undefined}
+        onClick={handleClick}
+        className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded cursor-pointer ${active ? "bg-gray-100 font-semibold" : "hover:bg-gray-100 text-gray-700"}`}
       >
         <i
           className={`bx ${icon} text-2xl mr-3 transition-colors ${active ? "text-blue-600" : "text-gray-600 group-hover:text-blue-600"}`}
@@ -144,7 +172,7 @@ function MainLayout({ children }) {
         >
           {label}
         </span>
-      </button>
+      </a>
     );
   };
 
@@ -158,12 +186,14 @@ function MainLayout({ children }) {
           aria-hidden={!sliderOpen}
         >
           <div className="mt-6">
-            {/* Conexiones*/}
+            {/* Conexiones — newTab=false: limpia el localStorage, NO debe
+                abrirse en pestaña nueva */}
             {!isGestorClientes && (
               <NavBtn
                 path={conexionPath}
                 icon="bx-network-chart"
                 label={isSuperAdmin ? "Conexiones Admin" : "Conexiones"}
+                newTab={false}
                 onClick={() => {
                   localStorage.removeItem("id_configuracion");
                   localStorage.removeItem("tipo_configuracion");
@@ -217,39 +247,47 @@ function MainLayout({ children }) {
                   }}
                 >
                   <div className="ml-10 flex flex-col py-2">
-                    <button
+                    <a
+                      href={instaLandingPath}
+                      onClick={(e) => handleNavLink(e, instaLandingPath)}
                       className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive(instaLandingPath) ? "font-semibold text-blue-600" : ""}`}
-                      onClick={() => navigate(instaLandingPath)}
                     >
                       <i className="bx bx-palette text-xl text-gray-600 group-hover:text-blue-600" />
                       <span>Generador</span>
-                    </button>
-                    <button
+                    </a>
+                    <a
+                      href="/insta_landing_historial"
+                      onClick={(e) =>
+                        handleNavLink(e, "/insta_landing_historial")
+                      }
                       className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/insta_landing_historial") ? "font-semibold text-blue-600" : ""}`}
-                      onClick={() => navigate("/insta_landing_historial")}
                     >
                       <i className="bx bx-history text-xl text-gray-600 group-hover:text-blue-600" />
                       <span>Historial</span>
-                    </button>
-                    <button
+                    </a>
+                    <a
+                      href="/insta_landing_productos"
+                      onClick={(e) =>
+                        handleNavLink(e, "/insta_landing_productos")
+                      }
                       className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/insta_landing_productos") ? "font-semibold text-blue-600" : ""}`}
-                      onClick={() => navigate("/insta_landing_productos")}
                     >
                       <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600" />
                       <span>Productos</span>
-                    </button>
+                    </a>
                     {isSuperAdmin && (
                       <>
                         <div className="h-px bg-slate-200 my-1.5 mx-2" />
-                        <button
-                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/codigos_promocionales") ? "font-semibold text-blue-600" : ""}`}
-                          onClick={() =>
-                            navigate("/codigos_promocionales_admin")
+                        <a
+                          href="/codigos_promocionales_admin"
+                          onClick={(e) =>
+                            handleNavLink(e, "/codigos_promocionales_admin")
                           }
+                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/codigos_promocionales") ? "font-semibold text-blue-600" : ""}`}
                         >
                           <i className="bx bx-purchase-tag text-xl text-gray-600 group-hover:text-blue-600" />
                           <span>Códigos Promo</span>
-                        </button>
+                        </a>
                       </>
                     )}
                   </div>
@@ -367,7 +405,7 @@ function MainLayout({ children }) {
         }}
       />
 
-      <FloatingSupportChat />
+      {/* <FloatingSupportChat /> */}
     </div>
   );
 }

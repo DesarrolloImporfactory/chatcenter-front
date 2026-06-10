@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
-import "./departamentos.css";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Select from "react-select";
+import "./departamentos.css";
 
 const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
   <th
@@ -40,19 +41,48 @@ const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
   </th>
 );
 
-const HeaderStat = ({ label, value }) => (
-  <div className="px-4 py-3 rounded-xl bg-white/30 backdrop-blur ring-1 ring-white/50 shadow-sm">
-    <div className="text-xs uppercase tracking-wide text-white/80">{label}</div>
-    <div className="text-lg font-semibold text-white">{value}</div>
+const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
+  <div className="group relative overflow-hidden rounded-xl bg-white/[0.07] ring-1 ring-white/10 backdrop-blur-xl px-3.5 py-2.5 transition-all duration-300 hover:bg-white/[0.11] hover:ring-white/20">
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+    />
+    <div className="relative flex items-center justify-between">
+      <span
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/10 ${accent}`}
+      >
+        <i className={`${icon} text-base`} />
+      </span>
+      <span className="text-2xl font-extrabold tracking-tight text-white tabular-nums leading-none">
+        {value}
+      </span>
+    </div>
+    <div className="relative mt-2 text-[10px] font-medium uppercase tracking-[0.12em] text-white/55">
+      {label}
+    </div>
   </div>
 );
 
-const rolBadge = (rol) => {
-  const r = String(rol || "").toLowerCase();
-  if (r.includes("admin"))
-    return "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200";
-  return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-};
+// Switch reutilizable controlado por estado (NO depende de peer-checked)
+const Switch = ({ checked, onClick, disabled = false, title }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/40 disabled:opacity-50 disabled:cursor-not-allowed ${
+      checked ? "bg-[#1d4ed8]" : "bg-slate-300"
+    }`}
+  >
+    <span
+      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-1 ring-black/5 transition-transform duration-200 ${
+        checked ? "translate-x-[22px]" : "translate-x-[2px]"
+      }`}
+    />
+  </button>
+);
 
 const DepartamentosView = () => {
   const [departamentos, setDepartamentos] = useState([]);
@@ -61,7 +91,7 @@ const DepartamentosView = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
     nombre_departamento: "",
-    color: "#000000",
+    color: "#1d4ed8",
     mensaje_saludo: "",
     id_configuracion: "",
   });
@@ -74,14 +104,17 @@ const DepartamentosView = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false); // Controla la vista de opciones de upgrade
-  const [limitMessage, setLimitMessage] = useState(""); // Mensaje de error si se supera el límite
+  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false);
+  const [limitMessage, setLimitMessage] = useState("");
   const [isClosing, setIsClosing] = useState(false);
+  const [savingDep, setSavingDep] = useState(false);
 
   const [usuarios, setUsuarios] = useState([]);
-  const [usuariosAsignados, setUsuariosAsignados] = useState([]); // [{ id_sub_usuario: number, asignacion_auto: 0|1 }]
+  const [usuariosAsignados, setUsuariosAsignados] = useState([]);
   const [conexiones, setConexiones] = useState([]);
-  const [activeTab, setActiveTab] = useState("departamento"); // 'departamento' o 'usuarios'
+  const [activeTab, setActiveTab] = useState("departamento");
+
+  const reduce = useReducedMotion();
 
   const getAsignacion = (id) =>
     usuariosAsignados.find((x) => Number(x.id_sub_usuario) === Number(id)) ||
@@ -104,9 +137,7 @@ const DepartamentosView = () => {
       setLoading(true);
       const res = await chatApi.post(
         "/departamentos_chat_center/listarDepartamentos",
-        {
-          id_usuario,
-        },
+        { id_usuario },
       );
       setDepartamentos(res.data.data || []);
     } catch {
@@ -120,19 +151,7 @@ const DepartamentosView = () => {
     }
   };
 
-  const fetchUsuarios = async () => {
-    try {
-      const res = await chatApi.post("/usuarios_chat_center/listarUsuarios", {
-        id_usuario,
-      });
-      setUsuarios(res.data.data);
-    } catch (error) {
-      console.error("Error al cargar usuarios:", error);
-    }
-  };
-
   const [savingToggle, setSavingToggle] = useState({});
-  // { [id_departamento]: true/false }
 
   const toggleAutoasignacion = async (dep) => {
     const token = localStorage.getItem("token");
@@ -196,25 +215,27 @@ const DepartamentosView = () => {
   }, []);
 
   const handleClose = () => {
-    setIsClosing(true); // Activa la animación de cierre
+    if (savingDep) return;
+    setIsClosing(true);
     setTimeout(() => {
-      setModalOpen(false); // Cierra el modal
+      setModalOpen(false);
       setForm({
         nombre_departamento: "",
-        color: "#000000",
+        color: "#1d4ed8",
         mensaje_saludo: "",
         id_configuracion: "",
-      }); // Limpia el formulario
-      setEditingId(null); // Asegura que no esté en modo de edición
-      setShowUpgradeOptions(false); // Asegura que no se muestre la opción de upgrade
-      setLimitMessage(""); // Limpia el mensaje de error
-
-      setIsClosing(false); // Termina la animación
-    }, 300); // El tiempo de animación (ajústalo si es necesario)
+      });
+      setEditingId(null);
+      setShowUpgradeOptions(false);
+      setLimitMessage("");
+      setIsClosing(false);
+    }, 220);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (savingDep) return;
+
     const token = localStorage.getItem("token");
     if (!token) {
       return Swal.fire({
@@ -227,6 +248,7 @@ const DepartamentosView = () => {
     const id_usuario = decoded.id_usuario;
 
     const payload = { ...form };
+    setSavingDep(true);
     try {
       if (editingId) {
         await chatApi.post(
@@ -241,6 +263,8 @@ const DepartamentosView = () => {
           icon: "success",
           title: "Departamento actualizado",
           text: "Los datos del departamento fueron actualizados correctamente",
+          confirmButtonColor: "#1d4ed8",
+          customClass: { popup: "rounded-2xl" },
         });
       } else {
         await chatApi.post("/departamentos_chat_center/agregarDepartamento", {
@@ -252,12 +276,14 @@ const DepartamentosView = () => {
           icon: "success",
           title: "Departamento creado",
           text: "El departamento fue creado correctamente",
+          confirmButtonColor: "#1d4ed8",
+          customClass: { popup: "rounded-2xl" },
         });
       }
       setModalOpen(false);
       setForm({
         nombre_departamento: "",
-        color: "#000000",
+        color: "#1d4ed8",
         mensaje_saludo: "",
         id_configuracion: "",
       });
@@ -266,26 +292,28 @@ const DepartamentosView = () => {
     } catch (error) {
       const httpStatus = error?.response?.status;
 
-      // Error 403 con QUOTA_EXCEEDED
       if (
         httpStatus === 403 &&
         error?.response?.data?.code === "QUOTA_EXCEEDED"
       ) {
         const backendMsg = error?.response?.data?.message;
         setLimitMessage(
-          backendMsg || "Ha alcanzado el límite de departamentos de su plan.",
+          backendMsg || "Has alcanzado el límite de departamentos de tu plan.",
         );
-        setShowUpgradeOptions(true); // Muestra las opciones de upgrade
+        setShowUpgradeOptions(true);
         return;
       }
 
-      // Otros errores
       Swal.fire({
         icon: "error",
         title: "Error al guardar",
         text:
           error.response?.data?.message || "No se pudo guardar el departamento",
+        confirmButtonColor: "#1d4ed8",
+        customClass: { popup: "rounded-2xl" },
       });
+    } finally {
+      setSavingDep(false);
     }
   };
 
@@ -293,7 +321,7 @@ const DepartamentosView = () => {
     if (u) {
       setForm({
         nombre_departamento: u.nombre_departamento || "",
-        color: u.color || "",
+        color: u.color || "#1d4ed8",
         mensaje_saludo: u.mensaje_saludo || "",
         id_configuracion: u.id_configuracion || "",
       });
@@ -301,7 +329,7 @@ const DepartamentosView = () => {
     } else {
       setForm({
         nombre_departamento: "",
-        color: "#000000",
+        color: "#1d4ed8",
         mensaje_saludo: "",
         id_configuracion: "",
       });
@@ -332,11 +360,13 @@ const DepartamentosView = () => {
 
     setUsuariosAsignados(u?.usuarios_asignados || []);
     setActiveTab("departamento");
+    setShowUpgradeOptions(false);
+    setLimitMessage("");
     setModalOpen(true);
   };
 
   const conexionesOptions = (conexiones || []).map((c) => ({
-    value: c.id, // PK de configuraciones
+    value: c.id,
     label: c.nombre_configuracion || `Conexión #${c.id}`,
   }));
 
@@ -344,6 +374,33 @@ const DepartamentosView = () => {
     conexionesOptions.find(
       (opt) => String(opt.value) === String(form.id_configuracion),
     ) || null;
+
+  // Tema de react-select alineado al azul de marca
+  const selectTheme = (t) => ({
+    ...t,
+    colors: {
+      ...t.colors,
+      primary: "#1d4ed8",
+      primary25: "#eff6ff",
+      primary50: "#dbeafe",
+    },
+  });
+  const selectStyles = {
+    control: (base, state) => ({
+      ...base,
+      borderRadius: 8,
+      borderColor: state.isFocused ? "#1d4ed8" : "#cbd5e1",
+      boxShadow: state.isFocused ? "0 0 0 2px rgba(29,78,216,0.25)" : "none",
+      minHeight: 42,
+      "&:hover": { borderColor: "#1d4ed8" },
+    }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: 12,
+      overflow: "hidden",
+      zIndex: 30,
+    }),
+  };
 
   const handleDelete = async (u) => {
     const result = await Swal.fire({
@@ -353,14 +410,15 @@ const DepartamentosView = () => {
       showCancelButton: true,
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      customClass: { popup: "rounded-2xl" },
     });
     if (result.isConfirmed) {
       try {
         await chatApi.delete(
           "/departamentos_chat_center/eliminarDepartamento",
-          {
-            data: { id_departamento: u.id_departamento },
-          },
+          { data: { id_departamento: u.id_departamento } },
         );
         Swal.fire({
           icon: "success",
@@ -375,6 +433,8 @@ const DepartamentosView = () => {
           icon: "error",
           title: "Error al eliminar",
           text: "No se pudo eliminar el departamento",
+          confirmButtonColor: "#1d4ed8",
+          customClass: { popup: "rounded-2xl" },
         });
       }
     }
@@ -388,20 +448,13 @@ const DepartamentosView = () => {
     );
   };
 
-  // --- filtros + sort + paginación ---
-  const rolesDisponibles = useMemo(() => {
-    const set = new Set(departamentos.map((u) => u.rol).filter(Boolean));
-    return Array.from(set);
-  }, [departamentos]);
-
   const listaProcesada = useMemo(() => {
     const q = search.trim().toLowerCase();
     let data = [...departamentos];
 
     if (q) {
-      data = data.filter(
-        (d) => d?.nombre_departamento?.toLowerCase().includes(q) /* ||
-          d?.mensaje_saludo?.toLowerCase().includes(q) */,
+      data = data.filter((d) =>
+        d?.nombre_departamento?.toLowerCase().includes(q),
       );
     }
 
@@ -431,55 +484,120 @@ const DepartamentosView = () => {
   }, [search, rolFiltro]);
 
   const onUpgradeClick = () => {
-    window.location.href = "/planes"; // Redirige a la página de planes
+    window.location.href = "/planes";
+  };
+  const onBuyAddonClick = () => {
+    window.location.href = "/planes?addon=conexion";
   };
 
-  const onBuyAddonClick = () => {
-    window.location.href = "/planes?addon=conexion"; // Redirige a la página de compra de conexión adicional
+  // Animaciones del modal (self-contained) + reduced-motion
+  const overlayV = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.2 } },
+    exit: { opacity: 0, transition: { duration: 0.2 } },
+  };
+  const panelV = reduce
+    ? {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { duration: 0.2 } },
+        exit: { opacity: 0, transition: { duration: 0.15 } },
+      }
+    : {
+        hidden: { opacity: 0, scale: 0.96, y: 12 },
+        visible: {
+          opacity: 1,
+          scale: 1,
+          y: 0,
+          transition: { type: "spring", stiffness: 280, damping: 24 },
+        },
+        exit: { opacity: 0, scale: 0.97, y: 8, transition: { duration: 0.18 } },
+      };
+  const containerVariants = {
+    hidden: { opacity: 0, y: 12 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.28 } },
+    exit: { opacity: 0, y: 12, transition: { duration: 0.2 } },
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 md:px-6">
       <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
-        {/* Header */}
-        <header className="relative isolate overflow-hidden">
-          <div className="bg-[#171931] p-6 md:p-7 flex flex-col gap-5 rounded-t-2xl">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                  Gestión de Departamentos
+        {/* Header — mismo estilo que Conexiones */}
+        <header className="relative isolate overflow-hidden rounded-t-2xl">
+          <div className="absolute inset-0 bg-[#171931]" aria-hidden />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.6]"
+            style={{
+              backgroundImage:
+                "radial-gradient(600px circle at 0% 0%, rgba(79,70,229,0.25), transparent 45%), radial-gradient(500px circle at 100% 120%, rgba(99,102,241,0.18), transparent 40%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
+
+          <div className="relative px-5 py-4 md:px-7 md:py-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70 ring-1 ring-white/15">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  </span>
+                  ImporChat · Departamentos
+                </span>
+                <h1 className="mt-2 text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                  Tus departamentos,{" "}
+                  <span className="bg-gradient-to-r from-indigo-300 to-violet-200 bg-clip-text text-transparent">
+                    cada chat en su lugar
+                  </span>
                 </h1>
-                <p className="text-white/80 text-sm">
-                  Crea, edita y controla los departamentos de tu sistema.
+                <p className="mt-0.5 text-white/55 text-[13px] leading-snug truncate">
+                  Crea departamentos, asigna conexiones y enruta cada chat al
+                  equipo correcto.
                 </p>
               </div>
+
               <button
                 onClick={() => openModal()}
-                className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+                className="group shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-white text-[#171931] rounded-xl font-semibold text-sm shadow-lg shadow-black/20 ring-1 ring-white/40 hover:shadow-xl hover:shadow-indigo-900/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
               >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-                </svg>
-                Nuevo
+                <i className="bx bx-plus text-xl text-[#4f46e5] transition-transform duration-200 group-hover:rotate-90" />
+                Nuevo departamento
               </button>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
               <HeaderStat
                 label="Total departamentos"
                 value={departamentos.length}
+                icon="bx bx-buildings"
+                accent="text-indigo-300"
               />
-              <HeaderStat label="En esta vista" value={listaProcesada.length} />
+              <HeaderStat
+                label="En esta vista"
+                value={listaProcesada.length}
+                icon="bx bx-show"
+                accent="text-emerald-300"
+              />
               <HeaderStat
                 label="Página"
                 value={`${currentPage}/${totalPages}`}
+                icon="bx bx-book-open"
+                accent="text-amber-300"
               />
-              <HeaderStat label="Resultados/página" value={itemsPerPage} />
+              <HeaderStat
+                label="Por página"
+                value={itemsPerPage}
+                icon="bx bx-list-ul"
+                accent="text-sky-300"
+              />
             </div>
           </div>
         </header>
@@ -488,30 +606,22 @@ const DepartamentosView = () => {
         <div className="p-6 border-b border-slate-100 bg-white">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <div className="relative w-full lg:w-1/2">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path d="M12.9 14.32a8 8 0 1 1 1.41-1.41l3.39 3.38a1 1 0 0 1-1.42 1.42l-3.38-3.39zM14 8a6 6 0 1 0-12 0 6 6 0 0 0 12 0z" />
-                </svg>
-              </span>
+              <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar por nombre o mensaje de saludo…"
+                placeholder="Buscar por nombre de departamento…"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
+                className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] outline-none transition-all"
               />
             </div>
           </div>
         </div>
 
-        {/* Contenido (tabla NO centrada a propósito) */}
+        {/* Contenido */}
         <div className="flex-1 overflow-hidden flex flex-col">
           {loading ? (
             <div className="p-6 space-y-2 animate-pulse">
@@ -521,14 +631,8 @@ const DepartamentosView = () => {
             </div>
           ) : listaProcesada.length === 0 ? (
             <div className="flex-1 p-10 text-center flex flex-col items-center justify-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg
-                  className="w-10 h-10 text-slate-400"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M21 19l-5.6-5.6a7 7 0 1 0-2 2L19 21l2-2zM5 10a5 5 0 1 1 10 0A5 5 0 0 1 5 10z" />
-                </svg>
+              <div className="w-20 h-20 rounded-full bg-[#eff6ff] flex items-center justify-center">
+                <i className="bx bx-buildings text-4xl text-[#1d4ed8]" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-800">
@@ -540,15 +644,9 @@ const DepartamentosView = () => {
               </div>
               <button
                 onClick={() => openModal()}
-                className="inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-lg shadow-sm transition"
+                className="inline-flex items-center gap-2 bg-[#1d4ed8] text-white hover:bg-[#1e40af] px-4 py-2.5 rounded-lg shadow-sm transition"
               >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-                </svg>
+                <i className="bx bx-plus text-xl" />
                 Agregar departamento
               </button>
             </div>
@@ -566,7 +664,7 @@ const DepartamentosView = () => {
                         Nombre Departamento
                       </SortHeader>
                       <SortHeader k="color" sort={sort} onSort={handleSort}>
-                        color
+                        Color
                       </SortHeader>
                       <SortHeader
                         k="mensaje_saludo"
@@ -584,99 +682,71 @@ const DepartamentosView = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {paginated.map((d) => (
-                      <tr
-                        key={d.id_departamento}
-                        className="hover:bg-slate-50/60"
-                      >
-                        <td className="p-3 text-slate-800 font-medium">
-                          {d.nombre_departamento}
-                        </td>
-                        <td className="p-3">
-                          <div
-                            className="w-6 h-6 rounded-full border border-slate-300"
-                            style={{ backgroundColor: d.color }}
-                            title={d.color}
-                          ></div>
-                        </td>
-                        <td className="p-3 text-slate-700">
-                          {d.mensaje_saludo}
-                        </td>
-                        <td className="p-3 text-center">
-                          <label className="inline-flex items-center cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              checked={Number(d.permiso_round_robin) === 1}
-                              disabled={!!savingToggle[d.id_departamento]}
-                              onChange={() => toggleAutoasignacion(d)}
-                            />
-
-                            {/* track */}
+                    {paginated.map((d) => {
+                      const activo = Number(d.permiso_round_robin) === 1;
+                      const saving = !!savingToggle[d.id_departamento];
+                      return (
+                        <tr
+                          key={d.id_departamento}
+                          className="hover:bg-slate-50/60"
+                        >
+                          <td className="p-3 text-slate-800 font-medium">
+                            {d.nombre_departamento}
+                          </td>
+                          <td className="p-3">
                             <div
-                              className="
-        relative w-11 h-6 rounded-full
-        bg-slate-200
-        peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300
-        peer-checked:bg-indigo-600
-        transition-colors
-        disabled:opacity-60
-      "
-                            >
-                              {/* thumb */}
-                              <div
-                                className="
-          absolute top-[2px] left-[2px]
-          h-5 w-5 rounded-full bg-white
-          ring-1 ring-black/5
-          transition-transform duration-200 ease-in-out
-          peer-checked:translate-x-5
-        "
+                              className="w-6 h-6 rounded-full border border-slate-300"
+                              style={{ backgroundColor: d.color }}
+                              title={d.color}
+                            ></div>
+                          </td>
+                          <td className="p-3 text-slate-700">
+                            {d.mensaje_saludo}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-col items-center gap-1">
+                              <Switch
+                                checked={activo}
+                                disabled={saving}
+                                onClick={() => toggleAutoasignacion(d)}
+                                title={
+                                  activo
+                                    ? "Autoasignación activa"
+                                    : "Autoasignación inactiva"
+                                }
                               />
+                              <span
+                                className={`text-[11px] font-medium ${
+                                  activo ? "text-[#1d4ed8]" : "text-slate-400"
+                                }`}
+                              >
+                                {activo ? "Activo" : "Inactivo"}
+                              </span>
                             </div>
-                          </label>
-
-                          {/* opcional: texto activo/inactivo */}
-                          <div className="mt-1 text-[11px] text-slate-500">
-                            {Number(d.permiso_round_robin) === 1
-                              ? "Activo"
-                              : "Inactivo"}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => openModal(d)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700"
-                              title="Editar"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => openModal(d)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 hover:bg-[#eff6ff] hover:border-[#1d4ed8]/30 hover:text-[#1d4ed8] text-slate-700 transition-colors"
+                                title="Editar"
                               >
-                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
-                              </svg>
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleDelete(d)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
-                              title="Eliminar"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
+                                <i className="bx bx-edit-alt text-base" />
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => handleDelete(d)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                                title="Eliminar"
                               >
-                                <path d="M9 3a1 1 0 0 0-1 1v1H4a1 1 0 1 0 0 2h1v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7h1a1 1 0 1 0 0-2h-4V4a1 1 0 0 0-1-1H9zm2 4a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7zm6 0a1 1 0 1 0-2 0v10a1 1 0 1 0 2 0V7z" />
-                              </svg>
-                              Eliminar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                                <i className="bx bx-trash text-base" />
+                                Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -705,7 +775,7 @@ const DepartamentosView = () => {
                 </div>
                 <div className="inline-flex items-center gap-2">
                   <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50 hover:bg-slate-50"
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                     aria-label="Primera página"
@@ -713,7 +783,7 @@ const DepartamentosView = () => {
                     «
                   </button>
                   <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50 hover:bg-slate-50"
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     aria-label="Anterior"
@@ -725,7 +795,7 @@ const DepartamentosView = () => {
                     <strong>{totalPages}</strong>
                   </span>
                   <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50 hover:bg-slate-50"
                     onClick={() =>
                       setCurrentPage((p) => Math.min(totalPages, p + 1))
                     }
@@ -735,7 +805,7 @@ const DepartamentosView = () => {
                     ›
                   </button>
                   <button
-                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-200 disabled:opacity-50 hover:bg-slate-50"
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
                     aria-label="Última página"
@@ -752,312 +822,402 @@ const DepartamentosView = () => {
       {/* FAB mobile */}
       <button
         onClick={() => openModal()}
-        className="fixed bottom-5 right-5 md:hidden inline-flex items-center justify-center h-12 w-12 rounded-full shadow-lg bg-indigo-600 text-white hover:bg-indigo-700"
+        className="fixed bottom-5 right-5 md:hidden inline-flex items-center justify-center h-12 w-12 rounded-full shadow-lg bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
         aria-label="Agregar departamento"
       >
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M11 11V5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z" />
-        </svg>
+        <i className="bx bx-plus text-2xl" />
       </button>
 
-      {/* Modal agregar/editar */}
+      {/* Modal */}
       {modalOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+        <motion.div
+          variants={overlayV}
+          initial="hidden"
+          animate={isClosing ? "exit" : "visible"}
+          className="fixed inset-0 bg-[#0a1a36]/50 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          onMouseDown={(e) => e.target === e.currentTarget && handleClose()}
           onKeyDown={(e) => e.key === "Escape" && handleClose()}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-3 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="text-xl font-semibold">
-                {editingId ? "Editar departamento" : "Agregar departamento"}
-              </h2>
-              <button
-                onClick={() => handleClose()}
-                className="p-2 rounded-lg hover:bg-slate-100"
-                aria-label="Cerrar"
-              >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
+          <motion.div
+            variants={panelV}
+            initial="hidden"
+            animate={isClosing ? "exit" : "visible"}
+            className={`bg-white rounded-2xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5 transition-[max-width] duration-300 ${
+              showUpgradeOptions ? "max-w-md" : "max-w-3xl"
+            }`}
+          >
+            <AnimatePresence mode="wait">
+              {showUpgradeOptions ? (
+                /* ====================== VISTA UPGRADE ====================== */
+                <motion.div
+                  key="upgrade-view"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                 >
-                  <path d="M6.225 4.811L4.81 6.225 10.586 12l-5.775 5.775 1.414 1.414L12 13.414l5.775 5.775 1.414-1.414L13.414 12l5.775-5.775-1.414-1.414L12 10.586 6.225 4.811z" />
-                </svg>
-              </button>
-            </div>
+                  <div className="relative bg-gradient-to-br from-[#0a1a36] via-[#102a5c] to-[#1e4fd6] px-6 pt-6 pb-7 text-center">
+                    <button
+                      onClick={handleClose}
+                      className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                      aria-label="Cerrar"
+                    >
+                      <i className="fas fa-times text-sm"></i>
+                    </button>
 
-            {showUpgradeOptions ? (
-              <div className="space-y-4 p-6">
-                {limitMessage && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
-                    {limitMessage}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Card: Actualizar plan */}
-                  <div
-                    className="group rounded-2xl border border-[#171931] p-6 shadow-lg hover:shadow-xl transition-all duration-300 bg-white cursor-pointer transform hover:scale-105"
-                    onClick={onUpgradeClick}
-                  >
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-2xl font-semibold text-[#171931]">
-                        Actualizar plan
-                      </h3>
-                      <span className="inline-flex items-center rounded-full text-xs px-3 py-1 border border-[#171931] bg-[#171931] text-white font-medium">
-                        Recomendado
-                      </span>
-                    </div>
-                    <p className="mt-4 text-sm text-gray-600 leading-6">
-                      Desbloquee más conexiones y funcionalidades elevando su
-                      plan actual. Ideal si su equipo crece o gestiona más
-                      números.
+                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/20 backdrop-blur">
+                      <i className="bx bx-trending-up text-2xl"></i>
+                    </span>
+                    <h3 className="mt-3 text-base font-bold tracking-tight text-white">
+                      Tu operación está creciendo
+                    </h3>
+                    <p className="mx-auto mt-1 max-w-xs text-[12px] leading-4 text-white/70">
+                      {limitMessage ||
+                        "Has alcanzado el límite de departamentos de tu plan."}{" "}
+                      Mejora tu plan para tener más capacidad y beneficios.
                     </p>
                   </div>
 
-                  {/* Card: Comprar conexión adicional */}
-                  <div
-                    className="group rounded-2xl border border-[#171931] p-6 shadow-lg hover:shadow-xl transition-all duration-300 bg-white cursor-pointer transform hover:scale-105"
-                    onClick={onBuyAddonClick}
-                  >
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-2xl font-semibold text-[#171931]">
-                        Comprar conexión adicional
-                      </h3>
-                      <div className="text-center">
-                        <p className="text-3xl font-bold text-[#171931]">$10</p>
-                        <p className="text-xs text-gray-600">
-                          Adquiera una conexión extra por
+                  <div className="px-5 py-5 space-y-2.5">
+                    {/* Mejorar plan */}
+                    <button
+                      type="button"
+                      onClick={onUpgradeClick}
+                      className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border-2 border-[#1d4ed8] bg-gradient-to-r from-[#eff6ff] to-white p-3.5 text-left transition-all duration-200 hover:shadow-md hover:shadow-[#1d4ed8]/15"
+                    >
+                      <span className="absolute right-2.5 top-2.5 inline-flex items-center rounded-full bg-[#1d4ed8] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                        Recomendado
+                      </span>
+                      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1d4ed8] text-white shadow-sm">
+                        <i className="bx bx-rocket text-xl"></i>
+                      </span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-bold text-[#171931]">
+                          Mejorar mi plan
+                        </span>
+                        <span className="mt-0.5 block text-[12px] leading-4 text-slate-500">
+                          Más departamentos y conexiones incluidas en tu plan.
+                        </span>
+                      </span>
+                      <i className="bx bx-chevron-right text-xl text-[#1d4ed8] transition-transform group-hover:translate-x-1"></i>
+                    </button>
+
+                    {/* Conexión adicional */}
+                    <button
+                      type="button"
+                      onClick={onBuyAddonClick}
+                      className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-all duration-200 hover:border-[#171931]/40 hover:shadow-sm"
+                    >
+                      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[#171931]">
+                        <i className="bx bx-plus-circle text-xl"></i>
+                      </span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-bold text-[#171931]">
+                          Comprar conexión adicional
+                        </span>
+                        <span className="mt-0.5 block text-[12px] leading-4 text-slate-500">
+                          Se suma a tu plan de forma recurrente.
+                        </span>
+                      </span>
+                      <span className="text-right leading-none">
+                        <span className="block text-base font-extrabold text-[#171931]">
+                          +$10
+                        </span>
+                        <span className="block text-[9px] text-slate-400">
+                          /mes
+                        </span>
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleClose}
+                      className="w-full rounded-lg py-1.5 text-center text-[12px] font-medium text-slate-400 transition-colors hover:text-slate-600"
+                    >
+                      Ahora no
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                /* ====================== VISTA CREAR / EDITAR ====================== */
+                <motion.div
+                  key="form-view"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  {/* Cabecera */}
+                  <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#eff6ff] text-[#1d4ed8]">
+                        <i
+                          className={`bx text-xl ${
+                            editingId ? "bx-edit-alt" : "bx-buildings"
+                          }`}
+                        ></i>
+                      </span>
+                      <div>
+                        <h5 className="text-base font-semibold text-[#171931] leading-tight">
+                          {editingId
+                            ? "Editar departamento"
+                            : "Agregar departamento"}
+                        </h5>
+                        <p className="text-[12px] text-slate-500">
+                          Define el departamento y asigna a tu equipo.
                         </p>
                       </div>
                     </div>
-
-                    <p className="mt-4 text-sm text-gray-600 leading-6">
-                      Esta conexión queda asociada permanentemente a su cuenta,
-                      sin importar el plan que tenga contratado.
-                    </p>
+                    <button
+                      onClick={handleClose}
+                      disabled={savingDep}
+                      className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Cerrar"
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
                   </div>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                {/* Tabs */}
-                <div className="flex border-b mb-6">
-                  <button
-                    type="button"
-                    className={`px-4 py-2 font-semibold ${
-                      activeTab === "departamento"
-                        ? "border-b-2 border-indigo-600 text-indigo-600"
-                        : "text-slate-500"
-                    }`}
-                    onClick={() => setActiveTab("departamento")}
-                  >
-                    Departamento
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-4 py-2 font-semibold ${
-                      activeTab === "usuarios"
-                        ? "border-b-2 border-indigo-600 text-indigo-600"
-                        : "text-slate-500"
-                    }`}
-                    onClick={() => setActiveTab("usuarios")}
-                  >
-                    Asignar Usuarios
-                  </button>
-                </div>
 
-                {activeTab === "departamento" ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Nombre del Departamento
-                        </label>
-                        <input
-                          required
-                          placeholder="Ej: Soporte, Ventas"
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                          value={form.nombre_departamento}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              nombre_departamento: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Color
-                        </label>
-                        <input
-                          required
-                          type="color"
-                          className="w-20 h-10 border border-slate-200 rounded-lg p-1 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none"
-                          value={form.color}
-                          onChange={(e) =>
-                            setForm({ ...form, color: e.target.value })
-                          }
-                        />
-                      </div>
+                  <form onSubmit={handleSubmit} className="px-6 py-5">
+                    {/* Tabs */}
+                    <div className="flex border-b border-gray-100 mb-5">
+                      <button
+                        type="button"
+                        className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                          activeTab === "departamento"
+                            ? "border-b-2 border-[#1d4ed8] text-[#1d4ed8]"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                        onClick={() => setActiveTab("departamento")}
+                      >
+                        Departamento
+                      </button>
+                      <button
+                        type="button"
+                        className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                          activeTab === "usuarios"
+                            ? "border-b-2 border-[#1d4ed8] text-[#1d4ed8]"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                        onClick={() => setActiveTab("usuarios")}
+                      >
+                        Asignar usuarios
+                      </button>
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Conexión asignada
-                        </label>
+                    {activeTab === "departamento" ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
+                              Nombre del departamento
+                            </label>
+                            <div className="relative">
+                              <i className="bx bx-purchase-tag absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
+                              <input
+                                required
+                                placeholder="Ej: Soporte, Ventas"
+                                className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                                value={form.nombre_departamento}
+                                onChange={(e) =>
+                                  setForm({
+                                    ...form,
+                                    nombre_departamento: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
 
-                        <Select
-                          options={conexionesOptions}
-                          value={selectedConexion}
-                          onChange={(opt) =>
-                            setForm({
-                              ...form,
-                              id_configuracion: opt ? opt.value : "", // si limpian, queda vacío
-                            })
-                          }
-                          placeholder="Seleccione una conexión..."
-                          isSearchable
-                          isClearable
-                          noOptionsMessage={() => "No hay conexiones"}
-                          maxMenuHeight={170}
-                        />
-                        {/* <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Mensaje de saludo
-                        </label>
-                        <textarea
-                          required
-                          placeholder="Ej: Hola, ¿en qué podemos ayudarte?"
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none resize-none"
-                          rows={4}
-                          value={form.mensaje_saludo}
-                          onChange={(e) =>
-                            setForm({ ...form, mensaje_saludo: e.target.value })
-                          }
-                        /> */}
+                          <div>
+                            <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
+                              Color
+                            </label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                required
+                                type="color"
+                                className="w-14 h-10 border border-gray-300 rounded-lg p-1 cursor-pointer"
+                                value={form.color}
+                                onChange={(e) =>
+                                  setForm({ ...form, color: e.target.value })
+                                }
+                              />
+                              <span className="text-sm text-slate-500 font-mono">
+                                {form.color}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
+                              Conexión asignada
+                            </label>
+                            <Select
+                              options={conexionesOptions}
+                              value={selectedConexion}
+                              onChange={(opt) =>
+                                setForm({
+                                  ...form,
+                                  id_configuracion: opt ? opt.value : "",
+                                })
+                              }
+                              placeholder="Seleccione una conexión..."
+                              isSearchable
+                              isClearable
+                              noOptionsMessage={() => "No hay conexiones"}
+                              maxMenuHeight={170}
+                              theme={selectTheme}
+                              styles={selectStyles}
+                            />
+                            <p className="mt-1.5 text-[11px] text-slate-400">
+                              La autoasignación de chats requiere una conexión
+                              asignada.
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="max-h-[400px] overflow-y-auto border rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50 sticky top-0 z-10">
-                        <tr className="text-slate-600">
-                          <th className="p-3 text-left">Usuario</th>
-                          <th className="p-3 text-left">Nombre responsable</th>
-                          <th className="p-3 text-left">Correo</th>
-                          <th className="p-3 text-center">
-                            Asignar usuario al departamento
-                          </th>
-                          <th className="p-3 text-center">
-                            Asignar chats automaticamente
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {usuarios.map((usuario) => {
-                          const asignacion = getAsignacion(
-                            usuario.id_sub_usuario,
-                          );
-                          const isChecked = !!asignacion;
-                          return (
-                            <tr key={usuario.id_sub_usuario}>
-                              <td className="p-3">{usuario.usuario}</td>
-                              <td className="p-3">
-                                {usuario.nombre_encargado}
-                              </td>
-                              <td className="p-3">{usuario.email}</td>
-                              <td className="p-3 text-center">
-                                <label className="inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={isChecked}
-                                    onChange={() => {
-                                      setUsuariosAsignados((prev) => {
-                                        const id = Number(
-                                          usuario.id_sub_usuario,
-                                        );
-                                        const exists = prev.some(
-                                          (x) =>
-                                            Number(x.id_sub_usuario) === id,
-                                        );
-
-                                        if (exists) {
-                                          // quitar
-                                          return prev.filter(
-                                            (x) =>
-                                              Number(x.id_sub_usuario) !== id,
-                                          );
-                                        }
-
-                                        // agregar con asignacion_auto por defecto 0
-                                        return [
-                                          ...prev,
-                                          {
-                                            id_sub_usuario: id,
-                                            asignacion_auto: 0,
-                                          },
-                                        ];
-                                      });
-                                    }}
-                                  />
-                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600 relative" />
-                                </label>
-                              </td>
-                              <td className="p-3 text-center">
-                                <input
-                                  type="checkbox"
-                                  disabled={!isChecked} // solo si está asignado
-                                  checked={
-                                    isChecked
-                                      ? asignacion.asignacion_auto === 1
-                                      : false
-                                  }
-                                  onChange={(e) => {
-                                    const val = e.target.checked ? 1 : 0;
-                                    setUsuariosAsignados((prev) =>
-                                      prev.map((x) =>
-                                        Number(x.id_sub_usuario) ===
-                                        Number(usuario.id_sub_usuario)
-                                          ? { ...x, asignacion_auto: val }
-                                          : x,
-                                      ),
-                                    );
-                                  }}
-                                />
-                              </td>
+                    ) : (
+                      <div className="max-h-[400px] overflow-y-auto border border-gray-200 rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50 sticky top-0 z-10">
+                            <tr className="text-slate-600">
+                              <th className="p-3 text-left font-semibold">
+                                Usuario
+                              </th>
+                              <th className="p-3 text-left font-semibold">
+                                Nombre responsable
+                              </th>
+                              <th className="p-3 text-left font-semibold">
+                                Correo
+                              </th>
+                              <th className="p-3 text-center font-semibold">
+                                Asignar al departamento
+                              </th>
+                              <th className="p-3 text-center font-semibold">
+                                Asignar chats automáticamente
+                              </th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {usuarios.map((usuario) => {
+                              const asignacion = getAsignacion(
+                                usuario.id_sub_usuario,
+                              );
+                              const isChecked = !!asignacion;
+                              const autoOn =
+                                isChecked && asignacion.asignacion_auto === 1;
+                              return (
+                                <tr
+                                  key={usuario.id_sub_usuario}
+                                  className="hover:bg-slate-50/60"
+                                >
+                                  <td className="p-3 text-slate-800 font-medium">
+                                    {usuario.usuario}
+                                  </td>
+                                  <td className="p-3 text-slate-700">
+                                    {usuario.nombre_encargado}
+                                  </td>
+                                  <td className="p-3 text-slate-700">
+                                    {usuario.email}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <Switch
+                                      checked={isChecked}
+                                      title={
+                                        isChecked ? "Asignado" : "Sin asignar"
+                                      }
+                                      onClick={() => {
+                                        setUsuariosAsignados((prev) => {
+                                          const id = Number(
+                                            usuario.id_sub_usuario,
+                                          );
+                                          const exists = prev.some(
+                                            (x) =>
+                                              Number(x.id_sub_usuario) === id,
+                                          );
+                                          if (exists) {
+                                            return prev.filter(
+                                              (x) =>
+                                                Number(x.id_sub_usuario) !== id,
+                                            );
+                                          }
+                                          return [
+                                            ...prev,
+                                            {
+                                              id_sub_usuario: id,
+                                              asignacion_auto: 0,
+                                            },
+                                          ];
+                                        });
+                                      }}
+                                    />
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <Switch
+                                      checked={autoOn}
+                                      disabled={!isChecked}
+                                      title={
+                                        !isChecked
+                                          ? "Primero asigna el usuario"
+                                          : "Autoasignar chats a este usuario"
+                                      }
+                                      onClick={() => {
+                                        const val = autoOn ? 0 : 1;
+                                        setUsuariosAsignados((prev) =>
+                                          prev.map((x) =>
+                                            Number(x.id_sub_usuario) ===
+                                            Number(usuario.id_sub_usuario)
+                                              ? { ...x, asignacion_auto: val }
+                                              : x,
+                                          ),
+                                        );
+                                      }}
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
 
-                {/* Botones finales */}
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    className="border border-slate-200 px-4 py-2.5 rounded-lg hover:bg-slate-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-sm"
-                  >
-                    {editingId ? "Actualizar" : "Agregar"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
+                    {/* Footer */}
+                    <div className="flex justify-end gap-2.5 pt-5 mt-5 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={handleClose}
+                        disabled={savingDep}
+                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingDep}
+                        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#1d4ed8] text-sm text-white font-semibold hover:bg-[#1e40af] shadow-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        <i
+                          className={`bx ${
+                            savingDep ? "bx-loader-alt bx-spin" : "bx-check"
+                          }`}
+                        ></i>
+                        {savingDep
+                          ? "Guardando…"
+                          : editingId
+                            ? "Actualizar"
+                            : "Agregar"}
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

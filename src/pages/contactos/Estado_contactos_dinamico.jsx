@@ -844,13 +844,7 @@ const Estado_contactos = () => {
         )}
         <button
           onClick={() =>
-            navigate(`/chat/${contacto.id}`, {
-              state: {
-                id_configuracion: Number(
-                  localStorage.getItem("id_configuracion"),
-                ),
-              },
-            })
+            window.open(`/chat/${contacto.id}`, "_blank", "noopener,noreferrer")
           }
           style={{
             marginTop: 8,

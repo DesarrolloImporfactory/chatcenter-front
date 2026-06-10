@@ -591,11 +591,7 @@ export default function Contactos() {
 
     if (!chatId) return;
 
-    navigate(`${CHAT_ROUTE}/${chatId}`, {
-      state: {
-        id_configuracion: Number(localStorage.getItem("id_configuracion")),
-      },
-    });
+    window.open(`${CHAT_ROUTE}/${chatId}`, "_blank", "noopener,noreferrer");
   };
 
   const [view, setView] = useState("contactos");
