@@ -49,13 +49,25 @@ export const ASESORES = [
   { id: 5753, nombre: "Kathy Mallitaxi" },
   { id: 9262, nombre: "Diego" },
   { id: 5752, nombre: "Adrián Velez" },
+  { id: 10026, nombre: "Jorge Sharupi" },
 ];
 
 /**
- * id_configuracion (de chatcenter) donde se habilita la cartera de Imporsuit.
- * Agregá más ids a este array para habilitarla en otras configuraciones.
+ * id_configuracion (de chatcenter) donde se habilita la CARTERA (cuenta de
+ * VENTAS). Agregá más ids a este array para habilitarla en otras configuraciones.
  */
 export const CARTERA_CONFIGS_HABILITADAS = [242];
+
+/**
+ * id_configuracion donde se habilita el CHECKLIST DEL ALUMNO (cuenta de
+ * IMPORTACIONES). Gate INDEPENDIENTE de la cartera: la cartera vive en ventas
+ * (242) y el checklist en la(s) cuenta(s) de importaciones, para que cada sistema
+ * se vea por separado.
+ *
+ * TODO: agregar el id_configuracion de la cuenta de importaciones. Mientras esté
+ * vacío, el checklist NO se muestra en ninguna config (incluida ventas 242).
+ */
+export const CHECKLIST_CONFIGS_HABILITADAS = [265];
 
 /** Estado de una deuda (cuenta_por_pagar.estado). */
 export const ESTADO_DEUDA = {
@@ -69,9 +81,21 @@ export const ESTADO_DEUDA = {
  * Para mostrar etiquetas e iconos en la vista de auditoría.
  */
 export const ACCIONES_AUDITORIA = {
-  crear_cliente: { label: "Crear / asignar cliente", icon: "bx-user-plus", color: "indigo" },
-  generar_cartera: { label: "Generar cartera", icon: "bx-wallet", color: "emerald" },
+  crear_cliente: {
+    label: "Crear / asignar cliente",
+    icon: "bx-user-plus",
+    color: "indigo",
+  },
+  generar_cartera: {
+    label: "Generar cartera",
+    icon: "bx-wallet",
+    color: "emerald",
+  },
   agregar_deuda: { label: "Agregar deuda", icon: "bx-receipt", color: "amber" },
-  agregar_pago: { label: "Registrar pago", icon: "bx-dollar-circle", color: "green" },
+  agregar_pago: {
+    label: "Registrar pago",
+    icon: "bx-dollar-circle",
+    color: "green",
+  },
   eliminar_deuda: { label: "Eliminar deuda", icon: "bx-trash", color: "red" },
 };

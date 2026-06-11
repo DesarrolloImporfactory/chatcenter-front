@@ -122,10 +122,17 @@ sale de `selectedChat.email_cliente`.
   asignar paquetes a uno existente NO se sobrescribe con datos del chat.)
 
 ### Gate por configuración (IMPORTANTE)
-La sección **solo se muestra si `id_configuracion` ∈ `CARTERA_CONFIGS_HABILITADAS`**
-(en `constants.js`). Hoy: `[237]`. Para habilitar más configuraciones, agregá el
-id a ese array. El gate vive en `CarteraImporsuitSection.jsx` (`return null` si no
-aplica).
+Hay **dos gates independientes** en `constants.js`, para que Cartera (ventas) y
+Checklist (importaciones) se habiliten en cuentas distintas:
+
+- **`CARTERA_CONFIGS_HABILITADAS`** → controla la **Cartera** (`CarteraImporsuitSection.jsx`).
+  Cuenta de **ventas**. Hoy: `[242]`.
+- **`CHECKLIST_CONFIGS_HABILITADAS`** → controla el **Checklist del alumno**
+  (`ChecklistImporsuitSection.jsx`). Cuenta(s) de **importaciones**. Si está vacío
+  (`[]`), el checklist no se muestra en ninguna config.
+
+Cada sección hace `return null` si su `id_configuracion` no está en su array. Para
+habilitar en otra cuenta, agregá el id al array correspondiente.
 
 ### Asesores (selector en "Agregar deuda")
 `ASESORES` en `constants.js` — el `id` es `id_users` de Imporsuit y se manda como

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  CARTERA_CONFIGS_HABILITADAS,
+  CHECKLIST_CONFIGS_HABILITADAS,
   getChecklistUsuario,
 } from "../../services/imporsuit";
 
@@ -20,8 +20,9 @@ export default function ChecklistImporsuitSection({
   const correo = selectedChat?.email_cliente || "";
   const nombre = selectedChat?.nombre_cliente || "";
 
-  // Solo en las configuraciones donde la integración Imporsuit está habilitada.
-  if (!CARTERA_CONFIGS_HABILITADAS.includes(Number(idConfiguracion))) {
+  // Gate propio del checklist (cuenta de importaciones), independiente de la
+  // cartera (ventas). Si el array está vacío, no se muestra en ninguna config.
+  if (!CHECKLIST_CONFIGS_HABILITADAS.includes(Number(idConfiguracion))) {
     return null;
   }
 
