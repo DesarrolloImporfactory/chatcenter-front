@@ -103,6 +103,67 @@ const TabAsistente = ({
   // ── Actualizar prompt (resincronizar) ────────────────────
   const [actualizandoPrompt, setActualizandoPrompt] = useState(false);
 
+  // ── Auto-creación de órdenes Dropi ───────────────────────
+  const [autoOrden, setAutoOrden] = useState(false);
+  const [autoOrdenLoading, setAutoOrdenLoading] = useState(false);
+
+  useEffect(() => {
+    if (!idConfiguracion) return;
+    chatApi
+      .post("/configuraciones/obtener_auto_orden_dropi", {
+        id_configuracion: idConfiguracion,
+      })
+      .then(({ data }) => setAutoOrden(!!data?.activo))
+      .catch(() => {});
+  }, [idConfiguracion]);
+
+  const toggleAutoOrden = async () => {
+    const activar = !autoOrden;
+
+    if (activar) {
+      const r = await Swal.fire({
+        title: "Activar creación automática de órdenes",
+        html: `
+          <div style="font-size:.85rem;color:#475569;text-align:left;line-height:1.6">
+            <div style="margin-bottom:10px">
+              Cuando la IA confirme una venta en el chat, creará la orden en Dropi
+              automáticamente con los datos de la conversación, en estado
+              <strong>PENDIENTE CONFIRMACIÓN</strong>.
+            </div>
+            <div style="padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:.8rem">
+              <strong>Importante:</strong> la IA extrae producto, dirección y valores
+              directamente del chat. La verificación de cada orden antes de
+              confirmarla para despacho es responsabilidad de tu equipo.
+            </div>
+          </div>
+        `,
+        icon: "info",
+        showCancelButton: true,
+        confirmButtonColor: "#6366f1",
+        confirmButtonText: "Entendido",
+        cancelButtonText: "Cancelar",
+      });
+      if (!r.isConfirmed) return;
+    }
+
+    setAutoOrdenLoading(true);
+    try {
+      await chatApi.post("/configuraciones/actualizar_auto_orden_dropi", {
+        id_configuracion: idConfiguracion,
+        activo: activar,
+      });
+      setAutoOrden(activar);
+      Toast.fire({
+        icon: "success",
+        title: activar ? "Auto-órdenes activadas" : "Auto-órdenes desactivadas",
+      });
+    } catch (err) {
+      Toast.fire({ icon: "error", title: "No se pudo actualizar" });
+    } finally {
+      setAutoOrdenLoading(false);
+    }
+  };
+
   // ── Cargar asistente solo cuando cambia la columna ───────
   useEffect(() => {
     if (!columnaId) return;
@@ -1042,7 +1103,7 @@ const TabAsistente = ({
                 Personalizar prompt
               </button>
 
-              {/* ═══ NUEVO: botón Actualizar prompt ═══ */}
+              {/* ═══ Botón Actualizar prompt ═══ */}
               <button
                 onClick={handleActualizarPrompt}
                 disabled={actualizandoPrompt}
@@ -1116,6 +1177,102 @@ const TabAsistente = ({
                 {showChat ? "Cerrar chat" : "Probar asistente"}
               </button>
             </div>
+          </div>
+
+          {/* ═══ Auto-creación de órdenes Dropi ═══ */}
+          <div
+            style={{
+              borderRadius: 14,
+              border: autoOrden
+                ? "1px solid rgba(16,185,129,.35)"
+                : "1px solid rgba(99,102,241,.2)",
+              background: autoOrden
+                ? "linear-gradient(135deg, rgba(99,102,241,.06), rgba(16,185,129,.05))"
+                : "#fafafa",
+              padding: "14px 18px",
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: autoOrden ? "rgba(16,185,129,.12)" : "#f1f5f9",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <i
+                    className="bx bx-package"
+                    style={{
+                      fontSize: "1.4rem",
+                      color: autoOrden ? "#10b981" : "#94a3b8",
+                    }}
+                  />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      fontSize: "0.95rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    Creación de órdenes automáticas en Dropi
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                    {autoOrden
+                      ? "Cuando la IA confirma la venta, crea la orden lista para tu revisión"
+                      : "Activa esta opción para que la IA cree la orden en Dropi al confirmar la venta"}
+                  </div>
+                </div>
+              </div>
+              {autoOrdenLoading ? (
+                <i
+                  className="bx bx-loader-alt bx-spin"
+                  style={{ color: "#6366f1", fontSize: "1.3rem" }}
+                />
+              ) : (
+                <Toggle checked={autoOrden} onChange={toggleAutoOrden} />
+              )}
+            </div>
+
+            {autoOrden && (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: ".72rem",
+                  color: "#94a3b8",
+                  lineHeight: 1.5,
+                  paddingTop: 10,
+                  borderTop: "1px dashed rgba(0,0,0,.07)",
+                }}
+              >
+                <i
+                  className="bx bx-shield-quarter"
+                  style={{ marginRight: 4 }}
+                />
+                Las órdenes se crean en estado{" "}
+                <strong>Pendiente confirmación</strong> con los datos extraídos
+                de la conversación. Verifica producto, dirección y valor a
+                recaudar antes de confirmar cada despacho,la revisión y
+                aprobación final es responsabilidad de tu equipo.
+              </div>
+            )}
           </div>
 
           <ChatPruebaModal

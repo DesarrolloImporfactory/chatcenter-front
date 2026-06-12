@@ -547,12 +547,6 @@ export default function useCreateOrder({
 
     s.emit("DROPI_CREATE_ORDER", {
       id_configuracion: Number(id_configuracion),
-      // 🧪 PRUEBA TEMPORAL (config 10): crear con PENDIENTE CONFIRMACION
-      // para validar que Dropi honra el status en el create.
-      // Quitar o generalizar cuando la prueba pase.
-      ...(Number(id_configuracion) === 10
-        ? { status: "PENDIENTE CONFIRMACION" }
-        : {}),
       type: "FINAL_ORDER",
       type_service: "normal",
       rate_type: String(rateType || "CON RECAUDO"),
