@@ -4,14 +4,18 @@ import TabImporChat from "./TabImporchat";
 import TabInstaLanding from "./TabInstaLanding";
 
 /* ── Comparison Table ── */
+const COLS = [
+  { k: "il", n: "Insta Landing", p: "$29", c: "#10B981" },
+  { k: "ic", n: "ImporChat", p: "$29", c: "#00BFFF" },
+  { k: "pro", n: "Pro Ecosistema", p: "$49", c: "#6366F1" }, // antes decía $59
+  { k: "av", n: "Avanzado", p: "$99", c: "#F59E0B" },
+];
+
 const ROWS = [
-  { f: "Insta Landing", il: "SI", ic: "—", pro: "SI", av: "MAX" },
-  { f: "ImporChat", il: "—", ic: "SI", pro: "SI", av: "PRO" },
-  { f: "Banners/mes", il: "120", ic: "—", pro: "300", av: "500" },
-  { f: "Angulos AI", il: "30", ic: "—", pro: "75", av: "125" },
-  { f: "Secciones", il: "5", ic: "—", pro: "10", av: "10 + custom" },
-  { f: "Dropi", il: "20 prod.", ic: "—", pro: "Ilimitado", av: "Multi-tienda" },
-  { f: "Agentes WhatsApp", il: "—", ic: "1", pro: "1", av: "3" },
+  { f: "Insta Landing", il: "SI", ic: "—", pro: "SI", av: "SI" },
+  { f: "ImporChat", il: "—", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Agentes IA", il: "—", ic: "1", pro: "2", av: "5" },
+  { f: "Subusuarios", il: "1", ic: "2", pro: "5", av: "10" },
   {
     f: "Conversaciones",
     il: "—",
@@ -19,18 +23,26 @@ const ROWS = [
     pro: "Ilimitadas",
     av: "Ilimitadas",
   },
-  { f: "Landing > WA", il: "—", ic: "—", pro: "SI", av: "SI" },
+  { f: "Banners IA/mes", il: "120", ic: "—", pro: "300", av: "500" },
+  { f: "Ángulos IA", il: "30", ic: "—", pro: "100", av: "125" },
+  { f: "Secciones landing", il: "5", ic: "—", pro: "10", av: "10 + custom" },
+  {
+    f: "Productos Dropi",
+    il: "Ilimitado",
+    ic: "—",
+    pro: "Ilimitado",
+    av: "Multi-tienda",
+  },
+  { f: "Landing → WhatsApp", il: "—", ic: "—", pro: "SI", av: "SI" },
   { f: "A/B Testing", il: "—", ic: "—", pro: "SI", av: "SI" },
-  { f: "Bot entrenado", il: "—", ic: "—", pro: "—", av: "SI" },
-  { f: "Analytics", il: "Basico", ic: "Basico", pro: "SI", av: "Avanzado" },
-  { f: "Sub-cuentas", il: "—", ic: "—", pro: "—", av: "5" },
-  { f: "Soporte", il: "Chat 24h", ic: "Chat 24h", pro: "WA 4h", av: "VIP" },
-];
-const COLS = [
-  { k: "il", n: "Insta Landing", p: "$29", c: "#10B981" },
-  { k: "ic", n: "ImporChat", p: "$29", c: "#00BFFF" },
-  { k: "pro", n: "Pro Ecosistema", p: "$59", c: "#6366F1" },
-  { k: "av", n: "Avanzado", p: "$99", c: "#F59E0B" },
+  {
+    f: "Analytics",
+    il: "Básico",
+    ic: "Básico",
+    pro: "Completo",
+    av: "Avanzado",
+  },
+  { f: "Soporte", il: "Chat 24h", ic: "Chat 24h", pro: "VIP", av: "VIP" },
 ];
 
 const LandingHome = () => {
@@ -271,7 +283,7 @@ const LandingHome = () => {
               Iniciar sesion
             </button>
             <button
-              onClick={() => navigate("/registro")}
+              onClick={() => navigate("/register")}
               className="px-7 py-3.5 rounded-xl text-sm font-bold text-white border border-white/20 hover:bg-white/10 transition-all"
             >
               Crear cuenta

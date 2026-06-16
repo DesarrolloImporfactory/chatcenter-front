@@ -142,7 +142,6 @@ const buildFeatures = (plan) => {
         enabled: true,
         section: "il",
       },
-      { label: "Conexión con Shopify", enabled: true, section: "il" },
       // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
       { label: labelAgentes(plan), enabled: true, section: "ic" },
       { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
@@ -176,7 +175,6 @@ const buildFeatures = (plan) => {
         label: `Dropi (${plan.max_productos_dropi > 0 ? plan.max_productos_dropi : 20} productos)`,
         enabled: true,
       },
-      { label: "Conexión con Shopify", enabled: true },
       { label: "+280 templates", enabled: true },
       { label: "Editor textos AI", enabled: true },
       { label: "Sin ImporChat", enabled: false },
@@ -223,7 +221,6 @@ const buildFeatures = (plan) => {
         section: "il",
       },
       { label: "Dropi ILIMITADO + sync", enabled: true, section: "il" },
-      { label: "Conexión con Shopify", enabled: true, section: "il" },
       { label: "A/B Testing visual", enabled: true, section: "il" },
       // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
       { label: labelAgentes(plan), enabled: true, section: "ic" },
@@ -267,7 +264,6 @@ const buildFeatures = (plan) => {
       section: "il",
     },
     { label: "Multi-tienda Dropi + API", enabled: true, section: "il" },
-    { label: "Conexión con Shopify", enabled: true, section: "il" },
     {
       label: `Bulk gen (${plan.bulk_gen_productos || 30} productos)`,
       enabled: true,
@@ -440,6 +436,7 @@ const PlanesViewPrueba = () => {
     setPendingChange(plan?.pending_change ?? null);
     setPendingEffectiveAt(plan?.pending_effective_at ?? null);
     setAddonConexiones(Number(plan?.conexiones_adicionales || 0));
+    setAddonSubusuarios(Number(plan?.subusuarios_adicionales || 0));
     return plan;
   };
 

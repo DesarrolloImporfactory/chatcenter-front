@@ -289,7 +289,7 @@ const Dropiboard = () => {
                 </span>
               </div>
             )}
-            <a
+            {/* <a
               href="/metricas-internas/"
               target="_blank"
               rel="noopener noreferrer"
@@ -301,7 +301,7 @@ const Dropiboard = () => {
                 <path d="M7 14l4-4 4 4 6-6" />
               </svg>
               Control diario de rentabilidad
-            </a>
+            </a> */}
           </div>
         </div>
       </div>

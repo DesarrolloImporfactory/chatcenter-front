@@ -142,12 +142,7 @@ const buildFeatures = (plan) => {
         enabled: true,
         section: "il",
       },
-      // ✅ NUEVO: Conexión Shopify en IL
-      {
-        label: "Conexión con Shopify",
-        enabled: true,
-        section: "il",
-      },
+
       // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
       {
         label: labelAgentes(plan),
@@ -188,8 +183,7 @@ const buildFeatures = (plan) => {
         label: `Dropi (${plan.max_productos_dropi > 0 ? plan.max_productos_dropi : 20} productos)`,
         enabled: true,
       },
-      //  NUEVO: Conexión Shopify
-      { label: "Conexión con Shopify", enabled: true },
+
       { label: "+280 templates", enabled: true },
       { label: "Editor textos AI", enabled: true },
       { label: "Sin ImporChat", enabled: false },
@@ -200,10 +194,7 @@ const buildFeatures = (plan) => {
   if (tipo === "imporchat") {
     return [
       // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
-      {
-        label: labelAgentes(plan),
-        enabled: true,
-      },
+      { label: labelAgentes(plan), enabled: true },
       { label: "Conversaciones ILIMITADAS", enabled: true },
       { label: "Respuestas auto 24/7", enabled: true },
       { label: "Manejo objeciones AI", enabled: true },
@@ -239,15 +230,10 @@ const buildFeatures = (plan) => {
         section: "il",
       },
       { label: "Dropi ILIMITADO + sync", enabled: true, section: "il" },
-      // ✅ NUEVO: Conexión Shopify en Pro
-      { label: "Conexión con Shopify", enabled: true, section: "il" },
+
       { label: "A/B Testing visual", enabled: true, section: "il" },
       // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
-      {
-        label: labelAgentes(plan),
-        enabled: true,
-        section: "ic",
-      },
+      { label: labelAgentes(plan), enabled: true, section: "ic" },
       { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
       {
         label: "Dashboard centralizado (3 en 1)",
@@ -270,7 +256,6 @@ const buildFeatures = (plan) => {
     ];
   }
 
-  // avanzado
   return [
     {
       label: `${plan.max_banners_mes || 500} banners/mes`,
@@ -293,19 +278,14 @@ const buildFeatures = (plan) => {
       section: "il",
     },
     { label: "Multi-tienda Dropi + API", enabled: true, section: "il" },
-    // ✅ NUEVO: Conexión Shopify en Avanzado
-    { label: "Conexión con Shopify", enabled: true, section: "il" },
+
     {
       label: `Bulk gen (${plan.bulk_gen_productos || 30} productos)`,
       enabled: true,
       section: "il",
     },
     // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
-    {
-      label: labelAgentes(plan),
-      enabled: true,
-      section: "ic",
-    },
+    { label: labelAgentes(plan), enabled: true, section: "ic" },
     { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
     { label: "Dashboard centralizado (3 en 1)", enabled: true, section: "db" },
     {
@@ -475,6 +455,7 @@ const PlanesView = () => {
     setPendingChange(plan?.pending_change ?? null);
     setPendingEffectiveAt(plan?.pending_effective_at ?? null);
     setAddonConexiones(Number(plan?.conexiones_adicionales || 0));
+    setAddonSubusuarios(Number(plan?.subusuarios_adicionales || 0));
     return plan;
   };
 
@@ -909,7 +890,6 @@ const PlanesView = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* ── HEADER ── */}
       <div className="relative px-4 sm:px-6 pt-3 pb-6">
         {hasPlan && (
           <div className="absolute left-4 sm:left-6 top-3">
@@ -1054,7 +1034,6 @@ const PlanesView = () => {
         )}
       </div>
 
-      {/* ── GRID ── */}
       <div className="px-3 sm:px-4 pb-16">
         <div
           className={`grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch ${visiblePlans.length <= 4 ? "xl:grid-cols-4" : "xl:grid-cols-5"}`}
@@ -1086,11 +1065,8 @@ const PlanesView = () => {
               planId === TRIAL_USAGE_PLAN_ID && !ilTrialUsed && !hasActivePlan;
             const canTrialDays =
               planId === TRIAL_DAYS_PLAN_ID && trialEligible && !hasActivePlan;
-
-            // ✅ NUEVO: Trial 5 días para Plan Comunidad
             const isComunidad = planId === PLAN_COMUNIDAD_ID;
             const canTrialComunidad = isComunidad && !hasActivePlan;
-
             const promoEligible =
               promoPlan2Eligible &&
               (!hasActivePlan || isTrialUsageActive || isPromoUsageActive);
@@ -1131,7 +1107,6 @@ const PlanesView = () => {
               if (hasActivePlan) return "Cambiar a este plan";
               if (canTrialIL)
                 return `Probar gratis (${TRIAL_USAGE_LIMIT} imágenes)`;
-              // ✅ NUEVO: CTA para Comunidad con trial 5 días
               if (canTrialComunidad)
                 return `${TRIAL_DAYS_COMUNIDAD} días gratis`;
               if (canTrialDays) return `${TRIAL_DAYS} días gratis`;
@@ -1264,7 +1239,6 @@ const PlanesView = () => {
                           Promo activa — suscríbete para acceso completo
                         </span>
                       )}
-                      {/* ✅ NUEVO: Badge trial 5 días para Comunidad */}
                       {canTrialComunidad && (
                         <span
                           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold"
@@ -1314,7 +1288,6 @@ const PlanesView = () => {
                         ) : canTrialIL && showPromo ? (
                           <>Gratis → $5 primer mes → ${precioNormal}/mes</>
                         ) : canTrialComunidad && showPromo ? (
-                          /* ✅ NUEVO: Texto para Comunidad */
                           <>
                             {TRIAL_DAYS_COMUNIDAD} días gratis → $5 primer mes →
                             ${precioNormal}/mes
@@ -1325,7 +1298,6 @@ const PlanesView = () => {
                             {precioNormal}/mes
                           </>
                         ) : canTrialComunidad ? (
-                          /* ✅ Sin promo pero con trial comunidad */
                           <>
                             {TRIAL_DAYS_COMUNIDAD} días gratis. Luego $
                             {precioNormal}/mes.
@@ -1362,6 +1334,7 @@ const PlanesView = () => {
                     >
                       {getCTAText()}
                     </button>
+
                     <div className="flex-1">
                       {features.map((f, idx) => {
                         const prevSection =

@@ -596,7 +596,7 @@ export default function AdsboardAttributionFunnel({
             <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-800 inline-flex items-center gap-1">
                 Ganancia neta (utilidad − gasto ads)
-                <Tip text="Lo que te queda LIMPIO después de pagar publicidad. Si es positivo, ganas; si es negativo, pierdes plata.">
+                <Tip text="Lo que te queda LIMPIO después de pagar publicidad. Si es positivo, ganas; si es negativo, pierdes dinero.">
                   <TipIcon />
                 </Tip>
               </span>
