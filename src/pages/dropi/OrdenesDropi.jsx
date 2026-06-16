@@ -8,6 +8,7 @@ import React, {
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import { useNavigate } from "react-router-dom";
+import AutoOrdenesFallidas from "./AutoOrdenesFallidas";
 
 const RESULT_NUMBER_OPTIONS = [10, 20, 40, 60, 80, 99];
 
@@ -635,6 +636,13 @@ const OrdenesDropi = () => {
               chat con su cliente.
             </p>
           </div>
+          <AutoOrdenesFallidas
+            id_configuracion={id_configuracion}
+            onOrderCreated={() => {
+              lastKeyRef.current = ""; // fuerza refetch de la lista de órdenes
+              setPage(1);
+            }}
+          />
         </div>
       </div>
 
