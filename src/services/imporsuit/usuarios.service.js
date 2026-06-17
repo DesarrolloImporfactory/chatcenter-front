@@ -46,6 +46,7 @@ export async function crearUsuarioFull(payload, { signal } = {}) {
     "kit",
     "tiendas",
     "franquicias",
+    "dropsystem",
   ];
 
   const body = {

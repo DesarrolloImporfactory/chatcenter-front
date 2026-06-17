@@ -61,6 +61,7 @@ export function CrearUsuarioForm({
     kit: toFlag(clienteExistente?.kit),
     tiendas: toFlag(clienteExistente?.tiendas),
     franquicias: toFlag(clienteExistente?.franquicias),
+    dropsystem: toFlag(clienteExistente?.dropsystem),
   }));
 
   const [cursos, setCursos] = useState([]);
@@ -123,6 +124,7 @@ export function CrearUsuarioForm({
         kit: form.kit,
         tiendas: form.tiendas,
         franquicias: form.franquicias,
+        dropsystem: form.dropsystem,
         cursos: Array.from(cursosSel),
       });
 

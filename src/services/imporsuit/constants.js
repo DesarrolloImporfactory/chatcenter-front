@@ -20,6 +20,7 @@ export const PAQUETES = [
   { key: "kit", label: "Kit" },
   { key: "tiendas", label: "50 Tiendas" },
   { key: "franquicias", label: "Franquicias" },
+  { key: "dropsystem", label: "DropSystem" },
 ];
 
 /** Medios de pago aceptados por Asesor/agregar_pago. */
