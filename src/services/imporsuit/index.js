@@ -18,7 +18,11 @@ export {
 
 export { getCursosDisponibles, crearUsuarioFull } from "./usuarios.service";
 
-export { getChecklistUsuario } from "./checklist.service";
+export {
+  getChecklistUsuario,
+  marcarChecklistItem,
+  guardarNotaChecklist,
+} from "./checklist.service";
 
 export { listarAuditoria } from "./auditoria.service";
 
