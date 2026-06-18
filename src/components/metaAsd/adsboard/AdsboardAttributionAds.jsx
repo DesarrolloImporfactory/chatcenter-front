@@ -213,6 +213,22 @@ export default function AdsboardAttributionAds({
 
   const items = data?.attribution?.items || [];
   const totals = data?.attribution?.totales_rango || {};
+  const funnel = data?.funnel?.embudo || {};
+  const dinero = data?.funnel?.dinero || {};
+
+  const getVal = (item, key) => {
+    if (key === "cpa_msg") {
+      const msgs = Number(item.msgs || 0);
+      return msgs > 0 ? Number(item.spend || 0) / msgs : 0;
+    }
+    if (key === "tasa_conf") {
+      const ord = Number(item.ordenes_estimadas || 0);
+      return ord > 0
+        ? (Number(item.entregadas_estimadas || 0) / ord) * 100
+        : 0;
+    }
+    return Number(item[key] || 0);
+  };
 
   const sortedItems = useMemo(() => {
     let filtered = items.filter((it) => Number(it.roi_estimado || 0) >= minRoi);
@@ -220,8 +236,8 @@ export default function AdsboardAttributionAds({
       filtered = filtered.filter((it) => Number(it.ordenes_estimadas || 0) > 0);
     }
     return [...filtered].sort((a, b) => {
-      const va = Number(a[sortKey] || 0);
-      const vb = Number(b[sortKey] || 0);
+      const va = getVal(a, sortKey);
+      const vb = getVal(b, sortKey);
       return sortDir === "desc" ? vb - va : va - vb;
     });
   }, [items, sortKey, sortDir, minRoi, onlyWithSales]);
@@ -428,6 +444,26 @@ export default function AdsboardAttributionAds({
             label="Inversión"
             value={fmtCurrency(totals.gasto_total, currency)}
           />
+          <div className="h-9 w-px bg-slate-200" />
+          <BannerKPI
+            label="CPA / Msg"
+            value={fmtCurrency(dinero.cpa_mensaje, currency)}
+          />
+          <BannerKPI
+            label="Tasa Conf."
+            value={`${fmt(
+              funnel.entregadas > 0 && funnel.ordenes_dropi > 0
+                ? (funnel.entregadas / funnel.ordenes_dropi) * 100
+                : 0,
+              1,
+            )}%`}
+            tone={
+              funnel.entregadas > 0 && funnel.ordenes_dropi > 0 &&
+              (funnel.entregadas / funnel.ordenes_dropi) * 100 >= 60
+                ? "emerald"
+                : "amber"
+            }
+          />
         </div>
       </div>
 
@@ -552,6 +588,26 @@ export default function AdsboardAttributionAds({
                 >
                   CPA orden
                 </Th>
+                <Th
+                  sortKey="cpa_msg"
+                  currentSort={sortKey}
+                  sortDir={sortDir}
+                  onSort={handleSort}
+                  tip="Gasto del anuncio ÷ Mensajes WhatsApp. Cuánto te cuesta cada chat iniciado por este anuncio."
+                  className="py-3 text-right"
+                >
+                  CPA msg
+                </Th>
+                <Th
+                  sortKey="tasa_conf"
+                  currentSort={sortKey}
+                  sortDir={sortDir}
+                  onSort={handleSort}
+                  tip="Entregadas ÷ Órdenes × 100. % de órdenes que el cliente recibió y pagó."
+                  className="py-3 text-right"
+                >
+                  % Conf.
+                </Th>
                 <th className="py-3 pr-4 text-center">
                   <Tip text="Acciones: ver órdenes, pausar/activar, abrir en Facebook.">
                     <span className="inline-flex items-center gap-1">
@@ -661,6 +717,33 @@ export default function AdsboardAttributionAds({
                           ? fmtCurrency(ad.cpa_orden_estimado, currency)
                           : "—"}
                       </td>
+                      <td className="py-3 text-right tabular-nums text-cyan-600 font-medium">
+                        {Number(ad.cpa_msg || 0) > 0
+                          ? fmtCurrency(ad.cpa_msg, currency)
+                          : Number(ad.msgs || 0) > 0
+                            ? fmtCurrency(Number(ad.spend || 0) / Number(ad.msgs), currency)
+                            : "—"}
+                      </td>
+                      <td className="py-3 text-right tabular-nums">
+                        {(() => {
+                          const ord = Number(ad.ordenes_estimadas || 0);
+                          if (ord === 0) return <span className="text-slate-300">—</span>;
+                          const pct = (Number(ad.entregadas_estimadas || 0) / ord) * 100;
+                          return (
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
+                                pct >= 60
+                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                  : pct >= 40
+                                    ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                    : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                              }`}
+                            >
+                              {fmt(pct, 1)}%
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="py-3 pr-4 text-center">
                         <div className="inline-flex items-center gap-1">
                           {hasSamples && (
@@ -719,7 +802,7 @@ export default function AdsboardAttributionAds({
 
                     {isExpanded && hasSamples && (
                       <tr className="bg-slate-50/70">
-                        <td colSpan={10} className="px-6 py-3">
+                        <td colSpan={12} className="px-6 py-3">
                           <div className="text-[11px] font-semibold text-slate-500 uppercase mb-2 flex items-center gap-2">
                             <i className="bx bx-list-ul" />
                             Órdenes que generó este anuncio

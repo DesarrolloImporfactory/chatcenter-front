@@ -9,6 +9,7 @@ import AdsboardCampaignsTable from "./adsboard/AdsboardCampaignsTable";
 import AdsboardTopAdsTable from "./adsboard/AdsboardTopAdsTable";
 import AdsboardAttributionFunnel from "./adsboard/AdsboardAttributionFunnel";
 import AdsboardAttributionAds from "./adsboard/AdsboardAttributionAds";
+import DropiDailyMetricsTable from "../../pages/dropi/dropiboard/proporcional/DropiDailyMetricsTable";
 
 /**
  * Adsboard
@@ -54,6 +55,7 @@ const Adsboard = () => {
   const [topAds, setTopAds] = useState([]);
   const [dashLoading, setDashLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  const [showManualMetrics, setShowManualMetrics] = useState(false);
   const [activeTab, setActiveTab] = useState("attribution");
 
   // Marketing Control (atribución 1:1 con Dropi) — 1 fetch sirve a ambas tabs
@@ -279,101 +281,148 @@ const Adsboard = () => {
 
         {/* EMPTY STATE */}
         {!hasFetched && !dashLoading && (
-          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-indigo-600 via-indigo-400 to-blue-300" />
-            <div className="px-8 py-14 text-center">
-              <div className="flex items-center justify-center gap-5 mb-8">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-50 ring-1 ring-indigo-200 grid place-items-center">
-                  <i className="bx bxs-bar-chart-alt-2 text-3xl text-indigo-600" />
-                </div>
-                <div className="h-12 w-px bg-slate-200" />
-                <div className="flex items-end gap-1.5">
-                  {[40, 65, 50, 80, 60, 90, 72].map((h, i) => (
-                    <div
-                      key={i}
-                      className="w-3 rounded-t-sm"
-                      style={{
-                        height: `${h * 0.55}px`,
-                        background:
-                          i % 3 === 0
-                            ? "#4f46e5"
-                            : i % 3 === 1
-                              ? "#10B981"
-                              : "#3b82f6",
-                        opacity: 0.7 + i * 0.04,
-                        animation: `growBar 1.5s ease-out ${i * 0.1}s both`,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <h3 className="text-xl font-extrabold text-slate-800 mb-2">
-                Tus campañas de Meta Ads en un solo lugar
-              </h3>
-              <p className="text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
-                Visualiza gasto, ROAS, embudo, campañas activas, top ads y
-                atribución 1:1 real con tus órdenes Dropi.
-              </p>
-              <div className="flex flex-wrap justify-center gap-2 mt-6">
-                {[
-                  {
-                    label: "Gasto y Revenue",
-                    color: "bg-rose-50 text-rose-700 border-rose-200",
-                  },
-                  {
-                    label: "ROAS REAL Dropi",
-                    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                  },
-                  {
-                    label: "Embudo completo",
-                    color: "bg-violet-50 text-violet-700 border-violet-200",
-                  },
-                  {
-                    label: "Atribución 1:1",
-                    color: "bg-indigo-50 text-indigo-700 border-indigo-200",
-                  },
-                  {
-                    label: "Pausar campañas",
-                    color: "bg-amber-50 text-amber-700 border-amber-200",
-                  },
-                  {
-                    label: "Ángulo ganador",
-                    color: "bg-cyan-50 text-cyan-700 border-cyan-200",
-                  },
-                ].map((f) => (
-                  <span
-                    key={f.label}
-                    className={`px-3 py-1 rounded-full text-[11px] font-semibold border ${f.color}`}
+          <>
+            {showManualMetrics && !isAdsConnected && selectedConfigId ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={() => setShowManualMetrics(false)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50 transition"
                   >
-                    {f.label}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-8 flex flex-col items-center gap-1 text-slate-400">
-                <i className="bx bx-up-arrow-alt text-lg animate-bounce" />
-                <span className="text-xs font-medium">
-                  {isAdsConnected ? (
-                    <>
-                      Selecciona el período y presiona{" "}
-                      <strong className="text-indigo-600">Consultar</strong>
-                    </>
-                  ) : (
-                    <>
-                      Conecta Meta Ads desde{" "}
+                    <i className="bx bx-arrow-back text-sm" />
+                    Volver
+                  </button>
+                  <div className="flex items-center gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                    <i className="bx bx-bulb" />
+                    <span>
+                      Conecta{" "}
                       <strong
-                        className="text-indigo-600 cursor-pointer"
+                        className="text-indigo-600 cursor-pointer underline"
                         onClick={() => navigate("/conexiones")}
                       >
-                        Conexiones
+                        Meta Ads
                       </strong>{" "}
-                      para empezar
-                    </>
+                      para obtener el detalle real de forma automática y
+                      atribución 1:1 del anuncio ganador
+                    </span>
+                  </div>
+                </div>
+                <DropiDailyMetricsTable
+                  idConfiguracion={selectedConfigId}
+                  dateRange={{
+                    from: dateRange.since,
+                    until: dateRange.until,
+                  }}
+                />
+              </>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-indigo-600 via-indigo-400 to-blue-300" />
+                <div className="px-8 py-14 text-center">
+                  <div className="flex items-center justify-center gap-5 mb-8">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 ring-1 ring-indigo-200 grid place-items-center">
+                      <i className="bx bxs-bar-chart-alt-2 text-3xl text-indigo-600" />
+                    </div>
+                    <div className="h-12 w-px bg-slate-200" />
+                    <div className="flex items-end gap-1.5">
+                      {[40, 65, 50, 80, 60, 90, 72].map((h, i) => (
+                        <div
+                          key={i}
+                          className="w-3 rounded-t-sm"
+                          style={{
+                            height: `${h * 0.55}px`,
+                            background:
+                              i % 3 === 0
+                                ? "#4f46e5"
+                                : i % 3 === 1
+                                  ? "#10B981"
+                                  : "#3b82f6",
+                            opacity: 0.7 + i * 0.04,
+                            animation: `growBar 1.5s ease-out ${i * 0.1}s both`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-extrabold text-slate-800 mb-2">
+                    Tus campañas de Meta Ads en un solo lugar
+                  </h3>
+                  <p className="text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+                    Visualiza gasto, ROAS, embudo, campañas activas, top ads y
+                    atribución 1:1 real con tus órdenes Dropi.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2 mt-6">
+                    {[
+                      {
+                        label: "Gasto y Revenue",
+                        color: "bg-rose-50 text-rose-700 border-rose-200",
+                      },
+                      {
+                        label: "ROAS REAL Dropi",
+                        color:
+                          "bg-emerald-50 text-emerald-700 border-emerald-200",
+                      },
+                      {
+                        label: "Embudo completo",
+                        color: "bg-violet-50 text-violet-700 border-violet-200",
+                      },
+                      {
+                        label: "Atribución 1:1",
+                        color: "bg-indigo-50 text-indigo-700 border-indigo-200",
+                      },
+                      {
+                        label: "Pausar campañas",
+                        color: "bg-amber-50 text-amber-700 border-amber-200",
+                      },
+                      {
+                        label: "Ángulo ganador",
+                        color: "bg-cyan-50 text-cyan-700 border-cyan-200",
+                      },
+                    ].map((f) => (
+                      <span
+                        key={f.label}
+                        className={`px-3 py-1 rounded-full text-[11px] font-semibold border ${f.color}`}
+                      >
+                        {f.label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-8 flex flex-col items-center gap-1 text-slate-400">
+                    <i className="bx bx-up-arrow-alt text-lg animate-bounce" />
+                    <span className="text-xs font-medium">
+                      {isAdsConnected ? (
+                        <>
+                          Selecciona el período y presiona{" "}
+                          <strong className="text-indigo-600">Consultar</strong>
+                        </>
+                      ) : (
+                        <>
+                          Conecta Meta Ads desde{" "}
+                          <strong
+                            className="text-indigo-600 cursor-pointer"
+                            onClick={() => navigate("/conexiones")}
+                          >
+                            Conexiones
+                          </strong>{" "}
+                          para empezar ó
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  {!isAdsConnected && selectedConfigId && (
+                    <button
+                      onClick={() => setShowManualMetrics(true)}
+                      className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-lg hover:shadow-xl transition"
+                    >
+                      <i className="bx bx-edit-alt text-lg" />
+                      Registra gastos manualmente
+                    </button>
                   )}
-                </span>
+                </div>
+                <style>{`@keyframes growBar { from { height: 0; opacity: 0; } }`}</style>
               </div>
-            </div>
-            <style>{`@keyframes growBar { from { height: 0; opacity: 0; } }`}</style>
-          </div>
+            )}
+          </>
         )}
 
         {/* LOADING */}

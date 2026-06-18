@@ -510,13 +510,11 @@ const Dropiboard = () => {
             {/* ── Utilidad Real ── OCULTO 2026-05-02 (Daniel decidió bajar) ── */}
             {false && <DropiProfitBar profitData={profitData} />}
 
-            {/* ── Métricas diarias del negocio ── OCULTO TEMPORALMENTE (cálculo en revisión) ── */}
-            {false && (
-              <DropiDailyMetricsTable
-                integrationId={selectedIntegration?.id}
-                dateRange={dateRange}
-              />
-            )}
+            {/* ── Métricas diarias del negocio ── */}
+            <DropiDailyMetricsTable
+              integrationId={selectedIntegration?.id}
+              dateRange={dateRange}
+            />
 
             <DropiDevolucionPanel devolucionAnalysis={devolucionAnalysis} />
 

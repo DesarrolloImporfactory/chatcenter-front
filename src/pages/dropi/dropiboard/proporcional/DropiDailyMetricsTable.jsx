@@ -199,10 +199,16 @@ const COLS = [
     tip: "Órdenes en proceso: en bodega, ruta, novedad, retiro en agencia, etc.",
   },
   {
+    key: "gastos_adicionales",
+    label: "Gastos adic.",
+    type: "input",
+    tip: "Gastos extra del día: empaque, herramientas, envíos adicionales, etc. Se resta de la rentabilidad.",
+  },
+  {
     key: "rentabilidad",
     label: "Rentabilidad",
     type: "formula",
-    tip: "Lo que te queda al final del día. Fórmula: Venta real − Costo producto − Flete movilizado − Gasto en ads. Usa SOLO los entregados (no infla con canceladas/devoluciones).",
+    tip: "Lo que te queda al final del día. Fórmula: Venta real − Costo producto − Flete movilizado − Gasto en ads − Gastos adic. Usa SOLO los entregados (no infla con canceladas/devoluciones).",
   },
 ];
 
@@ -229,7 +235,7 @@ const colorTasa = (tasa) => {
 };
 
 /* ════════════ Componente principal ════════════ */
-const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
+const DropiDailyMetricsTable = ({ integrationId, idConfiguracion, dateRange }) => {
   const [rows, setRows] = useState([]);
   const [totales, setTotales] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -244,30 +250,40 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
   const [modalFecha, setModalFecha] = useState("");
   const [modalError, setModalError] = useState("");
   const [modalSaving, setModalSaving] = useState(false);
+  const [noDropi, setNoDropi] = useState(false);
 
   const cargar = useCallback(async () => {
-    if (!integrationId || !dateRange?.from || !dateRange?.until) return;
+    if ((!integrationId && !idConfiguracion) || !dateRange?.from || !dateRange?.until) return;
     setLoading(true);
+    setNoDropi(false);
     try {
+      const payload = {
+        from: dateRange.from,
+        until: dateRange.until,
+      };
+      if (integrationId) payload.integration_id = integrationId;
+      else if (idConfiguracion) payload.id_configuracion = idConfiguracion;
       const res = await chatApi.post(
         "dropi_integrations/dashboard/daily-metrics",
-        {
-          integration_id: integrationId,
-          from: dateRange.from,
-          until: dateRange.until,
-        },
-        { timeout: 30000 },
+        payload,
+        { timeout: 30000, silentError: true },
       );
       if (res.data?.data) {
         setRows(res.data.data.rows || []);
         setTotales(res.data.data.totales || null);
       }
     } catch (err) {
+      const status = err?.response?.status;
+      if (status === 404) {
+        setNoDropi(true);
+        setRows([]);
+        setTotales(null);
+      }
       console.error("[daily-metrics] Error:", err?.message);
     } finally {
       setLoading(false);
     }
-  }, [integrationId, dateRange]);
+  }, [integrationId, idConfiguracion, dateRange]);
 
   useEffect(() => {
     cargar();
@@ -278,14 +294,19 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
   }, [rows]);
 
   const guardar = useCallback(
-    async (fecha, gasto_diario, num_mensajes) => {
+    async (fecha, gasto_diario, num_mensajes, gastos_adicionales) => {
       try {
         setSavingFor((p) => ({ ...p, [fecha]: true }));
-        await chatApi.put("dropi_integrations/dashboard/daily-metrics", {
-          integration_id: integrationId,
+        const payload = {
           fecha,
           gasto_diario,
           num_mensajes,
+          ...(gastos_adicionales !== undefined && { gastos_adicionales }),
+        };
+        if (integrationId) payload.integration_id = integrationId;
+        else if (idConfiguracion) payload.id_configuracion = idConfiguracion;
+        await chatApi.put("dropi_integrations/dashboard/daily-metrics", payload, {
+          silentError: true,
         });
         setSavedFor((p) => ({ ...p, [fecha]: true }));
         setTimeout(() => setSavedFor((p) => ({ ...p, [fecha]: false })), 1500);
@@ -296,7 +317,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
         setSavingFor((p) => ({ ...p, [fecha]: false }));
       }
     },
-    [integrationId, cargar],
+    [integrationId, idConfiguracion, cargar],
   );
 
   const abrirModalAgregar = useCallback(() => {
@@ -329,7 +350,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
     setModalSaving(true);
     try {
       // Valor mínimo 0.01 para que el filtro del backend no lo excluya
-      await guardar(modalFecha, 0.01, 0);
+      await guardar(modalFecha, 0.01, 0, 0);
       setShowAddModal(false);
     } finally {
       setModalSaving(false);
@@ -348,6 +369,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
       const merged = {
         gasto_diario: currentRow.gasto_diario,
         num_mensajes: currentRow.num_mensajes,
+        gastos_adicionales: currentRow.gastos_adicionales,
         ...(localEdits[fecha] || {}),
         [field]: valor,
       };
@@ -355,6 +377,7 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
         fecha,
         Number(merged.gasto_diario) || 0,
         Number(merged.num_mensajes) || 0,
+        Number(merged.gastos_adicionales) || 0,
       );
     }, 800);
   };
@@ -366,7 +389,22 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
   };
 
   const tieneFilas = rows.length > 0;
-  if (!integrationId) return null;
+
+  if (!integrationId && !idConfiguracion) return null;
+
+  if (noDropi) {
+    return (
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center">
+        <i className="bx bx-package text-3xl text-slate-300 mb-2" />
+        <p className="text-sm font-semibold text-slate-600 mb-1">
+          Sin integración Dropi activa
+        </p>
+        <p className="text-xs text-slate-400">
+          Conecta tu tienda Dropi para ver métricas diarias y registrar gastos.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-4 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -905,6 +943,35 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                       )}
                     </Td>
 
+                    {/* Gastos adicionales */}
+                    <Td className="bg-indigo-50/30">
+                      <div className="relative inline-block">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={getValor(
+                            r.fecha,
+                            "gastos_adicionales",
+                            r.gastos_adicionales ?? 0,
+                          )}
+                          onChange={(e) =>
+                            onChangeField(
+                              r.fecha,
+                              "gastos_adicionales",
+                              e.target.value,
+                              r,
+                            )
+                          }
+                          className="w-24 pl-5 pr-2 py-1.5 rounded-md border border-indigo-200 bg-white text-[11px] text-right font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </Td>
+
                     {/* Rentabilidad — FIX 2026-05-01: tooltip con nueva fórmula */}
                     <Td>
                       <Tip
@@ -912,13 +979,18 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                           <span>
                             <span className="text-[10px] text-slate-300 block mb-1">
                               Venta real − Costo prod − Flete movilizado − Gasto
+                              ads − Gastos adic.
                             </span>
                             <strong>{fmtMoney(ventaReal)}</strong> −{" "}
                             <strong>
                               {fmtMoney(r.costo_producto_entregadas)}
                             </strong>{" "}
                             − <strong>{fmtMoney(fleteMovil)}</strong> −{" "}
-                            <strong>{fmtMoney(gastoVal)}</strong> ={" "}
+                            <strong>{fmtMoney(gastoVal)}</strong> −{" "}
+                            <strong>
+                              {fmtMoney(r.gastos_adicionales ?? 0)}
+                            </strong>{" "}
+                            ={" "}
                             <strong className="text-emerald-300">
                               {fmtMoney(r.rentabilidad)}
                             </strong>
@@ -1034,6 +1106,9 @@ const DropiDailyMetricsTable = ({ integrationId, dateRange }) => {
                   </Td>
                   <Td className="text-sky-700 text-center">
                     {totales.transito}
+                  </Td>
+                  <Td className="text-indigo-700 bg-indigo-100 font-mono">
+                    {fmtMoney(totales.gastos_adicionales || 0)}
                   </Td>
                   <Td>
                     <span
