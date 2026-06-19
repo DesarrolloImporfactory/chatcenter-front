@@ -1423,9 +1423,13 @@ const Conexiones = () => {
                   return (
                     <div
                       key={config.id}
-                      className="relative bg-white rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200 hover:ring-slate-300 p-4 transition hover:-translate-y-0.5 animate-card-in overflow-hidden flex flex-col"
+                      className="relative bg-white rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200 hover:ring-slate-300 p-4 transition hover:-translate-y-0.5 animate-card-in overflow-hidden flex flex-col cursor-pointer"
                       style={{
                         animationDelay: `${Math.min(idx, 8) * 50}ms`,
+                      }}
+                      onClick={() => {
+                        setActiveConfig(config);
+                        navigate("/conexion-dashboard");
                       }}
                     >
                       <div
@@ -1465,11 +1469,12 @@ const Conexiones = () => {
                         <div className="relative" data-card-menu>
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setMenuOpenId(
                                 menuOpenId === config.id ? null : config.id,
-                              )
-                            }
+                              );
+                            }}
                             className="shrink-0 w-8 h-8 rounded-lg grid place-items-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
                             aria-label="Más opciones"
                             aria-haspopup="menu"
@@ -1485,7 +1490,8 @@ const Conexiones = () => {
                               <button
                                 type="button"
                                 role="menuitem"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setMenuOpenId(null);
                                   copiarNumero();
                                 }}
@@ -1498,7 +1504,8 @@ const Conexiones = () => {
                               <button
                                 type="button"
                                 role="menuitem"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setMenuOpenId(null);
                                   confirmarEliminar(config);
                                 }}
@@ -1513,7 +1520,9 @@ const Conexiones = () => {
                         </div>
                       </div>
 
-                      {/* Hero WhatsApp */}
+                      {/* Hero WhatsApp + Canales (stopPropagation: botones internos) */}
+                      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+                      <div onClick={(e) => e.stopPropagation()}>
                       <WaHero
                         conectado={conectado}
                         yaSincronizo={yaSincronizo}
@@ -1595,9 +1604,11 @@ const Conexiones = () => {
                           }
                         />
                       </div>
+                      </div>
 
                       {/* Footer */}
-                      <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+                      <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"

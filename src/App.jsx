@@ -45,6 +45,7 @@ import Estado_contactos_eventos from "./pages/contactos/Estado_contactos_eventos
 import KanbanConfig from "./pages/kanban/configuracion/KanbanConfig";
 import OrdenesDropi from "./pages/dropi/OrdenesDropi";
 import Conexiones from "./pages/conexiones/Conexiones";
+import ConnectionDashboard from "./pages/conexiones/ConnectionDashboard";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
 import Calendario from "./pages/calendario/Calendario";
@@ -441,6 +442,15 @@ function App() {
                     <MainLayout_conexiones>
                       <Conexiones />
                     </MainLayout_conexiones>
+                  }
+                />
+
+                <Route
+                  path="/conexion-dashboard"
+                  element={
+                    <MainLayout>
+                      <ConnectionDashboard />
+                    </MainLayout>
                   }
                 />
 
