@@ -85,6 +85,8 @@ const PlantillasGlobalesAdmin = () => {
 
   // Editor de columnas (full-screen modal de Entrega 3)
   const [editorPlantillaId, setEditorPlantillaId] = useState(null);
+  // Vista con la que abre el editor: "columnas" | "automatizacion"
+  const [editorVista, setEditorVista] = useState("columnas");
 
   // ── Cargar lista ────────────────────────────────────────
   const cargar = useCallback(async () => {
@@ -188,12 +190,12 @@ const PlantillasGlobalesAdmin = () => {
 
   const eliminar = async (p) => {
     const res = await Swal.fire({
-      title: `¿Desactivar "${p.nombre}"?`,
+      title: `¿Ocultar "${p.nombre}"?`,
       html: `La plantilla quedará oculta para los clientes pero los datos se conservan. Puedes restaurarla después.`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#ef4444",
-      confirmButtonText: "Sí, desactivar",
+      confirmButtonText: "Sí, ocultar",
       cancelButtonText: "Cancelar",
     });
     if (!res.isConfirmed) return;
@@ -321,8 +323,15 @@ const PlantillasGlobalesAdmin = () => {
     }
   };
 
-  // ⬇️ Editor de columnas — abre el modal full-screen (Entrega 3)
+  // ⬇️ Editor de columnas — abre el modal full-screen en la vista de COLUMNAS
   const editarColumnas = (p) => {
+    setEditorVista("columnas");
+    setEditorPlantillaId(p.id);
+  };
+
+  // ⚡ Editor — abre el modal full-screen directo en la vista de AUTOMATIZACIÓN
+  const editarAutomatizacion = (p) => {
+    setEditorVista("automatizacion");
     setEditorPlantillaId(p.id);
   };
 
@@ -519,6 +528,7 @@ const PlantillasGlobalesAdmin = () => {
               plantilla={p}
               onEditar={() => abrirEditar(p)}
               onEditarColumnas={() => editarColumnas(p)}
+              onEditarAutomatizacion={() => editarAutomatizacion(p)}
               onEliminar={() => eliminar(p)}
               onRestaurar={() => restaurar(p)}
               onEliminarDef={() => eliminarDefinitivo(p)}
@@ -541,10 +551,11 @@ const PlantillasGlobalesAdmin = () => {
         />
       )}
 
-      {/* Editor full-screen de columnas (Entrega 3) */}
+      {/* Editor full-screen de columnas / automatización */}
       {editorPlantillaId && (
         <EditorColumnas
           plantillaId={editorPlantillaId}
+          vistaInicial={editorVista}
           onClose={() => setEditorPlantillaId(null)}
           onSaved={cargar}
         />
@@ -560,6 +571,7 @@ const PlantillaCard = ({
   plantilla,
   onEditar,
   onEditarColumnas,
+  onEditarAutomatizacion,
   onEliminar,
   onRestaurar,
   onEliminarDef,
@@ -765,6 +777,32 @@ const PlantillaCard = ({
         </div>
       </div>
 
+      {/* Accesos principales (Columnas + Automatizaciones) */}
+      <div
+        style={{
+          padding: "0 14px 12px",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+        }}
+      >
+        <button
+          onClick={onEditarColumnas}
+          title="Editar columnas, prompts y acciones"
+          style={btnPrimario("#6366f1")}
+        >
+          <i className="bx bx-edit-alt" style={{ fontSize: 16 }} /> Columnas
+        </button>
+        <button
+          onClick={onEditarAutomatizacion}
+          title="Elegir qué plantillas, respuestas, remarketing y Dropi se crean"
+          style={btnPrimario("#ca8a04")}
+        >
+          <i className="bx bxs-bolt" style={{ fontSize: 16 }} />{" "}
+          Automatizaciones
+        </button>
+      </div>
+
       <div
         style={{
           padding: "10px 14px",
@@ -775,13 +813,6 @@ const PlantillaCard = ({
           background: "#fafbff",
         }}
       >
-        <button
-          onClick={onEditarColumnas}
-          title="Editar columnas y prompts"
-          style={btnAccion("#6366f1")}
-        >
-          <i className="bx bx-edit-alt" /> Columnas
-        </button>
         <button
           onClick={onEditar}
           title="Editar nombre, descripción, icono, color"
@@ -825,10 +856,10 @@ const PlantillaCard = ({
           ) : (
             <button
               onClick={onEliminar}
-              title="Desactivar (soft delete)"
+              title="Ocultar al cliente"
               style={btnAccion("#ef4444")}
             >
-              <i className="bx bx-archive-in" /> Desactivar
+              <i className="bx bx-archive-in" /> Ocultar
             </button>
           )}
         </div>
@@ -985,7 +1016,7 @@ const ModalMetadata = ({
             <label style={lblM}>
               Descripción{" "}
               <span style={{ fontWeight: 400, color: "#94a3b8" }}>
-                (opcional)
+                (opcional, se mostrará al cliente)
               </span>
             </label>
             <textarea
@@ -1155,6 +1186,22 @@ const btnAccion = (color) => ({
   color,
   fontSize: ".74rem",
   fontWeight: 600,
+  cursor: "pointer",
+  transition: "all .12s",
+});
+// Botón de acceso principal (Columnas / Automatizaciones)
+const btnPrimario = (color) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 7,
+  padding: "10px 12px",
+  borderRadius: 11,
+  border: `1.5px solid ${color}33`,
+  background: `${color}12`,
+  color,
+  fontSize: ".82rem",
+  fontWeight: 700,
   cursor: "pointer",
   transition: "all .12s",
 });

@@ -2,27 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import ModalEditarColumna from "./modales/ModalEditarColumna";
-
-// ⭐ Fix de z-index: SweetAlert por defecto sale en 1060, queda detrás
-// del modal del editor (z-index 9000). Este didOpen fuerza al swal
-// container a un z-index más alto que cualquier otro elemento.
-const Z_INDEX_FIX = {
-  didOpen: () => {
-    const swalContainer = document.querySelector(".swal2-container");
-    if (swalContainer) swalContainer.style.zIndex = "99999";
-  },
-};
-
-const Toast = Swal.mixin({
-  toast: true,
-  position: "top-end",
-  showConfirmButton: false,
-  timer: 2500,
-  timerProgressBar: true,
-  didOpen: (toast) => {
-    toast.parentNode.style.zIndex = "99999";
-  },
-});
+import {
+  Z_INDEX_FIX,
+  Toast,
+  SwitchRow,
+  lbl,
+  inp,
+  EditorResponsiveStyles,
+} from "./EditorShared";
+import TabAutomatizacion from "./TabAutomatizacion";
 
 // ═════════════════════════════════════════════════════════════
 // Constantes de validación de integridad
@@ -162,7 +150,12 @@ const validarColumnas = (columnas, snapshotsOriginales) => {
 // ═════════════════════════════════════════════════════════════
 // EditorColumnas
 // ═════════════════════════════════════════════════════════════
-const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
+const EditorColumnas = ({
+  plantillaId,
+  onClose,
+  onSaved,
+  vistaInicial = "columnas",
+}) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [meta, setMeta] = useState(null);
@@ -172,6 +165,23 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
   const [editandoColumna, setEditandoColumna] = useState(null);
   const [dirty, setDirty] = useState(false);
   const [snapshotsOriginales, setSnapshotsOriginales] = useState({});
+
+  // ── Setup variable de la plantilla (qué automatizaciones se aplican) ──
+  const [setup, setSetup] = useState({
+    templates_meta: true,
+    dropi_config: true,
+    remarketing: true,
+    respuestas_rapidas: true,
+    // null = todos los ítems del catálogo (retrocompatible)
+    templates_meta_items: null,
+    respuestas_rapidas_items: null,
+    remarketing_items: null,
+    dropi_config_items: null,
+  });
+  // Catálogo de ítems disponibles por bloque (se carga del backend)
+  const [catalogo, setCatalogo] = useState(null);
+  // Vista global del editor: "columnas" | "automatizacion"
+  const [vistaActiva, setVistaActiva] = useState(vistaInicial);
 
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
@@ -218,6 +228,20 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
 
           setColumnas(cols);
           setColumnaActivaIdx(0);
+
+          // Cargar setup (defaults true para plantillas viejas sin setup)
+          const sp = p.data?.setup || {};
+          const arr = (v) => (Array.isArray(v) ? v : null);
+          setSetup({
+            templates_meta: sp.templates_meta !== false,
+            dropi_config: sp.dropi_config !== false,
+            remarketing: sp.remarketing !== false,
+            respuestas_rapidas: sp.respuestas_rapidas !== false,
+            templates_meta_items: arr(sp.templates_meta_items),
+            respuestas_rapidas_items: arr(sp.respuestas_rapidas_items),
+            remarketing_items: arr(sp.remarketing_items),
+            dropi_config_items: arr(sp.dropi_config_items),
+          });
         }
       } catch (err) {
         const msg = err?.response?.data?.message || "Error cargando plantilla";
@@ -239,7 +263,53 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plantillaId]);
 
+  const cargarCatalogo = useCallback(async () => {
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_plantillas_admin/catalogo_setup",
+        {},
+      );
+      if (data?.success) setCatalogo(data.data);
+    } catch {
+      setCatalogo(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarCatalogo();
+  }, [cargarCatalogo]);
+
   const marcarDirty = useCallback(() => setDirty(true), []);
+
+  // ── Toggle del master de un bloque ──
+  const toggleSetup = (campo) => {
+    setSetup((prev) => ({ ...prev, [campo]: !prev[campo] }));
+    marcarDirty();
+  };
+
+  // ── Toggle de UN ítem dentro de un bloque ──
+  // bloque: "templates_meta" | "respuestas_rapidas" | "remarketing" | "dropi_config"
+  const toggleItem = (bloque, key) => {
+    const campoItems = `${bloque}_items`;
+    setSetup((prev) => {
+      const todas = (catalogo?.[bloque] || []).map((i) => i.key);
+      const actuales = prev[campoItems] === null ? todas : prev[campoItems];
+      const next = actuales.includes(key)
+        ? actuales.filter((k) => k !== key)
+        : [...actuales, key];
+      // Si quedan TODAS marcadas → guardamos null (= todos, retrocompat).
+      const normalizado = next.length === todas.length ? null : next;
+      return { ...prev, [campoItems]: normalizado };
+    });
+    marcarDirty();
+  };
+
+  // ── Marcar/desmarcar TODO un bloque de una ──
+  const setTodosItems = (bloque, marcarTodos) => {
+    const campoItems = `${bloque}_items`;
+    setSetup((prev) => ({ ...prev, [campoItems]: marcarTodos ? null : [] }));
+    marcarDirty();
+  };
 
   const handleDragEnd = () => {
     if (dragItem.current === null || dragOverItem.current === null) {
@@ -397,7 +467,7 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
     try {
       await chatApi.post("/kanban_plantillas_admin/actualizar_data", {
         id: plantillaId,
-        data: { columnas },
+        data: { columnas, setup },
       });
       Toast.fire({ icon: "success", title: "Plantilla guardada" });
       setDirty(false);
@@ -452,6 +522,7 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
 
   return (
     <div
+      className="ek-shell"
       style={{
         position: "fixed",
         inset: 0,
@@ -464,7 +535,9 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
         padding: "20px",
       }}
     >
+      <EditorResponsiveStyles />
       <div
+        className="ek-card"
         style={{
           background: "#f8fafc",
           borderRadius: 18,
@@ -479,6 +552,7 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
       >
         {/* Header */}
         <div
+          className="ek-header"
           style={{
             background: "rgb(23,25,49)",
             padding: "16px 22px",
@@ -543,7 +617,10 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div
+            className="ek-header-right"
+            style={{ display: "flex", alignItems: "center", gap: 8 }}
+          >
             {dirty && (
               <span
                 style={{
@@ -559,6 +636,51 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
                 <i className="bx bx-edit" /> Cambios sin guardar
               </span>
             )}
+
+            {/* Switch de vista: Columnas / Automatización */}
+            <div
+              className="ek-viewswitch"
+              style={{
+                display: "flex",
+                background: "rgba(255,255,255,.06)",
+                borderRadius: 10,
+                padding: 3,
+                gap: 2,
+              }}
+            >
+              {[
+                { key: "columnas", label: "Columnas", icono: "bx bx-columns" },
+                {
+                  key: "automatizacion",
+                  label: "Automatización",
+                  icono: "bx bxs-bolt",
+                },
+              ].map((v) => (
+                <button
+                  key={v.key}
+                  onClick={() => setVistaActiva(v.key)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    background:
+                      vistaActiva === v.key ? "#22d3ee" : "transparent",
+                    color:
+                      vistaActiva === v.key
+                        ? "#171931"
+                        : "rgba(255,255,255,.7)",
+                    fontWeight: 700,
+                    fontSize: ".76rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <i className={v.icono} /> {v.label}
+                </button>
+              ))}
+            </div>
 
             <button
               onClick={guardar}
@@ -628,8 +750,26 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
             <i className="bx bx-loader-alt bx-spin" style={{ fontSize: 32 }} />
             <span>Cargando plantilla...</span>
           </div>
+        ) : vistaActiva === "automatizacion" ? (
+          <div
+            className="ek-autoscroll"
+            style={{ flex: 1, overflowY: "auto", padding: 24 }}
+          >
+            <TabAutomatizacion
+              setup={setup}
+              catalogo={catalogo}
+              onToggle={toggleSetup}
+              onToggleItem={toggleItem}
+              onSetTodos={setTodosItems}
+              recargarCatalogo={cargarCatalogo}
+              columnasDisponibles={columnas
+                .map((c) => c.estado_db)
+                .filter(Boolean)}
+            />
+          </div>
         ) : (
           <div
+            className="ek-body"
             style={{
               flex: 1,
               display: "grid",
@@ -641,6 +781,7 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
           >
             {/* Sidebar columnas */}
             <div
+              className="ek-sidebar"
               style={{
                 background: "#fff",
                 borderRadius: 14,
@@ -846,6 +987,7 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
             {/* Panel detalle */}
             {colActiva ? (
               <div
+                className="ek-panel"
                 style={{
                   background: "#fff",
                   borderRadius: 14,
@@ -1057,6 +1199,7 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
               </div>
             ) : (
               <div
+                className="ek-panel"
                 style={{
                   background: "#fff",
                   borderRadius: 14,
@@ -1089,6 +1232,10 @@ const EditorColumnas = ({ plantillaId, onClose, onSaved }) => {
     </div>
   );
 };
+
+// ═════════════════════════════════════════════════════════════
+// TabAutomatizacion — qué se aplica al cliente al usar esta plantilla
+// ═════════════════════════════════════════════════════════════
 
 // ═════════════════════════════════════════════════════════════
 // TabColumna
@@ -1882,86 +2029,6 @@ const AccionInlineCard = ({ accion, columnas, onChange, onDelete }) => {
       </div>
     </div>
   );
-};
-
-// ═════════════════════════════════════════════════════════════
-// SwitchRow + estilos
-// ═════════════════════════════════════════════════════════════
-const SwitchRow = ({ label, checked, onChange, desc, colorOn = "#6366f1" }) => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: "10px 14px",
-      borderRadius: 12,
-      border: "1px solid rgba(0,0,0,.07)",
-      background: checked ? `${colorOn}08` : "#fafafa",
-      marginTop: 6,
-    }}
-  >
-    <div>
-      <div style={{ fontWeight: 600, fontSize: ".87rem", color: "#0f172a" }}>
-        {label}
-      </div>
-      {desc && (
-        <div style={{ fontSize: ".74rem", color: "#64748b", marginTop: 2 }}>
-          {desc}
-        </div>
-      )}
-    </div>
-    <ToggleSwitch checked={checked} onChange={onChange} colorOn={colorOn} />
-  </div>
-);
-
-const ToggleSwitch = ({ checked, onChange, colorOn = "#6366f1" }) => (
-  <div
-    onClick={() => onChange(!checked)}
-    style={{
-      width: 46,
-      height: 26,
-      borderRadius: 999,
-      cursor: "pointer",
-      background: checked ? colorOn : "#cbd5e1",
-      position: "relative",
-      transition: "background .2s",
-      flexShrink: 0,
-    }}
-  >
-    <div
-      style={{
-        position: "absolute",
-        top: 3,
-        left: checked ? 23 : 3,
-        width: 20,
-        height: 20,
-        borderRadius: 999,
-        background: "#fff",
-        boxShadow: "0 2px 4px rgba(0,0,0,.2)",
-        transition: "left .2s",
-      }}
-    />
-  </div>
-);
-
-const lbl = {
-  display: "block",
-  fontSize: ".78rem",
-  fontWeight: 700,
-  color: "#374151",
-  marginBottom: 5,
-};
-const inp = {
-  width: "100%",
-  padding: "9px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,.12)",
-  fontSize: ".85rem",
-  outline: "none",
-  background: "#fafafa",
-  color: "#1e293b",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
 };
 
 export default EditorColumnas;
