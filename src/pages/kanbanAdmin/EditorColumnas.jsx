@@ -279,6 +279,28 @@ const EditorColumnas = ({
     cargarCatalogo();
   }, [cargarCatalogo]);
 
+  useEffect(() => {
+    if (!catalogo) return;
+    setSetup((prev) => {
+      const limpiar = (bloque) => {
+        const arr = prev[`${bloque}_items`];
+        if (arr === null) return null; // null = "todas las de fábrica" → se queda
+        const validas = new Set((catalogo[bloque] || []).map((i) => i.key));
+        // Solo quitamos keys que ya no existen. NO colapsamos a null:
+        // si colapsáramos, perderíamos las custom seleccionadas de este tablero.
+        return arr.filter((k) => validas.has(k));
+      };
+      return {
+        ...prev,
+        templates_meta_items: limpiar("templates_meta"),
+        respuestas_rapidas_items: limpiar("respuestas_rapidas"),
+        remarketing_items: limpiar("remarketing"),
+        dropi_config_items: limpiar("dropi_config"),
+      };
+    });
+    // Solo cuando cambia el catálogo (carga inicial o tras crear/borrar items).
+  }, [catalogo]);
+
   const marcarDirty = useCallback(() => setDirty(true), []);
 
   // ── Toggle del master de un bloque ──
@@ -292,14 +314,16 @@ const EditorColumnas = ({
   const toggleItem = (bloque, key) => {
     const campoItems = `${bloque}_items`;
     setSetup((prev) => {
-      const todas = (catalogo?.[bloque] || []).map((i) => i.key);
-      const actuales = prev[campoItems] === null ? todas : prev[campoItems];
-      const next = actuales.includes(key)
-        ? actuales.filter((k) => k !== key)
-        : [...actuales, key];
-      // Si quedan TODAS marcadas → guardamos null (= todos, retrocompat).
-      const normalizado = next.length === todas.length ? null : next;
-      return { ...prev, [campoItems]: normalizado };
+      const itemsCat = catalogo?.[bloque] || [];
+      // null = "todas las de fábrica" → al togglear partimos de esa base explícita
+      const keysFabrica = itemsCat.filter((i) => !i.custom).map((i) => i.key);
+      const base = prev[campoItems] === null ? keysFabrica : prev[campoItems];
+      const next = base.includes(key)
+        ? base.filter((k) => k !== key)
+        : [...base, key];
+      // SIEMPRE explícito (no colapsamos a null): así la selección de este
+      // tablero queda literal y lo custom no se contagia a otros.
+      return { ...prev, [campoItems]: next };
     });
     marcarDirty();
   };
@@ -307,10 +331,14 @@ const EditorColumnas = ({
   // ── Marcar/desmarcar TODO un bloque de una ──
   const setTodosItems = (bloque, marcarTodos) => {
     const campoItems = `${bloque}_items`;
-    setSetup((prev) => ({ ...prev, [campoItems]: marcarTodos ? null : [] }));
+    setSetup((prev) => {
+      if (!marcarTodos) return { ...prev, [campoItems]: [] };
+      // "Todas" = TODAS las del catálogo (fábrica + custom), explícito.
+      const todas = (catalogo?.[bloque] || []).map((i) => i.key);
+      return { ...prev, [campoItems]: todas };
+    });
     marcarDirty();
   };
-
   const handleDragEnd = () => {
     if (dragItem.current === null || dragOverItem.current === null) {
       setDraggingIdx(null);

@@ -11,15 +11,16 @@ const Toast = Swal.mixin({
 });
 
 const TIEMPOS = [
-  { value: "10", label: "10min", desc: "Inmediato" },
-  { value: "20", label: "20min", desc: "Muy rápido" },
-  { value: "30", label: "30min", desc: "Rápido" },
-  { value: "40", label: "40min", desc: "Ágil" },
-  { value: "60", label: "1h", desc: "Caliente" },
-  { value: "180", label: "3h", desc: "Recomendado" },
-  { value: "300", label: "5h", desc: "Moderado" },
-  { value: "600", label: "10h", desc: "Al día" },
-  { value: "1200", label: "20h", desc: "Tardío" },
+  { value: 10, label: "10m" },
+  { value: 20, label: "20m" },
+  { value: 30, label: "30m" },
+  { value: 60, label: "1h" },
+  { value: 120, label: "2h" },
+  { value: 180, label: "3h" },
+  { value: 360, label: "6h" },
+  { value: 720, label: "12h" },
+  { value: 1440, label: "1d" },
+  { value: 2880, label: "2d" },
 ];
 
 const BG_DARK = "rgb(23, 25, 49)";
@@ -139,7 +140,7 @@ const getDefaultPrompt = (secuenciaIdx) => {
 };
 
 const SECUENCIA_VACIA = () => ({
-  tiempo_espera_minutos: "0",
+  tiempo_espera_minutos: 0,
   nombre_template: "",
   header_format: null,
   header_media_url: "",
@@ -800,6 +801,131 @@ function PlaceholderMedia({ tipo, fileName }) {
   );
 }
 
+const fmtMinutos = (m) => {
+  m = Number(m) || 0;
+  if (m <= 0) return "—";
+  if (m < 60) return `${m} min`;
+  if (m % 1440 === 0) return `${m / 1440} día${m / 1440 > 1 ? "s" : ""}`;
+  if (m % 60 === 0) return `${m / 60} h`;
+  return `${Math.floor(m / 60)}h ${m % 60}min`;
+};
+
+const TiempoSelector = ({ value, onChange }) => {
+  const min = Number(value) || 0;
+  const esPreset = TIEMPOS.some((t) => t.value === min);
+  const [modoCustom, setModoCustom] = useState(!esPreset && min > 0);
+  const [num, setNum] = useState(() =>
+    min > 0 ? (min % 60 === 0 ? min / 60 : min) : "",
+  );
+  const [unidad, setUnidad] = useState(
+    min > 0 && min % 60 === 0 ? "horas" : "min",
+  );
+
+  const aplicarCustom = (n, u) => {
+    const val =
+      u === "horas" ? Math.round(Number(n) * 60) : Math.round(Number(n));
+    if (!isNaN(val) && val > 0) onChange(val);
+  };
+
+  return (
+    <div>
+      <div className="rm2-time-grid">
+        {TIEMPOS.map((t) => (
+          <div
+            key={t.value}
+            className={`rm2-time-chip ${!modoCustom && min === t.value ? "sel" : ""}`}
+            onClick={() => {
+              setModoCustom(false);
+              onChange(t.value);
+            }}
+          >
+            <span className="tl">{t.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div
+        style={{
+          marginTop: 8,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setModoCustom(true)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "8px 12px",
+            borderRadius: 9,
+            border: modoCustom
+              ? "1.5px solid rgb(23,25,49)"
+              : "1.5px solid #e5e7eb",
+            background: modoCustom ? "rgba(23,25,49,.06)" : "#f9fafb",
+            color: modoCustom ? "rgb(23,25,49)" : "#6b7280",
+            fontSize: ".76rem",
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          <i className="bx bx-slider-alt" /> Personalizado
+        </button>
+
+        {modoCustom && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="number"
+              min="1"
+              value={num}
+              onChange={(e) => {
+                setNum(e.target.value);
+                aplicarCustom(e.target.value, unidad);
+              }}
+              style={{
+                width: 80,
+                padding: "8px 10px",
+                borderRadius: 9,
+                border: "1.5px solid #e5e7eb",
+                fontSize: ".85rem",
+                fontFamily: "inherit",
+              }}
+              placeholder="0"
+            />
+            <select
+              value={unidad}
+              onChange={(e) => {
+                setUnidad(e.target.value);
+                aplicarCustom(num, e.target.value);
+              }}
+              className="rm2-select"
+              style={{ width: 110 }}
+            >
+              <option value="min">minutos</option>
+              <option value="horas">horas</option>
+            </select>
+          </div>
+        )}
+
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: ".74rem",
+            fontWeight: 700,
+            color: min > 0 ? "#4338ca" : "#94a3b8",
+          }}
+        >
+          = {fmtMinutos(min)}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════════
    Componente principal
    ═══════════════════════════════════════════════════════════ */
@@ -971,7 +1097,7 @@ const RemarketingColumna = ({
       if (rows?.length) {
         setSecuencias(
           rows.map((r) => ({
-            tiempo_espera_minutos: String(
+            tiempo_espera_minutos: Number(
               r.tiempo_espera_minutos ??
                 (r.tiempo_espera_horas != null
                   ? Number(r.tiempo_espera_horas) * 60
@@ -1041,7 +1167,7 @@ const RemarketingColumna = ({
     for (let i = 0; i < secuencias.length; i++) {
       const s = secuencias[i];
 
-      if (s.tiempo_espera_minutos === "0") {
+      if (!Number(s.tiempo_espera_minutos)) {
         Toast.fire({
           icon: "warning",
           title: `Define el tiempo del seguimiento ${i + 1}`,
@@ -1168,7 +1294,7 @@ const RemarketingColumna = ({
     s.metodo_dentro_24h === "ninguno" || !dentroDe24h;
 
   const secuenciaLista = (s) => {
-    if (s.tiempo_espera_minutos === "0") return false;
+    if (!Number(s.tiempo_espera_minutos)) return false;
     if (requiereTemplate(s) && !s.nombre_template) return false;
     const tpl = plantillas.find((p) => p.name === s.nombre_template);
     if (tpl && templateHasVars(tpl)) return false;
@@ -1406,9 +1532,7 @@ const RemarketingColumna = ({
                     const tplObj = plantillas.find(
                       (p) => p.name === sec.nombre_template,
                     );
-                    const tiempoObj = TIEMPOS.find(
-                      (t) => t.value === sec.tiempo_espera_minutos,
-                    );
+
                     const rrSel = respuestasRapidas.find(
                       (r) => r.id_template === sec.id_template_rapido,
                     );
@@ -1488,36 +1612,13 @@ const RemarketingColumna = ({
                                 }}
                               >
                                 ⏱ Tiempo de espera
-                                {tiempoObj && (
-                                  <span
-                                    style={{
-                                      marginLeft: 6,
-                                      fontWeight: 500,
-                                      color: "#6b7280",
-                                    }}
-                                  >
-                                    — {tiempoObj.label}
-                                  </span>
-                                )}
                               </div>
-                              <div className="rm2-time-grid">
-                                {TIEMPOS.map((t) => (
-                                  <div
-                                    key={t.value}
-                                    className={`rm2-time-chip ${sec.tiempo_espera_minutos === t.value ? "sel" : ""}`}
-                                    onClick={() =>
-                                      updateSec(
-                                        idx,
-                                        "tiempo_espera_minutos",
-                                        t.value,
-                                      )
-                                    }
-                                  >
-                                    <span className="tl">{t.label}</span>
-                                    <span className="ts">{t.desc}</span>
-                                  </div>
-                                ))}
-                              </div>
+                              <TiempoSelector
+                                value={sec.tiempo_espera_minutos}
+                                onChange={(v) =>
+                                  updateSec(idx, "tiempo_espera_minutos", v)
+                                }
+                              />
                             </div>
 
                             {/* Plantilla Meta */}
@@ -2023,6 +2124,17 @@ const RemarketingColumna = ({
                                 <option value="">
                                   No mover (quedar en columna actual)
                                 </option>
+
+                                {sec.estado_destino &&
+                                  !columnasDestino.some(
+                                    (c) => c.estado_db === sec.estado_destino,
+                                  ) && (
+                                    <option value={sec.estado_destino}>
+                                      {sec.estado_destino} (no existe en tu
+                                      tablero)
+                                    </option>
+                                  )}
+
                                 {columnasDestino.map((c) => (
                                   <option key={c.id} value={c.estado_db}>
                                     {c.nombre}

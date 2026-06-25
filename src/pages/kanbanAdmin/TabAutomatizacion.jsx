@@ -60,6 +60,10 @@ const TabAutomatizacion = ({
     (t) => t.key,
   );
 
+  const rapidasDisponibles = (catalogo?.respuestas_rapidas || []).map(
+    (r) => r.key,
+  );
+
   const abrirNuevo = (tipo) => {
     if (tipo === "templates_meta") setModalTpl(true);
     else setModal({ tipo, modo: "crear", customId: null });
@@ -148,6 +152,7 @@ const TabAutomatizacion = ({
           modo={modal.modo}
           customId={modal.customId}
           templatesDisponibles={templatesDisponibles}
+          rapidasDisponibles={rapidasDisponibles}
           columnasDisponibles={columnasDisponibles}
           onClose={() => setModal(null)}
           onSaved={() => recargarCatalogo?.()}
@@ -168,7 +173,6 @@ const TabAutomatizacion = ({
   );
 };
 
-// ── Un bloque ──
 const BloqueAutomatizacion = ({
   def,
   master,
@@ -184,9 +188,18 @@ const BloqueAutomatizacion = ({
   const [expandido, setExpandido] = useState({});
 
   const total = catalogoItems?.length || 0;
-  const seleccionadas = items === null ? total : items.length;
-  const estaSeleccionado = (key) =>
-    items === null ? true : items.includes(key);
+  const keysValidas = new Set((catalogoItems || []).map((it) => it.key));
+  // null = "todas las de fábrica" (lo custom es opt-in por tablero).
+  const keysFabrica = (catalogoItems || [])
+    .filter((it) => !it.custom)
+    .map((it) => it.key);
+  const seleccionadas =
+    items === null
+      ? keysFabrica.length
+      : items.filter((k) => keysValidas.has(k)).length;
+  // Cuando items === null, solo las de fábrica salen marcadas; las custom no.
+  const estaSeleccionado = (it) =>
+    items === null ? !it.custom : items.includes(it.key);
   const toggleExpand = (key) => setExpandido((p) => ({ ...p, [key]: !p[key] }));
 
   // Meta no permite editar plantillas aprobadas → sin lápiz en templates.
@@ -271,7 +284,7 @@ const BloqueAutomatizacion = ({
                 {items === null && (
                   <span style={{ color: "#94a3b8", fontWeight: 500 }}>
                     {" "}
-                    · todas
+                    · todas las de fábrica
                   </span>
                 )}
               </span>
@@ -293,7 +306,7 @@ const BloqueAutomatizacion = ({
 
             <div style={{ maxHeight: 460, overflowY: "auto" }}>
               {catalogoItems.map((it) => {
-                const on = estaSeleccionado(it.key);
+                const on = estaSeleccionado(it);
                 const abierto = !!expandido[it.key];
                 return (
                   <div
@@ -388,13 +401,21 @@ const BloqueAutomatizacion = ({
                             {it.tipo && it.tipo !== "text" && (
                               <Badge text={it.tipo} />
                             )}
-                            {it.tiempo_espera_horas != null && (
+                            {it.tiempo_espera_minutos != null && (
                               <Badge
-                                text={`espera ${it.tiempo_espera_horas}h`}
+                                text={`espera ${
+                                  it.tiempo_espera_minutos >= 60
+                                    ? `${(it.tiempo_espera_minutos / 60)
+                                        .toFixed(1)
+                                        .replace(/\.0$/, "")}h`
+                                    : `${it.tiempo_espera_minutos}min`
+                                }`}
                               />
                             )}
-                            {it.columna_destino && (
-                              <Badge text={`→ ${it.columna_destino}`} />
+                            {(it.estado_destino || it.columna_destino) && (
+                              <Badge
+                                text={`→ ${it.estado_destino || it.columna_destino}`}
+                              />
                             )}
                           </div>
                           {it.preview && (
@@ -614,49 +635,100 @@ const DetalleRapida = ({ item }) => (
   </DetalleCard>
 );
 
-const DetalleRemarketing = ({ item }) => (
-  <DetalleCard>
-    <div
-      style={{
-        background: "#fffbeb",
-        border: "1px solid #fde68a",
-        borderRadius: 10,
-        padding: "10px 12px",
-        fontSize: ".74rem",
-        color: "#854d0e",
-        lineHeight: 1.55,
-        marginBottom: 10,
-      }}
-    >
-      <strong>Cómo funciona esta secuencia:</strong>
-      <div style={{ marginTop: 4 }}>
-        ⏱ Se dispara <strong>{item.tiempo_espera_horas}h</strong> después de que
-        el cliente cae en <code>{item.estado_contacto}</code> sin responder.
-      </div>
-      <div style={{ marginTop: 4 }}>
-        🟢 <strong>Dentro</strong> de 24h → la IA redacta con el prompt de
-        abajo.
-      </div>
-      <div style={{ marginTop: 4 }}>
-        🔴 <strong>Fuera</strong> de 24h → se envía la plantilla{" "}
-        <strong>{item.template_fuera_24h}</strong>.
-      </div>
-      {item.estado_destino && (
+const DetalleRemarketing = ({ item }) => {
+  const min = item.tiempo_espera_minutos;
+  const tiempoLabel =
+    min == null
+      ? "—"
+      : min >= 60
+        ? `${min}min (~${(min / 60).toFixed(1)}h)`
+        : `${min}min`;
+
+  return (
+    <DetalleCard>
+      {/* Mueve a columna — SIEMPRE visible */}
+      <FilaMeta>
+        <Etiqueta>Mueve a columna</Etiqueta>
+        {item.estado_destino ? (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              fontSize: ".74rem",
+              fontWeight: 800,
+              background: "#dcfce7",
+              color: "#166534",
+              border: "1px solid #86efac",
+              padding: "2px 9px",
+              borderRadius: 999,
+            }}
+          >
+            <i className="bx bx-right-arrow-alt" /> {item.estado_destino}
+          </span>
+        ) : (
+          <span style={{ fontSize: ".74rem", color: "#94a3b8" }}>
+            No mueve · queda en {item.estado_contacto}
+          </span>
+        )}
+      </FilaMeta>
+
+      <div
+        style={{
+          background: "#fffbeb",
+          border: "1px solid #fde68a",
+          borderRadius: 10,
+          padding: "10px 12px",
+          fontSize: ".74rem",
+          color: "#854d0e",
+          lineHeight: 1.55,
+        }}
+      >
+        <strong>Cómo funciona esta secuencia:</strong>
         <div style={{ marginTop: 4 }}>
-          📍 Al enviarse, pasa a <code>{item.estado_destino}</code>.
+          ⏱ Se dispara <strong>{tiempoLabel}</strong> después de que el cliente
+          cae en <code>{item.estado_contacto}</code> sin responder.
         </div>
+        {item.metodo === "ia" && (
+          <div style={{ marginTop: 4 }}>
+            🟢 <strong>Dentro</strong> de 24h → la IA redacta con el prompt de
+            abajo.
+          </div>
+        )}
+        {item.metodo === "respuesta_rapida" && (
+          <div style={{ marginTop: 4 }}>
+            🟢 <strong>Dentro</strong> de 24h → se envía una respuesta rápida.
+          </div>
+        )}
+        {item.template_fuera_24h ? (
+          <div style={{ marginTop: 4 }}>
+            🔴 <strong>Fuera</strong> de 24h → plantilla{" "}
+            <strong>{item.template_fuera_24h}</strong>.
+          </div>
+        ) : (
+          <div style={{ marginTop: 4 }}>
+            🔴 <strong>Fuera</strong> de 24h → sin plantilla (no se envía).
+          </div>
+        )}
+        {item.estado_destino && (
+          <div style={{ marginTop: 4 }}>
+            📍 Al enviarse, pasa a <code>{item.estado_destino}</code>.
+          </div>
+        )}
+      </div>
+      {item.template_fuera_24h_body && (
+        <Campo titulo={`Plantilla fuera de 24h · ${item.template_fuera_24h}`}>
+          <Texto>{item.template_fuera_24h_body}</Texto>
+        </Campo>
       )}
-    </div>
-    {item.template_fuera_24h_body && (
-      <Campo titulo={`Plantilla fuera de 24h · ${item.template_fuera_24h}`}>
-        <Texto>{item.template_fuera_24h_body}</Texto>
-      </Campo>
-    )}
-    <Campo titulo="Prompt de la IA (dentro de 24h)">
-      <Texto mono>{item.prompt_ia || "(sin prompt)"}</Texto>
-    </Campo>
-  </DetalleCard>
-);
+      {item.prompt_ia && (
+        <Campo titulo="Prompt de la IA (dentro de 24h)">
+          <Texto mono>{item.prompt_ia}</Texto>
+        </Campo>
+      )}
+    </DetalleCard>
+  );
+};
 
 const DetalleDropi = ({ item }) => (
   <DetalleCard>

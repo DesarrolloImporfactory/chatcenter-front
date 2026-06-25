@@ -19,6 +19,7 @@ import {
 //   modo                "crear" | "editar"
 //   customId            id de kanban_catalogo_items (solo editar)
 //   templatesDisponibles  [keys de templates_meta] para los selects
+//   rapidasDisponibles    [atajos de respuestas_rapidas] para remarketing
 //   columnasDisponibles   [estado_db de la plantilla] para datalists
 //   onClose()           cierra sin guardar
 //   onSaved()           guardó ok → el padre recarga catálogo
@@ -57,9 +58,10 @@ const formInicial = (tipo) => {
       estado_contacto: "",
       nombre_template: "",
       secuencia: 1,
-      tiempo_espera_horas: 24,
+      tiempo_espera_minutos: 60,
       metodo_dentro_24h: "ia",
       prompt_ia: "",
+      atajo_respuesta_rapida: "",
       estado_destino: "",
     };
   // dropi_config
@@ -111,9 +113,14 @@ const dataToForm = (tipo, d) => {
       estado_contacto: d.estado_contacto || "",
       nombre_template: d.nombre_template || "",
       secuencia: d.secuencia ?? 1,
-      tiempo_espera_horas: d.tiempo_espera_horas ?? 24,
+      tiempo_espera_minutos:
+        d.tiempo_espera_minutos ??
+        (d.tiempo_espera_horas != null
+          ? Number(d.tiempo_espera_horas) * 60
+          : 60),
       metodo_dentro_24h: d.metodo_dentro_24h || "ia",
       prompt_ia: d.prompt_ia || "",
+      atajo_respuesta_rapida: d.atajo_respuesta_rapida || "",
       estado_destino: d.estado_destino || "",
     };
   return {
@@ -176,13 +183,17 @@ const formToData = (tipo, f) => {
   if (tipo === "remarketing")
     return {
       estado_contacto: f.estado_contacto.trim(),
-      nombre_template: f.nombre_template.trim(),
+      nombre_template: (f.nombre_template || "").trim(),
       secuencia: Number(f.secuencia) || 1,
-      tiempo_espera_horas: Number(f.tiempo_espera_horas) || 24,
+      tiempo_espera_minutos: Number(f.tiempo_espera_minutos) || 60,
       language_code: "es",
       metodo_dentro_24h: f.metodo_dentro_24h || "ia",
       prompt_ia: f.metodo_dentro_24h === "ia" ? f.prompt_ia : null,
-      estado_destino: f.estado_destino.trim() || null,
+      atajo_respuesta_rapida:
+        f.metodo_dentro_24h === "respuesta_rapida"
+          ? (f.atajo_respuesta_rapida || "").trim() || null
+          : null,
+      estado_destino: (f.estado_destino || "").trim() || null,
     };
   return {
     estado_dropi: f.estado_dropi.trim(),
@@ -210,9 +221,17 @@ const validar = (tipo, f) => {
   if (tipo === "remarketing") {
     if (!f.estado_contacto.trim())
       return "El estado de contacto es obligatorio";
-    if (!f.nombre_template.trim()) return "Elige la plantilla (fuera de 24h)";
-    if (f.tiempo_espera_horas === "" || isNaN(Number(f.tiempo_espera_horas)))
-      return "El tiempo de espera (horas) es obligatorio";
+    const metodo = f.metodo_dentro_24h || "ia";
+    if (metodo === "ninguno" && !(f.nombre_template || "").trim())
+      return "En modo 'solo plantilla' debes elegir una plantilla";
+    if (metodo === "ia" && !(f.prompt_ia || "").trim())
+      return "El prompt de IA es obligatorio";
+    if (
+      metodo === "respuesta_rapida" &&
+      !(f.atajo_respuesta_rapida || "").trim()
+    )
+      return "Elige una respuesta rápida";
+    if (!Number(f.tiempo_espera_minutos)) return "Define el tiempo de espera";
   }
   if (tipo === "dropi_config") {
     if (!f.estado_dropi.trim()) return "El estado de Dropi es obligatorio";
@@ -229,6 +248,7 @@ const ModalCatalogoItem = ({
   modo = "crear",
   customId = null,
   templatesDisponibles = [],
+  rapidasDisponibles = [],
   columnasDisponibles = [],
   onClose,
   onSaved,
@@ -402,8 +422,9 @@ const ModalCatalogoItem = ({
             <FormRemarketing
               form={form}
               set={set}
-              templates={templatesDisponibles}
-              columnas={columnasDisponibles}
+              templatesDisponibles={templatesDisponibles}
+              rapidasDisponibles={rapidasDisponibles}
+              columnasDisponibles={columnasDisponibles}
             />
           ) : (
             <FormTemplate form={form} set={set} />
@@ -797,88 +818,265 @@ const FormDropi = ({ form, set, templates, columnas }) => (
   </div>
 );
 
-const FormRemarketing = ({ form, set, templates, columnas }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-    <div>
-      <label style={lbl}>Estado de contacto (columna donde dispara)</label>
-      <input
-        list="dl-cols-rmk"
-        value={form.estado_contacto}
-        onChange={(e) => set("estado_contacto", e.target.value)}
-        style={{ ...inp, fontFamily: "monospace" }}
-        placeholder="contacto_inicial"
-      />
-      <Datalist id="dl-cols-rmk" opciones={columnas} />
-    </div>
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+const TIEMPOS_MIN = [
+  { value: 10, label: "10 min" },
+  { value: 20, label: "20 min" },
+  { value: 30, label: "30 min" },
+  { value: 60, label: "1 hora" },
+  { value: 120, label: "2 horas" },
+  { value: 180, label: "3 horas" },
+  { value: 300, label: "5 horas" },
+  { value: 600, label: "10 horas" },
+  { value: 1200, label: "20 horas" },
+  { value: 1440, label: "1 día" },
+];
+
+const METODOS_24H_CAT = [
+  {
+    value: "ia",
+    label: "Generado por IA",
+    desc: "Personalizado",
+    icon: "bx-bot",
+    color: "#8b5cf6",
+  },
+  {
+    value: "respuesta_rapida",
+    label: "Respuesta rápida",
+    desc: "Mensaje pre-armado",
+    icon: "bxs-zap",
+    color: "#0ea5e9",
+  },
+  {
+    value: "ninguno",
+    label: "Solo plantilla",
+    desc: "Siempre plantilla Meta",
+    icon: "bx-shield",
+    color: "#6b7280",
+  },
+];
+
+const FormRemarketing = ({
+  form,
+  set,
+  templatesDisponibles = [],
+  rapidasDisponibles = [],
+  columnasDisponibles = [],
+}) => {
+  const metodo = form.metodo_dentro_24h || "ia";
+  const requiereTemplate = metodo === "ninguno";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
-        <label style={lbl}>N° de secuencia</label>
+        <label style={lbl}>Estado de contacto (grupo)</label>
         <input
-          type="number"
-          min={1}
-          value={form.secuencia}
-          onChange={(e) => set("secuencia", e.target.value)}
-          style={inp}
+          value={form.estado_contacto}
+          onChange={(e) => set("estado_contacto", e.target.value)}
+          style={{ ...inp, fontFamily: "monospace" }}
+          placeholder="contacto_inicial"
         />
       </div>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <label style={lbl}>Secuencia (paso)</label>
+          <select
+            value={form.secuencia ?? 1}
+            onChange={(e) => set("secuencia", Number(e.target.value))}
+            style={inp}
+          >
+            <option value={1}>1 · Primer seguimiento</option>
+            <option value={2}>2 · Segundo seguimiento</option>
+            <option value={3}>3 · Tercer seguimiento</option>
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={lbl}>Tiempo de espera</label>
+          <select
+            value={form.tiempo_espera_minutos ?? 60}
+            onChange={(e) =>
+              set("tiempo_espera_minutos", Number(e.target.value))
+            }
+            style={inp}
+          >
+            {TIEMPOS_MIN.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Método: qué se envía DENTRO de 24h */}
       <div>
-        <label style={lbl}>Espera (horas)</label>
-        <input
-          type="number"
-          min={0}
-          step={1}
-          value={form.tiempo_espera_horas}
-          onChange={(e) => set("tiempo_espera_horas", e.target.value)}
-          style={inp}
-        />
+        <label style={lbl}>¿Qué se envía si respondió dentro de 24h?</label>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: 7,
+          }}
+        >
+          {METODOS_24H_CAT.map((m) => {
+            const sel = metodo === m.value;
+            return (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => set("metodo_dentro_24h", m.value)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: 3,
+                  padding: 10,
+                  borderRadius: 10,
+                  border: sel ? `2px solid ${m.color}` : "1.5px solid #e5e7eb",
+                  background: sel ? `${m.color}0d` : "#f9fafb",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <i
+                  className={`bx ${m.icon}`}
+                  style={{
+                    fontSize: "1.1rem",
+                    color: sel ? m.color : "#94a3b8",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: ".78rem",
+                    fontWeight: 700,
+                    color: sel ? m.color : "#111827",
+                  }}
+                >
+                  {m.label}
+                </span>
+                <span
+                  style={{
+                    fontSize: ".66rem",
+                    color: "#6b7280",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {m.desc}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
-    <div>
-      <label style={lbl}>Plantilla fuera de 24h</label>
-      <input
-        list="dl-tpl-rmk"
-        value={form.nombre_template}
-        onChange={(e) => set("nombre_template", e.target.value)}
-        style={{ ...inp, fontFamily: "monospace" }}
-        placeholder="nombre_de_plantilla"
-      />
-      <Datalist id="dl-tpl-rmk" opciones={templates} />
-    </div>
-    <div>
-      <label style={lbl}>Método dentro de 24h</label>
-      <select
-        value={form.metodo_dentro_24h}
-        onChange={(e) => set("metodo_dentro_24h", e.target.value)}
-        style={inp}
-      >
-        <option value="ia">IA redacta el mensaje</option>
-        <option value="template">Solo plantilla</option>
-      </select>
-    </div>
-    {form.metodo_dentro_24h === "ia" && (
+
+      {/* Según método */}
+      {metodo === "ia" && (
+        <div>
+          <label style={lbl}>Prompt para la IA</label>
+          <textarea
+            value={form.prompt_ia || ""}
+            onChange={(e) => set("prompt_ia", e.target.value)}
+            style={{
+              ...inp,
+              minHeight: 160,
+              resize: "vertical",
+              fontFamily: "ui-monospace, Menlo, monospace",
+              fontSize: ".78rem",
+            }}
+            placeholder="Instrucciones para que la IA redacte el mensaje…"
+          />
+        </div>
+      )}
+
+      {metodo === "respuesta_rapida" && (
+        <div>
+          <label style={lbl}>Respuesta rápida a enviar</label>
+          <select
+            value={form.atajo_respuesta_rapida || ""}
+            onChange={(e) => set("atajo_respuesta_rapida", e.target.value)}
+            style={inp}
+          >
+            <option value="">Selecciona una respuesta rápida…</option>
+            {rapidasDisponibles.map((k) => (
+              <option key={k} value={k}>
+                /{k}
+              </option>
+            ))}
+          </select>
+          <div style={{ fontSize: ".7rem", color: "#94a3b8", marginTop: 4 }}>
+            Lista de fábrica + las que agregaste. Al aplicar el tablero se
+            enlaza con la respuesta rápida del cliente por su atajo.
+          </div>
+        </div>
+      )}
+
+      {/* Plantilla Meta (fuera de 24h) */}
       <div>
-        <label style={lbl}>Prompt de la IA (dentro de 24h)</label>
-        <textarea
-          value={form.prompt_ia}
-          onChange={(e) => set("prompt_ia", e.target.value)}
-          style={{ ...inp, minHeight: 110, resize: "vertical" }}
-          placeholder="Recuérdale amablemente al cliente que continúe…"
-        />
+        <label style={lbl}>
+          Plantilla Meta (fuera de 24h){" "}
+          <span
+            style={{
+              fontWeight: 400,
+              color: requiereTemplate ? "#dc2626" : "#94a3b8",
+              fontSize: ".75rem",
+            }}
+          >
+            {requiereTemplate ? "(obligatoria)" : "(opcional)"}
+          </span>
+        </label>
+        <select
+          value={form.nombre_template || ""}
+          onChange={(e) => set("nombre_template", e.target.value)}
+          style={inp}
+        >
+          <option value="">Sin plantilla (solo dentro de 24h)</option>
+          {templatesDisponibles.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
+        <div style={{ fontSize: ".7rem", color: "#94a3b8", marginTop: 4 }}>
+          Lista de fábrica + las plantillas Meta que agregaste.
+        </div>
       </div>
-    )}
-    <div>
-      <label style={lbl}>Estado destino al enviar (opcional)</label>
-      <input
-        list="dl-cols-rmk2"
-        value={form.estado_destino}
-        onChange={(e) => set("estado_destino", e.target.value)}
-        style={{ ...inp, fontFamily: "monospace" }}
-        placeholder="(dejar vacío para no mover)"
-      />
-      <Datalist id="dl-cols-rmk2" opciones={columnas} />
+
+      <div>
+        <label style={lbl}>
+          Mover a columna al enviar{" "}
+          <span
+            style={{ fontWeight: 400, color: "#94a3b8", fontSize: ".75rem" }}
+          >
+            (opcional)
+          </span>
+        </label>
+        <select
+          value={form.estado_destino || ""}
+          onChange={(e) => set("estado_destino", e.target.value)}
+          style={inp}
+        >
+          <option value="">No mover (queda en su columna)</option>
+          {form.estado_destino &&
+            !columnasDisponibles.includes(form.estado_destino) && (
+              <option value={form.estado_destino}>
+                {form.estado_destino} ⚠ (no existe en este tablero)
+              </option>
+            )}
+          {columnasDisponibles.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <div style={{ fontSize: ".7rem", color: "#94a3b8", marginTop: 4 }}>
+          Solo columnas de este tablero. Si necesitas otra, créala primero como
+          columna; si no existe, el contacto igual cambia de estado pero el
+          cliente no la verá en su Kanban.
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const FormTemplate = ({ form, set }) => {
   const addBoton = () =>
