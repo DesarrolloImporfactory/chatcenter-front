@@ -11,14 +11,23 @@ const Toast = Swal.mixin({
 });
 
 const TIEMPOS = [
-  { value: "1", label: "1h", desc: "Rápido" },
-  { value: "3", label: "3h", desc: "Caliente" },
-  { value: "5", label: "5h", desc: "Recomendado" },
-  { value: "10", label: "10h", desc: "Moderado" },
-  { value: "20", label: "20h", desc: "Al día" },
+  { value: "10", label: "10min", desc: "Inmediato" },
+  { value: "20", label: "20min", desc: "Muy rápido" },
+  { value: "30", label: "30min", desc: "Rápido" },
+  { value: "40", label: "40min", desc: "Ágil" },
+  { value: "60", label: "1h", desc: "Caliente" },
+  { value: "180", label: "3h", desc: "Recomendado" },
+  { value: "300", label: "5h", desc: "Moderado" },
+  { value: "600", label: "10h", desc: "Al día" },
+  { value: "1200", label: "20h", desc: "Tardío" },
 ];
 
 const BG_DARK = "rgb(23, 25, 49)";
+
+const LIMITE_24H_MIN = 24 * 60; // 1440
+
+const calcTotalMinutos = (secs) =>
+  secs.reduce((acc, s) => acc + Number(s.tiempo_espera_minutos || 0), 0);
 
 /* Métodos disponibles si el cliente respondió en últimas 24h */
 const METODOS_24H = [
@@ -130,7 +139,7 @@ const getDefaultPrompt = (secuenciaIdx) => {
 };
 
 const SECUENCIA_VACIA = () => ({
-  tiempo_espera_horas: "0",
+  tiempo_espera_minutos: "0",
   nombre_template: "",
   header_format: null,
   header_media_url: "",
@@ -962,7 +971,12 @@ const RemarketingColumna = ({
       if (rows?.length) {
         setSecuencias(
           rows.map((r) => ({
-            tiempo_espera_horas: String(r.tiempo_espera_horas ?? "0"),
+            tiempo_espera_minutos: String(
+              r.tiempo_espera_minutos ??
+                (r.tiempo_espera_horas != null
+                  ? Number(r.tiempo_espera_horas) * 60
+                  : 0),
+            ),
             nombre_template: r.nombre_template ?? "",
             header_format: r.header_format || null,
             header_media_url: r.header_media_url || "",
@@ -1027,10 +1041,25 @@ const RemarketingColumna = ({
     for (let i = 0; i < secuencias.length; i++) {
       const s = secuencias[i];
 
-      if (!s.nombre_template || s.tiempo_espera_horas === "0") {
+      if (s.tiempo_espera_minutos === "0") {
         Toast.fire({
           icon: "warning",
-          title: `Completa el seguimiento ${i + 1}`,
+          title: `Define el tiempo del seguimiento ${i + 1}`,
+        });
+        return;
+      }
+
+      // Plantilla obligatoria solo si el método es "ninguno" o si la suma > 24h
+      const totalMin = calcTotalMinutos(secuencias);
+      const requiereTpl =
+        s.metodo_dentro_24h === "ninguno" || totalMin > LIMITE_24H_MIN;
+      if (requiereTpl && !s.nombre_template) {
+        Toast.fire({
+          icon: "warning",
+          title:
+            totalMin > LIMITE_24H_MIN
+              ? `Seguimiento ${i + 1}: con +24h en total necesitas plantilla`
+              : `Seguimiento ${i + 1}: el modo "Solo plantilla" requiere una plantilla`,
         });
         return;
       }
@@ -1080,7 +1109,9 @@ const RemarketingColumna = ({
 
       return {
         secuencia: i + 1,
-        tiempo_espera_horas: Number(s.tiempo_espera_horas),
+        tiempo_espera_minutos: Number(s.tiempo_espera_minutos),
+        // compat legacy: solo es exacto para múltiplos de 60min
+        tiempo_espera_horas: Number(s.tiempo_espera_minutos) / 60,
         nombre_template: s.nombre_template,
         language_code: "es",
         estado_destino: s.estado_destino || null,
@@ -1130,8 +1161,15 @@ const RemarketingColumna = ({
   const plantillasSinVars = plantillas.filter((tpl) => !templateHasVars(tpl));
   const plantillasConVarsCount = plantillas.length - plantillasSinVars.length;
 
-  const formularioListo = secuencias.every((s) => {
-    if (!s.nombre_template || s.tiempo_espera_horas === "0") return false;
+  const totalMinutos = calcTotalMinutos(secuencias);
+  const dentroDe24h = totalMinutos <= LIMITE_24H_MIN;
+
+  const requiereTemplate = (s) =>
+    s.metodo_dentro_24h === "ninguno" || !dentroDe24h;
+
+  const secuenciaLista = (s) => {
+    if (s.tiempo_espera_minutos === "0") return false;
+    if (requiereTemplate(s) && !s.nombre_template) return false;
     const tpl = plantillas.find((p) => p.name === s.nombre_template);
     if (tpl && templateHasVars(tpl)) return false;
     if (s.metodo_dentro_24h === "respuesta_rapida" && !s.id_template_rapido)
@@ -1139,7 +1177,9 @@ const RemarketingColumna = ({
     if (s.metodo_dentro_24h === "ia" && !String(s.prompt_ia || "").trim())
       return false;
     return true;
-  });
+  };
+
+  const formularioListo = secuencias.every(secuenciaLista);
 
   const iconoTipoRR = (tipo) => {
     const map = {
@@ -1367,7 +1407,7 @@ const RemarketingColumna = ({
                       (p) => p.name === sec.nombre_template,
                     );
                     const tiempoObj = TIEMPOS.find(
-                      (t) => t.value === sec.tiempo_espera_horas,
+                      (t) => t.value === sec.tiempo_espera_minutos,
                     );
                     const rrSel = respuestasRapidas.find(
                       (r) => r.id_template === sec.id_template_rapido,
@@ -1412,17 +1452,15 @@ const RemarketingColumna = ({
                                     ? "Segundo seguimiento"
                                     : "Tercer seguimiento"}
                               </span>
-                              {sec.nombre_template &&
-                                sec.tiempo_espera_horas !== "0" &&
-                                !tplTieneVars && (
-                                  <span className="rm2-badge rm2-badge-ok">
-                                    <i
-                                      className="bx bx-check"
-                                      style={{ fontSize: 11 }}
-                                    />{" "}
-                                    Listo
-                                  </span>
-                                )}
+                              {secuenciaLista(sec) && (
+                                <span className="rm2-badge rm2-badge-ok">
+                                  <i
+                                    className="bx bx-check"
+                                    style={{ fontSize: 11 }}
+                                  />{" "}
+                                  Listo
+                                </span>
+                              )}
                             </div>
                             {secuencias.length > 1 && (
                               <button
@@ -1466,11 +1504,11 @@ const RemarketingColumna = ({
                                 {TIEMPOS.map((t) => (
                                   <div
                                     key={t.value}
-                                    className={`rm2-time-chip ${sec.tiempo_espera_horas === t.value ? "sel" : ""}`}
+                                    className={`rm2-time-chip ${sec.tiempo_espera_minutos === t.value ? "sel" : ""}`}
                                     onClick={() =>
                                       updateSec(
                                         idx,
-                                        "tiempo_espera_horas",
+                                        "tiempo_espera_minutos",
                                         t.value,
                                       )
                                     }
@@ -1493,6 +1531,19 @@ const RemarketingColumna = ({
                                 }}
                               >
                                 💬 Plantilla Meta (fuera de 24h)
+                                <span
+                                  style={{
+                                    fontWeight: 400,
+                                    color: requiereTemplate(sec)
+                                      ? "#dc2626"
+                                      : "#9ca3af",
+                                    marginLeft: 4,
+                                  }}
+                                >
+                                  {requiereTemplate(sec)
+                                    ? "(obligatoria)"
+                                    : "(opcional)"}
+                                </span>
                               </div>
                               {loadingPlt ? (
                                 <div
@@ -1509,7 +1560,9 @@ const RemarketingColumna = ({
                                     }
                                   >
                                     <option value="">
-                                      Selecciona una plantilla...
+                                      {requiereTemplate(sec)
+                                        ? "Selecciona una plantilla..."
+                                        : "Sin plantilla (solo dentro de 24h)"}
                                     </option>
                                     {sec.nombre_template &&
                                       tplObj &&
@@ -1996,6 +2049,41 @@ const RemarketingColumna = ({
                       Agregar seguimiento {secuencias.length + 1} de 3
                     </button>
                   )}
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "9px 12px",
+                      borderRadius: 10,
+                      marginTop: 14,
+                      fontSize: ".74rem",
+                      fontWeight: 600,
+                      lineHeight: 1.4,
+                      background: dentroDe24h ? "#f0fdf4" : "#fffbeb",
+                      border: `1px solid ${dentroDe24h ? "#bbf7d0" : "#fde68a"}`,
+                      color: dentroDe24h ? "#15803d" : "#92400e",
+                    }}
+                  >
+                    <i
+                      className={`bx ${dentroDe24h ? "bx-time-five" : "bx-error"}`}
+                      style={{ fontSize: 16, flexShrink: 0 }}
+                    />
+                    <span>
+                      Tiempo total de la secuencia:{" "}
+                      <strong>
+                        {totalMinutos} min
+                        {totalMinutos >= 60
+                          ? ` (~${(totalMinutos / 60).toFixed(1)}h)`
+                          : ""}
+                      </strong>
+                      .{" "}
+                      {dentroDe24h
+                        ? "No supera 24h → la plantilla Meta es opcional. Puedes usar solo IA o respuesta rápida y no gastar en Meta."
+                        : "Supera 24h → los pasos quedan fuera de ventana y necesitan plantilla Meta obligatoria."}
+                    </span>
+                  </div>
 
                   <div
                     style={{
