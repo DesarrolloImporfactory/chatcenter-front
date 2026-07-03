@@ -385,6 +385,7 @@ const ProductoDetallePage = () => {
   const hasPortada = !!producto?.imagen_portada;
 
   /* ── Quick Generate ── */
+  /* ── Quick Generate ── */
   const handleQuickGenerate = async () => {
     if (!selectedTemplate || !userImages.length || !selectedEtapas.length)
       return Toast.fire({ icon: "error", title: "Completa los pasos" });
@@ -400,6 +401,9 @@ const ProductoDetallePage = () => {
     if (producto.precio_unitario)
       pricing.precio_unitario = producto.precio_unitario;
     if (producto.combos?.length) pricing.combos = producto.combos;
+
+    let successCount = 0;
+    let errorMsg = null;
 
     for (let i = 0; i < selectedEtapas.length; i++) {
       const etapa = selectedEtapas[i];
@@ -433,6 +437,7 @@ const ProductoDetallePage = () => {
             remaining: res.data.usage.remaining,
           }));
         if (res.data?.image_url) {
+          successCount++;
           const item = {
             etapa: etapa.nombre,
             image_url: res.data.image_url,
@@ -442,16 +447,42 @@ const ProductoDetallePage = () => {
           if (revealQueueRef.current.length === 1) processRevealQueue();
         }
       } catch (err) {
-        if (err?.response?.status === 429 || err?.response?.status === 402) {
-          Toast.fire({ icon: "error", title: "Límite alcanzado" });
-          break;
-        }
+        // Capturar el mensaje REAL que manda el backend
+        errorMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Error al generar la imagen";
+        const status = err?.response?.status;
+        // 402 (facturación/cuota) o 429 (límite) → cortar el resto del loop
+        if (status === 402 || status === 429) break;
+        // otros errores → seguir con las demás secciones
       }
     }
+
     setGenerating(false);
     closeGenerator();
     fetchProducto(1);
-    Toast.fire({ icon: "success", title: "¡Generación completada!" });
+
+    // ── Mensaje final según lo que REALMENTE pasó ──
+    if (successCount > 0 && !errorMsg) {
+      Toast.fire({
+        icon: "success",
+        title: `¡${successCount} imagen${successCount !== 1 ? "es" : ""} lista${successCount !== 1 ? "s" : ""}!`,
+      });
+    } else if (successCount > 0 && errorMsg) {
+      Toast.fire({
+        icon: "warning",
+        title: `Se generaron ${successCount}. ${errorMsg}`,
+      });
+    } else {
+      // NADA se generó → modal con el error real del backend
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo generar",
+        text: errorMsg || "Error al generar la imagen. Intenta nuevamente.",
+        confirmButtonColor: "#6366f1",
+      });
+    }
   };
 
   const goToFullGenerator = () => {

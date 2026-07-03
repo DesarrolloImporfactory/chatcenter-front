@@ -347,17 +347,26 @@ const LandingAi = () => {
         setResults([...generated]);
         refreshUsage();
       } catch (err) {
+        const status = err?.response?.status;
+        const backendMsg =
+          err?.response?.data?.message || err.message || "Error";
+
         generated.push({
           etapa: { id: etapa.id, nombre: etapa.nombre, slug: etapa.slug },
-          error: err?.response?.data?.message || err.message || "Error",
+          error: backendMsg,
           success: false,
         });
         setResults([...generated]);
 
-        if (err?.response?.status === 429 || err?.response?.status === 402) {
-          if (err?.response?.status === 429) {
-            Toast.fire({ icon: "error", title: "Límite mensual alcanzado" });
-          }
+        // 402 (facturación/cuota) o 429 (límite) → cortar y avisar con el mensaje REAL
+        if (status === 429 || status === 402) {
+          Toast.fire({
+            icon: "error",
+            title:
+              status === 429
+                ? "Límite mensual alcanzado"
+                : backendMsg || "Servicio no disponible",
+          });
           setGenerating(false);
           break;
         }
@@ -366,12 +375,23 @@ const LandingAi = () => {
 
     setGenerating(false);
     refreshUsage();
+
     const ok = generated.filter((g) => g.success).length;
-    if (ok > 0)
+    if (ok > 0) {
       Toast.fire({
         icon: "success",
         title: `${ok} imagen${ok !== 1 ? "es" : ""} lista${ok !== 1 ? "s" : ""}`,
       });
+    } else {
+      // Nada salió → mostrar el error real del backend en modal
+      const firstErr = generated.find((g) => !g.success)?.error;
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo generar",
+        text: firstErr || "Error al generar la imagen. Intenta nuevamente.",
+        confirmButtonColor: "#6366f1",
+      });
+    }
   };
 
   const handleRegenerateEtapa = async (result, promptExtra) => {
