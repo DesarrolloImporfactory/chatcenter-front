@@ -1751,8 +1751,13 @@ export default function Contactos() {
 
   function matchesFullName(cliente, qRaw) {
     if (!qRaw) return true;
+    // Revalida contra los MISMOS campos que busca el backend (nombre, apellido,
+    // email, teléfono, celular), no solo el nombre. Si no, las filas que el
+    // backend matcheó por teléfono/email se descartaban acá y la UI mostraba
+    // muchísimas menos filas de las que decía el total.
     const full = normalizeHumanText(
-      `${cliente.nombre || ""} ${cliente.apellido || ""}`,
+      `${cliente.nombre || ""} ${cliente.apellido || ""} ${cliente.email || ""} ` +
+        `${cliente.telefono || ""} ${cliente.celular_cliente || ""}`,
     );
     const qn = normalizeHumanText(qRaw);
     if (!qn) return true;

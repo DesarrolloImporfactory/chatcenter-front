@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Select, { components as rsComponents } from "react-select";
 import DateRangeFilter from "./DateRangeFilter";
 
@@ -278,6 +278,14 @@ export default function FilterBar({
   filtroFecha,
   setFiltroFecha,
 }) {
+  // El input ya NO busca al tipear: se confirma con Enter o el botón "Buscar".
+  // qInput = lo que se ve en la caja; q = lo que realmente se busca (commit).
+  const [qInput, setQInput] = useState(q ?? "");
+  useEffect(() => {
+    setQInput(q ?? ""); // sincroniza cuando q cambia desde afuera (ej. Limpiar)
+  }, [q]);
+  const submitBusqueda = () => setQ((qInput || "").trim());
+
   return (
     <>
       {/* ── Buscador + badge seleccionados ── */}
@@ -286,11 +294,23 @@ export default function FilterBar({
           <i className="bx bx-search absolute left-3 top-2.5 text-slate-500" />
           <input
             className="w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800 outline-none ring-1 ring-transparent transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200/60"
-            placeholder="Buscar por nombre, apellido o teléfono…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar por nombre, apellido o teléfono… (Enter)"
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitBusqueda();
+            }}
           />
         </div>
+
+        <button
+          type="button"
+          onClick={submitBusqueda}
+          className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+        >
+          <i className="bx bx-search" />
+          Buscar
+        </button>
 
         {/* ── Badge de seleccionados (siempre visible) ── */}
         <SelectedBadge count={selectedCount} />
