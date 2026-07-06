@@ -13,6 +13,23 @@ const NuevoContacto = ({
 }) => {
   if (!isOpen) return null;
 
+  // ───────── Validación teléfono ─────────
+  const telTrim = (nuevoTelefonoContacto || "").trim();
+  const telEmpiezaConPlus = telTrim.startsWith("+");
+  const telDigitos = telTrim.replace(/\D/g, "");
+  const telEsValido = telEmpiezaConPlus && telDigitos.length >= 8;
+  const mostrarErrorPlusTel = telTrim.length > 0 && !telEmpiezaConPlus;
+
+  const puedeGuardar =
+    telEsValido && nuevoNombreContacto.trim() && nuevoApellidoContacto.trim();
+
+  // Limpia en vivo: solo dígitos y un "+" al inicio (NO añade el + solo)
+  const onChangeTelefono = (v) => {
+    let val = v.replace(/[^\d+]/g, "");
+    val = val.replace(/(?!^)\+/g, "");
+    setNuevoTelefonoContacto(val);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl max-h-[80vh] w-full max-w-xl overflow-hidden ring-1 ring-slate-900/10">
@@ -45,10 +62,29 @@ const NuevoContacto = ({
               <input
                 type="tel"
                 value={nuevoTelefonoContacto}
-                onChange={(e) => setNuevoTelefonoContacto(e.target.value)}
-                placeholder="Ej: 593 99 999 9999"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                onChange={(e) => onChangeTelefono(e.target.value)}
+                placeholder="Ej: +593 99 123 4567"
+                className={`w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:ring-4 ${
+                  mostrarErrorPlusTel
+                    ? "border-rose-400 focus:border-rose-500 focus:ring-rose-100"
+                    : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
+                }`}
               />
+
+              {/* Aviso informativo (siempre visible) */}
+              <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                <i className="bx bx-info-circle" />
+                Escribe el número con la extensión del país. Ej: +593 99 123
+                4567
+              </p>
+
+              {/* Aviso en rojo (solo si falta el +) */}
+              {mostrarErrorPlusTel && (
+                <p className="mt-1 flex items-center gap-1 text-xs font-medium text-rose-600">
+                  <i className="bx bx-error-circle" />
+                  El número debe empezar con "+" (incluye el código del país).
+                </p>
+              )}
             </div>
 
             {/* Nombre */}
@@ -92,12 +128,12 @@ const NuevoContacto = ({
               <button
                 type="button"
                 onClick={guardarNuevoContacto}
-                disabled={
-                  !nuevoTelefonoContacto.trim() ||
-                  !nuevoNombreContacto.trim() ||
-                  !nuevoApellidoContacto.trim()
-                }
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 ${nuevoTelefonoContacto.trim() && nuevoNombreContacto.trim() && nuevoApellidoContacto.trim() ? "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-200" : "bg-slate-200 text-slate-500 cursor-not-allowed"}`}
+                disabled={!puedeGuardar}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-4 ${
+                  puedeGuardar
+                    ? "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-200"
+                    : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                }`}
               >
                 <i className="bx bx-user-plus" />
                 Guardar contacto

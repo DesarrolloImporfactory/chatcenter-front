@@ -110,6 +110,34 @@ export default function EditarContactoDrawer({
         return;
       }
 
+      // Validar / normalizar teléfono SOLO si tiene contenido
+      let editingFinal = editing;
+      const telRaw = (editing?.telefono || "").trim();
+
+      if (telRaw) {
+        if (!telRaw.startsWith("+")) {
+          await Swal.fire({
+            icon: "warning",
+            title: "Teléfono inválido",
+            text: 'El número debe empezar con "+" (código de país).',
+          });
+          return;
+        }
+
+        const soloDigitos = telRaw.replace(/\D/g, "");
+        if (soloDigitos.length < 8) {
+          await Swal.fire({
+            icon: "warning",
+            title: "Teléfono incompleto",
+            text: "Revisa el número, está muy corto.",
+          });
+          return;
+        }
+
+        // Canónico: "+" + solo dígitos
+        editingFinal = { ...editing, telefono: "+" + soloDigitos };
+      }
+
       const id = getIdFromChat(selectedChat);
       if (!id) {
         await Swal.fire({
@@ -121,17 +149,33 @@ export default function EditarContactoDrawer({
       }
 
       swalLoading("Actualizando contacto...");
-      const updated = await apiUpdateClienteChatCenter(id, editing);
+      const updated = await apiUpdateClienteChatCenter(id, editingFinal);
       swalClose();
       swalToast("Guardado correctamente");
 
-      onSaved?.(updated, editing);
+      onSaved?.(updated, editingFinal);
       onClose?.();
     } catch (e) {
       console.error("SAVE CHAT CONTACT:", e?.response?.data || e.message);
       swalClose();
       swalError("No se pudo guardar", e?.response?.data?.message || e.message);
     }
+  };
+
+  // ───────── Validación teléfono ─────────
+  const telTrim = (editing?.telefono || "").trim();
+  const telEmpiezaConPlus = telTrim.startsWith("+");
+  const telDigitos = telTrim.replace(/\D/g, "");
+  const telEsValido = telEmpiezaConPlus && telDigitos.length >= 8;
+  const mostrarErrorPlusTel = telTrim.length > 0 && !telEmpiezaConPlus;
+  // bloquea guardar solo si hay algo escrito y está mal (vacío SÍ se permite)
+  const telInvalido = telTrim.length > 0 && !telEsValido;
+
+  // Limpia en vivo: solo dígitos y un "+" al inicio (NO añade el + solo)
+  const onChangeTelefono = (v) => {
+    let val = v.replace(/[^\d+]/g, "");
+    val = val.replace(/(?!^)\+/g, "");
+    setEditing((p) => ({ ...p, telefono: val }));
   };
 
   if (!open) return null;
@@ -191,13 +235,39 @@ export default function EditarContactoDrawer({
               />
             </div>
 
-            <Field
-              label="Celular"
-              value={editing?.telefono || ""}
-              onChange={(v) => setEditing((p) => ({ ...p, telefono: v }))}
-              placeholder="Ej: 0999999999"
-              inputMode="tel"
-            />
+            {/* Celular con validación de + */}
+            <div>
+              <label className="block text-[11px] font-semibold text-[#171931]">
+                Celular
+              </label>
+              <input
+                type="text"
+                inputMode="tel"
+                value={editing?.telefono || ""}
+                onChange={(e) => onChangeTelefono(e.target.value)}
+                placeholder="Ej: +593 99 123 4567"
+                className={`mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm text-[#171931] placeholder:text-[#171931]/35 outline-none transition-all duration-200 ${
+                  mostrarErrorPlusTel
+                    ? "border-rose-400 focus:ring-rose-500 focus:border-rose-500"
+                    : "border-[#171931]/15 focus:ring-blue-600 focus:border-blue-600"
+                }`}
+              />
+
+              {/* Aviso informativo (siempre visible) */}
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-[#171931]/60">
+                <i className="bx bx-info-circle" />
+                Escribe el número con la extensión del país. Ej: +593 99 123
+                4567
+              </p>
+
+              {/* Aviso en rojo (solo si falta el +) */}
+              {mostrarErrorPlusTel && (
+                <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-rose-600">
+                  <i className="bx bx-error-circle" />
+                  El número debe empezar con "+" (incluye el código del país).
+                </p>
+              )}
+            </div>
 
             <Field
               label="Email"
@@ -241,11 +311,12 @@ export default function EditarContactoDrawer({
 
             <button
               onClick={onSave}
-              className="
-                rounded-xl px-4 py-2 text-sm font-semibold
-                bg-[#171931] text-white
-                hover:opacity-90 transition
-              "
+              disabled={telInvalido}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition ${
+                telInvalido
+                  ? "bg-[#171931]/40 cursor-not-allowed"
+                  : "bg-[#171931] hover:opacity-90"
+              }`}
             >
               Guardar cambios
             </button>

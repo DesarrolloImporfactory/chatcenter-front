@@ -1236,22 +1236,53 @@ const Modales = ({
     setNewContactPhone("");
   };
 
+  // ───────── Validación teléfono (añadir número) ─────────
+  const telefonoTrim = newContactPhone.trim();
+  const telefonoEmpiezaConPlus = telefonoTrim.startsWith("+");
+  const telefonoDigitos = telefonoTrim.replace(/\D/g, "");
+  const telefonoEsValido =
+    telefonoEmpiezaConPlus && telefonoDigitos.length >= 8;
+  const mostrarErrorPlus = telefonoTrim.length > 0 && !telefonoEmpiezaConPlus;
+
+  // Limpia en vivo: solo dígitos y un "+" al inicio (NO añade el + solo)
+  const onChangeNewContactPhone = (e) => {
+    let v = e.target.value.replace(/[^\d+]/g, ""); // quita letras, espacios, guiones
+    v = v.replace(/(?!^)\+/g, ""); // quita "+" que no esté al inicio
+    setNewContactPhone(v);
+  };
+
   // Manejar la adición del nuevo número
   const handleAddNewContact = async () => {
-    if (!newContactName || !newContactPhone) {
-      Toast.fire({ icon: "warning", title: "Ingresa nombre y teléfono." });
+    if (!newContactName.trim()) {
+      Toast.fire({ icon: "warning", title: "Ingresa un nombre." });
       return;
     }
 
-    // Limpiar teléfono: quitar caracteres especiales y espacios
-    const telefonoLimpio = newContactPhone.replace(/[^0-9]/g, "");
+    const phoneTrim = newContactPhone.trim();
+
+    if (!phoneTrim.startsWith("+")) {
+      Toast.fire({
+        icon: "warning",
+        title: 'El número debe empezar con "+" (código de país).',
+      });
+      return;
+    }
+
+    // Formato canónico: "+" + solo dígitos
+    const soloDigitos = phoneTrim.replace(/\D/g, "");
+    if (soloDigitos.length < 8) {
+      Toast.fire({ icon: "warning", title: "El número está incompleto." });
+      return;
+    }
+
+    const telefonoCanonico = "+" + soloDigitos;
 
     try {
       const { data } = await chatApi.post(
         "/clientes_chat_center/agregarNumeroChat",
         {
           nombre: newContactName,
-          telefono: telefonoLimpio,
+          telefono: telefonoCanonico, // ← ahora con "+"
           apellido: "",
           id_configuracion,
         },
@@ -1264,13 +1295,13 @@ const Modales = ({
 
       Toast.fire({ icon: "success", title: "Contacto añadido" });
 
-      handleSelectPhoneNumber(telefonoLimpio, newContactName, null);
+      handleSelectPhoneNumber(telefonoCanonico, newContactName, null);
 
       setModalTab("buscar");
 
-      setSearchQuery(telefonoLimpio);
+      setSearchQuery(telefonoCanonico);
       if (inputRefNumeroTelefono?.current) {
-        inputRefNumeroTelefono.current.value = telefonoLimpio;
+        inputRefNumeroTelefono.current.value = telefonoCanonico;
         const ev = new Event("input", { bubbles: true });
         inputRefNumeroTelefono.current.dispatchEvent(ev);
       }
@@ -2418,13 +2449,33 @@ const Modales = ({
                       <input
                         type="text"
                         id="numeroAdd"
-                        placeholder="Ej: 5939XXXXXXXX"
-                        className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
-                              focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        inputMode="tel"
+                        placeholder="Ej: +593 99 123 4567"
+                        className={`w-full rounded-xl border bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:ring-4 ${
+                          mostrarErrorPlus
+                            ? "border-rose-400 focus:border-rose-500 focus:ring-rose-100"
+                            : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
+                        }`}
                         value={newContactPhone}
-                        onChange={(e) => setNewContactPhone(e.target.value)}
+                        onChange={onChangeNewContactPhone}
                       />
                     </div>
+
+                    {/* Aviso informativo (siempre visible) */}
+                    <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                      <i className="bx bx-info-circle" />
+                      Escribe el número con la extensión del país. Ej: +593 99
+                      123 4567
+                    </p>
+
+                    {/* Aviso en rojo (solo si falta el +) */}
+                    {mostrarErrorPlus && (
+                      <p className="mt-1 flex items-center gap-1 text-xs font-medium text-rose-600">
+                        <i className="bx bx-error-circle" />
+                        El número debe empezar con "+" (incluye el código del
+                        país).
+                      </p>
+                    )}
                   </div>
                 </form>
               )}
@@ -3028,7 +3079,12 @@ const Modales = ({
                   <button
                     type="button"
                     onClick={handleAddNewContact}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
+                    disabled={!newContactName.trim() || !telefonoEsValido}
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 ${
+                      !newContactName.trim() || !telefonoEsValido
+                        ? "bg-blue-300 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
                   >
                     <i className="bx bx-check" />
                     Crear

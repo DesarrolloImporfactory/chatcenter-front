@@ -614,7 +614,9 @@ const Cabecera = ({
           <a
             href="/conexion-dashboard"
             className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-              location.pathname === "/conexion-dashboard" ? "bg-gray-200 font-semibold" : ""
+              location.pathname === "/conexion-dashboard"
+                ? "bg-gray-200 font-semibold"
+                : ""
             }`}
             onClick={(e) => {
               e.preventDefault();
@@ -1249,7 +1251,7 @@ const Cabecera = ({
                       {selectedChat
                         ? selectedChat.source === "wa"
                           ? selectedChat.celular_cliente
-                            ? `+${selectedChat.celular_cliente}`
+                            ? `${selectedChat.celular_cliente}`
                             : "—"
                           : selectedChat.external_id ||
                             selectedChat.celular_cliente ||

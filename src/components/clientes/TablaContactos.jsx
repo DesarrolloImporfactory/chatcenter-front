@@ -42,6 +42,13 @@ const TablaContactos = ({
   const [editing, setEditing] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // ───────── Validación teléfono (para bloquear el botón) ─────────
+  const telTrim = (editing?.telefono || "").trim();
+  const telEsValido =
+    telTrim.startsWith("+") && telTrim.replace(/\D/g, "").length >= 8;
+  // teléfono opcional: solo inválido si hay algo escrito y está mal
+  const telInvalido = telTrim.length > 0 && !telEsValido;
+
   const handleEditClient = (client) => {
     setEditing(client); // Establecer el cliente que se va a editar
     setDrawerOpen(true); // Abrir el drawer
@@ -106,21 +113,40 @@ const TablaContactos = ({
         return;
       }
 
-      const id = getId(editing);
+      // Validar / normalizar teléfono SOLO si tiene contenido
+      let editingFinal = editing;
+      const telRaw = (editing?.telefono || "").trim();
+
+      if (telRaw) {
+        if (!telRaw.startsWith("+")) {
+          swalError(
+            "Teléfono inválido",
+            'El número debe empezar con "+" (código de país).',
+          );
+          return;
+        }
+        const soloDigitos = telRaw.replace(/\D/g, "");
+        if (soloDigitos.length < 8) {
+          swalError("Teléfono incompleto", "Revisa el número, está muy corto.");
+          return;
+        }
+        // Canónico: "+" + solo dígitos
+        editingFinal = { ...editing, telefono: "+" + soloDigitos };
+      }
+
+      const id = getId(editingFinal);
       swalLoading(id ? "Actualizando cliente..." : "Creando cliente...");
 
       if (id) {
-        // Si el cliente existe, actualízalo
-        const updated = await apiUpdate(id, editing);
+        const updated = await apiUpdate(id, editingFinal);
         setItems((prev) => prev.map((x) => (getId(x) === id ? updated : x)));
       } else {
-        // Si no existe, crea uno nuevo
-        const created = await apiCreate(editing);
+        const created = await apiCreate(editingFinal);
         setItems((prev) => [created, ...prev]);
       }
 
-      setDrawerOpen(false); // Cierra el drawer
-      setEditing(null); // Limpia el estado de edición
+      setDrawerOpen(false);
+      setEditing(null);
       swalClose();
       swalToast("Guardado correctamente");
     } catch (e) {
@@ -553,7 +579,12 @@ const TablaContactos = ({
 
               <button
                 onClick={onSave}
-                className="px-4 py-2 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition"
+                disabled={telInvalido}
+                className={`px-4 py-2 text-xs font-medium rounded-md text-white shadow-sm transition ${
+                  telInvalido
+                    ? "bg-blue-300 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
                 Guardar cambios
               </button>
