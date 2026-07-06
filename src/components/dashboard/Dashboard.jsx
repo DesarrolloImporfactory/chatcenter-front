@@ -59,7 +59,12 @@ function getUserInfo() {
   return { id_usuario, id_sub_usuario, rol, esAdmin };
 }
 
-export default function Dashboard() {
+/**
+ * lockedConfigId: cuando el board vive dentro de una conexión
+ * (conexion-dashboard) los datos se fijan a esa conexión y se
+ * oculta el filtro de conexiones.
+ */
+export default function Dashboard({ lockedConfigId = null }) {
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -209,6 +214,7 @@ export default function Dashboard() {
 
   // === 3) Resolver filtros ===
   const selectedConfigId = useMemo(() => {
+    if (lockedConfigId) return Number(lockedConfigId);
     if (!filters.connection || filters.connection === "Todas") return null;
     const conns = options._raw?.conexiones || [];
     const row = conns.find(
@@ -217,7 +223,7 @@ export default function Dashboard() {
         safeName(filters.connection).toLowerCase(),
     );
     return row?.id ? Number(row.id) : null;
-  }, [filters.connection, options._raw]);
+  }, [filters.connection, options._raw, lockedConfigId]);
 
   const selectedSubUsuarioFiltro = useMemo(() => {
     if (!esAdmin || !filters.user || filters.user === "Todos") return null;
@@ -426,6 +432,7 @@ export default function Dashboard() {
           }}
           onChange={setFilters}
           onApply={fetchAll}
+          hideConnection={!!lockedConfigId}
         />
 
         {(loadingFilters || loadingData) && (

@@ -186,6 +186,23 @@ function MainLayout({ children }) {
           aria-hidden={!sliderOpen}
         >
           <div className="mt-6">
+            {/* Dashboard — primer item. Fuera de una conexión abre el
+                centro de control en modo selector (?admin=1): permite
+                elegir cualquier conexión registrada. */}
+            {isSuperAdmin ? (
+              <NavBtn
+                path="/dashboard_admin"
+                icon="bxs-bar-chart-alt-2"
+                label="Dashboard Admin"
+              />
+            ) : !isGestorClientes ? (
+              <NavBtn
+                path="/conexion-dashboard?admin=1"
+                icon="bxs-bar-chart-alt-2"
+                label="Dashboard"
+              />
+            ) : null}
+
             {/* Conexiones — newTab=false: limpia el localStorage, NO debe
                 abrirse en pestaña nueva */}
             {!isGestorClientes && (
@@ -202,21 +219,6 @@ function MainLayout({ children }) {
                 }}
               />
             )}
-
-            {/* Dashboard */}
-            {isSuperAdmin ? (
-              <NavBtn
-                path="/dashboard_admin"
-                icon="bxs-bar-chart-alt-2"
-                label="Dashboard Admin"
-              />
-            ) : !isGestorClientes ? (
-              <NavBtn
-                path="/dashboard"
-                icon="bxs-bar-chart-alt-2"
-                label="Dashboard"
-              />
-            ) : null}
 
             {/* InstaLanding */}
             {!isGestorClientes && (
@@ -368,10 +370,12 @@ function MainLayout({ children }) {
           </div>
         </div>
 
+        {/* min-w-0: con el menú abierto el contenido se encoge para
+            caber, en vez de desbordar hacia la derecha */}
         <div
-          className={`flex-1 min-h-screen transition-[margin] duration-300 pt-16 ${sliderOpen ? "ml-64" : "ml-0"}`}
+          className={`flex-1 min-w-0 min-h-screen transition-[margin] duration-300 pt-16 ${sliderOpen ? "ml-64" : "ml-0"}`}
         >
-          <div className="p-2 bg-gray-100 min-h-[calc(100vh-4rem)] overflow-auto">
+          <div className="p-2 bg-gray-100 min-h-[calc(100vh-4rem)] overflow-x-hidden overflow-y-auto">
             {children}
           </div>
         </div>

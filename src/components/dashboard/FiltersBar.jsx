@@ -1,5 +1,9 @@
 import React from "react";
-import DateRangePicker from "./DataRangePicker";
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 function Select({ label, value, options = [], onChange }) {
   return (
@@ -27,7 +31,13 @@ function Select({ label, value, options = [], onChange }) {
   );
 }
 
-export default function FiltersBar({ filters, options, onChange, onApply }) {
+export default function FiltersBar({
+  filters,
+  options,
+  onChange,
+  onApply,
+  hideConnection = false, // dentro de conexion-dashboard: la conexión ya está fijada
+}) {
   const opts = options || {
     departments: ["Todos"],
     users: ["Todos"],
@@ -55,12 +65,27 @@ export default function FiltersBar({ filters, options, onChange, onApply }) {
             onChange={(v) => onChange((prev) => ({ ...prev, user: v }))}
           />
 
-          <Select
-            label="Conexiones"
-            value={filters.connection}
-            options={opts.connections}
-            onChange={(v) => onChange((prev) => ({ ...prev, connection: v }))}
-          />
+          {hideConnection ? (
+            /* Dentro de conexion-dashboard: la conexión está fijada */
+            <div className="min-w-[165px]">
+              <div className="mb-1 text-[11px] font-medium text-slate-500">
+                Conexión
+              </div>
+              <div className="h-[42px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 flex items-center gap-2 overflow-hidden">
+                <i className="bx bx-link shrink-0 text-[#2b7cff]" />
+                <span className="truncate font-medium">
+                  {localStorage.getItem("nombre_configuracion") || "Conexión"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <Select
+              label="Conexiones"
+              value={filters.connection}
+              options={opts.connections}
+              onChange={(v) => onChange((prev) => ({ ...prev, connection: v }))}
+            />
+          )}
 
           <Select
             label="Etiquetas"
@@ -76,13 +101,40 @@ export default function FiltersBar({ filters, options, onChange, onApply }) {
             onChange={(v) => onChange((prev) => ({ ...prev, motive: v }))}
           />
 
-          {/* ✅ ahora DateRangePicker trabaja con {from,to} */}
-          <DateRangePicker
-            value={filters.dateRange}
-            onChange={(range) =>
-              onChange((prev) => ({ ...prev, dateRange: range }))
-            }
-          />
+          {/* Período: cuadro → cuadro, igual que Dropi/Ads/Resumen */}
+          <div className="min-w-[240px]">
+            <div className="mb-1 text-[11px] font-medium text-slate-500">
+              Período
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className="h-[42px] rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#2b7cff] focus:ring-2 focus:ring-[#2b7cff]/15 transition"
+                value={filters.dateRange?.from || ""}
+                max={filters.dateRange?.to || todayISO()}
+                onChange={(e) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    dateRange: { ...prev.dateRange, from: e.target.value },
+                  }))
+                }
+              />
+              <span className="text-slate-300 text-xs">→</span>
+              <input
+                type="date"
+                className="h-[42px] rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-[#2b7cff] focus:ring-2 focus:ring-[#2b7cff]/15 transition"
+                value={filters.dateRange?.to || ""}
+                max={todayISO()}
+                min={filters.dateRange?.from || undefined}
+                onChange={(e) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    dateRange: { ...prev.dateRange, to: e.target.value },
+                  }))
+                }
+              />
+            </div>
+          </div>
         </div>
 
         {/* Botón a la derecha en la misma fila */}

@@ -26,7 +26,12 @@ import DropiDailyMetricsTable from "./dropiboard/proporcional/DropiDailyMetricsT
 const DROPI_LOGO =
   "https://d39ru7awumhhs2.cloudfront.net/ecuador/brands/1/logo/171275980616951779761695177976GVUXDo6TWDrk6URjLWgAFjH65gE1D1c7MAfWNF6r (2).png";
 
-const Dropiboard = () => {
+/**
+ * lockedConfigId: cuando el board vive dentro de una conexión
+ * (conexion-dashboard) se usa la integración de esa conexión y se
+ * oculta el selector.
+ */
+const Dropiboard = ({ lockedConfigId = null, autoFetch = false }) => {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
   const [hasFetched, setHasFetched] = useState(false);
@@ -159,6 +164,21 @@ const Dropiboard = () => {
       }
     };
   }, []);
+
+  // ─── Auto-consulta dentro de conexion-dashboard: apenas hay
+  //     integración seleccionada se dispara la primera consulta,
+  //     sin esperar el botón Consultar ───
+  useEffect(() => {
+    if ((!autoFetch && !lockedConfigId) || hasFetched || !selectedIntegration)
+      return;
+    fetchDashboard();
+  }, [
+    autoFetch,
+    lockedConfigId,
+    hasFetched,
+    selectedIntegration,
+    fetchDashboard,
+  ]);
 
   // ─── Auto-refresh para profit ───
   useEffect(() => {
@@ -311,6 +331,7 @@ const Dropiboard = () => {
         <DropiFilters
           selectedIntegration={selectedIntegration}
           onChangeIntegration={setSelectedIntegration}
+          lockedConfigId={lockedConfigId}
           dateRange={dateRange}
           onChangeDateRange={setDateRange}
           onApply={() => fetchDashboard()}

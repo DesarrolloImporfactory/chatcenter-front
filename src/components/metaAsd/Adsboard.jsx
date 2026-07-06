@@ -29,7 +29,11 @@ function daysAgoISO(days) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const Adsboard = () => {
+/**
+ * lockedConfigId: cuando el board vive dentro de una conexión
+ * (conexion-dashboard) se fija esa conexión y se oculta el selector.
+ */
+const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
 
@@ -45,9 +49,9 @@ const Adsboard = () => {
   const [selectedConfigId, setSelectedConfigId] = useState(null);
   const [loadingConexiones, setLoadingConexiones] = useState(true);
 
-  // Dashboard Meta nativo
+  // Dashboard Meta nativo (7 días por defecto, igual que Dropi y Resumen)
   const [dateRange, setDateRange] = useState({
-    since: daysAgoISO(30),
+    since: daysAgoISO(7),
     until: todayISO(),
   });
   const [accountData, setAccountData] = useState(null);
@@ -78,8 +82,11 @@ const Adsboard = () => {
       const configs = data.data || [];
       setConexiones(configs);
 
+      const lockId = Number(lockedConfigId);
       const lsConfig = Number(localStorage.getItem("id_configuracion"));
-      if (lsConfig && configs.some((c) => c.id === lsConfig)) {
+      if (lockId && configs.some((c) => c.id === lockId)) {
+        setSelectedConfigId(lockId);
+      } else if (lsConfig && configs.some((c) => c.id === lsConfig)) {
         setSelectedConfigId(lsConfig);
       } else {
         const withAds = configs.find((c) => Number(c.meta_ads_conectado) === 1);
@@ -90,7 +97,7 @@ const Adsboard = () => {
     } finally {
       setLoadingConexiones(false);
     }
-  }, [userData?.id_usuario]);
+  }, [userData?.id_usuario, lockedConfigId]);
 
   useEffect(() => {
     fetchConexiones();
@@ -201,6 +208,27 @@ const Adsboard = () => {
     setMcError(null);
   }, [selectedConfigId, dateRange?.since, dateRange?.until]);
 
+  // Auto-consulta dentro de conexion-dashboard: apenas la conexión
+  // seleccionada está lista (y tiene Ads) se dispara la primera consulta
+  // sin esperar el botón Consultar.
+  useEffect(() => {
+    if (
+      (!autoFetch && !lockedConfigId) ||
+      hasFetched ||
+      !selectedConfigId ||
+      !isAdsConnected
+    )
+      return;
+    fetchDashboard();
+  }, [
+    autoFetch,
+    lockedConfigId,
+    hasFetched,
+    selectedConfigId,
+    isAdsConnected,
+    fetchDashboard,
+  ]);
+
   const currency = accountData?.currency || "USD";
 
   const handleChangeConfig = (id) => {
@@ -270,6 +298,7 @@ const Adsboard = () => {
           loadingConexiones={loadingConexiones}
           selectedConfigId={selectedConfigId}
           onChangeConfig={handleChangeConfig}
+          lockConexion={!!lockedConfigId}
           isAdsConnected={isAdsConnected}
           dateRange={dateRange}
           onChangeDateRange={setDateRange}

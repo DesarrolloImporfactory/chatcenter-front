@@ -30,6 +30,7 @@ export default function DropiFilters({
   onChangeDateRange,
   onApply,
   loading,
+  lockedConfigId = null, // dentro de conexion-dashboard: sin selector
 }) {
   const [integrations, setIntegrations] = useState([]);
   const [loadingIntegrations, setLoadingIntegrations] = useState(true);
@@ -44,7 +45,17 @@ export default function DropiFilters({
       const { data } = await chatApi.get(
         "dropi_integrations/all-my-integrations",
       );
-      const items = data?.data || [];
+      const all = data?.data || [];
+      let items = all;
+      if (lockedConfigId) {
+        // Preferir la integración de ESTA conexión; si no existe,
+        // caer a las de cuenta ("Mi cuenta") que sirven a todas.
+        const matched = all.filter(
+          (i) => Number(i.id_configuracion) === Number(lockedConfigId),
+        );
+        items = matched.length > 0 ? matched : all.filter((i) => !i.id_configuracion);
+        if (items.length === 0) items = all;
+      }
       setIntegrations(items);
       if (items.length > 0 && !selectedIntegration)
         onChangeIntegration(items[0]);
@@ -113,6 +124,16 @@ export default function DropiFilters({
                 </svg>
                 Vincular mi cuenta Dropi
               </button>
+            ) : lockedConfigId ? (
+              /* ── Bloqueado a la conexión actual: badge estático ── */
+              <div className="h-[42px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 flex items-center gap-2 overflow-hidden">
+                <i className="bx bx-link shrink-0 text-[#FF6B35]" />
+                <span className="truncate font-medium">
+                  {selectedIntegration?.label ||
+                    integrations[0]?.label ||
+                    "Integración de esta conexión"}
+                </span>
+              </div>
             ) : (
               /* ── Con integraciones: select limpio sin gear ── */
               <select

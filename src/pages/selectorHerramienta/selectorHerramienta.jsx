@@ -431,7 +431,11 @@ export default function SelectorHerramienta() {
           locked={!canImporChat}
           lockedLabel="Disponible en Pro Ecosistema"
           delay={0.08}
-          onClick={() => navigate(canImporChat ? "/conexiones" : "/planes")}
+          onClick={() =>
+            navigate(
+              canImporChat ? "/conexion-dashboard?admin=1" : "/planes",
+            )
+          }
           icon={
             <svg
               className="w-5 h-5"

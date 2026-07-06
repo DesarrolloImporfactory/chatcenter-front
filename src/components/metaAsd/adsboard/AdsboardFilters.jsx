@@ -40,8 +40,10 @@ export default function AdsboardFilters({
   dashLoading,
   onGoToConexiones,
   selectedConfig,
+  lockConexion = false, // dentro de conexion-dashboard: sin selector
 }) {
-  const [activePreset, setActivePreset] = useState(3);
+  // 7 días por defecto (índice 1), unificado con Dropi y Resumen
+  const [activePreset, setActivePreset] = useState(1);
   const todayStr = todayISO();
 
   const handlePreset = (idx) => {
@@ -55,7 +57,22 @@ export default function AdsboardFilters({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm mb-6">
       <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-        {/* Conexión selector */}
+        {/* Conexión: badge fijo cuando el board vive dentro de una conexión */}
+        {lockConexion ? (
+          <div className="min-w-[220px]">
+            <div className="mb-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              Conexión
+            </div>
+            <div className="h-[42px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 flex items-center gap-2 overflow-hidden">
+              <i className="bx bx-link shrink-0 text-indigo-500" />
+              <span className="truncate font-medium">
+                {selectedConfig?.nombre_configuracion ||
+                  localStorage.getItem("nombre_configuracion") ||
+                  "Conexión"}
+              </span>
+            </div>
+          </div>
+        ) : (
         <div className="min-w-[220px]">
           <div className="mb-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Conexión
@@ -83,6 +100,7 @@ export default function AdsboardFilters({
             </select>
           )}
         </div>
+        )}
 
         {/* Período */}
         <div className="flex-1">

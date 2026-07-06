@@ -71,7 +71,14 @@ function MainLayout({ children }) {
     const idp = localStorage.getItem("id_plataforma_conf");
     const idc = localStorage.getItem("id_configuracion");
 
+    // El dashboard en modo selector (?admin=1) puede entrar SIN conexión
+    // activa: él mismo carga las conexiones del usuario y fija la primera.
+    const isDashboardPicker =
+      location.pathname === "/conexion-dashboard" &&
+      new URLSearchParams(location.search).has("admin");
+
     if (!idc) {
+      if (isDashboardPicker) return;
       localStorage.removeItem("id_configuracion");
       localStorage.removeItem("tipo_configuracion");
       localStorage.removeItem("id_plataforma_conf");
@@ -933,13 +940,14 @@ function MainLayout({ children }) {
           </div>
         </div>
 
-        {/* Sección principal */}
+        {/* Sección principal — min-w-0: con el menú abierto el contenido
+            se encoge para caber, en vez de desbordar hacia la derecha */}
         <div
-          className={`flex-1 min-h-screen transition-[margin] duration-300 pt-16 ${
+          className={`flex-1 min-w-0 min-h-screen transition-[margin] duration-300 pt-16 ${
             sliderOpen ? "ml-64" : "ml-0"
           }`}
         >
-          <div className="p-2 bg-gray-100 min-h-[calc(100vh-4rem)] overflow-auto">
+          <div className="p-2 bg-gray-100 min-h-[calc(100vh-4rem)] overflow-x-hidden overflow-y-auto">
             {children}
           </div>
         </div>
