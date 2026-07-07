@@ -57,10 +57,11 @@ export const ASESORES = [
 ];
 
 /**
- * id_configuracion (de chatcenter) donde se habilita la CARTERA (cuenta de
- * VENTAS). Agregá más ids a este array para habilitarla en otras configuraciones.
+ * id_configuracion (de chatcenter) donde se habilita la CARTERA.
+ * Agregá más ids a este array para habilitarla en otras configuraciones.
+ *   242 = Ventas · 265 = Soporte Importaciones Expertos
  */
-export const CARTERA_CONFIGS_HABILITADAS = [242];
+export const CARTERA_CONFIGS_HABILITADAS = [242, 265];
 
 /**
  * id_configuracion donde se habilita el CHECKLIST DEL ALUMNO (cuenta de
