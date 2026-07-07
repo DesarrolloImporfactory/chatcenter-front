@@ -5,6 +5,12 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import CustomAudioPlayer from "./CustomAudioPlayer";
 import ImageWithModal from "./modales/ImageWithModal";
 import chatApi from "../../api/chatcenter";
+import useDeudasChats, { correoKey } from "../imporsuit/useDeudasChats";
+
+const MONEY_DEUDA = new Intl.NumberFormat("es-EC", {
+  style: "currency",
+  currency: "USD",
+});
 
 /* ===================== Estilos de canal ===================== */
 const CHANNEL_STYLES = {
@@ -21,6 +27,13 @@ const CHANNEL_STYLES = {
     cls: "bg-red-50 text-red-700 border border-red-200",
   },
 };
+
+function compareChats(a, b) {
+  const ta = new Date(a.mensaje_created_at).getTime() || 0;
+  const tb = new Date(b.mensaje_created_at).getTime() || 0;
+  if (tb !== ta) return tb - ta;
+  return (b.id ?? 0) - (a.id ?? 0);
+}
 
 function getChannelKey(value) {
   if (value === null || value === undefined) return null;
@@ -807,6 +820,7 @@ function MessageItem({
   onClick,
   seleccionado = false,
   selectedChat,
+  deudaCartera,
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const liRef = useRef(null);
@@ -962,6 +976,15 @@ function MessageItem({
                 >
                   {estadoNombre}
                 </span>
+              </span>
+            )}
+            {deudaCartera?.pendiente > 0 && (
+              <span
+                className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-rose-200 bg-rose-50 px-1.5 py-[1px] text-[8.5px] font-bold leading-none text-rose-700"
+                title={`${deudaCartera.numPendientes} deuda${deudaCartera.numPendientes === 1 ? "" : "s"} con saldo pendiente en cartera`}
+              >
+                <i className="bx bx-error-circle text-[9px]" />
+                {MONEY_DEUDA.format(deudaCartera.pendiente)}
               </span>
             )}
           </div>
@@ -1227,14 +1250,15 @@ export const Sidebar = ({
 
   const [channelFilter, setChannelFilter] = useState("all");
 
-  const compareChats = (a, b) => {
-    const ta = new Date(a.mensaje_created_at).getTime() || 0;
-    const tb = new Date(b.mensaje_created_at).getTime() || 0;
-    if (tb !== ta) return tb - ta;
-    return (b.id ?? 0) - (a.id ?? 0);
-  };
-
   const matchesFilter = (c, key) => getChannelKey(c?.source) === key;
+
+  // Deudas de cartera de los chats visibles: 1 llamada batch + caché (hook)
+  const chatsVisibles = useMemo(
+    () =>
+      [...(filteredChats || [])].sort(compareChats).slice(0, mensajesVisibles),
+    [filteredChats, mensajesVisibles],
+  );
+  const deudasPorCorreo = useDeudasChats(chatsVisibles, id_configuracion);
 
   const [estados_kanban, setEstados_kanban] = useState([]);
 
@@ -1730,9 +1754,7 @@ export const Sidebar = ({
                 </div>
               );
             }
-            const base = filteredChats;
-            const list = [...base].sort(compareChats);
-            if (list.length === 0) {
+            if (filteredChats.length === 0) {
               return (
                 <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
                   <i className="bx bx-chat text-4xl" />
@@ -1742,7 +1764,7 @@ export const Sidebar = ({
                 </div>
               );
             }
-            return list.slice(0, mensajesVisibles).map((mensaje) => {
+            return chatsVisibles.map((mensaje) => {
               const { color, estado_guia } = obtenerEstadoGuia(
                 mensaje.transporte,
                 mensaje.estado_factura,
@@ -1768,6 +1790,7 @@ export const Sidebar = ({
                   onClick={() => handleSelectChat(mensaje)}
                   seleccionado={seleccionado}
                   selectedChat={selectedChat}
+                  deudaCartera={deudasPorCorreo[correoKey(mensaje?.email_cliente)]}
                 />
               );
             });

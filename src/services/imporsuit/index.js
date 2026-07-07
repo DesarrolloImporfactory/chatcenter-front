@@ -10,6 +10,7 @@ export {
   buscarPorCorreo,
   getUserData,
   getDeudasUsuario,
+  getDeudasPorCorreos,
   generarCartera,
   agregarDeuda,
   agregarPago,

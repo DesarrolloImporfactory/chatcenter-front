@@ -114,8 +114,10 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
           title={`Cliente de Imporsuit desde ${fmtFechaCorta(info.fechaRegistro)}${ant ? ` (${ant})` : ""}`}
         >
           <i className="bx bx-calendar-heart text-[12px] text-indigo-600" />
-          <span className="text-[11px] font-semibold text-indigo-800 truncate max-w-[180px]">
-            {ant || fmtFechaCorta(info.fechaRegistro)}
+          <span className="text-[11px] font-semibold text-indigo-800 truncate max-w-[240px]">
+            {ant
+              ? `${ant} · ${fmtFechaCorta(info.fechaRegistro)}`
+              : fmtFechaCorta(info.fechaRegistro)}
           </span>
           <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-wider">
             Cliente

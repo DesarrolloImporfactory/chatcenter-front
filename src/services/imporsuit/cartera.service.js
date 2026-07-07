@@ -72,6 +72,22 @@ export async function getDeudasUsuario(idCarteraUuid, { signal } = {}) {
   return unwrap(data);
 }
 
+/**
+ * Deuda pendiente TOTAL de VARIOS correos en UNA sola llamada (batch para el
+ * listado de chats). Devuelve un mapa
+ *   { "<correo en minúsculas>": { pendiente, num_pendientes } }
+ * SOLO con los correos que tienen saldo > 0 — los ausentes se asumen sin deuda.
+ */
+export async function getDeudasPorCorreos(correos, { signal } = {}) {
+  const { data } = await imporsuitApi.post(
+    "/Carterachat/deudas_por_correos",
+    { correos: Array.isArray(correos) ? correos : [] },
+    { signal },
+  );
+  unwrap(data);
+  return data?.data ?? {};
+}
+
 /* ── Mutaciones ────────────────────────────────────────────────────── */
 
 /** Crea la cartera de un usuario. Devuelve { status, message, uuid }. */
