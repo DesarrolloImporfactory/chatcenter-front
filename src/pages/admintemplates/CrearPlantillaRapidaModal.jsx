@@ -1,22 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import chatApi from "../../api/chatcenter";
 
-// ── Límites de WhatsApp (bytes) ──
-const WA_LIMITS = {
-  image: 5 * 1024 * 1024, // 5MB
-  video: 16 * 1024 * 1024, // 16MB
-  audio: 16 * 1024 * 1024, // 16MB
-  document: 100 * 1024 * 1024, // 100MB
-};
-
-const mb = (b) => (b / 1048576).toFixed(1);
-
 const CrearPlantillaRapidaModal = ({
   onClose,
   onSuccess,
   setStatusMessage,
 }) => {
-  const [fileError, setFileError] = useState("");
   const [atajo, setAtajo] = useState("");
   const [mensaje, setMensaje] = useState("");
 
@@ -119,28 +108,11 @@ const CrearPlantillaRapidaModal = ({
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0] || null;
-    setFileError("");
-
-    // ── Validación de tamaño ──
-    if (file) {
-      const limite = WA_LIMITS[tipoMensaje];
-      if (limite && file.size > limite) {
-        setFileError(
-          `La ${tipoMensaje === "image" ? "imagen" : tipoMensaje} pesa ${mb(file.size)}MB. El máximo permitido es ${(limite / 1048576).toFixed(0)}MB. Selecciona un archivo más liviano.`,
-        );
-        e.target.value = "";
-        setArchivo(null);
-        if (previewUrl && previewUrl.startsWith("blob:"))
-          URL.revokeObjectURL(previewUrl);
-        setPreviewUrl(null);
-        setPreviewMime(null);
-        setPreviewName(null);
-        return;
-      }
-    }
 
     setArchivo(file);
 
+
+    // preview local inmediato (sin subir)
     if (!file) {
       if (previewUrl && previewUrl.startsWith("blob:"))
         URL.revokeObjectURL(previewUrl);
@@ -204,16 +176,6 @@ const CrearPlantillaRapidaModal = ({
     }
     if (tipoMensaje === "audio" && !archivo.type.startsWith("audio/")) {
       setStatusMessage?.({ type: "error", text: "El archivo no es un audio." });
-      return false;
-    }
-
-    // ── Validación de tamaño ──
-    const limite = WA_LIMITS[tipoMensaje];
-    if (limite && archivo.size > limite) {
-      setStatusMessage?.({
-        type: "error",
-        text: `El archivo pesa ${mb(archivo.size)}MB. El máximo permitido para ${tipoMensaje} es ${(limite / 1048576).toFixed(0)}MB.`,
-      });
       return false;
     }
 
@@ -415,13 +377,6 @@ const CrearPlantillaRapidaModal = ({
               onChange={handleFileChange}
               className="w-full border px-3 py-2 rounded bg-white"
             />
-            {/* ── Error de tamaño ── */}
-            {fileError && (
-              <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-                <i className="fa-solid fa-circle-exclamation mt-0.5"></i>
-                <span>{fileError}</span>
-              </div>
-            )}
             {archivo && (
               <div className="mt-2 text-sm text-gray-600">
                 <div>

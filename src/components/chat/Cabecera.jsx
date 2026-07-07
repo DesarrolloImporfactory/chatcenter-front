@@ -1292,7 +1292,7 @@ const Cabecera = ({
                       {selectedChat
                         ? selectedChat.source === "wa"
                           ? selectedChat.celular_cliente
-                            ? `${selectedChat.celular_cliente}`
+                            ? `+${selectedChat.celular_cliente}`
                             : "—"
                           : selectedChat.external_id ||
                             selectedChat.celular_cliente ||

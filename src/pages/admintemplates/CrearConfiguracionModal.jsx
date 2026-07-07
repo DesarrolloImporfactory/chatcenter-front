@@ -100,15 +100,6 @@ const CrearConfiguracionModal = ({
                             : phoneWithoutLeadingZero;
   };
 
-  // ───────── Preview / validación del teléfono ─────────
-  const telDigitos = (telefono || "").replace(/\D/g, "");
-  const telNacional = telDigitos.startsWith("0")
-    ? telDigitos.slice(1)
-    : telDigitos;
-  const telValido = telNacional.length >= 7;
-  const numeroCanonico = telNacional ? "+" + cleanPhoneNumber(telefono) : "";
-  const puedeGuardar = nombreConfiguracion.trim() && telValido;
-
   // CTA upgrade
   const onUpgradeClick = () => {
     if (addonLoading) return;
@@ -209,7 +200,7 @@ const CrearConfiguracionModal = ({
       return;
     }
 
-    const cleanNumber = "+" + cleanPhoneNumber(telefono);
+    const cleanNumber = cleanPhoneNumber(telefono);
 
     setSavingNegocio(true);
     try {
@@ -469,7 +460,7 @@ const CrearConfiguracionModal = ({
                 </div>
                 <button
                   onClick={handleClose}
-                  disabled={savingNegocio || !puedeGuardar}
+                  disabled={savingNegocio}
                   className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <i className="fas fa-times"></i>
@@ -520,38 +511,12 @@ const CrearConfiguracionModal = ({
                         inputMode="numeric"
                         disabled={savingNegocio}
                         className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
-                        placeholder="Número sin código de país"
+                        placeholder="Número de teléfono"
                         value={telefono}
-                        onChange={(e) =>
-                          setTelefono(e.target.value.replace(/\D/g, ""))
-                        }
+                        onChange={(e) => setTelefono(e.target.value)}
                       />
                     </div>
                   </div>
-
-                  {/* Aviso informativo: muestra el número canónico final */}
-                  {telNacional.length > 0 ? (
-                    <p className="mt-1.5 flex items-center gap-1 text-[12px] text-slate-500">
-                      <i className="bx bx-info-circle"></i>
-                      Se guardará como:&nbsp;
-                      <span className="font-semibold text-[#171931]">
-                        {numeroCanonico}
-                      </span>
-                    </p>
-                  ) : (
-                    <p className="mt-1.5 flex items-center gap-1 text-[12px] text-slate-500">
-                      <i className="bx bx-info-circle"></i>
-                      Elige el país y escribe el número sin el código de país.
-                    </p>
-                  )}
-
-                  {/* Aviso en rojo: número incompleto */}
-                  {telNacional.length > 0 && !telValido && (
-                    <p className="mt-1 flex items-center gap-1 text-[12px] font-medium text-rose-600">
-                      <i className="bx bx-error-circle"></i>
-                      El número está incompleto.
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -565,7 +530,7 @@ const CrearConfiguracionModal = ({
                 </button>
                 <button
                   onClick={handleAgregarConfiguracion}
-                  disabled={savingNegocio || !puedeGuardar}
+                  disabled={savingNegocio}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8] text-sm text-white font-semibold hover:bg-[#1e40af] shadow-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   <i
