@@ -302,7 +302,13 @@ function ChartTooltip({ active, payload, label }) {
    boards internos van bloqueados a esa conexión.
    ═════════════════════════════════════════════════ */
 
-export default function ConnectionDashboard() {
+/**
+ * adminMode: true cuando se monta en la ruta /dashboard (menú externo,
+ * MainLayout_conexiones) — permite cambiar de conexión y los boards
+ * quedan libres. false en /conexion-dashboard (dentro de una conexión,
+ * MainLayout interno) — todo fijado a la conexión activa.
+ */
+export default function ConnectionDashboard({ adminMode = false }) {
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
   // Cache por tab: cada board se monta la primera vez que se visita y
@@ -312,13 +318,9 @@ export default function ConnectionDashboard() {
     () => new Set([getInitialTab()]),
   );
 
-  // Modo selector: entrando desde el layout externo (?admin=1) el usuario
-  // puede cambiar de conexión. Entrando desde dentro de una conexión
-  // (flujo normal: abre su agente → dashboard) la conexión queda FIJA.
-  const allowSwitch = useMemo(
-    () => new URLSearchParams(window.location.search).has("admin"),
-    [],
-  );
+  // Modo selector: en /dashboard (adminMode) el usuario puede cambiar de
+  // conexión. En /conexion-dashboard (dentro de una conexión) queda FIJA.
+  const allowSwitch = adminMode;
 
   const [conexion, setConexion] = useState(() => ({
     id: Number(localStorage.getItem("id_configuracion")) || null,
@@ -407,7 +409,7 @@ export default function ConnectionDashboard() {
 
   const activeMeta = TABS.find((t) => t.id === activeTab) || TABS[0];
 
-  // Fuera de una conexión (?admin=1) los boards quedan LIBRES con sus
+  // En /dashboard (adminMode) los boards quedan LIBRES con sus
   // propios selectores — se puede auditar todo, como en la ruta original.
   // Dentro de una conexión van fijados a ella (sin selector).
   const boardLockId = allowSwitch ? null : conexion.id;
@@ -893,7 +895,7 @@ function ResumenView({
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col lg:flex-row lg:items-end gap-4">
             {/* ── Conexión: fija dentro de una conexión, seleccionable
-                   cuando se entra desde el layout externo (?admin=1) ── */}
+                   cuando se entra por /dashboard (adminMode) ── */}
             <div className="min-w-[210px]">
               <div className="mb-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Conexión

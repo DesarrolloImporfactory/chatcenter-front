@@ -431,11 +431,7 @@ export default function SelectorHerramienta() {
           locked={!canImporChat}
           lockedLabel="Disponible en Pro Ecosistema"
           delay={0.08}
-          onClick={() =>
-            navigate(
-              canImporChat ? "/conexion-dashboard?admin=1" : "/planes",
-            )
-          }
+          onClick={() => navigate(canImporChat ? "/dashboard" : "/planes")}
           icon={
             <svg
               className="w-5 h-5"
@@ -466,7 +462,9 @@ export default function SelectorHerramienta() {
           locked={!canDropiboard}
           lockedLabel="Disponible en Pro Ecosistema"
           delay={0.14}
-          onClick={() => navigate(canDropiboard ? "/dashboard" : "/planes")}
+          onClick={() =>
+            navigate(canDropiboard ? "/dashboard?view=dropi" : "/planes")
+          }
           icon={
             <svg
               className="w-5 h-5"

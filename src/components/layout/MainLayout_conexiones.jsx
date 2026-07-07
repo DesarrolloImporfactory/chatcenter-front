@@ -187,8 +187,8 @@ function MainLayout({ children }) {
         >
           <div className="mt-6">
             {/* Dashboard — primer item. Fuera de una conexión abre el
-                centro de control en modo selector (?admin=1): permite
-                elegir cualquier conexión registrada. */}
+                centro de control general (/dashboard): permite elegir
+                cualquier conexión registrada. */}
             {isSuperAdmin ? (
               <NavBtn
                 path="/dashboard_admin"
@@ -197,7 +197,7 @@ function MainLayout({ children }) {
               />
             ) : !isGestorClientes ? (
               <NavBtn
-                path="/conexion-dashboard?admin=1"
+                path="/dashboard"
                 icon="bxs-bar-chart-alt-2"
                 label="Dashboard"
               />

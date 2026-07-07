@@ -95,7 +95,6 @@ import SsoLanding from "./pages/sso/SsoLanding";
 import EncuestasView from "./pages/encuestas/EncuestasView";
 import Adsboard from "./components/metaAsd/Adsboard";
 import PlantillasGlobalesAdmin from "./pages/kanbanAdmin/PlantillasGlobalesAdmin";
-import ControlCenter from "./components/controlCenter/ControlCenter";
 
 function App() {
   const location = useLocation();
@@ -391,11 +390,14 @@ function App() {
                   }
                 />
 
+                {/* Dashboard general (fuera de una conexión): menú externo
+                    y selector libre de conexiones. Reemplaza al antiguo
+                    ControlCenter. */}
                 <Route
                   path="/dashboard"
                   element={
                     <MainLayout_conexiones>
-                      <ControlCenter />
+                      <ConnectionDashboard adminMode />
                     </MainLayout_conexiones>
                   }
                 />
