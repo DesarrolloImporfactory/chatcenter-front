@@ -253,12 +253,12 @@ ${recoveryUrl}
       <div className="p-5">
         <div className="rounded-2xl bg-[#171931] text-white p-6 shadow-lg">
           <h1 className="text-2xl md:text-3xl font-bold">
-            Carritos abandonados 🛒
+            Carritos abandonados
           </h1>
         </div>
 
         <div className="mt-6 bg-white rounded-2xl p-12 shadow-md text-center">
-          <div className="text-6xl mb-4">🔌</div>
+          <i className="bx bx-plug text-6xl text-gray-300 mb-4 inline-block" />
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
             Primero conecta tu tienda Shopify
           </h2>
@@ -285,12 +285,10 @@ ${recoveryUrl}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">
-              Carritos abandonados 🛒
+              Carritos abandonados
             </h1>
-            <p className="opacity-90 mt-1">
-              Recupera ventas que estaban casi cerradas.{" "}
-              {total > 0 &&
-                `${total} ${total === 1 ? "carrito" : "carritos"} en total.`}
+            <p className="opacity-90 mt-1 text-sm">
+              Recupera ventas que estaban casi cerradas.
             </p>
           </div>
 
@@ -425,7 +423,7 @@ ${recoveryUrl}
           </div>
         ) : carritos.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="text-5xl mb-3">🛒</div>
+            <i className="bx bx-cart text-5xl text-gray-300 mb-3 inline-block" />
             <h3 className="text-lg font-semibold text-gray-700">
               {search || filterRecuperado !== "all"
                 ? "No hay resultados con esos filtros"
@@ -593,8 +591,7 @@ ${recoveryUrl}
               onClick={() => setDetalleCarrito(null)}
               className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl"
             >
-              ✕
-            </button>
+              <i className="bx bx-x text-2xl" />            </button>
 
             <h2 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
               Detalle del carrito
@@ -617,12 +614,12 @@ ${recoveryUrl}
                   </div>
                   {detalleCarrito.phone_normalizado && (
                     <div className="text-gray-600 mt-1">
-                      📱 +{detalleCarrito.phone_normalizado}
+                      <i className="bx bx-phone align-middle mr-1" />+{detalleCarrito.phone_normalizado}
                     </div>
                   )}
                   {detalleCarrito.email && (
                     <div className="text-gray-600 mt-1">
-                      ✉️ {detalleCarrito.email}
+                      <i className="bx bx-envelope align-middle mr-1" />{detalleCarrito.email}
                     </div>
                   )}
                 </div>
@@ -705,8 +702,7 @@ ${recoveryUrl}
                       }
                       className="px-3 py-2 bg-[#171931] text-white rounded-lg text-sm hover:opacity-95 transition"
                     >
-                      📋
-                    </button>
+                      <i className="bx bx-copy text-base" />                    </button>
                   </div>
                 </div>
               )}

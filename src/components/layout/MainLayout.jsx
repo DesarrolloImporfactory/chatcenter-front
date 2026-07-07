@@ -301,6 +301,11 @@ function MainLayout({ children }) {
   useEffect(() => {
     if (["/productos", "/categorias"].includes(location.pathname)) {
       setOpenMenu("productos");
+    } else if (
+      location.pathname.startsWith("/pedidos") ||
+      location.pathname.startsWith("/shopify/abandonados")
+    ) {
+      setOpenMenu("ventas");
     } else if (["/calendario"].includes(location.pathname)) {
       setOpenMenu("agentes");
     } else if (
@@ -542,6 +547,69 @@ function MainLayout({ children }) {
               </div>
             </div>
 
+            {/* ====== Gestión de Pedidos (pedidos hoy; carritos
+                abandonados, seguimientos y más a futuro). Siempre
+                visible: vende el módulo aunque no haya Dropi. ====== */}
+            <div>
+              <button
+                type="button"
+                onClick={() => toggleMenu("ventas")}
+                className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                  location.pathname.startsWith("/pedidos") ||
+                  location.pathname.startsWith("/shopify/abandonados")
+                    ? "bg-gray-200 font-semibold"
+                    : ""
+                }`}
+              >
+                <span className="flex items-center">
+                  <i className="bx bx-shopping-bag text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                  <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                    Ventas
+                  </span>
+                </span>
+                <i
+                  className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${
+                    openMenu === "ventas" ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              <div
+                className="overflow-hidden transition-all duration-[600ms] ease-out"
+                style={{
+                  maxHeight: openMenu === "ventas" ? "220px" : "0px",
+                }}
+              >
+                <div className="ml-10 flex flex-col py-2">
+                  <a
+                    href="/pedidos"
+                    onClick={(e) => handleNavClick(e, "/pedidos")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/pedidos")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Pedidos</span>
+                  </a>
+
+                  <a
+                    href="/shopify/abandonados"
+                    onClick={(e) => handleNavClick(e, "/shopify/abandonados")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/shopify/abandonados")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-cart text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Carritos abandonados</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
             {/* ====== Integraciones ====== */}
             <div>
               <button
@@ -647,20 +715,9 @@ function MainLayout({ children }) {
                           <span>Configuración</span>
                         </a>
 
-                        {isDropiLinked && (
-                          <a
-                            href="/dropi/pedidos"
-                            onClick={(e) => handleNavClick(e, "/dropi/pedidos")}
-                            className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                              location.pathname.startsWith("/dropi/pedidos")
-                                ? "font-semibold text-blue-600"
-                                : ""
-                            }`}
-                          >
-                            <i className="bx bx-package text-lg text-gray-600 group-hover:text-blue-600"></i>
-                            <span>Pedidos</span>
-                          </a>
-                        )}
+                        {/* Pedidos se movió a item de primer nivel: la vista
+                            es del negocio (multi-plataforma con columna
+                            Origen), no de la integración Dropi. */}
                       </div>
                     </div>
                   </div>
@@ -709,20 +766,8 @@ function MainLayout({ children }) {
                           <span>Configuración</span>
                         </a>
 
-                        <a
-                          href="/shopify/abandonados"
-                          onClick={(e) =>
-                            handleNavClick(e, "/shopify/abandonados")
-                          }
-                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                            location.pathname.startsWith("/shopify/abandonados")
-                              ? "font-semibold text-blue-600"
-                              : ""
-                          }`}
-                        >
-                          <i className="bx bx-cart text-lg text-gray-600 group-hover:text-blue-600"></i>
-                          <span>Carritos abandonados</span>
-                        </a>
+                        {/* Carritos abandonados se movió al grupo
+                            "Gestión de Pedidos" */}
                       </div>
                     </div>
                   </div>

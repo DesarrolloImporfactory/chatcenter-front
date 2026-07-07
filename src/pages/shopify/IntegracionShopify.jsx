@@ -379,7 +379,7 @@ const IntegracionShopify = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">
-              Conecta tu tienda Shopify 🛍️
+              Conecta tu tienda Shopify
             </h1>
             <p className="opacity-90 mt-1">
               Captura carritos abandonados automáticamente y recupéralos por
@@ -418,7 +418,7 @@ const IntegracionShopify = () => {
       {!isLinked && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
           <div className="flex items-start gap-3">
-            <div className="text-xl">🚀</div>
+            <i className="bx bx-rocket text-2xl text-amber-600" />
             <div>
               <h3 className="font-semibold">Empieza en 4 pasos</h3>
               <ol className="list-decimal ml-5 mt-2 text-sm space-y-1">
@@ -446,16 +446,17 @@ const IntegracionShopify = () => {
       {/* WIZARD: instrucciones para configurar webhooks en Shopify */}
       {isLinked && showWizard && (
         <div className="mb-6 rounded-2xl bg-white p-6 shadow-md border-l-4 border-[#171931]">
-          <div className="flex items-start justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-800">
-              📋 Guía: Configurar webhooks en tu Shopify
-            </h3>
+          <div className="flex items-center justify-between mb-4 gap-3">
             <button
               onClick={() => setShowWizard(false)}
-              className="text-gray-500 hover:text-gray-800 text-xl"
+              className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg transition"
             >
-              ✕
+              <i className="bx bx-arrow-back text-lg" />
+              Volver
             </button>
+            <h3 className="text-base md:text-lg font-bold text-gray-800 text-right">
+              Guía: Configurar webhooks en tu Shopify
+            </h3>
           </div>
 
           <div className="space-y-5">
@@ -503,7 +504,7 @@ const IntegracionShopify = () => {
                     }
                     className="text-xs bg-[#171931] text-white px-2 py-1 rounded hover:opacity-90"
                   >
-                    📋 Copiar
+                    Copiar
                   </button>
                 </li>
               </ul>
@@ -537,7 +538,7 @@ const IntegracionShopify = () => {
                     }
                     className="text-xs bg-[#171931] text-white px-2 py-1 rounded hover:opacity-90"
                   >
-                    📋 Copiar
+                    Copiar
                   </button>
                 </li>
               </ul>
@@ -586,19 +587,19 @@ const IntegracionShopify = () => {
                   disabled={saving}
                   className="text-sm bg-[#171931] text-white px-3 py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
                 >
-                  💾 Guardar token
+                  Guardar token
                 </button>
               </div>
 
               {activeIntegration?.webhook_secret && (
                 <p className="text-xs text-emerald-700 mt-2">
-                  ✅ Ya tienes un token guardado. Solo pega uno nuevo si lo
+                  Ya tienes un token guardado. Solo pega uno nuevo si lo
                   cambiaste en Shopify.
                 </p>
               )}
 
               <p className="text-xs text-gray-500 mt-2">
-                ⚠️ Si Shopify rota su token (cosa rara, pero pasa si lo
+                Si Shopify rota su token (cosa rara, pero pasa si lo
                 regeneras), vuelve a copiarlo y pegarlo aquí.
               </p>
             </div>
@@ -621,7 +622,7 @@ const IntegracionShopify = () => {
                   <strong>"Habilitar pagos abandonados"</strong>
                 </li>
                 <li>
-                  ⚠️ <strong>NO actives</strong> "Guardar pedidos como pedidos
+                  <strong>NO actives</strong> "Guardar pedidos como pedidos
                   preliminares" en Releasit → General (rompe el flujo de Dropi)
                 </li>
               </ol>
@@ -630,7 +631,7 @@ const IntegracionShopify = () => {
             {/* Final */}
             <div className="rounded-xl bg-gradient-to-r from-[#171931] to-indigo-700 text-white p-4">
               <p className="text-sm">
-                ✅ <strong>¡Listo!</strong> Cuando un cliente abandone el form
+                <strong>¡Listo!</strong> Cuando un cliente abandone el form
                 de Releasit, después de 15 minutos verás el carrito en la
                 sección <strong>Shopify → Carritos abandonados</strong>.
               </p>
@@ -643,7 +644,7 @@ const IntegracionShopify = () => {
       {isLinked && !showWizard && (
         <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
           <div className="flex items-start gap-3">
-            <div className="text-xl">✅</div>
+            <i className="bx bx-check-circle text-2xl text-emerald-600" />
             <div>
               <h3 className="font-semibold">¡Tienda conectada!</h3>
               <p className="text-sm mt-1">
@@ -655,7 +656,8 @@ const IntegracionShopify = () => {
         </div>
       )}
 
-      {/* Contenido principal */}
+      {/* Contenido principal (solo cuando NO estamos viendo la guía) */}
+      {!showWizard && (
       <div className="overflow-visible bg-white p-6 rounded-2xl shadow-md relative z-0">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* CARD Shopify */}
@@ -671,11 +673,11 @@ const IntegracionShopify = () => {
             <div className="absolute top-3 right-3 z-10">
               {isLinked ? (
                 <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full shadow-sm">
-                  🟢 Conectado
+                  Conectado
                 </span>
               ) : (
                 <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full shadow-sm">
-                  🔴 Desconectado
+                  Desconectado
                 </span>
               )}
             </div>
@@ -768,42 +770,42 @@ const IntegracionShopify = () => {
 
             <ul className="mt-3 space-y-2 text-sm text-gray-700">
               <li className="flex gap-2">
-                <span>🛒</span>
+                <i className="bx bx-cart text-lg text-violet-500 shrink-0" />
                 <span>
                   <strong>Captura carritos abandonados:</strong> recupera ventas
                   que ya estaban casi cerradas.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>💬</span>
+                <i className="bx bx-message-rounded-dots text-lg text-emerald-600 shrink-0" />
                 <span>
                   <strong>WhatsApp automático:</strong> envía mensajes de
                   recuperación personalizados por templates.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>🔗</span>
+                <i className="bx bx-link text-lg text-sky-500 shrink-0" />
                 <span>
                   <strong>Recovery URL incluida:</strong> link directo al
                   checkout pre-llenado para que el cliente solo confirme.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>📊</span>
+                <i className="bx bx-bar-chart-alt-2 text-lg text-indigo-500 shrink-0" />
                 <span>
                   <strong>Métricas claras:</strong> mide tasa de recuperación y
                   optimiza tus mensajes.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>🤖</span>
+                <i className="bx bx-bot text-lg text-slate-600 shrink-0" />
                 <span>
                   <strong>Compatible con Releasit COD Form:</strong> funciona
                   con la app más usada para checkout COD en LATAM.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>🔐</span>
+                <i className="bx bx-lock-alt text-lg text-amber-600 shrink-0" />
                 <span>
                   <strong>Webhooks firmados:</strong> seguridad HMAC SHA256
                   validada en cada request.
@@ -840,7 +842,7 @@ const IntegracionShopify = () => {
                     className="w-full text-center bg-amber-100 text-amber-900 font-semibold py-2 rounded-lg hover:bg-amber-200 transition"
                     disabled={saving}
                   >
-                    🔄 Actualizar webhook secret
+                    Actualizar webhook secret
                   </button>
                 </>
               )}
@@ -856,7 +858,7 @@ const IntegracionShopify = () => {
 
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
               <div className="flex items-start gap-3">
-                <div className="text-xl">💡</div>
+                <i className="bx bx-bulb text-2xl text-amber-600" />
                 <div className="text-sm">
                   <p className="font-semibold">Importante</p>
                   <p className="mt-1">
@@ -879,8 +881,7 @@ const IntegracionShopify = () => {
                 className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl"
                 aria-label="Cerrar"
               >
-                ✕
-              </button>
+                <i className="bx bx-x text-2xl" />              </button>
 
               {/* Logo */}
               <div className="flex justify-center mb-3">
@@ -918,7 +919,7 @@ const IntegracionShopify = () => {
                   spellCheck={false}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  ⚠️ NO uses tu dominio público (ej: <code>mitienda.com</code>).
+                  NO uses tu dominio público (ej: <code>mitienda.com</code>).
                   Usa el interno que termina en <code>.myshopify.com</code>. Lo
                   encuentras en Shopify → Configuración → Detalles de la tienda.
                 </p>
@@ -1002,6 +1003,7 @@ const IntegracionShopify = () => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

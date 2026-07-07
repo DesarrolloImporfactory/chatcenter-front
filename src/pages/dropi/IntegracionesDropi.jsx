@@ -6,25 +6,25 @@ const DROPi_LOGO_URL =
   "https://imp-datas.s3.amazonaws.com/images/2026-01-08T16-10-19-512Z-Dropi.png";
 
 const COUNTRY_OPTIONS = [
-  { value: "CO", label: "🇨🇴 Colombia" },
-  { value: "EC", label: "🇪🇨 Ecuador" },
-  { value: "MX", label: "🇲🇽 México" },
-  { value: "PE", label: "🇵🇪 Perú" },
-  { value: "CL", label: "🇨🇱 Chile" },
-  { value: "AR", label: "🇦🇷 Argentina" },
-  { value: "BO", label: "🇧🇴 Bolivia" },
-  { value: "PY", label: "🇵🇾 Paraguay" },
-  { value: "UY", label: "🇺🇾 Uruguay" },
-  { value: "VE", label: "🇻🇪 Venezuela" },
-  { value: "PA", label: "🇵🇦 Panamá" },
-  { value: "CR", label: "🇨🇷 Costa Rica" },
-  { value: "DO", label: "🇩🇴 República Dominicana" },
-  { value: "GT", label: "🇬🇹 Guatemala" },
-  { value: "SV", label: "🇸🇻 El Salvador" },
-  { value: "HN", label: "🇭🇳 Honduras" },
-  { value: "NI", label: "🇳🇮 Nicaragua" },
-  { value: "US", label: "🇺🇸 Estados Unidos" },
-  { value: "ES", label: "🇪🇸 España" },
+  { value: "CO", label: "Colombia" },
+  { value: "EC", label: "Ecuador" },
+  { value: "MX", label: "México" },
+  { value: "PE", label: "Perú" },
+  { value: "CL", label: "Chile" },
+  { value: "AR", label: "Argentina" },
+  { value: "BO", label: "Bolivia" },
+  { value: "PY", label: "Paraguay" },
+  { value: "UY", label: "Uruguay" },
+  { value: "VE", label: "Venezuela" },
+  { value: "PA", label: "Panamá" },
+  { value: "CR", label: "Costa Rica" },
+  { value: "DO", label: "República Dominicana" },
+  { value: "GT", label: "Guatemala" },
+  { value: "SV", label: "El Salvador" },
+  { value: "HN", label: "Honduras" },
+  { value: "NI", label: "Nicaragua" },
+  { value: "US", label: "Estados Unidos" },
+  { value: "ES", label: "España" },
 ];
 
 const selectStyles = {
@@ -354,7 +354,7 @@ const IntegracionesDropi = () => {
       {!isLinked ? (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
           <div className="flex items-start gap-3">
-            <div className="text-xl">🚀</div>
+            <i className="bx bx-rocket text-2xl text-amber-600" />
             <div>
               <h3 className="font-semibold">Empieza en 3 pasos</h3>
               <ol className="list-decimal ml-5 mt-2 text-sm space-y-1">
@@ -377,7 +377,7 @@ const IntegracionesDropi = () => {
       ) : (
         <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
           <div className="flex items-start gap-3">
-            <div className="text-xl">✅</div>
+            <i className="bx bx-check-circle text-2xl text-emerald-600" />
             <div>
               <h3 className="font-semibold">¡Vinculación activa!</h3>
               <p className="text-sm mt-1">
@@ -405,11 +405,11 @@ const IntegracionesDropi = () => {
             <div className="absolute top-3 right-3 z-10">
               {isLinked ? (
                 <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full shadow-sm">
-                  🟢 Conectado
+                  Conectado
                 </span>
               ) : (
                 <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full shadow-sm">
-                  🔴 Desconectado
+                  Desconectado
                 </span>
               )}
             </div>
@@ -510,42 +510,42 @@ const IntegracionesDropi = () => {
 
             <ul className="mt-3 space-y-2 text-sm text-gray-700">
               <li className="flex gap-2">
-                <span>✅</span>
+                <i className="bx bx-check-circle text-lg text-emerald-600 shrink-0" />
                 <span>
                   <strong>Venda sin inventario:</strong> ideal para dropshipping
                   y validación rápida de productos.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>⚡</span>
+                <i className="bx bx-bolt-circle text-lg text-amber-500 shrink-0" />
                 <span>
                   <strong>Operación más rápida:</strong> menos pasos, más
                   control, menos errores en el día a día.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>📦</span>
+                <i className="bx bx-package text-lg text-indigo-500 shrink-0" />
                 <span>
                   <strong>Gestión centralizada:</strong> tenga su tienda
                   conectada y su equipo alineado.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>📈</span>
+                <i className="bx bx-line-chart text-lg text-sky-500 shrink-0" />
                 <span>
                   <strong>Escalable:</strong> ideal para campañas y picos de
                   demanda sin saturar su operación.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>🛒</span>
+                <i className="bx bx-cart text-lg text-violet-500 shrink-0" />
                 <span>
                   <strong>Crezca sin límites:</strong> pruebe productos
                   ganadores y rote catálogos sin comprometer capital.
                 </span>
               </li>
               <li className="flex gap-2">
-                <span>🧠</span>
+                <i className="bx bx-list-check text-lg text-slate-500 shrink-0" />
                 <span>
                   <strong>Más orden:</strong> tener la tienda conectada reduce
                   “inventos” y mejora el flujo de trabajo del equipo.
@@ -582,7 +582,7 @@ const IntegracionesDropi = () => {
 
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
               <div className="flex items-start gap-3">
-                <div className="text-xl">💡</div>
+                <i className="bx bx-bulb text-2xl text-amber-600" />
                 <div className="text-sm">
                   <p className="font-semibold">Importante</p>
                   <p className="mt-1">
@@ -605,8 +605,7 @@ const IntegracionesDropi = () => {
                 className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl"
                 aria-label="Cerrar"
               >
-                ✕
-              </button>
+                <i className="bx bx-x text-2xl" />              </button>
 
               {/* Logo */}
               <div className="flex justify-center mb-3">

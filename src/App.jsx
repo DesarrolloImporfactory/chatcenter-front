@@ -411,8 +411,10 @@ function App() {
                   }
                 />
 
+                {/* Pedidos: vista unificada del Centro de Ventas
+                    (reemplaza a la antigua /dropi/pedidos) */}
                 <Route
-                  path="/dropi/pedidos"
+                  path="/pedidos"
                   element={
                     <MainLayout>
                       <OrdenesDropi />
