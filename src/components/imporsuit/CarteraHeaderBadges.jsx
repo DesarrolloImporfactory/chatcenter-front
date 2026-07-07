@@ -5,6 +5,11 @@ import {
   getDeudasUsuario,
 } from "../../services/imporsuit";
 import { tieneCartera } from "./useCarteraCliente";
+import {
+  contarVencimientos,
+  estadoDeuda,
+  ESTILO_DEUDA,
+} from "./deudaVencimiento";
 
 const MONEY = new Intl.NumberFormat("es-EC", {
   style: "currency",
@@ -74,6 +79,8 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
 
         let pendiente = 0;
         let numPendientes = 0;
+        let vencidas = 0;
+        let porVencer = 0;
         if (tieneCartera(data)) {
           const rows = await getDeudasUsuario(data.id_cartera, {
             signal: ctrl.signal,
@@ -86,12 +93,16 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
               numPendientes += 1;
             }
           }
+          // Vencidas / por vencer (≤7 días) según fecha_limite
+          ({ vencidas, porVencer } = contarVencimientos(rows));
         }
         if (!ctrl.signal.aborted) {
           setInfo({
             fechaRegistro: data.fecha_registro || null,
             pendiente,
             numPendientes,
+            vencidas,
+            porVencer,
           });
         }
       } catch {
@@ -125,21 +136,32 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
         </div>
       )}
 
-      {/* Deuda pendiente */}
-      {info.pendiente > 0 && (
-        <div
-          className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 shadow-sm"
-          title={`${info.numPendientes} deuda${info.numPendientes === 1 ? "" : "s"} con saldo pendiente en cartera`}
-        >
-          <i className="bx bx-error-circle text-[12px] text-rose-600" />
-          <span className="text-[11px] font-bold text-rose-700">
-            {MONEY.format(info.pendiente)}
-          </span>
-          <span className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">
-            Deuda
-          </span>
-        </div>
-      )}
+      {/* Deuda pendiente (color según vencimiento) */}
+      {info.pendiente > 0 &&
+        (() => {
+          const est = estadoDeuda(info);
+          const cfg = ESTILO_DEUDA[est];
+          const titulo =
+            est === "vencida"
+              ? `${info.vencidas} deuda${info.vencidas === 1 ? "" : "s"} VENCIDA${info.vencidas === 1 ? "" : "S"} en cartera`
+              : est === "por_vencer"
+                ? `${info.porVencer} deuda${info.porVencer === 1 ? "" : "s"} por vencer (≤7 días) en cartera`
+                : `${info.numPendientes} deuda${info.numPendientes === 1 ? "" : "s"} con saldo pendiente en cartera`;
+          return (
+            <div
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 shadow-sm ${cfg.badge}`}
+              title={titulo}
+            >
+              <i className={`${cfg.icon} text-[12px]`} />
+              <span className="text-[11px] font-bold">
+                {MONEY.format(info.pendiente)}
+              </span>
+              <span className="text-[9px] font-bold uppercase tracking-wider">
+                {cfg.label}
+              </span>
+            </div>
+          );
+        })()}
     </>
   );
 }

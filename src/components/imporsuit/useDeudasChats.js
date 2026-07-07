@@ -67,6 +67,9 @@ export default function useDeudasChats(chats, idConfiguracion) {
           cache.set(e, {
             pendiente: Number(d?.pendiente) || 0,
             numPendientes: Number(d?.num_pendientes) || 0,
+            vencidas: Number(d?.vencidas) || 0,
+            porVencer: Number(d?.por_vencer) || 0,
+            fechaLimiteMin: d?.fecha_limite_min || null,
             ts,
           });
         }
