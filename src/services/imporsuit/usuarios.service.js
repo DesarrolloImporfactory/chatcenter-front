@@ -38,6 +38,9 @@ export async function getCursosDisponibles({ signal } = {}) {
  *   `id_users` solo viene cuando se CREA uno nuevo (no cuando ya existía).
  */
 export async function crearUsuarioFull(payload, { signal } = {}) {
+  // `dropsystem` ya no se ofrece en el form, pero se sigue enviando (con el
+  // valor pre-cargado del cliente) para no borrárselo a quien ya lo tiene:
+  // el back SOBRESCRIBE los flags con lo que se mande.
   const flags = [
     "membresia_ecommerce",
     "ecommerce",
@@ -47,6 +50,8 @@ export async function crearUsuarioFull(payload, { signal } = {}) {
     "tiendas",
     "franquicias",
     "dropsystem",
+    "kit_importador",
+    "motor_ventas",
   ];
 
   const body = {

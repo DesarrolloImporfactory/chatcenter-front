@@ -61,7 +61,11 @@ export function CrearUsuarioForm({
     kit: toFlag(clienteExistente?.kit),
     tiendas: toFlag(clienteExistente?.tiendas),
     franquicias: toFlag(clienteExistente?.franquicias),
+    // dropsystem ya no tiene checkbox (paquete retirado del panel), pero se
+    // preserva el valor vigente para no borrárselo al actualizar.
     dropsystem: toFlag(clienteExistente?.dropsystem),
+    kit_importador: toFlag(clienteExistente?.kit_importador),
+    motor_ventas: toFlag(clienteExistente?.motor_ventas),
   }));
 
   const [cursos, setCursos] = useState([]);
@@ -125,6 +129,8 @@ export function CrearUsuarioForm({
         tiendas: form.tiendas,
         franquicias: form.franquicias,
         dropsystem: form.dropsystem,
+        kit_importador: form.kit_importador,
+        motor_ventas: form.motor_ventas,
         cursos: Array.from(cursosSel),
       });
 

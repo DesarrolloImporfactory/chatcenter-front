@@ -4,6 +4,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { useDropi } from "../../context/DropiContext";
 import FloatingSupportChat from "../layout/FloatingSupportChat";
+import CarteraHeaderBadges from "../imporsuit/CarteraHeaderBadges";
 import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
@@ -1634,6 +1635,13 @@ const Cabecera = ({
                   </span>
                 </div>
               )}
+
+              {/* Antigüedad del cliente + deuda pendiente (cartera Imporsuit,
+                  solo en la config de ventas) */}
+              <CarteraHeaderBadges
+                selectedChat={selectedChat}
+                idConfiguracion={id_configuracion}
+              />
 
               {/* Último producto del anuncio */}
               {selectedChat?.ultimo_producto_ad && (

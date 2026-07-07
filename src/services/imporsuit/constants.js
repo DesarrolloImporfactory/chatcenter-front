@@ -20,7 +20,10 @@ export const PAQUETES = [
   { key: "kit", label: "Kit" },
   { key: "tiendas", label: "50 Tiendas" },
   { key: "franquicias", label: "Franquicias" },
-  { key: "dropsystem", label: "DropSystem" },
+  // Kit del Importador (≠ "kit" legacy): curso 58 + calculadora del importador.
+  { key: "kit_importador", label: "Kit del Importador" },
+  // Motor de Ventas: curso 57 + botones ImporChat y Dropi.
+  { key: "motor_ventas", label: "Motor de Ventas" },
 ];
 
 /** Medios de pago aceptados por Asesor/agregar_pago. */
