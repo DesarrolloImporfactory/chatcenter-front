@@ -36,14 +36,18 @@ export default function useCreateOrder({
   const [price, setPrice] = useState(0);
 
   // ── datos cliente ──
-  const [phoneInput, setPhoneInput] = useState(phone || "");
+  // Prefill con el número NACIONAL (sin código de país). Así el agente ve
+  // "980709288" en vez de "593980709288" y no "arregla" el campo comiéndose un
+  // dígito (causa de las órdenes con teléfono mocho). stripCountryCode está
+  // hoisteado (function declaration más abajo).
+  const [phoneInput, setPhoneInput] = useState(stripCountryCode(phone || ""));
   const [name, setName] = useState(selectedChat?.nombre_cliente || "");
   const [surname, setSurname] = useState(selectedChat?.apellido_cliente || "");
   const [dir, setDir] = useState("");
   const [notes, setNotes] = useState("");
 
   // sync phone del chat
-  useEffect(() => setPhoneInput(phone || ""), [phone]);
+  useEffect(() => setPhoneInput(stripCountryCode(phone || "")), [phone]);
 
   useEffect(() => {
     // Cambió el chat → limpiar todo el create-order

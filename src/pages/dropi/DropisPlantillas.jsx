@@ -697,7 +697,14 @@ const DropisPlantillas = ({ id_configuracion }) => {
             bodyText = getTemplateBodyText(tpl) || null;
           }
 
-          parsed[key] = { ...val, _params, body_text: bodyText };
+          // Modo "solo mover": activo, sin plantilla, pero con columna destino.
+          const soloMover = !!(
+            val.activo &&
+            (!val.nombre_template || !String(val.nombre_template).trim()) &&
+            val.columna_destino
+          );
+
+          parsed[key] = { ...val, _params, body_text: bodyText, _soloMover: soloMover };
         }
         setConfig(parsed);
         setTotalActivos(Object.values(parsed).filter((v) => v.activo).length);
@@ -717,22 +724,45 @@ const DropisPlantillas = ({ id_configuracion }) => {
   // ── Guardar estado ──
   const guardarEstado = async (estado) => {
     const cfg = config[estado] || {};
+    const soloMover = !!cfg._soloMover;
+
+    // Validaciones antes de guardar (solo si el estado está activo)
+    if (cfg.activo) {
+      if (soloMover && !cfg.columna_destino) {
+        Toast.fire({
+          icon: "warning",
+          title: "Selecciona la columna a la que mover al cliente",
+        });
+        return;
+      }
+      if (!soloMover && !cfg.nombre_template) {
+        Toast.fire({
+          icon: "warning",
+          title: "Selecciona una plantilla de WhatsApp",
+        });
+        return;
+      }
+    }
+
     setGuardando(estado);
     try {
       const params = cfg._params || {};
+      // En modo "solo mover" no se envía ningún mensaje: limpiamos plantilla,
+      // parámetros y respuesta rápida; solo persiste la columna destino.
       await chatApi.post("/dropi_plantillas/guardar", {
         id_configuracion,
         estado_dropi: estado,
-        nombre_template: cfg.nombre_template || null,
+        nombre_template: soloMover ? null : cfg.nombre_template || null,
         language_code: cfg.language_code || "es",
         activo: cfg.activo ? 1 : 0,
-        mensaje_rapido: cfg.mensaje_rapido || null,
-        usar_respuesta_rapida: cfg.usar_respuesta_rapida ? 1 : 0,
+        mensaje_rapido: soloMover ? null : cfg.mensaje_rapido || null,
+        usar_respuesta_rapida:
+          soloMover ? 0 : cfg.usar_respuesta_rapida ? 1 : 0,
         parametros_json:
-          params.body?.length || params.buttons?.length
+          !soloMover && (params.body?.length || params.buttons?.length)
             ? JSON.stringify(params)
             : null,
-        body_text: cfg.body_text || null,
+        body_text: soloMover ? null : cfg.body_text || null,
         columna_destino: cfg.columna_destino || null,
       });
       Toast.fire({ icon: "success", title: "Guardado" });
@@ -813,6 +843,28 @@ const DropisPlantillas = ({ id_configuracion }) => {
     updateParams(estado, { ...params, buttons });
   };
 
+  // Alterna el modo "solo mover de columna" (sin enviar ninguna plantilla).
+  const toggleSoloMover = (estado, value) => {
+    setConfig((prev) => {
+      const cur = prev[estado] || {};
+      if (value) {
+        return {
+          ...prev,
+          [estado]: {
+            ...cur,
+            _soloMover: true,
+            nombre_template: "",
+            _params: {},
+            body_text: null,
+            usar_respuesta_rapida: 0,
+            mensaje_rapido: "",
+          },
+        };
+      }
+      return { ...prev, [estado]: { ...cur, _soloMover: false } };
+    });
+  };
+
   const handleSelectTemplate = (estado, templateName) => {
     updateConfig(estado, "nombre_template", templateName);
     if (templateName) {
@@ -888,6 +940,9 @@ const DropisPlantillas = ({ id_configuracion }) => {
         .dp-expand-btn:hover { background:#e2e8f0; }
         .dp-divider { height:1px;background:#e5e7eb;margin:10px 0; }
         .dp-hint { font-size:.68rem;color:#94a3b8;margin-top:4px;line-height:1.4; }
+        .dp-solomover { display:flex;align-items:center;gap:8px;padding:9px 11px;margin-bottom:10px;border-radius:10px;border:1.5px solid #fed7aa;background:#fff7ed;cursor:pointer;user-select:none; }
+        .dp-solomover input { width:16px;height:16px;accent-color:#ea580c;cursor:pointer;flex-shrink:0;margin:0; }
+        .dp-solomover span { font-size:.78rem;font-weight:600;color:#9a3412;line-height:1.35; }
       `}</style>
 
       <button className="dp-trigger-btn" type="button" onClick={handleAbrir}>
@@ -1038,6 +1093,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
                       color: "#6b7280",
                     };
                     const isActivo = !!cfg.activo;
+                    const soloMover = !!cfg._soloMover;
                     const esSiempreTemplate = SIEMPRE_TEMPLATE.has(estado);
                     const params = cfg._params || {};
                     const isParamsExpanded = expandedParams === estado;
@@ -1125,7 +1181,21 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                   )}
                                 </div>
                               )}
-                              {isActivo && !cfg.nombre_template && (
+                              {isActivo && soloMover && (
+                                <div
+                                  style={{
+                                    fontSize: ".7rem",
+                                    color: "#ea580c",
+                                    marginTop: 1,
+                                  }}
+                                >
+                                  Solo mover de columna
+                                  {cfg.columna_destino
+                                    ? ` → ${cfg.columna_destino}`
+                                    : ""}
+                                </div>
+                              )}
+                              {isActivo && !cfg.nombre_template && !soloMover && (
                                 <div
                                   style={{
                                     fontSize: ".7rem",
@@ -1157,20 +1227,39 @@ const DropisPlantillas = ({ id_configuracion }) => {
                         {/* Contenido expandido */}
                         {isActivo && (
                           <div style={{ padding: "0 14px 14px" }}>
-                            <div className="dp-section-label">
-                              <i
-                                className="bx bx-envelope"
-                                style={{ fontSize: 13 }}
-                              />
-                              Plantilla de WhatsApp
-                            </div>
-                            <select
-                              className="dp-select"
-                              value={cfg.nombre_template || ""}
-                              onChange={(e) =>
-                                handleSelectTemplate(estado, e.target.value)
-                              }
-                            >
+                            {/* Solo mover de columna (sin enviar plantilla) */}
+                            {!esSiempreTemplate && (
+                              <label className="dp-solomover">
+                                <input
+                                  type="checkbox"
+                                  checked={soloMover}
+                                  onChange={(e) =>
+                                    toggleSoloMover(estado, e.target.checked)
+                                  }
+                                />
+                                <span>
+                                  No enviar ninguna plantilla — solo mover de
+                                  columna
+                                </span>
+                              </label>
+                            )}
+
+                            {!soloMover && (
+                              <>
+                                <div className="dp-section-label">
+                                  <i
+                                    className="bx bx-envelope"
+                                    style={{ fontSize: 13 }}
+                                  />
+                                  Plantilla de WhatsApp
+                                </div>
+                                <select
+                                  className="dp-select"
+                                  value={cfg.nombre_template || ""}
+                                  onChange={(e) =>
+                                    handleSelectTemplate(estado, e.target.value)
+                                  }
+                                >
                               <option value="">Selecciona una plantilla</option>
                               {plantillas.map((tpl) => (
                                 <option key={tpl.id} value={tpl.name}>
@@ -1454,8 +1543,10 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                 )}
                               </>
                             )}
+                              </>
+                            )}
 
-                            {/* ── Respuesta rápida (ventana 24h) ── */}
+                            {/* ── Mover a columna / Respuesta rápida ── */}
                             {!esSiempreTemplate && (
                               <>
                                 {/* ── Mover a columna al enviar ── */}
@@ -1521,12 +1612,15 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                             color: "#ea580c",
                                           }}
                                         />
-                                        Al enviar este estado, el cliente se
-                                        moverá a la columna configurada.
+                                        El cliente se moverá a la columna
+                                        configurada cuando Dropi notifique este
+                                        estado.
                                       </div>
                                     )}
                                   </>
                                 )}
+                                {!soloMover && (
+                                  <>
                                 <div className="dp-divider" />
                                 <div
                                   style={{
@@ -1641,6 +1735,8 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                       Si no, se usa la plantilla de arriba
                                       (pagada).
                                     </div>
+                                  </>
+                                )}
                                   </>
                                 )}
                               </>

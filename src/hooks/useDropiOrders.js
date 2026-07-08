@@ -2,11 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MOCK: Se activa cuando Dropi no responde en localhost por bloqueo de IP
-const USE_MOCK =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1");
+// MOCK: se usaba porque Dropi bloqueaba la IP en localhost. Ya no aplica: el
+// backend sirve las órdenes desde el cache local (dropi_orders_cache), así que
+// localhost consume el socket real. Desactivado para poder probar en el navegador.
+const USE_MOCK = false;
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const MOCK_ORDERS = [
