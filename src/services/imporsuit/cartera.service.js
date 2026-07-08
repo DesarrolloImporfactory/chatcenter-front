@@ -168,3 +168,49 @@ export async function eliminarDeuda(idCpp, { signal } = {}) {
   );
   return unwrap(data);
 }
+
+/**
+ * Actualiza solo el `launch_id` de una deuda. `launchId` vacío la limpia (NULL).
+ * Devuelve { status, message, launch_id }.
+ */
+export async function editarDeuda({ idCpp, launchId }, { signal } = {}) {
+  const { data } = await imporsuitApi.post(
+    "/Carterachat/editar_deuda",
+    {
+      id_cpp: Number(idCpp),
+      launch_id: launchId ? String(launchId).trim() : "",
+    },
+    { signal },
+  );
+  return unwrap(data);
+}
+
+/* ── Webhook de cuotas (lanzamientos) ──────────────────────────────── */
+
+const WEBHOOK_CUOTAS_URL =
+  "https://launch-copy-engine-production.up.railway.app/api/cuotas/webhook/pago";
+const WEBHOOK_CUOTAS_SECRET = "lce-cuotas-2026";
+
+/** launch_id histórico por defecto cuando la deuda no tiene uno propio. */
+export const LAUNCH_ID_DEFAULT = "e0ab1098-eb61-40a3-ad37-75c02df5ca6d";
+
+/**
+ * Reenvía UN pago al webhook de cuotas (mismo endpoint que usa el legacy).
+ * Se dispara desde el front porque el back NO lo hace. Lanza si el POST falla.
+ * Va con fetch directo: el destino es el API de Railway, no el backend Imporsuit.
+ */
+export async function enviarWebhookCuota(payload, { signal } = {}) {
+  const res = await fetch(WEBHOOK_CUOTAS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-webhook-secret": WEBHOOK_CUOTAS_SECRET,
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  if (!res.ok) {
+    throw new Error(`Webhook cuotas respondió ${res.status}`);
+  }
+  return res.json().catch(() => ({}));
+}

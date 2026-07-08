@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
-import { PAQUETES, ESTADO_DEUDA } from "../../services/imporsuit";
+import {
+  PAQUETES,
+  ESTADO_DEUDA,
+  editarDeuda,
+  enviarWebhookCuota,
+  LAUNCH_ID_DEFAULT,
+} from "../../services/imporsuit";
 import { useCarteraCliente, tieneCartera } from "./useCarteraCliente";
 import { CrearUsuarioForm } from "./CrearUsuarioForm";
 import { AgregarDeudaForm } from "./AgregarDeudaForm";
@@ -85,6 +91,84 @@ export function CarteraClientePanel({
       toast.success("Deuda eliminada");
     } catch (e) {
       Swal.fire({ icon: "error", title: "No se pudo eliminar", text: e?.message ?? "" });
+    }
+  };
+
+  const onEditar = async (deuda) => {
+    const { value, isConfirmed } = await Swal.fire({
+      title: "Editar Launch ID",
+      input: "text",
+      inputValue: (deuda.launch_id || "").trim(),
+      inputLabel: "Identificador de lanzamiento (déjalo vacío para quitarlo)",
+      inputPlaceholder: "UUID del lanzamiento",
+      inputAttributes: { autocapitalize: "off", spellcheck: "false" },
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!isConfirmed) return;
+    try {
+      await editarDeuda({ idCpp: deuda.id_cpp, launchId: (value || "").trim() });
+      toast.success("Launch ID actualizado");
+      recargar();
+    } catch (e) {
+      Swal.fire({ icon: "error", title: "No se pudo actualizar", text: e?.message ?? "" });
+    }
+  };
+
+  const onReenviar = async (deuda) => {
+    const pagos = Array.isArray(deuda.pagos)
+      ? deuda.pagos.filter((p) => Number(p.monto_pagado) > 0)
+      : [];
+    if (!pagos.length) {
+      Swal.fire({ icon: "info", title: "Sin pagos", text: "Esta deuda no tiene pagos para reenviar." });
+      return;
+    }
+
+    const { value: moneda, isConfirmed } = await Swal.fire({
+      title: "Reenviar pagos a la API",
+      html: `Se reenviarán <b>${pagos.length}</b> pago(s) al webhook de lanzamientos.<br><span style="color:#b45309;font-size:13px">⚠️ Vuelve a disparar el webhook de producción; si estos pagos ya se enviaron antes, podrían duplicarse en el sistema de lanzamientos.</span>`,
+      input: "select",
+      inputOptions: { USD: "USD", MXN: "MXN" },
+      inputValue: "USD",
+      inputLabel: "Moneda",
+      showCancelButton: true,
+      confirmButtonText: "Sí, reenviar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#d97706",
+    });
+    if (!isConfirmed) return;
+
+    const launchId = (deuda.launch_id || "").trim() || LAUNCH_ID_DEFAULT;
+    // numero_cuota secuencial: ordenamos por fecha
+    const ordenados = [...pagos].sort((a, b) =>
+      String(a.fecha_pago || "").localeCompare(String(b.fecha_pago || "")),
+    );
+
+    let enviados = 0;
+    for (let i = 0; i < ordenados.length; i++) {
+      const p = ordenados[i];
+      try {
+        await enviarWebhookCuota({
+          email: cliente?.email_users || "",
+          nombre: cliente?.nombre_users || "",
+          numero_cuota: String(i + 1),
+          fecha_pago: p.fecha_pago || "",
+          monto_pagado_original: String(p.monto_pagado ?? ""),
+          moneda,
+          pasarela: p.medio_pago || "",
+          launch_id: launchId,
+        });
+        enviados++;
+      } catch (e) {
+        console.error("Error reenviando pago", p, e);
+      }
+    }
+
+    if (enviados === ordenados.length) {
+      toast.success(`Reenviados ${enviados}/${ordenados.length}`);
+    } else {
+      toast(`Reenviados ${enviados}/${ordenados.length}; revisa la consola`);
     }
   };
 
@@ -188,6 +272,8 @@ export function CarteraClientePanel({
               onAgregar={() => setModal("deuda")}
               onPagar={(d) => setModal({ pago: d })}
               onEliminar={onEliminar}
+              onEditar={onEditar}
+              onReenviar={onReenviar}
             />
           )}
         </>
@@ -235,7 +321,7 @@ function porFechaCreacionDesc(a, b) {
   return Number(b.id_cpp) - Number(a.id_cpp);
 }
 
-function DeudasTable({ deudas, cargando, onAgregar, onPagar, onEliminar }) {
+function DeudasTable({ deudas, cargando, onAgregar, onPagar, onEliminar, onEditar, onReenviar }) {
   const [openId, setOpenId] = useState(null);
   const [filtro, setFiltro] = useState(null); // null = automático
   const [page, setPage] = useState(1);
@@ -329,6 +415,8 @@ function DeudasTable({ deudas, cargando, onAgregar, onPagar, onEliminar }) {
                 onToggle={() => setOpenId(isOpen ? null : d.id_cpp)}
                 onPagar={onPagar}
                 onEliminar={onEliminar}
+                onEditar={onEditar}
+                onReenviar={onReenviar}
               />
             );
           })}
@@ -380,7 +468,7 @@ function FiltroBtn({ active, disabled, onClick, children }) {
   );
 }
 
-function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onEliminar }) {
+function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onEliminar, onEditar, onReenviar }) {
   const estadoTxt = ESTADO_DEUDA[Number(d.estado)] ?? "Pendiente";
   const estadoCls =
     Number(d.estado) === 1
@@ -437,6 +525,24 @@ function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onEliminar }) {
             className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100"
           >
             Pagos ({pagos.length}) {isOpen ? "▲" : "▼"}
+          </button>
+        )}
+        {onEditar && (
+          <button
+            onClick={() => onEditar(d)}
+            className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+            title="Editar Launch ID"
+          >
+            <i className="bx bx-edit" /> Launch
+          </button>
+        )}
+        {onReenviar && pagos.length > 0 && (
+          <button
+            onClick={() => onReenviar(d)}
+            className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
+            title="Reenviar pagos a la API"
+          >
+            <i className="bx bx-mail-send" /> Reenviar
           </button>
         )}
         <button

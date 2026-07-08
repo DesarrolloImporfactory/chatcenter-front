@@ -15,6 +15,9 @@ export {
   agregarDeuda,
   agregarPago,
   eliminarDeuda,
+  editarDeuda,
+  enviarWebhookCuota,
+  LAUNCH_ID_DEFAULT,
 } from "./cartera.service";
 
 export { getCursosDisponibles, crearUsuarioFull } from "./usuarios.service";
