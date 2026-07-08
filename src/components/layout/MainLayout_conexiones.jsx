@@ -297,6 +297,13 @@ function MainLayout({ children }) {
               </div>
             )}
 
+            {/* Tutoriales: visible para todos los usuarios */}
+            <NavBtn
+              path="/tutoriales"
+              icon="bx-play-circle"
+              label="Tutoriales"
+            />
+
             {/* Panel de Usuarios: super_administrador + gestor_clientes */}
             {puedePanelUsuarios && (
               <NavBtn
