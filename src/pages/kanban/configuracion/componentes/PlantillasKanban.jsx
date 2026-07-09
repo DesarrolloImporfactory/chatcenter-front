@@ -23,6 +23,30 @@ const ToastOverModal = Swal.mixin({
 
 const BG_DARK = "rgb(23, 25, 49)";
 
+// Nombre del país (ISO) para mostrar de qué país es cada plantilla global.
+// Se usa el nombre completo (no emoji de bandera) porque las banderas no
+// renderizan en Windows y se veían como "EC".
+const NOMBRE_PAIS = {
+  EC: "Ecuador",
+  CO: "Colombia",
+  MX: "México",
+  PE: "Perú",
+  CL: "Chile",
+  PA: "Panamá",
+  GT: "Guatemala",
+};
+const nombrePaisLabel = (iso) => NOMBRE_PAIS[iso] || iso || "Ecuador";
+
+// Países que ofrece una tarjeta. Si es tarjeta de GRUPO, son los países de sus
+// plantillas miembro; si es plantilla suelta, su país único.
+const paisesDe = (p) => {
+  if (p?.esGrupo && Array.isArray(p.paisesDisponibles))
+    return p.paisesDisponibles;
+  if (Array.isArray(p?.paises) && p.paises.length) return p.paises;
+  return [p?.pais || "EC"];
+};
+const esMultipais = (p) => paisesDe(p).length > 1;
+
 const ICONOS_PLANTILLA = {
   ventas: { icon: "bx bx-store", color: "#10b981", bg: "#f0fdf4" },
 };
@@ -130,7 +154,14 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
   const [loading, setLoading] = useState(false);
   const [paso, setPaso] = useState(1);
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState(null);
-  const [empresa, setEmpresa] = useState("");
+  // Prellenar con el nombre del negocio que el cliente ya puso al crear su
+  // configuración (localStorage.nombre_configuracion). No lo obligamos a
+  // reescribirlo: puede aplicar directo o editarlo ahí mismo.
+  const [empresa, setEmpresa] = useState(
+    () => localStorage.getItem("nombre_configuracion") || "",
+  );
+  // País elegido cuando la plantilla es multipaís (obligatorio antes de aplicar).
+  const [paisSeleccionado, setPaisSeleccionado] = useState("");
   const [resultado, setResultado] = useState(null);
   const [errorAlert, setErrorAlert] = useState(null);
 
@@ -177,11 +208,46 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
     return COLUMNAS_FALLBACK[plantillaSeleccionada.key] || [];
   }, [plantillaSeleccionada]);
 
+  // Agrupa las plantillas globales que comparten `grupo` en UNA sola tarjeta:
+  // el cliente ve una opción y elige el país (se instala la plantilla de ese
+  // país). Un grupo con un solo miembro se muestra suelto. Conserva el orden.
+  const plantillasAgrupadas = useMemo(() => {
+    const porGrupo = new Map();
+    for (const p of plantillas) {
+      if (p.tipo === "global" && p.grupo) {
+        if (!porGrupo.has(p.grupo)) porGrupo.set(p.grupo, []);
+        porGrupo.get(p.grupo).push(p);
+      }
+    }
+    const vistos = new Set();
+    const out = [];
+    for (const p of plantillas) {
+      if (p.tipo === "global" && p.grupo && porGrupo.get(p.grupo).length > 1) {
+        if (vistos.has(p.grupo)) continue;
+        vistos.add(p.grupo);
+        const miembros = porGrupo.get(p.grupo);
+        out.push({
+          ...miembros[0], // representante: icono/color/columnas para el preview
+          esGrupo: true,
+          grupo: p.grupo,
+          nombre: p.grupo,
+          id: `grupo:${p.grupo}`,
+          miembros,
+          paisesDisponibles: miembros.map((m) => m.pais),
+        });
+      } else {
+        out.push(p);
+      }
+    }
+    return out;
+  }, [plantillas]);
+
   const handleAbrir = async () => {
     setShowModal(true);
     setPaso(1);
     setPlantillaSeleccionada(null);
-    setEmpresa("");
+    // Prellenar con el nombre del negocio ya guardado en la config.
+    setEmpresa(localStorage.getItem("nombre_configuracion") || "");
     setErrorAlert(null);
     setLoading(true);
     try {
@@ -233,6 +299,9 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
   const seleccionarPlantilla = (p) => {
     setErrorAlert(null);
     setPlantillaSeleccionada(p);
+    // Si la plantilla es de país único, ese es el país. Si es multipaís, el
+    // cliente debe elegir (queda vacío hasta que seleccione).
+    setPaisSeleccionado(esMultipais(p) ? "" : paisesDe(p)[0]);
     setPaso(2);
   };
 
@@ -241,6 +310,15 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
       ToastOverModal.fire({
         icon: "warning",
         title: "Ingresa el nombre de tu empresa",
+      });
+      return;
+    }
+
+    // Multipaís: exige elegir país antes de aplicar.
+    if (esMultipais(plantillaSeleccionada) && !paisSeleccionado) {
+      ToastOverModal.fire({
+        icon: "warning",
+        title: "Selecciona el país donde vendes",
       });
       return;
     }
@@ -258,14 +336,26 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
     }, STAGE_DURATION_MS);
 
     const esGlobal = plantillaSeleccionada.tipo === "global";
+    const paisFinal = paisSeleccionado || paisesDe(plantillaSeleccionada)[0];
+
+    // Si es tarjeta de grupo, resolver la plantilla REAL del país elegido.
+    let idPlantillaReal = plantillaSeleccionada.id;
+    if (plantillaSeleccionada.esGrupo) {
+      const miembro = plantillaSeleccionada.miembros.find(
+        (m) => m.pais === paisFinal,
+      );
+      idPlantillaReal = miembro?.id;
+    }
+
     const endpoint = esGlobal
       ? "/kanban_plantillas/aplicar_global"
       : "/kanban_plantillas/aplicar";
     const body = esGlobal
       ? {
           id_configuracion,
-          id_plantilla: plantillaSeleccionada.id,
+          id_plantilla: idPlantillaReal,
           empresa: empresa.trim(),
+          pais: paisFinal,
         }
       : {
           id_configuracion,
@@ -661,7 +751,7 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                         gap: 14,
                       }}
                     >
-                      {plantillas.map((p) => {
+                      {plantillasAgrupadas.map((p) => {
                         const meta =
                           p.tipo === "global"
                             ? {
@@ -798,9 +888,44 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                       color: "#fff",
                                       fontWeight: 800,
                                       lineHeight: 1.25,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 7,
                                     }}
                                   >
-                                    {p.nombre}
+                                    <span>{p.nombre}</span>
+                                    <span
+                                      title={
+                                        esMultipais(p)
+                                          ? `Disponible en: ${paisesDe(p)
+                                              .map(nombrePaisLabel)
+                                              .join(", ")}`
+                                          : "País del asistente"
+                                      }
+                                      style={{
+                                        fontSize: ".64rem",
+                                        fontWeight: 800,
+                                        background: "rgba(255,255,255,.16)",
+                                        border:
+                                          "1px solid rgba(255,255,255,.25)",
+                                        color: "#fff",
+                                        borderRadius: 999,
+                                        padding: "2px 9px",
+                                        flexShrink: 0,
+                                        whiteSpace: "nowrap",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 4,
+                                      }}
+                                    >
+                                      <i
+                                        className={`bx ${esMultipais(p) ? "bx-globe" : "bxs-map"}`}
+                                        style={{ fontSize: ".72rem" }}
+                                      />
+                                      {esMultipais(p)
+                                        ? `${paisesDe(p).length} países`
+                                        : nombrePaisLabel(p.pais)}
+                                    </span>
                                   </div>
                                   {p.descripcion && (
                                     <div
@@ -1125,9 +1250,52 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                           fontSize: "1rem",
                           color: "#0f172a",
                           marginTop: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
                         }}
                       >
                         {plantillaSeleccionada.nombre}
+                        {(() => {
+                          const multi = esMultipais(plantillaSeleccionada);
+                          const morado = multi && !paisSeleccionado;
+                          return (
+                            <span
+                              title={
+                                multi
+                                  ? `Disponible en: ${paisesDe(
+                                      plantillaSeleccionada,
+                                    )
+                                      .map(nombrePaisLabel)
+                                      .join(", ")}`
+                                  : "País del asistente"
+                              }
+                              style={{
+                                fontSize: ".64rem",
+                                fontWeight: 800,
+                                background: morado ? "#f5f3ff" : "#eef2ff",
+                                color: morado ? "#7c3aed" : "#4338ca",
+                                borderRadius: 999,
+                                padding: "2px 9px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <i
+                                className={`bx ${morado ? "bx-globe" : "bxs-map"}`}
+                                style={{ fontSize: ".72rem" }}
+                              />
+                              {paisSeleccionado
+                                ? nombrePaisLabel(paisSeleccionado)
+                                : multi
+                                  ? `Elige país · ${paisesDe(plantillaSeleccionada).length} disponibles`
+                                  : nombrePaisLabel(plantillaSeleccionada.pais)}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                     <button
@@ -1148,6 +1316,69 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                     </button>
                   </div>
 
+                  {/* Selector de país (solo plantillas multipaís) */}
+                  {esMultipais(plantillaSeleccionada) && (
+                    <div style={{ marginBottom: 22 }}>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: ".82rem",
+                          fontWeight: 700,
+                          color: "#0f172a",
+                          marginBottom: 6,
+                        }}
+                      >
+                        ¿En qué país vendes?
+                      </label>
+                      <div
+                        style={{
+                          fontSize: ".75rem",
+                          color: "#64748b",
+                          marginBottom: 8,
+                        }}
+                      >
+                        Esta plantilla funciona para varios países. Elige el
+                        tuyo para que el agente se adapte de forma correcta.
+                      </div>
+                      <div
+                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+                      >
+                        {paisesDe(plantillaSeleccionada).map((iso) => {
+                          const activo = paisSeleccionado === iso;
+                          return (
+                            <button
+                              key={iso}
+                              type="button"
+                              onClick={() => setPaisSeleccionado(iso)}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "9px 14px",
+                                borderRadius: 10,
+                                fontSize: ".85rem",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                background: activo ? "#eef2ff" : "#fff",
+                                color: activo ? "#4338ca" : "#475569",
+                                border: activo
+                                  ? "2px solid #6366f1"
+                                  : "2px solid #e2e8f0",
+                                fontFamily: "inherit",
+                              }}
+                            >
+                              <i
+                                className={`bx ${activo ? "bx-check" : "bxs-map"}`}
+                                style={{ fontSize: "1rem" }}
+                              />
+                              {nombrePaisLabel(iso)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Input empresa */}
                   <div style={{ marginBottom: 22 }}>
                     <label
@@ -1159,18 +1390,9 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                         marginBottom: 6,
                       }}
                     >
-                      ¿Cuál es el nombre de tu empresa?
+                      Nombre de tu empresa
                     </label>
-                    <div
-                      style={{
-                        fontSize: ".75rem",
-                        color: "#64748b",
-                        marginBottom: 8,
-                      }}
-                    >
-                      Se usará para personalizar los prompts de los asistentes
-                      de IA.
-                    </div>
+
                     <input
                       className="pk-input"
                       placeholder={`Ej: ${EMPRESA_PLACEHOLDERS[phIdx]}`}
@@ -1434,7 +1656,11 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                     <button
                       className="pk-btn-primary"
                       onClick={aplicarPlantilla}
-                      disabled={!empresa.trim()}
+                      disabled={
+                        !empresa.trim() ||
+                        (esMultipais(plantillaSeleccionada) &&
+                          !paisSeleccionado)
+                      }
                     >
                       <i className="bx bxs-zap" style={{ fontSize: 15 }} />
                       Aplicar plantilla

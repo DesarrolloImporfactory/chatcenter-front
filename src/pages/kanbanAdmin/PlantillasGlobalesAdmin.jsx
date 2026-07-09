@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import PageHeader from "../../pages/Header/pageHeader";
@@ -43,6 +43,19 @@ const COLORES_DISPONIBLES = [
   "#0ea5e9",
 ];
 
+// Países soportados por el auto-orden Dropi. El super admin taggea cada
+// plantilla global con su país; al aplicarla, ese país se guarda en la config
+// y el auto-orden resuelve provincia/ciudad de ese país (no asume Ecuador).
+const PAISES_DISPONIBLES = [
+  { iso: "EC", nombre: "Ecuador", flag: "🇪🇨" },
+  { iso: "CO", nombre: "Colombia", flag: "🇨🇴" },
+  { iso: "MX", nombre: "México", flag: "🇲🇽" },
+  { iso: "PE", nombre: "Perú", flag: "🇵🇪" },
+  { iso: "CL", nombre: "Chile", flag: "🇨🇱" },
+  { iso: "PA", nombre: "Panamá", flag: "🇵🇦" },
+  { iso: "GT", nombre: "Guatemala", flag: "🇬🇹" },
+];
+
 const PLANTILLA_VACIA_BASE = {
   columnas: [
     {
@@ -80,6 +93,8 @@ const PlantillasGlobalesAdmin = () => {
     descripcion: "",
     icono: "bx bx-layout",
     color: "#6366f1",
+    pais: "EC",
+    grupo: "",
   });
   const [guardando, setGuardando] = useState(false);
 
@@ -116,13 +131,49 @@ const PlantillasGlobalesAdmin = () => {
 
     if (filtroBusqueda.trim()) {
       const q = filtroBusqueda.trim().toLowerCase();
+      const paisNombre =
+        (PAISES_DISPONIBLES.find((x) => x.iso === p.pais) || {}).nombre || "";
       return (
         p.nombre.toLowerCase().includes(q) ||
-        (p.descripcion || "").toLowerCase().includes(q)
+        (p.descripcion || "").toLowerCase().includes(q) ||
+        (p.grupo || "").toLowerCase().includes(q) ||
+        (p.pais || "").toLowerCase().includes(q) ||
+        paisNombre.toLowerCase().includes(q)
       );
     }
     return true;
   });
+
+  // Segmentación por grupo para el super admin: cada grupo es una sección
+  // (colapsable); las plantillas sin grupo van a "Sin grupo". Dentro de cada
+  // grupo se ordenan por país para diferenciarlas de un vistazo.
+  const seccionesPlantillas = useMemo(() => {
+    const map = new Map();
+    const sueltas = [];
+    for (const p of plantillasFiltradas) {
+      if (p.grupo) {
+        if (!map.has(p.grupo)) map.set(p.grupo, []);
+        map.get(p.grupo).push(p);
+      } else {
+        sueltas.push(p);
+      }
+    }
+    const ordenarPais = (a, b) =>
+      String(a.pais || "").localeCompare(String(b.pais || ""));
+    const grupos = [...map.entries()]
+      .map(([grupo, items]) => ({ grupo, items: items.sort(ordenarPais) }))
+      .sort((a, b) => a.grupo.localeCompare(b.grupo));
+    return { grupos, sueltas: sueltas.sort(ordenarPais) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plantillas, filtroEstado, filtroBusqueda]);
+
+  const [gruposColapsados, setGruposColapsados] = useState(() => new Set());
+  const toggleGrupo = (g) =>
+    setGruposColapsados((prev) => {
+      const n = new Set(prev);
+      n.has(g) ? n.delete(g) : n.add(g);
+      return n;
+    });
 
   const totalActivas = plantillas.filter((p) => p.activo).length;
   const totalInactivas = plantillas.filter((p) => !p.activo).length;
@@ -136,6 +187,8 @@ const PlantillasGlobalesAdmin = () => {
       descripcion: "",
       icono: "bx bx-layout",
       color: "#6366f1",
+      pais: "EC",
+      grupo: "",
     });
     setModalOpen(true);
   };
@@ -148,6 +201,8 @@ const PlantillasGlobalesAdmin = () => {
       descripcion: p.descripcion || "",
       icono: p.icono || "bx bx-layout",
       color: p.color || "#6366f1",
+      pais: p.pais || (Array.isArray(p.paises) && p.paises[0]) || "EC",
+      grupo: p.grupo || "",
     });
     setModalOpen(true);
   };
@@ -165,6 +220,8 @@ const PlantillasGlobalesAdmin = () => {
           descripcion: formMeta.descripcion.trim() || null,
           icono: formMeta.icono,
           color: formMeta.color,
+          pais: formMeta.pais,
+          grupo: formMeta.grupo?.trim() || null,
           data: PLANTILLA_VACIA_BASE,
         });
         Toast.fire({ icon: "success", title: "Plantilla creada" });
@@ -175,6 +232,8 @@ const PlantillasGlobalesAdmin = () => {
           descripcion: formMeta.descripcion.trim() || null,
           icono: formMeta.icono,
           color: formMeta.color,
+          pais: formMeta.pais,
+          grupo: formMeta.grupo?.trim() || null,
         });
         Toast.fire({ icon: "success", title: "Metadata actualizada" });
       }
@@ -513,29 +572,99 @@ const PlantillasGlobalesAdmin = () => {
         </div>
       )}
 
-      {/* Grid de plantillas */}
+      {/* Plantillas segmentadas por grupo */}
       {!loading && plantillasFiltradas.length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {plantillasFiltradas.map((p) => (
-            <PlantillaCard
-              key={p.id}
-              plantilla={p}
-              onEditar={() => abrirEditar(p)}
-              onEditarColumnas={() => editarColumnas(p)}
-              onEditarAutomatizacion={() => editarAutomatizacion(p)}
-              onEliminar={() => eliminar(p)}
-              onRestaurar={() => restaurar(p)}
-              onEliminarDef={() => eliminarDefinitivo(p)}
-              onDuplicar={() => duplicar(p)}
-              onVerUso={() => verUso(p)}
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          {/* Barra: resumen + expandir/colapsar todo */}
+          {(seccionesPlantillas.grupos.length > 1 ||
+            (seccionesPlantillas.grupos.length >= 1 &&
+              seccionesPlantillas.sueltas.length > 0)) && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: -6,
+              }}
+            >
+              <span style={{ fontSize: ".8rem", color: "#64748b" }}>
+                {seccionesPlantillas.grupos.length} grupo
+                {seccionesPlantillas.grupos.length !== 1 ? "s" : ""}
+                {seccionesPlantillas.sueltas.length > 0 &&
+                  ` · ${seccionesPlantillas.sueltas.length} sin grupo`}
+              </span>
+              <button
+                onClick={() => {
+                  const claves = [
+                    ...seccionesPlantillas.grupos.map((g) => g.grupo),
+                    ...(seccionesPlantillas.sueltas.length
+                      ? ["__sueltas__"]
+                      : []),
+                  ];
+                  const todosColapsados = claves.every((k) =>
+                    gruposColapsados.has(k),
+                  );
+                  setGruposColapsados(
+                    todosColapsados ? new Set() : new Set(claves),
+                  );
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "6px 12px",
+                  borderRadius: 9,
+                  border: "1px solid #e2e8f0",
+                  background: "#fff",
+                  color: "#475569",
+                  fontSize: ".78rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <i className="bx bx-collapse-vertical" />
+                Colapsar / expandir todo
+              </button>
+            </div>
+          )}
+          {seccionesPlantillas.grupos.map(({ grupo, items }) => (
+            <SeccionPlantillas
+              key={`g:${grupo}`}
+              titulo={grupo}
+              esGrupo
+              items={items}
+              colapsado={gruposColapsados.has(grupo)}
+              onToggle={() => toggleGrupo(grupo)}
+              onEditar={abrirEditar}
+              onEditarColumnas={editarColumnas}
+              onEditarAutomatizacion={editarAutomatizacion}
+              onEliminar={eliminar}
+              onRestaurar={restaurar}
+              onEliminarDef={eliminarDefinitivo}
+              onDuplicar={duplicar}
+              onVerUso={verUso}
             />
           ))}
+          {seccionesPlantillas.sueltas.length > 0 && (
+            <SeccionPlantillas
+              titulo="Sin grupo"
+              esGrupo={false}
+              items={seccionesPlantillas.sueltas}
+              colapsado={gruposColapsados.has("__sueltas__")}
+              onToggle={() => toggleGrupo("__sueltas__")}
+              onEditar={abrirEditar}
+              onEditarColumnas={editarColumnas}
+              onEditarAutomatizacion={editarAutomatizacion}
+              onEliminar={eliminar}
+              onRestaurar={restaurar}
+              onEliminarDef={eliminarDefinitivo}
+              onDuplicar={duplicar}
+              onVerUso={verUso}
+            />
+          )}
         </div>
       )}
 
@@ -565,10 +694,181 @@ const PlantillasGlobalesAdmin = () => {
 };
 
 // ─────────────────────────────────────────────────────────────
+// SeccionPlantillas — encabezado de grupo (colapsable) + grid de tarjetas
+// ─────────────────────────────────────────────────────────────
+const SeccionPlantillas = ({
+  titulo,
+  esGrupo,
+  items,
+  colapsado,
+  onToggle,
+  onEditar,
+  onEditarColumnas,
+  onEditarAutomatizacion,
+  onEliminar,
+  onRestaurar,
+  onEliminarDef,
+  onDuplicar,
+  onVerUso,
+}) => {
+  const paises = [...new Set(items.map((i) => i.pais).filter(Boolean))];
+  const inactivas = items.filter((i) => !i.activo).length;
+
+  return (
+    <div>
+      {/* Encabezado del grupo */}
+      <button
+        onClick={onToggle}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "11px 14px",
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,.07)",
+          background: esGrupo
+            ? "linear-gradient(135deg,#f5f3ff,#fff)"
+            : "#f8fafc",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          textAlign: "left",
+          marginBottom: 12,
+        }}
+      >
+        <i
+          className={`bx ${colapsado ? "bx-chevron-right" : "bx-chevron-down"}`}
+          style={{ fontSize: "1.4rem", color: "#94a3b8", flexShrink: 0 }}
+        />
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 9,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: esGrupo ? "#ede9fe" : "#e2e8f0",
+            color: esGrupo ? "#7c3aed" : "#64748b",
+          }}
+        >
+          <i
+            className={`bx ${esGrupo ? "bx-collection" : "bx-folder"}`}
+            style={{ fontSize: "1.15rem" }}
+          />
+        </span>
+        <span
+          title={titulo}
+          style={{
+            fontWeight: 800,
+            fontSize: "1rem",
+            color: "#0f172a",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: 320,
+          }}
+        >
+          {titulo}
+        </span>
+        <span
+          style={{
+            fontSize: ".68rem",
+            fontWeight: 800,
+            color: "#475569",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 999,
+            padding: "2px 9px",
+            flexShrink: 0,
+          }}
+        >
+          {items.length} plantilla{items.length !== 1 ? "s" : ""}
+        </span>
+        {/* Chips de países presentes en el grupo */}
+        {esGrupo && (
+          <span
+            style={{
+              display: "flex",
+              gap: 5,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            {paises.map((iso) => (
+              <span
+                key={iso}
+                style={{
+                  fontSize: ".62rem",
+                  fontWeight: 800,
+                  color: "#4338ca",
+                  background: "#eef2ff",
+                  borderRadius: 999,
+                  padding: "2px 8px",
+                }}
+              >
+                {(PAISES_DISPONIBLES.find((x) => x.iso === iso) || {}).nombre ||
+                  iso}
+              </span>
+            ))}
+          </span>
+        )}
+        {inactivas > 0 && (
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: ".64rem",
+              fontWeight: 700,
+              color: "#b45309",
+              background: "#fffbeb",
+              border: "1px solid #fde68a",
+              borderRadius: 999,
+              padding: "2px 9px",
+              flexShrink: 0,
+            }}
+          >
+            {inactivas} inactiva{inactivas !== 1 ? "s" : ""}
+          </span>
+        )}
+      </button>
+
+      {/* Grid de tarjetas de la sección */}
+      {!colapsado && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {items.map((p) => (
+            <PlantillaCard
+              key={p.id}
+              plantilla={p}
+              ocultarGrupo={esGrupo}
+              onEditar={() => onEditar(p)}
+              onEditarColumnas={() => onEditarColumnas(p)}
+              onEditarAutomatizacion={() => onEditarAutomatizacion(p)}
+              onEliminar={() => onEliminar(p)}
+              onRestaurar={() => onRestaurar(p)}
+              onEliminarDef={() => onEliminarDef(p)}
+              onDuplicar={() => onDuplicar(p)}
+              onVerUso={() => onVerUso(p)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
 // PlantillaCard
 // ─────────────────────────────────────────────────────────────
 const PlantillaCard = ({
   plantilla,
+  ocultarGrupo = false,
   onEditar,
   onEditarColumnas,
   onEditarAutomatizacion,
@@ -633,16 +933,65 @@ const PlantillaCard = ({
             }}
           >
             <span
+              title={plantilla.nombre}
               style={{
                 flex: 1,
                 minWidth: 0,
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                lineHeight: 1.25,
               }}
             >
               {plantilla.nombre}
             </span>
+            <span
+              title="País del asistente"
+              style={{
+                fontSize: ".62rem",
+                fontWeight: 800,
+                background: "#eef2ff",
+                color: "#4338ca",
+                borderRadius: 999,
+                padding: "2px 9px",
+                flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <i className="bx bxs-map" style={{ fontSize: ".8rem" }} />
+              {(PAISES_DISPONIBLES.find((x) => x.iso === plantilla.pais) || {})
+                .nombre ||
+                plantilla.pais ||
+                "Ecuador"}
+            </span>
+            {!ocultarGrupo && plantilla.grupo && (
+              <span
+                title={`Grupo: ${plantilla.grupo} (se agrupa con las de otros países)`}
+                style={{
+                  fontSize: ".62rem",
+                  fontWeight: 800,
+                  background: "#f5f3ff",
+                  color: "#7c3aed",
+                  borderRadius: 999,
+                  padding: "2px 9px",
+                  flexShrink: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  whiteSpace: "nowrap",
+                  maxWidth: 140,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                <i className="bx bx-collection" style={{ fontSize: ".8rem" }} />
+                {plantilla.grupo}
+              </span>
+            )}
             {inactiva && (
               <span
                 style={{
@@ -1091,6 +1440,82 @@ const ModalMetadata = ({
                 />
               ))}
             </div>
+          </div>
+
+          <div>
+            <label style={lblM}>
+              País del asistente{" "}
+              <span style={{ fontWeight: 400, color: "#64748b" }}>
+                — define de qué país es el asistente para temas logísticos como:
+                provincias/ciudades al crear órdenes automáticas, tonos y
+                transportadoras. Cada plantilla es de UN país (su propio prompt).
+              </span>
+            </label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {PAISES_DISPONIBLES.map((p) => {
+                const activo = form.pais === p.iso;
+                return (
+                  <button
+                    key={p.iso}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, pais: p.iso }))}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 13px",
+                      borderRadius: 10,
+                      fontSize: ".85rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      background: activo ? "#eef2ff" : "#fff",
+                      color: activo ? "#4338ca" : "#475569",
+                      border: activo
+                        ? "2px solid #6366f1"
+                        : "2px solid #e2e8f0",
+                    }}
+                  >
+                    <i
+                      className="bx bxs-map"
+                      style={{ fontSize: "1rem", opacity: 0.85 }}
+                    />
+                    {p.nombre}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label style={lblM}>
+              Grupo{" "}
+              <span style={{ fontWeight: 400, color: "#64748b" }}>
+                — (opcional) plantillas con el MISMO grupo se muestran al cliente
+                como UNA sola tarjeta; él elige el país y se instala la plantilla
+                de ese país. Ej: escribe <strong>"Ventas E-commerce"</strong> en
+                la de Ecuador y en la de Colombia para que se agrupen. Déjalo
+                vacío si quieres que se muestre suelta.
+              </span>
+            </label>
+            <input
+              type="text"
+              value={form.grupo || ""}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, grupo: e.target.value }))
+              }
+              placeholder="Ej: Ventas E-commerce"
+              style={{
+                width: "100%",
+                padding: "9px 12px",
+                borderRadius: 10,
+                border: "1.5px solid #e2e8f0",
+                fontSize: ".9rem",
+                color: "#0f172a",
+                outline: "none",
+                fontFamily: "inherit",
+                boxSizing: "border-box",
+              }}
+            />
           </div>
 
           <div

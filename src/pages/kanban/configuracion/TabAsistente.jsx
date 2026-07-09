@@ -20,6 +20,18 @@ const Toast = Swal.mixin({
   timerProgressBar: true,
 });
 
+// Nombre completo del país (ISO) — evita el emoji de bandera que en Windows
+// se ve como "EC".
+const NOMBRE_PAIS = {
+  EC: "Ecuador",
+  CO: "Colombia",
+  MX: "México",
+  PE: "Perú",
+  CL: "Chile",
+  PA: "Panamá",
+  GT: "Guatemala",
+};
+
 const MODELOS = [
   {
     value: "gpt-4o",
@@ -102,6 +114,25 @@ const TabAsistente = ({
 
   // ── Actualizar prompt (resincronizar) ────────────────────
   const [actualizandoPrompt, setActualizandoPrompt] = useState(false);
+
+  // ── Versión del prompt (vs. última publicada) ────────────
+  const [versionInfo, setVersionInfo] = useState(null);
+  const cargarVersion = async () => {
+    if (!idConfiguracion) return;
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_plantillas/personalizacion_version",
+        { id_configuracion: idConfiguracion },
+      );
+      if (data?.success) setVersionInfo(data.data);
+    } catch {
+      /* silencioso: el versionado es informativo, no bloquea */
+    }
+  };
+  useEffect(() => {
+    cargarVersion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idConfiguracion]);
 
   // ── Auto-creación de órdenes Dropi ───────────────────────
   const [autoOrden, setAutoOrden] = useState(false);
@@ -366,6 +397,7 @@ const TabAsistente = ({
         });
         // Recargar para mostrar el prompt nuevo en el textarea
         cargarAsistente();
+        cargarVersion();
       } else {
         await Swal.fire({
           icon: "warning",
@@ -1102,6 +1134,94 @@ const TabAsistente = ({
                 <i className="bx bx-edit-alt" />
                 Personalizar prompt
               </button>
+
+              {/* ═══ Chip país + estado de versión del prompt ═══ */}
+              {versionInfo?.usa_plantilla_global &&
+                (() => {
+                  const desac = versionInfo.desactualizada;
+                  const acento = desac ? "#d97706" : "#059669";
+                  return (
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "stretch",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        overflow: "hidden",
+                        boxShadow: "0 1px 2px rgba(15,23,42,.05)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {/* País */}
+                      <span
+                        title="País del asistente"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "5px 10px",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          color: "#334155",
+                          background: "#f8fafc",
+                          borderRight: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <i
+                          className="bx bxs-map"
+                          style={{ fontSize: ".85rem", color: "#64748b" }}
+                        />
+                        {NOMBRE_PAIS[versionInfo.pais] || versionInfo.pais}
+                      </span>
+                      {/* Estado de versión */}
+                      <span
+                        title={
+                          desac
+                            ? `Estás en la versión ${versionInfo.aplicada}. Hay una versión más reciente (${versionInfo.ultima}). Usa "Actualizar prompt" para traerla.`
+                            : `Tu asistente está en la última versión del prompt (v${versionInfo.ultima}).`
+                        }
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "5px 11px",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          color: acento,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: acento,
+                            boxShadow: `0 0 0 3px ${acento}22`,
+                            flexShrink: 0,
+                          }}
+                        />
+                        {desac ? "Actualización disponible" : "Prompt al día"}
+                        <span
+                          style={{
+                            fontFamily:
+                              "ui-monospace, SFMono-Regular, Menlo, monospace",
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                            color: "#fff",
+                            background: acento,
+                            borderRadius: 5,
+                            padding: "1px 6px",
+                          }}
+                        >
+                          {desac
+                            ? `v${versionInfo.aplicada}→v${versionInfo.ultima}`
+                            : `v${versionInfo.ultima}`}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })()}
 
               {/* ═══ Botón Actualizar prompt ═══ */}
               <button
