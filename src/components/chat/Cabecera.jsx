@@ -8,6 +8,7 @@ import CarteraHeaderBadges from "../imporsuit/CarteraHeaderBadges";
 import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
+import RemarketingSwitch from "./RemarketingSwitch";
 
 const PLANES_CALENDARIO = [1, 3, 4];
 
@@ -479,6 +480,48 @@ const Cabecera = ({
       }
     } catch (error) {
       console.error("Error al actualizar bot_openia:", error);
+    }
+  };
+
+  const handleChangeRemarketing = async (nuevoEstado) => {
+    try {
+      await actualizarEnviarRemarketing(selectedChat.id, nuevoEstado);
+    } catch (error) {
+      console.error("Error al cambiar el estado del remarketing:", error);
+    }
+  };
+
+  const actualizarEnviarRemarketing = async (chatId, nuevoEstado) => {
+    try {
+      const response = await chatApi.post(
+        "/clientes_chat_center/actualizar_enviar_remarketing",
+        {
+          chatId,
+          nuevoEstado,
+        },
+      );
+
+      const data = await response.data;
+
+      if (data.status === "200") {
+        // actualizar localmente
+        setSelectedChat((prev) => ({
+          ...prev,
+          enviar_remarketing: nuevoEstado,
+        }));
+
+        setMensajesAcumulados((prev) =>
+          prev.map((chat) =>
+            chat.id === chatId
+              ? { ...chat, enviar_remarketing: nuevoEstado }
+              : chat,
+          ),
+        );
+      } else {
+        console.error("Error al actualizar el remarketing:", data);
+      }
+    } catch (error) {
+      console.error("Error al actualizar enviar_remarketing:", error);
     }
   };
 
@@ -1454,13 +1497,37 @@ const Cabecera = ({
 
               {/* ─── Lado derecho: acciones ─── */}
               <div className="flex items-center gap-2 shrink-0">
-                {/* SwitchBot */}
-                <div className="rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-sm">
+                {/* Bot IA */}
+                <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 shadow-sm">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100">
+                    <i className="bx bx-bot text-[14px] text-emerald-700" />
+                  </span>
+                  <span className="text-xs font-medium text-slate-600 hidden lg:inline">
+                    Bot IA
+                  </span>
                   <SwitchBot
                     botActivo={selectedChat.bot_openia === 1}
                     onToggle={() =>
                       handleChangeChatBotOpenia(
                         selectedChat.bot_openia === 1 ? 0 : 1,
+                      )
+                    }
+                  />
+                </div>
+
+                {/* Remarketing */}
+                <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 shadow-sm">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-amber-100">
+                    <i className="bx bx-bell text-[14px] text-amber-700" />
+                  </span>
+                  <span className="text-xs font-medium text-slate-600 hidden lg:inline">
+                    Remarketing
+                  </span>
+                  <RemarketingSwitch
+                    remarketingActivo={selectedChat.enviar_remarketing === 1}
+                    onToggle={() =>
+                      handleChangeRemarketing(
+                        selectedChat.enviar_remarketing === 1 ? 0 : 1,
                       )
                     }
                   />
@@ -1478,14 +1545,14 @@ const Cabecera = ({
                     aria-expanded={opcionesMenuOpen}
                     aria-controls="menu-opciones"
                     className="
-            inline-flex items-center justify-center
-            w-9 h-9 rounded-lg
-            border border-slate-200 bg-white
-            text-slate-700 shadow-sm
-            hover:bg-slate-50 hover:border-slate-300
-            transition-all duration-200
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-          "
+                            inline-flex items-center justify-center
+                            w-9 h-9 rounded-lg
+                            border border-slate-200 bg-white
+                            text-slate-700 shadow-sm
+                            hover:bg-slate-50 hover:border-slate-300
+                            transition-all duration-200
+                            focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                    "
                     title="Más opciones"
                     aria-label="Más opciones"
                   >
@@ -1510,6 +1577,53 @@ const Cabecera = ({
                         aria-hidden="true"
                         className="pointer-events-none absolute -top-1.5 right-6 h-3 w-3 rotate-45 bg-white border-t border-l border-slate-200/70"
                       />
+
+                      {/* ─── Automatizaciones (solo móvil) ─── */}
+                      <div className="sm:hidden px-1 pt-1 pb-2">
+                        <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                          Automatizaciones
+                        </p>
+
+                        {/* Bot IA */}
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
+                            <i className="bx bx-bot text-base text-emerald-700" />
+                          </span>
+                          <span className="flex-1 text-sm text-slate-700 truncate">
+                            Bot IA
+                          </span>
+                          <SwitchBot
+                            botActivo={selectedChat.bot_openia === 1}
+                            onToggle={() =>
+                              handleChangeChatBotOpenia(
+                                selectedChat.bot_openia === 1 ? 0 : 1,
+                              )
+                            }
+                          />
+                        </div>
+
+                        {/* Remarketing */}
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100">
+                            <i className="bx bx-bell text-base text-amber-700" />
+                          </span>
+                          <span className="flex-1 text-sm text-slate-700 truncate">
+                            Remarketing
+                          </span>
+                          <RemarketingSwitch
+                            remarketingActivo={
+                              selectedChat.enviar_remarketing === 1
+                            }
+                            onToggle={() =>
+                              handleChangeRemarketing(
+                                selectedChat.enviar_remarketing === 1 ? 0 : 1,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <hr className="sm:hidden my-2 border-slate-200/70" />
 
                       <button
                         role="menuitem"
