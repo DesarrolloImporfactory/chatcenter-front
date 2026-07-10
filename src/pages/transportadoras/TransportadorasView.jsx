@@ -17,10 +17,11 @@ import {
 import chatApi from "../../api/chatcenter";
 
 /**
- * Vista analítica de transportadoras (histórico por ciudad/provincia + costo de
- * flete promedio, con rango de fechas). Usa TODAS las órdenes de
- * dropi_orders_cache (columnas generadas provincia/flete_amount + índices).
- * Gráficos con recharts, selects buscables con react-select.
+ * Vista analítica de transportadoras (histórico SOLO por ciudad + costo de
+ * flete promedio, con rango de fechas). La tasa de entrega se mide por ciudad:
+ * la provincial daba un valor demasiado general. Usa TODAS las órdenes de
+ * dropi_orders_cache (columna generada flete_amount + índices).
+ * Gráficos con recharts, select buscable con react-select.
  */
 
 const COLORES = {
@@ -265,8 +266,7 @@ function ChartTooltip({ active, payload, sufijo }) {
 }
 
 export default function TransportadorasView() {
-  const [zonas, setZonas] = useState({ provincias: [], ciudades: [] });
-  const [provincia, setProvincia] = useState("");
+  const [zonas, setZonas] = useState({ ciudades: [] });
   const [ciudad, setCiudad] = useState("");
   const [preset, setPreset] = useState("3");
   const [desde, setDesde] = useState("");
@@ -284,9 +284,7 @@ export default function TransportadorasView() {
       .get("/dropi_stats/zonas_disponibles", {
         params: { id_configuracion: idConfig },
       })
-      .then(({ data: resp }) =>
-        setZonas(resp?.data || { provincias: [], ciudades: [] }),
-      )
+      .then(({ data: resp }) => setZonas(resp?.data || { ciudades: [] }))
       .catch(() => {});
   }, [idConfig]);
 
@@ -302,7 +300,6 @@ export default function TransportadorasView() {
     setLoading(true);
     chatApi
       .post("/dropi_stats/transportadoras_historico", {
-        provincia,
         ciudad,
         desde: rango.desde,
         hasta: rango.hasta,
@@ -314,26 +311,15 @@ export default function TransportadorasView() {
     return () => {
       vivo = false;
     };
-  }, [provincia, ciudad, rango.desde, rango.hasta]);
+  }, [ciudad, rango.desde, rango.hasta]);
 
   const resumen = data?.resumen || {};
   const transportadoras = data?.transportadoras || [];
   const zonasTabla = data?.zonas || [];
   const paisNombre = NOMBRE_PAIS[data?.pais] || data?.pais || "";
-  const nivelZona = data?.nivel_zona === "ciudad" ? "Ciudad" : "Provincia";
   const maxTot = transportadoras.reduce((a, t) => Math.max(a, t.total), 0);
 
   // Opciones react-select
-  const optProvincias = useMemo(
-    () => [
-      { value: "", label: "Todas las provincias" },
-      ...zonas.provincias.map((p) => ({
-        value: p.nombre,
-        label: `${p.nombre} · ${fmtNum(p.total)}`,
-      })),
-    ],
-    [zonas.provincias],
-  );
   const optCiudades = useMemo(
     () => [
       { value: "", label: "Todas las ciudades" },
@@ -389,7 +375,7 @@ export default function TransportadorasView() {
                 )}
               </h1>
               <p className="text-[12px] text-white/60">
-                Efectividad de entrega y costo de flete por zona · todas las
+                Efectividad de entrega y costo de flete por ciudad · todas las
                 órdenes de tu país
               </p>
             </div>
@@ -404,42 +390,23 @@ export default function TransportadorasView() {
 
         {/* Filtros */}
         <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4 shadow-[0_6px_20px_rgba(2,6,23,.04)]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">
-                <i className="bx bx-map align-middle mr-1 text-slate-400" />
-                Provincia
-              </label>
-              <Select
-                styles={selectStyles}
-                options={optProvincias}
-                value={
-                  optProvincias.find((o) => o.value === provincia) ||
-                  optProvincias[0]
-                }
-                onChange={(o) => setProvincia(o?.value || "")}
-                placeholder="Buscar provincia…"
-                isSearchable
-                noOptionsMessage={() => "Sin resultados"}
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">
-                <i className="bx bx-buildings align-middle mr-1 text-slate-400" />
-                Ciudad
-              </label>
-              <Select
-                styles={selectStyles}
-                options={optCiudades}
-                value={
-                  optCiudades.find((o) => o.value === ciudad) || optCiudades[0]
-                }
-                onChange={(o) => setCiudad(o?.value || "")}
-                placeholder="Buscar ciudad…"
-                isSearchable
-                noOptionsMessage={() => "Sin resultados"}
-              />
-            </div>
+          {/* Solo ciudad: la tasa de entrega por provincia salía muy general */}
+          <div className="max-w-xl">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">
+              <i className="bx bx-buildings align-middle mr-1 text-slate-400" />
+              Ciudad
+            </label>
+            <Select
+              styles={selectStyles}
+              options={optCiudades}
+              value={
+                optCiudades.find((o) => o.value === ciudad) || optCiudades[0]
+              }
+              onChange={(o) => setCiudad(o?.value || "")}
+              placeholder="Buscar ciudad…"
+              isSearchable
+              noOptionsMessage={() => "Sin resultados"}
+            />
           </div>
 
           {/* Presets de fecha + custom */}
@@ -490,16 +457,13 @@ export default function TransportadorasView() {
                 />
               </div>
             )}
-            {(provincia || ciudad) && (
+            {ciudad && (
               <button
                 type="button"
-                onClick={() => {
-                  setProvincia("");
-                  setCiudad("");
-                }}
+                onClick={() => setCiudad("")}
                 className="ml-auto text-[12px] font-semibold text-slate-500 hover:text-slate-700"
               >
-                <i className="bx bx-x text-lg align-middle" /> Limpiar zona
+                <i className="bx bx-x text-lg align-middle" /> Limpiar ciudad
               </button>
             )}
           </div>
@@ -686,7 +650,7 @@ export default function TransportadorasView() {
 
               <Panel
                 icon="bx-map-alt"
-                title={`Zonas con más volumen · por ${nivelZona.toLowerCase()}`}
+                title="Ciudades con más volumen"
                 right="top 10"
               >
                 <div className="p-4 h-[300px]">
@@ -742,7 +706,7 @@ export default function TransportadorasView() {
         <Panel
           icon="bxs-truck"
           title="Detalle por transportadora"
-          right={ciudad || provincia || "todas las zonas"}
+          right={ciudad || "todas las ciudades"}
         >
           {loading ? (
             <div className="p-4 space-y-2">
@@ -852,7 +816,7 @@ export default function TransportadorasView() {
         {/* Tabla de zonas (clic para filtrar) */}
         <Panel
           icon="bx-map-pin"
-          title={`Detalle por ${nivelZona.toLowerCase()}`}
+          title="Detalle por ciudad"
           right="clic para filtrar"
         >
           {loading ? (
@@ -874,7 +838,7 @@ export default function TransportadorasView() {
                 <thead className="sticky top-0 bg-white z-10">
                   <tr className="text-left text-[10.5px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
                     <th className="px-4 py-2.5 font-semibold bg-white">
-                      {nivelZona}
+                      Ciudad
                     </th>
                     <th className="px-3 py-2.5 font-semibold text-right">
                       Pedidos
@@ -897,10 +861,7 @@ export default function TransportadorasView() {
                       <tr
                         key={z.zona}
                         className="border-b border-slate-50 hover:bg-indigo-50/50 transition cursor-pointer"
-                        onClick={() => {
-                          if (nivelZona === "Provincia") setProvincia(z.zona);
-                          else setCiudad(z.zona);
-                        }}
+                        onClick={() => setCiudad(z.zona)}
                       >
                         <td className="px-4 py-2.5 font-semibold text-slate-800">
                           <i className="bx bx-map-pin text-slate-300 mr-1 align-middle" />

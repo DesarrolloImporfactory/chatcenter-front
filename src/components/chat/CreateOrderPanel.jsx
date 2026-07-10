@@ -612,12 +612,10 @@ export default function CreateOrderPanel(props) {
           </div>
         </div>
 
-        {/* Semáforo de transportadoras según la zona seleccionada.
-            (En localhost muestra un demo con datos reales aunque no haya zona.) */}
-        <SemaforoTransportadoras
-          provincia={selectedStateOption?.label || ""}
-          ciudad={selectedCityOption?.label || ""}
-        />
+        {/* Semáforo de transportadoras SOLO según la ciudad seleccionada (la
+            tasa provincial era muy general). Aparece al elegir ciudad.
+            (En localhost muestra un demo con datos reales aunque no haya ciudad.) */}
+        <SemaforoTransportadoras ciudad={selectedCityOption?.label || ""} />
       </div>
 
       {/* ═══ Buscar productos ═══ */}

@@ -2,10 +2,11 @@ import React, { useEffect, useState, useRef } from "react";
 import chatApi from "../../api/chatcenter";
 
 /**
- * Semáforo de transportadoras: al seleccionar provincia + ciudad, muestra qué
- * transportadora entrega mejor en esa zona (últimos 1 ó 3 meses de
- * dropi_orders_cache). Ayuda al cliente a elegir transportadora antes de crear
- * la orden. El indicador es un semáforo real (3 luces, se enciende la del color).
+ * Semáforo de transportadoras: al seleccionar la CIUDAD, muestra qué
+ * transportadora entrega mejor en esa ciudad (últimos 1/3/6 meses de
+ * dropi_orders_cache). La tasa se mide SOLO por ciudad — la provincial daba un
+ * valor demasiado general. Ayuda al cliente a elegir transportadora antes de
+ * crear la orden. El indicador es un semáforo real (3 luces, brilla la activa).
  */
 const COLORES = {
   verde: {
@@ -66,31 +67,30 @@ function MiniSemaforo({ activo }) {
   );
 }
 
-export default function SemaforoTransportadoras({ provincia, ciudad }) {
+export default function SemaforoTransportadoras({ ciudad }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [abierto, setAbierto] = useState(true);
   const [periodo, setPeriodo] = useState("1mes");
   const reqId = useRef(0);
-  // Caché por zona+periodo: al alternar 1 mes / 3 meses ya visitados, muestra al
+  // Caché por ciudad+periodo: al alternar periodos ya visitados, muestra al
   // instante sin volver a pegarle al servidor.
   const cache = useRef({});
 
-  // Modo demo: en localhost, Dropi de pruebas no devuelve provincia/ciudad, así
-  // que si no llegan, usamos una zona real con datos (Guayaquil) para previsualizar.
+  // Modo demo: en localhost, Dropi de pruebas no devuelve ciudad, así que si no
+  // llega, usamos una ciudad real con datos (Guayaquil) para previsualizar.
   const isLocal =
     typeof window !== "undefined" &&
     /localhost|127\.0\.0\.1/.test(window.location.hostname || "");
-  const demo = isLocal && !ciudad && !provincia;
-  const provinciaEff = provincia || (demo ? "GUAYAS" : "");
+  const demo = isLocal && !ciudad;
   const ciudadEff = ciudad || (demo ? "GUAYAQUIL" : "");
 
   useEffect(() => {
-    if (!ciudadEff && !provinciaEff) {
+    if (!ciudadEff) {
       setData(null);
       return;
     }
-    const key = `${provinciaEff}|${ciudadEff}|${periodo}`;
+    const key = `${ciudadEff}|${periodo}`;
     // Cache hit → instantáneo, sin consultar.
     if (cache.current[key]) {
       setData(cache.current[key]);
@@ -102,7 +102,6 @@ export default function SemaforoTransportadoras({ provincia, ciudad }) {
     setLoading(true);
     chatApi
       .post("/dropi_stats/semaforo_transportadoras", {
-        provincia: provinciaEff,
         ciudad: ciudadEff,
         periodo,
       })
@@ -118,17 +117,15 @@ export default function SemaforoTransportadoras({ provincia, ciudad }) {
       .finally(() => {
         if (myId === reqId.current) setLoading(false);
       });
-  }, [provinciaEff, ciudadEff, periodo]);
+  }, [ciudadEff, periodo]);
 
-  if (!ciudadEff && !provinciaEff) return null;
+  // Sin ciudad no hay semáforo: la tasa solo se mide por ciudad seleccionada.
+  if (!ciudadEff) return null;
 
   const lista = data?.transportadoras || [];
   const conDatos = lista.filter((t) => t.suficiente);
   const mejor = conDatos[0] || null;
-  const zona =
-    data?.nivel === "provincia"
-      ? provinciaEff || "la provincia"
-      : ciudadEff || provinciaEff || "la zona";
+  const zona = ciudadEff;
   const periodoLabel =
     PERIODOS.find((p) => p.key === periodo)?.label.toLowerCase() || "";
 
@@ -201,7 +198,8 @@ export default function SemaforoTransportadoras({ provincia, ciudad }) {
             </div>
           ) : lista.length === 0 ? (
             <p className="text-[10px] text-white/35 py-1">
-              Aún no hay entregas registradas en esta zona para {periodoLabel}.
+              Aún no hay entregas registradas en esta ciudad para{" "}
+              {periodoLabel}.
             </p>
           ) : (
             <>
