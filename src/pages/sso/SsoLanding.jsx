@@ -52,7 +52,10 @@ export default function SsoLanding() {
           navigate("/planes", { replace: true });
           return;
         }
-        navigate("/selector", { replace: true });
+        navigate("/conexiones", {
+          replace: true,
+          state: { bienvenida: true },
+        });
       })
       .catch((err) => {
         const msg =

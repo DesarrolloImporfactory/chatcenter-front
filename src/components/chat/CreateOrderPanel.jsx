@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback, useRef } from "react";
 import Select from "react-select";
 import { resolveProductImage, NO_IMAGE } from "../../utils/orderHelper";
+import SemaforoTransportadoras from "./SemaforoTransportadoras";
 
 /* ── estilos react-select para dark theme ── */
 const reactSelectStyles = {
@@ -610,6 +611,13 @@ export default function CreateOrderPanel(props) {
             )}
           </div>
         </div>
+
+        {/* Semáforo de transportadoras según la zona seleccionada.
+            (En localhost muestra un demo con datos reales aunque no haya zona.) */}
+        <SemaforoTransportadoras
+          provincia={selectedStateOption?.label || ""}
+          ciudad={selectedCityOption?.label || ""}
+        />
       </div>
 
       {/* ═══ Buscar productos ═══ */}

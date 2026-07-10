@@ -429,23 +429,6 @@ function MainLayout({ children }) {
           aria-hidden={!sliderOpen}
         >
           <div className="mt-6">
-            {/* Dashboard de conexión */}
-            <a
-              href="/conexion-dashboard"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/conexion-dashboard" ? "bg-gray-200 font-semibold" : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                goTo("/conexion-dashboard");
-              }}
-            >
-              <i className="bx bx-bar-chart-alt-2 text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Dashboard
-              </span>
-            </a>
-
             {/* Conexiones — SIN href a propósito: NO debe abrirse en pestaña
                 nueva porque borra el localStorage (id_configuracion, etc.) */}
             <a
@@ -461,6 +444,25 @@ function MainLayout({ children }) {
               <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
                 Conexiones
+              </span>
+            </a>
+
+            {/* Dashboard de conexión */}
+            <a
+              href="/conexion-dashboard"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/conexion-dashboard"
+                  ? "bg-gray-200 font-semibold"
+                  : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                goTo("/conexion-dashboard");
+              }}
+            >
+              <i className="bx bx-bar-chart-alt-2 text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Dashboard
               </span>
             </a>
 
@@ -556,6 +558,7 @@ function MainLayout({ children }) {
                 onClick={() => toggleMenu("ventas")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   location.pathname.startsWith("/pedidos") ||
+                  location.pathname.startsWith("/transportadoras") ||
                   location.pathname.startsWith("/shopify/abandonados")
                     ? "bg-gray-200 font-semibold"
                     : ""
@@ -577,7 +580,7 @@ function MainLayout({ children }) {
               <div
                 className="overflow-hidden transition-all duration-[600ms] ease-out"
                 style={{
-                  maxHeight: openMenu === "ventas" ? "220px" : "0px",
+                  maxHeight: openMenu === "ventas" ? "300px" : "0px",
                 }}
               >
                 <div className="ml-10 flex flex-col py-2">
@@ -592,6 +595,19 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Pedidos</span>
+                  </a>
+
+                  <a
+                    href="/transportadoras"
+                    onClick={(e) => handleNavClick(e, "/transportadoras")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/transportadoras")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-trip text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Transportadoras</span>
                   </a>
 
                   <a

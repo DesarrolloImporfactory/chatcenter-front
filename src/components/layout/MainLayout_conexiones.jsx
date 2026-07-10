@@ -186,22 +186,16 @@ function MainLayout({ children }) {
           aria-hidden={!sliderOpen}
         >
           <div className="mt-6">
-            {/* Dashboard — primer item. Fuera de una conexión abre el
-                centro de control general (/dashboard): permite elegir
-                cualquier conexión registrada. */}
-            {isSuperAdmin ? (
+            {/* Dashboard general (/dashboard) RETIRADO del menú: el dashboard
+                por conexión ahora se abre desde la vista de Conexiones ("Ver
+                dashboard completo"). Solo el super admin conserva su dashboard. */}
+            {isSuperAdmin && (
               <NavBtn
                 path="/dashboard_admin"
                 icon="bxs-bar-chart-alt-2"
                 label="Dashboard Admin"
               />
-            ) : !isGestorClientes ? (
-              <NavBtn
-                path="/dashboard"
-                icon="bxs-bar-chart-alt-2"
-                label="Dashboard"
-              />
-            ) : null}
+            )}
 
             {/* Conexiones — newTab=false: limpia el localStorage, NO debe
                 abrirse en pestaña nueva */}

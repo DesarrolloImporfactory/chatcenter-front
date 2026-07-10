@@ -751,6 +751,7 @@ const Cabecera = ({
               onClick={() => toggleMenu("ventas")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                 location.pathname.startsWith("/pedidos") ||
+                location.pathname.startsWith("/transportadoras") ||
                 location.pathname.startsWith("/shopify/abandonados")
                   ? "bg-gray-200 font-semibold"
                   : ""
@@ -772,7 +773,7 @@ const Cabecera = ({
             <div
               className="overflow-hidden transition-all duration-[600ms] ease-out"
               style={{
-                maxHeight: openMenu === "ventas" ? "220px" : "0px",
+                maxHeight: openMenu === "ventas" ? "300px" : "0px",
               }}
             >
               <div className="ml-10 flex flex-col py-2">
@@ -787,6 +788,19 @@ const Cabecera = ({
                 >
                   <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600"></i>
                   <span>Pedidos</span>
+                </a>
+
+                <a
+                  href="/transportadoras"
+                  onClick={(e) => handleNavClick(e, "/transportadoras")}
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    location.pathname.startsWith("/transportadoras")
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
+                >
+                  <i className="bx bx-trip text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Transportadoras</span>
                 </a>
 
                 <a

@@ -181,9 +181,9 @@ export default function Login() {
           userData;
         const ahora = new Date();
 
-        // Permanente → selector
+        // Permanente → conexiones (con animación de bienvenida)
         if (Number(permanente) === 1) {
-          navigate("/selector");
+          navigate("/conexiones", { state: { bienvenida: true } });
           return;
         }
 
@@ -193,21 +193,21 @@ export default function Login() {
           return;
         }
 
-        // Trial Stripe vigente → selector
+        // Trial Stripe vigente → conexiones (con animación de bienvenida)
         if (estado === "activo" && trial_end && ahora <= new Date(trial_end)) {
-          navigate("/selector");
+          navigate("/conexiones", { state: { bienvenida: true } });
           return;
         }
 
-        // Trial por uso (Insta Landing) → selector
+        // Trial por uso (Insta Landing) → conexiones (con animación de bienvenida)
         if (estado === "trial_usage") {
-          navigate("/selector");
+          navigate("/conexiones", { state: { bienvenida: true } });
           return;
         }
 
-        // Promo usage (código promocional) → selector
+        // Promo usage (código promocional) → conexiones (con animación de bienvenida)
         if (estado === "promo_usage") {
-          navigate("/selector");
+          navigate("/conexiones", { state: { bienvenida: true } });
           return;
         }
 
@@ -229,8 +229,8 @@ export default function Login() {
           return;
         }
 
-        // Todo OK → selector
-        navigate("/selector");
+        // Todo OK → conexiones (con animación de bienvenida)
+        navigate("/conexiones", { state: { bienvenida: true } });
       })
       .catch((e) => {
         setError("root", {

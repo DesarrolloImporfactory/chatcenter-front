@@ -6,10 +6,13 @@ import React, {
   useCallback,
 } from "react";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
 import botImage from "../../assets/bot.png";
+import RankingTiendas from "./RankingTiendas";
+import ResumenConexionHeader from "./ResumenConexionHeader";
+import BienvenidaSplash from "./BienvenidaSplash";
 import "./conexiones.css";
 
 import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
@@ -347,6 +350,17 @@ const Conexiones = () => {
   );
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  // Animación de bienvenida: solo cuando se llega recién logueado (state.bienvenida).
+  const [showBienvenida, setShowBienvenida] = useState(
+    () => !!location.state?.bienvenida,
+  );
+  useEffect(() => {
+    if (location.state?.bienvenida) {
+      // limpia el state para que un refresh no repita la animación
+      window.history.replaceState({}, "");
+    }
+  }, []);
   const [mostrarErrorBot, setMostrarErrorBot] = useState(false);
   const [ModalConfiguracionAutomatizada, setModalConfiguracionAutomatizada] =
     useState(false);
@@ -1177,6 +1191,12 @@ const Conexiones = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
+      {showBienvenida && (
+        <BienvenidaSplash
+          nombre={userData?.nombre?.split?.(" ")?.[0] || ""}
+          onDone={() => setShowBienvenida(false)}
+        />
+      )}
       <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
         <header className="relative isolate overflow-hidden rounded-t-2xl">
           {/* Fondo navy de marca + capas de profundidad */}
@@ -1230,32 +1250,16 @@ const Conexiones = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-              <HeaderStat
-                label="Total conexiones"
-                value={stats.total}
-                icon="bx bx-layer"
-                accent="text-indigo-300"
-              />
-              <HeaderStat
-                label="Conectados"
-                value={stats.conectados}
-                icon="bx bx-check-circle"
-                accent="text-emerald-300"
-              />
-              <HeaderStat
-                label="Pendientes"
-                value={stats.pendientes}
-                icon="bx bx-time-five"
-                accent="text-amber-300"
-              />
-              <HeaderStat
-                label="Pagos activos"
-                value={stats.pagosActivos}
-                icon="bx bx-credit-card-front"
-                accent="text-sky-300"
-              />
-            </div>
+            {/* Header fusionado con el dashboard: elige una conexión, mira sus
+                métricas del periodo y abre el dashboard completo si quiere el
+                detalle. Reemplaza los stats genéricos. */}
+            <ResumenConexionHeader
+              conexiones={configuracionAutomatizada}
+              onVerDashboard={(config) => {
+                setActiveConfig(config);
+                navigate("/conexion-dashboard");
+              }}
+            />
           </div>
         </header>
 
@@ -1352,11 +1356,13 @@ const Conexiones = () => {
           </div>
         )}
 
-        {/* ===================== GRID ===================== */}
+        {/* ================= GRID (conexiones) + RANKING lateral ================= */}
         <div className="p-6">
-          <div className="max-w-8xl mx-auto">
+          <div className="max-w-8xl mx-auto flex flex-col-reverse lg:flex-row gap-6 items-start">
+            {/* Columna izquierda: tarjetas de conexión */}
+            <div className="flex-1 min-w-0 w-full">
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(330px,100%),1fr))] gap-4">
                 {[...Array(8)].map((_, i) => (
                   <div
                     key={i}
@@ -1387,7 +1393,7 @@ const Conexiones = () => {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(330px,100%),1fr))] gap-4 auto-rows-fr">
                 {listaFiltrada.map((config, idx) => {
                   const conectado = isConectado(config);
                   const pagoActivo = Number(config.metodo_pago) === 1;
@@ -1609,7 +1615,7 @@ const Conexiones = () => {
                       {/* Footer */}
                       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                       <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 min-w-0">
                           <button
                             type="button"
                             onMouseEnter={(e) =>
@@ -1645,7 +1651,8 @@ const Conexiones = () => {
 
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (!conectado) {
                               Swal.fire({
                                 toast: true,
@@ -1661,7 +1668,7 @@ const Conexiones = () => {
                             navigate("/chat");
                           }}
                           className={[
-                            "inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition",
+                            "inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition shrink-0 whitespace-nowrap",
                             conectado
                               ? "text-white bg-[#0e0958] hover:bg-[#01011d] shadow-sm"
                               : "text-slate-400 bg-slate-100 cursor-not-allowed",
@@ -1681,8 +1688,14 @@ const Conexiones = () => {
                 })}
               </div>
             )}
+            </div>
+            {/* Columna derecha: Ranking Top tiendas (comparte espacio) */}
+            <aside className="w-full lg:w-[34%] xl:w-[31%] 2xl:w-[28%] lg:shrink-0 lg:sticky lg:top-6">
+              <RankingTiendas />
+            </aside>
           </div>
         </div>
+
       </div>
 
       {/* Popover único (position fixed) */}

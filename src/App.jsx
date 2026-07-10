@@ -46,6 +46,7 @@ import Estado_contactos_eventos from "./pages/contactos/Estado_contactos_eventos
 import KanbanConfig from "./pages/kanban/configuracion/KanbanConfig";
 import OrdenesDropi from "./pages/dropi/OrdenesDropi";
 import Conexiones from "./pages/conexiones/Conexiones";
+import TransportadorasView from "./pages/transportadoras/TransportadorasView";
 import ConnectionDashboard from "./pages/conexiones/ConnectionDashboard";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
@@ -428,6 +429,15 @@ function App() {
                   element={
                     <MainLayout>
                       <OrdenesDropi />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/transportadoras"
+                  element={
+                    <MainLayout>
+                      <TransportadorasView />
                     </MainLayout>
                   }
                 />
