@@ -566,7 +566,13 @@ const IntegracionShopify = () => {
 
               <div className="mt-3 flex items-center gap-2 flex-wrap">
                 <input
-                  type={showSecret ? "text" : "password"}
+                  // NO type="password": Chrome creía que era un login y
+                  // auto-rellenaba credenciales de Google. Se enmascara con CSS.
+                  type="text"
+                  name="shopify_webhook_secret_wizard"
+                  autoComplete="off"
+                  spellCheck={false}
+                  style={{ WebkitTextSecurity: showSecret ? "none" : "disc" }}
                   placeholder={
                     activeIntegration?.webhook_secret
                       ? "Pegar nuevo token (deja vacío si no quieres cambiar)"
@@ -911,6 +917,7 @@ const IntegracionShopify = () => {
                 </label>
                 <input
                   type="text"
+                  name="shopify_shop_domain"
                   placeholder="mitienda.myshopify.com"
                   className="mt-1 w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
                   value={shopDomain}
@@ -932,7 +939,12 @@ const IntegracionShopify = () => {
                 </label>
                 <div className="relative mt-1">
                   <input
-                    type={showSecret ? "text" : "password"}
+                    // NO type="password": Chrome detectaba "formulario de
+                    // login" y auto-rellenaba correo/contraseña de Google en el
+                    // modal. Se enmascara con CSS y el gestor no lo toca.
+                    type="text"
+                    name="shopify_webhook_secret"
+                    style={{ WebkitTextSecurity: showSecret ? "none" : "disc" }}
                     placeholder="Pega aquí el token que muestra Shopify"
                     className="w-full px-4 py-2 pr-20 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931] font-mono text-sm"
                     value={webhookSecret}

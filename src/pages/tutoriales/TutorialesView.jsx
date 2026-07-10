@@ -412,18 +412,48 @@ export default function TutorialesView() {
       <style>{css}</style>
 
       <div className="tut-wrap">
-        {/* ─────────── HERO ─────────── */}
-        <div className="tut-hero">
-          <div className="tut-hero-glow" />
-          <div className="tut-hero-main">
-            <div className="tut-hero-icon">
-              <i className="bx bxs-graduation" />
-            </div>
-            <div className="tut-hero-txt">
-              <div className="tut-eyebrow light">Academia Imporchat</div>
-              <h1>Centro de aprendizaje</h1>
-              <p>Domina la plataforma con videos guiados, paso a paso.</p>
-              <div className="tut-hero-chips">
+        {/* ─────────── HERO (mismo estilo que Conexiones/Usuarios) ─────────── */}
+        <header className="relative isolate overflow-hidden rounded-[22px] mb-[22px] shadow-[0_20px_50px_rgba(23,25,49,.28)]">
+          {/* Fondo navy de marca + capas de profundidad (fade radial) */}
+          <div className="absolute inset-0 bg-[#171931]" aria-hidden />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.6]"
+            style={{
+              backgroundImage:
+                "radial-gradient(600px circle at 0% 0%, rgba(79,70,229,0.25), transparent 45%), radial-gradient(500px circle at 100% 120%, rgba(99,102,241,0.18), transparent 40%)",
+            }}
+          />
+          {/* Cuadrícula sutil */}
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
+
+          <div className="relative px-5 py-4 md:px-7 md:py-5 flex items-center justify-between gap-5 flex-wrap">
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70 ring-1 ring-white/15">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
+                ImporChat · Academia
+              </span>
+              <h1 className="mt-2 text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                Centro de{" "}
+                <span className="bg-gradient-to-r from-indigo-300 to-violet-200 bg-clip-text text-transparent">
+                  aprendizaje
+                </span>
+              </h1>
+              <p className="mt-0.5 text-white/55 text-[13px] leading-snug">
+                Domina la plataforma con videos guiados, paso a paso.
+              </p>
+              <div className="tut-hero-chips" style={{ marginTop: 12 }}>
                 <span>
                   <i className="bx bx-movie-play" /> {totalGlobal} clases
                 </span>
@@ -436,19 +466,19 @@ export default function TutorialesView() {
                 </span>
               </div>
             </div>
+            <div className="flex items-center gap-[18px] shrink-0">
+              {totalGlobal > 0 && <ProgressRing pct={pctGlobal} />}
+              {isSuperAdmin && (
+                <button
+                  className="tut-config-btn"
+                  onClick={() => setAdminOpen(true)}
+                >
+                  <i className="bx bx-slider-alt" /> Configurar
+                </button>
+              )}
+            </div>
           </div>
-          <div className="tut-hero-right">
-            {totalGlobal > 0 && <ProgressRing pct={pctGlobal} />}
-            {isSuperAdmin && (
-              <button
-                className="tut-config-btn"
-                onClick={() => setAdminOpen(true)}
-              >
-                <i className="bx bx-slider-alt" /> Configurar
-              </button>
-            )}
-          </div>
-        </div>
+        </header>
 
         {loading ? (
           <div className="tut-loading big">
@@ -645,25 +675,13 @@ const css = `
   .tut-eyebrow { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#6366f1; }
   .tut-eyebrow.light { color:#a5b4fc; }
 
-  /* HERO */
-  .tut-hero { position:relative; overflow:hidden; border-radius:22px; padding:26px 30px; margin-bottom:22px;
-    background:linear-gradient(120deg, ${BG_DARK} 0%, #2a2d55 55%, #3b2d6b 100%);
-    display:flex; align-items:center; justify-content:space-between; gap:22px; flex-wrap:wrap;
-    box-shadow:0 20px 50px rgba(23,25,49,.28); }
-  .tut-hero-glow { position:absolute; top:-60%; right:-5%; width:420px; height:420px; border-radius:50%;
-    background:radial-gradient(circle, rgba(129,140,248,.45) 0%, transparent 65%); pointer-events:none; }
-  .tut-hero-main { display:flex; align-items:center; gap:18px; position:relative; z-index:1; min-width:0; }
-  .tut-hero-icon { width:58px; height:58px; border-radius:16px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(135deg, rgba(129,140,248,.3), rgba(52,211,153,.18)); border:1px solid rgba(255,255,255,.18); }
-  .tut-hero-icon i { font-size:1.9rem; color:#c7d2fe; }
-  .tut-hero-txt h1 { margin:3px 0 3px; font-size:1.75rem; font-weight:900; color:#fff; letter-spacing:-.01em; }
-  .tut-hero-txt p { margin:0 0 12px; color:rgba(255,255,255,.65); font-size:.92rem; }
+  /* HERO: contenedor ahora en Tailwind (navy + cuadrícula + fades, como
+     Conexiones/Usuarios); aquí solo quedan los chips y el anillo. */
   .tut-hero-chips { display:flex; gap:8px; flex-wrap:wrap; }
   .tut-hero-chips span { display:inline-flex; align-items:center; gap:6px; font-size:.74rem; font-weight:700; color:rgba(255,255,255,.85);
     background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); padding:5px 11px; border-radius:999px; }
   .tut-hero-chips span.auto { color:#6ee7b7; background:rgba(52,211,153,.12); border-color:rgba(52,211,153,.25); }
   .tut-hero-chips i { font-size:.95rem; }
-  .tut-hero-right { display:flex; align-items:center; gap:18px; position:relative; z-index:1; }
   .tut-ring { display:block; }
   .tut-ring-txt { fill:#fff; font-size:16px; font-weight:800; text-anchor:middle; dominant-baseline:middle; }
   .tut-config-btn { display:inline-flex; align-items:center; gap:7px; padding:11px 18px; border-radius:12px; border:1px solid rgba(255,255,255,.2);
@@ -721,7 +739,12 @@ const css = `
   .tut-chev { color:#94a3b8; font-size:1.3rem; flex-shrink:0; }
   .tut-mod-bar { height:4px; background:#eef2f7; }
   .tut-mod-fill { height:100%; background:linear-gradient(90deg,#6366f1,#34d399); transition:width .5s ease; }
-  .tut-lessons { display:flex; flex-direction:column; padding:8px; gap:3px; }
+  /* Con muchas clases (p.ej. 12) en pantallas chicas las últimas quedaban
+     cortadas sin forma de llegar: la lista tiene su propio scroll. */
+  .tut-lessons { display:flex; flex-direction:column; padding:8px; gap:3px; max-height:min(48vh, 460px); overflow-y:auto; }
+  .tut-lessons::-webkit-scrollbar { width:6px; }
+  .tut-lessons::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+  .tut-lessons::-webkit-scrollbar-track { background:transparent; }
   .tut-lesson { display:flex; align-items:center; gap:11px; padding:10px 11px; border-radius:11px; border:none; background:none; cursor:pointer; font-family:inherit; text-align:left; transition:background .15s; position:relative; }
   .tut-lesson:hover { background:#f5f7fb; }
   .tut-lesson.active { background:linear-gradient(90deg,#eef2ff,#f5f3ff); }

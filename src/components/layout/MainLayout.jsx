@@ -682,8 +682,8 @@ function MainLayout({ children }) {
                         : ""
                     }`}
                   >
-                    <i className="bx bx-support text-xl text-gray-600 group-hover:text-blue-600"></i>
-                    <span>Asistentes</span>
+                    <i className="bx bxs-bolt text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Asistentes AI</span>
                   </a>
 
                   {/* ===== Dropi (submenu) ===== */}

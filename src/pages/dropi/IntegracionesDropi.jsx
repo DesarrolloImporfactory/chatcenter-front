@@ -108,7 +108,10 @@ const IntegracionesDropi = () => {
 
   const openCreate = () => {
     setMode("create");
-    setStoreName("");
+    // UX: pre-llenamos el nombre con el de la configuración (igual que al
+    // instalar la plantilla del asistente) para que el cliente escriba menos.
+    // Sigue siendo editable si desea otro nombre.
+    setStoreName(localStorage.getItem("nombre_configuracion") || "");
     setCountryOpt(
       COUNTRY_OPTIONS.find((x) => x.value === "CO") || COUNTRY_OPTIONS[0],
     );
@@ -636,6 +639,10 @@ const IntegracionesDropi = () => {
                   </label>
                   <input
                     type="text"
+                    // name raro + autoComplete off: que Chrome NO meta aquí el
+                    // correo de Google creyendo que es un formulario de login.
+                    name="dropi_store_name"
+                    autoComplete="off"
                     placeholder="Ej: Tienda Dropi CO"
                     className="mt-1 w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
                     value={storeName}
@@ -669,7 +676,16 @@ const IntegracionesDropi = () => {
 
                 <div className="relative mt-1">
                   <input
-                    type={showToken ? "text" : "password"}
+                    // NO usar type="password": Chrome detectaba "login form" y
+                    // auto-rellenaba correo/contraseña de Google en el modal.
+                    // Se enmascara con CSS (WebkitTextSecurity) y así el
+                    // gestor de contraseñas nunca toca estos campos.
+                    type="text"
+                    name="dropi_integration_token"
+                    autoComplete="off"
+                    style={{
+                      WebkitTextSecurity: showToken ? "none" : "disc",
+                    }}
                     placeholder={
                       mode === "edit"
                         ? "Pegue un nuevo token solo si desea cambiarlo"
@@ -678,7 +694,6 @@ const IntegracionesDropi = () => {
                     className="w-full px-4 py-2 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
-                    autoComplete="off"
                     spellCheck={false}
                   />
 
