@@ -614,8 +614,16 @@ export default function CreateOrderPanel(props) {
 
         {/* Semáforo de transportadoras SOLO según la ciudad seleccionada (la
             tasa provincial era muy general). Aparece al elegir ciudad.
+            `disponibles`: si ya hay cotización, se filtra a las transportadoras
+            que Dropi realmente ofrece para esta ruta (p.ej. URBANO tiene
+            histórico en la ciudad pero no cotiza → no debe salir).
             (En localhost muestra un demo con datos reales aunque no haya ciudad.) */}
-        <SemaforoTransportadoras ciudad={selectedCityOption?.label || ""} />
+        <SemaforoTransportadoras
+          ciudad={selectedCityOption?.label || ""}
+          disponibles={(shippingQuotes || [])
+            .map((t) => t?.transportadora || t?.distributionCompany?.name)
+            .filter(Boolean)}
+        />
       </div>
 
       {/* ═══ Buscar productos ═══ */}

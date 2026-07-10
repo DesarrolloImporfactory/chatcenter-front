@@ -67,7 +67,7 @@ function MiniSemaforo({ activo }) {
   );
 }
 
-export default function SemaforoTransportadoras({ ciudad }) {
+export default function SemaforoTransportadoras({ ciudad, disponibles }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [abierto, setAbierto] = useState(true);
@@ -122,7 +122,19 @@ export default function SemaforoTransportadoras({ ciudad }) {
   // Sin ciudad no hay semáforo: la tasa solo se mide por ciudad seleccionada.
   if (!ciudadEff) return null;
 
-  const lista = data?.transportadoras || [];
+  // Si ya hay cotización, solo mostramos las transportadoras que Dropi ofrece
+  // para esta ruta: el histórico puede incluir otras (p.ej. URBANO) que el
+  // cliente NUNCA podrá elegir al cotizar, y eso confunde.
+  const dispSet = new Set(
+    (disponibles || [])
+      .map((n) => String(n || "").trim().toUpperCase())
+      .filter(Boolean),
+  );
+  const lista = (data?.transportadoras || []).filter(
+    (t) =>
+      dispSet.size === 0 ||
+      dispSet.has(String(t.transportadora || "").trim().toUpperCase()),
+  );
   const conDatos = lista.filter((t) => t.suficiente);
   const mejor = conDatos[0] || null;
   const zona = ciudadEff;

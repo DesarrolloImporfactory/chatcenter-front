@@ -877,6 +877,22 @@ const OrdenesDropi = () => {
           </div>
         </div>
 
+        {/* Alerta: teléfonos incompletos en esta página */}
+        {!ordersLoading && orders.some((o) => o?.telefono_incompleto) && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <i className="bx bxs-error text-lg shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold">
+                {orders.filter((o) => o?.telefono_incompleto).length} pedido(s)
+                con teléfono incompleto.
+              </span>{" "}
+              La transportadora no podrá contactar a esos clientes. El número
+              correcto aparece debajo de cada teléfono marcado en rojo —
+              corrígelo en Dropi para evitar novedades y devoluciones.
+            </div>
+          </div>
+        )}
+
         {/* TABLA */}
         <div className="mt-6 overflow-auto rounded-xl border border-gray-100">
           <table className="min-w-[1100px] w-full text-sm">
@@ -947,9 +963,43 @@ const OrdenesDropi = () => {
                         <div className="font-semibold text-gray-900">
                           {fullName}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div
+                          className={`text-xs ${
+                            o?.telefono_incompleto
+                              ? "text-red-600 font-semibold"
+                              : "text-gray-500"
+                          }`}
+                        >
                           {o?.phone ? `Tel: ${o.phone}` : "Tel: Sin teléfono"}
+                          {o?.telefono_incompleto && (
+                            <i
+                              className="bx bxs-error align-middle ml-1"
+                              title="A este teléfono le faltan dígitos: la transportadora no podrá contactar al cliente."
+                            />
+                          )}
                         </div>
+                        {o?.telefono_incompleto && (
+                          <div className="text-xs mt-0.5">
+                            {o?.telefono_sugerido ? (
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-semibold"
+                                title={
+                                  o?.telefono_sugerido_fuente === "contacto"
+                                    ? "Número completo tomado del chat de WhatsApp de este cliente"
+                                    : "Número completo tomado de la orden original de este pedido"
+                                }
+                              >
+                                <i className="bx bx-phone-call text-sm" />
+                                Correcto: {o.telefono_sugerido}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 font-semibold">
+                                <i className="bx bx-error-circle text-sm" />
+                                Teléfono incompleto
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {o?.email ? (
                           <div className="text-xs text-gray-500">{o.email}</div>
                         ) : null}
