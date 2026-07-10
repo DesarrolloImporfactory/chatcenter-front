@@ -112,6 +112,10 @@ const Asistentes = () => {
     }
   }, []);
 
+  // true solo si la key existe GUARDADA en la BD (no lo que se tipea en el
+  // input) — controla la visibilidad del botón "Eliminar API Key" del modal.
+  const [apiKeyGuardada, setApiKeyGuardada] = useState(false);
+
   const fetchAsistenteAutomatizado = async () => {
     if (!id_configuracion) return;
     try {
@@ -120,10 +124,12 @@ const Asistentes = () => {
       });
       const data = response.data?.data || {};
       setExisteAsistente(data.api_key_openai || null);
+      setApiKeyGuardada(Boolean(String(data.api_key_openai || "").trim()));
       setAsistenteVentas(data.ventas || null);
     } catch (error) {
       console.error("Error al cargar los asistentes.", error);
       setExisteAsistente(null);
+      setApiKeyGuardada(false);
       setAsistenteVentas(null);
     }
   };
@@ -230,6 +236,49 @@ const Asistentes = () => {
   // segundos) — antes el cliente quedaba "en blanco" sin saber si pasó algo.
   const [savingApiKey, setSavingApiKey] = useState(false);
   const [savingVentas, setSavingVentas] = useState(false);
+  const [deletingApiKey, setDeletingApiKey] = useState(false);
+
+  // Elimina la API Key (y suspende los asistentes con soft delete en el back).
+  const eliminarApiKey = async () => {
+    if (deletingApiKey || savingApiKey) return;
+
+    const r = await Swal.fire({
+      icon: "warning",
+      title: "¿Eliminar API Key?",
+      html: `Su asistente <b>dejará de responder</b> a los clientes hasta que
+        configure una nueva llave.<br/>`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#171931",
+      customClass: { popup: "rounded-2xl" },
+    });
+    if (!r.isConfirmed) return;
+
+    setDeletingApiKey(true);
+    try {
+      await chatApi.post("openai_assistants/eliminar_api_key_openai", {
+        id_configuracion,
+      });
+      setExisteAsistente(null);
+      setApiKeyGuardada(false);
+      setShowModalApiKey(false);
+      await fetchAsistenteAutomatizado();
+      Toast.fire({
+        icon: "success",
+        title: "API Key eliminada y asistente suspendido",
+      });
+    } catch (e) {
+      console.error(e);
+      Toast.fire({
+        icon: "error",
+        title: e?.response?.data?.message || "No se pudo eliminar la API Key",
+      });
+    } finally {
+      setDeletingApiKey(false);
+    }
+  };
 
   const guardarApiKey = async (apiKeyInput) => {
     if (savingApiKey) return;
@@ -932,25 +981,41 @@ const Asistentes = () => {
               )}
             </div>
 
-            {/* Footer */}
-            <div className="flex justify-end bg-gray-50/60 px-5 py-4 border-t border-gray-100 space-x-2.5">
-              <button
-                onClick={() => setShowModalApiKey(false)}
-                disabled={savingApiKey}
-                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => guardarApiKey(existeAsistente)}
-                disabled={savingApiKey}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white font-semibold hover:bg-indigo-700 shadow-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                <i
-                  className={`bx ${savingApiKey ? "bx-loader-alt bx-spin" : "bx-check"}`}
-                />
-                {savingApiKey ? "Validando…" : "Guardar"}
-              </button>
+            {/* Footer: eliminar a la izquierda (solo si hay key guardada),
+                acciones normales a la derecha */}
+            <div className="flex items-center bg-gray-50/60 px-5 py-4 border-t border-gray-100 gap-2.5">
+              {apiKeyGuardada && (
+                <button
+                  onClick={eliminarApiKey}
+                  disabled={savingApiKey || deletingApiKey}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-rose-200 bg-white text-sm text-rose-600 font-semibold hover:bg-rose-50 hover:border-rose-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Eliminar la API Key: el asistente dejará de responder"
+                >
+                  <i
+                    className={`bx ${deletingApiKey ? "bx-loader-alt bx-spin" : "bx-trash"}`}
+                  />
+                  {deletingApiKey ? "Eliminando…" : "Eliminar"}
+                </button>
+              )}
+              <div className="ml-auto flex gap-2.5">
+                <button
+                  onClick={() => setShowModalApiKey(false)}
+                  disabled={savingApiKey || deletingApiKey}
+                  className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => guardarApiKey(existeAsistente)}
+                  disabled={savingApiKey || deletingApiKey}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white font-semibold hover:bg-indigo-700 shadow-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  <i
+                    className={`bx ${savingApiKey ? "bx-loader-alt bx-spin" : "bx-check"}`}
+                  />
+                  {savingApiKey ? "Validando…" : "Guardar"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
