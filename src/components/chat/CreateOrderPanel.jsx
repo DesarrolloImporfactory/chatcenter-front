@@ -327,22 +327,18 @@ export default function CreateOrderPanel(props) {
         </div>
       </div>
 
-      {/* ═══ Historial del cliente en Dropi ═══ */}
-      {(customerHistory || customerHistoryLoading) && (
+      {/* ═══ Historial del cliente en Dropi ═══
+          Solo se muestra cuando YA hay datos — nada de spinners mientras se
+          escribe en el formulario: el bloque aparecía/desaparecía con cada
+          tecla y ensuciaba la experiencia. */}
+      {customerHistory && (
         <div className={sectionCls}>
           <div className="px-3.5 py-2.5">
             <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold block mb-2">
               Historial del cliente en Dropi
             </span>
 
-            {customerHistoryLoading ? (
-              <div className="flex items-center gap-2 py-2">
-                <i className="bx bx-loader-alt bx-spin text-white/30 text-sm" />
-                <p className="text-[10px] text-white/35">
-                  Consultando historial…
-                </p>
-              </div>
-            ) : customerHistory?.stats?.total_orders === 0 ? (
+            {customerHistory?.stats?.total_orders === 0 ? (
               <div className="flex items-center gap-2 px-2.5 py-2 rounded-[7px] bg-white/[0.03] border border-white/[0.06]">
                 <i className="bx bx-user-plus text-blue-400/60 text-sm" />
                 <span className="text-[10px] text-white/50">

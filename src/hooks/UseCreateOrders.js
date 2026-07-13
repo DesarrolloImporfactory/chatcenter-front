@@ -414,61 +414,73 @@ export default function useCreateOrder({
     return digits;
   }
 
-  // ── fetch historial del cliente cuando hay teléfono O se abre el panel ──
+  // ── fetch historial del cliente cuando hay teléfono COMPLETO ──
+  // ⛔ DESHABILITADO: Dropi inhabilitó el endpoint
+  // /orders/customers/fingerprint — se deja el código comentado para
+  // reactivarlo cuando vuelva y mientras tanto no hacer peticiones en vano.
+  // (Ya quedó con debounce de 600ms y gate de número completo de 9 dígitos,
+  // que antes disparaba en cada tecla; al reactivar, solo descomentar.)
+  /*
   useEffect(() => {
     if (!createOrderOpen) return;
 
     const raw = String(phoneInput || "").replace(/\D/g, "");
     const clean = stripCountryCode(raw);
 
-    if (clean.length < 7) {
+    if (clean.length < 9) {
       setCustomerHistory(null);
+      setCustomerHistoryLoading(false);
       return;
     }
 
     let cancelled = false;
-    setCustomerHistoryLoading(true);
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      setCustomerHistoryLoading(true);
 
-    axios
-      .get(`https://api-v2.dropi.ec/orders/customers/fingerprint`, {
-        params: {
-          phone: clean,
-          userid: 1,
-          productid: 0,
-        },
-      })
-      .then((res) => {
-        const data = res?.data?.data;
+      axios
+        .get(`https://api-v2.dropi.ec/orders/customers/fingerprint`, {
+          params: {
+            phone: clean,
+            userid: 1,
+            productid: 0,
+          },
+        })
+        .then((res) => {
+          const data = res?.data?.data;
 
-        if (!cancelled && data) {
-          const total = data.total_orders || 0;
-          const delivered = data.orders_delivered || 0;
-          const canceled = data.orders_returned || 0;
-          const rate = data.confiability || 0;
+          if (!cancelled && data) {
+            const total = data.total_orders || 0;
+            const delivered = data.orders_delivered || 0;
+            const canceled = data.orders_returned || 0;
+            const rate = data.confiability || 0;
 
-          let risk = "neutral";
-          if (rate >= 0.8) risk = "success";
-          else if (rate >= 0.5) risk = "warning";
-          else risk = "danger";
+            let risk = "neutral";
+            if (rate >= 0.8) risk = "success";
+            else if (rate >= 0.5) risk = "warning";
+            else risk = "danger";
 
-          setCustomerHistory({
-            stats: { total_orders: total, delivered, canceled },
-            risk: { color: risk, delivery_rate: rate * 100 },
-            raw: data,
-          });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCustomerHistory(null);
-      })
-      .finally(() => {
-        if (!cancelled) setCustomerHistoryLoading(false);
-      });
+            setCustomerHistory({
+              stats: { total_orders: total, delivered, canceled },
+              risk: { color: risk, delivery_rate: rate * 100 },
+              raw: data,
+            });
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setCustomerHistory(null);
+        })
+        .finally(() => {
+          if (!cancelled) setCustomerHistoryLoading(false);
+        });
+    }, 600);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [phoneInput, createOrderOpen]);
+  */
 
   // ── emitCreateOrder ──
   const emitCreateOrder = useCallback(() => {
