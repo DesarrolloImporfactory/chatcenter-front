@@ -1243,6 +1243,18 @@ const Modales = ({
       return;
     }
 
+    // Un contacto SIEMPRE debe crearse con id_configuracion (si no, queda
+    // huérfano). Se usa la prop y, como respaldo, la configuración activa.
+    const cfgId = Number(id_configuracion) ||
+      Number(localStorage.getItem("id_configuracion"));
+    if (!Number.isInteger(cfgId) || cfgId <= 0) {
+      Toast.fire({
+        icon: "error",
+        title: "No hay configuración activa (id_configuracion).",
+      });
+      return;
+    }
+
     // Limpiar teléfono: quitar caracteres especiales y espacios
     const telefonoLimpio = newContactPhone.replace(/[^0-9]/g, "");
 
@@ -1253,7 +1265,7 @@ const Modales = ({
           nombre: newContactName,
           telefono: telefonoLimpio,
           apellido: "",
-          id_configuracion,
+          id_configuracion: cfgId,
         },
       );
 

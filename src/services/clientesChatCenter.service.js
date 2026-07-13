@@ -65,10 +65,19 @@ function mapRow(row) {
   };
 }
 
+// Resuelve la configuración activa: del cliente y, si no, de localStorage.
+function resolveIdConfiguracion(c) {
+  const fromClient = Number(c?.id_configuracion);
+  if (Number.isInteger(fromClient) && fromClient > 0) return fromClient;
+  const fromStorage = Number(localStorage.getItem("id_configuracion"));
+  if (Number.isInteger(fromStorage) && fromStorage > 0) return fromStorage;
+  return null;
+}
+
 export async function apiUpdateClienteChatCenter(id, c) {
+  const id_configuracion = resolveIdConfiguracion(c);
   const payload = {
     id_plataforma: c.id_plataforma || null,
-    id_configuracion: c.id_configuracion || null,
     id_etiqueta: c.id_etiqueta || null,
     uid_cliente: c.uid_cliente || "",
     nombre_cliente: c.nombre || c.nombre_cliente || "",
@@ -82,6 +91,8 @@ export async function apiUpdateClienteChatCenter(id, c) {
     bot_openia: c.bot_openia ?? 1,
     pedido_confirmado: c.pedido_confirmado ?? 0,
   };
+  // Nunca enviar null: dejaría huérfano al cliente. Solo se manda si se resolvió.
+  if (id_configuracion) payload.id_configuracion = id_configuracion;
 
   const { data } = await chatApi.put(
     `/clientes_chat_center/actualizar/${id}`,

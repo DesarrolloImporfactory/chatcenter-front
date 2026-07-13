@@ -48,10 +48,27 @@ const TablaContactos = ({
   };
 
   /* ======= CRUD cliente ======= */
+  // Un cliente SIEMPRE debe tener id_configuracion (si no, queda huérfano y no
+  // aparece en ninguna tienda/kanban). Se toma del cliente y, si no, de la
+  // configuración activa en localStorage. Devuelve null si no se puede resolver.
+  function resolveIdConfiguracion(c) {
+    const fromClient = Number(c?.id_configuracion);
+    if (Number.isInteger(fromClient) && fromClient > 0) return fromClient;
+    const fromStorage = Number(localStorage.getItem("id_configuracion"));
+    if (Number.isInteger(fromStorage) && fromStorage > 0) return fromStorage;
+    return null;
+  }
+
   async function apiCreate(c) {
+    const id_configuracion = resolveIdConfiguracion(c);
+    if (!id_configuracion) {
+      throw new Error(
+        "No se pudo determinar la configuración (id_configuracion). Selecciona una configuración antes de crear el contacto.",
+      );
+    }
     const payload = {
       id_plataforma: c.id_plataforma || null,
-      id_configuracion: c.id_configuracion || null,
+      id_configuracion,
       id_etiqueta: c.id_etiqueta || null,
       uid_cliente: c.uid_cliente || "",
       nombre_cliente: c.nombre,
@@ -72,9 +89,9 @@ const TablaContactos = ({
     return mapRow(data?.data || data);
   }
   async function apiUpdate(id, c) {
+    const id_configuracion = resolveIdConfiguracion(c);
     const payload = {
       id_plataforma: c.id_plataforma || null,
-      id_configuracion: c.id_configuracion || null,
       id_etiqueta: c.id_etiqueta || null,
       uid_cliente: c.uid_cliente || "",
       nombre_cliente: c.nombre,
@@ -88,6 +105,8 @@ const TablaContactos = ({
       bot_openia: c.bot_openia ?? 1,
       pedido_confirmado: c.pedido_confirmado ?? 0,
     };
+    // Solo se envía si se pudo resolver: nunca mandar null (dejaría huérfano al cliente).
+    if (id_configuracion) payload.id_configuracion = id_configuracion;
     const { data } = await chatApi.put(
       `/clientes_chat_center/actualizar/${id}`,
       payload,

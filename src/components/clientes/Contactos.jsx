@@ -1651,12 +1651,23 @@ export default function Contactos() {
       return;
     }
 
+    // Sin id_configuracion el contacto quedaría huérfano: no crear.
+    const cfgId = Number(id_configuracion) ||
+      Number(localStorage.getItem("id_configuracion"));
+    if (!Number.isInteger(cfgId) || cfgId <= 0) {
+      swalInfo(
+        "Configuración",
+        "No se encontró la configuración activa (id_configuracion). Selecciona una tienda antes de crear el contacto.",
+      );
+      return;
+    }
+
     try {
       swalLoading("Guardando contacto...");
 
       const response = await chatApi.post(
         "/clientes_chat_center/agregarNumeroChat",
-        { telefono, nombre, apellido, id_configuracion },
+        { telefono, nombre, apellido, id_configuracion: cfgId },
       );
 
       const data = response?.data;
