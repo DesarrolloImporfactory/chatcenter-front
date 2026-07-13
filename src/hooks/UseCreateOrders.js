@@ -695,13 +695,33 @@ export default function useCreateOrder({
     };
 
     const onCreateOk = (resp) => {
-      Swal.fire({
-        icon: "success",
-        title: "Orden creada",
-        text: resp?.message || "La orden se creó correctamente",
-        timer: 1800,
-        showConfirmButton: false,
-      });
+      // Dropi a veces guarda el teléfono con un dígito menos aunque nosotros
+      // lo enviamos completo. El back compara enviado vs guardado y nos manda
+      // telefono_alterado — avisamos al agente ahí mismo para que lo corrija
+      // dentro de Dropi antes de generar la guía.
+      const alterado = resp?.data?.telefono_alterado;
+      if (alterado) {
+        Swal.fire({
+          icon: "warning",
+          title: "Orden creada, pero Dropi alteró el teléfono",
+          html:
+            `Enviamos el número completo <b>${alterado.enviado}</b>, ` +
+            `pero Dropi guardó <b>${alterado.guardado}</b>` +
+            (alterado.orden ? ` en la orden <b>#${alterado.orden}</b>.` : ".") +
+            `<br/><br/>Por favor <b>edita la orden dentro de Dropi</b> y ` +
+            `corrige el teléfono antes de generar la guía — con ese número ` +
+            `la transportadora no podrá contactar al cliente.`,
+          confirmButtonText: "Entendido",
+        });
+      } else {
+        Swal.fire({
+          icon: "success",
+          title: "Orden creada",
+          text: resp?.message || "La orden se creó correctamente",
+          timer: 1800,
+          showConfirmButton: false,
+        });
+      }
       setCreateOrderOpen(false);
       setStep(1);
       emitGetOrders();
