@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import chatApi from "../../api/chatcenter";
+import PageShell from "../../components/layout/PageShell";
 
 import DropiFilters from "./dropiboard/formatters/DropiFilters";
 import DropiStatusBar from "./dropiboard/presets/DropiStatusBar";
@@ -248,7 +249,8 @@ const Dropiboard = ({ lockedConfigId = null, autoFetch = false }) => {
   }, [statusStats]);
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50">
+    <PageShell>
+    <div className="w-full bg-slate-50 min-h-[82vh]">
       {/* HEADER */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#2a1a0e] to-[#FF6B35] text-white px-6 py-5">
         <div
@@ -590,6 +592,7 @@ const Dropiboard = ({ lockedConfigId = null, autoFetch = false }) => {
         )}
       </div>
     </div>
+    </PageShell>
   );
 };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import PageHeader from "../../pages/Header/pageHeader";
+import PageShell from "../../components/layout/PageShell";
 import EditorColumnas from "./EditorColumnas";
 
 const Toast = Swal.mixin({
@@ -395,6 +396,7 @@ const PlantillasGlobalesAdmin = () => {
   };
 
   return (
+    <PageShell>
     <div
       style={{ padding: 24, fontFamily: "'DM Sans', system-ui, sans-serif" }}
     >
@@ -690,6 +692,7 @@ const PlantillasGlobalesAdmin = () => {
         />
       )}
     </div>
+    </PageShell>
   );
 };
 

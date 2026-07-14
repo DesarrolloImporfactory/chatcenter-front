@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import chatApi from "../../api/chatcenter";
+import PageShell from "../../components/layout/PageShell";
 
 /* ── Helpers ── */
 const formatDate = (dateStr) => {
@@ -101,9 +102,9 @@ const HistorialPage = () => {
   }, {});
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* ══════════ HEADER ══════════ */}
-      <div className="bg-[#0f1129] relative overflow-hidden rounded-3xl">
+    <PageShell>
+      {/* ══════════ HEADER full-bleed ══════════ */}
+      <div className="bg-[#0f1129] relative overflow-hidden">
         {/* Subtle glow accents */}
         <div
           className="absolute rounded-full"
@@ -582,7 +583,7 @@ const HistorialPage = () => {
           </div>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 };
 

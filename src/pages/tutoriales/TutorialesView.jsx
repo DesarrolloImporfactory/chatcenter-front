@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import PageShell from "../../components/layout/PageShell";
 
 const BG_DARK = "rgb(23, 25, 49)";
 
@@ -411,9 +412,9 @@ export default function TutorialesView() {
     <>
       <style>{css}</style>
 
-      <div className="tut-wrap">
-        {/* ─────────── HERO (mismo estilo que Conexiones/Usuarios) ─────────── */}
-        <header className="relative isolate overflow-hidden rounded-[22px] mb-[22px] shadow-[0_20px_50px_rgba(23,25,49,.28)]">
+      <PageShell>
+        {/* ─────────── HERO full-bleed, pegado al borde de la tarjeta ─────────── */}
+        <header className="relative isolate overflow-hidden">
           {/* Fondo navy de marca + capas de profundidad (fade radial) */}
           <div className="absolute inset-0 bg-[#171931]" aria-hidden />
           <div
@@ -480,6 +481,7 @@ export default function TutorialesView() {
           </div>
         </header>
 
+        <div className="tut-wrap">
         {loading ? (
           <div className="tut-loading big">
             <div className="tut-spinner" /> Cargando tutoriales…
@@ -661,7 +663,8 @@ export default function TutorialesView() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </PageShell>
 
       {adminOpen && (
         <AdminPanel onClose={() => setAdminOpen(false)} onChanged={load} />

@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 
 // Components
+import PageShell from "../../components/layout/PageShell";
 import HeroSection from "./components/HeroSection";
 import StepHome from "./components/StepHome";
 import StepImages from "./components/StepImages";
@@ -554,7 +555,15 @@ const LandingAi = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <>
+      <PageShell>
+        {/* Hero full-bleed, pegado al borde superior de la tarjeta */}
+        <HeroSection
+          usage={usage}
+          step={step}
+          onShowHistory={() => setShowHistory(true)}
+        />
+        <div className="p-4 md:p-6">
       {idProducto && (
         <div
           className="flex items-center gap-3 px-5 py-3 rounded-2xl mb-3"
@@ -609,12 +618,6 @@ const LandingAi = () => {
           </button>
         </div>
       )}
-
-      <HeroSection
-        usage={usage}
-        step={step}
-        onShowHistory={() => setShowHistory(true)}
-      />
 
       <div className="pt-5" ref={stepRef}>
         {step === "home" && (
@@ -792,6 +795,8 @@ const LandingAi = () => {
           </>
         )}
       </div>
+        </div>
+      </PageShell>
 
       <TemplateModal
         open={showTemplateModal}
@@ -825,7 +830,7 @@ const LandingAi = () => {
         pricing={pricing}
         successCount={results.filter((r) => r.success).length}
       />
-    </div>
+    </>
   );
 };
 

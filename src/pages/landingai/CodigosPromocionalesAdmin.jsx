@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import PageShell from "../../components/layout/PageShell";
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -291,7 +292,7 @@ const CodigosPromoAdmin = () => {
   // RENDER
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen">
+    <PageShell>
       {/* ── Header bar ── */}
       <div className="bg-white border-b border-slate-200 px-5 py-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1100,7 +1101,7 @@ const CodigosPromoAdmin = () => {
           `}</style>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 };
 

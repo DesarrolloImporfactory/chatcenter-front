@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import PageShell from "../../components/layout/PageShell";
 
 import ProductCard from "./components/ProductCard";
 import ModalCrudProducto from "./modales/ModalCrudProducto";
@@ -435,10 +436,11 @@ const ProductsPage = () => {
 
   /* ════════ RENDER ════════ */
   return (
-    <div className="min-h-screen" style={{ background: "#f8fafc" }}>
-      {/* ══ HEADER ══ */}
+    <>
+      <PageShell>
+      {/* ══ HEADER full-bleed ══ */}
       <div
-        className="relative overflow-hidden rounded-3xl mb-6"
+        className="relative overflow-hidden"
         style={{ background: "#0f1129" }}
       >
         <div
@@ -643,6 +645,7 @@ const ProductsPage = () => {
       </div>
 
       {/* ══ BODY ══ */}
+      <div className="p-5">
       {loading ? (
         <div className="flex flex-col items-center justify-center py-28 gap-4">
           <div
@@ -755,6 +758,8 @@ const ProductsPage = () => {
           </button>
         </div>
       )}
+      </div>
+      </PageShell>
 
       {/* ══ MODALES ══ */}
       <ModalCrudProducto
@@ -840,7 +845,7 @@ const ProductsPage = () => {
         imageName={enviarShopifyImage?.name}
         Swal={Swal}
       />
-    </div>
+    </>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
@@ -113,6 +114,17 @@ const DepartamentosView = () => {
   const [usuariosAsignados, setUsuariosAsignados] = useState([]);
   const [conexiones, setConexiones] = useState([]);
   const [activeTab, setActiveTab] = useState("departamento");
+
+  // Guía "¿cómo funciona?" — recordamos si el usuario la cerró
+  const [helpOpen, setHelpOpen] = useState(
+    () => localStorage.getItem("dep_help_dismissed") !== "1",
+  );
+  const toggleHelp = () => {
+    setHelpOpen((prev) => {
+      localStorage.setItem("dep_help_dismissed", prev ? "1" : "0");
+      return !prev;
+    });
+  };
 
   const reduce = useReducedMotion();
 
@@ -519,8 +531,8 @@ const DepartamentosView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 md:px-6">
-      <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
+      <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header — mismo estilo que Conexiones */}
         <header className="relative isolate overflow-hidden rounded-t-2xl">
           <div className="absolute inset-0 bg-[#171931]" aria-hidden />
@@ -602,6 +614,78 @@ const DepartamentosView = () => {
           </div>
         </header>
 
+        {/* Guía rápida */}
+        <div className="px-6 pt-4 bg-white">
+          <div className="rounded-xl border border-[#1d4ed8]/20 bg-[#eff6ff]/60 overflow-hidden">
+            <button
+              type="button"
+              onClick={toggleHelp}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-left"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#1d4ed8]">
+                <i className="bx bx-help-circle text-lg" />
+                ¿Cómo funcionan los departamentos?
+              </span>
+              <i
+                className={`bx bx-chevron-down text-xl text-[#1d4ed8] transition-transform duration-200 ${
+                  helpOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {helpOpen && (
+              <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-[13px] leading-snug text-slate-600">
+                <div className="flex gap-2.5">
+                  <span className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#1d4ed8] text-white text-xs font-bold">
+                    1
+                  </span>
+                  <p>
+                    <b className="text-slate-800">Conexión.</b> Cada
+                    departamento se enlaza a una{" "}
+                    <Link
+                      to="/conexiones"
+                      className="font-semibold text-[#1d4ed8] underline underline-offset-2 hover:text-[#1e40af]"
+                    >
+                      conexión
+                    </Link>{" "}
+                    . Los{" "}
+                    <Link
+                      to="/usuarios"
+                      className="font-semibold text-[#1d4ed8] underline underline-offset-2 hover:text-[#1e40af]"
+                    >
+                      usuarios
+                    </Link>{" "}
+                    que asignes aquí podrán entrar y ver los chats de esa
+                    conexión.
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <span className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#1d4ed8] text-white text-xs font-bold">
+                    2
+                  </span>
+                  <p>
+                    <b className="text-slate-800">Autoasignación.</b> El switch
+                    de la tabla la enciende para <b>toda la conexión</b>: los
+                    chats nuevos se reparten solos entre los usuarios del
+                    departamento que tengan activado "recibir chats
+                    automáticamente" y estén conectados.
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <span className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#1d4ed8] text-white text-xs font-bold">
+                    3
+                  </span>
+                  <p>
+                    <b className="text-slate-800">Mis chats vs. En espera.</b>{" "}
+                    Un chat asignado aparece en "Mis chats" del usuario. Si
+                    nadie tiene auto activo o nadie está conectado, el chat
+                    queda en "En espera" hasta que alguien lo tome.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Controles */}
         <div className="p-6 border-b border-slate-100 bg-white">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
@@ -667,14 +751,21 @@ const DepartamentosView = () => {
                         Color
                       </SortHeader>
                       <SortHeader
-                        k="mensaje_saludo"
+                        k="nombre_configuracion"
                         sort={sort}
                         onSort={handleSort}
                       >
-                        Mensaje Saludo
+                        Conexión
                       </SortHeader>
+                      <th className="p-3 text-left font-semibold">Equipo</th>
                       <th className="p-3 text-center font-semibold">
-                        Autoasignación
+                        <span
+                          className="inline-flex items-center gap-1 cursor-help"
+                          title="Al activarla, los chats nuevos de la conexión de este departamento se reparten automáticamente entre los usuarios que tengan encendido 'Recibir chats automáticamente' y estén conectados. Si está apagada, todos los chats entran a 'En espera'."
+                        >
+                          Autoasignación de chats
+                          <i className="bx bx-info-circle text-sm text-slate-400" />
+                        </span>
                       </th>
                       <th className="p-3 text-center font-semibold">
                         Acciones
@@ -701,7 +792,55 @@ const DepartamentosView = () => {
                             ></div>
                           </td>
                           <td className="p-3 text-slate-700">
-                            {d.mensaje_saludo}
+                            {d.nombre_configuracion ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-[#eff6ff] text-[#1d4ed8] font-medium">
+                                <i className="bx bxl-whatsapp" />
+                                {d.nombre_configuracion}
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-1 text-xs text-amber-600 cursor-help"
+                                title="Sin conexión, este departamento no puede repartir chats. Edítalo y asígnale una."
+                              >
+                                <i className="bx bx-error-circle" />
+                                Sin conexión
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-slate-700">
+                            {(() => {
+                              const asignados = d.usuarios_asignados || [];
+                              const enAuto = asignados.filter(
+                                (x) => Number(x.asignacion_auto) === 1,
+                              ).length;
+                              if (asignados.length === 0) {
+                                return (
+                                  <span className="text-slate-400 text-xs">
+                                    Sin usuarios asignados
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="inline-flex items-center gap-1.5 text-xs">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">
+                                    <i className="bx bx-user" />
+                                    {asignados.length}{" "}
+                                    {asignados.length === 1
+                                      ? "usuario"
+                                      : "usuarios"}
+                                  </span>
+                                  {enAuto > 0 && (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium"
+                                      title="Usuarios que reciben chats automáticamente"
+                                    >
+                                      <i className="bx bx-bolt-circle" />
+                                      {enAuto} en auto
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="p-3">
                             <div className="flex flex-col items-center gap-1">
@@ -711,8 +850,8 @@ const DepartamentosView = () => {
                                 onClick={() => toggleAutoasignacion(d)}
                                 title={
                                   activo
-                                    ? "Autoasignación activa"
-                                    : "Autoasignación inactiva"
+                                    ? "Los chats nuevos de esta conexión se reparten entre los usuarios en auto"
+                                    : "Apagada: todos los chats entran a 'En espera'"
                                 }
                               />
                               <span
@@ -1072,116 +1211,163 @@ const DepartamentosView = () => {
                               theme={selectTheme}
                               styles={selectStyles}
                             />
-                            <p className="mt-1.5 text-[11px] text-slate-400">
-                              La autoasignación de chats requiere una conexión
-                              asignada.
+                            <p className="mt-1.5 text-[11px] text-slate-500">
+                              Los usuarios que asignes a este departamento
+                              podrán entrar y ver los chats de esta conexión.
+                              Sin conexión, el departamento no puede repartir
+                              chats.
                             </p>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="max-h-[400px] overflow-y-auto border border-gray-200 rounded-lg">
-                        <table className="w-full text-sm">
-                          <thead className="bg-slate-50 sticky top-0 z-10">
-                            <tr className="text-slate-600">
-                              <th className="p-3 text-left font-semibold">
-                                Usuario
-                              </th>
-                              <th className="p-3 text-left font-semibold">
-                                Nombre responsable
-                              </th>
-                              <th className="p-3 text-left font-semibold">
-                                Correo
-                              </th>
-                              <th className="p-3 text-center font-semibold">
-                                Asignar al departamento
-                              </th>
-                              <th className="p-3 text-center font-semibold">
-                                Asignar chats automáticamente
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {usuarios.map((usuario) => {
-                              const asignacion = getAsignacion(
-                                usuario.id_sub_usuario,
-                              );
-                              const isChecked = !!asignacion;
-                              const autoOn =
-                                isChecked && asignacion.asignacion_auto === 1;
-                              return (
-                                <tr
-                                  key={usuario.id_sub_usuario}
-                                  className="hover:bg-slate-50/60"
-                                >
-                                  <td className="p-3 text-slate-800 font-medium">
-                                    {usuario.usuario}
-                                  </td>
-                                  <td className="p-3 text-slate-700">
-                                    {usuario.nombre_encargado}
-                                  </td>
-                                  <td className="p-3 text-slate-700">
-                                    {usuario.email}
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <Switch
-                                      checked={isChecked}
-                                      title={
-                                        isChecked ? "Asignado" : "Sin asignar"
-                                      }
-                                      onClick={() => {
-                                        setUsuariosAsignados((prev) => {
-                                          const id = Number(
-                                            usuario.id_sub_usuario,
-                                          );
-                                          const exists = prev.some(
-                                            (x) =>
-                                              Number(x.id_sub_usuario) === id,
-                                          );
-                                          if (exists) {
-                                            return prev.filter(
-                                              (x) =>
-                                                Number(x.id_sub_usuario) !== id,
-                                            );
-                                          }
-                                          return [
-                                            ...prev,
-                                            {
-                                              id_sub_usuario: id,
-                                              asignacion_auto: 0,
-                                            },
-                                          ];
-                                        });
-                                      }}
-                                    />
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <Switch
-                                      checked={autoOn}
-                                      disabled={!isChecked}
-                                      title={
-                                        !isChecked
-                                          ? "Primero asigna el usuario"
-                                          : "Autoasignar chats a este usuario"
-                                      }
-                                      onClick={() => {
-                                        const val = autoOn ? 0 : 1;
-                                        setUsuariosAsignados((prev) =>
-                                          prev.map((x) =>
-                                            Number(x.id_sub_usuario) ===
-                                            Number(usuario.id_sub_usuario)
-                                              ? { ...x, asignacion_auto: val }
-                                              : x,
-                                          ),
-                                        );
-                                      }}
-                                    />
+                      <div>
+                        <div className="mb-3 flex gap-2 rounded-lg bg-[#eff6ff]/70 border border-[#1d4ed8]/15 px-3 py-2.5 text-[12px] leading-snug text-slate-600">
+                          <i className="bx bx-info-circle text-base text-[#1d4ed8] shrink-0 mt-px" />
+                          <p>
+                            <b className="text-slate-800">Asignar</b> da acceso
+                            a los chats de la conexión de este departamento.{" "}
+                            <b className="text-slate-800">Auto</b> hace que los
+                            chats nuevos se le asignen solos (solo mientras esté
+                            conectado y la autoasignación del departamento esté
+                            activa); si no, los chats quedan en "En espera".
+                          </p>
+                        </div>
+                        <div className="max-h-[400px] overflow-y-auto border border-gray-200 rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-slate-50 sticky top-0 z-10">
+                              <tr className="text-slate-600">
+                                <th className="p-3 text-left font-semibold">
+                                  Usuario
+                                </th>
+                                <th className="p-3 text-left font-semibold">
+                                  Nombre responsable
+                                </th>
+                                <th className="p-3 text-left font-semibold">
+                                  Correo
+                                </th>
+                                <th className="p-3 text-center font-semibold">
+                                  <span
+                                    className="inline-flex items-center gap-1 cursor-help"
+                                    title="El usuario podrá entrar y ver los chats de la conexión de este departamento."
+                                  >
+                                    Asignar al departamento
+                                    <i className="bx bx-info-circle text-sm text-slate-400" />
+                                  </span>
+                                </th>
+                                <th className="p-3 text-center font-semibold">
+                                  <span
+                                    className="inline-flex items-center gap-1 cursor-help"
+                                    title="Los chats nuevos se le asignan automáticamente y aparecen en 'Mis chats', solo mientras esté conectado. Si está apagado o desconectado, los chats entran a 'En espera'."
+                                  >
+                                    Recibir chats automáticamente
+                                    <i className="bx bx-info-circle text-sm text-slate-400" />
+                                  </span>
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {usuarios.length === 0 && (
+                                <tr>
+                                  <td
+                                    colSpan={5}
+                                    className="p-6 text-center text-sm text-slate-500"
+                                  >
+                                    Aún no tienes usuarios en tu equipo.{" "}
+                                    <Link
+                                      to="/usuarios"
+                                      className="font-semibold text-[#1d4ed8] underline underline-offset-2 hover:text-[#1e40af]"
+                                    >
+                                      Créalos en la sección Usuarios
+                                    </Link>{" "}
+                                    y vuelve aquí para asignarlos.
                                   </td>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                              )}
+                              {usuarios.map((usuario) => {
+                                const asignacion = getAsignacion(
+                                  usuario.id_sub_usuario,
+                                );
+                                const isChecked = !!asignacion;
+                                const autoOn =
+                                  isChecked && asignacion.asignacion_auto === 1;
+                                return (
+                                  <tr
+                                    key={usuario.id_sub_usuario}
+                                    className="hover:bg-slate-50/60"
+                                  >
+                                    <td className="p-3 text-slate-800 font-medium">
+                                      {usuario.usuario}
+                                    </td>
+                                    <td className="p-3 text-slate-700">
+                                      {usuario.nombre_encargado}
+                                    </td>
+                                    <td className="p-3 text-slate-700">
+                                      {usuario.email}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <Switch
+                                        checked={isChecked}
+                                        title={
+                                          isChecked ? "Asignado" : "Sin asignar"
+                                        }
+                                        onClick={() => {
+                                          setUsuariosAsignados((prev) => {
+                                            const id = Number(
+                                              usuario.id_sub_usuario,
+                                            );
+                                            const exists = prev.some(
+                                              (x) =>
+                                                Number(x.id_sub_usuario) === id,
+                                            );
+                                            if (exists) {
+                                              return prev.filter(
+                                                (x) =>
+                                                  Number(x.id_sub_usuario) !==
+                                                  id,
+                                              );
+                                            }
+                                            return [
+                                              ...prev,
+                                              {
+                                                id_sub_usuario: id,
+                                                asignacion_auto: 0,
+                                              },
+                                            ];
+                                          });
+                                        }}
+                                      />
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <Switch
+                                        checked={autoOn}
+                                        disabled={!isChecked}
+                                        title={
+                                          !isChecked
+                                            ? "Primero asigna el usuario al departamento"
+                                            : autoOn
+                                              ? "Recibe chats nuevos automáticamente en 'Mis chats' mientras esté conectado"
+                                              : "No recibe chats automáticamente: los chats quedan en 'En espera' para tomarlos manualmente"
+                                        }
+                                        onClick={() => {
+                                          const val = autoOn ? 0 : 1;
+                                          setUsuariosAsignados((prev) =>
+                                            prev.map((x) =>
+                                              Number(x.id_sub_usuario) ===
+                                              Number(usuario.id_sub_usuario)
+                                                ? { ...x, asignacion_auto: val }
+                                                : x,
+                                            ),
+                                          );
+                                        }}
+                                      />
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
 

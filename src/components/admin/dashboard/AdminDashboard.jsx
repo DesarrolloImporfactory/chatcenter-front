@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import PageShell from "../../layout/PageShell";
 import chatApi from "../../../api/chatcenter";
 
 import { mesLabel, currentMonth, fmtDate } from "./utils";
@@ -180,7 +181,8 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 w-full">
+    <PageShell>
+    <div className="bg-slate-50 w-full min-h-[82vh]">
       <div className="w-full max-w-[1800px] mx-auto px-4 md:px-6 lg:px-8 py-6 space-y-6">
         <HeaderBar
           resumen={resumen}
@@ -232,5 +234,6 @@ export default function AdminDashboard() {
         />
       )}
     </div>
+    </PageShell>
   );
 }

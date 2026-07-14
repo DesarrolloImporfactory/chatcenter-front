@@ -162,6 +162,7 @@ function MainLayout({ children }) {
       <a
         href={newTab ? path : undefined}
         onClick={handleClick}
+        data-tour={path === "/tutoriales" ? "tutoriales" : undefined}
         className={`group flex items-center w-full px-5 py-4 text-left transition-colors rounded cursor-pointer ${active ? "bg-gray-100 font-semibold" : "hover:bg-gray-100 text-gray-700"}`}
       >
         <i
@@ -182,6 +183,7 @@ function MainLayout({ children }) {
       <div className="flex flex-1">
         <div
           ref={sliderRef}
+          data-tour="sidebar"
           className={`bg-white shadow-md fixed top-16 left-0 z-40 h-[calc(100vh-4rem)] transition-[width] duration-300 ${sliderOpen ? "w-64 overflow-y-auto" : "w-0 overflow-hidden"}`}
           aria-hidden={!sliderOpen}
         >

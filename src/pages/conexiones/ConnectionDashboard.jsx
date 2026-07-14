@@ -399,6 +399,17 @@ export default function ConnectionDashboard({ adminMode = false }) {
     [activeTab],
   );
 
+  // El scroll de la lista de conexiones se conserva al navegar, así que el
+  // dashboard abría a mitad de página: al montar siempre arrancamos arriba.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    document
+      .querySelectorAll(".overflow-y-auto")
+      .forEach((el) => (el.scrollTop = 0));
+  }, []);
+
   // Los charts (Recharts/Apex) montados dentro de un tab oculto
   // (display:none) conservan el ancho viejo y estiran la página al
   // volver a mostrarse. Al cambiar de tab forzamos un recálculo.

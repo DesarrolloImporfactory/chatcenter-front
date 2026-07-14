@@ -492,7 +492,7 @@ const MiPlan = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 md:px-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
       {/* Overlay */}
       {(loadingPortal || loadingGestion || loadingAgregar) && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -508,7 +508,7 @@ const MiPlan = () => {
       )}
 
       {/* Contenedor tipo "Departamentos" */}
-      <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
+      <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header — mismo estilo que Conexiones */}
         <header className="relative isolate overflow-hidden rounded-t-2xl">
           <div className="absolute inset-0 bg-[#171931]" aria-hidden />

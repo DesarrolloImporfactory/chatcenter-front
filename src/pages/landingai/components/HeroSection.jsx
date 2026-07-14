@@ -24,7 +24,7 @@ const HeroSection = ({ usage, step, onShowHistory }) => {
   const showBonusAnglesBadge = showPlanAngles && promoAng > 0;
 
   return (
-    <div className="bg-[#0f1129] relative overflow-hidden rounded-3xl">
+    <div className="bg-[#0f1129] relative overflow-hidden">
       <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-600/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/15 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/4" />
 

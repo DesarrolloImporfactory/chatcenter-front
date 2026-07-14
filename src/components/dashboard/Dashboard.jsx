@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 
 import chatApi from "../../api/chatcenter";
+import PageShell from "../layout/PageShell";
 
 import FiltersBar from "./FiltersBar";
 import StatsCards from "./StatsCards";
@@ -373,7 +374,8 @@ export default function Dashboard({ lockedConfigId = null }) {
     : "Mi dashboard de rendimiento";
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50">
+    <PageShell>
+    <div className="w-full bg-slate-50 min-h-[82vh]">
       {/* HEADER PREMIUM — fuera del padding, full-width, sin rounded */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#0a2518] to-[#059669] text-white px-6 py-5">
         <div
@@ -485,5 +487,6 @@ export default function Dashboard({ lockedConfigId = null }) {
         </div>
       </div>
     </div>
+    </PageShell>
   );
 }

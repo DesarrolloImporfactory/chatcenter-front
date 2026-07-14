@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import PageShell from "../../components/layout/PageShell";
 import { listarAuditoria, ACCIONES_AUDITORIA } from "../../services/imporsuit";
 
 /**
@@ -137,7 +138,8 @@ export default function AuditoriaCarteraView() {
   if (!isSuperAdmin) return null;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-6 md:px-8">
+    <PageShell>
+    <div className="bg-slate-50 px-4 py-6 md:px-8 min-h-[82vh]">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -366,6 +368,7 @@ export default function AuditoriaCarteraView() {
         <DetalleModal row={detalleRow} onClose={() => setDetalleRow(null)} />
       )}
     </div>
+    </PageShell>
   );
 }
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import PageShell from "../../components/layout/PageShell";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -545,7 +546,7 @@ const ProductoDetallePage = () => {
   /* ── Loading/404 ── */
   if (loading && !producto)
     return (
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <div className="text-center">
           <div
             className="w-14 h-14 rounded-2xl grid place-items-center mx-auto mb-4"
@@ -573,14 +574,14 @@ const ProductoDetallePage = () => {
           </div>
           <p className="text-sm text-gray-400">Cargando…</p>
         </div>
-      </div>
+      </PageShell>
     );
 
   if (!producto)
     return (
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <p className="text-sm text-gray-500">Producto no encontrado</p>
-      </div>
+      </PageShell>
     );
 
   /* ── Wizard step number for sections (depends on hasPortada) ── */
@@ -588,11 +589,11 @@ const ProductoDetallePage = () => {
 
   /* ── RENDER ── */
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <PageShell>
       {revealItem && <MiniReveal3D item={revealItem} phase={revealPhase} />}
 
-      {/* HEADER */}
-      <div className="bg-[#0f1129] relative overflow-hidden rounded-3xl">
+      {/* HEADER full-bleed */}
+      <div className="bg-[#0f1129] relative overflow-hidden">
         <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-600/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/15 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/4"></div>
         <div className="relative px-5 sm:px-8 py-5 sm:py-6">
@@ -716,6 +717,7 @@ const ProductoDetallePage = () => {
         </div>
       </div>
 
+      <div className="p-5">
       {/* ══════════════ GENERATOR PANEL ══════════════ */}
       {genOpen && (
         <div
@@ -1453,11 +1455,12 @@ const ProductoDetallePage = () => {
           </div>
         )}
       </div>
+      </div>
 
       <style>{`
         @keyframes gPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
       `}</style>
-    </div>
+    </PageShell>
   );
 };
 

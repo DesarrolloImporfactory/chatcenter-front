@@ -13,6 +13,7 @@ import botImage from "../../assets/bot.png";
 import RankingTiendas from "./RankingTiendas";
 import ResumenConexionHeader from "./ResumenConexionHeader";
 import BienvenidaSplash from "./BienvenidaSplash";
+import BienvenidaTutorialesModal from "./Modales/BienvenidaTutorialesModal";
 import "./conexiones.css";
 
 import CrearConfiguracionModal from "../admintemplates/CrearConfiguracionModal";
@@ -1197,6 +1198,9 @@ const Conexiones = () => {
           onDone={() => setShowBienvenida(false)}
         />
       )}
+      {/* Guía para cuentas nuevas: apunta a Tutoriales hasta que el
+          cliente marque "no volver a mostrar" (tour_conexiones_dismissed) */}
+      <BienvenidaTutorialesModal />
       <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 min-h-[82vh] overflow-hidden">
         <header className="relative isolate overflow-hidden rounded-t-2xl">
           {/* Fondo navy de marca + capas de profundidad */}

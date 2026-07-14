@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import PageShell from "../../layout/PageShell";
 import toast from "react-hot-toast";
 import chatApi from "../../../api/chatcenter";
 
@@ -431,6 +432,7 @@ export default function AdminUsuarios() {
                 : null;
 
   return (
+    <PageShell>
     <div className="w-full min-w-0 p-4 md:p-6 space-y-4">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
@@ -536,5 +538,6 @@ export default function AdminUsuarios() {
         />
       )}
     </div>
+    </PageShell>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import PageShell from "../../components/layout/PageShell";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -179,9 +180,9 @@ const LandingAiAdmin = () => {
     etapas.find((e) => e.id === id)?.nombre || "Sin asignar";
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-5">
-      {/* ══════════ HEADER ══════════ */}
-      <div className="bg-[#171931] rounded-2xl p-6 mb-5">
+    <PageShell>
+      {/* ══════════ HEADER full-bleed ══════════ */}
+      <div className="bg-[#171931] p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/15 grid place-items-center">
@@ -206,6 +207,8 @@ const LandingAiAdmin = () => {
         </div>
       </div>
 
+      {/* ══════════ BODY ══════════ */}
+      <div className="p-5">
       {/* ══════════ FILTERS ══════════ */}
       <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
         <button
@@ -376,6 +379,7 @@ const LandingAiAdmin = () => {
           ))}
         </div>
       )}
+      </div>
 
       {/* ══════════ FORM MODAL ══════════ */}
       {showForm && (
@@ -571,7 +575,7 @@ const LandingAiAdmin = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 };
 

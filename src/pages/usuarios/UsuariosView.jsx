@@ -1,5 +1,6 @@
 // src/views/UsuariosView.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
@@ -75,6 +76,31 @@ const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
   </div>
 );
 
+// Qué puede hacer cada rol — se muestra al elegirlo en el formulario
+const ROL_INFO = {
+  administrador: {
+    icon: "bx-crown",
+    color: "text-[#1d4ed8] bg-[#eff6ff] ring-[#1d4ed8]/20",
+    desc: "Control total de la cuenta: gestiona usuarios, departamentos, conexiones y planes. Ve todos los chats de sus conexiones.",
+  },
+  admin_limitado: {
+    icon: "bx-shield-quarter",
+    color: "text-violet-700 bg-violet-50 ring-violet-200",
+    desc: "Supervisa la operación: ve y atiende TODOS los chats de la conexión del departamento donde fue asignado, pero no puede crear, editar ni eliminar usuarios ni conexiones.",
+  },
+  ventas: {
+    icon: "bx-headphone",
+    color: "text-emerald-700 bg-emerald-50 ring-emerald-200",
+    desc: "Asesor: solo ve los chats que se le asignan (automáticamente o a mano) y los que tome de 'En espera'.",
+  },
+};
+
+const ROL_LABELS = {
+  administrador: "Administrador",
+  admin_limitado: "Administrador limitado",
+  ventas: "Ventas",
+};
+
 const rolBadge = (rol) => {
   const r = String(rol || "").toLowerCase();
   if (r.includes("admin"))
@@ -96,6 +122,8 @@ const UsuariosView = () => {
   });
   const [editingId, setEditingId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  // Contraseña actual del admin logueado — requerida para cambiar una clave
+  const [passwordActual, setPasswordActual] = useState("");
 
   const [search, setSearch] = useState("");
   const [rolFiltro, setRolFiltro] = useState("");
@@ -103,6 +131,16 @@ const UsuariosView = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+
+  // id_sub_usuario del usuario logueado (para bloquear auto-edición de rol / auto-eliminación)
+  const myId = useMemo(() => {
+    try {
+      const token = localStorage.getItem("token");
+      return token ? Number(jwtDecode(token).id_sub_usuario) : null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const [showUpgradeOptions, setShowUpgradeOptions] = useState(false); // vista upgrade
   const [limitMessage, setLimitMessage] = useState(""); // mensaje límite
@@ -192,6 +230,7 @@ const UsuariosView = () => {
       });
       setEditingId(null);
       setShowPassword(false);
+      setPasswordActual("");
       setShowUpgradeOptions(false);
       setLimitMessage("");
       setIsClosing(false);
@@ -213,12 +252,27 @@ const UsuariosView = () => {
     const decoded = jwtDecode(token);
     const id_usuario = decoded.id_usuario;
 
+    if (!form.rol) {
+      setSavingUsuario(false);
+      return Swal.fire({
+        icon: "warning",
+        title: "Elige un rol",
+        text: "Selecciona el rol que tendrá este usuario.",
+        confirmButtonColor: "#1d4ed8",
+        customClass: { popup: "rounded-2xl" },
+      });
+    }
+
     const payload = { ...form };
     setSavingUsuario(true);
     try {
       // si edito y password está vacío, no lo mando
       if (editingId && !payload.password?.trim()) {
         delete payload.password;
+      }
+      // cambiar clave exige confirmar la contraseña actual del admin
+      if (editingId && payload.password) {
+        payload.password_actual = passwordActual;
       }
 
       if (editingId) {
@@ -251,6 +305,7 @@ const UsuariosView = () => {
         rol: "",
       });
       setEditingId(null);
+      setPasswordActual("");
       fetchUsuarios();
     } catch (error) {
       const httpStatus = error?.response?.status;
@@ -302,12 +357,22 @@ const UsuariosView = () => {
       setEditingId(null);
     }
     setShowPassword(false);
+    setPasswordActual("");
     setShowUpgradeOptions(false);
     setLimitMessage("");
     setModalOpen(true);
   };
 
   const handleDelete = async (u) => {
+    if (Number(u.id_sub_usuario) === myId) {
+      return Swal.fire({
+        icon: "info",
+        title: "No puedes eliminarte",
+        text: "Por seguridad no puedes eliminar tu propio usuario. Pídele a otro administrador que lo haga.",
+        confirmButtonColor: "#1d4ed8",
+        customClass: { popup: "rounded-2xl" },
+      });
+    }
     const result = await Swal.fire({
       title: "¿Eliminar usuario?",
       text: u.usuario,
@@ -330,11 +395,12 @@ const UsuariosView = () => {
           title: "Usuario eliminado.",
         });
         fetchUsuarios();
-      } catch {
+      } catch (error) {
         Swal.fire({
           icon: "error",
           title: "Error al eliminar",
-          text: "No se pudo eliminar el usuario",
+          text:
+            error?.response?.data?.message || "No se pudo eliminar el usuario",
           confirmButtonColor: "#1d4ed8",
           customClass: { popup: "rounded-2xl" },
         });
@@ -501,8 +567,8 @@ const UsuariosView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 md:px-6">
-      <div className="mx-auto w-[98%] xl:w-[97%] 2xl:w-[96%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-3 pr-8">
+      <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header — mismo estilo que Conexiones */}
         <header className="relative isolate overflow-hidden rounded-t-2xl">
           {/* Fondo navy de marca + capas de profundidad */}
@@ -684,7 +750,9 @@ const UsuariosView = () => {
                         className="hover:bg-slate-50/60"
                       >
                         <td className="p-3 text-slate-800 font-medium">
-                          {u.usuario}
+                          <span className="inline-flex items-center gap-1.5">
+                            {u.usuario}
+                          </span>
                         </td>
                         <td className="p-3 text-slate-700">{u.email}</td>
                         <td className="p-3 text-slate-700">
@@ -711,8 +779,13 @@ const UsuariosView = () => {
                             </button>
                             <button
                               onClick={() => handleDelete(u)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                              title="Eliminar"
+                              disabled={Number(u.id_sub_usuario) === myId}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                              title={
+                                Number(u.id_sub_usuario) === myId
+                                  ? "No puedes eliminar tu propio usuario"
+                                  : "Eliminar"
+                              }
                             >
                               <i className="bx bx-trash text-base"></i>
                               Eliminar
@@ -1055,6 +1128,35 @@ const UsuariosView = () => {
                           </p>
                         )}
                       </div>
+
+                      {/* Confirmación con la contraseña actual del admin */}
+                      {editingId && form.password.trim().length > 0 && (
+                        <div>
+                          <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
+                            Tu contraseña actual
+                          </label>
+                          <div className="relative">
+                            <i className="bx bx-key absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
+                            <input
+                              required
+                              type="password"
+                              disabled={savingUsuario}
+                              placeholder="Confirma tu contraseña"
+                              className="w-full pl-9 pr-3 py-2.5 border border-amber-300 rounded-lg bg-amber-50/50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 focus:bg-white transition-all duration-200 disabled:opacity-60"
+                              value={passwordActual}
+                              onChange={(e) =>
+                                setPasswordActual(e.target.value)
+                              }
+                              autoComplete="current-password"
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-amber-600">
+                            <i className="bx bx-shield-quarter align-middle" />{" "}
+                            Por seguridad, para cambiar la contraseña debes
+                            primero confirmar la tuya.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Columna derecha */}
@@ -1100,32 +1202,80 @@ const UsuariosView = () => {
                           />
                         </div>
                       </div>
-
-                      <div>
-                        <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
-                          Rol
-                        </label>
-                        <div className="relative">
-                          <i className="bx bx-shield-quarter absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"></i>
-                          <select
-                            required
-                            disabled={savingUsuario}
-                            className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200 disabled:opacity-60"
-                            value={form.rol}
-                            onChange={(e) =>
-                              setForm({ ...form, rol: e.target.value })
-                            }
-                          >
-                            <option value="">Seleccione rol</option>
-                            <option value="administrador">Administrador</option>
-                            <option value="ventas">Ventas</option>
-                            <option value="admin_limitado">
-                              Administrador limitado
-                            </option>
-                          </select>
-                        </div>
-                      </div>
                     </div>
+
+                    {/* Rol — todas las opciones visibles con sus permisos */}
+                    <div className="md:col-span-2">
+                      <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
+                        Rol del usuario
+                      </label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                        {Object.keys(ROL_INFO).map((key) => {
+                          const info = ROL_INFO[key];
+                          const selected = form.rol === key;
+                          const locked =
+                            savingUsuario || Number(editingId) === myId;
+                          return (
+                            <button
+                              type="button"
+                              key={key}
+                              disabled={locked}
+                              onClick={() => setForm({ ...form, rol: key })}
+                              className={`relative flex flex-col gap-1.5 rounded-xl border-2 p-3 pr-7 text-left transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                selected
+                                  ? "border-[#1d4ed8] bg-[#eff6ff]/70 shadow-sm"
+                                  : "border-gray-200 bg-white hover:border-[#1d4ed8]/40"
+                              }`}
+                            >
+                              {selected && (
+                                <i className="bx bxs-check-circle absolute right-2 top-2 text-lg text-[#1d4ed8]" />
+                              )}
+                              <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#171931]">
+                                <span
+                                  className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md ring-1 ${info.color}`}
+                                >
+                                  <i className={`bx ${info.icon} text-sm`} />
+                                </span>
+                                {ROL_LABELS[key]}
+                              </span>
+                              <span className="text-[11.5px] leading-snug text-slate-500">
+                                {info.desc}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {Number(editingId) === myId && (
+                        <p className="mt-1.5 text-xs text-slate-500">
+                          No puedes cambiar tu propio rol.
+                        </p>
+                      )}
+                    </div>
+
+                    {!editingId && (
+                      <div className="md:col-span-2 flex gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-[12px] leading-snug text-amber-800">
+                        <i className="bx bx-bulb text-base shrink-0 mt-px" />
+                        <p>
+                          <b>Siguiente paso:</b> para que este usuario pueda ver
+                          y atender chats, asígnalo a un departamento en la
+                          sección{" "}
+                          <Link
+                            to="/departamentos"
+                            className="font-bold underline underline-offset-2 hover:text-amber-900"
+                          >
+                            Departamentos
+                          </Link>
+                          . El departamento define a qué{" "}
+                          <Link
+                            to="/conexiones"
+                            className="font-bold underline underline-offset-2 hover:text-amber-900"
+                          >
+                            conexión
+                          </Link>{" "}
+                          tendrá acceso.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Footer */}
                     <div className="md:col-span-2 flex justify-end gap-2.5 pt-1 mt-1 border-t border-gray-100 -mx-6 px-6 pt-4">

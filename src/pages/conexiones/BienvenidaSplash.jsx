@@ -53,19 +53,26 @@ export default function BienvenidaSplash({ onDone, nombre }) {
         {/* Emblema con anillos */}
         <div className="relative w-24 h-24 grid place-items-center">
           <span
-            className="absolute inset-0 rounded-3xl ring-2 ring-indigo-400/40"
+            className="absolute inset-0 rounded-full ring-2 ring-indigo-400/40"
             style={{ animation: "bs-ring 1.8s ease-out infinite" }}
           />
           <span
-            className="absolute inset-0 rounded-3xl ring-2 ring-violet-400/30"
+            className="absolute inset-0 rounded-full ring-2 ring-violet-400/30"
             style={{ animation: "bs-ring 1.8s ease-out .6s infinite" }}
           />
           <span
-            className="absolute -inset-2 rounded-[28px] border-2 border-dashed border-white/10"
+            className="absolute -inset-2 rounded-full border-2 border-dashed border-white/10"
             style={{ animation: "bs-spin 8s linear infinite" }}
           />
-          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-500 to-violet-600 grid place-items-center shadow-2xl shadow-indigo-900/50 ring-1 ring-white/20">
-            <i className="bx bx-bot text-[40px] text-white" />
+          <div className="relative w-20 h-20 grid place-items-center">
+            <i
+              className="bx bx-bot text-[52px] text-transparent bg-clip-text"
+              style={{
+                backgroundImage:
+                  "linear-gradient(135deg, #c7d2fe 10%, #ffffff 50%, #ddd6fe 90%)",
+                filter: "drop-shadow(0 4px 14px rgba(99,102,241,.45))",
+              }}
+            />
           </div>
         </div>
 
