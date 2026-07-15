@@ -200,10 +200,7 @@ const Estado_contactos = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
 
   const scrollLockRef = useRef({});
-  const searchTimersRef = useRef({});
   const LIMIT = 20;
-
-  const busquedaGlobalTimerRef = useRef(null);
 
   const getColumnKeysVisibles = useCallback(() => {
     if (!columnasVisibles) return kanbanColumnas.map((c) => c.estado_db);
@@ -219,67 +216,8 @@ const Estado_contactos = () => {
     return mostrarHuerfanos ? [...visibles, ORPHANS_COLUMN] : visibles;
   }, [kanbanColumnas, columnasVisibles, mostrarHuerfanos]);
 
-  const onBusquedaGlobal = useCallback(
-    (value) => {
-      if (busquedaGlobalTimerRef.current)
-        clearTimeout(busquedaGlobalTimerRef.current);
-
-      busquedaGlobalTimerRef.current = setTimeout(async () => {
-        if (!id_configuracion || !kanbanColumnas.length) return;
-
-        const columnKeys = getColumnKeysVisibles();
-        const todasLasKeys = mostrarHuerfanos
-          ? [...columnKeys, ORPHANS_KEY]
-          : columnKeys;
-
-        const searchObj = {};
-        todasLasKeys.forEach((k) => {
-          searchObj[k] = value;
-        });
-
-        setBoardData((prev) => {
-          const next = { ...prev };
-          todasLasKeys.forEach((k) => {
-            next[k] = {
-              ...next[k],
-              items: [],
-              cursor: null,
-              hasMore: true,
-              loading: true,
-              search: value,
-            };
-          });
-          return next;
-        });
-
-        try {
-          const { data } = await chatApi.post(
-            "/clientes_chat_center/listar_contactos_estado_dinamico",
-            {
-              id_configuracion,
-              columnKeys,
-              limit: LIMIT,
-              cursors: {},
-              search: searchObj,
-              filtros,
-              include_orphans: mostrarHuerfanos,
-            },
-          );
-          if (!data?.success || !data?.data) return;
-          mergeColumnsResponse(data.data, todasLasKeys, { append: false });
-        } catch {
-          Toast.fire({ icon: "error", title: "Error buscando" });
-        }
-      }, 400);
-    },
-    [
-      id_configuracion,
-      kanbanColumnas,
-      filtros,
-      getColumnKeysVisibles,
-      mostrarHuerfanos,
-    ],
-  );
+  // ⭐ El término de búsqueda vive acá; fetchTodo lo aplica junto con los filtros
+  const [terminoBusqueda, setTerminoBusqueda] = useState("");
 
   // ── 1. Init id_configuracion ──────────────────────────────
   useEffect(() => {
@@ -386,9 +324,15 @@ const Estado_contactos = () => {
           cursor: null,
           hasMore: true,
           loading: true,
+          search: terminoBusqueda,
         };
       });
       return next;
+    });
+
+    const searchObj = {};
+    todasLasKeys.forEach((k) => {
+      searchObj[k] = terminoBusqueda;
     });
 
     try {
@@ -399,7 +343,7 @@ const Estado_contactos = () => {
           columnKeys,
           limit: LIMIT,
           cursors: {},
-          search: {},
+          search: searchObj,
           filtros,
           include_orphans: mostrarHuerfanos,
         },
@@ -425,6 +369,7 @@ const Estado_contactos = () => {
     columnasVisibles,
     mostrarHuerfanos,
     getColumnKeysVisibles,
+    terminoBusqueda,
   ]);
 
   // Ejecutar cuando cambian columnas o filtros
@@ -504,50 +449,6 @@ const Estado_contactos = () => {
         [colKey]: { ...p[colKey], loading: false },
       }));
     }
-  };
-
-  const onSearchChange = (colKey, value) => {
-    setBoardData((prev) => ({
-      ...prev,
-      [colKey]: { ...prev[colKey], search: value },
-    }));
-    if (searchTimersRef.current[colKey])
-      clearTimeout(searchTimersRef.current[colKey]);
-    searchTimersRef.current[colKey] = setTimeout(async () => {
-      const esHuerfano = colKey === ORPHANS_KEY;
-      try {
-        setBoardData((p) => ({
-          ...p,
-          [colKey]: {
-            ...p[colKey],
-            items: [],
-            cursor: null,
-            hasMore: true,
-            loading: true,
-          },
-        }));
-        const { data } = await chatApi.post(
-          "/clientes_chat_center/listar_contactos_estado_dinamico",
-          {
-            id_configuracion,
-            columnKeys: esHuerfano ? [] : [colKey],
-            limit: LIMIT,
-            cursors: { [colKey]: null },
-            search: { [colKey]: value },
-            filtros,
-            include_orphans: esHuerfano,
-          },
-        );
-        if (!data?.success || !data?.data) return;
-        mergeColumnsResponse(data.data, [colKey], { append: false });
-      } catch {
-        Toast.fire({ icon: "error", title: "Error buscando" });
-        setBoardData((p) => ({
-          ...p,
-          [colKey]: { ...p[colKey], loading: false },
-        }));
-      }
-    }, 350);
   };
 
   const onDragEnd = async (result) => {
@@ -1309,7 +1210,8 @@ const Estado_contactos = () => {
         <KanbanFiltros
           id_configuracion={id_configuracion}
           onChange={(nuevosFiltros) => setFiltros(nuevosFiltros)}
-          onSearch={onBusquedaGlobal}
+          onSearch={setTerminoBusqueda}
+          buscando={isLoading}
           kanbanColumnas={kanbanColumnas}
           columnasVisibles={columnasVisibles}
           onColumnasVisiblesChange={handleColumnasVisiblesChange}
@@ -1471,20 +1373,6 @@ const Estado_contactos = () => {
                         </div>
                       </div>
 
-                      <input
-                        type="text"
-                        placeholder="Buscar..."
-                        value={boardData[colKey]?.search || ""}
-                        onChange={(e) => onSearchChange(colKey, e.target.value)}
-                        style={{
-                          padding: "6px 10px",
-                          marginBottom: 8,
-                          borderRadius: 8,
-                          border: "1px solid rgba(0,0,0,.15)",
-                          fontSize: "0.8rem",
-                          outline: "none",
-                        }}
-                      />
                       <div
                         style={{
                           height: 1,
