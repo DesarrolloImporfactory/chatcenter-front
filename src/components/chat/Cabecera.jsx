@@ -656,6 +656,25 @@ const Cabecera = ({
         {/* Scrollable: el menú es más alto que la pantalla; sin esto no se
             podía bajar (los otros layouts sí lo tienen) */}
         <div className="mt-6 overflow-y-auto h-[calc(100vh-163px)] pb-10">
+          {/* Conexiones — SIN href a propósito: NO debe abrirse en pestaña nueva
+              porque borra el localStorage (id_configuracion, etc.) */}
+          <a
+            onClick={(e) => {
+              e.preventDefault();
+              localStorage.removeItem("id_configuracion");
+              localStorage.removeItem("tipo_configuracion");
+              localStorage.removeItem("id_plataforma_conf");
+              navigate("/conexiones");
+              setSliderOpen(false);
+            }}
+            className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 cursor-pointer"
+          >
+            <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+            <span className="text-lg text-gray-700 group-hover:text-blue-600">
+              Conexiones
+            </span>
+          </a>
+
           {/* Dashboard de conexión */}
           <a
             href="/conexion-dashboard"
@@ -673,25 +692,6 @@ const Cabecera = ({
             <i className="bx bx-bar-chart-alt-2 text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
             <span className="text-lg text-gray-700 group-hover:text-blue-600">
               Dashboard
-            </span>
-          </a>
-
-          {/* Conexiones — SIN href a propósito: NO debe abrirse en pestaña nueva
-              porque borra el localStorage (id_configuracion, etc.) */}
-          <a
-            onClick={(e) => {
-              e.preventDefault();
-              localStorage.removeItem("id_configuracion");
-              localStorage.removeItem("tipo_configuracion");
-              localStorage.removeItem("id_plataforma_conf");
-              navigate("/conexiones");
-              setSliderOpen(false);
-            }}
-            className="group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 cursor-pointer"
-          >
-            <i className="bx bx-log-in text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-            <span className="text-lg text-gray-700 group-hover:text-blue-600">
-              Conexiones
             </span>
           </a>
 

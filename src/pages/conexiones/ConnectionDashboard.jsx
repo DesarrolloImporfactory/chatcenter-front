@@ -719,7 +719,7 @@ function ResumenView({
           label: "Conversaciones",
           tip:
             canal === "todos"
-              ? "Clientes nuevos que escribieron a tu chat en este periodo (todos los canales)."
+              ? "Personas distintas que escribieron a tu chat en este periodo, tanto clientes nuevos como antiguos que volvieron a escribir (todos los canales)."
               : "Personas distintas detrás de los pedidos de este canal (se cruza el teléfono del pedido con tu chat). Puede no coincidir con el número de pedidos: una misma persona puede hacer varios pedidos, y hay pedidos de personas que nunca escribieron al chat.",
           sub:
             canal === "todos"
@@ -1046,17 +1046,39 @@ function ResumenView({
 
               {sortedProducts.length > 0 ? (
                 <div className="max-h-[360px] overflow-y-auto overflow-x-auto">
-                  <table className="w-full text-sm min-w-[900px]">
+                  <table className="w-full text-sm min-w-[1080px]">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-200">
                         <th className="px-3 py-3 w-8">#</th>
                         <th className="px-3 py-3">Producto</th>
                         <SortTh
+                          label="Conv. totales"
+                          k="conversacionesTotal"
+                          sort={prodSort}
+                          onSort={handleProdSort}
+                          tip="Personas distintas que escribieron por este producto en el periodo: las que llegaron por sus anuncios (aunque no compraran) y las que hicieron un pedido."
+                        />
+                        <SortTh
+                          label="Con pedido"
+                          k="conversaciones"
+                          sort={prodSort}
+                          onSort={handleProdSort}
+                          tip="De esas conversaciones, cuántas personas terminaron haciendo al menos un pedido."
+                        />
+                        <SortTh
                           label="Órdenes"
                           k="ordenes"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Pedidos del periodo que incluyen este producto, sin importar en qué estado estén."
+                          tip="Pedidos del periodo que incluyen este producto, sin importar en qué estado estén. Una misma persona puede generar más de una orden (ej. una cancelada y vuelta a crear), por eso puede ser mayor que las conversaciones con pedido."
+                        />
+                        <SortTh
+                          label="% Conf."
+                          k="pctConfirmacion"
+                          sort={prodSort}
+                          onSort={handleProdSort}
+                          tip="De cada 100 personas que escribieron por este producto, cuántas terminaron pidiendo."
+                          formula="con pedido ÷ conv. totales × 100"
                         />
                         <SortTh
                           label="Entreg."
@@ -1079,13 +1101,6 @@ function ResumenView({
                           onSort={handleProdSort}
                           tip="De los pedidos que salieron en camino al cliente (sin contar cancelados), qué porcentaje se entregó."
                           formula="entregados ÷ enviados × 100"
-                        />
-                        <SortTh
-                          label="Convers."
-                          k="conversaciones"
-                          sort={prodSort}
-                          onSort={handleProdSort}
-                          tip="Personas distintas que preguntaron o pidieron este producto en el chat."
                         />
                         <SortTh
                           label="Ingreso"
@@ -1160,9 +1175,48 @@ function ResumenView({
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-center">
+                              {data.ctwaActivo &&
+                              p.conversacionesTotal != null ? (
+                                <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 text-xs font-bold">
+                                  {fmtNum(p.conversacionesTotal)}
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => navigate("/conexiones")}
+                                  title="Conecta tu cuenta publicitaria para medir cuántas personas escriben por cada producto"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-dashed border-slate-300 text-[10px] font-semibold text-slate-400 hover:text-indigo-600 hover:border-indigo-400 transition"
+                                >
+                                  <i className="bx bx-lock-alt" />
+                                  Conectar ads
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-center tabular-nums text-slate-600">
+                              {p.conversaciones == null
+                                ? "—"
+                                : fmtNum(p.conversaciones)}
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
                               <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-bold">
                                 {p.ordenes}
                               </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              {!data.ctwaActivo || p.pctConfirmacion == null ? (
+                                <span className="text-slate-300">—</span>
+                              ) : (
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                    p.pctConfirmacion >= 25
+                                      ? "bg-emerald-50 text-emerald-700"
+                                      : p.pctConfirmacion >= 10
+                                        ? "bg-amber-50 text-amber-700"
+                                        : "bg-rose-50 text-rose-700"
+                                  }`}
+                                >
+                                  {fmtPct(p.pctConfirmacion)}
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-2.5 text-center tabular-nums text-emerald-600 font-medium">
                               {p.entregadas}
@@ -1186,11 +1240,6 @@ function ResumenView({
                                   {fmtPct(p.tasaEntrega)}
                                 </span>
                               )}
-                            </td>
-                            <td className="px-3 py-2.5 text-center tabular-nums text-slate-600">
-                              {p.conversaciones == null
-                                ? "—"
-                                : fmtNum(p.conversaciones)}
                             </td>
                             <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">
                               {fmt$(p.ingresoBruto)}

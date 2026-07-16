@@ -159,7 +159,7 @@ const GuiaOpenAIModal = ({ onClose }) => {
                 style={{ aspectRatio: "16/9" }}
               >
                 <iframe
-                  src="https://www.youtube.com/embed/_ZLxm7DDZ54"
+                  src="https://www.youtube.com/embed/c0hBXQSM0rg"
                   title="Cómo generar API Key y recargar saldo en OpenAI"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
