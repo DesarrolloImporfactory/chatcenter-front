@@ -1869,6 +1869,7 @@ const Chat = () => {
   const [selectedEstado_contacto, setSelectedEstado_contacto] = useState([]);
   const [selectedLectura, setSelectedLectura] = useState(null);
   const [selectedAsesor, setSelectedAsesor] = useState(null);
+  const [selectedProductoAd, setSelectedProductoAd] = useState(null);
   const [selectedTab, setSelectedTab] = useState("abierto");
   const [filteredChats, setFilteredChats] = useState([]);
   const [offset, setOffset] = useState(0);
@@ -2236,6 +2237,7 @@ const Chat = () => {
           selectedEstado_contacto,
           selectedLectura,
           selectedAsesor,
+          selectedProductoAd,
           source: sourceToSend,
         },
         scopeChats,
@@ -2307,6 +2309,7 @@ const Chat = () => {
       selectedEstado_contacto,
       selectedLectura,
       selectedAsesor,
+      selectedProductoAd,
       scopeChats,
       sourceForList,
     ],
@@ -2629,6 +2632,7 @@ const Chat = () => {
     selectedEstado_contacto,
     selectedLectura,
     selectedAsesor,
+    selectedProductoAd,
     scopeChats,
   ]);
 
@@ -3357,6 +3361,8 @@ const Chat = () => {
         setSelectedLectura={setSelectedLectura}
         selectedAsesor={selectedAsesor}
         setSelectedAsesor={setSelectedAsesor}
+        selectedProductoAd={selectedProductoAd}
+        setSelectedProductoAd={setSelectedProductoAd}
         lista_usuarios={lista_usuarios}
       />
       {/* todos los mensajes */}

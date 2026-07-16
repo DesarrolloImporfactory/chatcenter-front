@@ -1077,6 +1077,110 @@ function MessageItem({
 }
 
 /* ===================== Sidebar ===================== */
+/* ===================== FilterPill — pill + popover portalizado ===================== */
+const FilterPill = ({ icon, label, value, onClear, children }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+  const popRef = useRef(null);
+
+  const activo = value !== null && value !== undefined && value !== "";
+
+  useEffect(() => {
+    if (!open) return;
+
+    const place = () => {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const W = 230;
+      setPos({
+        top: r.bottom + 6,
+        left: Math.max(8, Math.min(r.left, window.innerWidth - W - 8)),
+      });
+    };
+    place();
+
+    const onDoc = (e) => {
+      if (
+        !popRef.current?.contains(e.target) &&
+        !btnRef.current?.contains(e.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onEsc = (e) => e.key === "Escape" && setOpen(false);
+
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onEsc);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        aria-expanded={open}
+        title={activo ? `${label}: ${value}` : label}
+        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+          activo
+            ? "bg-blue-600 text-white hover:bg-blue-700"
+            : "border border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50"
+        }`}
+      >
+        <i className={`${icon} text-[12px]`} />
+        <span className="max-w-[110px] truncate">{activo ? value : label}</span>
+        {activo ? (
+          <i
+            role="button"
+            tabIndex={0}
+            aria-label={`Quitar filtro ${label}`}
+            className="bx bx-x text-[13px] hover:opacity-70"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+              setOpen(false);
+            }}
+          />
+        ) : (
+          <i className="bx bx-chevron-down text-[12px]" />
+        )}
+      </button>
+
+      {open &&
+        pos &&
+        ReactDOM.createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              width: 230,
+              zIndex: 10000,
+            }}
+            className="rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {children({ close: () => setOpen(false) })}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+};
+
 export const Sidebar = ({
   setSearchTerm,
   setNumeroModal,
@@ -1128,6 +1232,8 @@ export const Sidebar = ({
   setSelectedLectura,
   selectedAsesor,
   setSelectedAsesor,
+  selectedProductoAd,
+  setSelectedProductoAd,
   lista_usuarios,
 }) => {
   const [input_busqueda, setInput_busqueda] = useState(searchTerm ?? "");
@@ -1202,17 +1308,63 @@ export const Sidebar = ({
     [],
   );
 
-  const FilterChip = ({ label, onClear }) => (
-    <button
-      type="button"
-      onClick={onClear}
-      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-      title="Quitar filtro"
-    >
-      <i className="bx bx-filter-alt text-[10px]" />
-      {label}
-      <i className="bx bx-x text-xs" />
-    </button>
+  /* Props para los Select dentro de un FilterPill (patron "Popout" de react-select) */
+  const popoutProps = useMemo(
+    () => ({
+      autoFocus: true,
+      menuIsOpen: true,
+      isClearable: false,
+      controlShouldRenderValue: false,
+      hideSelectedOptions: false,
+      backspaceRemovesValue: false,
+      tabSelectsValue: false,
+      placeholder: "Buscar...",
+      classNamePrefix: "react-select",
+      components: { DropdownIndicator: null, IndicatorSeparator: null },
+      styles: {
+        ...selectStyles,
+        control: (base, state) => ({
+          ...base,
+          borderRadius: 8,
+          minHeight: 30,
+          fontSize: 12,
+          borderColor: state.isFocused ? "#2563eb" : "#e5e7eb",
+          boxShadow: "none",
+        }),
+        menu: (base) => ({
+          ...base,
+          position: "static",
+          boxShadow: "none",
+          margin: "4px 0 0",
+          borderRadius: 8,
+          fontSize: 12,
+        }),
+        menuList: (base) => ({ ...base, maxHeight: 180, padding: 0 }),
+        option: (base, { isFocused, isSelected }) => ({
+          ...base,
+          fontSize: 12,
+          padding: "5px 8px",
+          borderRadius: 6,
+          backgroundColor: isSelected
+            ? "#2563eb"
+            : isFocused
+              ? "#eff6ff"
+              : undefined,
+          color: isSelected ? "#fff" : "#0f172a",
+        }),
+      },
+    }),
+    [selectStyles],
+  );
+
+  /* Selects dentro del popover de Logistica: el menu se portaliza a body,
+     asi que necesita z-index por ENCIMA del popover del FilterPill (10000). */
+  const logisticaSelectStyles = useMemo(
+    () => ({
+      ...selectStyles,
+      menuPortal: (base) => ({ ...base, zIndex: 10001 }),
+    }),
+    [selectStyles],
   );
 
   const obtenerEstadoGuia = (transporte, estadoFactura, novedadInfo) => {
@@ -1277,6 +1429,30 @@ export const Sidebar = ({
   );
   const deudasPorCorreo = useDeudasChats(chatsVisibles, id_configuracion);
 
+  const [productos_ad, setProductos_ad] = useState([]);
+
+  useEffect(() => {
+    const fetchProductosAd = async () => {
+      if (!id_configuracion) return;
+      try {
+        const { data } = await chatApi.get(
+          "/clientes_chat_center/productos_ad_distintos",
+          { params: { id_configuracion, limit: 500 } },
+        );
+        setProductos_ad(data?.data || []);
+      } catch (error) {
+        console.error("Error al cargar productos ad:", error);
+        setProductos_ad([]);
+      }
+    };
+    fetchProductosAd();
+  }, [id_configuracion]);
+
+  const productosAdOptions = useMemo(() => {
+    const opts = (productos_ad || []).map((p) => ({ value: p, label: p }));
+    return [{ value: "__sin_producto__", label: "— Sin producto —" }, ...opts];
+  }, [productos_ad]);
+
   const [estados_kanban, setEstados_kanban] = useState([]);
 
   useEffect(() => {
@@ -1317,6 +1493,44 @@ export const Sidebar = ({
         : [],
     [lista_usuarios],
   );
+
+  /* ===== Estado agregado de filtros ===== */
+  const filtrosState = [
+    selectedEtiquetas,
+    selectedEstado_contacto,
+    selectedLectura,
+    selectedAsesor,
+    selectedProductoAd,
+    selectedNovedad,
+    selectedTransportadora,
+    selectedEstado,
+  ];
+
+  const numFiltros = useMemo(
+    () =>
+      (selectedEtiquetas?.length || 0) +
+      (selectedEstado_contacto?.value ? 1 : 0) +
+      (selectedLectura ? 1 : 0) +
+      (selectedAsesor ? 1 : 0) +
+      (selectedProductoAd ? 1 : 0) +
+      (selectedNovedad ? 1 : 0) +
+      (selectedTransportadora ? 1 : 0) +
+      (selectedEstado?.value ? 1 : 0),
+    filtrosState,
+  );
+
+  const hayFiltrosActivos = numFiltros > 0;
+
+  const limpiarFiltros = () => {
+    setSelectedEtiquetas([]);
+    setSelectedEstado_contacto(null);
+    setSelectedLectura(null);
+    setSelectedAsesor(null);
+    setSelectedProductoAd(null);
+    setSelectedNovedad(null);
+    setSelectedTransportadora(null);
+    setSelectedEstado([]);
+  };
 
   return (
     <aside
@@ -1475,6 +1689,11 @@ export const Sidebar = ({
                 <span className="ml-1 hidden text-[10.5px] md:inline font-bold">
                   Filtros
                 </span>
+                {numFiltros > 0 && (
+                  <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white">
+                    {numFiltros}
+                  </span>
+                )}
               </button>
 
               {/* ml-auto empuja el + al final y shrink-0 evita que se oculte */}
@@ -1493,203 +1712,226 @@ export const Sidebar = ({
             </div>
           </div>
 
-          {/* Panel de filtros — misma estructura */}
+          {/* ===================== Panel de filtros — pills + popover ===================== */}
           <div
             id="sidebar-filtros"
-            className={`grid gap-2 px-4 pb-3 transition-all duration-300 ${filtro_chats ? "max-h-[600px] opacity-100" : "max-h-0 overflow-hidden opacity-0"}`}
+            className={`overflow-hidden transition-all duration-300 ${filtro_chats ? "max-h-[220px] opacity-100" : "max-h-0 opacity-0"}`}
           >
-            <Select
-              isClearable
-              options={estadosKanbanOptions}
-              value={selectedEstado_contacto}
-              onChange={(opt) => setSelectedEstado_contacto(opt)}
-              placeholder="Selecciona estado kanban"
-              className="w-full"
-              classNamePrefix="react-select"
-              menuPortalTarget={
-                typeof document !== "undefined" ? document.body : null
-              }
-              styles={selectStyles}
-            />
-            <Select
-              isClearable
-              options={[
-                { value: "no_leidos", label: "No leídos" },
-                { value: "leidos", label: "Leídos" },
-              ]}
-              value={selectedLectura}
-              onChange={(opt) => setSelectedLectura(opt)}
-              placeholder="Leídos / No leídos"
-              className="w-full"
-              classNamePrefix="react-select"
-              menuPortalTarget={
-                typeof document !== "undefined" ? document.body : null
-              }
-              styles={selectStyles}
-            />
-            {/* Filtro asesor — solo admins */}
-            {(rol_usuario === "administrador" || rol_usuario === "admin_limitado") && (
-              <Select
-                isClearable
-                options={asesoresOptions}
-                value={selectedAsesor}
-                onChange={(opt) => setSelectedAsesor(opt)}
-                placeholder="Filtrar por asesor"
-                className="w-full"
-                classNamePrefix="react-select"
-                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
-                styles={selectStyles}
-              />
-            )}
-            <Select
-              isMulti
-              options={etiquetasOptions}
-              value={selectedEtiquetas}
-              onChange={handleChange}
-              placeholder="Selecciona etiquetas"
-              className="w-full"
-              classNamePrefix="react-select"
-              menuPortalTarget={
-                typeof document !== "undefined" ? document.body : null
-              }
-              styles={selectStyles}
-            />
-            {id_plataforma_conf !== null && (
-              <Select
-                isClearable
-                options={[
-                  { value: "gestionadas", label: "Gestionadas" },
-                  { value: "no_gestionadas", label: "No gestionadas" },
-                ]}
-                value={selectedNovedad}
-                onChange={(opt) => setSelectedNovedad(opt)}
-                placeholder="Selecciona novedad"
-                className="w-full"
-                classNamePrefix="react-select"
-                menuPortalTarget={
-                  typeof document !== "undefined" ? document.body : null
-                }
-                styles={selectStyles}
-              />
-            )}
-            {id_plataforma_conf !== null && (
-              <Select
-                isClearable
-                options={[
-                  { value: "LAAR", label: "Laar" },
-                  { value: "SPEED", label: "Speed" },
-                  { value: "SERVIENTREGA", label: "Servientrega" },
-                  { value: "GINTRACOM", label: "Gintracom" },
-                ]}
-                value={selectedTransportadora}
-                onChange={(opt) => {
-                  setSelectedTransportadora(opt);
-                  if (!opt) setSelectedEstado([]);
-                }}
-                placeholder="Selecciona transportadora"
-                className="w-full"
-                classNamePrefix="react-select"
-                menuPortalTarget={
-                  typeof document !== "undefined" ? document.body : null
-                }
-                styles={selectStyles}
-              />
-            )}
-            {selectedTransportadora && (
-              <Select
-                isClearable
-                options={[
-                  { value: "Generada", label: "Generada / Por recolectar" },
-                  {
-                    value: "En transito",
-                    label: "En tránsito / Procesamiento / En ruta",
-                  },
-                  { value: "Entregada", label: "Entregada" },
-                  { value: "Novedad", label: "Novedad" },
-                  { value: "Devolucion", label: "Devolución" },
-                ]}
-                value={selectedEstado}
-                onChange={(opt) => setSelectedEstado(opt)}
-                placeholder="Selecciona estado"
-                className="w-full"
-                classNamePrefix="react-select"
-                menuPortalTarget={
-                  typeof document !== "undefined" ? document.body : null
-                }
-                styles={selectStyles}
-              />
-            )}
-            {/* Chips activos */}
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {Array.isArray(selectedEtiquetas) &&
-                selectedEtiquetas.length > 0 &&
-                selectedEtiquetas.map((e) => (
-                  <FilterChip
-                    key={e.value}
-                    label={`Etiqueta: ${e.label}`}
-                    onClear={() =>
-                      setSelectedEtiquetas(
-                        selectedEtiquetas.filter((x) => x.value !== e.value),
-                      )
-                    }
+            <div
+              className="flex flex-wrap items-center gap-1.5 px-4 pb-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Kanban */}
+              <FilterPill
+                icon="bx bx-columns"
+                label="Kanban"
+                value={selectedEstado_contacto?.label}
+                onClear={() => setSelectedEstado_contacto(null)}
+              >
+                {({ close }) => (
+                  <Select
+                    {...popoutProps}
+                    options={estadosKanbanOptions}
+                    value={selectedEstado_contacto}
+                    onChange={(opt) => {
+                      setSelectedEstado_contacto(opt);
+                      close();
+                    }}
                   />
-                ))}
-              {selectedNovedad && (
-                <FilterChip
-                  label={`Novedad: ${selectedNovedad.label}`}
-                  onClear={() => setSelectedNovedad(null)}
-                />
+                )}
+              </FilterPill>
+
+              {/* Lectura */}
+              <FilterPill
+                icon="bx bx-envelope-open"
+                label="Lectura"
+                value={selectedLectura?.label}
+                onClear={() => setSelectedLectura(null)}
+              >
+                {({ close }) => (
+                  <Select
+                    {...popoutProps}
+                    options={[
+                      { value: "no_leidos", label: "No leídos" },
+                      { value: "leidos", label: "Leídos" },
+                    ]}
+                    value={selectedLectura}
+                    onChange={(opt) => {
+                      setSelectedLectura(opt);
+                      close();
+                    }}
+                  />
+                )}
+              </FilterPill>
+
+              {/* Asesor — solo admins */}
+              {(rol_usuario === "administrador" ||
+                rol_usuario === "admin_limitado") && (
+                <FilterPill
+                  icon="bx bx-user"
+                  label="Asesor"
+                  value={selectedAsesor?.label}
+                  onClear={() => setSelectedAsesor(null)}
+                >
+                  {({ close }) => (
+                    <Select
+                      {...popoutProps}
+                      options={asesoresOptions}
+                      value={selectedAsesor}
+                      onChange={(opt) => {
+                        setSelectedAsesor(opt);
+                        close();
+                      }}
+                    />
+                  )}
+                </FilterPill>
               )}
-              {selectedTransportadora && (
-                <FilterChip
-                  label={`Transp.: ${selectedTransportadora.label}`}
+
+              {/* Producto del anuncio */}
+              <FilterPill
+                icon="bx bx-purchase-tag"
+                label="Producto"
+                value={selectedProductoAd?.label}
+                onClear={() => setSelectedProductoAd(null)}
+              >
+                {({ close }) => (
+                  <Select
+                    {...popoutProps}
+                    options={productosAdOptions}
+                    value={selectedProductoAd}
+                    onChange={(opt) => {
+                      setSelectedProductoAd(opt);
+                      close();
+                    }}
+                    noOptionsMessage={() => "Sin productos"}
+                  />
+                )}
+              </FilterPill>
+
+              {/* Etiquetas — isMulti, no cierra al elegir */}
+              <FilterPill
+                icon="bx bx-tag"
+                label="Etiquetas"
+                value={
+                  selectedEtiquetas?.length
+                    ? selectedEtiquetas.length === 1
+                      ? selectedEtiquetas[0].label
+                      : `${selectedEtiquetas.length} etiquetas`
+                    : null
+                }
+                onClear={() => setSelectedEtiquetas([])}
+              >
+                {() => (
+                  <Select
+                    {...popoutProps}
+                    isMulti
+                    options={etiquetasOptions}
+                    value={selectedEtiquetas}
+                    onChange={handleChange}
+                  />
+                )}
+              </FilterPill>
+
+              {/* Logística — agrupa novedad + transportadora + estado */}
+              {id_plataforma_conf !== null && (
+                <FilterPill
+                  icon="bx bx-package"
+                  label="Logística"
+                  value={
+                    selectedTransportadora?.label ??
+                    selectedNovedad?.label ??
+                    selectedEstado?.label ??
+                    null
+                  }
                   onClear={() => {
+                    setSelectedNovedad(null);
                     setSelectedTransportadora(null);
                     setSelectedEstado([]);
                   }}
-                />
+                >
+                  {() => (
+                    <div className="grid gap-2">
+                      <Select
+                        isClearable
+                        options={[
+                          { value: "gestionadas", label: "Gestionadas" },
+                          { value: "no_gestionadas", label: "No gestionadas" },
+                        ]}
+                        value={selectedNovedad}
+                        onChange={(opt) => setSelectedNovedad(opt)}
+                        placeholder="Novedad"
+                        className="w-full"
+                        classNamePrefix="react-select"
+                        menuPortalTarget={
+                          typeof document !== "undefined" ? document.body : null
+                        }
+                        styles={logisticaSelectStyles}
+                      />
+                      <Select
+                        isClearable
+                        options={[
+                          { value: "LAAR", label: "Laar" },
+                          { value: "SPEED", label: "Speed" },
+                          { value: "SERVIENTREGA", label: "Servientrega" },
+                          { value: "GINTRACOM", label: "Gintracom" },
+                        ]}
+                        value={selectedTransportadora}
+                        onChange={(opt) => {
+                          setSelectedTransportadora(opt);
+                          if (!opt) setSelectedEstado([]);
+                        }}
+                        placeholder="Transportadora"
+                        className="w-full"
+                        classNamePrefix="react-select"
+                        menuPortalTarget={
+                          typeof document !== "undefined" ? document.body : null
+                        }
+                        styles={logisticaSelectStyles}
+                      />
+                      {selectedTransportadora && (
+                        <Select
+                          isClearable
+                          options={[
+                            {
+                              value: "Generada",
+                              label: "Generada / Por recolectar",
+                            },
+                            {
+                              value: "En transito",
+                              label: "En tránsito / Procesamiento / En ruta",
+                            },
+                            { value: "Entregada", label: "Entregada" },
+                            { value: "Novedad", label: "Novedad" },
+                            { value: "Devolucion", label: "Devolución" },
+                          ]}
+                          value={selectedEstado}
+                          onChange={(opt) => setSelectedEstado(opt)}
+                          placeholder="Estado guía"
+                          className="w-full"
+                          classNamePrefix="react-select"
+                          menuPortalTarget={
+                            typeof document !== "undefined"
+                              ? document.body
+                              : null
+                          }
+                          styles={logisticaSelectStyles}
+                        />
+                      )}
+                    </div>
+                  )}
+                </FilterPill>
               )}
-              {selectedEstado?.label && (
-                <FilterChip
-                  label={`Estado: ${selectedEstado.label}`}
-                  onClear={() => setSelectedEstado(null)}
-                />
+
+              {hayFiltrosActivos && (
+                <button
+                  type="button"
+                  onClick={limpiarFiltros}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium text-slate-500 transition-colors hover:text-slate-800"
+                  title="Limpiar todos los filtros"
+                >
+                  <i className="bx bx-eraser text-[12px]" /> Limpiar
+                </button>
               )}
-              {selectedLectura && (
-                <FilterChip
-                  label={selectedLectura.label}
-                  onClear={() => setSelectedLectura(null)}
-                />
-              )}
-              {selectedAsesor && (
-                <FilterChip
-                  label={`Asesor: ${selectedAsesor.label}`}
-                  onClear={() => setSelectedAsesor(null)}
-                />
-              )}
-              {Array.isArray(selectedEtiquetas) &&
-                selectedEtiquetas.length +
-                  (selectedNovedad ? 1 : 0) +
-                  (selectedTransportadora ? 1 : 0) +
-                  (selectedEstado ? 1 : 0) >
-                  (selectedLectura ? 1 : 0) +
-                  (selectedAsesor ? 1 : 0) >
-                  0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedEtiquetas([]);
-                      setSelectedNovedad(null);
-                      setSelectedTransportadora(null);
-                      setSelectedEstado([]);
-                      setSelectedLectura(null);
-                      setSelectedAsesor(null);
-                    }}
-                    className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
-                  >
-                    Limpiar filtros <i className="bx bx-eraser text-[11px]" />
-                  </button>
-                )}
             </div>
           </div>
 
@@ -1807,7 +2049,9 @@ export const Sidebar = ({
                   onClick={() => handleSelectChat(mensaje)}
                   seleccionado={seleccionado}
                   selectedChat={selectedChat}
-                  deudaCartera={deudasPorCorreo[correoKey(mensaje?.email_cliente)]}
+                  deudaCartera={
+                    deudasPorCorreo[correoKey(mensaje?.email_cliente)]
+                  }
                 />
               );
             });
