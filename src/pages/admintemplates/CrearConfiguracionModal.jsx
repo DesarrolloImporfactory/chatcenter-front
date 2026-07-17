@@ -241,6 +241,23 @@ const CrearConfiguracionModal = ({
       const httpStatus = error?.response?.status;
       const backendMsg = error?.response?.data?.message;
 
+      // Número ya usado por otra conexión activa (regla de unicidad).
+      // Va antes del bloque 409 de cupo: comparte status pero se distingue
+      // por el code, así no dispara la vista de "comprar conexión".
+      if (error?.response?.data?.code === "TELEFONO_EN_USO") {
+        Swal.fire({
+          icon: "warning",
+          iconColor: "#f59e0b",
+          title: "Número en uso",
+          text:
+            backendMsg ||
+            "Este número ya está en uso por otra cuenta. Debe eliminarse antes de poder registrarlo aquí.",
+          confirmButtonColor: "#1d4ed8",
+          customClass: { popup: "rounded-2xl" },
+        });
+        return;
+      }
+
       if (
         httpStatus === 403 &&
         error?.response?.data?.code === "QUOTA_EXCEEDED"

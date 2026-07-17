@@ -21,6 +21,7 @@ import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConf
 import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
 import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
+import EditarConexionModal from "./Modales/EditarConexionModal";
 
 const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
   <div className="group relative overflow-hidden rounded-xl bg-white/[0.07] ring-1 ring-white/10 backdrop-blur-xl px-3.5 py-2.5 transition-all duration-300 hover:bg-white/[0.11] hover:ring-white/20">
@@ -378,6 +379,7 @@ const Conexiones = () => {
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroPago, setFiltroPago] = useState("");
   const [suspendiendoId, setSuspendiendoId] = useState(null);
+  const [editConfig, setEditConfig] = useState(null);
 
   // --- Popover "Ver detalles" ---
   const [hoveredId, setHoveredId] = useState(null);
@@ -1510,6 +1512,24 @@ const Conexiones = () => {
                                 <i className="bx bx-copy text-base text-slate-500" />
                                 Copiar número
                               </button>
+                              {/* Editar: solo si la conexión NO está
+                                  vinculada a WhatsApp (para corregir un
+                                  número mal escrito antes de conectar). */}
+                              {!conectado && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuOpenId(null);
+                                    setEditConfig(config);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition"
+                                >
+                                  <i className="bx bx-edit-alt text-base text-slate-500" />
+                                  Editar conexión
+                                </button>
+                              )}
                               <div className="my-1 h-px bg-slate-100" />
                               <button
                                 type="button"
@@ -1872,6 +1892,31 @@ const Conexiones = () => {
         <ExportarMensajesModal
           conexiones={configuracionAutomatizada}
           onClose={() => setShowExportModal(false)}
+        />
+      )}
+
+      {editConfig && (
+        <EditarConexionModal
+          config={editConfig}
+          userData={userData}
+          onClose={() => setEditConfig(null)}
+          onSaved={(updated) => {
+            setConfiguracionAutomatizada((prev) =>
+              prev.map((c) =>
+                c.id === updated.id
+                  ? {
+                      ...c,
+                      nombre_configuracion: updated.nombre_configuracion,
+                      telefono: updated.telefono,
+                    }
+                  : c,
+              ),
+            );
+            setStatusMessage({
+              type: "success",
+              text: "Conexión actualizada.",
+            });
+          }}
         />
       )}
 
