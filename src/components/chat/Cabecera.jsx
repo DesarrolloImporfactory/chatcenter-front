@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
-import { useDropi } from "../../context/DropiContext";
 import FloatingSupportChat from "../layout/FloatingSupportChat";
 import CarteraHeaderBadges from "../imporsuit/CarteraHeaderBadges";
 import { globalLogout } from "../../utils/globalLogout";
@@ -111,19 +110,9 @@ const Cabecera = ({
   }, []);
 
   const [openMenu, setOpenMenu] = useState(null);
-  const [openSubMenu, setOpenSubMenu] = useState(null);
 
   const toggleMenu = (key) => {
-    setOpenMenu((prev) => {
-      const next = prev === key ? null : key;
-      // si sale de integraciones, cierre submenú
-      if (next !== "integraciones") setOpenSubMenu(null);
-      return next;
-    });
-  };
-
-  const toggleSubMenu = (key) => {
-    setOpenSubMenu((prev) => (prev === key ? null : key));
+    setOpenMenu((prev) => (prev === key ? null : key));
   };
 
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -170,9 +159,6 @@ const Cabecera = ({
       )
     ) {
       setOpenMenu("integraciones");
-      if (location.pathname.startsWith("/shopify")) {
-        setOpenSubMenu("shopify");
-      }
     } else if (
       [
         "/canal-conexiones",
@@ -250,50 +236,8 @@ const Cabecera = ({
     navigate("/kanban_config");
   };
 
-  // =========================================================
-  // DROPi (estado global en layout)
-  // =========================================================
-  const [isDropiLinked, setIsDropiLinked] = useState(false);
-  const [loadingDropiLinked, setLoadingDropiLinked] = useState(false);
-
-  const fetchDropiLinked = useCallback(async () => {
-    if (!id_configuracion) return;
-
-    setLoadingDropiLinked(true);
-    try {
-      const res = await chatApi.get("dropi_integrations", {
-        params: { id_configuracion },
-      });
-
-      const list = res?.data?.data ?? [];
-      setIsDropiLinked(list.length > 0);
-    } catch (e) {
-      // Si falla la consulta, por seguridad marcamos desconectado
-      setIsDropiLinked(false);
-    } finally {
-      setLoadingDropiLinked(false);
-    }
-  }, [id_configuracion]);
-
-  // =========================================================
-  // Listener DROPi linked-changed => refetch
-  // =========================================================
-  useEffect(() => {
-    const handler = () => {
-      // cuando Integraciones.jsx crea/edita/elimina, esto actualiza el layout
-      fetchDropiLinked();
-    };
-
-    window.addEventListener("dropi:linked-changed", handler);
-    return () => window.removeEventListener("dropi:linked-changed", handler);
-  }, [fetchDropiLinked]);
-
-  // =========================================================
-  // Cargar Dropi linked cuando ya tengo id_configuracion
-  // =========================================================
-  useEffect(() => {
-    if (id_configuracion) fetchDropiLinked();
-  }, [id_configuracion, fetchDropiLinked]);
+  // (La verificación "¿tiene Dropi vinculado?" que vivía aquí se eliminó:
+  // el menú ya no condiciona ningún botón a ese estado.)
 
   // useEffect(() => {
   //   const fetchEstadoNumero = async () => {
@@ -922,101 +866,33 @@ const Cabecera = ({
                   <span>Asistentes AI</span>
                 </a>
 
-                {/* ===== Dropi (submenu) ===== */}
-                <div className="mt-1">
-                  <button
-                    type="button"
-                    className={`group flex items-center justify-between w-full text-left px-4 py-2 hover:text-blue-600 ${
-                      location.pathname.startsWith("/dropi")
-                        ? "font-semibold text-blue-600"
-                        : ""
-                    }`}
-                    onClick={() => toggleSubMenu("dropi")}
-                  >
-                    <span className="flex items-center gap-3">
-                      <i className="bx bx-store text-xl text-gray-600 group-hover:text-blue-600"></i>
-                      <span>Dropi</span>
-                    </span>
+                {/* ===== Dropi (directo a configuración) ===== */}
+                <a
+                  href="/dropi"
+                  onClick={(e) => handleNavClick(e, "/dropi")}
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    location.pathname.startsWith("/dropi")
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
+                >
+                  <i className="bx bx-store text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Dropi</span>
+                </a>
 
-                    <i
-                      className={`bx bx-chevron-down text-xl text-gray-500 transition-transform duration-300 ${
-                        openSubMenu === "dropi" ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  <div
-                    className="overflow-hidden transition-all duration-[600ms] ease-out"
-                    style={{
-                      maxHeight: openSubMenu === "dropi" ? "220px" : "0px",
-                    }}
-                  >
-                    <div className="ml-6 flex flex-col py-2">
-                      <a
-                        href="/dropi"
-                        onClick={(e) => handleNavClick(e, "/dropi")}
-                        className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                          location.pathname === "/dropi"
-                            ? "font-semibold text-blue-600"
-                            : ""
-                        }`}
-                      >
-                        <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
-                        <span>Configuración</span>
-                      </a>
-
-                      {/* Pedidos se movió al grupo "Centro de Ventas" */}
-                    </div>
-                  </div>
-                </div>
-                {/* ===== Shopify (submenu) ===== */}
-                <div className="mt-1">
-                  <button
-                    type="button"
-                    className={`group flex items-center justify-between w-full text-left px-4 py-2 hover:text-blue-600 ${
-                      location.pathname.startsWith("/shopify")
-                        ? "font-semibold text-blue-600"
-                        : ""
-                    }`}
-                    onClick={() => toggleSubMenu("shopify")}
-                  >
-                    <span className="flex items-center gap-3">
-                      <i className="bx bxl-shopify text-xl text-gray-600 group-hover:text-blue-600"></i>
-                      <span>Shopify</span>
-                    </span>
-
-                    <i
-                      className={`bx bx-chevron-down text-xl text-gray-500 transition-transform duration-300 ${
-                        openSubMenu === "shopify" ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  <div
-                    className="overflow-hidden transition-all duration-[600ms] ease-out"
-                    style={{
-                      maxHeight: openSubMenu === "shopify" ? "220px" : "0px",
-                    }}
-                  >
-                    <div className="ml-6 flex flex-col py-2">
-                      <a
-                        href="/shopify"
-                        onClick={(e) => handleNavClick(e, "/shopify")}
-                        className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                          location.pathname === "/shopify"
-                            ? "font-semibold text-blue-600"
-                            : ""
-                        }`}
-                      >
-                        <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
-                        <span>Configuración</span>
-                      </a>
-
-                      {/* Carritos abandonados se movió al grupo
-                          "Gestión de Pedidos" */}
-                    </div>
-                  </div>
-                </div>
+                {/* ===== Shopify (directo a configuración) ===== */}
+                <a
+                  href="/shopify"
+                  onClick={(e) => handleNavClick(e, "/shopify")}
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    location.pathname.startsWith("/shopify")
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
+                >
+                  <i className="bx bxl-shopify text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Shopify</span>
+                </a>
               </div>
             </div>
           </div>

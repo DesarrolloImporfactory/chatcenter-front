@@ -562,9 +562,13 @@ const ShopifyPlantillaRecuperacion = ({ id_configuracion }) => {
               padding: "1px 8px",
               fontSize: ".68rem",
               fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
             }}
           >
-            ✓ Activa
+            <i className="bx bx-check" style={{ fontSize: 12 }} />
+            Activa
           </span>
         )}
       </button>
@@ -700,8 +704,8 @@ const ShopifyPlantillaRecuperacion = ({ id_configuracion }) => {
                         }}
                       >
                         {activo
-                          ? "✓ Se enviará el WhatsApp al recibir cada abandono"
-                          : "Apagado — los abandonos se guardan pero no se envía WhatsApp automático"}
+                          ? "Se enviará el WhatsApp en cuanto se reciba cada carrito abandonado"
+                          : "Apagado — los carritos se guardan pero no se envía WhatsApp automático"}
                       </div>
                     </div>
                     <div

@@ -38,6 +38,9 @@ const selectStyles = {
   valueContainer: (base) => ({ ...base, padding: "2px 12px" }),
   indicatorsContainer: (base) => ({ ...base, height: "42px" }),
   menu: (base) => ({ ...base, borderRadius: "0.75rem", overflow: "hidden" }),
+  // El menú se renderiza en un portal sobre el modal (z-50): sin esto se
+  // recortaba dentro del cuerpo scrolleable y generaba scroll interno.
+  menuPortal: (base) => ({ ...base, zIndex: 99999 }),
 };
 
 const emitDropiLinkedChanged = (payload = {}) => {
@@ -599,145 +602,160 @@ const IntegracionesDropi = () => {
           </div>
         </div>
 
-        {/* MODAL */}
+        {/* MODAL (misma línea visual que "agregar conexión") */}
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6 relative animate-fade-in">
-              <button
-                onClick={closeModal}
-                className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl"
-                aria-label="Cerrar"
-              >
-                <i className="bx bx-x text-2xl" />              </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a1a36]/50 backdrop-blur-md p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[92vh] flex flex-col">
+              {/* Header blanco: el logo de la marca es el protagonista */}
+              <div className="relative bg-white border-b border-gray-100 px-6 pt-7 pb-5 text-center shrink-0">
+                <button
+                  onClick={closeModal}
+                  className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="Cerrar"
+                  disabled={saving}
+                >
+                  <i className="bx bx-x text-xl" />
+                </button>
 
-              {/* Logo */}
-              <div className="flex justify-center mb-3">
                 <img
                   src={DROPi_LOGO_URL}
                   alt="Dropi"
-                  className="w-24 h-auto rounded-md"
+                  className="h-10 w-auto object-contain mx-auto"
                 />
-              </div>
 
-              <h2 className="text-2xl font-bold text-center text-gray-800 mb-1">
-                {mode === "create"
-                  ? "Vincular Dropi"
-                  : "Editar vinculación Dropi"}
-              </h2>
-
-              <p className="text-center text-sm text-gray-500 mb-4">
-                {mode === "create"
-                  ? "Registre su tienda y pegue el token generado en Dropi."
-                  : "Actualice los datos. Si necesita cambiar el token, péguelo nuevamente."}
-              </p>
-
-              {/* Fila 1 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-semibold text-gray-700">
-                    Nombre de tu Tienda
-                  </label>
-                  <input
-                    type="text"
-                    // name raro + autoComplete off: que Chrome NO meta aquí el
-                    // correo de Google creyendo que es un formulario de login.
-                    name="dropi_store_name"
-                    autoComplete="off"
-                    placeholder="Ej: Tienda Dropi CO"
-                    className="mt-1 w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
-                    value={storeName}
-                    onChange={(e) => setStoreName(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold text-gray-700">
-                    País
-                  </label>
-                  <div className="mt-1">
-                    <Select
-                      value={countryOpt}
-                      onChange={(opt) => setCountryOpt(opt)}
-                      options={COUNTRY_OPTIONS}
-                      styles={selectStyles}
-                      isSearchable
-                      placeholder="Seleccione un país"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Token */}
-              <div className="mt-4">
-                <label className="text-sm font-semibold text-gray-700">
-                  Token{" "}
-                  {mode === "edit" ? "(opcional si no desea cambiarlo)" : ""}
-                </label>
-
-                <div className="relative mt-1">
-                  <input
-                    // NO usar type="password": Chrome detectaba "login form" y
-                    // auto-rellenaba correo/contraseña de Google en el modal.
-                    // Se enmascara con CSS (WebkitTextSecurity) y así el
-                    // gestor de contraseñas nunca toca estos campos.
-                    type="text"
-                    name="dropi_integration_token"
-                    autoComplete="off"
-                    style={{
-                      WebkitTextSecurity: showToken ? "none" : "disc",
-                    }}
-                    placeholder={
-                      mode === "edit"
-                        ? "Pegue un nuevo token solo si desea cambiarlo"
-                        : "Pegue aquí el token generado en Dropi"
-                    }
-                    className="w-full px-4 py-2 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    spellCheck={false}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowToken((v) => !v)}
-                    className="absolute inset-y-0 right-0 px-3 text-gray-600 hover:text-gray-800 flex items-center"
-                    title={showToken ? "Ocultar token" : "Mostrar token"}
-                    aria-label={showToken ? "Ocultar token" : "Mostrar token"}
-                  >
-                    <i
-                      className={`bx ${
-                        showToken ? "bx-hide" : "bx-show"
-                      } text-xl`}
-                    />
-                  </button>
-                </div>
-
-                <p className="text-xs text-gray-400 mt-1">
-                  Por seguridad, el token no se mostrará completo luego.
+                <h2 className="text-lg font-bold text-gray-900 mt-3">
+                  {mode === "create" ? "Vincular Dropi" : "Editar vinculación"}
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  {mode === "create"
+                    ? "Registra tu tienda y pega el token generado en Dropi."
+                    : "Actualiza los datos. Pega el token solo si necesitas cambiarlo."}
                 </p>
               </div>
 
-              {/* Acciones */}
-              <div className="flex items-center justify-end gap-2 pt-5">
-                <button
-                  onClick={closeModal}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 transition"
-                  disabled={saving}
-                >
-                  Cancelar
-                </button>
+              {/* Cuerpo */}
+              <div className="p-6 overflow-y-auto">
+                {/* Fila 1 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700">
+                      Nombre de tu tienda
+                    </label>
+                    <input
+                      type="text"
+                      // name raro + autoComplete off: que Chrome NO meta aquí
+                      // el correo de Google creyendo que es un login.
+                      name="dropi_store_name"
+                      autoComplete="off"
+                      placeholder="Ej: Tienda Dropi CO"
+                      className="mt-1.5 w-full px-3.5 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                    />
+                  </div>
 
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#171931] text-white hover:opacity-95 transition disabled:opacity-50"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Guardando..."
-                    : mode === "create"
-                      ? "Vincular"
-                      : "Guardar cambios"}
-                </button>
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700">
+                      País
+                    </label>
+                    <div className="mt-1.5">
+                      <Select
+                        value={countryOpt}
+                        onChange={(opt) => setCountryOpt(opt)}
+                        options={COUNTRY_OPTIONS}
+                        styles={selectStyles}
+                        isSearchable
+                        placeholder="Selecciona un país"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Token */}
+                <div className="mt-4">
+                  <label className="text-sm font-semibold text-gray-700">
+                    Token{" "}
+                    {mode === "edit" ? (
+                      <span className="font-normal text-gray-400">
+                        (opcional si no deseas cambiarlo)
+                      </span>
+                    ) : (
+                      ""
+                    )}
+                  </label>
+
+                  <div className="relative mt-1.5">
+                    <input
+                      // NO usar type="password": Chrome detectaba "login form"
+                      // y auto-rellenaba correo/contraseña de Google en el
+                      // modal. Se enmascara con CSS (WebkitTextSecurity) y así
+                      // el gestor de contraseñas nunca toca estos campos.
+                      type="text"
+                      name="dropi_integration_token"
+                      autoComplete="off"
+                      style={{
+                        WebkitTextSecurity: showToken ? "none" : "disc",
+                      }}
+                      placeholder={
+                        mode === "edit"
+                          ? "Pega un nuevo token solo si deseas cambiarlo"
+                          : "Pega aquí el token generado en Dropi"
+                      }
+                      className="w-full px-3.5 py-2.5 pr-11 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      spellCheck={false}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowToken((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 grid place-items-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                      title={showToken ? "Ocultar token" : "Mostrar token"}
+                      aria-label={showToken ? "Ocultar token" : "Mostrar token"}
+                    >
+                      <i
+                        className={`bx ${showToken ? "bx-hide" : "bx-show"}`}
+                      />
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Lo encuentras en Dropi{" "}
+                    <i className="bx bx-chevron-right align-middle" />
+                    Integraciones. Por seguridad no se mostrará completo luego.
+                  </p>
+                </div>
+
+                {/* Acciones */}
+                <div className="flex items-center justify-end gap-2 pt-5">
+                  <button
+                    onClick={closeModal}
+                    className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 disabled:opacity-50"
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    onClick={handleSave}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8] text-sm text-white font-semibold hover:bg-[#1e40af] shadow-sm transition-all duration-200 disabled:opacity-70"
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <i className="bx bx-loader-alt bx-spin" />
+                        Guardando
+                      </>
+                    ) : mode === "create" ? (
+                      "Vincular"
+                    ) : (
+                      "Guardar cambios"
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

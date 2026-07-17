@@ -24,6 +24,14 @@ function getTrackingUrl(shippingCompany, guide) {
   return null;
 }
 
+/* Abre el chat del cliente en pestaña nueva — misma lógica que
+   Contactos/TablaContactos y OrdenesDropi (openChatById). */
+const CHAT_ROUTE = "/chat";
+function openChatById(chatId) {
+  if (!chatId) return;
+  window.open(`${CHAT_ROUTE}/${chatId}`, "_blank", "noopener,noreferrer");
+}
+
 const CopyGuideButton = ({ guide }) => {
   const [copied, setCopied] = useState(false);
   if (!guide) return null;
@@ -231,6 +239,7 @@ export default function DropiOrdersTable({ orders, statusKey, totalCount }) {
                 <th className="text-center px-3 py-2 font-semibold">Días</th>
               )}
               <th className="text-center px-3 py-2 font-semibold">Tracking</th>
+              <th className="text-center px-3 py-2 font-semibold">Chat</th>
             </tr>
           </thead>
           <tbody>
@@ -335,6 +344,26 @@ export default function DropiOrdersTable({ orders, statusKey, totalCount }) {
                       <span className="text-[10px] text-slate-400">—</span>
                     ) : (
                       <span className="text-[10px] text-slate-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {o.chat_id_cliente ? (
+                      <button
+                        type="button"
+                        onClick={() => openChatById(o.chat_id_cliente)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-200 transition"
+                        title="Abrir chat"
+                        aria-label="Abrir chat"
+                      >
+                        <i className="bx bxs-chat text-[14px]" />
+                      </button>
+                    ) : (
+                      <span
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-300"
+                        title="Este pedido no tiene conversación en el chat"
+                      >
+                        <i className="bx bxs-chat text-[14px]" />
+                      </span>
                     )}
                   </td>
                 </tr>

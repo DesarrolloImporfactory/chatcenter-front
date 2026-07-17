@@ -522,6 +522,116 @@ export default function ConnectionDashboard({ adminMode = false }) {
   );
 }
 
+/* ─── Skeleton de carga del resumen ───
+   Primera carga (sin data previa): réplica en gris con shimmer de
+   podio + tabla de productos + charts, para que debajo del hero no
+   quede la página en blanco. En los refetch se conserva el contenido
+   anterior (solo el KPI grid del hero muestra su propio skeleton). */
+
+function SkBox({ className = "", style }) {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-md bg-slate-100 ${className}`}
+      style={style}
+    >
+      <div className="absolute inset-0 animate-[skSweep_1.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/80 to-transparent" />
+    </div>
+  );
+}
+
+const SK_BAR_HEIGHTS = [42, 68, 35, 80, 55, 72, 47, 90, 62, 38, 76, 52, 66, 44];
+
+function ResumenSkeleton() {
+  return (
+    <>
+      <style>{`@keyframes skSweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}`}</style>
+
+      {/* podio de anuncios */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4"
+          >
+            <SkBox className="h-4 w-14 mb-3" />
+            <SkBox className="h-3.5 w-3/4 mb-2" />
+            <SkBox className="h-3 w-1/2 mb-4" />
+            <div className="flex gap-2">
+              <SkBox className="h-9 flex-1" />
+              <SkBox className="h-9 flex-1" />
+              <SkBox className="h-9 flex-1" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* tabla de productos */}
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-100">
+          <SkBox className="h-4 w-64 max-w-full mb-2" />
+          <SkBox className="h-3 w-96 max-w-full" />
+        </div>
+        <div className="px-4 sm:px-5 py-3 border-b border-slate-100 flex items-center gap-4 overflow-hidden">
+          {[24, 96, 56, 48, 48, 44, 40, 40, 56, 56].map((w, i) => (
+            <SkBox key={i} className="h-2.5 shrink-0" style={{ width: w }} />
+          ))}
+        </div>
+        <div className="divide-y divide-slate-100">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="px-4 sm:px-5 py-3 flex items-center gap-3">
+              <SkBox className="w-9 h-9 rounded-lg shrink-0" />
+              <div className="flex-1 min-w-0">
+                <SkBox className="h-3.5 w-40 max-w-[60%] mb-1.5" />
+                <SkBox className="h-2.5 w-16" />
+              </div>
+              <SkBox className="h-5 w-12 hidden sm:block" />
+              <SkBox className="h-5 w-12 hidden sm:block" />
+              <SkBox className="h-5 w-14 hidden md:block" />
+              <SkBox className="h-5 w-12 hidden md:block" />
+              <SkBox className="h-5 w-16 hidden lg:block" />
+              <SkBox className="h-5 w-16 hidden lg:block" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* charts: barras + donut */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="xl:col-span-2 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+          <SkBox className="h-4 w-52 mb-2" />
+          <SkBox className="h-3 w-72 max-w-full mb-5" />
+          <div className="h-[240px] flex items-end gap-2">
+            {SK_BAR_HEIGHTS.map((h, i) => (
+              <SkBox
+                key={i}
+                className="flex-1 rounded-t-md rounded-b-none"
+                // altura variada para simular la serie diaria
+                style={{ height: `${h}%` }}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+          <SkBox className="h-4 w-36 mb-2" />
+          <SkBox className="h-3 w-44 mb-5" />
+          <div className="grid place-items-center mb-5">
+            <div className="w-[136px] h-[136px] rounded-full border-[16px] border-slate-100 animate-pulse" />
+          </div>
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-2">
+                <SkBox className="w-2 h-2 rounded-full shrink-0" />
+                <SkBox className="h-3 flex-1" />
+                <SkBox className="h-3 w-10" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ═════════════════════════════════════════════════
    Tab Resumen — el dashboard de la conexión
    ═════════════════════════════════════════════════ */
@@ -1010,6 +1120,8 @@ function ResumenView({
           </div>
         )}
 
+        {loading && !data && <ResumenSkeleton />}
+
         {data && (
           <>
             {/* ── Anuncios ganadores / CTA Meta Ads ── */}
@@ -1036,6 +1148,30 @@ function ResumenView({
                     <i className="bx bx-info-circle align-middle text-slate-300" />{" "}
                     de cada columna para ver su fórmula
                   </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    % Conf.:{" "}
+                    <i className="bx bxl-whatsapp align-middle text-emerald-500" />{" "}
+                    <span className="font-semibold text-slate-500">
+                      escribieron → pidieron
+                    </span>{" "}
+                    ·{" "}
+                    <i className="bx bxl-shopify align-middle text-lime-600" />{" "}
+                    <span className="font-semibold text-slate-500">
+                      compraron en la landing → el bot confirmó por chat
+                    </span>
+                    {data.productos?.some(
+                      (p) => p.pctConfirmacionTipo === "familia",
+                    ) && (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <i className="bx bx-collection align-middle text-indigo-500" />{" "}
+                        <span className="font-semibold text-slate-500">
+                          mismo producto en combos: comparten anuncio y %
+                        </span>
+                      </>
+                    )}
+                  </p>
                 </div>
                 {data.productos?.length > 0 && (
                   <span className="shrink-0 text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">
@@ -1056,7 +1192,7 @@ function ResumenView({
                           k="conversacionesTotal"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Personas distintas que escribieron por este producto en el periodo: las que llegaron por sus anuncios (aunque no compraran) y las que hicieron un pedido."
+                          tip="Personas con las que hubo chat por este producto. Si recibe anuncios de WhatsApp: los que te escribieron (aunque no compraran). Si compran en la landing (Shopify): los que el bot contactó para confirmar su pedido. Si un mismo anuncio vende unidad y combos, el total se comparte entre esas filas."
                         />
                         <SortTh
                           label="Con pedido"
@@ -1077,8 +1213,8 @@ function ResumenView({
                           k="pctConfirmacion"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="De cada 100 personas que escribieron por este producto, cuántas terminaron pidiendo."
-                          formula="con pedido ÷ conv. totales × 100"
+                          tip="Productos con anuncios de WhatsApp: de cada 100 personas que escribieron, cuántas pidieron. Productos de la landing (Shopify): de cada 100 pedidos, cuántos ya confirmó el bot por chat. Combos del mismo producto: de cada 100 que escribieron por su anuncio, cuántos compraron alguna presentación."
+                          formula="chat: con pedido ÷ conv. totales · shopify: confirmadas ÷ órdenes · combos: compraron alguna ÷ escribieron"
                         />
                         <SortTh
                           label="Entreg."
@@ -1175,12 +1311,43 @@ function ResumenView({
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-center">
-                              {data.ctwaActivo &&
-                              p.conversacionesTotal != null ? (
-                                <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 text-xs font-bold">
-                                  {fmtNum(p.conversacionesTotal)}
-                                </span>
-                              ) : (
+                              {p.conversacionesTotal != null ? (
+                                <>
+                                  <span
+                                    className={`inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md text-xs font-bold ${
+                                      p.pctConfirmacionTipo === "familia"
+                                        ? "bg-indigo-50 text-indigo-700"
+                                        : p.pctConfirmacionTipo === "ordenes"
+                                          ? "bg-sky-50 text-sky-700"
+                                          : "bg-violet-50 text-violet-700"
+                                    }`}
+                                    title={
+                                      p.pctConfirmacionTipo === "familia"
+                                        ? `Personas que escribieron por "${p.familia}". El anuncio vende ${p.familiaN} presentaciones del mismo producto (unidad y combos), así que este total se comparte entre esas filas.`
+                                        : p.pctConfirmacionTipo === "ordenes"
+                                          ? "Personas contactadas por el chat para confirmar pedidos de este producto"
+                                          : "Personas que escribieron por este producto (anuncios + compradores)"
+                                    }
+                                  >
+                                    <i
+                                      className={`bx text-[13px] ${
+                                        p.pctConfirmacionTipo === "familia"
+                                          ? "bx-collection"
+                                          : p.pctConfirmacionTipo === "ordenes"
+                                            ? "bxl-shopify"
+                                            : "bxl-whatsapp"
+                                      }`}
+                                    />
+                                    {fmtNum(p.conversacionesTotal)}
+                                  </span>
+                                  {p.pctConfirmacionTipo === "familia" && (
+                                    <div className="text-[9px] font-semibold text-indigo-400 leading-none mt-1">
+                                      mismo anuncio · {p.familiaN} filas
+                                    </div>
+                                  )}
+                                </>
+                              ) : !data.ctwaActivo &&
+                                !data.metaAds?.conectado ? (
                                 <button
                                   onClick={() => navigate("/conexiones")}
                                   title="Conecta tu cuenta publicitaria para medir cuántas personas escriben por cada producto"
@@ -1189,6 +1356,17 @@ function ResumenView({
                                   <i className="bx bx-lock-alt" />
                                   Conectar ads
                                 </button>
+                              ) : (
+                                <span
+                                  className="text-slate-300"
+                                  title={
+                                    !data.ctwaActivo
+                                      ? "Tu cuenta publicitaria está conectada, pero en este periodo no llegaron chats desde anuncios de WhatsApp (clic al anuncio → escribe al chat). Este embudo se mide con ese tipo de anuncios."
+                                      : "Este producto no tuvo conversaciones desde anuncios ni pedidos Shopify validados en el periodo, así que no hay embudo que medir."
+                                  }
+                                >
+                                  —
+                                </span>
                               )}
                             </td>
                             <td className="px-3 py-2.5 text-center tabular-nums text-slate-600">
@@ -1202,18 +1380,40 @@ function ResumenView({
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-center">
-                              {!data.ctwaActivo || p.pctConfirmacion == null ? (
+                              {p.pctConfirmacion == null ? (
                                 <span className="text-slate-300">—</span>
                               ) : (
                                 <span
-                                  className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                                    p.pctConfirmacion >= 25
+                                  title={
+                                    p.pctConfirmacionTipo === "familia"
+                                      ? "Compraron alguna presentación ÷ todos los que escribieron por el anuncio (mismo % para las filas de la familia)"
+                                      : p.pctConfirmacionTipo === "ordenes"
+                                        ? "Pedidos confirmados ÷ pedidos del producto"
+                                        : "Personas con pedido ÷ personas que escribieron"
+                                  }
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                    p.pctConfirmacion >=
+                                    (p.pctConfirmacionTipo === "ordenes"
+                                      ? 80
+                                      : 25)
                                       ? "bg-emerald-50 text-emerald-700"
-                                      : p.pctConfirmacion >= 10
+                                      : p.pctConfirmacion >=
+                                          (p.pctConfirmacionTipo === "ordenes"
+                                            ? 50
+                                            : 10)
                                         ? "bg-amber-50 text-amber-700"
                                         : "bg-rose-50 text-rose-700"
                                   }`}
                                 >
+                                  <i
+                                    className={`bx text-[13px] ${
+                                      p.pctConfirmacionTipo === "familia"
+                                        ? "bx-collection"
+                                        : p.pctConfirmacionTipo === "ordenes"
+                                          ? "bxl-shopify"
+                                          : "bxl-whatsapp"
+                                    }`}
+                                  />
                                   {fmtPct(p.pctConfirmacion)}
                                 </span>
                               )}

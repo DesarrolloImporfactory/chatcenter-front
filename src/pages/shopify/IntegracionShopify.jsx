@@ -8,25 +8,25 @@ const SHOPIFY_LOGO_URL =
   "https://upload.wikimedia.org/wikipedia/commons/0/0e/Shopify_logo_2018.svg";
 
 const COUNTRY_PHONE_OPTIONS = [
-  { value: "593", label: "🇪🇨 Ecuador (+593)" },
-  { value: "57", label: "🇨🇴 Colombia (+57)" },
-  { value: "52", label: "🇲🇽 México (+52)" },
-  { value: "51", label: "🇵🇪 Perú (+51)" },
-  { value: "56", label: "🇨🇱 Chile (+56)" },
-  { value: "54", label: "🇦🇷 Argentina (+54)" },
-  { value: "591", label: "🇧🇴 Bolivia (+591)" },
-  { value: "595", label: "🇵🇾 Paraguay (+595)" },
-  { value: "598", label: "🇺🇾 Uruguay (+598)" },
-  { value: "58", label: "🇻🇪 Venezuela (+58)" },
-  { value: "507", label: "🇵🇦 Panamá (+507)" },
-  { value: "506", label: "🇨🇷 Costa Rica (+506)" },
-  { value: "1809", label: "🇩🇴 Rep. Dominicana (+1809)" },
-  { value: "502", label: "🇬🇹 Guatemala (+502)" },
-  { value: "503", label: "🇸🇻 El Salvador (+503)" },
-  { value: "504", label: "🇭🇳 Honduras (+504)" },
-  { value: "505", label: "🇳🇮 Nicaragua (+505)" },
-  { value: "1", label: "🇺🇸 Estados Unidos (+1)" },
-  { value: "34", label: "🇪🇸 España (+34)" },
+  { value: "593", label: "Ecuador (+593)" },
+  { value: "57", label: "Colombia (+57)" },
+  { value: "52", label: "México (+52)" },
+  { value: "51", label: "Perú (+51)" },
+  { value: "56", label: "Chile (+56)" },
+  { value: "54", label: "Argentina (+54)" },
+  { value: "591", label: "Bolivia (+591)" },
+  { value: "595", label: "Paraguay (+595)" },
+  { value: "598", label: "Uruguay (+598)" },
+  { value: "58", label: "Venezuela (+58)" },
+  { value: "507", label: "Panamá (+507)" },
+  { value: "506", label: "Costa Rica (+506)" },
+  { value: "1809", label: "Rep. Dominicana (+1809)" },
+  { value: "502", label: "Guatemala (+502)" },
+  { value: "503", label: "El Salvador (+503)" },
+  { value: "504", label: "Honduras (+504)" },
+  { value: "505", label: "Nicaragua (+505)" },
+  { value: "1", label: "Estados Unidos (+1)" },
+  { value: "34", label: "España (+34)" },
 ];
 
 const selectStyles = {
@@ -40,6 +40,9 @@ const selectStyles = {
   valueContainer: (base) => ({ ...base, padding: "2px 12px" }),
   indicatorsContainer: (base) => ({ ...base, height: "42px" }),
   menu: (base) => ({ ...base, borderRadius: "0.75rem", overflow: "hidden" }),
+  // El menú se renderiza en un portal sobre el modal (z-50): sin esto se
+  // recortaba dentro del cuerpo scrolleable y generaba scroll interno.
+  menuPortal: (base) => ({ ...base, zIndex: 99999 }),
 };
 
 const emitShopifyLinkedChanged = (payload = {}) => {
@@ -445,54 +448,77 @@ const IntegracionShopify = () => {
 
       {/* WIZARD: instrucciones para configurar webhooks en Shopify */}
       {isLinked && showWizard && (
-        <div className="mb-6 rounded-2xl bg-white p-6 shadow-md border-l-4 border-[#171931]">
-          <div className="flex items-center justify-between mb-4 gap-3">
+        <div className="mb-6 rounded-2xl bg-white shadow-md border border-gray-100 overflow-hidden">
+          {/* Header de la guía */}
+          <div className="bg-gradient-to-br from-[#0a1a36] via-[#102a5c] to-[#1e4fd6] px-5 sm:px-8 py-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
+                <i className="bx bx-book-open text-xl text-white" />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-base md:text-lg font-bold text-white leading-tight">
+                  Configura los webhooks en tu Shopify
+                </h3>
+                <p className="text-xs text-white/60 mt-0.5">
+                  5 pasos, una sola vez. Con esto capturamos tus carritos y
+                  pedidos en tiempo real.
+                </p>
+              </div>
+            </div>
             <button
               onClick={() => setShowWizard(false)}
-              className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg transition"
+              className="shrink-0 inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 ring-1 ring-white/20 text-white font-semibold px-3.5 py-2 rounded-lg transition text-sm"
             >
               <i className="bx bx-arrow-back text-lg" />
               Volver
             </button>
-            <h3 className="text-base md:text-lg font-bold text-gray-800 text-right">
-              Guía: Configurar webhooks en tu Shopify
-            </h3>
           </div>
 
-          <div className="space-y-5">
+          <div className="p-5 sm:p-8 space-y-4">
             {/* Paso 1 */}
-            <div className="border rounded-xl p-4 bg-gray-50">
-              <h4 className="font-semibold text-[#171931]">
-                Paso 1 — Entra al admin de tu Shopify
-              </h4>
-              <p className="text-sm text-gray-600 mt-1">
-                Ve a: <strong>Configuración → Notificaciones → Webhooks</strong>
-              </p>
+            <div className="flex gap-4">
+              <span className="shrink-0 w-8 h-8 rounded-full bg-[#eff6ff] text-[#1d4ed8] font-extrabold text-sm grid place-items-center">
+                1
+              </span>
+              <div className="flex-1 pb-4 border-b border-gray-100">
+                <h4 className="font-semibold text-gray-900 text-sm">
+                  Entra al panel de webhooks de tu Shopify
+                </h4>
+                <p className="text-sm text-gray-500 mt-1">
+                  En el admin de tu tienda:{" "}
+                  <span className="font-medium text-gray-700">
+                    Configuración
+                  </span>{" "}
+                  <i className="bx bx-chevron-right align-middle text-gray-400" />{" "}
+                  <span className="font-medium text-gray-700">
+                    Notificaciones
+                  </span>{" "}
+                  <i className="bx bx-chevron-right align-middle text-gray-400" />{" "}
+                  <span className="font-medium text-gray-700">Webhooks</span>
+                </p>
+              </div>
             </div>
 
             {/* Paso 2 */}
-            <div className="border rounded-xl p-4 bg-gray-50">
-              <h4 className="font-semibold text-[#171931]">
-                Paso 2 — Crea el webhook de "Creación de pedido preliminar"
-              </h4>
-              <p className="text-sm text-gray-600 mt-1">
-                Click en <strong>"Crear webhook"</strong> y selecciona:
-              </p>
-              <ul className="text-sm text-gray-700 mt-2 space-y-1 ml-4">
-                <li>
-                  • <strong>Evento:</strong> Creación de pedido preliminar
-                </li>
-                <li>
-                  • <strong>Formato:</strong> JSON
-                </li>
-                <li>
-                  • <strong>Versión:</strong> última estable (NO unstable)
-                </li>
-                <li className="flex items-center gap-2 flex-wrap">
-                  <span>
-                    • <strong>URL:</strong>
+            <div className="flex gap-4">
+              <span className="shrink-0 w-8 h-8 rounded-full bg-[#eff6ff] text-[#1d4ed8] font-extrabold text-sm grid place-items-center">
+                2
+              </span>
+              <div className="flex-1 pb-4 border-b border-gray-100">
+                <h4 className="font-semibold text-gray-900 text-sm">
+                  Crea el webhook de pedido preliminar (carritos)
+                </h4>
+                <p className="text-sm text-gray-500 mt-1">
+                  Pulsa <span className="font-medium text-gray-700">Crear webhook</span>{" "}
+                  con evento{" "}
+                  <span className="font-medium text-gray-700">
+                    Creación de pedido preliminar
                   </span>
-                  <code className="bg-white border px-2 py-1 rounded text-xs">
+                  , formato <span className="font-medium text-gray-700">JSON</span> y
+                  la última versión estable.
+                </p>
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <code className="bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg text-xs text-gray-700 break-all">
                     {WEBHOOK_BASE_URL}/abandoned-draft
                   </code>
                   <button
@@ -502,31 +528,33 @@ const IntegracionShopify = () => {
                         "URL copiada",
                       )
                     }
-                    className="text-xs bg-[#171931] text-white px-2 py-1 rounded hover:opacity-90"
+                    className="inline-flex items-center gap-1 text-xs font-semibold bg-[#171931] text-white px-2.5 py-1.5 rounded-lg hover:opacity-90 transition"
                   >
-                    Copiar
+                    <i className="bx bx-copy" />
+                    Copiar URL
                   </button>
-                </li>
-              </ul>
+                </div>
+              </div>
             </div>
 
             {/* Paso 3 */}
-            <div className="border rounded-xl p-4 bg-gray-50">
-              <h4 className="font-semibold text-[#171931]">
-                Paso 3 — Crea el webhook de "Creación de pedido"
-              </h4>
-              <p className="text-sm text-gray-600 mt-1">
-                Repite el proceso, pero con:
-              </p>
-              <ul className="text-sm text-gray-700 mt-2 space-y-1 ml-4">
-                <li>
-                  • <strong>Evento:</strong> Creación de pedido
-                </li>
-                <li className="flex items-center gap-2 flex-wrap">
-                  <span>
-                    • <strong>URL:</strong>
+            <div className="flex gap-4">
+              <span className="shrink-0 w-8 h-8 rounded-full bg-[#eff6ff] text-[#1d4ed8] font-extrabold text-sm grid place-items-center">
+                3
+              </span>
+              <div className="flex-1 pb-4 border-b border-gray-100">
+                <h4 className="font-semibold text-gray-900 text-sm">
+                  Crea el webhook de creación de pedido
+                </h4>
+                <p className="text-sm text-gray-500 mt-1">
+                  Repite el paso anterior, ahora con el evento{" "}
+                  <span className="font-medium text-gray-700">
+                    Creación de pedido
                   </span>
-                  <code className="bg-white border px-2 py-1 rounded text-xs">
+                  .
+                </p>
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <code className="bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg text-xs text-gray-700 break-all">
                     {WEBHOOK_BASE_URL}/orders-create
                   </code>
                   <button
@@ -536,110 +564,135 @@ const IntegracionShopify = () => {
                         "URL copiada",
                       )
                     }
-                    className="text-xs bg-[#171931] text-white px-2 py-1 rounded hover:opacity-90"
+                    className="inline-flex items-center gap-1 text-xs font-semibold bg-[#171931] text-white px-2.5 py-1.5 rounded-lg hover:opacity-90 transition"
                   >
-                    Copiar
+                    <i className="bx bx-copy" />
+                    Copiar URL
                   </button>
-                </li>
-              </ul>
+                </div>
+              </div>
             </div>
 
-            {/* Paso 4 - Webhook secret (nuevo flujo) */}
-            <div className="border rounded-xl p-4 bg-blue-50 border-blue-200">
-              <h4 className="font-semibold text-[#171931]">
-                Paso 4 — Copia el token de firma de Shopify y pégalo aquí
-              </h4>
-              <p className="text-sm text-gray-700 mt-1">
-                En la misma pantalla de Shopify (Configuración → Notificaciones
-                → Webhooks), arriba de la lista de webhooks vas a ver un texto
-                que dice:
-              </p>
-              <div className="mt-2 bg-white border rounded p-3 text-sm font-mono text-gray-700">
-                "Tus webhooks se firmarán con token:{" "}
-                <span className="text-emerald-700">abc123def456...</span>"
-              </div>
-              <p className="text-sm text-gray-700 mt-2">
-                <strong>Copia ese token completo</strong> y pégalo aquí abajo
-                para que podamos validar que los webhooks vienen realmente de tu
-                tienda:
-              </p>
-
-              <div className="mt-3 flex items-center gap-2 flex-wrap">
-                <input
-                  // NO type="password": Chrome creía que era un login y
-                  // auto-rellenaba credenciales de Google. Se enmascara con CSS.
-                  type="text"
-                  name="shopify_webhook_secret_wizard"
-                  autoComplete="off"
-                  spellCheck={false}
-                  style={{ WebkitTextSecurity: showSecret ? "none" : "disc" }}
-                  placeholder={
-                    activeIntegration?.webhook_secret
-                      ? "Pegar nuevo token (deja vacío si no quieres cambiar)"
-                      : "Pega el token de Shopify aquí"
-                  }
-                  value={newSecretInput}
-                  onChange={(e) => setNewSecretInput(e.target.value)}
-                  className="flex-1 min-w-[200px] px-3 py-2 border rounded-lg bg-white text-sm font-mono"
-                />
-                <button
-                  onClick={() => setShowSecret((v) => !v)}
-                  className="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-lg"
-                >
-                  <i className={`bx ${showSecret ? "bx-hide" : "bx-show"}`} />
-                </button>
-                <button
-                  onClick={handleActualizarSecret}
-                  disabled={saving}
-                  className="text-sm bg-[#171931] text-white px-3 py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
-                >
-                  Guardar token
-                </button>
-              </div>
-
-              {activeIntegration?.webhook_secret && (
-                <p className="text-xs text-emerald-700 mt-2">
-                  Ya tienes un token guardado. Solo pega uno nuevo si lo
-                  cambiaste en Shopify.
+            {/* Paso 4 - Webhook secret */}
+            <div className="flex gap-4">
+              <span className="shrink-0 w-8 h-8 rounded-full bg-[#eff6ff] text-[#1d4ed8] font-extrabold text-sm grid place-items-center">
+                4
+              </span>
+              <div className="flex-1 pb-4 border-b border-gray-100">
+                <h4 className="font-semibold text-gray-900 text-sm">
+                  Pega el token de firma de Shopify
+                </h4>
+                <p className="text-sm text-gray-500 mt-1">
+                  En esa misma pantalla, arriba de la lista de webhooks, Shopify
+                  muestra:{" "}
+                  <span className="italic text-gray-600">
+                    "Tus webhooks se firmarán con token: ..."
+                  </span>
+                  . Copia ese token completo y pégalo aquí — así validamos que
+                  cada webhook viene realmente de tu tienda.
                 </p>
-              )}
 
-              <p className="text-xs text-gray-500 mt-2">
-                Si Shopify rota su token (cosa rara, pero pasa si lo
-                regeneras), vuelve a copiarlo y pegarlo aquí.
-              </p>
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <input
+                    // NO type="password": Chrome creía que era un login y
+                    // auto-rellenaba credenciales de Google. Se enmascara con CSS.
+                    type="text"
+                    name="shopify_webhook_secret_wizard"
+                    autoComplete="off"
+                    spellCheck={false}
+                    style={{ WebkitTextSecurity: showSecret ? "none" : "disc" }}
+                    placeholder={
+                      activeIntegration?.webhook_secret
+                        ? "Pegar nuevo token (deja vacío si no quieres cambiar)"
+                        : "Pega el token de Shopify aquí"
+                    }
+                    value={newSecretInput}
+                    onChange={(e) => setNewSecretInput(e.target.value)}
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition"
+                  />
+                  <button
+                    onClick={() => setShowSecret((v) => !v)}
+                    className="h-[38px] w-[38px] grid place-items-center bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-gray-500 transition"
+                    title={showSecret ? "Ocultar token" : "Mostrar token"}
+                  >
+                    <i className={`bx ${showSecret ? "bx-hide" : "bx-show"}`} />
+                  </button>
+                  <button
+                    onClick={handleActualizarSecret}
+                    disabled={saving}
+                    className="text-sm font-semibold bg-[#171931] text-white px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 transition"
+                  >
+                    Guardar token
+                  </button>
+                </div>
+
+                {activeIntegration?.webhook_secret && (
+                  <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
+                    <i className="bx bx-check-circle" />
+                    Ya tienes un token guardado. Solo pega uno nuevo si lo
+                    regeneraste en Shopify.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Paso 5 - Releasit */}
-            <div className="border rounded-xl p-4 bg-emerald-50 border-emerald-200">
-              <h4 className="font-semibold text-emerald-800">
-                Paso 5 — Activa "Carrito abandonado" en Releasit COD Form
-              </h4>
-              <ol className="text-sm text-gray-700 mt-2 space-y-1 ml-4 list-decimal">
-                <li>
-                  En tu admin de Shopify, abre la app{" "}
-                  <strong>Releasit COD Form</strong>
-                </li>
-                <li>
-                  Ve a <strong>Impulsor de Ventas → Carrito Abandonado</strong>
-                </li>
-                <li>
-                  Activa la opción{" "}
-                  <strong>"Habilitar pagos abandonados"</strong>
-                </li>
-                <li>
-                  <strong>NO actives</strong> "Guardar pedidos como pedidos
-                  preliminares" en Releasit → General (rompe el flujo de Dropi)
-                </li>
-              </ol>
+            <div className="flex gap-4">
+              <span className="shrink-0 w-8 h-8 rounded-full bg-[#eff6ff] text-[#1d4ed8] font-extrabold text-sm grid place-items-center">
+                5
+              </span>
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900 text-sm">
+                  Activa el carrito abandonado en Releasit COD Form
+                </h4>
+                <ol className="text-sm text-gray-500 mt-1 space-y-1 list-decimal ml-4">
+                  <li>
+                    Abre la app{" "}
+                    <span className="font-medium text-gray-700">
+                      Releasit COD Form
+                    </span>{" "}
+                    en tu admin de Shopify.
+                  </li>
+                  <li>
+                    Ve a{" "}
+                    <span className="font-medium text-gray-700">
+                      Impulsor de Ventas
+                    </span>{" "}
+                    <i className="bx bx-chevron-right align-middle text-gray-400" />{" "}
+                    <span className="font-medium text-gray-700">
+                      Carrito Abandonado
+                    </span>{" "}
+                    y activa{" "}
+                    <span className="font-medium text-gray-700">
+                      Habilitar pagos abandonados
+                    </span>
+                    .
+                  </li>
+                  <li>
+                    <span className="font-semibold text-rose-600">
+                      NO actives
+                    </span>{" "}
+                    "Guardar pedidos como pedidos preliminares" en Releasit{" "}
+                    <i className="bx bx-chevron-right align-middle text-gray-400" />{" "}
+                    General: rompe el flujo con Dropi.
+                  </li>
+                </ol>
+              </div>
             </div>
 
             {/* Final */}
-            <div className="rounded-xl bg-gradient-to-r from-[#171931] to-indigo-700 text-white p-4">
-              <p className="text-sm">
-                <strong>¡Listo!</strong> Cuando un cliente abandone el form
-                de Releasit, después de 15 minutos verás el carrito en la
-                sección <strong>Shopify → Carritos abandonados</strong>.
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3">
+              <i className="bx bx-check-circle text-xl text-emerald-600 shrink-0" />
+              <p className="text-sm text-emerald-900">
+                <span className="font-semibold">Listo.</span> Cuando un cliente
+                abandone el formulario de Releasit, unos 15 minutos después
+                verás el carrito en{" "}
+                <span className="font-medium">
+                  Shopify
+                  <i className="bx bx-chevron-right align-middle" />
+                  Carritos abandonados
+                </span>{" "}
+                y se disparará la plantilla de recuperación si está activa.
               </p>
             </div>
           </div>
@@ -830,36 +883,26 @@ const IntegracionShopify = () => {
                 </button>
               ) : (
                 <>
-                  {/* 🆕 Plantilla de recuperación (modal) */}
+                  {/* Plantilla de recuperación (modal) */}
                   <div className="w-full">
                     <ShopifyPlantillaRecuperacion
                       id_configuracion={id_configuracion}
                     />
+                    <p className="text-[11px] text-gray-400 mt-1.5 text-center">
+                      Se envía por WhatsApp en cuanto llega cada carrito
+                      abandonado de tu tienda.
+                    </p>
                   </div>
 
                   <button
                     onClick={() => setShowWizard(true)}
-                    className="w-full text-center bg-[#171931] text-white font-semibold py-2 rounded-lg hover:opacity-95 transition"
+                    className="w-full inline-flex items-center justify-center gap-2 text-center bg-white border border-gray-200 text-gray-700 font-semibold py-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition"
                   >
+                    <i className="bx bx-book-open text-lg text-gray-400" />
                     Ver guía de webhooks
-                  </button>
-                  <button
-                    onClick={() => setShowWizard(true)}
-                    className="w-full text-center bg-amber-100 text-amber-900 font-semibold py-2 rounded-lg hover:bg-amber-200 transition"
-                    disabled={saving}
-                  >
-                    Actualizar webhook secret
                   </button>
                 </>
               )}
-
-              <button
-                onClick={fetchIntegraciones}
-                className="w-full text-center bg-gray-100 text-gray-800 font-semibold py-2 rounded-lg hover:bg-gray-200 transition"
-                disabled={loading || !id_configuracion}
-              >
-                {loading ? "Actualizando..." : "Refrescar"}
-              </button>
             </div>
 
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
@@ -878,138 +921,160 @@ const IntegracionShopify = () => {
           </div>
         </div>
 
-        {/* MODAL */}
+        {/* MODAL (misma línea visual que "agregar conexión") */}
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6 relative animate-fade-in max-h-[90vh] overflow-y-auto">
-              <button
-                onClick={closeModal}
-                className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl"
-                aria-label="Cerrar"
-              >
-                <i className="bx bx-x text-2xl" />              </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a1a36]/50 backdrop-blur-md p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[92vh] flex flex-col">
+              {/* Header blanco: el logo de la marca es el protagonista */}
+              <div className="relative bg-white border-b border-gray-100 px-6 pt-7 pb-5 text-center shrink-0">
+                <button
+                  onClick={closeModal}
+                  className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="Cerrar"
+                  disabled={saving}
+                >
+                  <i className="bx bx-x text-xl" />
+                </button>
 
-              {/* Logo */}
-              <div className="flex justify-center mb-3">
                 <img
                   src={SHOPIFY_LOGO_URL}
                   alt="Shopify"
-                  className="w-32 h-auto rounded-md"
+                  className="h-10 w-auto object-contain mx-auto"
                 />
-              </div>
 
-              <h2 className="text-2xl font-bold text-center text-gray-800 mb-1">
-                {mode === "create"
-                  ? "Conectar Shopify"
-                  : "Editar configuración Shopify"}
-              </h2>
-
-              <p className="text-center text-sm text-gray-500 mb-4">
-                {mode === "create"
-                  ? "Registra el dominio de tu tienda. Después te guiaremos paso a paso."
-                  : "Actualiza los datos de tu integración."}
-              </p>
-
-              {/* shop_domain */}
-              <div>
-                <label className="text-sm font-semibold text-gray-700">
-                  Dominio interno de Shopify
-                </label>
-                <input
-                  type="text"
-                  name="shopify_shop_domain"
-                  placeholder="mitienda.myshopify.com"
-                  className="mt-1 w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
-                  value={shopDomain}
-                  onChange={(e) => setShopDomain(e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
+                <h2 className="text-lg font-bold text-gray-900 mt-3">
+                  {mode === "create"
+                    ? "Conectar Shopify"
+                    : "Editar configuración"}
+                </h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  NO uses tu dominio público (ej: <code>mitienda.com</code>).
-                  Usa el interno que termina en <code>.myshopify.com</code>. Lo
-                  encuentras en Shopify → Configuración → Detalles de la tienda.
+                  {mode === "create"
+                    ? "Registra el dominio de tu tienda. Después te guiamos paso a paso."
+                    : "Actualiza los datos de tu integración."}
                 </p>
               </div>
 
-              {/* webhook_secret */}
-              <div className="mt-4">
-                <label className="text-sm font-semibold text-gray-700">
-                  Token de firma de webhooks (de Shopify)
-                </label>
-                <div className="relative mt-1">
+              {/* Cuerpo */}
+              <div className="p-6 overflow-y-auto">
+                {/* shop_domain */}
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">
+                    Dominio interno de Shopify
+                  </label>
                   <input
-                    // NO type="password": Chrome detectaba "formulario de
-                    // login" y auto-rellenaba correo/contraseña de Google en el
-                    // modal. Se enmascara con CSS y el gestor no lo toca.
                     type="text"
-                    name="shopify_webhook_secret"
-                    style={{ WebkitTextSecurity: showSecret ? "none" : "disc" }}
-                    placeholder="Pega aquí el token que muestra Shopify"
-                    className="w-full px-4 py-2 pr-20 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931] font-mono text-sm"
-                    value={webhookSecret}
-                    onChange={(e) => setWebhookSecret(e.target.value)}
+                    name="shopify_shop_domain"
+                    placeholder="mitienda.myshopify.com"
+                    className="mt-1.5 w-full px-3.5 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                    value={shopDomain}
+                    onChange={(e) => setShopDomain(e.target.value)}
                     autoComplete="off"
                     spellCheck={false}
                   />
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    No uses tu dominio público (<code>mitienda.com</code>): usa
+                    el interno que termina en <code>.myshopify.com</code>. Lo
+                    encuentras en Shopify{" "}
+                    <i className="bx bx-chevron-right align-middle" />
+                    Configuración{" "}
+                    <i className="bx bx-chevron-right align-middle" />
+                    Detalles de la tienda.
+                  </p>
+                </div>
+
+                {/* webhook_secret */}
+                <div className="mt-4">
+                  <label className="text-sm font-semibold text-gray-700">
+                    Token de firma de webhooks
+                  </label>
+                  <div className="relative mt-1.5">
+                    <input
+                      // NO type="password": Chrome detectaba "formulario de
+                      // login" y auto-rellenaba correo/contraseña de Google en
+                      // el modal. Se enmascara con CSS y el gestor no lo toca.
+                      type="text"
+                      name="shopify_webhook_secret"
+                      style={{
+                        WebkitTextSecurity: showSecret ? "none" : "disc",
+                      }}
+                      placeholder="Pega aquí el token que muestra Shopify"
+                      className="w-full px-3.5 py-2.5 pr-11 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200"
+                      value={webhookSecret}
+                      onChange={(e) => setWebhookSecret(e.target.value)}
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSecret((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 grid place-items-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                      title={showSecret ? "Ocultar token" : "Mostrar token"}
+                    >
+                      <i
+                        className={`bx ${showSecret ? "bx-hide" : "bx-show"}`}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    En Shopify: Configuración{" "}
+                    <i className="bx bx-chevron-right align-middle" />
+                    Notificaciones{" "}
+                    <i className="bx bx-chevron-right align-middle" />
+                    Webhooks. Arriba de la lista dice{" "}
+                    <em>"Tus webhooks se firmarán con token"</em> — copia ese
+                    token completo.
+                  </p>
+                </div>
+
+                {/* prefijo_pais */}
+                <div className="mt-4">
+                  <label className="text-sm font-semibold text-gray-700">
+                    País / prefijo telefónico
+                  </label>
+                  <div className="mt-1.5">
+                    <Select
+                      value={prefijoPaisOpt}
+                      onChange={(opt) => setPrefijoPaisOpt(opt)}
+                      options={COUNTRY_PHONE_OPTIONS}
+                      styles={selectStyles}
+                      isSearchable
+                      placeholder="Selecciona país"
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Se usa para normalizar los teléfonos de tus clientes.
+                  </p>
+                </div>
+
+                {/* Acciones */}
+                <div className="flex items-center justify-end gap-2 pt-5">
                   <button
-                    type="button"
-                    onClick={() => setShowSecret((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+                    onClick={closeModal}
+                    className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 disabled:opacity-50"
+                    disabled={saving}
                   >
-                    {showSecret ? "Ocultar" : "Mostrar"}
+                    Cancelar
+                  </button>
+
+                  <button
+                    onClick={handleSave}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8] text-sm text-white font-semibold hover:bg-[#1e40af] shadow-sm transition-all duration-200 disabled:opacity-70"
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <i className="bx bx-loader-alt bx-spin" />
+                        Guardando
+                      </>
+                    ) : mode === "create" ? (
+                      "Conectar"
+                    ) : (
+                      "Guardar cambios"
+                    )}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  En Shopify ve a{" "}
-                  <strong>Configuración → Notificaciones → Webhooks</strong>.
-                  Arriba de la lista de webhooks dice{" "}
-                  <em>"Tus webhooks se firmarán con token: XXXX"</em>. Copia ese
-                  token y pégalo aquí.
-                </p>
-              </div>
-
-              {/* prefijo_pais */}
-              <div className="mt-4">
-                <label className="text-sm font-semibold text-gray-700">
-                  País / prefijo telefónico
-                </label>
-                <div className="mt-1">
-                  <Select
-                    value={prefijoPaisOpt}
-                    onChange={(opt) => setPrefijoPaisOpt(opt)}
-                    options={COUNTRY_PHONE_OPTIONS}
-                    styles={selectStyles}
-                    isSearchable
-                    placeholder="Selecciona país"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Se usa para normalizar los teléfonos de los clientes.
-                </p>
-              </div>
-
-              {/* Acciones */}
-              <div className="flex items-center justify-end gap-2 pt-5">
-                <button
-                  onClick={closeModal}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 transition"
-                  disabled={saving}
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#171931] text-white hover:opacity-95 transition disabled:opacity-50"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Guardando..."
-                    : mode === "create"
-                      ? "Conectar"
-                      : "Guardar cambios"}
-                </button>
               </div>
             </div>
           </div>

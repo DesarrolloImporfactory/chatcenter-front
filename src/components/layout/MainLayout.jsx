@@ -7,7 +7,6 @@ import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 
 import Swal from "sweetalert2";
-import { useDropi } from "../../context/DropiContext";
 import usePresenceRegister from "../../hooks/usePresenceRegister";
 import { usePresence } from "../../context/PresenceProvider";
 import FloatingSupportChat from "./FloatingSupportChat";
@@ -33,19 +32,9 @@ function MainLayout({ children }) {
   const [openContacto, setOpenContacto] = useState(false);
   const [openTools, setOpenTools] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
-  const [openSubMenu, setOpenSubMenu] = useState(null);
-
-  const toggleSubMenu = (key) => {
-    setOpenSubMenu((prev) => (prev === key ? null : key));
-  };
 
   const toggleMenu = (key) => {
-    setOpenMenu((prev) => {
-      const next = prev === key ? null : key;
-      // si sale de integraciones, cierre submenú
-      if (next !== "integraciones") setOpenSubMenu(null);
-      return next;
-    });
+    setOpenMenu((prev) => (prev === key ? null : key));
   };
 
   const sliderRef = useRef(null);
@@ -314,10 +303,6 @@ function MainLayout({ children }) {
       )
     ) {
       setOpenMenu("integraciones");
-      // si está en una ruta de shopify, abrir también el submenú
-      if (location.pathname.startsWith("/shopify")) {
-        setOpenSubMenu("shopify");
-      }
     } else if (
       [
         "/canal-conexiones",
@@ -408,8 +393,6 @@ function MainLayout({ children }) {
   const handleLogout = () => globalLogout();
 
   const isCalendarBlocked = userData && canAccessCalendar === false;
-
-  const { isDropiLinked, loadingDropiLinked } = useDropi();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -686,107 +669,33 @@ function MainLayout({ children }) {
                     <span>Asistentes AI</span>
                   </a>
 
-                  {/* ===== Dropi (submenu) ===== */}
-                  <div className="mt-1">
-                    {/* Padre Dropi */}
-                    <button
-                      type="button"
-                      className={`group flex items-center justify-between w-full text-left px-4 py-2 hover:text-blue-600 ${
-                        location.pathname.startsWith("/dropi")
-                          ? "font-semibold text-blue-600"
-                          : ""
-                      }`}
-                      onClick={() => toggleSubMenu("dropi")}
-                    >
-                      <span className="flex items-center gap-3">
-                        <i className="bx bx-store text-xl text-gray-600 group-hover:text-blue-600"></i>
-                        <span>Dropi</span>
-                      </span>
+                  {/* ===== Dropi (directo a configuración) ===== */}
+                  <a
+                    href="/dropi"
+                    onClick={(e) => handleNavClick(e, "/dropi")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/dropi")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-store text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Dropi</span>
+                  </a>
 
-                      <i
-                        className={`bx bx-chevron-down text-xl text-gray-500 transition-transform duration-300 ${
-                          openSubMenu === "dropi" ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
-
-                    {/* Submenú Dropi */}
-                    <div
-                      className="overflow-hidden transition-all duration-[600ms] ease-out"
-                      style={{
-                        maxHeight: openSubMenu === "dropi" ? "220px" : "0px",
-                      }}
-                    >
-                      <div className="ml-6 flex flex-col py-2">
-                        <a
-                          href="/dropi"
-                          onClick={(e) => handleNavClick(e, "/dropi")}
-                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                            location.pathname === "/dropi"
-                              ? "font-semibold text-blue-600"
-                              : ""
-                          }`}
-                        >
-                          <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
-                          <span>Configuración</span>
-                        </a>
-
-                        {/* Pedidos se movió a item de primer nivel: la vista
-                            es del negocio (multi-plataforma con columna
-                            Origen), no de la integración Dropi. */}
-                      </div>
-                    </div>
-                  </div>
-                  {/* ===== Shopify (submenu) ===== */}
-                  <div className="mt-1">
-                    {/* Padre Shopify */}
-                    <button
-                      type="button"
-                      className={`group flex items-center justify-between w-full text-left px-4 py-2 hover:text-blue-600 ${
-                        location.pathname.startsWith("/shopify")
-                          ? "font-semibold text-blue-600"
-                          : ""
-                      }`}
-                      onClick={() => toggleSubMenu("shopify")}
-                    >
-                      <span className="flex items-center gap-3">
-                        <i className="bx bxl-shopify text-xl text-gray-600 group-hover:text-blue-600"></i>
-                        <span>Shopify</span>
-                      </span>
-
-                      <i
-                        className={`bx bx-chevron-down text-xl text-gray-500 transition-transform duration-300 ${
-                          openSubMenu === "shopify" ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
-
-                    {/* Submenú Shopify */}
-                    <div
-                      className="overflow-hidden transition-all duration-[600ms] ease-out"
-                      style={{
-                        maxHeight: openSubMenu === "shopify" ? "220px" : "0px",
-                      }}
-                    >
-                      <div className="ml-6 flex flex-col py-2">
-                        <a
-                          href="/shopify"
-                          onClick={(e) => handleNavClick(e, "/shopify")}
-                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                            location.pathname === "/shopify"
-                              ? "font-semibold text-blue-600"
-                              : ""
-                          }`}
-                        >
-                          <i className="bx bx-cog text-lg text-gray-600 group-hover:text-blue-600"></i>
-                          <span>Configuración</span>
-                        </a>
-
-                        {/* Carritos abandonados se movió al grupo
-                            "Gestión de Pedidos" */}
-                      </div>
-                    </div>
-                  </div>
+                  {/* ===== Shopify (directo a configuración) ===== */}
+                  <a
+                    href="/shopify"
+                    onClick={(e) => handleNavClick(e, "/shopify")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/shopify")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bxl-shopify text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Shopify</span>
+                  </a>
                 </div>
               </div>
             </div>
