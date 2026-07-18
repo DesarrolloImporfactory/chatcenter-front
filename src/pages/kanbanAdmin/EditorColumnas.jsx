@@ -1430,7 +1430,7 @@ const TabColumna = ({
           }
           checked={!!col.es_dropi_principal}
           onChange={onToggleDropiPrincipal}
-          desc="Solo UNA columna recibe pedidos nuevos de Dropi."
+          desc="Columna de entrada de clientes que llegan desde Shopify o landing: caen aquí ya con su pedido en Dropi (Pendiente confirmación). Solo UNA columna puede serlo."
           colorOn="#ea580c"
         />
       </div>

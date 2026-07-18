@@ -1342,8 +1342,8 @@ const KanbanConfig = () => {
                             }}
                           >
                             {columnaSeleccionada?.es_dropi_principal
-                              ? "Los pedidos nuevos de Dropi entrarán a esta columna"
-                              : "Solo una columna puede recibir pedidos de Dropi"}
+                              ? "Columna de entrada de los clientes que llegan desde una orden de Shopify o landing: caen aquí ya con su pedido creado en Dropi (Pendiente confirmación), listos para que el bot les pida confirmar por WhatsApp antes de despachar."
+                              : "Solo una columna puede recibir los pedidos de Dropi (Shopify / landing)"}
                           </div>
                         </div>
                         <ToggleSwitch

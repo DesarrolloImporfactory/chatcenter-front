@@ -148,6 +148,68 @@ const TabAsistente = ({
       .catch(() => {});
   }, [idConfiguracion]);
 
+  // ── Actualización de orden al confirmar (columna Pendiente Confirmación) ──
+  const [autoActualizar, setAutoActualizar] = useState(false);
+  const [autoActualizarLoading, setAutoActualizarLoading] = useState(false);
+
+  useEffect(() => {
+    if (!idConfiguracion) return;
+    chatApi
+      .post("/configuraciones/obtener_auto_actualizar_orden_dropi", {
+        id_configuracion: idConfiguracion,
+      })
+      .then(({ data }) => setAutoActualizar(!!data?.activo))
+      .catch(() => {});
+  }, [idConfiguracion]);
+
+  const toggleAutoActualizar = async () => {
+    const activar = !autoActualizar;
+    if (activar) {
+      const r = await Swal.fire({
+        title: "Actualizar orden al confirmar",
+        html: `
+          <div style="font-size:.85rem;color:#475569;text-align:left;line-height:1.6">
+            <div style="margin-bottom:10px">
+              Cuando el cliente confirme su pedido en el chat, el bot pasará la
+              orden de <strong>PENDIENTE CONFIRMACIÓN</strong> a
+              <strong>PENDIENTE</strong> en Dropi (y sube los datos que el
+              cliente haya corregido).
+            </div>
+            <div style="padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:.8rem">
+              Solo aplica si la orden YA existe en Dropi. Si no existe, se queda
+              en Pendiente confirmación y no se crea nada.
+            </div>
+          </div>
+        `,
+        icon: "info",
+        showCancelButton: true,
+        confirmButtonColor: "#6366f1",
+        confirmButtonText: "Entendido",
+        cancelButtonText: "Cancelar",
+      });
+      if (!r.isConfirmed) return;
+    }
+
+    setAutoActualizarLoading(true);
+    try {
+      await chatApi.post(
+        "/configuraciones/actualizar_auto_actualizar_orden_dropi",
+        { id_configuracion: idConfiguracion, activo: activar },
+      );
+      setAutoActualizar(activar);
+      Toast.fire({
+        icon: "success",
+        title: activar
+          ? "Actualización al confirmar activada"
+          : "Actualización al confirmar desactivada",
+      });
+    } catch (err) {
+      Toast.fire({ icon: "error", title: "No se pudo actualizar" });
+    } finally {
+      setAutoActualizarLoading(false);
+    }
+  };
+
   const toggleAutoOrden = async () => {
     const activar = !autoOrden;
 
@@ -1394,6 +1456,107 @@ const TabAsistente = ({
               </div>
             )}
           </div>
+
+          {/* ═══ Actualizar orden al confirmar — solo columna principal Dropi ═══ */}
+          {columnas?.find((c) => c.id === columnaId)?.es_dropi_principal && (
+            <div
+              style={{
+                borderRadius: 14,
+                border: autoActualizar
+                  ? "1px solid rgba(59,130,246,.35)"
+                  : "1px solid rgba(99,102,241,.2)",
+                background: autoActualizar
+                  ? "linear-gradient(135deg, rgba(99,102,241,.06), rgba(59,130,246,.05))"
+                  : "#fafafa",
+                padding: "14px 18px",
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: 12 }}
+                >
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      background: autoActualizar
+                        ? "rgba(59,130,246,.12)"
+                        : "#f1f5f9",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <i
+                      className="bx bx-refresh"
+                      style={{
+                        fontSize: "1.4rem",
+                        color: autoActualizar ? "#3b82f6" : "#94a3b8",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        fontSize: "0.95rem",
+                      }}
+                    >
+                      Actualizar orden al confirmar
+                    </div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                      {autoActualizar
+                        ? "Cuando el cliente confirma, pasa la orden de Pendiente confirmación a Pendiente en Dropi"
+                        : "Actívalo para que el bot confirme en Dropi la orden cuando el cliente la apruebe"}
+                    </div>
+                  </div>
+                </div>
+                {autoActualizarLoading ? (
+                  <i
+                    className="bx bx-loader-alt bx-spin"
+                    style={{ color: "#6366f1", fontSize: "1.3rem" }}
+                  />
+                ) : (
+                  <Toggle
+                    checked={autoActualizar}
+                    onChange={toggleAutoActualizar}
+                  />
+                )}
+              </div>
+
+              {autoActualizar && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: ".72rem",
+                    color: "#94a3b8",
+                    lineHeight: 1.5,
+                    paddingTop: 10,
+                    borderTop: "1px dashed rgba(0,0,0,.07)",
+                  }}
+                >
+                  <i
+                    className="bx bx-info-circle"
+                    style={{ marginRight: 4 }}
+                  />
+                  Solo actualiza órdenes que YA existen en Dropi. Si el cliente
+                  corrige un dato (dirección, teléfono), el cambio se sube junto
+                  con la confirmación. Si la orden no existe, se queda en
+                  Pendiente confirmación.
+                </div>
+              )}
+            </div>
+          )}
 
           <ChatPruebaModal
             open={showChat}
