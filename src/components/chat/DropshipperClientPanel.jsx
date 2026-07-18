@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import CreateOrderPanel from "./CreateOrderPanel";
 import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
 import HistorialEncargados from "./HistorialEncargados";
+import IncidenciasCliente from "./IncidenciasCliente";
 import OrderList from "./OrderList";
 import OrderDetail from "./OrderDetail";
 import EncuestasCliente from "./EncuestasCliente";
@@ -35,6 +36,7 @@ function buildCreateOrderPanelProps(createHook) {
     setDir: createHook.setDir,
     notes: createHook.notes,
     setNotes: createHook.setNotes,
+    botHints: createHook.botHints,
     rateType: createHook.rateType,
     setRateType: createHook.setRateType,
     states: createHook.states,
@@ -225,8 +227,14 @@ export default function DropshipperClientPanel(props) {
     createHook.resetCreateOrderState();
     createHook.setCreateOrderOpen(true);
     createHook.setStep(1);
-    createHook.emitGetProducts(true);
     createHook.emitGetStates();
+    // Prellenar con los datos del cierre del bot y buscar el producto por el
+    // ID de Dropi del anuncio (si lo hay); si no, carga la lista por defecto.
+    createHook.prefillFromBot().then((pre) => {
+      // Con ID → busca ese producto; sin ID → lista por defecto (no por
+      // nombre, para no traer una lista interminable).
+      createHook.emitGetProducts(true, pre?.searchTerm || "");
+    });
   };
 
   const handleUsarProductoEnOrden = (data) => {
@@ -552,6 +560,10 @@ function ClientHeader({
 
         {/* <EtiquetasCustomSelect clienteId={selectedChat?.id} /> */}
         <HistorialEncargados clienteId={selectedChat?.id} />
+        <IncidenciasCliente
+          clienteId={selectedChat?.id}
+          idConfiguracion={id_configuracion}
+        />
         <EncuestasCliente
           clienteId={selectedChat?.id}
           id_configuracion={id_configuracion}

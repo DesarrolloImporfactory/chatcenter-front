@@ -99,11 +99,147 @@ const formFromItem = (it) => ({
   ciudad: it.datos?.ciudad ?? "",
   direccion: it.datos?.direccion ?? "",
   producto: it.datos?.producto ?? "",
+  producto_id: it.datos?.producto_id ?? "",
   precio: it.datos?.precio ?? "",
   cantidad: it.datos?.cantidad ?? "1",
 });
 
-const keyOf = (it) => it.id_log || `cli-${it.id_cliente}`;
+const keyOf = (it) => it._key || it.id_log || `cli-${it.id_cliente}`;
+
+// Abre el chat del cliente en pestaña nueva (mismo patrón del resto de la app)
+const abrirChat = (idCliente) => {
+  if (!idCliente) return;
+  window.open(`/chat/${idCliente}`, "_blank", "noopener,noreferrer");
+};
+
+const ProductoThumb = ({ src, size = "w-9 h-9" }) =>
+  src ? (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      className={`${size} rounded-md object-cover bg-gray-100 shrink-0`}
+      onError={(e) => {
+        e.currentTarget.style.display = "none";
+      }}
+    />
+  ) : (
+    <span
+      className={`${size} rounded-md bg-gray-100 grid place-items-center shrink-0`}
+    >
+      <i className="bx bx-image text-gray-300" />
+    </span>
+  );
+
+// Picker de producto con imagen, buscador y lista con scroll (reemplaza al
+// <select> nativo, que no muestra imagen y quedaba feo con 100+ productos).
+function ProductoPicker({
+  productos,
+  valueId,
+  nombreBot,
+  highlight,
+  onSelect,
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const sel = productos.find((p) => String(p.id) === String(valueId));
+  const filtered = q.trim()
+    ? productos.filter((p) =>
+        String(p.nombre).toLowerCase().includes(q.trim().toLowerCase()),
+      )
+    : productos;
+
+  return (
+    <div className="col-span-2 relative">
+      <label className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1">
+        <i className="bx bx-package" />
+        Producto
+        {highlight && <span className="text-rose-500">•</span>}
+      </label>
+
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm text-left transition ${
+          highlight
+            ? "border-amber-300 bg-amber-50/40"
+            : "border-gray-200 bg-white hover:border-gray-300"
+        }`}
+      >
+        {sel ? (
+          <>
+            <ProductoThumb src={sel.imagen_url} size="w-8 h-8" />
+            <span className="flex-1 min-w-0 truncate text-gray-900">
+              {sel.nombre}
+            </span>
+            {sel.precio != null && (
+              <span className="text-xs text-gray-500 shrink-0">
+                ${sel.precio}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="flex-1 text-gray-400 truncate">
+            {nombreBot
+              ? `Bot: ${nombreBot} — elige el correcto`
+              : "Selecciona un producto…"}
+          </span>
+        )}
+        <i
+          className={`bx bx-chevron-down text-gray-400 shrink-0 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="mt-1.5 w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar producto…"
+              autoFocus
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#171931]"
+            />
+          </div>
+          <div className="max-h-[340px] overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-6">
+                Sin resultados
+              </p>
+            ) : (
+              filtered.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    onSelect(p);
+                    setOpen(false);
+                    setQ("");
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition border-b border-gray-50 last:border-0 ${
+                    String(p.id) === String(valueId) ? "bg-indigo-50/60" : ""
+                  }`}
+                >
+                  <ProductoThumb src={p.imagen_url} />
+                  <span className="flex-1 min-w-0 truncate text-sm text-gray-800">
+                    {p.nombre}
+                  </span>
+                  {p.precio != null && (
+                    <span className="text-xs text-gray-500 shrink-0">
+                      ${p.precio}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const Toast = Swal.mixin({
   toast: true,
@@ -121,32 +257,107 @@ export default function AutoOrdenesFallidas({
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [productos, setProductos] = useState([]);
 
   const [editingKey, setEditingKey] = useState(null);
   const [form, setForm] = useState({});
   const [submittingKey, setSubmittingKey] = useState(null);
   const [showDetalleKey, setShowDetalleKey] = useState(null);
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroOrigen, setFiltroOrigen] = useState("todos");
+
+  const itemsFiltrados = items.filter((it) => {
+    if (filtroOrigen !== "todos" && (it.origen || "whatsapp") !== filtroOrigen)
+      return false;
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return true;
+    const nombre = String(it.datos?.nombre || "").toLowerCase();
+    const tel = String(it.datos?.telefono || it.telefono || "").toLowerCase();
+    const ord = String(it.order_number || "").toLowerCase();
+    return nombre.includes(q) || tel.includes(q) || ord.includes(q);
+  });
 
   const fetchPendientes = useCallback(async () => {
     if (!id_configuracion) return;
     setLoading(true);
     try {
-      const res = await chatApi.post(
-        "dropi_integrations/auto-orders/pendientes",
-        {
-          id_configuracion,
-          limit: 100,
-          offset: 0,
-        },
-      );
-      if (res?.data?.ok) {
-        setItems(res.data.data || []);
-        setTotal(res.data.total || 0);
-      }
+      const [waRes, shRes] = await Promise.all([
+        chatApi
+          .post("dropi_integrations/auto-orders/pendientes", {
+            id_configuracion,
+            limit: 100,
+            offset: 0,
+          })
+          .catch(() => null),
+        chatApi
+          .post(
+            "dropi_integrations/auto-orders/shopify-huerfanas",
+            { id_configuracion, dias: 30 },
+            { silentError: true },
+          )
+          .catch(() => null),
+      ]);
+
+      // Huérfanas de WhatsApp (ventas por el bot)
+      const wa = (waRes?.data?.ok ? waRes.data.data : []).map((x) => ({
+        ...x,
+        origen: "whatsapp",
+      }));
+
+      // Huérfanas de Shopify (entraron por webhook, no llegaron a Dropi).
+      // Se normalizan al mismo shape para reusar el flujo de crear.
+      const sh = (shRes?.data?.ok ? shRes.data.data : [])
+        .filter((o) => o.id_cliente)
+        .map((o) => {
+          const d = o.datos || {};
+          const nombreFull = [d.nombre, d.apellido]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          return {
+            _key: `sh-${o.id}`,
+            id_log: null,
+            id_cliente: o.id_cliente,
+            estado: "pendiente",
+            origen: "shopify",
+            order_number: o.order_number,
+            telefono: o.telefono,
+            datos: {
+              nombre: nombreFull,
+              telefono: d.telefono || o.telefono || "",
+              provincia: d.provincia || "",
+              ciudad: d.ciudad || "",
+              direccion: d.direccion || "",
+              producto: d.producto || "",
+              producto_id: "",
+              precio: d.total || String(o.total || ""),
+              cantidad: d.cantidad || "1",
+            },
+            created_at: o.shopify_created_at,
+          };
+        });
+
+      const merged = [...wa, ...sh];
+      setItems(merged);
+      setTotal(merged.length);
     } catch (_) {
       /* silencioso para el badge */
     } finally {
       setLoading(false);
+    }
+  }, [id_configuracion]);
+
+  const fetchProductos = useCallback(async () => {
+    if (!id_configuracion) return;
+    try {
+      const res = await chatApi.post(
+        "dropi_integrations/auto-orders/productos-vinculados",
+        { id_configuracion },
+        { silentError: true },
+      );
+      if (res?.data?.ok) setProductos(res.data.data || []);
+    } catch (_) {
+      /* silencioso */
     }
   }, [id_configuracion]);
 
@@ -157,6 +368,7 @@ export default function AutoOrdenesFallidas({
   const openDrawer = () => {
     setOpen(true);
     fetchPendientes();
+    fetchProductos();
   };
   const closeDrawer = () => {
     setOpen(false);
@@ -286,24 +498,62 @@ export default function AutoOrdenesFallidas({
               </div>
             </div>
 
+            {/* Buscador + filtro de origen */}
+            <div className="px-4 pt-3 pb-2 border-b border-gray-100 bg-white space-y-2">
+              <div className="relative">
+                <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar por nombre, teléfono o # de orden…"
+                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#171931]"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                {[
+                  { id: "todos", label: "Todos", icon: "bx-list-ul" },
+                  { id: "whatsapp", label: "WhatsApp", icon: "bxl-whatsapp" },
+                  { id: "shopify", label: "Shopify", icon: "bxl-shopify" },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFiltroOrigen(f.id)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
+                      filtroOrigen === f.id
+                        ? "bg-[#171931] text-white border-[#171931]"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <i className={`bx ${f.icon}`} />
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {loading ? (
                 <div className="text-center text-gray-500 py-16">
                   <i className="bx bx-loader-alt bx-spin text-3xl" />
                   <p className="mt-2 text-sm">Cargando pedidos...</p>
                 </div>
-              ) : items.length === 0 ? (
+              ) : itemsFiltrados.length === 0 ? (
                 <div className="text-center text-gray-500 py-16">
                   <div className="w-16 h-16 rounded-2xl bg-emerald-50 grid place-items-center mx-auto mb-3">
                     <i className="bx bx-check-circle text-3xl text-emerald-500" />
                   </div>
-                  <p className="font-semibold text-gray-700">Todo al día</p>
+                  <p className="font-semibold text-gray-700">
+                    {items.length === 0 ? "Todo al día" : "Sin resultados"}
+                  </p>
                   <p className="text-sm text-gray-400 mt-1">
-                    No hay pedidos pendientes de subir a Dropi.
+                    {items.length === 0
+                      ? "No hay pedidos pendientes de subir a Dropi."
+                      : "Ningún pedido coincide con la búsqueda o el filtro."}
                   </p>
                 </div>
               ) : (
-                items.map((it) => {
+                itemsFiltrados.map((it) => {
                   const k = keyOf(it);
                   const r = reasonOf(it);
                   const isEditing = editingKey === k;
@@ -319,8 +569,24 @@ export default function AutoOrdenesFallidas({
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 truncate">
-                              {nombre}
+                            <div className="flex items-center gap-1.5">
+                              <div className="font-semibold text-gray-900 truncate">
+                                {nombre}
+                              </div>
+                              {it.origen === "shopify" ? (
+                                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <i className="bx bxl-shopify" />
+                                  Shopify
+                                  {it.order_number
+                                    ? ` #${it.order_number}`
+                                    : ""}
+                                </span>
+                              ) : (
+                                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                                  <i className="bx bxl-whatsapp" />
+                                  WhatsApp
+                                </span>
+                              )}
                             </div>
                             <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                               <i className="bx bx-phone" />
@@ -393,6 +659,33 @@ export default function AutoOrdenesFallidas({
                           <div className="grid grid-cols-2 gap-3 mt-3">
                             {FIELD_DEFS.map((fd) => {
                               const highlight = r.fields.includes(fd.key);
+
+                              // Producto = picker con imagen del catálogo Dropi
+                              // (manda el id exacto, evita errores por nombre).
+                              if (fd.key === "producto") {
+                                return (
+                                  <ProductoPicker
+                                    key="producto"
+                                    productos={productos}
+                                    valueId={form.producto_id}
+                                    nombreBot={form.producto}
+                                    highlight={highlight}
+                                    onSelect={(p) =>
+                                      setForm((f) => ({
+                                        ...f,
+                                        producto_id: p.id,
+                                        producto: p.nombre,
+                                        precio:
+                                          f.precio ||
+                                          (p.precio != null
+                                            ? String(p.precio)
+                                            : ""),
+                                      }))
+                                    }
+                                  />
+                                );
+                              }
+
                               return (
                                 <div
                                   key={fd.key}
@@ -456,6 +749,14 @@ export default function AutoOrdenesFallidas({
                             {esPendiente
                               ? "Completar y crear"
                               : "Corregir y crear"}
+                          </button>
+                          <button
+                            onClick={() => abrirChat(it.id_cliente)}
+                            title="Abrir chat del cliente"
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition"
+                          >
+                            <i className="bx bxs-chat text-base" />
+                            Chat
                           </button>
                           {!esPendiente && (
                             <button

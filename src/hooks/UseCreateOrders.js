@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import axios from "axios";
+import chatApi from "../api/chatcenter";
 import {
   pickSupplierId,
   pickWarehouseId,
@@ -8,6 +9,27 @@ import {
   pickDistributionCompanyFromQuote,
   pickWarehouseCityId,
 } from "../utils/orderHelper";
+
+// Limpia un valor del resumen del bot: quita paréntesis y descarta los
+// placeholders que a veces escribe el bot ("(dedúcela de la ciudad)", etc.).
+function limpiarValorBot(v) {
+  let s = String(v || "").trim();
+  if (!s) return "";
+  s = s.replace(/^[([{]+|[)\]}]+$/g, "").trim();
+  const low = s.toLowerCase();
+  if (
+    !s ||
+    low.includes("dedúce") ||
+    low.includes("deduce") ||
+    low.includes("no especi") ||
+    low.includes("no aplica") ||
+    low.includes("por confirmar") ||
+    low === "n/a" ||
+    low === "-"
+  )
+    return "";
+  return s;
+}
 
 export default function useCreateOrder({
   socketRef,
@@ -45,6 +67,9 @@ export default function useCreateOrder({
   const [surname, setSurname] = useState(selectedChat?.apellido_cliente || "");
   const [dir, setDir] = useState("");
   const [notes, setNotes] = useState("");
+  // Pistas del resumen del bot (provincia/ciudad/producto/precio) para
+  // mostrar "el bot dijo: …" en el panel.
+  const [botHints, setBotHints] = useState(null);
 
   // sync phone del chat
   useEffect(() => setPhoneInput(stripCountryCode(phone || "")), [phone]);
@@ -75,6 +100,7 @@ export default function useCreateOrder({
     setSelectedShipping(null);
     setDir("");
     setNotes("");
+    setBotHints(null);
     setCustomerHistory(null);
     setCustomerHistoryLoading(false);
 
@@ -147,9 +173,79 @@ export default function useCreateOrder({
     setSelectedShipping(null);
     setDir("");
     setNotes("");
+    setBotHints(null);
     setCustomerHistory(null);
     setCustomerHistoryLoading(false);
   }, []);
+
+  // Prellena el panel con los datos del cierre del bot (dropi_auto_ordenes_log).
+  // Texto limpio directo; provincia/ciudad/producto quedan como pista manual.
+  // Devuelve { searchTerm } = ID de Dropi del producto del anuncio para
+  // buscarlo por ID (no por nombre, que da una lista interminable).
+  const prefillFromBot = useCallback(async () => {
+    const idCli = selectedChat?.id;
+    if (!idCli || !id_configuracion) return { searchTerm: null };
+
+    let prodBot = "";
+    try {
+      const { data } = await chatApi.post(
+        "dropi_integrations/auto-orders/datos-cliente",
+        { id_configuracion, id_cliente: idCli },
+        { silentError: true },
+      );
+      const d = data?.data?.datos;
+      if (d) {
+        const dirBot = limpiarValorBot(d.direccion);
+        if (dirBot) setDir(dirBot);
+
+        // Nombre/apellido solo si el chat no los trae
+        const nombreBot = String(d.nombre || "").trim();
+        if (nombreBot) {
+          const partes = nombreBot.split(/\s+/);
+          if (!selectedChat?.nombre_cliente) setName(partes[0] || "");
+          if (!selectedChat?.apellido_cliente && partes.length > 1)
+            setSurname(partes.slice(1).join(" "));
+        }
+
+        prodBot = limpiarValorBot(d.producto);
+        setBotHints({
+          provincia: limpiarValorBot(d.provincia),
+          ciudad: limpiarValorBot(d.ciudad),
+          producto: prodBot,
+          precio: limpiarValorBot(d.precio),
+        });
+      } else {
+        setBotHints(null);
+      }
+    } catch (_) {
+      setBotHints(null);
+    }
+
+    // Producto por ID de Dropi del anuncio enlazado (igual que "usar aquí").
+    let searchTerm = null;
+    try {
+      const { data: origen } = await chatApi.get(
+        `clientes_chat_center/origen_anuncio?id_cliente=${idCli}&id_configuracion=${id_configuracion}`,
+        { silentError: true },
+      );
+      const extId = origen?.data?.external_id;
+      if (extId) {
+        searchTerm = String(extId);
+        setKeywords(searchTerm);
+      } else if (prodBot) {
+        setKeywords(prodBot); // sin ID: nombre prellenado, búsqueda manual
+      }
+    } catch (_) {
+      if (prodBot) setKeywords(prodBot);
+    }
+
+    return { searchTerm };
+  }, [
+    selectedChat?.id,
+    selectedChat?.nombre_cliente,
+    selectedChat?.apellido_cliente,
+    id_configuracion,
+  ]);
 
   // ── emitters ──
   const emitGetProducts = useCallback(
@@ -826,6 +922,8 @@ export default function useCreateOrder({
     setDir,
     notes,
     setNotes,
+    botHints,
+    prefillFromBot,
 
     // productos
     prodLoading,

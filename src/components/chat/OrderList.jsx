@@ -18,6 +18,7 @@ import {
   getTotal,
   hasGuide,
   getGuideUrl,
+  getTrackingUrl,
   NO_IMAGE,
 } from "../../utils/orderHelper";
 
@@ -201,6 +202,18 @@ export default function OrderList({ orders, onOpenOrder }) {
                   title="Descargar guía PDF"
                 >
                   <i className="bx bx-download text-sm" />
+                </a>
+              )}
+              {getTrackingUrl(o) && (
+                <a
+                  href={getTrackingUrl(o)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded-md bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/15 text-cyan-300 transition-colors"
+                  title="Rastrear envío"
+                >
+                  <i className="bx bx-map-pin text-sm" />
                 </a>
               )}
               <span

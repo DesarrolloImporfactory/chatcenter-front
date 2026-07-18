@@ -22,6 +22,7 @@ import {
   hasGuide,
   getGuideUrl,
   getGuideNumber,
+  getTrackingUrl,
 } from "../../utils/orderHelper";
 
 export default function OrderDetail({
@@ -43,6 +44,7 @@ export default function OrderDetail({
 
   const editable = canEditOrder(order);
   const pendingConfirm = isPendingConfirm(order);
+  const trackingUrl = getTrackingUrl(order);
 
   const inputCls =
     "w-full bg-white/[0.04] border border-white/[0.08] rounded-[7px] px-3 py-2 text-[12px] text-white outline-none transition-all focus:border-violet-400/50 focus:bg-white/[0.06] hover:border-white/15 placeholder:text-white/[0.18]";
@@ -183,22 +185,32 @@ export default function OrderDetail({
         )}
       </div>
 
-      {/* ═══ Descargar Guía PDF ═══ */}
-      {hasGuide(order) && (
-        <a
-          href={getGuideUrl(order)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${sectionCls} w-full flex items-center justify-center gap-2.5 px-3.5 py-3 text-[12px] font-semibold text-blue-300 hover:text-blue-200 bg-blue-500/[0.06] hover:bg-blue-500/[0.12] border-blue-400/[0.15] hover:border-blue-400/[0.25] transition-all no-underline`}
-        >
-          <i className="bx bx-download text-base" />
-          <span>Descargar guía</span>
-          {getGuideNumber(order) && (
-            <span className="text-[10px] text-blue-300/50 font-mono">
-              #{getGuideNumber(order)}
-            </span>
+      {/* ═══ Guía PDF + Rastreo (misma línea, mitad y mitad) ═══ */}
+      {(hasGuide(order) || trackingUrl) && (
+        <div className="flex gap-1.5">
+          {hasGuide(order) && (
+            <a
+              href={getGuideUrl(order)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${sectionCls} flex-1 flex items-center justify-center gap-2 px-3 py-3 text-[12px] font-semibold text-blue-300 hover:text-blue-200 bg-blue-500/[0.06] hover:bg-blue-500/[0.12] border-blue-400/[0.15] hover:border-blue-400/[0.25] transition-all no-underline`}
+            >
+              <i className="bx bx-download text-base" />
+              <span>Descargar guía</span>
+            </a>
           )}
-        </a>
+          {trackingUrl && (
+            <a
+              href={trackingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${sectionCls} flex-1 flex items-center justify-center gap-2 px-3 py-3 text-[12px] font-semibold text-cyan-300 hover:text-cyan-200 bg-cyan-500/[0.06] hover:bg-cyan-500/[0.12] border-cyan-400/[0.15] hover:border-cyan-400/[0.25] transition-all no-underline`}
+            >
+              <i className="bx bx-map-pin text-base" />
+              <span>Rastrear envío</span>
+            </a>
+          )}
+        </div>
       )}
 
       {/* ═══ Datos editables (solo si PENDIENTE CONFIRMACION) ═══ */}

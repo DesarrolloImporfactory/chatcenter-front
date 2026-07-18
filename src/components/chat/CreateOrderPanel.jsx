@@ -115,6 +115,7 @@ export default function CreateOrderPanel(props) {
     setDir,
     notes,
     setNotes,
+    botHints,
     rateType,
     setRateType,
     states,
@@ -190,6 +191,16 @@ export default function CreateOrderPanel(props) {
   const sectionCls =
     "rounded-[10px] bg-[#0f1629] border border-white/[0.07] overflow-hidden";
   const requiredMark = <span className="text-rose-400 ml-0.5">*</span>;
+
+  // Pista "el bot dijo: …" (resumen de cierre) para elegir a mano el correcto.
+  const BotHint = ({ value }) =>
+    value ? (
+      <p className="mt-1 text-[9px] text-cyan-300/70 flex items-center gap-1 leading-tight">
+        <i className="bx bxs-bot text-[10px] text-cyan-400/70 shrink-0" />
+        <span className="text-white/35">el bot dijo:</span>
+        <span className="text-cyan-200/90 font-medium">{value}</span>
+      </p>
+    ) : null;
 
   const hasQuoted =
     shippingQuotes.length > 0 || shippingQuotesError || shippingQuotesLoading;
@@ -571,6 +582,7 @@ export default function CreateOrderPanel(props) {
                 menuPosition="fixed"
                 menuPortalTarget={document.body}
               />
+              <BotHint value={botHints?.provincia} />
             </div>
           </div>
 
@@ -605,6 +617,7 @@ export default function CreateOrderPanel(props) {
                 </span>
               </div>
             )}
+            <BotHint value={botHints?.ciudad} />
           </div>
         </div>
 
@@ -658,6 +671,12 @@ export default function CreateOrderPanel(props) {
             Buscar
           </button>
         </div>
+
+        {botHints?.producto && (
+          <div className="px-3.5 pb-2">
+            <BotHint value={botHints.producto} />
+          </div>
+        )}
 
         {prodError && (
           <div className="mx-3.5 mb-2.5 text-[10px] text-red-300 bg-red-500/10 border border-red-400/20 rounded-md p-2">

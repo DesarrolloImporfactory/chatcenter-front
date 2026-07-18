@@ -276,21 +276,23 @@ const StatusDropdown = ({ value, onChange }) => {
 
 /* ─── celdas auxiliares ─── */
 
-function OrigenBadge({ shopType, shopName }) {
+function OrigenBadge({ shopType, shopName, esShopify }) {
   const st = String(shopType || "").toUpperCase();
+  // El cruce con el webhook de Shopify manda (el shop_type crudo de Dropi
+  // no es confiable): si la orden matcheó el webhook, es Shopify.
+  if (esShopify || st === "SHOPIFY") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+        <i className="bx bxl-shopify text-sm" />
+        Shopify
+      </span>
+    );
+  }
   if (st === "IMPORSUIT") {
     return (
       <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
         <i className="bx bxl-whatsapp text-sm" />
         WhatsApp
-      </span>
-    );
-  }
-  if (st === "SHOPIFY") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
-        <i className="bx bxl-shopify text-sm" />
-        Shopify
       </span>
     );
   }
@@ -763,8 +765,22 @@ const OrdenesDropi = () => {
           </div>
         </div>
       ) : (
-      <div className="bg-white rounded-2xl shadow-md p-6">
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-7 gap-3 items-start">
+      <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-5">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#171931]/[0.06] text-[#171931]">
+            <i className="bx bx-filter-alt text-lg" />
+          </span>
+          <div>
+            <h3 className="text-sm font-bold text-gray-900 leading-tight">
+              Filtros de búsqueda
+            </h3>
+            <p className="text-[11px] text-gray-400">
+              Filtra por cliente, fecha, estado u origen del pedido
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-7 gap-3 items-start">
           {/* Buscar cliente */}
           <div className="flex flex-col h-full">
             <label className="text-sm font-semibold text-gray-700">
@@ -1103,6 +1119,7 @@ const OrdenesDropi = () => {
                         <OrigenBadge
                           shopType={o?.shop_type}
                           shopName={o?.shop_name}
+                          esShopify={o?.es_shopify}
                         />
                       </td>
 
