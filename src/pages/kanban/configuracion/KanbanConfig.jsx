@@ -11,6 +11,28 @@ import MisPlantillas from "./componentes/MisPlantillas";
 // ─────────────────────────────────────────────────────────────
 // Constantes de UI
 // ─────────────────────────────────────────────────────────────
+
+// Para qué sirve cada columna del tablero (por estado_db). Se muestra al
+// seleccionar la columna para que el dueño sepa qué hace cada una.
+const PROPOSITOS_COLUMNA = {
+  contacto_inicial:
+    "Primer contacto. Aquí llega el cliente que escribe desde un anuncio; el bot lo atiende, resuelve dudas y cierra la venta contra entrega.",
+  pendiente_confirmacion:
+    "Entrada de clientes que llegan desde una orden de Shopify o landing (su pedido ya existe en Dropi en Pendiente confirmación). El bot les pide confirmar antes de despachar.",
+  generar_guia:
+    "Ventas ya cerradas por el bot, listas para crear la orden/guía en Dropi.",
+  guia_creada: "Pedidos con la guía ya generada.",
+  guia_generada: "Pedidos con la guía ya generada.",
+  asesor: "Casos que el bot escaló a una persona del equipo.",
+  remarketing:
+    "Clientes que no respondieron o no cerraron. Reciben mensajes de reactivación para recuperarlos.",
+  cancelados: "Clientes que no quisieron el pedido o pidieron cancelar.",
+  entregada: "Pedidos entregados al cliente.",
+  en_transito: "Pedidos en camino.",
+  retiro_agencia: "Pedidos para retirar en agencia.",
+  novedad: "Pedidos con una novedad en la entrega.",
+};
+
 const PALETA_COLORES = [
   { label: "Azul", fondo: "#EFF6FF", texto: "#1D4ED8" },
   { label: "Verde", fondo: "#F0FDF4", texto: "#15803D" },
@@ -174,6 +196,75 @@ const KanbanConfig = () => {
   useEffect(() => {
     cargarColumnas();
   }, [cargarColumnas]);
+
+  // ── Aviso GLOBAL: ¿el tablero tiene una actualización de la plantilla? ──
+  // Un solo lugar visible; no hay que entrar columna por columna.
+  const [tableroVersion, setTableroVersion] = useState(null);
+  const [actualizandoTablero, setActualizandoTablero] = useState(false);
+
+  const cargarVersionTablero = useCallback(async () => {
+    if (!id_configuracion) return;
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_plantillas/personalizacion_version",
+        { id_configuracion },
+      );
+      setTableroVersion(data?.data || null);
+    } catch {
+      /* silencioso */
+    }
+  }, [id_configuracion]);
+
+  useEffect(() => {
+    cargarVersionTablero();
+  }, [cargarVersionTablero]);
+
+  const actualizarTablero = async () => {
+    setActualizandoTablero(true);
+    Swal.fire({
+      title: "Actualizando tu tablero...",
+      html: '<div style="font-size:.85rem;color:#64748b">Aplicando la última versión (prompts y columnas)</div>',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading(),
+    });
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_plantillas/personalizacion_resincronizar",
+        { id_configuracion },
+      );
+      Swal.close();
+      const est = data?.data?.estructura || { agregadas: [], actualizadas: [] };
+      const nuevas = est.agregadas || [];
+      const activadas = est.actualizadas || [];
+      let extra = "";
+      if (nuevas.length || activadas.length) {
+        const nombres = [...nuevas, ...activadas]
+          .map((c) => c.nombre)
+          .join(", ");
+        extra = `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:.82rem;color:#059669">✓ ${nuevas.length} columna(s) nueva(s) y ${activadas.length} activada(s): <strong>${nombres}</strong></div>`;
+      }
+      await Swal.fire({
+        icon: data?.success ? "success" : "warning",
+        title: data?.success ? "¡Tablero actualizado!" : "Actualización parcial",
+        html: `<div style="font-size:.85rem;color:#475569">${data?.message || ""}</div>${extra}`,
+        confirmButtonColor: "#6366f1",
+      });
+      await cargarColumnas();
+      await cargarVersionTablero();
+    } catch (err) {
+      Swal.close();
+      Swal.fire({
+        icon: "error",
+        title: "Error al actualizar",
+        text: err?.response?.data?.message || err.message,
+        confirmButtonColor: "#6366f1",
+      });
+    } finally {
+      setActualizandoTablero(false);
+    }
+  };
 
   // ── Sync form al cambiar columna activa ──────────────────
   useEffect(() => {
@@ -755,6 +846,39 @@ const KanbanConfig = () => {
         }
       />
 
+      {/* ───── Aviso GLOBAL de actualización del tablero ───── */}
+      {tableroVersion?.usa_plantilla_global &&
+        tableroVersion?.desactualizada && (
+          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <i className="bx bx-bell text-xl text-amber-600" />
+              <div>
+                <div className="font-bold text-amber-800 text-sm">
+                  Tu tablero tiene una actualización disponible
+                </div>
+                <div className="text-xs text-amber-700">
+                  Hay una versión más reciente de tu plantilla (v
+                  {tableroVersion.aplicada} → v{tableroVersion.ultima}): puede
+                  traer columnas nuevas, mejoras del bot y acciones. Tu
+                  personalización se mantiene.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={actualizarTablero}
+              disabled={actualizandoTablero}
+              className="h-9 inline-flex items-center gap-1.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs shadow transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
+            >
+              <i
+                className={`bx ${
+                  actualizandoTablero ? "bx-loader-alt bx-spin" : "bx-refresh"
+                } text-base`}
+              />
+              {actualizandoTablero ? "Actualizando..." : "Actualizar tablero"}
+            </button>
+          </div>
+        )}
+
       {/* ───── Body: empty hero o grid normal ───── */}
       {columnas.length === 0 ? (
         <EmptyHeroKanban
@@ -1023,6 +1147,27 @@ const KanbanConfig = () => {
                   >
                     estado_db: <strong>{columnaSeleccionada.estado_db}</strong>
                   </div>
+                  {PROPOSITOS_COLUMNA[columnaSeleccionada.estado_db] && (
+                    <div
+                      style={{
+                        fontSize: "0.78rem",
+                        color: "#475569",
+                        marginTop: 6,
+                        lineHeight: 1.45,
+                        background: "#f8fafc",
+                        border: "1px solid rgba(0,0,0,.05)",
+                        borderRadius: 8,
+                        padding: "7px 10px",
+                        maxWidth: 520,
+                      }}
+                    >
+                      <i
+                        className="bx bx-info-circle"
+                        style={{ marginRight: 4, color: "#6366f1" }}
+                      />
+                      {PROPOSITOS_COLUMNA[columnaSeleccionada.estado_db]}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1570,6 +1715,7 @@ const KanbanConfig = () => {
                   columnaMax_tokens={columnaSeleccionada?.max_tokens}
                   idConfiguracion={localStorage.getItem("id_configuracion")}
                   columnas={columnas}
+                  acciones={acciones}
                   onAssistantCreado={(assistant_id) => {
                     setColumnas((prev) =>
                       prev.map((c) =>

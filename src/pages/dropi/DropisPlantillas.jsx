@@ -37,6 +37,21 @@ const ESTADO_ICONS = {
   DEVOLUCION: { icon: "bx bx-undo", color: "#6b7280" },
 };
 
+// Para qué sirve cada estado (cuándo se dispara el mensaje). Aclara que
+// PENDIENTE CONFIRMACION también entra por el webhook de Shopify, no solo Dropi.
+const ESTADO_DESC = {
+  "PENDIENTE CONFIRMACION":
+    "Pedido nuevo que entra desde Dropi o desde tu webhook de Shopify. El cliente confirma por WhatsApp antes de despachar.",
+  CANCELADO: "El pedido se canceló en Dropi.",
+  PENDIENTE: "El cliente confirmó: el pedido queda listo para generar la guía.",
+  "GUIA GENERADA": "Ya se creó la guía de envío del pedido.",
+  "EN TRANSITO": "El paquete va en camino al cliente.",
+  "RETIRO EN AGENCIA": "El pedido está listo para retirar en la agencia.",
+  NOVEDAD: "Hubo una novedad con la entrega (dirección, ausencia, etc.).",
+  ENTREGADA: "El pedido fue entregado al cliente.",
+  DEVOLUCION: "El pedido se devolvió al remitente.",
+};
+
 const SIEMPRE_TEMPLATE = new Set(["PENDIENTE CONFIRMACION"]);
 
 const VARIABLES_DISPONIBLES = [
@@ -1157,6 +1172,19 @@ const DropisPlantillas = ({ id_configuracion }) => {
                               >
                                 {estado}
                               </div>
+                              {ESTADO_DESC[estado] && (
+                                <div
+                                  style={{
+                                    fontSize: ".68rem",
+                                    color: "#94a3b8",
+                                    marginTop: 1,
+                                    lineHeight: 1.35,
+                                    maxWidth: 360,
+                                  }}
+                                >
+                                  {ESTADO_DESC[estado]}
+                                </div>
+                              )}
                               {isActivo && cfg.nombre_template && (
                                 <div
                                   style={{

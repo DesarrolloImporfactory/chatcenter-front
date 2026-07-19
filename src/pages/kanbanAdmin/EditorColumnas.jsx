@@ -1769,6 +1769,16 @@ const TIPOS_ACCION_META = {
     icono: "bx bx-image",
     color: "#f59e0b",
   },
+  crear_orden_dropi: {
+    label: "Crear orden Dropi",
+    icono: "bx bx-package",
+    color: "#ea580c",
+  },
+  actualizar_orden_dropi: {
+    label: "Actualizar orden Dropi",
+    icono: "bx bx-refresh",
+    color: "#3b82f6",
+  },
 };
 
 const TabAcciones = ({ col, columnas, onChange }) => {
@@ -1781,6 +1791,8 @@ const TabAcciones = ({ col, columnas, onChange }) => {
       contexto_productos: {},
       contexto_calendario: {},
       enviar_media: {},
+      crear_orden_dropi: {},
+      actualizar_orden_dropi: {},
     };
     const nueva = {
       tipo_accion: tipo,

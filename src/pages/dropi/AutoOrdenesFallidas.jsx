@@ -2,6 +2,18 @@ import React, { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 
+/* "Esperando desde": fecha + cuánto lleva el pedido sin subirse */
+function formatEspera(fecha) {
+  if (!fecha) return null;
+  const d = new Date(fecha);
+  if (isNaN(d.getTime())) return null;
+  const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const rel =
+    dias <= 0 ? "hoy" : dias === 1 ? "hace 1 día" : `hace ${dias} días`;
+  const fmt = d.toLocaleDateString("es", { day: "2-digit", month: "short" });
+  return { fmt, rel, dias };
+}
+
 /* Motivos legibles por paso_fallo (solo aplica a estado 'fallida') */
 const REASONS = {
   producto: {
@@ -337,7 +349,17 @@ export default function AutoOrdenesFallidas({
           };
         });
 
-      const merged = [...wa, ...sh];
+      // Dedup por cliente (un mismo cliente no debe salir dos veces si
+      // apareciera en ambas fuentes).
+      const vistos = new Set();
+      const merged = [...wa, ...sh].filter((it) => {
+        const key = it.id_cliente
+          ? `c-${it.id_cliente}`
+          : it._key || Math.random();
+        if (vistos.has(key)) return false;
+        vistos.add(key);
+        return true;
+      });
       setItems(merged);
       setTotal(merged.length);
     } catch (_) {
@@ -453,7 +475,7 @@ export default function AutoOrdenesFallidas({
         type="button"
         onClick={openDrawer}
         className="relative inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition"
-        title="Pedidos en 'generar guía' que aún no se subieron a Dropi"
+        title="Pedidos confirmados que todavía no existen en Dropi (de 'generar guía' o de 'pendiente confirmación')"
       >
         <i className="bx bx-cloud-upload text-lg text-rose-500" />
         <span className="text-sm font-semibold text-gray-700">
@@ -476,22 +498,32 @@ export default function AutoOrdenesFallidas({
             <div className="bg-[#171931] text-white p-5 relative overflow-hidden">
               <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-indigo-500/30 to-violet-500/20 blur-2xl" />
               <div className="relative flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 grid place-items-center shadow-lg">
-                    <i className="bx bx-cloud-upload text-2xl" />
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 grid place-items-center shadow-lg shadow-cyan-500/30">
+                    <i className="bx bx-cloud-upload text-2xl text-white" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-lg font-bold leading-tight">
                       Pedidos sin subir a Dropi
                     </h2>
-                    <p className="text-xs text-white/70 mt-0.5">
-                      Clientes en "generar guía" sin orden creada.
+                    <p className="text-xs text-white/60 mt-1 leading-relaxed max-w-md">
+                      Ventas confirmadas por el bot y órdenes de Shopify/landing
+                      que aún no existen en Dropi. Complétalos y créalos aquí.
                     </p>
+                    <div className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded-lg px-2.5 py-1.5 max-w-md">
+                      <i className="bx bx-info-circle text-sm shrink-0 mt-px" />
+                      <span>
+                        Toda orden subida desde aquí se crea en estado{" "}
+                        <b>pendiente confirmación</b>, para que aun puedas
+                        confirmar la orden antes de que el proveedor proceda con
+                        su despacho.
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <button
                   onClick={closeDrawer}
-                  className="w-9 h-9 rounded-xl hover:bg-white/10 grid place-items-center transition"
+                  className="w-9 h-9 shrink-0 rounded-xl hover:bg-white/10 grid place-items-center transition"
                 >
                   <i className="bx bx-x text-2xl" />
                 </button>
@@ -594,6 +626,25 @@ export default function AutoOrdenesFallidas({
                                 it.telefono ||
                                 "Sin teléfono"}
                             </div>
+                            {(() => {
+                              const e = formatEspera(it.created_at);
+                              if (!e) return null;
+                              const c =
+                                e.dias >= 3
+                                  ? "text-rose-600"
+                                  : e.dias >= 1
+                                    ? "text-amber-600"
+                                    : "text-gray-400";
+                              return (
+                                <div
+                                  className={`text-[11px] mt-0.5 flex items-center gap-1 ${c}`}
+                                  title={`Sin subir a Dropi desde ${e.fmt}`}
+                                >
+                                  <i className="bx bx-time" />
+                                  Esperando {e.rel} · desde {e.fmt}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <span
                             className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${TONE_CLASSES[r.tone]}`}

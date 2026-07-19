@@ -71,7 +71,25 @@ const TabAsistente = ({
   onColumnaActualizada,
   idConfiguracion,
   columnas,
+  acciones,
 }) => {
+  // ¿Esta columna cierra la venta (mueve a generar_guia)? Solo ahí tiene sentido
+  // el switch de "crear orden en Dropi". Lo define el super admin con la acción.
+  const tieneAccionGenerarGuia = (acciones || []).some((a) => {
+    if (a.tipo_accion !== "cambiar_estado") return false;
+    let cfg = a.config;
+    try {
+      while (typeof cfg === "string") cfg = JSON.parse(cfg);
+    } catch {
+      cfg = {};
+    }
+    return cfg?.estado_destino === "generar_guia";
+  });
+  // En la columna principal de Dropi el tag generar_guia ACTUALIZA la orden (no
+  // crea), así que ahí va el switch de "actualizar", no el de "crear".
+  const esColumnaDropiPrincipal =
+    !!columnas?.find((c) => c.id === columnaId)?.es_dropi_principal;
+  const disparaGenerarGuia = tieneAccionGenerarGuia && !esColumnaDropiPrincipal;
   // ── Chat de pruebas ──────────────────────────────────────
   const [showChat, setShowChat] = useState(false);
   const [chatMensajes, setChatMensajes] = useState([]);
@@ -139,28 +157,30 @@ const TabAsistente = ({
   const [autoOrdenLoading, setAutoOrdenLoading] = useState(false);
 
   useEffect(() => {
-    if (!idConfiguracion) return;
+    if (!columnaId) return;
     chatApi
-      .post("/configuraciones/obtener_auto_orden_dropi", {
-        id_configuracion: idConfiguracion,
+      .post("/kanban_acciones/obtener_dropi_accion", {
+        id_kanban_columna: columnaId,
+        tipo: "crear_orden_dropi",
       })
       .then(({ data }) => setAutoOrden(!!data?.activo))
       .catch(() => {});
-  }, [idConfiguracion]);
+  }, [columnaId]);
 
   // ── Actualización de orden al confirmar (columna Pendiente Confirmación) ──
   const [autoActualizar, setAutoActualizar] = useState(false);
   const [autoActualizarLoading, setAutoActualizarLoading] = useState(false);
 
   useEffect(() => {
-    if (!idConfiguracion) return;
+    if (!columnaId) return;
     chatApi
-      .post("/configuraciones/obtener_auto_actualizar_orden_dropi", {
-        id_configuracion: idConfiguracion,
+      .post("/kanban_acciones/obtener_dropi_accion", {
+        id_kanban_columna: columnaId,
+        tipo: "actualizar_orden_dropi",
       })
       .then(({ data }) => setAutoActualizar(!!data?.activo))
       .catch(() => {});
-  }, [idConfiguracion]);
+  }, [columnaId]);
 
   const toggleAutoActualizar = async () => {
     const activar = !autoActualizar;
@@ -192,10 +212,12 @@ const TabAsistente = ({
 
     setAutoActualizarLoading(true);
     try {
-      await chatApi.post(
-        "/configuraciones/actualizar_auto_actualizar_orden_dropi",
-        { id_configuracion: idConfiguracion, activo: activar },
-      );
+      await chatApi.post("/kanban_acciones/set_dropi_accion", {
+        id_kanban_columna: columnaId,
+        id_configuracion: idConfiguracion,
+        tipo: "actualizar_orden_dropi",
+        activo: activar,
+      });
       setAutoActualizar(activar);
       Toast.fire({
         icon: "success",
@@ -241,8 +263,10 @@ const TabAsistente = ({
 
     setAutoOrdenLoading(true);
     try {
-      await chatApi.post("/configuraciones/actualizar_auto_orden_dropi", {
+      await chatApi.post("/kanban_acciones/set_dropi_accion", {
+        id_kanban_columna: columnaId,
         id_configuracion: idConfiguracion,
+        tipo: "crear_orden_dropi",
         activo: activar,
       });
       setAutoOrden(activar);
@@ -429,8 +453,8 @@ const TabAsistente = ({
 
     setActualizandoPrompt(true);
     Swal.fire({
-      title: "Actualizando prompt...",
-      html: '<div style="font-size:.85rem;color:#64748b">Aplicando última versión a tus asistentes</div>',
+      title: "Actualizando tu tablero...",
+      html: '<div style="font-size:.85rem;color:#64748b">Aplicando la última versión (prompts y columnas)</div>',
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
@@ -447,13 +471,29 @@ const TabAsistente = ({
 
       if (data?.success) {
         const exitos = data.data?.exitos || 0;
+        const est = data.data?.estructura || {
+          agregadas: [],
+          actualizadas: [],
+        };
+        const nuevas = est.agregadas || [];
+        const activadas = est.actualizadas || [];
+        let extraHtml = "";
+        if (nuevas.length || activadas.length) {
+          const nombres = [...nuevas, ...activadas]
+            .map((c) => c.nombre)
+            .join(", ");
+          extraHtml = `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:.82rem;color:#059669">
+              ✓ ${nuevas.length} columna(s) nueva(s) y ${activadas.length} activada(s): <strong>${nombres}</strong>
+              <div style="color:#94a3b8;font-size:.75rem;margin-top:4px">Recarga el tablero para verlas.</div>
+            </div>`;
+        }
         await Swal.fire({
           icon: "success",
-          title: "¡Prompt actualizado!",
+          title: "¡Tablero actualizado!",
           html: `
             <div style="font-size:.85rem;color:#475569">
-              ✓ ${exitos} columna(s) IA actualizada(s) con la última versión.
-            </div>
+              ✓ ${exitos} columna(s) IA con la última versión del prompt.
+            </div>${extraHtml}
           `,
           confirmButtonColor: "#6366f1",
         });
@@ -1285,11 +1325,11 @@ const TabAsistente = ({
                   );
                 })()}
 
-              {/* ═══ Botón Actualizar prompt ═══ */}
+              {/* ═══ Botón Actualizar tablero ═══ */}
               <button
                 onClick={handleActualizarPrompt}
                 disabled={actualizandoPrompt}
-                title="Trae la última versión del prompt de la plantilla, manteniendo tu personalización"
+                title="Trae la última versión de la plantilla: prompts, columnas nuevas y acciones — manteniendo tu personalización"
                 style={{
                   padding: "5px 11px",
                   borderRadius: 8,
@@ -1313,7 +1353,7 @@ const TabAsistente = ({
                 ) : (
                   <>
                     <i className="bx bx-refresh" />
-                    Actualizar prompt
+                    Actualizar tablero
                   </>
                 )}
               </button>
@@ -1361,7 +1401,8 @@ const TabAsistente = ({
             </div>
           </div>
 
-          {/* ═══ Auto-creación de órdenes Dropi ═══ */}
+          {/* ═══ Auto-creación de órdenes Dropi (solo en la columna que cierra la venta) ═══ */}
+          {disparaGenerarGuia && (
           <div
             style={{
               borderRadius: 14,
@@ -1456,9 +1497,10 @@ const TabAsistente = ({
               </div>
             )}
           </div>
+          )}
 
           {/* ═══ Actualizar orden al confirmar — solo columna principal Dropi ═══ */}
-          {columnas?.find((c) => c.id === columnaId)?.es_dropi_principal && (
+          {!!columnas?.find((c) => c.id === columnaId)?.es_dropi_principal && (
             <div
               style={{
                 borderRadius: 14,

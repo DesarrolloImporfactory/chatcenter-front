@@ -74,6 +74,43 @@ const formatMoney = (val, currency = "USD") => {
   return `${currency} ${num.toFixed(2)}`;
 };
 
+/* "hace X" relativo a la fecha del carrito */
+const haceRel = (fecha) => {
+  if (!fecha) return null;
+  const d = new Date(fecha);
+  if (isNaN(d.getTime())) return null;
+  const min = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (min < 60) return `hace ${Math.max(1, min)} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const dias = Math.floor(h / 24);
+  return dias === 1 ? "hace 1 día" : `hace ${dias} días`;
+};
+
+/* Abre el chat del cliente en el chatcenter (mismo patrón que /contactos) */
+const abrirChatCliente = (idCliente) => {
+  if (!idCliente) return;
+  window.open(`/chat/${idCliente}`, "_blank", "noopener,noreferrer");
+};
+
+/* Thumbnail del producto (imagen del catálogo) con placeholder */
+const ProductoThumb = ({ src }) =>
+  src ? (
+    <img
+      src={src}
+      alt=""
+      className="w-10 h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0 bg-gray-50"
+      loading="lazy"
+      onError={(e) => {
+        e.currentTarget.style.display = "none";
+      }}
+    />
+  ) : (
+    <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+      <i className="bx bx-package text-gray-400 text-lg" />
+    </div>
+  );
+
 const CarritosAbandonados = () => {
   const navigate = useNavigate();
   const [id_configuracion, setId_configuracion] = useState(null);
@@ -188,47 +225,6 @@ const CarritosAbandonados = () => {
   };
 
   /* ============== Acciones ============== */
-  const handleEnviarWhatsapp = async (carrito) => {
-    if (!carrito.phone_normalizado) {
-      Swal.fire({
-        icon: "warning",
-        title: "Sin teléfono",
-        text: "Este carrito no tiene un teléfono válido.",
-      });
-      return;
-    }
-
-    const nombre = carrito.nombre_cliente || "Hola";
-    const productos = safeJsonParse(carrito.line_items, [])
-      .map((p) => p.title)
-      .filter(Boolean)
-      .join(", ");
-    const recoveryUrl = carrito.abandoned_checkout_url || "";
-
-    const mensaje = `¡Hola ${nombre}! 👋
-
-Vi que estabas interesado/a en ${productos || "uno de nuestros productos"} y no pudiste completar tu compra.
-
-Tu carrito sigue disponible aquí 👇
-${recoveryUrl}
-
-¿Te ayudo con algo? 😊`;
-
-    const url = `https://wa.me/${carrito.phone_normalizado}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, "_blank");
-
-    // Marcar como mensaje enviado
-    try {
-      await chatApi.patch(
-        `shopify_carritos_abandonados/${carrito.id}/marcar-mensaje-enviado`,
-      );
-      fetchCarritos();
-      fetchStats();
-    } catch (err) {
-      console.error("Error al marcar mensaje:", err);
-    }
-  };
-
   const handleVerCarrito = (carrito) => {
     if (carrito.abandoned_checkout_url) {
       window.open(carrito.abandoned_checkout_url, "_blank");
@@ -479,15 +475,18 @@ ${recoveryUrl}
 
                         <td className="px-4 py-3">
                           {primerProducto ? (
-                            <div>
-                              <div className="text-gray-700 truncate max-w-[200px]">
-                                {primerProducto.title}
-                              </div>
-                              {masProductos > 0 && (
-                                <div className="text-xs text-gray-400">
-                                  + {masProductos} más
+                            <div className="flex items-center gap-2.5">
+                              <ProductoThumb src={c.producto_imagen} />
+                              <div className="min-w-0">
+                                <div className="text-gray-700 truncate max-w-[200px]">
+                                  {primerProducto.title}
                                 </div>
-                              )}
+                                {masProductos > 0 && (
+                                  <div className="text-xs text-gray-400">
+                                    + {masProductos} más
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ) : (
                             <span className="text-gray-400">—</span>
@@ -500,6 +499,11 @@ ${recoveryUrl}
 
                         <td className="px-4 py-3 text-gray-600 text-xs">
                           {formatFecha(c.shopify_created_at || c.created_at)}
+                          {haceRel(c.shopify_created_at || c.created_at) && (
+                            <div className="text-[10px] text-gray-400">
+                              {haceRel(c.shopify_created_at || c.created_at)}
+                            </div>
+                          )}
                           {c.mensaje_enviado === 1 && (
                             <div className="text-[10px] text-blue-600 mt-0.5 flex items-center gap-1">
                               <i className="bx bxl-whatsapp" /> Mensaje enviado
@@ -513,13 +517,13 @@ ${recoveryUrl}
 
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
-                            {c.recuperado === 0 && c.phone_normalizado && (
+                            {c.id_cliente && (
                               <button
-                                onClick={() => handleEnviarWhatsapp(c)}
-                                title="Enviar WhatsApp"
+                                onClick={() => abrirChatCliente(c.id_cliente)}
+                                title="Abrir chat del cliente"
                                 className="p-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
                               >
-                                <i className="bx bxl-whatsapp text-lg" />
+                                <i className="bx bxs-chat text-lg" />
                               </button>
                             )}
 
@@ -637,12 +641,17 @@ ${recoveryUrl}
                         key={idx}
                         className="flex justify-between items-center bg-gray-50 rounded-lg p-3 text-sm"
                       >
-                        <div>
-                          <div className="font-semibold text-gray-800">
-                            {item.title}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Cantidad: {item.quantity} • SKU: {item.sku || "—"}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {idx === 0 && (
+                            <ProductoThumb src={detalleCarrito.producto_imagen} />
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-semibold text-gray-800">
+                              {item.title}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Cantidad: {item.quantity} • SKU: {item.sku || "—"}
+                            </div>
                           </div>
                         </div>
                         <div className="font-semibold text-gray-800">
@@ -709,18 +718,17 @@ ${recoveryUrl}
 
               {/* Acciones */}
               <div className="flex gap-2 pt-4 border-t">
-                {detalleCarrito.recuperado === 0 &&
-                  detalleCarrito.phone_normalizado && (
-                    <button
-                      onClick={() => {
-                        handleEnviarWhatsapp(detalleCarrito);
-                        setDetalleCarrito(null);
-                      }}
-                      className="flex-1 bg-emerald-600 text-white font-semibold py-2 rounded-lg hover:bg-emerald-700 transition inline-flex items-center justify-center gap-2"
-                    >
-                      <i className="bx bxl-whatsapp text-lg" /> Enviar WhatsApp
-                    </button>
-                  )}
+                {detalleCarrito.id_cliente && (
+                  <button
+                    onClick={() => {
+                      abrirChatCliente(detalleCarrito.id_cliente);
+                      setDetalleCarrito(null);
+                    }}
+                    className="flex-1 bg-emerald-600 text-white font-semibold py-2 rounded-lg hover:bg-emerald-700 transition inline-flex items-center justify-center gap-2"
+                  >
+                    <i className="bx bxs-chat text-lg" /> Abrir chat
+                  </button>
+                )}
                 {detalleCarrito.abandoned_checkout_url && (
                   <button
                     onClick={() => handleVerCarrito(detalleCarrito)}
