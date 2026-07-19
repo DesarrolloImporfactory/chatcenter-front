@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef } from "react";
+import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import Select from "react-select";
 import { resolveProductImage, NO_IMAGE } from "../../utils/orderHelper";
 import SemaforoTransportadoras from "./SemaforoTransportadoras";
@@ -157,6 +157,13 @@ export default function CreateOrderPanel(props) {
   // ── Protección anti-doble-submit ──
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
+
+  // Qué producto tiene sus variedades desplegadas (para no inundar la pantalla
+  // cuando un producto tiene muchas variaciones).
+  const [openVarsId, setOpenVarsId] = useState(null);
+  useEffect(() => {
+    setOpenVarsId(null);
+  }, [prodList]);
 
   const handleSafeSubmit = useCallback(() => {
     if (submitLockRef.current) return;
@@ -715,80 +722,112 @@ export default function CreateOrderPanel(props) {
             <p className="text-[10px] text-white/35 py-2">No hay resultados.</p>
           ) : (
             <div className="space-y-1">
-              {topProducts.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-2.5 rounded-lg border border-white/[0.05] bg-white/[0.015] hover:bg-white/[0.04] hover:border-white/[0.1] p-2 transition-all"
-                >
-                  <img
-                    src={getImageOrFallback(p)}
-                    alt={p?.name || "Producto"}
-                    className="h-[38px] w-[38px] rounded-[7px] object-cover bg-white/[0.04] border border-white/[0.06] shrink-0"
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = NO_IMAGE;
-                    }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-semibold text-white/[0.88] truncate">
-                      {p?.name || "Producto"}
-                    </p>
-                    <div className="flex gap-2 mt-0.5">
-                      <span className="text-[10px] text-white/50">
-                        Prov.{" "}
-                        <span className="font-semibold text-white/75">
-                          $
-                          {(p?.sale_price ?? p?.variations?.[0]?.sale_price) ||
-                            "—"}
-                        </span>
-                      </span>
-                      <span className="text-[10px] text-white/50">
-                        Sug.{" "}
-                        <span className="font-semibold text-white/75">
-                          $
-                          {(p?.suggested_price ??
-                            p?.variations?.[0]?.suggested_price) ||
-                            "—"}
-                        </span>
-                      </span>
-                    </div>
-                    <p className="text-[9px] text-white/25 mt-0.5">
-                      SKU {p?.sku || "—"}
-                    </p>
-                  </div>
-                  {/* AGREGAR SIMPLE O VARIABLE: */}
-                  {p.type === "VARIABLE" &&
+              {topProducts.map((p) => {
+                const esVariable =
+                  p.type === "VARIABLE" &&
                   Array.isArray(p.variations) &&
-                  p.variations.length > 0 ? (
-                    <div className="flex flex-col gap-1 shrink-0">
-                      {p.variations.map((v) => {
-                        const label =
-                          v.attribute_values?.map((a) => a.value).join(" / ") ||
-                          v.sku;
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => addProductToCart(p, v)}
-                            className="px-2.5 py-1 rounded-[6px] bg-emerald-500/[0.10] hover:bg-emerald-500/[0.22] border border-emerald-400/[0.15] text-[9px] font-semibold text-emerald-300 transition-colors whitespace-nowrap"
-                          >
-                            {label} (stock {v.stock ?? 0})
-                          </button>
-                        );
-                      })}
+                  p.variations.length > 0;
+                const abierto = openVarsId === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className="rounded-lg border border-white/[0.05] bg-white/[0.015] hover:border-white/[0.1] transition-all overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2.5 p-2">
+                      <img
+                        src={getImageOrFallback(p)}
+                        alt={p?.name || "Producto"}
+                        className="h-[38px] w-[38px] rounded-[7px] object-cover bg-white/[0.04] border border-white/[0.06] shrink-0"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = NO_IMAGE;
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] font-semibold text-white/[0.88] truncate">
+                          {p?.name || "Producto"}
+                        </p>
+                        <div className="flex gap-2 mt-0.5">
+                          <span className="text-[10px] text-white/50">
+                            Prov.{" "}
+                            <span className="font-semibold text-white/75">
+                              $
+                              {(p?.sale_price ??
+                                p?.variations?.[0]?.sale_price) || "—"}
+                            </span>
+                          </span>
+                          <span className="text-[10px] text-white/50">
+                            Sug.{" "}
+                            <span className="font-semibold text-white/75">
+                              $
+                              {(p?.suggested_price ??
+                                p?.variations?.[0]?.suggested_price) || "—"}
+                            </span>
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-white/25 mt-0.5">
+                          {esVariable
+                            ? `${p.variations.length} variedades`
+                            : `SKU ${p?.sku || "—"}`}
+                        </p>
+                      </div>
+                      {/* VARIABLE → ver variedades; SIMPLE → agregar directo */}
+                      {esVariable ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenVarsId(abierto ? null : p.id)
+                          }
+                          className="px-2.5 py-1.5 rounded-[7px] bg-violet-500/[0.12] hover:bg-violet-500/[0.22] border border-violet-400/[0.18] text-[10px] font-semibold text-violet-200 shrink-0 transition-colors flex items-center gap-1"
+                        >
+                          <i
+                            className={`bx bx-chevron-${abierto ? "up" : "down"} text-sm`}
+                          />
+                          {abierto ? "Ocultar" : "Ver variedades"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => addProductToCart(p)}
+                          className="px-3 py-1.5 rounded-[7px] bg-emerald-500/[0.12] hover:bg-emerald-500/[0.22] border border-emerald-400/[0.18] text-[10px] font-semibold text-emerald-300 shrink-0 transition-colors"
+                        >
+                          Agregar
+                        </button>
+                      )}
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => addProductToCart(p)}
-                      className="px-3 py-1.5 rounded-[7px] bg-emerald-500/[0.12] hover:bg-emerald-500/[0.22] border border-emerald-400/[0.18] text-[10px] font-semibold text-emerald-300 shrink-0 transition-colors"
-                    >
-                      Agregar
-                    </button>
-                  )}
-                </div>
-              ))}
+
+                    {/* Variedades desplegables (scroll, no inunda la pantalla) */}
+                    {esVariable && abierto && (
+                      <div className="border-t border-white/[0.05] bg-black/20 p-2 grid grid-cols-2 gap-1 max-h-[190px] overflow-y-auto">
+                        {p.variations.map((v) => {
+                          const label =
+                            v.attribute_values
+                              ?.map((a) => a.value)
+                              .join(" / ") || v.sku;
+                          return (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onClick={() => {
+                                addProductToCart(p, v);
+                                setOpenVarsId(null);
+                              }}
+                              className="px-2 py-1 rounded-[6px] bg-emerald-500/[0.10] hover:bg-emerald-500/[0.22] border border-emerald-400/[0.15] text-[9px] font-semibold text-emerald-300 transition-colors text-left truncate"
+                              title={`${label} (stock ${v.stock ?? 0})`}
+                            >
+                              {label}{" "}
+                              <span className="text-emerald-400/60">
+                                · {v.stock ?? 0}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -180,6 +180,10 @@ export default function useCreateOrder({
   const autoDeptHintRef = useRef(null);
   const autoCityHintRef = useRef(null);
 
+  // Contexto de la última búsqueda de productos (para reintentar con privados
+  // si la pública vino vacía — productos privatizados no salen en el índice).
+  const prodSearchRef = useRef({ keywords: "", privated: false });
+
   // ── reset completo ──
   const resetCreateOrderState = useCallback(() => {
     setCreateOrderOpen(false);
@@ -223,12 +227,14 @@ export default function useCreateOrder({
     if (!idCli || !id_configuracion) return { searchTerm: null };
 
     let prodBot = "";
+    let prodExtId = null; // external_id de Dropi resuelto del producto (Shopify/bot)
     try {
       const { data } = await chatApi.post(
         "dropi_integrations/auto-orders/datos-cliente",
         { id_configuracion, id_cliente: idCli },
         { silentError: true },
       );
+      prodExtId = data?.data?.producto_external_id || null;
       const d = data?.data?.datos;
       if (d) {
         const dirBot = limpiarValorBot(d.direccion);
@@ -264,15 +270,24 @@ export default function useCreateOrder({
         `clientes_chat_center/origen_anuncio?id_cliente=${idCli}&id_configuracion=${id_configuracion}`,
         { silentError: true },
       );
-      const extId = origen?.data?.external_id;
+      // Prioridad: ID del anuncio (WA) → ID resuelto del producto (Shopify) →
+      // nombre del producto (busca candidatos, mejor que lista vacía).
+      const extId = origen?.data?.external_id || prodExtId;
       if (extId) {
         searchTerm = String(extId);
         setKeywords(searchTerm);
       } else if (prodBot) {
-        setKeywords(prodBot); // sin ID: nombre prellenado, búsqueda manual
+        searchTerm = prodBot; // sin ID → busca por nombre para ver candidatos
+        setKeywords(prodBot);
       }
     } catch (_) {
-      if (prodBot) setKeywords(prodBot);
+      if (prodExtId) {
+        searchTerm = String(prodExtId);
+        setKeywords(searchTerm);
+      } else if (prodBot) {
+        searchTerm = prodBot;
+        setKeywords(prodBot);
+      }
     }
 
     return { searchTerm };
@@ -285,12 +300,14 @@ export default function useCreateOrder({
 
   // ── emitters ──
   const emitGetProducts = useCallback(
-    (reset = false, overrideKeywords = null) => {
+    (reset = false, overrideKeywords = null, privated = false) => {
       const s = socketRef?.current;
       if (!s) return setProdError("Socket no disponible");
       setProdLoading(true);
       setProdError(null);
       const nextStart = reset ? 0 : startData;
+      const kw = overrideKeywords !== null ? overrideKeywords : keywords || "";
+      prodSearchRef.current = { keywords: kw, privated };
       s.emit("GET_DROPI_PRODUCTS", {
         id_configuracion: Number(id_configuracion),
         pageSize,
@@ -298,9 +315,9 @@ export default function useCreateOrder({
         no_count: true,
         order_by: "id",
         order_type: "desc",
-        keywords: overrideKeywords !== null ? overrideKeywords : keywords || "",
+        keywords: kw,
         favorite: false,
-        privated_product: false,
+        privated_product: privated,
       });
     },
     [socketRef, id_configuracion, pageSize, startData, keywords],
@@ -821,7 +838,6 @@ export default function useCreateOrder({
       s.off("DROPI_COTIZA_ENVIO_V2_ERROR", onShipErrRef.current);
 
     const onProdOk = (resp) => {
-      setProdLoading(false);
       const list =
         resp?.data?.objects ||
         resp?.objects ||
@@ -829,7 +845,31 @@ export default function useCreateOrder({
         resp?.data?.products ||
         resp?.products ||
         [];
-      setProdList(Array.isArray(list) ? list : []);
+      const arr = Array.isArray(list) ? list : [];
+
+      // Fallback: si la búsqueda pública vino vacía, reintenta UNA vez con
+      // productos privatizados (comunes en dropshipping; no salen en el índice
+      // público). Evita el "quedó vacío, no puedo consultar nada".
+      const ctx = prodSearchRef.current;
+      if (arr.length === 0 && ctx && !ctx.privated) {
+        prodSearchRef.current = { keywords: ctx.keywords, privated: true };
+        setProdLoading(true);
+        s.emit("GET_DROPI_PRODUCTS", {
+          id_configuracion: Number(id_configuracion),
+          pageSize,
+          startData: 0,
+          no_count: true,
+          order_by: "id",
+          order_type: "desc",
+          keywords: ctx.keywords,
+          favorite: false,
+          privated_product: true,
+        });
+        return;
+      }
+
+      setProdLoading(false);
+      setProdList(arr);
     };
     const onProdErr = (resp) => {
       setProdLoading(false);
