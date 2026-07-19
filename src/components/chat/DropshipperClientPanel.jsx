@@ -37,6 +37,7 @@ function buildCreateOrderPanelProps(createHook) {
     notes: createHook.notes,
     setNotes: createHook.setNotes,
     botHints: createHook.botHints,
+    autoGeo: createHook.autoGeo,
     rateType: createHook.rateType,
     setRateType: createHook.setRateType,
     states: createHook.states,

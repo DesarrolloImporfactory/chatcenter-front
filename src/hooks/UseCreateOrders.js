@@ -31,6 +31,34 @@ function limpiarValorBot(v) {
   return s;
 }
 
+// Normaliza un nombre de provincia/ciudad para emparejar el texto del pedido
+// (Shopify o bot) contra el catálogo de Dropi: sin tildes, mayúsculas, sin
+// puntuación ni dobles espacios.
+function normNombre(s) {
+  return String(s || "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Empareja un texto contra una lista Dropi. Exacto y, si no, "uno contiene al
+// otro" (ej. "SANTO DOMINGO" ⊂ "SANTO DOMINGO DE LOS TSACHILAS"). Devuelve el
+// item o null (para caer a selección manual).
+function matchDropi(texto, lista, getName) {
+  const t = normNombre(texto);
+  if (!t || !Array.isArray(lista) || !lista.length) return null;
+  let m = lista.find((x) => normNombre(getName(x)) === t);
+  if (m) return m;
+  m = lista.find((x) => {
+    const n = normNombre(getName(x));
+    return n && (n.includes(t) || t.includes(n));
+  });
+  return m || null;
+}
+
 export default function useCreateOrder({
   socketRef,
   id_configuracion,
@@ -147,6 +175,11 @@ export default function useCreateOrder({
   const onShipOkRef = useRef(null);
   const onShipErrRef = useRef(null);
 
+  // ── auto-preselección de provincia/ciudad desde el pedido ──
+  const [autoGeo, setAutoGeo] = useState({ provincia: null, ciudad: null });
+  const autoDeptHintRef = useRef(null);
+  const autoCityHintRef = useRef(null);
+
   // ── reset completo ──
   const resetCreateOrderState = useCallback(() => {
     setCreateOrderOpen(false);
@@ -174,6 +207,9 @@ export default function useCreateOrder({
     setDir("");
     setNotes("");
     setBotHints(null);
+    setAutoGeo({ provincia: null, ciudad: null });
+    autoDeptHintRef.current = null;
+    autoCityHintRef.current = null;
     setCustomerHistory(null);
     setCustomerHistoryLoading(false);
   }, []);
@@ -705,6 +741,49 @@ export default function useCreateOrder({
     emitGetCities(selectedDepartmentId);
   }, [rateType, createOrderOpen, selectedDepartmentId, emitGetCities]);
 
+  // ── Auto-preselección de provincia/ciudad desde el pedido (Shopify o bot) ──
+  // Matchea el texto que vino contra el catálogo de Dropi y preselecciona. Si no
+  // coincide, deja manual y marca 'nomatch' para avisar en el panel. Habilita el
+  // flujo de cotización de flete (necesita el cod_dane de la ciudad).
+  // (autoGeo + refs declarados arriba y reseteados en resetCreateOrderState.)
+
+  // Al cambiar de departamento (auto o manual), permite re-matchear la ciudad
+  // en las nuevas ciudades cargadas.
+  useEffect(() => {
+    autoCityHintRef.current = null;
+  }, [selectedDepartmentId]);
+
+  useEffect(() => {
+    if (!createOrderOpen) {
+      autoDeptHintRef.current = null;
+      setAutoGeo({ provincia: null, ciudad: null });
+      return;
+    }
+    const hint = botHints?.provincia || "";
+    if (!hint || !states.length || selectedDepartmentId) return;
+    if (autoDeptHintRef.current === hint) return; // ya intentado para este texto
+    autoDeptHintRef.current = hint;
+    const m = matchDropi(hint, states, (x) => x.name || x.department || x.nombre);
+    setAutoGeo((p) => ({ ...p, provincia: m ? "match" : "nomatch" }));
+    if (m)
+      handleSelectDepartment({
+        target: { value: Number(m.id || m.department_id) },
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createOrderOpen, botHints, states, selectedDepartmentId]);
+
+  useEffect(() => {
+    if (!createOrderOpen) return;
+    const hint = botHints?.ciudad || "";
+    if (!hint || !cities.length || selectedCityId) return;
+    if (autoCityHintRef.current === hint) return;
+    autoCityHintRef.current = hint;
+    const m = matchDropi(hint, cities, (x) => x.name || x.city || x.nombre);
+    setAutoGeo((p) => ({ ...p, ciudad: m ? "match" : "nomatch" }));
+    if (m) handleSelectCity({ target: { value: Number(m.id || m.city_id) } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createOrderOpen, botHints, cities, selectedCityId]);
+
   // ── invalidar shipping al cambiar remitente o destino ──
   useEffect(() => {
     setShippingQuotes([]);
@@ -923,6 +1002,7 @@ export default function useCreateOrder({
     notes,
     setNotes,
     botHints,
+    autoGeo,
     prefillFromBot,
 
     // productos

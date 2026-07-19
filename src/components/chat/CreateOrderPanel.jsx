@@ -116,6 +116,7 @@ export default function CreateOrderPanel(props) {
     notes,
     setNotes,
     botHints,
+    autoGeo,
     rateType,
     setRateType,
     states,
@@ -201,6 +202,25 @@ export default function CreateOrderPanel(props) {
         <span className="text-cyan-200/90 font-medium">{value}</span>
       </p>
     ) : null;
+
+  // Estado del auto-match provincia/ciudad (preseleccionado vs no coincidió).
+  const GeoStatus = ({ estado }) => {
+    if (estado === "match")
+      return (
+        <p className="mt-0.5 text-[9px] text-emerald-300/80 flex items-center gap-1">
+          <i className="bx bx-check-circle text-[10px]" /> Preseleccionada del
+          pedido
+        </p>
+      );
+    if (estado === "nomatch")
+      return (
+        <p className="mt-0.5 text-[9px] text-amber-300/80 flex items-center gap-1">
+          <i className="bx bx-error-circle text-[10px]" /> No coincidió con
+          Dropi — elígela manual
+        </p>
+      );
+    return null;
+  };
 
   const hasQuoted =
     shippingQuotes.length > 0 || shippingQuotesError || shippingQuotesLoading;
@@ -583,6 +603,7 @@ export default function CreateOrderPanel(props) {
                 menuPortalTarget={document.body}
               />
               <BotHint value={botHints?.provincia} />
+              <GeoStatus estado={autoGeo?.provincia} />
             </div>
           </div>
 
@@ -618,6 +639,7 @@ export default function CreateOrderPanel(props) {
               </div>
             )}
             <BotHint value={botHints?.ciudad} />
+            <GeoStatus estado={autoGeo?.ciudad} />
           </div>
         </div>
 
