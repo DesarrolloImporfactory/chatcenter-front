@@ -58,11 +58,21 @@ export default function OrderDetail({
   useEffect(() => {
     const dc = order?.distributionCompany || order?.distribution_company || null;
     setSelectedTransp(
-      dc?.id ? { id: Number(dc.id), name: dc.name || "", price: null } : null,
+      dc?.id
+        ? {
+            id: Number(dc.id),
+            name: dc.name || "",
+            price: null,
+            slug: String(dc.name || "").toLowerCase().trim(),
+          }
+        : null,
     );
     setTransps([]);
     setTranspError(null);
   }, [orderId]);
+
+  const transpImg = (slug) =>
+    `https://app.dropi.ec/assets/images/delivery/${slug || "default"}.png`;
 
   const cotizarTransportadoras = async () => {
     if (!idConfiguracion || !orderId) return;
@@ -362,15 +372,26 @@ export default function OrderDetail({
               </p>
             )}
             {transps.length === 0 && selectedTransp && (
-              <div className="text-[11px] text-white/70">
-                Actual:{" "}
-                <span className="font-semibold text-white">
-                  {selectedTransp.name}
+              <div className="flex items-center gap-2 text-[11px] text-white/70">
+                <img
+                  src={transpImg(selectedTransp.slug)}
+                  alt=""
+                  className="h-7 w-7 rounded-md object-contain bg-white/[0.06] border border-white/[0.06] shrink-0"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+                <span>
+                  Actual:{" "}
+                  <span className="font-semibold text-white">
+                    {selectedTransp.name}
+                  </span>
                 </span>
               </div>
             )}
             {transps.length > 0 && (
-              <div className="space-y-1 max-h-[200px] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-1.5 max-h-[230px] overflow-y-auto">
                 {transps.map((t) => {
                   const sel = selectedTransp?.id === t.id;
                   return (
@@ -378,19 +399,36 @@ export default function OrderDetail({
                       key={t.id}
                       type="button"
                       onClick={() => setSelectedTransp(t)}
-                      className={`w-full flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors ${
+                      className={`text-left rounded-lg border p-2 transition-all ${
                         sel
-                          ? "border-emerald-400/40 bg-emerald-500/[0.12] text-emerald-200"
-                          : "border-white/[0.06] bg-white/[0.02] text-white/70 hover:bg-white/[0.05]"
+                          ? "border-emerald-400/40 bg-emerald-500/[0.10]"
+                          : "border-white/[0.06] bg-white/[0.015] hover:bg-white/[0.04] hover:border-white/[0.12]"
                       }`}
                     >
-                      <span className="flex items-center gap-1.5 min-w-0">
-                        <i
-                          className={`bx ${sel ? "bx-check-circle" : "bx-circle"} shrink-0`}
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={transpImg(t.slug)}
+                          alt=""
+                          className="h-7 w-7 rounded-md object-contain bg-white/[0.06] border border-white/[0.06] shrink-0"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.style.display = "none";
+                          }}
                         />
-                        <span className="truncate">{t.name}</span>
-                      </span>
-                      <span className="font-semibold shrink-0">${t.price}</span>
+                        <span
+                          className={`text-[10px] font-semibold truncate ${sel ? "text-emerald-200" : "text-white/80"}`}
+                        >
+                          {t.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-[12px] font-bold text-white">
+                          ${t.price}
+                        </span>
+                        {sel && (
+                          <i className="bx bx-check-circle text-emerald-400 text-sm" />
+                        )}
+                      </div>
                     </button>
                   );
                 })}

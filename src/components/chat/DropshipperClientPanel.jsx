@@ -261,6 +261,56 @@ export default function DropshipperClientPanel(props) {
 
   const closeOrder = () => ordersHook.setSelectedOrder(null);
 
+  // ID de la transportadora actual de la orden (para saber si cambió).
+  const carrierIdDe = (order) =>
+    Number(
+      order?.distributionCompany?.id ??
+        order?.distribution_company?.id ??
+        order?.distribution_company_id,
+    ) || null;
+
+  // Cambiar transportadora = flujo REAL de Dropi: crea orden nueva (reemplazo)
+  // + marca la vieja REEMPLAZADA. Dropi ignora la transportadora en el update.
+  const reemplazarConTransportadora = async (order, transp, status, edit) => {
+    const orderId = showOrderId(order);
+    Swal.fire({
+      title: "Aplicando transportadora…",
+      html: '<div style="font-size:.85rem;color:#64748b">Creando la orden con la nueva transportadora</div>',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading(),
+    });
+    try {
+      await chatApi.post(
+        "dropi_integrations/reemplazar-orden-transportadora",
+        {
+          id_configuracion,
+          dropi_order_id: orderId,
+          distributionCompany: { id: transp.id, name: transp.name },
+          status,
+          edit: edit || {},
+        },
+      );
+      Swal.close();
+      Swal.fire({
+        icon: "success",
+        title: "Transportadora aplicada",
+        html: `<div style="font-size:.85rem;color:#475569">Se creó la orden con <b>${transp.name}</b> y la anterior quedó reemplazada.</div>`,
+        timer: 2400,
+        showConfirmButton: false,
+      });
+      ordersHook.setSelectedOrder(null);
+      if (ordersHook.emitGetOrders) ordersHook.emitGetOrders();
+    } catch (e) {
+      Swal.close();
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo aplicar la transportadora",
+        text: e?.response?.data?.message || e.message || "Error",
+      });
+    }
+  };
+
   const handleEditOrder = (order, transp) => {
     if (!canEditOrder(order)) return;
     const orderId = showOrderId(order);
@@ -281,15 +331,23 @@ export default function DropshipperClientPanel(props) {
       cancelButtonText: "Cancelar",
     }).then((r) => {
       if (!r.isConfirmed) return;
-      ordersHook.emitUpdateOrder(orderId, {
+      const editFields = {
         name: String(orderName || "").trim(),
         surname: String(orderSurname || "").trim(),
         phone: cleanPhone,
         dir: String(orderDir || "").trim(),
-        ...(transp?.id
-          ? { distributionCompany: { id: transp.id, name: transp.name } }
-          : {}),
-      });
+      };
+      // Si cambió la transportadora → reemplazo (queda en PENDIENTE CONFIRMACION).
+      if (transp?.id && transp.id !== carrierIdDe(order)) {
+        reemplazarConTransportadora(
+          order,
+          transp,
+          "PENDIENTE CONFIRMACION",
+          editFields,
+        );
+      } else {
+        ordersHook.emitUpdateOrder(orderId, editFields);
+      }
     });
   };
 
@@ -332,13 +390,13 @@ export default function DropshipperClientPanel(props) {
       cancelButtonText: "Cancelar",
     }).then((r) => {
       if (!r.isConfirmed) return;
-      // Update con status + transportadora (si se eligió) en una sola llamada.
-      ordersHook.emitUpdateOrder(orderId, {
-        status: "PENDIENTE",
-        ...(transp?.id
-          ? { distributionCompany: { id: transp.id, name: transp.name } }
-          : {}),
-      });
+      // Si cambió la transportadora → reemplazo con status PENDIENTE; si no,
+      // simple update de status (Dropi ignora la transportadora en el update).
+      if (transp?.id && transp.id !== carrierIdDe(order)) {
+        reemplazarConTransportadora(order, transp, "PENDIENTE", null);
+      } else {
+        ordersHook.emitUpdateOrder(orderId, { status: "PENDIENTE" });
+      }
     });
   };
 
