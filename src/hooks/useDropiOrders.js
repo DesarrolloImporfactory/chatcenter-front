@@ -1072,7 +1072,13 @@ export default function useDropiOrders({
     setOrdersLoading(false);
     if (resp?.isSuccess && resp?.data?.isSuccess) {
       const list = resp?.data?.objects || [];
-      setOrders(Array.isArray(list) ? list : []);
+      // Ocultar órdenes REEMPLAZADA (versión vieja de una orden editada): solo
+      // confunden. Se muestra únicamente la orden vigente.
+      const limpias = (Array.isArray(list) ? list : []).filter(
+        (o) =>
+          String(o?.status || "").toUpperCase().trim() !== "REEMPLAZADA",
+      );
+      setOrders(limpias);
       return;
     }
     setOrdersError(

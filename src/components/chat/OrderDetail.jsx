@@ -342,56 +342,66 @@ export default function OrderDetail({
       {/* ═══ Transportadora (solo PENDIENTE CONFIRMACION) ═══ */}
       {pendingConfirm && (
         <div className={sectionCls}>
-          <div className="px-3.5 pt-2.5 pb-2 flex items-center justify-between gap-2">
+          <div className="px-3.5 pt-2.5 pb-2">
             <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">
               Transportadora
             </span>
-            <button
-              type="button"
-              onClick={cotizarTransportadoras}
-              disabled={transpLoading}
-              className="text-[10px] font-semibold text-violet-300 hover:text-violet-200 flex items-center gap-1 disabled:opacity-50"
-            >
-              <i
-                className={`bx ${transpLoading ? "bx-loader-alt bx-spin" : "bx-transfer"} text-sm`}
-              />
-              {transpLoading
-                ? "Cotizando..."
-                : transps.length
-                  ? "Recotizar"
-                  : "Cotizar transportadoras"}
-            </button>
           </div>
           <div className="px-3.5 pb-3">
             {transpError && (
-              <p className="text-[10px] text-amber-300/80 mb-1">{transpError}</p>
-            )}
-            {transps.length === 0 && !selectedTransp && !transpError && (
-              <p className="text-[10px] text-white/30">
-                Cotiza para elegir la transportadora del pedido.
+              <p className="text-[10px] text-amber-300/80 mb-1.5">
+                {transpError}
               </p>
             )}
-            {transps.length === 0 && selectedTransp && (
-              <div className="flex items-center gap-2 text-[11px] text-white/70">
-                <img
-                  src={transpImg(selectedTransp.slug)}
-                  alt=""
-                  className="h-7 w-7 rounded-md object-contain bg-white/[0.06] border border-white/[0.06] shrink-0"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
-                <span>
-                  Actual:{" "}
-                  <span className="font-semibold text-white">
-                    {selectedTransp.name}
-                  </span>
-                </span>
-              </div>
+
+            {/* Sin lista aún: transportadora actual + botón para cambiar */}
+            {transps.length === 0 && (
+              <>
+                {selectedTransp ? (
+                  <div className="flex items-center gap-2 mb-2">
+                    <img
+                      src={transpImg(selectedTransp.slug)}
+                      alt=""
+                      className="h-8 w-8 rounded-md object-contain bg-white/[0.06] border border-white/[0.06] shrink-0"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[8px] uppercase tracking-wider text-white/30">
+                        Transportadora actual
+                      </p>
+                      <p className="text-[12px] font-semibold text-white truncate">
+                        {selectedTransp.name}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-white/30 mb-2">
+                    Este pedido aún no tiene transportadora asignada.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={cotizarTransportadoras}
+                  disabled={transpLoading}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-[8px] bg-violet-500/[0.14] hover:bg-violet-500/[0.24] border border-violet-400/25 text-violet-200 text-[11px] font-semibold py-2 transition-colors disabled:opacity-50"
+                >
+                  <i
+                    className={`bx ${transpLoading ? "bx-loader-alt bx-spin" : "bx-transfer-alt"} text-sm`}
+                  />
+                  {transpLoading ? "Cotizando…" : "Cambiar de transportadora"}
+                </button>
+              </>
             )}
+
             {transps.length > 0 && (
-              <div className="grid grid-cols-2 gap-1.5 max-h-[230px] overflow-y-auto">
+              <>
+                <p className="text-[9px] text-white/30 mb-1.5">
+                  Elige la transportadora y luego Guardar/Confirmar.
+                </p>
+                <div className="grid grid-cols-2 gap-1.5 max-h-[230px] overflow-y-auto">
                 {transps.map((t) => {
                   const sel = selectedTransp?.id === t.id;
                   return (
@@ -432,7 +442,19 @@ export default function OrderDetail({
                     </button>
                   );
                 })}
-              </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={cotizarTransportadoras}
+                  disabled={transpLoading}
+                  className="mt-1.5 text-[10px] text-white/40 hover:text-white/60 flex items-center gap-1 disabled:opacity-50"
+                >
+                  <i
+                    className={`bx ${transpLoading ? "bx-loader-alt bx-spin" : "bx-refresh"}`}
+                  />
+                  Recotizar
+                </button>
+              </>
             )}
           </div>
         </div>
