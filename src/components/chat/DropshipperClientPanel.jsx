@@ -261,7 +261,7 @@ export default function DropshipperClientPanel(props) {
 
   const closeOrder = () => ordersHook.setSelectedOrder(null);
 
-  const handleEditOrder = (order) => {
+  const handleEditOrder = (order, transp) => {
     if (!canEditOrder(order)) return;
     const orderId = showOrderId(order);
     const cleanPhone = String(phoneInput || "").replace(/\D/g, "");
@@ -269,10 +269,13 @@ export default function DropshipperClientPanel(props) {
       Swal.fire({ icon: "warning", title: "Teléfono inválido" });
       return;
     }
+    const conTransp = transp?.id
+      ? ` con la transportadora ${transp.name}`
+      : "";
     Swal.fire({
       icon: "question",
       title: "Guardar cambios",
-      text: `¿Desea actualizar la orden #${orderId}?`,
+      text: `¿Desea actualizar la orden #${orderId}${conTransp}? (sigue en Pendiente confirmación)`,
       showCancelButton: true,
       confirmButtonText: "Sí, guardar",
       cancelButtonText: "Cancelar",
@@ -283,6 +286,9 @@ export default function DropshipperClientPanel(props) {
         surname: String(orderSurname || "").trim(),
         phone: cleanPhone,
         dir: String(orderDir || "").trim(),
+        ...(transp?.id
+          ? { distributionCompany: { id: transp.id, name: transp.name } }
+          : {}),
       });
     });
   };
@@ -311,19 +317,28 @@ export default function DropshipperClientPanel(props) {
     });
   };
 
-  const handleConfirmOrder = (order) => {
+  const handleConfirmOrder = (order, transp) => {
     if (!isPendingConfirm(order)) return;
     const orderId = showOrderId(order);
+    const conTransp = transp?.id
+      ? ` con la transportadora ${transp.name}`
+      : "";
     Swal.fire({
       icon: "question",
       title: "Confirmar pedido",
-      text: `Esto cambiará el estado de la orden #${orderId} a PENDIENTE.`,
+      text: `Esto cambiará la orden #${orderId} a PENDIENTE${conTransp}.`,
       showCancelButton: true,
       confirmButtonText: "Sí, confirmar",
       cancelButtonText: "Cancelar",
     }).then((r) => {
       if (!r.isConfirmed) return;
-      ordersHook.emitSetOrderStatus(orderId, "PENDIENTE");
+      // Update con status + transportadora (si se eligió) en una sola llamada.
+      ordersHook.emitUpdateOrder(orderId, {
+        status: "PENDIENTE",
+        ...(transp?.id
+          ? { distributionCompany: { id: transp.id, name: transp.name } }
+          : {}),
+      });
     });
   };
 
@@ -559,6 +574,7 @@ export default function DropshipperClientPanel(props) {
                 onEditOrder={handleEditOrder}
                 onCancelOrder={handleCancelOrder}
                 onConfirmOrder={handleConfirmOrder}
+                idConfiguracion={id_configuracion}
               />
             )}
           </div>

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import chatApi from "../../api/chatcenter";
 import {
   showOrderId,
   showOrderStatus,
@@ -39,12 +40,58 @@ export default function OrderDetail({
   onEditOrder,
   onCancelOrder,
   onConfirmOrder,
+  idConfiguracion,
 }) {
-  if (!order) return null;
-
   const editable = canEditOrder(order);
   const pendingConfirm = isPendingConfirm(order);
-  const trackingUrl = getTrackingUrl(order);
+  const trackingUrl = order ? getTrackingUrl(order) : null;
+
+  // ── Transportadora (cotizar + elegir sobre la orden existente) ──
+  const [transps, setTransps] = useState([]);
+  const [transpLoading, setTranspLoading] = useState(false);
+  const [transpError, setTranspError] = useState(null);
+  const [selectedTransp, setSelectedTransp] = useState(null);
+
+  const orderId = order ? showOrderId(order) : null;
+
+  // Preselecciona la transportadora que la orden ya trae de Dropi (si hay).
+  useEffect(() => {
+    const dc = order?.distributionCompany || order?.distribution_company || null;
+    setSelectedTransp(
+      dc?.id ? { id: Number(dc.id), name: dc.name || "", price: null } : null,
+    );
+    setTransps([]);
+    setTranspError(null);
+  }, [orderId]);
+
+  const cotizarTransportadoras = async () => {
+    if (!idConfiguracion || !orderId) return;
+    setTranspLoading(true);
+    setTranspError(null);
+    try {
+      const { data } = await chatApi.post(
+        "dropi_integrations/cotizar-transportadoras-orden",
+        { id_configuracion: idConfiguracion, dropi_order_id: orderId },
+      );
+      const list = data?.data?.transportadoras || [];
+      setTransps(list);
+      if (!list.length) setTranspError("Sin transportadoras para esta ruta.");
+      // si ya había una elegida, mantén; si no, la más barata
+      setSelectedTransp((prev) => {
+        if (prev?.id && list.some((t) => t.id === prev.id))
+          return list.find((t) => t.id === prev.id);
+        return list[0] || prev;
+      });
+    } catch (e) {
+      setTranspError(
+        e?.response?.data?.message || "No se pudo cotizar transportadoras.",
+      );
+    } finally {
+      setTranspLoading(false);
+    }
+  };
+
+  if (!order) return null;
 
   const inputCls =
     "w-full bg-white/[0.04] border border-white/[0.08] rounded-[7px] px-3 py-2 text-[12px] text-white outline-none transition-all focus:border-violet-400/50 focus:bg-white/[0.06] hover:border-white/15 placeholder:text-white/[0.18]";
@@ -282,13 +329,84 @@ export default function OrderDetail({
         </div>
       )}
 
+      {/* ═══ Transportadora (solo PENDIENTE CONFIRMACION) ═══ */}
+      {pendingConfirm && (
+        <div className={sectionCls}>
+          <div className="px-3.5 pt-2.5 pb-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">
+              Transportadora
+            </span>
+            <button
+              type="button"
+              onClick={cotizarTransportadoras}
+              disabled={transpLoading}
+              className="text-[10px] font-semibold text-violet-300 hover:text-violet-200 flex items-center gap-1 disabled:opacity-50"
+            >
+              <i
+                className={`bx ${transpLoading ? "bx-loader-alt bx-spin" : "bx-transfer"} text-sm`}
+              />
+              {transpLoading
+                ? "Cotizando..."
+                : transps.length
+                  ? "Recotizar"
+                  : "Cotizar transportadoras"}
+            </button>
+          </div>
+          <div className="px-3.5 pb-3">
+            {transpError && (
+              <p className="text-[10px] text-amber-300/80 mb-1">{transpError}</p>
+            )}
+            {transps.length === 0 && !selectedTransp && !transpError && (
+              <p className="text-[10px] text-white/30">
+                Cotiza para elegir la transportadora del pedido.
+              </p>
+            )}
+            {transps.length === 0 && selectedTransp && (
+              <div className="text-[11px] text-white/70">
+                Actual:{" "}
+                <span className="font-semibold text-white">
+                  {selectedTransp.name}
+                </span>
+              </div>
+            )}
+            {transps.length > 0 && (
+              <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                {transps.map((t) => {
+                  const sel = selectedTransp?.id === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setSelectedTransp(t)}
+                      className={`w-full flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors ${
+                        sel
+                          ? "border-emerald-400/40 bg-emerald-500/[0.12] text-emerald-200"
+                          : "border-white/[0.06] bg-white/[0.02] text-white/70 hover:bg-white/[0.05]"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <i
+                          className={`bx ${sel ? "bx-check-circle" : "bx-circle"} shrink-0`}
+                        />
+                        <span className="truncate">{t.name}</span>
+                      </span>
+                      <span className="font-semibold shrink-0">${t.price}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ═══ Acciones ═══ */}
       <div className="flex flex-col gap-1.5 pt-0.5">
         {/* Confirmar (solo PENDIENTE CONFIRMACION) */}
         {pendingConfirm && (
           <button
             type="button"
-            onClick={() => onConfirmOrder(order)}
+            onClick={() => onConfirmOrder(order, selectedTransp)}
             className="w-full px-3.5 py-3 rounded-[10px] bg-emerald-500/[0.12] hover:bg-emerald-500/[0.22] border border-emerald-400/[0.22] text-[12px] font-semibold text-emerald-300 flex items-center justify-center gap-2 transition-colors"
           >
             <i className="bx bx-check-double text-sm" />
@@ -300,7 +418,7 @@ export default function OrderDetail({
         {editable && (
           <button
             type="button"
-            onClick={() => onEditOrder(order)}
+            onClick={() => onEditOrder(order, selectedTransp)}
             className="w-full px-3.5 py-2.5 rounded-[10px] bg-blue-500/[0.12] hover:bg-blue-500/[0.22] border border-blue-400/[0.22] text-[11px] font-semibold text-blue-300 flex items-center justify-center gap-2 transition-colors"
           >
             <i className="bx bx-save text-sm" />
