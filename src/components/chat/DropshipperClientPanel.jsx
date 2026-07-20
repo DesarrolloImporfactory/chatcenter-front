@@ -23,6 +23,109 @@ import {
   canCancelOrder,
 } from "../../utils/orderHelper";
 
+/* ── Badge: enlace contacto ↔ orden (cuando la orden usa otro teléfono) ── */
+function EnlaceOrdenBadge({ idCliente, idConfiguracion }) {
+  const [info, setInfo] = useState(null);
+  useEffect(() => {
+    if (!idCliente || !idConfiguracion) {
+      setInfo(null);
+      return;
+    }
+    let alive = true;
+    chatApi
+      .get("clientes_chat_center/enlace_orden_contacto", {
+        params: { id_cliente: idCliente, id_configuracion: idConfiguracion },
+        silentError: true,
+      })
+      .then(({ data }) => alive && setInfo(data?.data || null))
+      .catch(() => alive && setInfo(null));
+    return () => {
+      alive = false;
+    };
+  }, [idCliente, idConfiguracion]);
+
+  const origen = info?.como_origen;
+  const orden = info?.como_orden;
+  if (!origen && !orden) return null;
+
+  const abrirChat = (id) =>
+    id && window.open(`/chat/${id}`, "_blank", "noopener,noreferrer");
+  const fmtTel = (t) => "+" + String(t || "").replace(/\D/g, "");
+
+  return (
+    <div className="mb-2 space-y-1">
+      {/* Este contacto es el ORIGEN: la orden corre en otro número */}
+      {origen && (
+        <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.07] p-2.5">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-6 h-6 rounded-lg bg-amber-400/15 grid place-items-center shrink-0">
+              <i className="bx bx-git-branch text-amber-300 text-sm" />
+            </span>
+            <span className="text-[11px] font-bold text-amber-100">
+              Este pedido se gestiona en otro contacto
+            </span>
+          </div>
+          <p className="text-[10px] text-amber-200/80 leading-relaxed text-justify mb-2">
+            Las notificaciones de seguimiento se envían al contacto{" "}
+            <span className="font-semibold text-amber-100">
+              {origen.nombre_orden
+                ? `${origen.nombre_orden} (${fmtTel(origen.celular_orden)})`
+                : fmtTel(origen.celular_orden)}
+            </span>
+            . Este chat solo refleja el estado del pedido, sin mensajes, para
+            optimizar el uso de plantillas y prevenir reportes de spam.
+          </p>
+          {origen.id_cliente_orden && (
+            <button
+              type="button"
+              onClick={() => abrirChat(origen.id_cliente_orden)}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-100 text-[10px] font-semibold py-1.5 transition-colors"
+            >
+              <i className="bx bx-chat text-sm" /> Abrir chat del pedido
+            </button>
+          )}
+        </div>
+      )}
+      {/* Este contacto es el de la ORDEN: aquí corren las automatizaciones */}
+      {orden && (
+        <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/[0.07] p-2.5">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-6 h-6 rounded-lg bg-cyan-400/15 grid place-items-center shrink-0">
+              <i className="bx bx-check-shield text-cyan-300 text-sm" />
+            </span>
+            <span className="text-[11px] font-bold text-cyan-100">
+              Seguimiento activo en este chat
+            </span>
+          </div>
+          <p className="text-[10px] text-cyan-200/80 leading-relaxed text-justify mb-2">
+            Las notificaciones de seguimiento de este pedido se envían desde este
+            chat. La orden se originó en el contacto{" "}
+            <span className="font-semibold text-cyan-100">
+              {(() => {
+                const nom = [orden.nombre_cliente, orden.apellido_cliente]
+                  .filter(Boolean)
+                  .join(" ");
+                const tel = fmtTel(orden.celular_cliente);
+                return nom ? `${nom} (${tel})` : tel;
+              })()}
+            </span>
+            .
+          </p>
+          {orden.id_cliente_origen && (
+            <button
+              type="button"
+              onClick={() => abrirChat(orden.id_cliente_origen)}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-400/30 text-cyan-100 text-[10px] font-semibold py-1.5 transition-colors"
+            >
+              <i className="bx bx-chat text-sm" /> Abrir chat original
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Props comunes que se pasan al CreateOrderPanel ── */
 function buildCreateOrderPanelProps(createHook) {
   return {
@@ -282,6 +385,11 @@ export default function DropshipperClientPanel(props) {
           openEditContact={openEditContact}
           id_configuracion={id_configuracion}
           onUsarProductoEnOrden={handleUsarProductoEnOrden}
+        />
+
+        <EnlaceOrdenBadge
+          idCliente={selectedChat?.id}
+          idConfiguracion={id_configuracion}
         />
 
         {/* ===== Cartera Imporsuit (deudas / pagos) ===== */}

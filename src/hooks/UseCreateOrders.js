@@ -712,6 +712,9 @@ export default function useCreateOrder({
 
     s.emit("DROPI_CREATE_ORDER", {
       id_configuracion: Number(id_configuracion),
+      // Contacto del chat (origen). Si la orden se crea con otro teléfono, el
+      // backend enlaza para que las automatizaciones muevan también a este.
+      id_cliente_origen: selectedChat?.id || null,
       type: "FINAL_ORDER",
       type_service: "normal",
       rate_type: String(rateType || "CON RECAUDO"),
@@ -750,6 +753,7 @@ export default function useCreateOrder({
     dir,
     selectedShipping,
     noProrateFlete,
+    selectedChat?.id,
   ]);
 
   // ── recargar cities si cambia rateType ──
