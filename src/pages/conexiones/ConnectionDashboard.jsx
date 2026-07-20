@@ -1154,6 +1154,31 @@ function ResumenView({
                     <i className="bx bx-info-circle align-middle text-slate-300" />{" "}
                     de cada columna para ver su fórmula
                   </p>
+                  {/* Embudo de las 3 primeras columnas: es lo que más
+                      confunde (personas vs pedidos). */}
+                  <p className="text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                    <span className="font-semibold text-slate-500">
+                      Conv. totales
+                    </span>
+                    <span className="text-slate-300">
+                      personas que escribieron
+                    </span>
+                    <i className="bx bx-right-arrow-alt text-slate-300" />
+                    <span className="font-semibold text-slate-500">
+                      Con pedido
+                    </span>
+                    <span className="text-slate-300">
+                      de esas, cuántas compraron
+                    </span>
+                    <i className="bx bx-right-arrow-alt text-slate-300" />
+                    <span className="font-semibold text-slate-500">
+                      Órdenes
+                    </span>
+                    <span className="text-slate-300">
+                      pedidos vivos (una persona puede hacer varios; no cuenta
+                      cancelados ni reemplazados)
+                    </span>
+                  </p>
                   <p className="text-[11px] text-slate-400 mt-1">
                     % Conf.:{" "}
                     <i className="bx bxl-whatsapp align-middle text-emerald-500" />{" "}
@@ -1198,21 +1223,21 @@ function ResumenView({
                           k="conversacionesTotal"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Personas con las que hubo chat por este producto. Si recibe anuncios de WhatsApp: los que te escribieron (aunque no compraran). Si compran en la landing (Shopify): los que el bot contactó para confirmar su pedido. Si un mismo anuncio vende unidad y combos, el total se comparte entre esas filas."
+                          tip="Personas con las que hubo chat por este producto. Si recibes clientes desde anuncios de WhatsApp: los que te escribieron (aunque no compraran). Si recibes pedidos desde landing (Shopify): los que el bot contactó para confirmar su pedido. Si un mismo anuncio vende unidad y combos, el total se comparte entre esas filas."
                         />
                         <SortTh
                           label="Con pedido"
                           k="conversaciones"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="De esas conversaciones, cuántas personas terminaron haciendo al menos un pedido."
+                          tip="De esas conversaciones, cuántas PERSONAS terminaron haciendo al menos un pedido. Cuenta personas, no pedidos: por eso puede ser menor que la columna Órdenes."
                         />
                         <SortTh
                           label="Órdenes"
                           k="ordenes"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Pedidos del periodo que incluyen este producto, sin importar en qué estado estén. Una misma persona puede generar más de una orden (ej. una cancelada y vuelta a crear), por eso puede ser mayor que las conversaciones con pedido."
+                          tip="Pedidos VIVOS de este producto en el periodo. No cuenta los cancelados (aparecen en rojo debajo del número) ni los que se reemplazaron al cambiar de transportadora. Cuenta pedidos, no personas: alguien puede hacer más de uno, por eso puede superar a Con pedido."
                         />
                         <SortTh
                           label="% Conf."
@@ -1384,6 +1409,20 @@ function ResumenView({
                               <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-bold">
                                 {p.ordenes}
                               </span>
+                              {/* Los cancelados ya no suman arriba: se
+                                  muestran acá para no perder la señal. */}
+                              {p.canceladas > 0 && (
+                                <span
+                                  className="block text-[10px] text-rose-500 mt-0.5"
+                                  title={`${p.canceladas} pedido${
+                                    p.canceladas === 1 ? "" : "s"
+                                  } cancelado${
+                                    p.canceladas === 1 ? "" : "s"
+                                  }, no cuentan arriba`}
+                                >
+                                  −{p.canceladas} cancel.
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-2.5 text-center">
                               {p.pctConfirmacion == null ? (

@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
 
 import chatApi from "../../api/chatcenter";
 import PageShell from "../layout/PageShell";
@@ -373,8 +379,12 @@ export default function Dashboard({ lockedConfigId = null }) {
     ? "Dashboard analítico de mensajes"
     : "Mi dashboard de rendimiento";
 
+  // Dentro de conexion-dashboard (lockedConfigId) el marco lo pone la
+  // pestaña: PageShell metía un margen que dejaba una franja en blanco.
+  const Shell = lockedConfigId ? Fragment : PageShell;
+
   return (
-    <PageShell>
+    <Shell>
     <div className="w-full bg-slate-50 min-h-[82vh]">
       {/* HEADER PREMIUM — fuera del padding, full-width, sin rounded */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#0a2518] to-[#059669] text-white px-6 py-5">
@@ -487,6 +497,6 @@ export default function Dashboard({ lockedConfigId = null }) {
         </div>
       </div>
     </div>
-    </PageShell>
+    </Shell>
   );
 }

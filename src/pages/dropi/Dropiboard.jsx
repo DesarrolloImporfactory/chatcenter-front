@@ -1,4 +1,5 @@
 import React, {
+  Fragment,
   useState,
   useMemo,
   useCallback,
@@ -248,8 +249,12 @@ const Dropiboard = ({ lockedConfigId = null, autoFetch = false }) => {
     })).filter((d) => d.value > 0);
   }, [statusStats]);
 
+  // Dentro de conexion-dashboard (lockedConfigId) el marco lo pone la
+  // pestaña: PageShell metía un margen que dejaba una franja en blanco.
+  const Shell = lockedConfigId ? Fragment : PageShell;
+
   return (
-    <PageShell>
+    <Shell>
     <div className="w-full bg-slate-50 min-h-[82vh]">
       {/* HEADER */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#2a1a0e] to-[#FF6B35] text-white px-6 py-5">
@@ -592,7 +597,7 @@ const Dropiboard = ({ lockedConfigId = null, autoFetch = false }) => {
         )}
       </div>
     </div>
-    </PageShell>
+    </Shell>
   );
 };
 
