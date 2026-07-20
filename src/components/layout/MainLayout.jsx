@@ -615,9 +615,12 @@ function MainLayout({ children }) {
                 type="button"
                 onClick={() => toggleMenu("integraciones")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                  ["/canal-conexiones", "/dropi", "/asistentes"].some((p) =>
-                    location.pathname.startsWith(p),
-                  )
+                  [
+                    "/canal-conexiones",
+                    "/dropi",
+                    "/asistentes",
+                    "/api-metricas",
+                  ].some((p) => location.pathname.startsWith(p))
                     ? "bg-gray-200 font-semibold"
                     : ""
                 }`}
@@ -695,6 +698,20 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bxl-shopify text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Shopify</span>
+                  </a>
+
+                  {/* ===== API de métricas (llaves + documentación) ===== */}
+                  <a
+                    href="/api-metricas"
+                    onClick={(e) => handleNavClick(e, "/api-metricas")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/api-metricas")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-code-block text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>API para desarrolladores</span>
                   </a>
                 </div>
               </div>

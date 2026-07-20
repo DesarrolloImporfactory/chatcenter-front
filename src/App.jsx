@@ -48,6 +48,7 @@ import OrdenesDropi from "./pages/dropi/OrdenesDropi";
 import Conexiones from "./pages/conexiones/Conexiones";
 import TransportadorasView from "./pages/transportadoras/TransportadorasView";
 import ConnectionDashboard from "./pages/conexiones/ConnectionDashboard";
+import ApiPublica from "./pages/conexiones/ApiPublica";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
 import Calendario from "./pages/calendario/Calendario";
@@ -474,6 +475,15 @@ function App() {
                   element={
                     <MainLayout>
                       <ConnectionDashboard />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/api-metricas"
+                  element={
+                    <MainLayout>
+                      <ApiPublica />
                     </MainLayout>
                   }
                 />

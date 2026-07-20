@@ -60,6 +60,7 @@ function fmtNum(v) {
 }
 
 function fmtPct(v) {
+  if (v == null) return "—"; // null = el back no pudo medir el embudo
   return `${Number(v || 0).toFixed(1)}%`;
 }
 
@@ -254,6 +255,7 @@ function channelView(data, canal) {
     entregadas: data.entregadas,
     tasaEntrega: data.tasaEntrega,
     pctConfirmacion: data.pctConfirmacion,
+    conversacionesConPedido: data.conversacionesConPedido,
     ...base,
   };
 }
@@ -826,15 +828,17 @@ function ResumenView({
         },
         {
           key: "conversaciones",
-          label: "Conversaciones",
+          // Al filtrar por canal la métrica cambia (no es quién escribió,
+          // sino quién compró), así que cambia también el nombre.
+          label: canal === "todos" ? "Conversaciones" : "Clientes con pedido",
           tip:
             canal === "todos"
-              ? "Personas distintas que escribieron a tu chat en este periodo, tanto clientes nuevos como antiguos que volvieron a escribir (todos los canales)."
+              ? "Personas distintas que escribieron a tu chat en este periodo, tanto clientes nuevos como antiguos que volvieron a escribir (todos los canales). Solo cuenta a quien realmente escribió: los contactos que se crean al importar tus pedidos de Dropi no suman aquí."
               : "Personas distintas detrás de los pedidos de este canal (se cruza el teléfono del pedido con tu chat). Puede no coincidir con el número de pedidos: una misma persona puede hacer varios pedidos, y hay pedidos de personas que nunca escribieron al chat.",
           sub:
             canal === "todos"
               ? `${fmtNum(view.mensajes)} mensajes`
-              : "clientes únicos con pedido",
+              : "cruzados por teléfono",
           icon: "bx-message-dots",
           color: "#f472b6",
           bg: "rgba(244,114,182,0.1)",
@@ -846,15 +850,17 @@ function ResumenView({
           tip:
             canal === "shopify"
               ? "De todos los pedidos de Shopify, cuántos ya fueron confirmados por el cliente (dejaron de estar en «pendiente confirmación»)."
-              : "De cada 100 conversaciones, cuántas terminaron en un pedido.",
+              : view.pctConfirmacion == null
+                ? "Todavía no se puede medir: en este periodo nadie escribió a tu chat. Los pedidos que ves vienen del historial importado de Dropi, sin conversación detrás."
+                : "De cada 100 personas que te escribieron, cuántas terminaron comprando. No cuenta los pedidos que se crearon fuera del chat (historial de Dropi, Shopify o carga manual).",
           formula:
             canal === "shopify"
               ? "confirmados ÷ pedidos Shopify × 100"
-              : "pedidos ÷ conversaciones × 100",
+              : "personas que escribieron y compraron ÷ conversaciones × 100",
           sub:
             canal === "shopify"
               ? `${fmtNum(data.canales.shopify.confirmados)} confirmados`
-              : `${fmtNum(view.pedidos)} ventas`,
+              : `${fmtNum(view.conversacionesConPedido)} compraron`,
           icon: "bx-check-shield",
           color: "#fbbf24",
           bg: "rgba(251,191,36,0.1)",
