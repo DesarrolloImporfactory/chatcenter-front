@@ -1282,6 +1282,82 @@ export default function Contactos() {
     let exitosos = [];
     let fallidos = [];
 
+    // ═══════════════════════════════════════════════════════
+    // Header media: se prepara UNA sola vez para todo el lote.
+    // El back convierte (ffmpeg) + sube a Meta y devuelve un media_id
+    // reutilizable. Antes cada destinatario re-subía el archivo y
+    // re-corría la conversión: con N contactos eran N conversiones
+    // idénticas. Ahora es una.
+    // ═══════════════════════════════════════════════════════
+    let preparedHeader = null;
+
+    if (headerIsMedia) {
+      Swal.fire({
+        title: "Preparando el archivo...",
+        html: "Optimizando el adjunto para WhatsApp. Esto puede tardar.",
+        didOpen: () => Swal.showLoading(),
+        allowOutsideClick: false,
+      });
+
+      try {
+        const id_configuracion = localStorage.getItem("id_configuracion");
+        let prepResp;
+
+        if (headerFileMasivo) {
+          const fdPrep = new FormData();
+          fdPrep.append("id_configuracion", String(id_configuracion));
+          fdPrep.append("header_format", headerFormat);
+          fdPrep.append("header_file", headerFileMasivo);
+
+          const { data } = await chatApi.post(
+            "/whatsapp_managment/preparar_header_masivo",
+            fdPrep,
+            {
+              headers: { "Content-Type": "multipart/form-data" },
+              timeout: 300000,
+            },
+          );
+          prepResp = data;
+        } else {
+          const { data } = await chatApi.post(
+            "/whatsapp_managment/preparar_header_masivo",
+            {
+              id_configuracion,
+              header_format: headerFormat,
+              header_default_asset: {
+                enabled: true,
+                format: headerFormat,
+                url: headerDefaultAssetMasivo.url,
+                source: headerDefaultAssetMasivo.source || "template_example",
+                name:
+                  headerDefaultAssetMasivo.name ||
+                  "Adjunto predeterminado del template",
+              },
+            },
+            { timeout: 300000 },
+          );
+          prepResp = data;
+        }
+
+        if (!prepResp?.success || !prepResp?.meta_media_id) {
+          throw new Error(
+            prepResp?.message || "No se pudo preparar el adjunto del template",
+          );
+        }
+
+        preparedHeader = prepResp;
+      } catch (err) {
+        Swal.close();
+        swalInfo(
+          "No se pudo preparar el adjunto",
+          err?.response?.data?.message ||
+            err?.message ||
+            "Error preparando el archivo del header.",
+        );
+        return;
+      }
+    }
+
     Swal.fire({
       title: "Enviando mensajes...",
       html: "Por favor espera mientras enviamos los mensajes.",
@@ -1376,67 +1452,33 @@ export default function Contactos() {
           },
         };
 
-        let dataResp;
+        // Siempre JSON: el header ya se convirtió y subió a Meta una única
+        // vez arriba, así que acá solo se reparte el media_id resultante.
+        const payload = {
+          id_configuracion,
+          id_cliente_chat_center: recipientId,
+          body,
 
-        // CASO 1: Usuario subió archivo manual => multipart
-        if (headerIsMedia && headerFileMasivo) {
-          const fd = new FormData();
+          // Fallbacks planos
+          to: recipientPhone,
+          template_name: templateName,
+          language_code: selectedLanguage || "es",
 
-          fd.append("id_configuracion", String(id_configuracion));
-          fd.append("id_cliente_chat_center", String(recipientId));
-          fd.append("body_json", JSON.stringify(body));
-          fd.append("header_format", headerFormat);
-          fd.append("header_file", headerFileMasivo);
+          ...(preparedHeader
+            ? {
+                header_format: preparedHeader.header_format || headerFormat,
+                header_media_id: preparedHeader.meta_media_id,
+                header_media_url: preparedHeader.header_media_url || null,
+              }
+            : {}),
+        };
 
-          // El back convierte el video con ffmpeg antes de subirlo a Meta: eso
-          // tarda mucho más que los 30s del default.
-          const { data } = await chatApi.post(
-            "/whatsapp_managment/enviar_template_masivo",
-            fd,
-            {
-              headers: { "Content-Type": "multipart/form-data" },
-              timeout: 300000,
-            },
-          );
+        const { data } = await chatApi.post(
+          "/whatsapp_managment/enviar_template_masivo",
+          payload,
+        );
 
-          dataResp = data;
-        } else {
-          // CASO 2: JSON (sin archivo manual; puede ir con asset predeterminado)
-          const payload = {
-            id_configuracion,
-            id_cliente_chat_center: recipientId,
-            body,
-
-            // Fallbacks planos
-            to: recipientPhone,
-            template_name: templateName,
-            language_code: selectedLanguage || "es",
-
-            // asset predeterminado para header media
-            header_default_asset:
-              headerIsMedia && hasDefaultHeaderAssetMasivo
-                ? {
-                    enabled: true,
-                    format: headerFormat, // IMAGE|VIDEO|DOCUMENT
-                    url: headerDefaultAssetMasivo.url,
-                    source:
-                      headerDefaultAssetMasivo.source || "template_example",
-                    name:
-                      headerDefaultAssetMasivo.name ||
-                      "Adjunto predeterminado del template",
-                  }
-                : null,
-          };
-
-          // El default asset también pasa por el conversor en el back.
-          const { data } = await chatApi.post(
-            "/whatsapp_managment/enviar_template_masivo",
-            payload,
-            { timeout: 300000 },
-          );
-
-          dataResp = data;
-        }
+        const dataResp = data;
 
         if (!dataResp || dataResp.success !== true) {
           const msg = dataResp?.message || "Meta rechazó el envío";
