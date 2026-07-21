@@ -4,6 +4,7 @@ import HistorialEncargados from "./HistorialEncargados";
 import EncuestasCliente from "./EncuestasCliente";
 import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
 import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
+import ImporchatCuentaSection from "../imporchat/ImporchatCuentaSection";
 
 export default function BasicClientPanel({
   selectedChat,
@@ -22,7 +23,12 @@ export default function BasicClientPanel({
   id_configuracion,
 }) {
   return (
-    <div className="flex items-start justify-center overflow-y-auto h-full md:h-[750px] pt-1 md:pt-2 custom-scrollbar">
+    // Sin alto fijo ni scroll propio: el contenedor de DatosUsuarioModerno ya
+    // es `flex-1 min-h-0 overflow-y-auto`. El `md:h-[750px]` que había acá
+    // forzaba una caja de 750px aunque el panel midiera menos (pantallas de
+    // ~768px de alto) — eso creaba un scroll con el panel casi vacío y un
+    // hueco en blanco al final.
+    <div className="flex items-start justify-center pt-1 md:pt-2 pb-2">
       <div className="w-full max-w-2xl mx-auto">
         {/* Info cliente */}
         <div className="mb-4 px-3 py-3 bg-transparent text-white rounded-xl shadow-lg border border-violet-500 neon-border">
@@ -138,6 +144,12 @@ export default function BasicClientPanel({
 
         {/* Checklist del alumno (solo lectura) */}
         <ChecklistImporsuitSection
+          selectedChat={selectedChat}
+          idConfiguracion={id_configuracion}
+        />
+
+        {/* Cuenta Imporchat del cliente (soporte: 251 / 265) */}
+        <ImporchatCuentaSection
           selectedChat={selectedChat}
           idConfiguracion={id_configuracion}
         />

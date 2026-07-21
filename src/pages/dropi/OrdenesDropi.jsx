@@ -307,7 +307,41 @@ function OrigenBadge({ shopType, shopName, esShopify }) {
   );
 }
 
-function EstadoPedidoBadge({ estado, porBot }) {
+/* Dropi no edita una orden en sitio: al cambiarle algo el cliente, anula la
+   original (REEMPLAZADA) y crea una nueva. Resumimos qué fue lo que cambió. */
+const money = (n) =>
+  Number(n || 0).toLocaleString("es", { minimumFractionDigits: 2 });
+
+function resumenCambio(cambios) {
+  const c = (cambios || [])[0];
+  switch (c?.campo) {
+    case "transportadora":
+      return "cambió transportadora";
+    case "total":
+      return "cambió el pedido";
+    case "telefono":
+      return "corrigió el teléfono";
+    default:
+      return "editada por el cliente";
+  }
+}
+
+function detalleCambio(reemplazaA, cambios) {
+  const partes = [
+    `El bot creó la orden #${reemplazaA?.dropi_order_id}. El cliente la editó y Dropi la reemplazó por esta.`,
+  ];
+  for (const c of cambios || []) {
+    if (c.campo === "transportadora")
+      partes.push(`Transportadora: ${c.antes} → ${c.despues}`);
+    else if (c.campo === "total")
+      partes.push(`Total: $${money(c.antes)} → $${money(c.despues)}`);
+    else if (c.campo === "telefono")
+      partes.push(`Teléfono: ${c.antes} → ${c.despues}`);
+  }
+  return partes.join("\n");
+}
+
+function EstadoPedidoBadge({ estado, porBot, reemplazaA, cambios }) {
   const confirmado = estado === "confirmado";
   return (
     <div className="flex flex-col items-start gap-1">
@@ -325,6 +359,15 @@ function EstadoPedidoBadge({ estado, porBot }) {
         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100">
           <i className="bx bx-bot text-xs" />
           creado por el bot
+        </span>
+      )}
+      {porBot && reemplazaA && (
+        <span
+          className="inline-flex items-center gap-1 text-[10px] text-slate-500 cursor-help"
+          title={detalleCambio(reemplazaA, cambios)}
+        >
+          <i className="bx bx-transfer-alt text-xs" />
+          {resumenCambio(cambios)}
         </span>
       )}
     </div>
@@ -1099,6 +1142,8 @@ const OrdenesDropi = () => {
                         <EstadoPedidoBadge
                           estado={o?.estado_pedido}
                           porBot={!!o?.creado_por_bot}
+                          reemplazaA={o?.reemplaza_a}
+                          cambios={o?.cambios_del_cliente}
                         />
                       </td>
 
