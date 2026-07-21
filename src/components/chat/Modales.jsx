@@ -1641,10 +1641,16 @@ const Modales = ({
           selectedChat?.id ? String(selectedChat.id) : "",
         );
 
+        // El back convierte el video con ffmpeg antes de subirlo a Meta: eso
+        // tarda mucho más que los 30s del default. Mismo timeout que el envío
+        // de video del chat.
         const resp = await chatApi.post(
           "/whatsapp_managment/enviar_template_masivo",
           fd,
-          { headers: { "Content-Type": "multipart/form-data" } },
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+            timeout: 300000,
+          },
         );
 
         dataResp = resp?.data;
@@ -1670,6 +1676,8 @@ const Modales = ({
                   }
                 : null,
           },
+          // El default asset también pasa por el conversor en el back.
+          { timeout: 300000 },
         );
 
         dataResp = respJson;
@@ -2198,7 +2206,10 @@ const Modales = ({
         const { data } = await chatApi.post(
           "/whatsapp_managment/programar_template_masivo",
           fd,
-          { headers: { "Content-Type": "multipart/form-data" } },
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+            timeout: 300000,
+          },
         );
 
         Swal.close();
@@ -2296,6 +2307,7 @@ const Modales = ({
       const { data } = await chatApi.post(
         "/whatsapp_managment/programar_template_masivo",
         payload,
+        { timeout: 300000 },
       );
 
       Swal.close();

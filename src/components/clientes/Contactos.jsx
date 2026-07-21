@@ -1388,10 +1388,15 @@ export default function Contactos() {
           fd.append("header_format", headerFormat);
           fd.append("header_file", headerFileMasivo);
 
+          // El back convierte el video con ffmpeg antes de subirlo a Meta: eso
+          // tarda mucho más que los 30s del default.
           const { data } = await chatApi.post(
             "/whatsapp_managment/enviar_template_masivo",
             fd,
-            { headers: { "Content-Type": "multipart/form-data" } },
+            {
+              headers: { "Content-Type": "multipart/form-data" },
+              timeout: 300000,
+            },
           );
 
           dataResp = data;
@@ -1423,9 +1428,11 @@ export default function Contactos() {
                 : null,
           };
 
+          // El default asset también pasa por el conversor en el back.
           const { data } = await chatApi.post(
             "/whatsapp_managment/enviar_template_masivo",
             payload,
+            { timeout: 300000 },
           );
 
           dataResp = data;
@@ -2638,7 +2645,10 @@ export default function Contactos() {
         const { data } = await chatApi.post(
           "/whatsapp_managment/programar_template_masivo",
           fd,
-          { headers: { "Content-Type": "multipart/form-data" } },
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+            timeout: 300000,
+          },
         );
 
         Swal.close();
@@ -2732,6 +2742,7 @@ export default function Contactos() {
       const { data } = await chatApi.post(
         "/whatsapp_managment/programar_template_masivo",
         payload,
+        { timeout: 300000 },
       );
 
       Swal.close();
