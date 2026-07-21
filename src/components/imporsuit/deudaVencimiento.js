@@ -1,6 +1,6 @@
 /**
  * Estado de vencimiento de la cartera de un cliente, para avisar de un vistazo
- * (sin abrir cada chat): VENCIDA (roja), POR VENCER (ámbar) o al día (rosa).
+ * (sin abrir cada chat): VENCIDA (roja), POR VENCER (ámbar) o al día (verde).
  *
  * Umbral "por vencer": la fecha_limite cae dentro de los próximos DIAS_POR_VENCER
  * días. Debe coincidir con el del backend (Carterachat: deudas_pendientes_por_correos).
@@ -56,10 +56,13 @@ export const ESTILO_DEUDA = {
     icon: "bx bx-time-five",
     label: "Por vencer",
   },
+  // Hay saldo pendiente pero NADA vencido ni por vencer: es un estado sano, así
+  // que va en verde y con ícono de check. (Antes iba en rosa + ícono de error,
+  // por lo que un cliente al día se veía en rojo igual que uno vencido.)
   al_dia: {
-    badge: "border-rose-200 bg-rose-50 text-rose-700",
-    dot: "bg-rose-400",
-    icon: "bx bx-error-circle",
-    label: "Deuda",
+    badge: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    dot: "bg-emerald-500",
+    icon: "bx bx-check-circle",
+    label: "Al día",
   },
 };
