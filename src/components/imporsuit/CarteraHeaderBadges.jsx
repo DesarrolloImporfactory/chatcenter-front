@@ -8,6 +8,8 @@ import { tieneCartera } from "./useCarteraCliente";
 import {
   contarVencimientos,
   estadoDeuda,
+  hayAlertaDeuda,
+  montoAlerta,
   ESTILO_DEUDA,
 } from "./deudaVencimiento";
 
@@ -81,6 +83,8 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
         let numPendientes = 0;
         let vencidas = 0;
         let porVencer = 0;
+        let montoVencido = 0;
+        let montoPorVencer = 0;
         if (tieneCartera(data)) {
           const rows = await getDeudasUsuario(data.id_cartera, {
             signal: ctrl.signal,
@@ -93,8 +97,9 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
               numPendientes += 1;
             }
           }
-          // Vencidas / por vencer (≤7 días) según fecha_limite
-          ({ vencidas, porVencer } = contarVencimientos(rows));
+          // Vencidas / por vencer (≤7 días) según fecha_limite, con sus montos
+          ({ vencidas, porVencer, montoVencido, montoPorVencer } =
+            contarVencimientos(rows));
         }
         if (!ctrl.signal.aborted) {
           setInfo({
@@ -103,6 +108,8 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
             numPendientes,
             vencidas,
             porVencer,
+            montoVencido,
+            montoPorVencer,
           });
         }
       } catch {
@@ -136,17 +143,17 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
         </div>
       )}
 
-      {/* Deuda pendiente (color según vencimiento) */}
-      {info.pendiente > 0 &&
+      {/* Deuda: SOLO si hay vencidas o por vencer, y con el monto de esas
+          (no el total pendiente, que incluía vencimientos lejanos). */}
+      {hayAlertaDeuda(info) &&
         (() => {
           const est = estadoDeuda(info);
           const cfg = ESTILO_DEUDA[est];
+          const monto = montoAlerta(info);
           const titulo =
             est === "vencida"
-              ? `${info.vencidas} deuda${info.vencidas === 1 ? "" : "s"} VENCIDA${info.vencidas === 1 ? "" : "S"} en cartera`
-              : est === "por_vencer"
-                ? `${info.porVencer} deuda${info.porVencer === 1 ? "" : "s"} por vencer (≤7 días) en cartera`
-                : `${info.numPendientes} deuda${info.numPendientes === 1 ? "" : "s"} con saldo pendiente en cartera`;
+              ? `${info.vencidas} deuda${info.vencidas === 1 ? "" : "s"} VENCIDA${info.vencidas === 1 ? "" : "S"} por ${MONEY.format(monto)} (de ${MONEY.format(info.pendiente)} pendientes en total)`
+              : `${info.porVencer} deuda${info.porVencer === 1 ? "" : "s"} por vencer (≤7 días) por ${MONEY.format(monto)} (de ${MONEY.format(info.pendiente)} pendientes en total)`;
           return (
             <div
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 shadow-sm ${cfg.badge}`}
@@ -154,7 +161,7 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
             >
               <i className={`${cfg.icon} text-[12px]`} />
               <span className="text-[11px] font-bold">
-                {MONEY.format(info.pendiente)}
+                {MONEY.format(monto)}
               </span>
               <span className="text-[9px] font-bold uppercase tracking-wider">
                 {cfg.label}

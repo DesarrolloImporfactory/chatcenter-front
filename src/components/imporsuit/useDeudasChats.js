@@ -69,6 +69,9 @@ export default function useDeudasChats(chats, idConfiguracion) {
             numPendientes: Number(d?.num_pendientes) || 0,
             vencidas: Number(d?.vencidas) || 0,
             porVencer: Number(d?.por_vencer) || 0,
+            // Montos por estado: el badge muestra estos, no el total.
+            montoVencido: Number(d?.monto_vencido) || 0,
+            montoPorVencer: Number(d?.monto_por_vencer) || 0,
             fechaLimiteMin: d?.fecha_limite_min || null,
             ts,
           });

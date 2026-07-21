@@ -24,15 +24,58 @@ export function diasHastaVencer(fechaLimite, hoy = new Date()) {
 export function contarVencimientos(deudas, hoy = new Date()) {
   let vencidas = 0;
   let porVencer = 0;
+  let montoVencido = 0;
+  let montoPorVencer = 0;
   for (const d of Array.isArray(deudas) ? deudas : []) {
     if (Number(d.estado) === 2) continue; // anuladas no cuentan
-    if ((Number(d.monto_pendiente) || 0) <= 0) continue;
+    const m = Number(d.monto_pendiente) || 0;
+    if (m <= 0) continue;
     const dias = diasHastaVencer(d.fecha_limite, hoy);
     if (dias == null) continue;
-    if (dias < 0) vencidas += 1;
-    else if (dias <= DIAS_POR_VENCER) porVencer += 1;
+    if (dias < 0) {
+      vencidas += 1;
+      montoVencido += m;
+    } else if (dias <= DIAS_POR_VENCER) {
+      porVencer += 1;
+      montoPorVencer += m;
+    }
   }
-  return { vencidas, porVencer };
+  return { vencidas, porVencer, montoVencido, montoPorVencer };
+}
+
+/**
+ * ¿Hay algo que alertar? Solo si tiene deudas VENCIDAS o POR VENCER. Un saldo
+ * pendiente con vencimiento lejano NO es alerta: en ese caso no se pinta nada.
+ */
+export function hayAlertaDeuda(info) {
+  return (
+    (Number(info?.vencidas) || 0) > 0 || (Number(info?.porVencer) || 0) > 0
+  );
+}
+
+/**
+ * Monto que debe MOSTRAR el badge: la suma de las VENCIDAS (todas juntas) o,
+ * si no hay ninguna vencida, la suma de las que están por vencer.
+ * Nunca el total pendiente: ese incluía deudas con vencimiento lejano e
+ * inflaba la cifra que ve el asesor.
+ */
+export function montoAlerta(info) {
+  const vencidas = Number(info?.vencidas) || 0;
+  const porVencer = Number(info?.porVencer) || 0;
+  // Fallback al total: si el backend todavía no envía monto_vencido /
+  // monto_por_vencer (despliegue desfasado del PHP), es preferible mostrar el
+  // total pendiente antes que un "$0.00" que parecería un error.
+  const total = Number(info?.pendiente) || 0;
+
+  if (vencidas > 0) {
+    const m = Number(info?.montoVencido) || 0;
+    return m > 0 ? m : total;
+  }
+  if (porVencer > 0) {
+    const m = Number(info?.montoPorVencer) || 0;
+    return m > 0 ? m : total;
+  }
+  return 0;
 }
 
 /** Deriva el estado peor: vencida > por_vencer > al_dia. */

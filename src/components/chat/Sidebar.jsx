@@ -6,7 +6,12 @@ import CustomAudioPlayer from "./CustomAudioPlayer";
 import ImageWithModal from "./modales/ImageWithModal";
 import chatApi from "../../api/chatcenter";
 import useDeudasChats, { correoKey } from "../imporsuit/useDeudasChats";
-import { estadoDeuda, ESTILO_DEUDA } from "../imporsuit/deudaVencimiento";
+import {
+  estadoDeuda,
+  hayAlertaDeuda,
+  montoAlerta,
+  ESTILO_DEUDA,
+} from "../imporsuit/deudaVencimiento";
 
 const MONEY_DEUDA = new Intl.NumberFormat("es-EC", {
   style: "currency",
@@ -979,28 +984,25 @@ function MessageItem({
                 </span>
               </span>
             )}
-            {deudaCartera?.pendiente > 0 &&
+            {hayAlertaDeuda(deudaCartera) &&
               (() => {
                 const est = estadoDeuda(deudaCartera);
                 const cfg = ESTILO_DEUDA[est];
+                const monto = montoAlerta(deudaCartera);
                 const titulo =
                   est === "vencida"
-                    ? `${deudaCartera.vencidas} deuda${deudaCartera.vencidas === 1 ? "" : "s"} VENCIDA${deudaCartera.vencidas === 1 ? "" : "S"} en cartera`
-                    : est === "por_vencer"
-                      ? `${deudaCartera.porVencer} deuda${deudaCartera.porVencer === 1 ? "" : "s"} por vencer (≤7 días) en cartera`
-                      : `${deudaCartera.numPendientes} deuda${deudaCartera.numPendientes === 1 ? "" : "s"} con saldo pendiente en cartera`;
+                    ? `${deudaCartera.vencidas} deuda${deudaCartera.vencidas === 1 ? "" : "s"} VENCIDA${deudaCartera.vencidas === 1 ? "" : "S"} por ${MONEY_DEUDA.format(monto)} (de ${MONEY_DEUDA.format(deudaCartera.pendiente)} pendientes en total)`
+                    : `${deudaCartera.porVencer} deuda${deudaCartera.porVencer === 1 ? "" : "s"} por vencer (≤7 días) por ${MONEY_DEUDA.format(monto)} (de ${MONEY_DEUDA.format(deudaCartera.pendiente)} pendientes en total)`;
                 return (
                   <span
                     className={`shrink-0 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-[1px] text-[8.5px] font-bold leading-none ${cfg.badge}`}
                     title={titulo}
                   >
                     <i className={`${cfg.icon} text-[9px]`} />
-                    {MONEY_DEUDA.format(deudaCartera.pendiente)}
-                    {est !== "al_dia" && (
-                      <span className="uppercase tracking-wide">
-                        · {est === "vencida" ? "Venc." : "×Vencer"}
-                      </span>
-                    )}
+                    {MONEY_DEUDA.format(monto)}
+                    <span className="uppercase tracking-wide">
+                      · {est === "vencida" ? "Venc." : "×Vencer"}
+                    </span>
                   </span>
                 );
               })()}
