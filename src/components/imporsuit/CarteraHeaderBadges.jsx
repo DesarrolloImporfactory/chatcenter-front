@@ -36,7 +36,8 @@ function antiguedad(s) {
   if (isNaN(d)) return "";
   const hoy = new Date();
   let meses =
-    (hoy.getFullYear() - d.getFullYear()) * 12 + (hoy.getMonth() - d.getMonth());
+    (hoy.getFullYear() - d.getFullYear()) * 12 +
+    (hoy.getMonth() - d.getMonth());
   if (hoy.getDate() < d.getDate()) meses -= 1;
   if (meses <= 0) {
     const dias = Math.max(0, Math.floor((hoy - d) / 86400000));
@@ -47,6 +48,30 @@ function antiguedad(s) {
   const txtAnios = anios > 0 ? `${anios} año${anios > 1 ? "s" : ""}` : "";
   const txtMeses = resto > 0 ? `${resto} mes${resto > 1 ? "es" : ""}` : "";
   return [txtAnios, txtMeses].filter(Boolean).join(" y ");
+}
+
+function infoMembresia(fechaSuscripcion) {
+  if (!fechaSuscripcion) return null;
+  const base = new Date(fechaSuscripcion);
+  if (isNaN(base)) return null;
+
+  const vencimiento = new Date(base);
+  vencimiento.setFullYear(vencimiento.getFullYear() + 1);
+
+  const hoy = new Date();
+  const h = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const v = new Date(
+    vencimiento.getFullYear(),
+    vencimiento.getMonth(),
+    vencimiento.getDate(),
+  );
+
+  const dias = Math.floor((h - v) / 86400000);
+  return {
+    vencida: dias > 0,
+    diasVencida: Math.max(0, dias),
+    fechaVencimiento: v,
+  };
 }
 
 /**
@@ -104,6 +129,7 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
         if (!ctrl.signal.aborted) {
           setInfo({
             fechaRegistro: data.fecha_registro || null,
+            fechaSuscripcion: data.fecha_suscripcion || null,
             pendiente,
             numPendientes,
             vencidas,
@@ -122,6 +148,7 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
   if (!habilitado || !info) return null;
 
   const ant = info.fechaRegistro ? antiguedad(info.fechaRegistro) : "";
+  const mem = infoMembresia(info.fechaSuscripcion);
 
   return (
     <>
@@ -169,6 +196,22 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
             </div>
           );
         })()}
+
+      {/* Membresía vencida: solo alerta cuando ya pasó la fecha de vencimiento. */}
+      {mem?.vencida && (
+        <div
+          className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 shadow-sm"
+          title={`Membresía vencida desde ${fmtFechaCorta(mem.fechaVencimiento)} (${mem.diasVencida} día(s))`}
+        >
+          <i className="bx bx-user-x text-[12px] text-rose-700" />
+          <span className="text-[11px] font-bold text-rose-800">
+            {mem.diasVencida}d
+          </span>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-rose-600">
+            Memb. vencida
+          </span>
+        </div>
+      )}
     </>
   );
 }
