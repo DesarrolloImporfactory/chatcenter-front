@@ -6,6 +6,7 @@ import CustomAudioPlayer from "./CustomAudioPlayer";
 import ImageWithModal from "./modales/ImageWithModal";
 import chatApi from "../../api/chatcenter";
 import useDeudasChats, { correoKey } from "../imporsuit/useDeudasChats";
+import useMembresiasVencidasChats from "../imporsuit/useMembresiasVencidasChats";
 import {
   estadoDeuda,
   hayAlertaDeuda,
@@ -827,6 +828,7 @@ function MessageItem({
   seleccionado = false,
   selectedChat,
   deudaCartera,
+  membresiaVencida,
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const liRef = useRef(null);
@@ -1006,6 +1008,15 @@ function MessageItem({
                   </span>
                 );
               })()}
+            {Number(membresiaVencida?.vencida) === 1 && (
+              <span
+                className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-rose-300 bg-rose-50 px-1.5 py-[1px] text-[8.5px] font-bold leading-none text-rose-700"
+                title={`Membresía vencida desde ${membresiaVencida?.fechaVencimiento || "fecha no disponible"}${Number(membresiaVencida?.diasVencida) > 0 ? ` (${membresiaVencida.diasVencida} día(s))` : ""}`}
+              >
+                <i className="bx bx-user-x text-[9px]" />
+                <span className="uppercase tracking-wide">Memb. vencida</span>
+              </span>
+            )}
           </div>
           <span
             className="min-w-0 truncate text-[10px] text-slate-400 tabular-nums"
@@ -1430,6 +1441,10 @@ export const Sidebar = ({
     [filteredChats, mensajesVisibles],
   );
   const deudasPorCorreo = useDeudasChats(chatsVisibles, id_configuracion);
+  const membresiasVencidasPorCorreo = useMembresiasVencidasChats(
+    chatsVisibles,
+    id_configuracion,
+  );
 
   const [productos_ad, setProductos_ad] = useState([]);
 
@@ -2053,6 +2068,11 @@ export const Sidebar = ({
                   selectedChat={selectedChat}
                   deudaCartera={
                     deudasPorCorreo[correoKey(mensaje?.email_cliente)]
+                  }
+                  membresiaVencida={
+                    membresiasVencidasPorCorreo[
+                      correoKey(mensaje?.email_cliente)
+                    ]
                   }
                 />
               );

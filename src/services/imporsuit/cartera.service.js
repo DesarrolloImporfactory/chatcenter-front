@@ -88,6 +88,24 @@ export async function getDeudasPorCorreos(correos, { signal } = {}) {
   return data?.data ?? {};
 }
 
+/**
+ * Membresías vencidas por correo en una sola llamada (batch para listado).
+ * Devuelve mapa: { "<correo>": { vencida, fecha_vencimiento, dias_vencida } }
+ * SOLO incluye correos vencidos; los ausentes se asumen no vencidos.
+ */
+export async function getMembresiasVencidasPorCorreos(
+  correos,
+  { signal } = {},
+) {
+  const { data } = await imporsuitApi.post(
+    "/Carterachat/membresias_vencidas_por_correos",
+    { correos: Array.isArray(correos) ? correos : [] },
+    { signal },
+  );
+  unwrap(data);
+  return data?.data ?? {};
+}
+
 /* ── Mutaciones ────────────────────────────────────────────────────── */
 
 /** Crea la cartera de un usuario. Devuelve { status, message, uuid }. */
@@ -106,7 +124,15 @@ export async function generarCartera(idUser, { signal } = {}) {
  *   tipoVenta: 'fria' | 'caliente' · fechaLimite: 'YYYY-MM-DD'
  */
 export async function agregarDeuda(
-  { concepto, monto, idCarteraUuid, tipoVenta, fechaLimite, launchId, idAsesor },
+  {
+    concepto,
+    monto,
+    idCarteraUuid,
+    tipoVenta,
+    fechaLimite,
+    launchId,
+    idAsesor,
+  },
   { signal } = {},
 ) {
   const { data } = await imporsuitApi.post(

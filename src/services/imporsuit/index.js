@@ -11,6 +11,7 @@ export {
   getUserData,
   getDeudasUsuario,
   getDeudasPorCorreos,
+  getMembresiasVencidasPorCorreos,
   generarCartera,
   agregarDeuda,
   agregarPago,
