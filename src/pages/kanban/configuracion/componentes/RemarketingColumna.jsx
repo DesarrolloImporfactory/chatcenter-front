@@ -1283,6 +1283,10 @@ const RemarketingColumna = ({
 
   const columnasDestino = columnas.filter((c) => c.estado_db !== estado_db);
 
+  // Nombre visible de la columna actual (para la opción "no mover")
+  const nombreColumnaActual =
+    columnas.find((c) => c.estado_db === estado_db)?.nombre || estado_db;
+
   // Plantillas filtradas: solo las que NO tienen variables
   const plantillasSinVars = plantillas.filter((tpl) => !templateHasVars(tpl));
   const plantillasConVarsCount = plantillas.length - plantillasSinVars.length;
@@ -2112,7 +2116,15 @@ const RemarketingColumna = ({
                               </div>
                               <select
                                 className="rm2-select"
-                                value={sec.estado_destino}
+                                /* estado_destino === columna actual = "se
+                                   queda" = No mover. Se normaliza a "" para no
+                                   mostrarlo como "(no existe)" (el destino
+                                   excluye la columna actual a propósito). */
+                                value={
+                                  sec.estado_destino === estado_db
+                                    ? ""
+                                    : sec.estado_destino || ""
+                                }
                                 onChange={(e) =>
                                   updateSec(
                                     idx,
@@ -2122,10 +2134,12 @@ const RemarketingColumna = ({
                                 }
                               >
                                 <option value="">
-                                  No mover (quedar en columna actual)
+                                  {nombreColumnaActual} (no mover, queda en
+                                  columna actual)
                                 </option>
 
                                 {sec.estado_destino &&
+                                  sec.estado_destino !== estado_db &&
                                   !columnasDestino.some(
                                     (c) => c.estado_db === sec.estado_destino,
                                   ) && (

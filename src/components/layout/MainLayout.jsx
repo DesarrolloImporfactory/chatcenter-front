@@ -691,7 +691,8 @@ function MainLayout({ children }) {
                     href="/shopify"
                     onClick={(e) => handleNavClick(e, "/shopify")}
                     className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                      location.pathname.startsWith("/shopify")
+                      location.pathname.startsWith("/shopify") &&
+                      !location.pathname.startsWith("/shopify/abandonados")
                         ? "font-semibold text-blue-600"
                         : ""
                     }`}

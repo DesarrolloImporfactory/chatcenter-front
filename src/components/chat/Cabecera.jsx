@@ -151,6 +151,12 @@ const Cabecera = ({
   useEffect(() => {
     if (["/productos", "/categorias"].includes(location.pathname)) {
       setOpenMenu("productos");
+    } else if (
+      location.pathname.startsWith("/pedidos") ||
+      location.pathname.startsWith("/transportadoras") ||
+      location.pathname.startsWith("/shopify/abandonados")
+    ) {
+      setOpenMenu("ventas");
     } else if (["/calendario"].includes(location.pathname)) {
       setOpenMenu("agentes");
     } else if (
@@ -812,13 +818,14 @@ const Cabecera = ({
               type="button"
               onClick={() => toggleMenu("integraciones")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                [
+                ([
                   "/canal-conexiones",
                   "/dropi",
                   "/asistentes",
                   "/shopify",
                   "/api-metricas",
-                ].some((p) => location.pathname.startsWith(p))
+                ].some((p) => location.pathname.startsWith(p)) &&
+                  !location.pathname.startsWith("/shopify/abandonados"))
                   ? "bg-gray-200 font-semibold"
                   : ""
               }`}
@@ -889,7 +896,8 @@ const Cabecera = ({
                   href="/shopify"
                   onClick={(e) => handleNavClick(e, "/shopify")}
                   className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
-                    location.pathname.startsWith("/shopify")
+                    location.pathname.startsWith("/shopify") &&
+                    !location.pathname.startsWith("/shopify/abandonados")
                       ? "font-semibold text-blue-600"
                       : ""
                   }`}
