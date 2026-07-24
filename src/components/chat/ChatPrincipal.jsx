@@ -1468,6 +1468,29 @@ const ChatPrincipal = ({
     return cards;
   };
 
+  // Extrae media SUELTA (imagen/video/audio/archivo/sticker) de los attachments
+  // unificados de IG/MS, que NO son templates. Devuelve [{ type, url }].
+  const extractUnifiedMedia = (mensaje) => {
+    const meta = safeParseJSON(mensaje?.meta_unificado);
+    const raw1 = meta?.raw || meta || null;
+    const raw = raw1?.raw || raw1;
+
+    let attachments = Array.isArray(raw?.attachments) ? raw.attachments : [];
+    if (!attachments.length && mensaje?.attachments_unificado) {
+      const au = safeParseJSON(mensaje.attachments_unificado);
+      if (Array.isArray(au)) attachments = au;
+    }
+
+    const MEDIA = new Set(["image", "video", "audio", "file", "sticker"]);
+    const items = [];
+    for (const att of attachments) {
+      const t = String(att?.type || "").toLowerCase();
+      const url = att?.payload?.url || att?.url || null;
+      if (MEDIA.has(t) && url) items.push({ type: t, url });
+    }
+    return items;
+  };
+
   const parseRutaArchivo = (ruta) => {
     try {
       return ruta ? JSON.parse(ruta) : {};
@@ -2459,11 +2482,15 @@ const ChatPrincipal = ({
                             })()
                           ) : mensaje.tipo_mensaje === "attachment" ? (
                             (() => {
+                              const media = extractUnifiedMedia(mensaje);
                               const cards =
                                 extractUnifiedAttachmentCards(mensaje);
 
-                              // Si no hay cards, muestre algo decente (y no "no reconocido")
-                              if (!cards || cards.length === 0) {
+                              // Ni media suelta ni cards → mensaje decente
+                              if (
+                                (!media || media.length === 0) &&
+                                (!cards || cards.length === 0)
+                              ) {
                                 return (
                                   <div className="text-sm opacity-80">
                                     Adjuntos (Instagram/Messenger) no
@@ -2474,6 +2501,12 @@ const ChatPrincipal = ({
 
                               return (
                                 <div className="space-y-2">
+                                  {media.map((m, i) => (
+                                    <PreviewFile
+                                      key={`media-${i}`}
+                                      url={m.url}
+                                    />
+                                  ))}
                                   {cards.map((c, idx) => (
                                     <div
                                       key={idx}
