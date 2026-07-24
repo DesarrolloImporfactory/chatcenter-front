@@ -557,6 +557,14 @@ const Conexiones = () => {
           config_id: "4254210594844123",
           response_type: "code",
           override_default_response_type: true,
+          // Sin esto, si el cliente acaba de dar de alta WhatsApp en la misma
+          // sesión, el SDK reutiliza esa autorización y devuelve un código con
+          // permisos de WhatsApp: el backend recibe un token sin ads_read /
+          // ads_management y Meta responde "(#100) Unsupported get request".
+          // `rerequest` obliga a mostrar el consentimiento de anuncios, y el
+          // scope explícito cubre el caso en que se caiga al login clásico.
+          auth_type: "rerequest",
+          scope: "ads_read,ads_management",
         },
       );
     },

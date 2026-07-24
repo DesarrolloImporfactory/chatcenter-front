@@ -439,6 +439,10 @@ const Conexiones = () => {
           config_id: "4254210594844123",
           response_type: "code",
           override_default_response_type: true,
+          // Ver Conexiones.jsx: evita que el SDK reutilice la autorización de
+          // WhatsApp y devuelva un código sin permisos de anuncios.
+          auth_type: "rerequest",
+          scope: "ads_read,ads_management",
         },
       );
     },
