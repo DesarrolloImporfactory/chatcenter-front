@@ -945,6 +945,8 @@ const RemarketingColumna = ({
   const [guardando, setGuardando] = useState(false);
   const [desactivando, setDesactivando] = useState(false);
   const [configActiva, setConfigActiva] = useState(false);
+  const [igConectado, setIgConectado] = useState(false);
+  const [msConectado, setMsConectado] = useState(false);
 
   const [secuencias, setSecuencias] = useState([SECUENCIA_VACIA()]);
 
@@ -1088,6 +1090,31 @@ const RemarketingColumna = ({
     setLoadingCfg(true);
     fetchPlantillas();
     fetchRespuestasRapidas();
+
+    // ¿Hay Instagram conectado en esta configuración? (para avisar del límite IG)
+    // light=1 → puro SQL en el backend, SIN llamar a la Graph API de Meta.
+    chatApi
+      .get("instagram/connections", { params: { id_configuracion, light: 1 } })
+      .then((res) => {
+        const pages = res.data?.data || [];
+        setIgConectado(
+          pages.some((p) => String(p.status).toLowerCase() === "active"),
+        );
+      })
+      .catch(() => setIgConectado(false));
+
+    // ¿Hay Messenger conectado? (mismo límite: solo IA, dentro de 24h)
+    chatApi
+      .get("messenger/pages/connections", {
+        params: { id_configuracion, light: 1 },
+      })
+      .then((res) => {
+        const pages = res.data?.data || [];
+        setMsConectado(
+          pages.some((p) => String(p.status).toLowerCase() === "active"),
+        );
+      })
+      .catch(() => setMsConectado(false));
     try {
       const res = await chatApi.post("openai_assistants/obtener_remarketing", {
         id_configuracion,
@@ -1532,6 +1559,91 @@ const RemarketingColumna = ({
                 </div>
               ) : (
                 <>
+                  {(igConectado || msConectado) && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 10,
+                        padding: "11px 13px",
+                        borderRadius: 12,
+                        marginBottom: 14,
+                        background: "rgba(139,92,246,.06)",
+                        border: "1px solid rgba(139,92,246,.28)",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        {igConectado && (
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 8,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background:
+                                "linear-gradient(135deg,#feda75,#d62976,#4f5bd5)",
+                            }}
+                          >
+                            <i
+                              className="bx bxl-instagram"
+                              style={{ fontSize: 18, color: "#fff" }}
+                            />
+                          </div>
+                        )}
+                        {msConectado && (
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 8,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background:
+                                "linear-gradient(135deg,#00c6ff,#0072ff)",
+                            }}
+                          >
+                            <i
+                              className="bx bxl-messenger"
+                              style={{ fontSize: 18, color: "#fff" }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: ".74rem", lineHeight: 1.45 }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            color: "#6d28d9",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Tienes{" "}
+                          {igConectado && msConectado
+                            ? "Instagram y Messenger"
+                            : igConectado
+                              ? "Instagram"
+                              : "Messenger"}{" "}
+                          conectado{igConectado && msConectado ? "s" : ""}
+                        </div>
+                        <div style={{ color: "#6b7280" }}>
+                          En{" "}
+                          {igConectado && msConectado
+                            ? "esos canales"
+                            : igConectado
+                              ? "Instagram"
+                              : "Messenger"}{" "}
+                          el remarketing solo se envía con el método{" "}
+                          <b style={{ color: "#8b5cf6" }}>Generado por IA</b> y
+                          únicamente <b>dentro de las 24h</b> desde el último
+                          mensaje del cliente. Los métodos «Solo plantilla» y
+                          «Respuesta rápida» aplican <b>solo a WhatsApp</b>.
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {secuencias.map((sec, idx) => {
                     const tplObj = plantillas.find(
                       (p) => p.name === sec.nombre_template,
