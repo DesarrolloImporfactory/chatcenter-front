@@ -871,7 +871,7 @@ export default function Register() {
                   htmlFor="whatsapp_lead"
                   className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                 >
-                  WhatsApp
+                  WhatsApp Personal
                 </label>
                 <span className="text-[9px] text-emerald-600 italic font-medium">
                   Para notificar alertas de tu cuenta

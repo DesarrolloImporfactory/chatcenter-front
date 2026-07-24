@@ -10,6 +10,7 @@ import {
   ComposedChart,
   Bar,
   Line,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -96,7 +97,7 @@ function Tip({ text, formula, children, align = "center", dir = "up" }) {
       {children}
       {show && (
         <span
-          className={`absolute ${isDown ? "top-full mt-3" : "bottom-full mb-3"} ${posClass} px-4 py-2.5 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-[11px] text-white/90 font-normal shadow-2xl shadow-black/25 z-[9999] pointer-events-none max-w-[280px] whitespace-normal leading-relaxed border border-white/[0.06] backdrop-blur-sm normal-case tracking-normal text-left`}
+          className={`absolute ${isDown ? "top-full mt-3" : "bottom-full mb-3"} ${posClass} px-4 py-2.5 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-[11px] text-white/90 font-normal shadow-2xl shadow-black/25 z-[9999] pointer-events-none w-max max-w-[min(90vw,380px)] whitespace-normal leading-relaxed border border-white/[0.06] backdrop-blur-sm normal-case tracking-normal text-left`}
         >
           {text}
           <TipFormula formula={formula} />
@@ -260,6 +261,206 @@ function channelView(data, canal) {
   };
 }
 
+/* ─── KPIs del hero por canal ───
+   Cada vista arma sus propias 6 cards con los números de ESE canal
+   (Shopify ≠ WhatsApp): pedidos, tasa de entrega y confirmación salen de
+   los pedidos del canal, no del total. "Todos" muestra la foto global.
+   Tooltips: cortos y sin jerga; la fórmula (línea verde) es opcional. */
+
+const cardFacturado = (view, sub) => ({
+  key: "facturado",
+  label: "Facturado",
+  tip: "Cuánto vendiste en este canal durante el periodo.",
+  sub,
+  icon: "bx-dollar-circle",
+  color: "#34d399",
+  bg: "rgba(52,211,153,0.1)",
+  value: fmt$(view.facturado),
+  highlight: "emerald",
+});
+
+const cardUtilidad = (view) => ({
+  key: "ganancia",
+  label: "Utilidad",
+  tip: "Lo que ganarías si se entregaran todos los pedidos del periodo.",
+  formula: "venta − costo proveedor − envío",
+  sub:
+    view.facturado > 0
+      ? `${((view.ganancia / view.facturado) * 100).toFixed(1)}% del facturado`
+      : "—",
+  icon: "bx-wallet",
+  color: "#a78bfa",
+  bg: "rgba(167,139,250,0.1)",
+  value: fmt$(view.ganancia),
+  highlight: "violet",
+});
+
+// Pedidos Dropi VIVOS del canal (sin cancelados).
+const cardPedidosDropi = (view, { label, color }) => ({
+  key: "pedidosDropi",
+  label,
+  tip: "Pedidos que ya pasaron a Dropi, sin contar los cancelados.",
+  formula: "pedidos Dropi − cancelados",
+  sub: `${fmtNum(view.canceladas)} cancelados`,
+  icon: "bx-package",
+  color,
+  bg: color === "#60a5fa" ? "rgba(96,165,250,0.1)" : "rgba(244,114,182,0.1)",
+  value: fmtNum(view.pedidosNeto),
+});
+
+// Tasa de entrega real del canal: sobre pedidos Dropi sin cancelados.
+const cardTasaEntregaReal = (view) => ({
+  key: "tasaEntrega",
+  label: "Tasa entrega",
+  tip: "De los pedidos que ya están en Dropi (sin los cancelados), cuántos llegaron al cliente.",
+  formula: "entregados ÷ pedidos Dropi × 100",
+  sub: `${fmtNum(view.entregadas)} entregados`,
+  icon: "bx-check-double",
+  color: "#22d3ee",
+  bg: "rgba(34,211,238,0.1)",
+  value: fmtPct(view.tasaEntregaReal),
+});
+
+function buildHeroKpis(canal, data, view) {
+  if (canal === "shopify") {
+    return [
+      cardFacturado(view, `${fmtNum(view.pedidosNeto)} pedidos dropi`),
+      cardUtilidad(view),
+      {
+        key: "pedidosShopify",
+        label: "Pedidos",
+        tip: "Pedidos que hicieron tus clientes en la tienda Shopify.",
+        formula: "checkouts Shopify + órdenes tipo Shopify",
+        sub: "checkouts de la tienda",
+        icon: "bx-cart",
+        color: "#60a5fa",
+        bg: "rgba(96,165,250,0.1)",
+        value: fmtNum(data.shopifyLeads),
+      },
+      cardPedidosDropi(view, { label: "Pedidos Dropi", color: "#f472b6" }),
+      {
+        key: "pctConfirmacion",
+        label: "Confirmación",
+        tip: "De todos tus pedidos Shopify que llegaron a Dropi, cuántos ya se confirmaron (superaron «pendiente confirmación»). El resto se reparte entre los que faltan por confirmar y los que el cliente canceló.",
+        formula: "confirmados ÷ pedidos Shopify en Dropi × 100",
+        sub: `${fmtNum(view.confirmadas)} de ${fmtNum(view.pedidos)}`,
+        icon: "bx-check-shield",
+        color: "#fbbf24",
+        bg: "rgba(251,191,36,0.1)",
+        value: fmtPct(view.pctConfirmacion),
+        // Trazabilidad: qué frena la confirmación (equipo sin confirmar vs
+        // producto que el cliente cancela). Suma exacta con confirmados:
+        // confirmados + por confirmar + cancelados = pedidos en Dropi.
+        breakdown: [
+          {
+            label: "por confirmar",
+            value: Math.max(0, (view.pedidosNeto || 0) - (view.confirmadas || 0)),
+            color: "#fbbf24",
+          },
+          { label: "cancelados", value: view.canceladas || 0, color: "#fb7185" },
+        ],
+      },
+      cardTasaEntregaReal(view),
+    ];
+  }
+
+  if (canal === "wa") {
+    return [
+      cardFacturado(view, `${fmtNum(view.pedidosNeto)} pedidos`),
+      cardUtilidad(view),
+      {
+        key: "conversaciones",
+        label: "Conversaciones",
+        tip: "Personas distintas que te escribieron al chat en este periodo.",
+        sub: `${fmtNum(data.totalMensajes)} mensajes`,
+        icon: "bx-message-dots",
+        color: "#f472b6",
+        bg: "rgba(244,114,182,0.1)",
+        value: fmtNum(data.totalConversaciones),
+      },
+      cardPedidosDropi(view, { label: "Pedidos", color: "#60a5fa" }),
+      {
+        key: "pctConfirmacion",
+        label: "Confirmación",
+        // Mismo par que se ve en pantalla: pedidos ÷ conversaciones. Antes
+        // usábamos compradores globales (incluían ventas Shopify) y no
+        // cuadraba con los pedidos WhatsApp de al lado.
+        tip: data.totalConversaciones
+          ? "De las conversaciones que entraron, qué porcentaje terminó en pedido por WhatsApp."
+          : "Aún no se puede medir: en este periodo nadie escribió al chat.",
+        formula: "pedidos ÷ conversaciones × 100",
+        sub: `${fmtNum(view.pedidosNeto)} de ${fmtNum(data.totalConversaciones)}`,
+        icon: "bx-check-shield",
+        color: "#fbbf24",
+        bg: "rgba(251,191,36,0.1)",
+        value: fmtPct(
+          data.totalConversaciones
+            ? (view.pedidosNeto / data.totalConversaciones) * 100
+            : null,
+        ),
+      },
+      cardTasaEntregaReal(view),
+    ];
+  }
+
+  // "Todos": suma de los canales, misma lógica que ellos. Pedidos netos
+  // (sin cancelados) para que WhatsApp + Shopify cuadre con este total.
+  const netoTodos = Math.max(0, view.pedidos - data.canceladas);
+  return [
+    cardFacturado(view, `${fmtNum(netoTodos)} pedidos`),
+    cardUtilidad(view),
+    {
+      key: "pedidos",
+      label: "Pedidos",
+      tip: "Pedidos del periodo de todos los canales, sin contar los cancelados.",
+      formula: "pedidos Dropi − cancelados",
+      sub: `${fmtNum(data.canceladas)} cancelados`,
+      icon: "bx-package",
+      color: "#60a5fa",
+      bg: "rgba(96,165,250,0.1)",
+      value: fmtNum(netoTodos),
+    },
+    {
+      key: "conversaciones",
+      label: "Conversaciones",
+      tip: "Personas distintas que te escribieron al chat en este periodo.",
+      sub: `${fmtNum(view.mensajes)} mensajes`,
+      icon: "bx-message-dots",
+      color: "#f472b6",
+      bg: "rgba(244,114,182,0.1)",
+      value: fmtNum(view.conversaciones),
+    },
+    {
+      key: "pctConfirmacion",
+      label: "Confirmación",
+      tip: view.conversaciones
+        ? "De las conversaciones que entraron, qué porcentaje terminó en pedido (todos los canales)."
+        : "Aún no se puede medir: en este periodo nadie escribió al chat.",
+      formula: "pedidos ÷ conversaciones × 100",
+      sub: `${fmtNum(netoTodos)} de ${fmtNum(view.conversaciones)}`,
+      icon: "bx-check-shield",
+      color: "#fbbf24",
+      bg: "rgba(251,191,36,0.1)",
+      value: fmtPct(
+        view.conversaciones ? (netoTodos / view.conversaciones) * 100 : null,
+      ),
+    },
+    {
+      key: "tasaEntrega",
+      label: "Tasa entrega",
+      tip: "De los pedidos (sin cancelados), cuántos llegaron al cliente.",
+      formula: "entregados ÷ pedidos × 100",
+      sub: `${fmtNum(view.entregadas)} entregados`,
+      icon: "bx-check-double",
+      color: "#22d3ee",
+      bg: "rgba(34,211,238,0.1)",
+      value: fmtPct(
+        netoTodos > 0 ? (view.entregadas / netoTodos) * 100 : null,
+      ),
+    },
+  ];
+}
+
 /* KPIs destacados del hero (números "para la foto") */
 const KPI_HIGHLIGHTS = {
   emerald: {
@@ -276,10 +477,18 @@ const KPI_HIGHLIGHTS = {
 
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
+  // Dedupe por dataKey: conversaciones tiene línea + área (mismo dato),
+  // no debe salir dos veces en el tooltip.
+  const seen = new Set();
+  const items = payload.filter((p) => {
+    if (seen.has(p.dataKey)) return false;
+    seen.add(p.dataKey);
+    return true;
+  });
   return (
     <div className="rounded-xl bg-white/95 backdrop-blur-sm border border-slate-200 shadow-xl px-4 py-3 text-xs">
       <p className="font-bold text-slate-800 mb-2 text-[13px]">{label}</p>
-      {payload.map((p) => {
+      {items.map((p) => {
         const isMoney = ["facturado", "ganancia"].includes(p.dataKey);
         return (
           <div key={p.dataKey} className="flex items-center gap-2.5 py-0.5">
@@ -660,9 +869,9 @@ function ResumenView({
   // Anuncios ganadores (solo si la conexión tiene Meta Ads)
   const [winnerAds, setWinnerAds] = useState(null);
 
-  // Tabla productos
+  // Tabla productos (ordena por pedidos Dropi por defecto)
   const [prodSort, setProdSort] = useState({
-    key: "gananciaNeta",
+    key: "ordenes",
     dir: "desc",
   });
 
@@ -751,6 +960,21 @@ function ResumenView({
 
   const view = useMemo(() => channelView(data, canal), [data, canal]);
 
+  // ¿La conexión vende por Shopify? Solo entonces mostramos las pestañas
+  // Todos/Shopify; si no, la vista es 100% WhatsApp (una sola pestaña).
+  const vendeShopify =
+    data?.shopifyConectado === true ||
+    (data?.canales?.shopify?.pedidos || 0) > 0;
+  const availableChannels = useMemo(
+    () =>
+      vendeShopify ? CHANNELS : CHANNELS.filter((c) => c.key === "wa"),
+    [vendeShopify],
+  );
+  // Si no vende por Shopify, el canal siempre es WhatsApp.
+  useEffect(() => {
+    if (!vendeShopify && canal !== "wa") setCanal("wa");
+  }, [vendeShopify, canal]);
+
   // Estados con % visible (usa pct del back; si no viene, lo calcula)
   const statusList = useMemo(() => {
     if (!data?.statusBreakdown?.length) return [];
@@ -766,15 +990,42 @@ function ResumenView({
       }));
   }, [data]);
 
+  // Aplana cada producto al canal activo (la tabla sigue la pestaña) y
+  // luego ordena. Todo sale de Dropi: la confirmación es pedidos ya
+  // confirmados ÷ pedidos Dropi. Oculta productos sin actividad en el canal.
   const sortedProducts = useMemo(() => {
     if (!data?.productos?.length) return [];
+    const rows = data.productos
+      .map((p) => {
+        const c = p.canal?.[canal] || p.canal?.todos || {};
+        const ordenes = c.ordenes ?? 0;
+        const confirmadas = c.confirmadas ?? 0;
+        const pctConfirmacion =
+          ordenes > 0
+            ? Math.round((confirmadas / ordenes) * 10000) / 100
+            : null;
+        return {
+          product_id: p.product_id,
+          name: p.name,
+          sku: p.sku,
+          image: p.image,
+          confirmadas,
+          ordenes,
+          canceladas: c.canceladas ?? 0,
+          entregadas: c.entregadas ?? 0,
+          devoluciones: c.devoluciones ?? 0,
+          tasaEntrega: c.tasaEntrega ?? null,
+          pctConfirmacion,
+        };
+      })
+      .filter((r) => r.ordenes > 0 || r.canceladas > 0);
     const { key, dir } = prodSort;
-    return [...data.productos].sort((a, b) => {
+    return rows.sort((a, b) => {
       const va = a[key] == null ? -Infinity : a[key];
       const vb = b[key] == null ? -Infinity : b[key];
       return dir === "desc" ? vb - va : va - vb;
     });
-  }, [data, prodSort]);
+  }, [data, prodSort, canal]);
 
   const handleProdSort = (key) =>
     setProdSort((s) =>
@@ -787,98 +1038,45 @@ function ResumenView({
   const adsConectado = data?.metaAds?.conectado === true;
   const adsNoConectado = data?.metaAds?.conectado === false;
 
-  const HERO_KPIS = view
-    ? [
-        {
-          key: "facturado",
-          label: "Facturado",
-          tip: "Suma del valor total de los pedidos del canal seleccionado en este periodo.",
-          formula: "suma del valor de todos los pedidos",
-          sub: `${fmtNum(view.pedidos)} pedidos`,
-          icon: "bx-dollar-circle",
-          color: "#34d399",
-          bg: "rgba(52,211,153,0.1)",
-          value: fmt$(view.facturado),
-          highlight: "emerald",
-        },
-        {
-          key: "ganancia",
-          label: "Utilidad",
-          tip: "Lo que ganarías si todos los pedidos del periodo se entregaran.",
-          formula: "venta − costo proveedor − envío",
-          sub:
-            view.facturado > 0
-              ? `${((view.ganancia / view.facturado) * 100).toFixed(1)}% del facturado`
-              : "—",
-          icon: "bx-wallet",
-          color: "#a78bfa",
-          bg: "rgba(167,139,250,0.1)",
-          value: fmt$(view.ganancia),
-          highlight: "violet",
-        },
-        {
-          key: "pedidos",
-          label: "Pedidos",
-          tip: "Total de pedidos creados en este periodo para el canal seleccionado.",
-          sub: `${fmtNum(view.entregadas)} entregadas`,
-          icon: "bx-package",
-          color: "#60a5fa",
-          bg: "rgba(96,165,250,0.1)",
-          value: fmtNum(view.pedidos),
-        },
-        {
-          key: "conversaciones",
-          // Al filtrar por canal la métrica cambia (no es quién escribió,
-          // sino quién compró), así que cambia también el nombre.
-          label: canal === "todos" ? "Conversaciones" : "Clientes con pedido",
-          tip:
-            canal === "todos"
-              ? "Personas distintas que escribieron a tu chat en este periodo, tanto clientes nuevos como antiguos que volvieron a escribir (todos los canales). Solo cuenta a quien realmente escribió: los contactos que se crean al importar tus pedidos de Dropi no suman aquí."
-              : "Personas distintas detrás de los pedidos de este canal (se cruza el teléfono del pedido con tu chat). Puede no coincidir con el número de pedidos: una misma persona puede hacer varios pedidos, y hay pedidos de personas que nunca escribieron al chat.",
-          sub:
-            canal === "todos"
-              ? `${fmtNum(view.mensajes)} mensajes`
-              : "cruzados por teléfono",
-          icon: "bx-message-dots",
-          color: "#f472b6",
-          bg: "rgba(244,114,182,0.1)",
-          value: fmtNum(view.conversaciones),
-        },
-        {
-          key: "pctConfirmacion",
-          label: "Confirmación",
-          tip:
-            canal === "shopify"
-              ? "De todos los pedidos de Shopify, cuántos ya fueron confirmados por el cliente (dejaron de estar en «pendiente confirmación»)."
-              : view.pctConfirmacion == null
-                ? "Todavía no se puede medir: en este periodo nadie escribió a tu chat. Los pedidos que ves vienen del historial importado de Dropi, sin conversación detrás."
-                : "De cada 100 personas que te escribieron, cuántas terminaron comprando. No cuenta los pedidos que se crearon fuera del chat (historial de Dropi, Shopify o carga manual).",
-          formula:
-            canal === "shopify"
-              ? "confirmados ÷ pedidos Shopify × 100"
-              : "personas que escribieron y compraron ÷ conversaciones × 100",
-          sub:
-            canal === "shopify"
-              ? `${fmtNum(data.canales.shopify.confirmados)} confirmados`
-              : `${fmtNum(view.conversacionesConPedido)} compraron`,
-          icon: "bx-check-shield",
-          color: "#fbbf24",
-          bg: "rgba(251,191,36,0.1)",
-          value: fmtPct(view.pctConfirmacion),
-        },
-        {
-          key: "tasaEntrega",
-          label: "Tasa entrega",
-          tip: "De todos los pedidos del periodo, qué porcentaje ya llegó a manos del cliente.",
-          formula: "entregados ÷ pedidos × 100",
-          sub: `${fmtNum(view.entregadas)} entregados`,
-          icon: "bx-check-double",
-          color: "#22d3ee",
-          bg: "rgba(34,211,238,0.1)",
-          value: fmtPct(view.tasaEntrega),
-        },
-      ]
-    : [];
+  const HERO_KPIS = view ? buildHeroKpis(canal, data, view) : [];
+
+  // ── Tabla de productos (sigue la pestaña; datos de Dropi) ──
+  const canalMeta = CHANNELS.find((c) => c.key === canal) || CHANNELS[0];
+  const col2Tip =
+    "Pedidos de este producto que el bot ya confirmó (dejaron de estar en «pendiente confirmación»).";
+  const confTip =
+    "De los pedidos de este producto que YA están en Dropi, cuántos confirmó el bot. Ojo: es otra etapa que el % del resumen de arriba (ese mide checkouts → Dropi).";
+  const confFormula = "confirmadas ÷ pedidos Dropi × 100";
+  const confColor = (v) => {
+    if (v >= 70) return "bg-emerald-50 text-emerald-700";
+    if (v >= 40) return "bg-amber-50 text-amber-700";
+    return "bg-rose-50 text-rose-700";
+  };
+
+  // Gráfico diario: guías (pedidos Dropi) y entregas siguen el canal;
+  // la línea de conversaciones es la actividad del chat (no se separa).
+  const guiasKey =
+    canal === "wa"
+      ? "pedidos_wa"
+      : canal === "shopify"
+        ? "pedidos_shopify"
+        : "pedidos";
+  const entregasKey =
+    canal === "wa"
+      ? "entregadas_wa"
+      : canal === "shopify"
+        ? "entregadas_shopify"
+        : "entregadas";
+  // Título del gráfico: en WhatsApp no hay "tienda" (checkouts), así que
+  // usamos el descriptivo directo. En Shopify/Todos sí aplica el embudo.
+  const chartTitle =
+    canal === "wa"
+      ? "Conversaciones, guías y entregas por día"
+      : "Pedidos: tienda vs Dropi vs entrega";
+  const chartSubtitle =
+    canal === "wa"
+      ? "Cuántos te escriben, cuántos pedidos generas y cuántos se entregan"
+      : "Conversaciones, guías y entregas por día";
 
   return (
     <>
@@ -918,22 +1116,26 @@ function ResumenView({
               Rendimiento del periodo
             </p>
 
-            <div className="flex items-center gap-1 bg-white/[0.06] border border-white/[0.08] rounded-xl p-1">
-              {CHANNELS.map((c) => (
-                <button
-                  key={c.key}
-                  onClick={() => setCanal(c.key)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    canal === c.key
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-white/60 hover:text-white hover:bg-white/[0.06]"
-                  }`}
-                >
-                  <i className={`bx ${c.icon} text-sm`} />
-                  <span className="hidden sm:inline">{c.label}</span>
-                </button>
-              ))}
-            </div>
+            {/* El switch solo aparece si hay más de un canal (vende por
+                Shopify). Si es 100% WhatsApp, no tiene sentido elegir. */}
+            {availableChannels.length > 1 && (
+              <div className="flex items-center gap-1 bg-white/[0.06] border border-white/[0.08] rounded-xl p-1">
+                {availableChannels.map((c) => (
+                  <button
+                    key={c.key}
+                    onClick={() => setCanal(c.key)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      canal === c.key
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-white/60 hover:text-white hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    <i className={`bx ${c.icon} text-sm`} />
+                    <span className="hidden sm:inline">{c.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ── KPI Grid ── */}
@@ -1006,6 +1208,23 @@ function ResumenView({
                         >
                           {kpi.sub}
                         </p>
+                        {kpi.breakdown && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            {kpi.breakdown.map((b) => (
+                              <span
+                                key={b.label}
+                                className="inline-flex items-center gap-1 text-[9px] font-semibold whitespace-nowrap"
+                                style={{ color: b.color }}
+                              >
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ background: b.color }}
+                                />
+                                {fmtNum(b.value)} {b.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </Tip>
                   );
@@ -1142,66 +1361,25 @@ function ResumenView({
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <div className="px-4 sm:px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="text-[15px] font-bold text-slate-900">
-                    Productos vendidos en el periodo
-                  </h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-[15px] font-bold text-slate-900">
+                      Productos vendidos en el periodo
+                    </h2>
+                    {/* Deja claro que la tabla está filtrada por la pestaña
+                        de arriba: en tiendas de un solo canal el otro se ve
+                        "vacío" y sin esto parece un error. */}
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                      <i className={`bx ${canalMeta.icon} text-[13px]`} />
+                      {canalMeta.label}
+                    </span>
+                  </div>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Ingreso y utilidad = solo órdenes{" "}
-                    <span className="font-semibold text-emerald-600">
-                      entregadas
-                    </span>{" "}
-                    · toca la{" "}
+                    Pedidos en Dropi por producto (sin cancelados) → cuántos
+                    confirmó el bot → cuántos se entregaron. Solo del canal{" "}
+                    <b>{canalMeta.label}</b> — cámbialo en las pestañas de
+                    arriba. Toca la{" "}
                     <i className="bx bx-info-circle align-middle text-slate-300" />{" "}
-                    de cada columna para ver su fórmula
-                  </p>
-                  {/* Embudo de las 3 primeras columnas: es lo que más
-                      confunde (personas vs pedidos). */}
-                  <p className="text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                    <span className="font-semibold text-slate-500">
-                      Conv. totales
-                    </span>
-                    <span className="text-slate-300">
-                      personas que escribieron
-                    </span>
-                    <i className="bx bx-right-arrow-alt text-slate-300" />
-                    <span className="font-semibold text-slate-500">
-                      Con pedido
-                    </span>
-                    <span className="text-slate-300">
-                      de esas, cuántas compraron
-                    </span>
-                    <i className="bx bx-right-arrow-alt text-slate-300" />
-                    <span className="font-semibold text-slate-500">
-                      Órdenes
-                    </span>
-                    <span className="text-slate-300">
-                      pedidos vivos (una persona puede hacer varios; no cuenta
-                      cancelados ni reemplazados)
-                    </span>
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    % Conf.:{" "}
-                    <i className="bx bxl-whatsapp align-middle text-emerald-500" />{" "}
-                    <span className="font-semibold text-slate-500">
-                      escribieron → pidieron
-                    </span>{" "}
-                    ·{" "}
-                    <i className="bx bxl-shopify align-middle text-lime-600" />{" "}
-                    <span className="font-semibold text-slate-500">
-                      compraron en la landing → el bot confirmó por chat
-                    </span>
-                    {data.productos?.some(
-                      (p) => p.pctConfirmacionTipo === "familia",
-                    ) && (
-                      <>
-                        {" "}
-                        ·{" "}
-                        <i className="bx bx-collection align-middle text-indigo-500" />{" "}
-                        <span className="font-semibold text-slate-500">
-                          mismo producto en combos: comparten anuncio y %
-                        </span>
-                      </>
-                    )}
+                    de cada columna para ver su fórmula.
                   </p>
                 </div>
                 {data.productos?.length > 0 && (
@@ -1213,49 +1391,49 @@ function ResumenView({
 
               {sortedProducts.length > 0 ? (
                 <div className="max-h-[360px] overflow-y-auto overflow-x-auto">
-                  <table className="w-full text-sm min-w-[1080px]">
+                  <table className="w-full text-sm min-w-[760px]">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-200">
                         <th className="px-3 py-3 w-8">#</th>
                         <th className="px-3 py-3">Producto</th>
                         <SortTh
-                          label="Conv. totales"
-                          k="conversacionesTotal"
-                          sort={prodSort}
-                          onSort={handleProdSort}
-                          tip="Personas con las que hubo chat por este producto. Si recibes clientes desde anuncios de WhatsApp: los que te escribieron (aunque no compraran). Si recibes pedidos desde landing (Shopify): los que el bot contactó para confirmar su pedido. Si un mismo anuncio vende unidad y combos, el total se comparte entre esas filas."
-                        />
-                        <SortTh
-                          label="Con pedido"
-                          k="conversaciones"
-                          sort={prodSort}
-                          onSort={handleProdSort}
-                          tip="De esas conversaciones, cuántas PERSONAS terminaron haciendo al menos un pedido. Cuenta personas, no pedidos: por eso puede ser menor que la columna Órdenes."
-                        />
-                        <SortTh
-                          label="Órdenes"
+                          label="Pedidos Dropi"
                           k="ordenes"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Pedidos VIVOS de este producto en el periodo. No cuenta los cancelados (aparecen en rojo debajo del número) ni los que se reemplazaron al cambiar de transportadora. Cuenta pedidos, no personas: alguien puede hacer más de uno, por eso puede superar a Con pedido."
+                          tip="Pedidos de este producto que llegaron a Dropi en el periodo, sin contar los cancelados."
+                        />
+                        <SortTh
+                          label="Confirmadas"
+                          k="confirmadas"
+                          sort={prodSort}
+                          onSort={handleProdSort}
+                          tip={col2Tip}
+                        />
+                        <SortTh
+                          label="Canceladas"
+                          k="canceladas"
+                          sort={prodSort}
+                          onSort={handleProdSort}
+                          tip="Pedidos de este producto que se cancelaron."
                         />
                         <SortTh
                           label="% Conf."
                           k="pctConfirmacion"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Productos con anuncios de WhatsApp: de cada 100 personas que escribieron, cuántas pidieron. Productos de la landing (Shopify): de cada 100 pedidos, cuántos ya confirmó el bot por chat. Combos del mismo producto: de cada 100 que escribieron por su anuncio, cuántos compraron alguna presentación."
-                          formula="chat: con pedido ÷ conv. totales · shopify: confirmadas ÷ órdenes · combos: compraron alguna ÷ escribieron"
+                          tip={confTip}
+                          formula={confFormula}
                         />
                         <SortTh
-                          label="Entreg."
+                          label="Entregadas"
                           k="entregadas"
                           sort={prodSort}
                           onSort={handleProdSort}
                           tip="Pedidos de este producto que ya llegaron a manos del cliente."
                         />
                         <SortTh
-                          label="Devol."
+                          label="Devoluciones"
                           k="devoluciones"
                           sort={prodSort}
                           onSort={handleProdSort}
@@ -1269,35 +1447,10 @@ function ResumenView({
                           tip="De los pedidos que salieron en camino al cliente (sin contar cancelados), qué porcentaje se entregó."
                           formula="entregados ÷ enviados × 100"
                         />
-                        <SortTh
-                          label="Ingreso"
-                          k="ingresoBruto"
-                          sort={prodSort}
-                          onSort={handleProdSort}
-                          tip="Dinero de las ventas YA ENTREGADAS de este producto. Lo que sigue en camino todavía no cuenta aquí."
-                          formula="venta entregada del producto"
-                        />
-                        <SortTh
-                          label="Utilidad"
-                          k="gananciaNeta"
-                          sort={prodSort}
-                          onSort={handleProdSort}
-                          tip="Lo que te queda de las entregas de este producto. Ojo: los envíos incluyen también pedidos en camino y devueltos, porque se pagan aunque no se entreguen."
-                          formula="venta − costo proveedor − envíos"
-                        />
-                        <SortTh
-                          label="Margen"
-                          k="margenPct"
-                          sort={prodSort}
-                          onSort={handleProdSort}
-                          tip="De cada $100 que vendes entregados, cuántos te quedan de ganancia."
-                          formula="utilidad ÷ ingreso × 100"
-                        />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {sortedProducts.map((p, i) => {
-                        const maxG = sortedProducts[0]?.gananciaNeta || 1;
                         const img = productImg(p.image);
                         return (
                           <tr
@@ -1342,86 +1495,23 @@ function ResumenView({
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-center">
-                              {p.conversacionesTotal != null ? (
-                                <>
-                                  <span
-                                    className={`inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md text-xs font-bold ${
-                                      p.pctConfirmacionTipo === "familia"
-                                        ? "bg-indigo-50 text-indigo-700"
-                                        : p.pctConfirmacionTipo === "ordenes"
-                                          ? "bg-sky-50 text-sky-700"
-                                          : "bg-violet-50 text-violet-700"
-                                    }`}
-                                    title={
-                                      p.pctConfirmacionTipo === "familia"
-                                        ? `Personas que escribieron por "${p.familia}". El anuncio vende ${p.familiaN} presentaciones del mismo producto (unidad y combos), así que este total se comparte entre esas filas.`
-                                        : p.pctConfirmacionTipo === "ordenes"
-                                          ? "Personas contactadas por el chat para confirmar pedidos de este producto"
-                                          : "Personas que escribieron por este producto (anuncios + compradores)"
-                                    }
-                                  >
-                                    <i
-                                      className={`bx text-[13px] ${
-                                        p.pctConfirmacionTipo === "familia"
-                                          ? "bx-collection"
-                                          : p.pctConfirmacionTipo === "ordenes"
-                                            ? "bxl-shopify"
-                                            : "bxl-whatsapp"
-                                      }`}
-                                    />
-                                    {fmtNum(p.conversacionesTotal)}
-                                  </span>
-                                  {p.pctConfirmacionTipo === "familia" && (
-                                    <div className="text-[9px] font-semibold text-indigo-400 leading-none mt-1">
-                                      mismo anuncio · {p.familiaN} filas
-                                    </div>
-                                  )}
-                                </>
-                              ) : !data.ctwaActivo &&
-                                !data.metaAds?.conectado ? (
-                                <button
-                                  onClick={() => navigate("/conexiones")}
-                                  title="Conecta tu cuenta publicitaria para medir cuántas personas escriben por cada producto"
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-dashed border-slate-300 text-[10px] font-semibold text-slate-400 hover:text-indigo-600 hover:border-indigo-400 transition"
-                                >
-                                  <i className="bx bx-lock-alt" />
-                                  Conectar ads
-                                </button>
-                              ) : (
-                                <span
-                                  className="text-slate-300"
-                                  title={
-                                    !data.ctwaActivo
-                                      ? "Tu cuenta publicitaria está conectada, pero en este periodo no llegaron chats desde anuncios de WhatsApp (clic al anuncio → escribe al chat). Este embudo se mide con ese tipo de anuncios."
-                                      : "Este producto no tuvo conversaciones desde anuncios ni pedidos Shopify validados en el periodo, así que no hay embudo que medir."
-                                  }
-                                >
-                                  —
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2.5 text-center tabular-nums text-slate-600">
-                              {p.conversaciones == null
-                                ? "—"
-                                : fmtNum(p.conversaciones)}
-                            </td>
-                            <td className="px-3 py-2.5 text-center">
                               <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-bold">
                                 {p.ordenes}
                               </span>
-                              {/* Los cancelados ya no suman arriba: se
-                                  muestran acá para no perder la señal. */}
-                              {p.canceladas > 0 && (
-                                <span
-                                  className="block text-[10px] text-rose-500 mt-0.5"
-                                  title={`${p.canceladas} pedido${
-                                    p.canceladas === 1 ? "" : "s"
-                                  } cancelado${
-                                    p.canceladas === 1 ? "" : "s"
-                                  }, no cuentan arriba`}
-                                >
-                                  −{p.canceladas} cancel.
+                            </td>
+                            <td className="px-3 py-2.5 text-center tabular-nums">
+                              <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold">
+                                <i className="bx bx-check text-[13px]" />
+                                {fmtNum(p.confirmadas)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-center tabular-nums">
+                              {p.canceladas > 0 ? (
+                                <span className="text-rose-500 font-medium">
+                                  {fmtNum(p.canceladas)}
                                 </span>
+                              ) : (
+                                <span className="text-slate-300">0</span>
                               )}
                             </td>
                             <td className="px-3 py-2.5 text-center">
@@ -1429,36 +1519,10 @@ function ResumenView({
                                 <span className="text-slate-300">—</span>
                               ) : (
                                 <span
-                                  title={
-                                    p.pctConfirmacionTipo === "familia"
-                                      ? "Compraron alguna presentación ÷ todos los que escribieron por el anuncio (mismo % para las filas de la familia)"
-                                      : p.pctConfirmacionTipo === "ordenes"
-                                        ? "Pedidos confirmados ÷ pedidos del producto"
-                                        : "Personas con pedido ÷ personas que escribieron"
-                                  }
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                                    p.pctConfirmacion >=
-                                    (p.pctConfirmacionTipo === "ordenes"
-                                      ? 80
-                                      : 25)
-                                      ? "bg-emerald-50 text-emerald-700"
-                                      : p.pctConfirmacion >=
-                                          (p.pctConfirmacionTipo === "ordenes"
-                                            ? 50
-                                            : 10)
-                                        ? "bg-amber-50 text-amber-700"
-                                        : "bg-rose-50 text-rose-700"
-                                  }`}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${confColor(
+                                    p.pctConfirmacion,
+                                  )}`}
                                 >
-                                  <i
-                                    className={`bx text-[13px] ${
-                                      p.pctConfirmacionTipo === "familia"
-                                        ? "bx-collection"
-                                        : p.pctConfirmacionTipo === "ordenes"
-                                          ? "bxl-shopify"
-                                          : "bxl-whatsapp"
-                                    }`}
-                                  />
                                   {fmtPct(p.pctConfirmacion)}
                                 </span>
                               )}
@@ -1486,33 +1550,6 @@ function ResumenView({
                                 </span>
                               )}
                             </td>
-                            <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">
-                              {fmt$(p.ingresoBruto)}
-                            </td>
-                            <td className="px-3 py-2.5 text-right">
-                              <div className="flex items-center justify-end gap-2.5">
-                                <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden hidden lg:block">
-                                  <div
-                                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                                    style={{
-                                      width: `${Math.max(0, Math.min(100, (p.gananciaNeta / maxG) * 100))}%`,
-                                    }}
-                                  />
-                                </div>
-                                <span
-                                  className={`font-extrabold text-[13px] tabular-nums ${
-                                    p.gananciaNeta >= 0
-                                      ? "text-emerald-700"
-                                      : "text-rose-600"
-                                  }`}
-                                >
-                                  {fmt$(p.gananciaNeta)}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2.5 text-right tabular-nums text-slate-500">
-                              {p.margenPct == null ? "—" : fmtPct(p.margenPct)}
-                            </td>
                           </tr>
                         );
                       })}
@@ -1533,42 +1570,67 @@ function ResumenView({
 
             {/* ── Charts row: pedidos/mensajes por día + estado de pedidos ── */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <div className="xl:col-span-2 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
-                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                  <div>
-                    <h2 className="text-[15px] font-bold text-slate-900">
-                      Pedidos y mensajes por día
-                    </h2>
+              <div className="xl:col-span-2 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col xl:h-[320px]">
+                <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-[15px] font-bold text-slate-900">
+                        {chartTitle}
+                      </h2>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                        <i className={`bx ${canalMeta.icon} text-[13px]`} />
+                        {canalMeta.label}
+                      </span>
+                    </div>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Órdenes creadas por canal vs mensajes recibidos cada día
+                      {chartSubtitle}
                     </p>
                   </div>
+                  {/* Leyenda arriba para que se lea antes del gráfico */}
                   <div className="flex items-center gap-4 text-[11px] flex-wrap">
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                      <span className="w-3.5 h-[3px] rounded-full bg-blue-500" />
+                      Conversaciones
+                    </span>
+                    <span className="flex items-center gap-1.5 text-slate-600 font-medium">
                       <span className="w-3 h-3 rounded bg-emerald-500" />
-                      WhatsApp
+                      Guías
                     </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-3 rounded bg-violet-500" />
-                      Shopify
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-1 rounded-full bg-pink-500" />
-                      Mensajes
+                    <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                      <span className="w-3 h-3 rounded bg-orange-500" />
+                      Entregas
                     </span>
                   </div>
                 </div>
                 {hasCharts ? (
-                  <div className="h-[260px]">
+                  // flex-1: el gráfico llena el alto de la card para emparejar
+                  // con "Estado de pedidos" y no dejar espacio en blanco.
+                  <div className="flex-1 min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart
                         data={data.dailyChart}
-                        margin={{ top: 5, right: 10, bottom: 0, left: 0 }}
-                        barGap={2}
+                        margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                        barGap={4}
+                        barCategoryGap="22%"
                       >
+                        <defs>
+                          <linearGradient id="gGuias" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10B981" stopOpacity={0.95} />
+                            <stop offset="100%" stopColor="#10B981" stopOpacity={0.5} />
+                          </linearGradient>
+                          <linearGradient id="gEntregas" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#F97316" stopOpacity={0.95} />
+                            <stop offset="100%" stopColor="#F97316" stopOpacity={0.5} />
+                          </linearGradient>
+                          <linearGradient id="gConv" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.22} />
+                            <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
                         <CartesianGrid
                           strokeDasharray="3 3"
-                          stroke="rgba(148,163,184,0.12)"
+                          stroke="rgba(148,163,184,0.14)"
+                          vertical={false}
                         />
                         <XAxis
                           dataKey="day"
@@ -1577,65 +1639,59 @@ function ResumenView({
                           axisLine={false}
                           tickLine={false}
                         />
+                        {/* Un solo eje (antes había dos escalas y confundía) */}
                         <YAxis
-                          yAxisId="left"
                           tick={{ fontSize: 11, fill: "#94a3b8" }}
                           axisLine={false}
                           tickLine={false}
                           width={30}
                           allowDecimals={false}
                         />
-                        <YAxis
-                          yAxisId="right"
-                          orientation="right"
-                          tick={{ fontSize: 11, fill: "#ec4899" }}
-                          axisLine={false}
-                          tickLine={false}
-                          width={30}
-                          allowDecimals={false}
+                        <Tooltip
+                          content={<ChartTooltip />}
+                          cursor={{ fill: "rgba(148,163,184,0.08)" }}
                         />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Bar
-                          yAxisId="left"
-                          dataKey="pedidos_wa"
-                          name="WhatsApp"
-                          stackId="ped"
-                          fill="#10B981"
-                          radius={[0, 0, 0, 0]}
-                          maxBarSize={34}
-                        />
-                        <Bar
-                          yAxisId="left"
-                          dataKey="pedidos_shopify"
-                          name="Shopify"
-                          stackId="ped"
-                          fill="#8B5CF6"
-                          radius={[4, 4, 0, 0]}
-                          maxBarSize={34}
-                        />
-                        <Line
-                          yAxisId="right"
+                        {/* Conversaciones = línea azul con área suave (contexto
+                            del volumen de chat detrás de las barras) */}
+                        <Area
                           type="monotone"
-                          dataKey="mensajes"
-                          name="Mensajes"
-                          stroke="#ec4899"
+                          dataKey="conversaciones"
+                          name="Conversaciones"
+                          stroke="#3B82F6"
                           strokeWidth={2.5}
+                          fill="url(#gConv)"
                           dot={false}
                           activeDot={{ r: 4 }}
+                        />
+                        <Bar
+                          dataKey={guiasKey}
+                          name="Guías"
+                          fill="url(#gGuias)"
+                          radius={[5, 5, 0, 0]}
+                          maxBarSize={18}
+                        />
+                        <Bar
+                          dataKey={entregasKey}
+                          name="Entregas"
+                          fill="url(#gEntregas)"
+                          radius={[5, 5, 0, 0]}
+                          maxBarSize={18}
                         />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <EmptyChart
-                    icon="bx-bar-chart-alt-2"
-                    text="Selecciona un rango mayor a 1 día para ver la tendencia"
-                  />
+                  <div className="flex-1 min-h-[220px] grid place-items-center">
+                    <EmptyChart
+                      icon="bx-bar-chart-alt-2"
+                      text="Selecciona un rango mayor a 1 día para ver la tendencia"
+                    />
+                  </div>
                 )}
               </div>
 
               {/* Estado de pedidos: donut + % visibles sin hover */}
-              <div className="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+              <div className="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col xl:h-[320px]">
                 <div className="mb-3">
                   <h2 className="text-[15px] font-bold text-slate-900">
                     Estado de pedidos
@@ -1645,16 +1701,18 @@ function ResumenView({
                   </p>
                 </div>
                 {statusList.length > 0 ? (
-                  <>
-                    <div className="relative h-[150px]">
+                  // Pastel a la izquierda + estados a la derecha: usa el alto
+                  // completo de la tarjeta, así entran sin scroll.
+                  <div className="flex-1 min-h-0 flex items-center gap-3 sm:gap-4">
+                    <div className="relative w-[130px] h-[130px] shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={statusList}
                             cx="50%"
                             cy="50%"
-                            innerRadius={48}
-                            outerRadius={68}
+                            innerRadius={40}
+                            outerRadius={60}
                             paddingAngle={3}
                             dataKey="value"
                             strokeWidth={0}
@@ -1679,47 +1737,39 @@ function ResumenView({
                       </ResponsiveContainer>
                       <div className="absolute inset-0 grid place-items-center pointer-events-none">
                         <div className="text-center leading-none">
-                          <p className="text-xl font-extrabold text-slate-900 tabular-nums">
+                          <p className="text-lg font-extrabold text-slate-900 tabular-nums">
                             {fmtNum(data.totalPedidos)}
                           </p>
-                          <p className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold mt-1">
+                          <p className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold mt-0.5">
                             pedidos
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-3 space-y-2 max-h-[190px] overflow-y-auto pr-1">
+                    <div className="flex-1 min-w-0 max-h-full overflow-y-auto space-y-1.5 pr-1">
                       {statusList.map((s) => (
-                        <div key={s.key}>
-                          <div className="flex items-center gap-2 text-[11px]">
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ background: s.fill }}
-                            />
-                            <span className="text-slate-600 font-medium truncate">
-                              {s.name}
-                            </span>
-                            <span className="ml-auto tabular-nums text-slate-400">
-                              {fmtNum(s.value)}
-                            </span>
-                            <span className="w-11 text-right tabular-nums font-extrabold text-slate-800">
-                              {fmtPct(s.pct)}
-                            </span>
-                          </div>
-                          <div className="mt-1 h-1 rounded-full bg-slate-100 overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${Math.min(100, s.pct)}%`,
-                                background: s.fill,
-                              }}
-                            />
-                          </div>
+                        <div
+                          key={s.key}
+                          className="flex items-center gap-2 text-[11px]"
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: s.fill }}
+                          />
+                          <span className="text-slate-600 font-medium truncate">
+                            {s.name}
+                          </span>
+                          <span className="ml-auto tabular-nums text-slate-400">
+                            {fmtNum(s.value)}
+                          </span>
+                          <span className="w-9 text-right tabular-nums font-extrabold text-slate-800">
+                            {fmtPct(s.pct)}
+                          </span>
                         </div>
                       ))}
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <EmptyChart
                     icon="bx-pie-chart-alt-2"

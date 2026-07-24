@@ -243,6 +243,9 @@ const DropiDailyMetricsTable = ({ integrationId, idConfiguracion, dateRange }) =
   const [savedFor, setSavedFor] = useState({});
   const [localEdits, setLocalEdits] = useState({});
   const [showHelp, setShowHelp] = useState(false);
+  // Colapsada por defecto: es una tabla opcional (registro manual de gastos);
+  // se despliega cuando el cliente quiere usarla y no estorba a lo de abajo.
+  const [collapsed, setCollapsed] = useState(true);
   const debounceTimers = useRef({});
 
   // Modal "Agregar día"
@@ -419,41 +422,53 @@ const DropiDailyMetricsTable = ({ integrationId, idConfiguracion, dateRange }) =
           }}
         />
         <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          {/* Título = botón para desplegar/plegar la tabla */}
+          <button
+            onClick={() => setCollapsed((v) => !v)}
+            className="flex items-center gap-2.5 text-left group"
+          >
             <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <i className="bx bx-line-chart text-white text-xl" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white leading-tight">
+              <h3 className="text-sm font-bold text-white leading-tight flex items-center gap-1.5">
                 Métricas diarias del negocio
+                <i
+                  className={`bx bx-chevron-down text-lg transition-transform ${
+                    collapsed ? "" : "rotate-180"
+                  }`}
+                />
               </h3>
               <p className="text-[11px] text-violet-100 mt-0.5">
-                Tu gasto en ads + las ventas reales de Dropi → rentabilidad por
-                día
+                {collapsed
+                  ? "Opcional: registra tus gastos y mide rentabilidad por día"
+                  : "Tu gasto en ads + las ventas reales de Dropi → rentabilidad por día"}
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={abrirModalAgregar}
-              className="flex items-center gap-1.5 bg-white text-violet-700 hover:bg-violet-50 rounded-lg px-3 py-1.5 text-[11px] font-bold transition shadow-sm"
-            >
-              <i className="bx bx-plus-circle text-sm" />
-              Agregar día
-            </button>
-            <button
-              onClick={() => setShowHelp(!showHelp)}
-              className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 text-[11px] text-white font-semibold transition"
-            >
-              <i className="bx bx-help-circle text-sm" />
-              {showHelp ? "Ocultar guía" : "¿Cómo se calcula?"}
-            </button>
-          </div>
+          </button>
+          {!collapsed && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={abrirModalAgregar}
+                className="flex items-center gap-1.5 bg-white text-violet-700 hover:bg-violet-50 rounded-lg px-3 py-1.5 text-[11px] font-bold transition shadow-sm"
+              >
+                <i className="bx bx-plus-circle text-sm" />
+                Agregar día
+              </button>
+              <button
+                onClick={() => setShowHelp(!showHelp)}
+                className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 text-[11px] text-white font-semibold transition"
+              >
+                <i className="bx bx-help-circle text-sm" />
+                {showHelp ? "Ocultar guía" : "¿Cómo se calcula?"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ═══════ HELP EXPANDIBLE ═══════ */}
-      {showHelp && (
+      {!collapsed && showHelp && (
         <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border-b border-indigo-100 px-5 py-4">
           <div className="grid md:grid-cols-3 gap-3 mb-3">
             <HelpCard
@@ -596,7 +611,7 @@ const DropiDailyMetricsTable = ({ integrationId, idConfiguracion, dateRange }) =
       )}
 
       {/* ═══════ STATES ═══════ */}
-      {loading && !tieneFilas && (
+      {!collapsed && loading && !tieneFilas && (
         <div className="px-5 py-12 text-center">
           <div className="inline-flex flex-col items-center gap-2">
             <i className="bx bx-loader-alt bx-spin text-violet-500 text-2xl" />
@@ -605,7 +620,7 @@ const DropiDailyMetricsTable = ({ integrationId, idConfiguracion, dateRange }) =
         </div>
       )}
 
-      {!loading && !tieneFilas && (
+      {!collapsed && !loading && !tieneFilas && (
         <div className="px-5 py-12 text-center">
           <i className="bx bx-table text-slate-300 text-4xl mb-2 block" />
           <p className="text-sm font-semibold text-slate-600 mb-1">
@@ -618,7 +633,7 @@ const DropiDailyMetricsTable = ({ integrationId, idConfiguracion, dateRange }) =
       )}
 
       {/* ═══════ TABLA ═══════ */}
-      {tieneFilas && (
+      {!collapsed && tieneFilas && (
         <div className="overflow-auto" style={{ maxHeight: 480 }}>
           <table
             className="w-full text-[11px]"

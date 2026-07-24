@@ -191,28 +191,10 @@ function App() {
                 />
 
                 <Route
-                  path="/chatboard"
-                  element={
-                    <MainLayout_conexiones>
-                      <Dashboard />
-                    </MainLayout_conexiones>
-                  }
-                />
-
-                <Route
                   path="/tutoriales"
                   element={
                     <MainLayout_conexiones>
                       <TutorialesView />
-                    </MainLayout_conexiones>
-                  }
-                />
-
-                <Route
-                  path="/dropiboard"
-                  element={
-                    <MainLayout_conexiones>
-                      <Dropiboard />
                     </MainLayout_conexiones>
                   }
                 />
