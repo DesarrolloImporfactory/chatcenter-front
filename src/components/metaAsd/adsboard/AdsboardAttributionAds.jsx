@@ -307,8 +307,22 @@ export default function AdsboardAttributionAds({
   };
 
   const pctAtrib = Number(totals.pct_atribuidas || 0);
-  const lowAttribution =
-    pctAtrib < 50 && Number(totals.ordenes_dropi_total || 0) > 0;
+  // Pedidos que nacieron en el checkout de la tienda: no pueden venir de un
+  // anuncio de clic a WhatsApp, así que quedan fuera de la base del %.
+  const ordenesTienda = Number(totals.ordenes_tienda || 0);
+  const baseAtribuible = Number(
+    totals.ordenes_atribuibles ?? totals.ordenes_dropi_total ?? 0,
+  );
+  const lowAttribution = pctAtrib < 50 && baseAtribuible > 0;
+  // Misma fórmula que la card "Tasa entrega" del Resumen: sobre los pedidos
+  // vivos, sin cancelados.
+  const pedidosVivos = Math.max(
+    0,
+    Number(funnel.ordenes_dropi || 0) - Number(funnel.canceladas || 0),
+  );
+  const tasaEntregaReal = pedidosVivos
+    ? (Number(funnel.entregadas || 0) / pedidosVivos) * 100
+    : null;
 
   if (loading) {
     return (
@@ -426,15 +440,26 @@ export default function AdsboardAttributionAds({
           </div>
         </div>
 
-        <div className="flex items-center gap-5">
+        {/* flex-wrap: con 6 KPIs y dos separadores, en móvil se salían de la
+            tarjeta y forzaban scroll horizontal de toda la página. */}
+        <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
           <BannerKPI
             label="Conectadas"
             value={`${fmt(pctAtrib, 1)}%`}
             tone={accent.pctTone}
             primary
           />
-          <div className="h-9 w-px bg-slate-200" />
-          <BannerKPI label="Órdenes" value={fmt(totals.ordenes_dropi_total)} />
+          <div className="h-9 w-px bg-slate-200 hidden sm:block" />
+          {/* Base del %: los pedidos que podían venir de un anuncio. Los que
+              nacieron en el checkout de la tienda se muestran aparte para que
+              cuadre con la pestaña Resumen. */}
+          <BannerKPI
+            label={ordenesTienda > 0 ? "Órdenes WhatsApp" : "Órdenes"}
+            value={fmt(baseAtribuible)}
+          />
+          {ordenesTienda > 0 && (
+            <BannerKPI label="Órdenes tienda" value={fmt(ordenesTienda)} />
+          )}
           <BannerKPI
             label="Utilidad"
             value={fmtCurrency(totals.utilidad_entregada_atribuida, currency)}
@@ -444,22 +469,20 @@ export default function AdsboardAttributionAds({
             label="Inversión"
             value={fmtCurrency(totals.gasto_total, currency)}
           />
-          <div className="h-9 w-px bg-slate-200" />
+          <div className="h-9 w-px bg-slate-200 hidden sm:block" />
           <BannerKPI
             label="CPA / Msg"
             value={fmtCurrency(dinero.cpa_mensaje, currency)}
           />
+          {/* Antes decía "Tasa Conf." pero calculaba entregadas ÷ órdenes:
+              eso es la tasa de ENTREGA, y encima con los cancelados dentro,
+              así que no cuadraba con la card del Resumen. Ahora usa la misma
+              base que allá: entregadas ÷ pedidos vivos (sin cancelados). */}
           <BannerKPI
-            label="Tasa Conf."
-            value={`${fmt(
-              funnel.entregadas > 0 && funnel.ordenes_dropi > 0
-                ? (funnel.entregadas / funnel.ordenes_dropi) * 100
-                : 0,
-              1,
-            )}%`}
+            label="Tasa entrega"
+            value={`${fmt(tasaEntregaReal ?? 0, 1)}%`}
             tone={
-              funnel.entregadas > 0 && funnel.ordenes_dropi > 0 &&
-              (funnel.entregadas / funnel.ordenes_dropi) * 100 >= 60
+              tasaEntregaReal != null && tasaEntregaReal >= 60
                 ? "emerald"
                 : "amber"
             }

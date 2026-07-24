@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
@@ -63,6 +63,17 @@ function fmtNum(v) {
 function fmtPct(v) {
   if (v == null) return "—"; // null = el back no pudo medir el embudo
   return `${Number(v || 0).toFixed(1)}%`;
+}
+
+/* "2026-07-16" → "16 de julio" (para textos, no para ejes de gráficos) */
+function fmtDia(ymd) {
+  if (!ymd) return "";
+  const [y, m, d] = String(ymd).split("-").map(Number);
+  if (!y || !m || !d) return ymd;
+  return new Date(y, m - 1, d).toLocaleDateString("es-EC", {
+    day: "numeric",
+    month: "long",
+  });
 }
 
 /* ─── Tooltips ───
@@ -752,7 +763,7 @@ function SkBox({ className = "", style }) {
 
 const SK_BAR_HEIGHTS = [42, 68, 35, 80, 55, 72, 47, 90, 62, 38, 76, 52, 66, 44];
 
-function ResumenSkeleton() {
+function ResumenSkeleton({ conCarritos = false }) {
   return (
     <>
       <style>{`@keyframes skSweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}`}</style>
@@ -806,8 +817,12 @@ function ResumenSkeleton() {
         </div>
       </div>
 
-      {/* charts: barras + donut */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      {/* charts: barras + (carritos) + donut */}
+      <div
+        className={`grid grid-cols-1 gap-4 ${
+          conCarritos ? "xl:grid-cols-4" : "xl:grid-cols-3"
+        }`}
+      >
         <div className="xl:col-span-2 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
           <SkBox className="h-4 w-52 mb-2" />
           <SkBox className="h-3 w-72 max-w-full mb-5" />
@@ -822,6 +837,26 @@ function ResumenSkeleton() {
             ))}
           </div>
         </div>
+        {conCarritos && (
+          <div className="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+            <SkBox className="h-4 w-40 mb-2" />
+            <SkBox className="h-3 w-32 mb-4" />
+            <SkBox className="h-7 w-16 mb-3" />
+            <div className="h-[110px] flex items-end gap-1.5">
+              {SK_BAR_HEIGHTS.slice(0, 8).map((h, i) => (
+                <SkBox
+                  key={i}
+                  className="flex-1 rounded-t-md rounded-b-none"
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
+            <div className="space-y-2 mt-4">
+              <SkBox className="h-3 w-full" />
+              <SkBox className="h-3 w-full" />
+            </div>
+          </div>
+        )}
         <div className="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
           <SkBox className="h-4 w-36 mb-2" />
           <SkBox className="h-3 w-44 mb-5" />
@@ -840,6 +875,73 @@ function ResumenSkeleton() {
         </div>
       </div>
     </>
+  );
+}
+
+/* ─── Aviso sobre el separado por canal ───
+   WhatsApp y tienda se separan cruzando cada pedido con el checkout que
+   mandó Shopify. Mientras no haya checkouts que cruzar, los pedidos caen en
+   WhatsApp por descarte — no porque se vendieran por el chat. Solo se avisa
+   cuando eso puede confundir: en rojo si la tienda está vinculada pero no
+   llega ni un pedido, y en ámbar si el rango elegido se mete en días
+   anteriores al primero que registramos. Con un rango medible no se muestra
+   nada. */
+
+const AVISOS_CANAL = {
+  sin_datos: {
+    icon: "bx-error-circle",
+    box: "border-rose-400/30 bg-rose-400/[0.08]",
+    iconColor: "text-rose-300",
+    text: "text-rose-100/90",
+    strong: "text-rose-200",
+  },
+  rango_previo: {
+    icon: "bx-info-circle",
+    box: "border-amber-400/25 bg-amber-400/[0.07]",
+    iconColor: "text-amber-300",
+    text: "text-amber-100/90",
+    strong: "text-amber-200",
+  },
+};
+
+function AvisoCanal({ tipo, desde, dias }) {
+  const st = AVISOS_CANAL[tipo];
+  if (!st) return null;
+  const B = ({ children }) => (
+    <b className={st.strong}>{children}</b>
+  );
+  return (
+    <div
+      className={`mb-4 rounded-xl border px-3.5 py-2.5 flex items-start gap-2.5 ${st.box}`}
+    >
+      <i className={`bx ${st.icon} text-base mt-[1px] shrink-0 ${st.iconColor}`} />
+      <p className={`text-[11px] leading-relaxed ${st.text}`}>
+        {tipo === "sin_datos" && (
+          <>
+            Tu tienda está vinculada, pero <B>todavía no nos ha llegado ningún
+            pedido desde Shopify</B>. Hasta que llegue el primero no hay con qué
+            cruzar, así que <B>todos</B> los pedidos aparecen como WhatsApp
+            aunque salgan de la tienda. Suele resolverse solo con la primera
+            venta; si ya vendiste y sigue así, revisa la integración de Shopify.
+          </>
+        )}
+        {tipo === "rango_previo" && (
+          <>
+            Empezamos a recibir los pedidos de tu tienda{" "}
+            <B>
+              el {fmtDia(desde)}
+              {dias != null && dias > 0
+                ? `, hace ${dias} día${dias === 1 ? "" : "s"}`
+                : ""}
+            </B>
+            . Desde ese día recopilamos los datos de tus clientes hacia WhatsApp
+            y Landing; si eliges un rango que empiece antes, tus ventas
+            anteriores aparecerán atribuidas hacia WhatsApp porque no hay
+            checkout con el que cruzarlas.
+          </>
+        )}
+      </p>
+    </div>
   );
 }
 
@@ -864,7 +966,9 @@ function ResumenView({
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [canal, setCanal] = useState("todos");
+  // null = el usuario todavía no eligió pestaña → manda el valor por defecto
+  // que se calcula abajo, ya sabiendo cómo vende la tienda.
+  const [canalSel, setCanalSel] = useState(null);
 
   // Anuncios ganadores (solo si la conexión tiene Meta Ads)
   const [winnerAds, setWinnerAds] = useState(null);
@@ -958,22 +1062,57 @@ function ResumenView({
     loadAll(daysAgo(7), today);
   }, [loadAll]);
 
-  const view = useMemo(() => channelView(data, canal), [data, canal]);
-
   // ¿La conexión vende por Shopify? Solo entonces mostramos las pestañas
   // Todos/Shopify; si no, la vista es 100% WhatsApp (una sola pestaña).
   const vendeShopify =
     data?.shopifyConectado === true ||
     (data?.canales?.shopify?.pedidos || 0) > 0;
+
+  /* Pestaña por defecto según cómo vende la tienda: con Shopify enlazado
+     entra en "Todos" (antes caía en WhatsApp y la tabla se veía casi vacía
+     porque casi todo se vende por la tienda); sin Shopify, "WhatsApp". Se
+     resuelve aquí y no en el useState porque al montar todavía no sabemos
+     si vende por Shopify: esa respuesta llega con el resumen. En cuanto el
+     usuario toca una pestaña, su elección manda. */
+  const canal = canalSel ?? (vendeShopify ? "todos" : "wa");
+
+  const view = useMemo(() => channelView(data, canal), [data, canal]);
+
   const availableChannels = useMemo(
     () =>
       vendeShopify ? CHANNELS : CHANNELS.filter((c) => c.key === "wa"),
     [vendeShopify],
   );
-  // Si no vende por Shopify, el canal siempre es WhatsApp.
+
+  /* El separado WhatsApp/tienda solo existe desde que el webhook empezó a
+     recibir los checkouts: antes no hay contra qué cruzar y esos pedidos
+     caen todos en WhatsApp sin haberse vendido por el chat. Dos situaciones
+     lo dejan confuso y se avisan:
+       · sin_datos → tienda vinculada pero todavía sin ningún pedido recibido,
+       · rango_previo → el rango elegido incluye días anteriores al primero.
+     Fuera de eso no se muestra nada: el dato ya es confiable. */
+  const splitDesde = data?.shopifySplitDesde || null;
+  const diasDesdeSplit = splitDesde
+    ? Math.floor(
+        (new Date(`${todayStr}T00:00:00`) - new Date(`${splitDesde}T00:00:00`)) /
+          86400000,
+      )
+    : null;
+  const avisoCanal = useMemo(() => {
+    if (!vendeShopify || loading || !data) return null;
+    if (!splitDesde) return "sin_datos";
+    // Solo cuando el rango elegido se mete en días previos al primer pedido
+    // registrado. Si el rango cae entero dentro de lo medible, no se avisa
+    // nada: el dato es confiable y el cartel solo estorbaría.
+    if (dateRange.from < splitDesde) return "rango_previo";
+    return null;
+  }, [vendeShopify, loading, data, splitDesde, dateRange.from]);
+  // Si el usuario había elegido Shopify/Todos y cambia a una conexión que
+  // solo vende por WhatsApp, su elección deja de existir → vuelve a "wa".
   useEffect(() => {
-    if (!vendeShopify && canal !== "wa") setCanal("wa");
-  }, [vendeShopify, canal]);
+    if (data && !vendeShopify && canalSel && canalSel !== "wa")
+      setCanalSel("wa");
+  }, [data, vendeShopify, canalSel]);
 
   // Estados con % visible (usa pct del back; si no viene, lo calcula)
   const statusList = useMemo(() => {
@@ -998,24 +1137,39 @@ function ResumenView({
     const rows = data.productos
       .map((p) => {
         const c = p.canal?.[canal] || p.canal?.todos || {};
+        const s = p.canal?.shopify || {};
+        const w = p.canal?.wa || {};
         const ordenes = c.ordenes ?? 0;
-        const confirmadas = c.confirmadas ?? 0;
-        const pctConfirmacion =
-          ordenes > 0
-            ? Math.round((confirmadas / ordenes) * 10000) / 100
-            : null;
+        const canceladas = c.canceladas ?? 0;
+        // En "Todos" los pedidos se muestran SEPARADOS por camino (tienda vs
+        // WhatsApp) y la confirmación mide solo la etapa de la tienda: los
+        // pedidos de WhatsApp no pasan por «pendiente confirmación» (el bot
+        // los sube ya confirmados), así que mezclarlos inflaba el %.
+        const esTodos = canal === "todos";
         return {
           product_id: p.product_id,
           name: p.name,
           sku: p.sku,
           image: p.image,
-          confirmadas,
+          confirmadas: (esTodos ? s.confirmadas : c.confirmadas) ?? 0,
           ordenes,
-          canceladas: c.canceladas ?? 0,
+          canceladas,
+          // Todos los pedidos del producto en Dropi, cancelados incluidos:
+          // es el denominador del % de confirmación de la tienda.
+          pedidosTienda:
+            (esTodos ? s.pedidosTienda : c.pedidosTienda) ??
+            ordenes + canceladas,
+          // Solo en "Todos": la otra vía de venta, al lado de la tienda.
+          pedidosWa: w.ordenes ?? 0,
+          // Solo WhatsApp: chats que entraron por este producto. null
+          // cuando la conexión no tiene anuncios que lo identifiquen.
+          conversaciones: c.conversaciones ?? null,
           entregadas: c.entregadas ?? 0,
           devoluciones: c.devoluciones ?? 0,
           tasaEntrega: c.tasaEntrega ?? null,
-          pctConfirmacion,
+          // Lo calcula el back con la fórmula de cada canal (la misma del
+          // resumen de arriba), en vez de repetirla acá.
+          pctConfirmacion: (esTodos ? s.pctConfirmacion : c.pctConfirmacion) ?? null,
         };
       })
       .filter((r) => r.ordenes > 0 || r.canceladas > 0);
@@ -1026,6 +1180,25 @@ function ResumenView({
       return dir === "desc" ? vb - va : va - vb;
     });
   }, [data, prodSort, canal]);
+
+  // Al cambiar de pestaña, si la columna por la que se ordenaba ya no está
+  // en pantalla se remapea a su equivalente (si no, la tabla quedaba
+  // ordenada por una columna invisible y ninguna flecha marcaba nada).
+  useEffect(() => {
+    setProdSort((s) => {
+      if (canal === "wa") {
+        if (["pedidosTienda", "confirmadas", "pedidosWa"].includes(s.key))
+          return { ...s, key: "ordenes" };
+      } else {
+        if (["ordenes", "conversaciones"].includes(s.key))
+          return { ...s, key: "pedidosTienda" };
+        // "Pedidos WhatsApp" solo existe en la pestaña Todos
+        if (s.key === "pedidosWa" && canal !== "todos")
+          return { ...s, key: "pedidosTienda" };
+      }
+      return s;
+    });
+  }, [canal]);
 
   const handleProdSort = (key) =>
     setProdSort((s) =>
@@ -1041,13 +1214,78 @@ function ResumenView({
   const HERO_KPIS = view ? buildHeroKpis(canal, data, view) : [];
 
   // ── Tabla de productos (sigue la pestaña; datos de Dropi) ──
+  // Cada canal mide SU embudo, igual que las cards del resumen de arriba:
+  //  · WhatsApp → de las conversaciones que entraron por el producto,
+  //    cuántas terminaron en pedido Dropi. (El bot da por confirmado todo
+  //    lo que sube a Dropi, así que "confirmadas ÷ pedidos" daría 100%.)
+  //  · Shopify  → de los pedidos que llegaron a Dropi (cancelados
+  //    incluidos), cuántos superaron «pendiente confirmación».
+  const esWa = canal === "wa";
+  // "Todos" mezcla dos caminos de venta, así que separa los pedidos de la
+  // tienda de los de WhatsApp en vez de sumarlos en una sola columna.
+  const esTodosTab = canal === "todos";
+  // Cuadre "dónde están mis conversaciones" (lo calcula el back con la unión
+  // de chats por producto, no sumando la columna: varias presentaciones
+  // pueden compartir el mismo anuncio y se contarían dos veces).
+  const convCuadre = data?.conversacionesProducto || null;
   const canalMeta = CHANNELS.find((c) => c.key === canal) || CHANNELS[0];
-  const col2Tip =
-    "Pedidos de este producto que el bot ya confirmó (dejaron de estar en «pendiente confirmación»).";
-  const confTip =
-    "De los pedidos de este producto que YA están en Dropi, cuántos confirmó el bot. Ojo: es otra etapa que el % del resumen de arriba (ese mide checkouts → Dropi).";
-  const confFormula = "confirmadas ÷ pedidos Dropi × 100";
+  const col2Tip = esTodosTab
+    ? "Pedidos de la TIENDA que superaron «pendiente confirmación». Los de WhatsApp no entran: el bot los sube a Dropi ya confirmados, así que no tienen esa etapa."
+    : "Pedidos de este producto que el bot ya confirmó (dejaron de estar en «pendiente confirmación»).";
+  /* Embudo del canal en píldoras: mismos colores e iconos que las columnas
+     de la tabla, para leerlo de un vistazo en vez de en un párrafo. */
+  const PILL = {
+    conv: "bg-pink-50 text-pink-700 border-pink-100",
+    tienda: "bg-blue-50 text-blue-700 border-blue-100",
+    wa: "bg-teal-50 text-teal-700 border-teal-100",
+    conf: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    entrega: "bg-cyan-50 text-cyan-700 border-cyan-100",
+  };
+  const pasosEmbudo = esWa
+    ? [
+        { label: "Conversaciones", icon: "bx-message-dots", cls: PILL.conv },
+        { label: "Pedidos Dropi", icon: "bx-package", cls: PILL.tienda },
+        { label: "Entregas", icon: "bx-check-double", cls: PILL.entrega },
+      ]
+    : esTodosTab
+      ? [
+          { label: "Pedidos tienda", icon: "bx-store", cls: PILL.tienda },
+          {
+            label: "Pedidos WhatsApp",
+            icon: "bxl-whatsapp",
+            cls: PILL.wa,
+            sep: "+", // suman, no se siguen: son los dos caminos de venta
+          },
+          { label: "Confirmados", icon: "bx-check-shield", cls: PILL.conf },
+          { label: "Entregas", icon: "bx-check-double", cls: PILL.entrega },
+        ]
+      : [
+          { label: "Pedidos tienda", icon: "bx-store", cls: PILL.tienda },
+          { label: "Confirmados", icon: "bx-check-shield", cls: PILL.conf },
+          { label: "Entregas", icon: "bx-check-double", cls: PILL.entrega },
+        ];
+  const convTip =
+    "Chats distintos que entraron preguntando por este producto (por anuncio) o que terminaron comprándolo por WhatsApp. Si varias presentaciones salen del mismo anuncio comparten las conversaciones, así que no sumes la columna.";
+  const pedidosTip = esWa
+    ? "Pedidos de este producto que llegaron a Dropi por WhatsApp, sin contar los cancelados."
+    : `Pedidos de este producto que entraron por la tienda${esTodosTab ? " Shopify" : ""} y llegaron a Dropi, incluidos los cancelados. Es la base del % de confirmación.`;
+  const pedidosWaTip =
+    "Pedidos de este producto que cerró el bot por WhatsApp y llegaron a Dropi, sin contar los cancelados. No pasan por «pendiente confirmación», por eso van aparte.";
+  const confTip = esWa
+    ? "De las conversaciones que entraron por este producto, cuántas terminaron en pedido por WhatsApp. Es el mismo embudo de la card «Confirmación» de arriba."
+    : `De los pedidos de la tienda que llegaron a Dropi, cuántos ya se confirmaron (superaron «pendiente confirmación»).${
+        esTodosTab
+          ? " Mide solo el camino de la tienda: los pedidos de WhatsApp llegan ya confirmados y contarlos aquí inflaba el porcentaje."
+          : " Mismo cálculo que la card «Confirmación» de arriba."
+      }`;
+  const confFormula = esWa
+    ? "pedidos Dropi ÷ conversaciones × 100"
+    : "confirmados tienda ÷ pedidos tienda × 100";
+  // En Shopify el % es una meta clara (confirmar el pedido) y se semaforiza.
+  // En WhatsApp es una conversión chat → pedido: un 5% puede ser sano según
+  // el rubro, así que se muestra neutro en vez de pintarlo en rojo.
   const confColor = (v) => {
+    if (esWa) return "bg-slate-100 text-slate-700";
     if (v >= 70) return "bg-emerald-50 text-emerald-700";
     if (v >= 40) return "bg-amber-50 text-amber-700";
     return "bg-rose-50 text-rose-700";
@@ -1077,6 +1315,26 @@ function ResumenView({
     canal === "wa"
       ? "Cuántos te escriben, cuántos pedidos generas y cuántos se entregan"
       : "Conversaciones, guías y entregas por día";
+
+  // ── Carritos abandonados (solo conexiones enlazadas a Shopify) ──
+  // Misma métrica de /shopify/abandonados pero acotada al rango del
+  // dashboard: recuperados vs. pendientes y cuánto dinero sigue en juego.
+  const carritos = data?.carritos || null;
+  const mostrarCarritos = vendeShopify && !!carritos;
+  const carritosSerie = useMemo(() => {
+    if (!carritos?.abandonados) return [];
+    if (Array.isArray(carritos.serie) && carritos.serie.length)
+      return carritos.serie;
+    // Resumen cacheado sin serie diaria: una sola barra con el total.
+    const rec = Number(carritos.recuperados || 0);
+    return [
+      {
+        day: dateRange.to,
+        recuperados: rec,
+        pendientes: Math.max(0, Number(carritos.abandonados || 0) - rec),
+      },
+    ];
+  }, [carritos, dateRange.to]);
 
   return (
     <>
@@ -1123,7 +1381,7 @@ function ResumenView({
                 {availableChannels.map((c) => (
                   <button
                     key={c.key}
-                    onClick={() => setCanal(c.key)}
+                    onClick={() => setCanalSel(c.key)}
                     className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                       canal === c.key
                         ? "bg-white text-slate-900 shadow-sm"
@@ -1137,6 +1395,15 @@ function ResumenView({
               </div>
             )}
           </div>
+
+          {/* Aviso honesto sobre el separado por canal (ver `avisoCanal`) */}
+          {avisoCanal && (
+            <AvisoCanal
+              tipo={avisoCanal}
+              desde={splitDesde}
+              dias={diasDesdeSplit}
+            />
+          )}
 
           {/* ── KPI Grid ── */}
           {loading ? (
@@ -1345,9 +1612,13 @@ function ResumenView({
           </div>
         )}
 
-        {loading && !data && <ResumenSkeleton />}
+        {/* Al cambiar el rango cambia TODO lo de abajo (productos, gráficos,
+            carritos), no solo los KPIs del hero: se muestra el skeleton
+            completo en vez de dejar los datos del rango anterior en pantalla,
+            que se leían como si ya fueran los nuevos. */}
+        {loading && <ResumenSkeleton conCarritos={mostrarCarritos} />}
 
-        {data && (
+        {!loading && data && (
           <>
             {/* ── Anuncios ganadores / CTA Meta Ads ── */}
             {adsConectado && winnerAds?.length > 0 && (
@@ -1359,7 +1630,7 @@ function ResumenView({
 
             {/* ── PRODUCTOS ── */}
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="px-4 sm:px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div className="px-4 sm:px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-[15px] font-bold text-slate-900">
@@ -1373,13 +1644,38 @@ function ResumenView({
                       {canalMeta.label}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Pedidos en Dropi por producto (sin cancelados) → cuántos
-                    confirmó el bot → cuántos se entregaron. Solo del canal{" "}
-                    <b>{canalMeta.label}</b> — cámbialo en las pestañas de
-                    arriba. Toca la{" "}
+                  {/* El embudo del canal, dibujado en vez de explicado: cada
+                      paso usa el color de su columna en la tabla, así se lee
+                      de un vistazo qué mide cada una y en qué orden. */}
+                  <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5 mt-2">
+                    {pasosEmbudo.map((paso, i) => (
+                      <Fragment key={paso.label}>
+                        {i > 0 &&
+                          (paso.sep === "+" ? (
+                            <span className="text-slate-300 font-bold px-1">
+                              +
+                            </span>
+                          ) : (
+                            <i className="bx bx-chevron-right text-slate-300 text-base" />
+                          ))}
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded-lg border ${paso.cls}`}
+                        >
+                          <i className={`bx ${paso.icon} text-[13px]`} />
+                          {paso.label}
+                        </span>
+                      </Fragment>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    {esWa
+                      ? "De cada producto: cuántos chats entraron, cuántos acabaron en pedido y cuántos llegaron al cliente."
+                      : esTodosTab
+                        ? "De cada producto: cuánto vendió cada camino, cuántos pedidos de la tienda se confirmaron y cuántos llegaron al cliente."
+                        : "De cada producto: cuántos pedidos entraron, cuántos se confirmaron y cuántos llegaron al cliente."}{" "}
+                    Toca la{" "}
                     <i className="bx bx-info-circle align-middle text-slate-300" />{" "}
-                    de cada columna para ver su fórmula.
+                    de una columna para ver su fórmula.
                   </p>
                 </div>
                 {data.productos?.length > 0 && (
@@ -1391,32 +1687,58 @@ function ResumenView({
 
               {sortedProducts.length > 0 ? (
                 <div className="max-h-[360px] overflow-y-auto overflow-x-auto">
-                  <table className="w-full text-sm min-w-[760px]">
+                  <table
+                    className={`w-full text-sm ${
+                      esTodosTab ? "min-w-[860px]" : "min-w-[760px]"
+                    }`}
+                  >
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-200">
                         <th className="px-3 py-3 w-8">#</th>
                         <th className="px-3 py-3">Producto</th>
+                        {/* WhatsApp: el embudo arranca en el chat, así que
+                            la conversación va ANTES del pedido. */}
+                        {esWa && (
+                          <SortTh
+                            label="Conversaciones"
+                            k="conversaciones"
+                            sort={prodSort}
+                            onSort={handleProdSort}
+                            tip={convTip}
+                          />
+                        )}
                         <SortTh
-                          label="Pedidos Dropi"
-                          k="ordenes"
+                          label={esWa ? "Pedidos Dropi" : "Pedidos tienda"}
+                          k={esWa ? "ordenes" : "pedidosTienda"}
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Pedidos de este producto que llegaron a Dropi en el periodo, sin contar los cancelados."
+                          tip={pedidosTip}
                         />
-                        <SortTh
-                          label="Confirmadas"
-                          k="confirmadas"
-                          sort={prodSort}
-                          onSort={handleProdSort}
-                          tip={col2Tip}
-                        />
-                        <SortTh
-                          label="Canceladas"
-                          k="canceladas"
-                          sort={prodSort}
-                          onSort={handleProdSort}
-                          tip="Pedidos de este producto que se cancelaron."
-                        />
+                        {/* "Todos" muestra los dos caminos por separado: la
+                            tienda y lo que cerró el bot por WhatsApp. */}
+                        {esTodosTab && (
+                          <SortTh
+                            label="Pedidos WhatsApp"
+                            k="pedidosWa"
+                            sort={prodSort}
+                            onSort={handleProdSort}
+                            tip={pedidosWaTip}
+                          />
+                        )}
+                        {/* En WA no se muestra: el bot marca como confirmado
+                            todo lo que sube a Dropi (sería igual a la
+                            columna de pedidos). */}
+                        {!esWa && (
+                          <SortTh
+                            label="Confirmados"
+                            k="confirmadas"
+                            sort={prodSort}
+                            onSort={handleProdSort}
+                            tip={col2Tip}
+                          />
+                        )}
+                        {/* El % va pegado al par que lo produce, para que se
+                            lea "de esto → salió esto → este %". */}
                         <SortTh
                           label="% Conf."
                           k="pctConfirmacion"
@@ -1424,6 +1746,13 @@ function ResumenView({
                           onSort={handleProdSort}
                           tip={confTip}
                           formula={confFormula}
+                        />
+                        <SortTh
+                          label="Canceladas"
+                          k="canceladas"
+                          sort={prodSort}
+                          onSort={handleProdSort}
+                          tip="Pedidos de este producto que se cancelaron."
                         />
                         <SortTh
                           label="Entregadas"
@@ -1494,26 +1823,44 @@ function ResumenView({
                                 </div>
                               </div>
                             </td>
+                            {esWa && (
+                              <td className="px-3 py-2.5 text-center tabular-nums">
+                                {p.conversaciones == null ? (
+                                  <span
+                                    className="text-slate-300"
+                                    title="No hay cómo saber qué chats entraron por este producto: la conexión no tiene anuncios que lo identifiquen en el periodo."
+                                  >
+                                    —
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-pink-50 text-pink-700 text-xs font-bold">
+                                    <i className="bx bx-message-dots text-[13px]" />
+                                    {fmtNum(p.conversaciones)}
+                                  </span>
+                                )}
+                              </td>
+                            )}
                             <td className="px-3 py-2.5 text-center">
                               <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-bold">
-                                {p.ordenes}
+                                {fmtNum(esWa ? p.ordenes : p.pedidosTienda)}
                               </span>
                             </td>
-                            <td className="px-3 py-2.5 text-center tabular-nums">
-                              <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold">
-                                <i className="bx bx-check text-[13px]" />
-                                {fmtNum(p.confirmadas)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5 text-center tabular-nums">
-                              {p.canceladas > 0 ? (
-                                <span className="text-rose-500 font-medium">
-                                  {fmtNum(p.canceladas)}
+                            {esTodosTab && (
+                              <td className="px-3 py-2.5 text-center">
+                                <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-xs font-bold">
+                                  <i className="bx bxl-whatsapp text-[13px]" />
+                                  {fmtNum(p.pedidosWa)}
                                 </span>
-                              ) : (
-                                <span className="text-slate-300">0</span>
-                              )}
-                            </td>
+                              </td>
+                            )}
+                            {!esWa && (
+                              <td className="px-3 py-2.5 text-center tabular-nums">
+                                <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold">
+                                  <i className="bx bx-check text-[13px]" />
+                                  {fmtNum(p.confirmadas)}
+                                </span>
+                              </td>
+                            )}
                             <td className="px-3 py-2.5 text-center">
                               {p.pctConfirmacion == null ? (
                                 <span className="text-slate-300">—</span>
@@ -1525,6 +1872,15 @@ function ResumenView({
                                 >
                                   {fmtPct(p.pctConfirmacion)}
                                 </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-center tabular-nums">
+                              {p.canceladas > 0 ? (
+                                <span className="text-rose-500 font-medium">
+                                  {fmtNum(p.canceladas)}
+                                </span>
+                              ) : (
+                                <span className="text-slate-300">0</span>
                               )}
                             </td>
                             <td className="px-3 py-2.5 text-center tabular-nums text-emerald-600 font-medium">
@@ -1566,10 +1922,72 @@ function ResumenView({
                   </p>
                 </div>
               )}
+
+              {/* Cuadre de conversaciones: la tabla nace de los pedidos de
+                  Dropi, así que un producto que recibió chats pero no vendió
+                  nada no tiene fila. Sin esta nota el número "desaparecía". */}
+              {esWa && convCuadre && (
+                <div className="border-t border-slate-100 bg-slate-50/70 px-4 sm:px-5 py-3.5">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <i className="bx bx-git-compare text-sm text-slate-400" />
+                      Dónde están tus conversaciones
+                    </span>
+                    <span className="inline-flex items-baseline gap-1.5 text-[11px] text-slate-500">
+                      <b className="text-[13px] tabular-nums text-slate-800">
+                        {fmtNum(convCuadre.total)}
+                      </b>
+                      en el periodo
+                    </span>
+                    <span className="inline-flex items-baseline gap-1.5 text-[11px] text-slate-500">
+                      <span className="w-2 h-2 rounded-full bg-pink-500 self-center" />
+                      <b className="text-[13px] tabular-nums text-slate-800">
+                        {fmtNum(convCuadre.enTabla)}
+                      </b>
+                      en esta tabla
+                    </span>
+                    <span className="inline-flex items-baseline gap-1.5 text-[11px] text-slate-500">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 self-center" />
+                      <b className="text-[13px] tabular-nums text-slate-800">
+                        {fmtNum(convCuadre.sinProducto)}
+                      </b>
+                      sin producto asignado
+                    </span>
+                  </div>
+                  {convCuadre.sinProducto > 0 &&
+                    (data.ctwaActivo ? (
+                      <p className="text-[11px] text-slate-500 leading-relaxed mt-2">
+                        Esas <b>{fmtNum(convCuadre.sinProducto)}</b>{" "}
+                        conversaciones no faltan: la mayoría entró preguntando
+                        por artículos que <b>no registraron ninguna venta</b> en
+                        el rango. Como esta tabla se arma desde los pedidos de
+                        Dropi, un producto que recibió chats pero no vendió
+                        todavía no tiene fila aquí. También cuentan los chats que
+                        no llegaron desde un anuncio. Por eso la columna{" "}
+                        <b>Conversaciones</b> no suma el total: varias
+                        presentaciones pueden compartir un mismo anuncio.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 leading-relaxed mt-2">
+                        En este rango no hay anuncios que digan por qué producto
+                        entró cada chat, así que las{" "}
+                        <b>{fmtNum(convCuadre.sinProducto)}</b> conversaciones no
+                        se pueden repartir producto por producto. Con anuncios de
+                        clic a WhatsApp activos, cada chat queda ligado al
+                        artículo por el que preguntó y esta columna se llena.
+                      </p>
+                    ))}
+                </div>
+              )}
             </div>
 
-            {/* ── Charts row: pedidos/mensajes por día + estado de pedidos ── */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            {/* ── Charts row: pedidos/mensajes por día + carritos (si vende
+                por Shopify) + estado de pedidos ── */}
+            <div
+              className={`grid grid-cols-1 gap-4 ${
+                mostrarCarritos ? "xl:grid-cols-4" : "xl:grid-cols-3"
+              }`}
+            >
               <div className="xl:col-span-2 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col xl:h-[320px]">
                 <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
                   <div className="min-w-0">
@@ -1689,6 +2107,166 @@ function ResumenView({
                   </div>
                 )}
               </div>
+
+              {/* Carritos abandonados: misma métrica de /shopify/abandonados,
+                  acotada al rango. Solo si la conexión vende por Shopify. */}
+              {mostrarCarritos && (
+                <div className="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col xl:h-[320px]">
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h2 className="text-[15px] font-bold text-slate-900">
+                        Carritos abandonados
+                      </h2>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Recuperados vs. pendientes
+                      </p>
+                    </div>
+                    <span
+                      title="De los carritos abandonados del periodo, cuántos terminaron en compra. Fórmula: recuperados ÷ abandonados × 100"
+                      className={`shrink-0 inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full border ${
+                        carritos.tasaRecuperacion >= 30
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                          : carritos.tasaRecuperacion >= 15
+                            ? "bg-amber-50 text-amber-700 border-amber-100"
+                            : "bg-rose-50 text-rose-700 border-rose-100"
+                      }`}
+                    >
+                      <i className="bx bx-cart-download text-[13px]" />
+                      {fmtPct(carritos.tasaRecuperacion)}
+                    </span>
+                  </div>
+
+                  {carritos.abandonados > 0 ? (
+                    <div className="flex-1 min-h-0 flex flex-col">
+                      {/* Total del rango + barras apiladas por día
+                          (verde = ya recuperado, ámbar = sigue pendiente) */}
+                      <div className="flex items-baseline gap-1.5">
+                        <p className="text-2xl font-extrabold text-slate-900 tabular-nums leading-none">
+                          {fmtNum(carritos.abandonados)}
+                        </p>
+                        <span className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
+                          en el periodo
+                        </span>
+                      </div>
+                      <div className="h-[110px] mt-2 shrink-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart
+                            data={carritosSerie}
+                            margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+                            barCategoryGap="25%"
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="rgba(148,163,184,0.14)"
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="day"
+                              tickFormatter={(v) => String(v).slice(5)}
+                              tick={{ fontSize: 10, fill: "#94a3b8" }}
+                              axisLine={false}
+                              tickLine={false}
+                              interval="preserveStartEnd"
+                              minTickGap={12}
+                            />
+                            <YAxis
+                              tick={{ fontSize: 10, fill: "#94a3b8" }}
+                              axisLine={false}
+                              tickLine={false}
+                              width={22}
+                              allowDecimals={false}
+                            />
+                            <Tooltip
+                              formatter={(value, name) => [
+                                `${value} carritos`,
+                                name,
+                              ]}
+                              cursor={{ fill: "rgba(148,163,184,0.08)" }}
+                              contentStyle={{
+                                borderRadius: 12,
+                                border: "1px solid #e2e8f0",
+                                fontSize: 12,
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                              }}
+                            />
+                            <Bar
+                              dataKey="recuperados"
+                              name="Recuperados"
+                              stackId="carritos"
+                              fill="#10B981"
+                              maxBarSize={16}
+                            />
+                            <Bar
+                              dataKey="pendientes"
+                              name="Pendientes"
+                              stackId="carritos"
+                              fill="#F59E0B"
+                              radius={[4, 4, 0, 0]}
+                              maxBarSize={16}
+                            />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Conteo + dinero de cada estado */}
+                      <div className="mt-3 space-y-1.5">
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500" />
+                          <span className="text-slate-600 font-medium">
+                            Recuperados
+                          </span>
+                          <span className="ml-auto tabular-nums text-slate-400">
+                            {fmt$(carritos.valorRecuperado)}
+                          </span>
+                          <span className="w-8 text-right tabular-nums font-extrabold text-slate-800">
+                            {fmtNum(carritos.recuperados)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="w-2 h-2 rounded-full shrink-0 bg-amber-500" />
+                          <span className="text-slate-600 font-medium">
+                            Pendientes
+                          </span>
+                          <span className="ml-auto tabular-nums text-slate-400">
+                            {fmt$(
+                              carritos.valorPendiente ??
+                                Math.max(
+                                  0,
+                                  (carritos.valorTotal || 0) -
+                                    (carritos.valorRecuperado || 0),
+                                ),
+                            )}
+                          </span>
+                          <span className="w-8 text-right tabular-nums font-extrabold text-slate-800">
+                            {fmtNum(
+                              carritos.pendientes ??
+                                Math.max(
+                                  0,
+                                  (carritos.abandonados || 0) -
+                                    (carritos.recuperados || 0),
+                                ),
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => navigate("/shopify/abandonados")}
+                        className="mt-auto pt-3 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 self-start"
+                      >
+                        Ver carritos
+                        <i className="bx bx-right-arrow-alt text-sm" />
+                      </button>
+                    </div>
+                  ) : (
+                    <EmptyChart
+                      icon="bx-cart"
+                      text="Sin carritos abandonados en este rango"
+                    />
+                  )}
+                </div>
+              )}
 
               {/* Estado de pedidos: donut + % visibles sin hover */}
               <div className="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col xl:h-[320px]">

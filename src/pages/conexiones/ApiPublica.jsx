@@ -57,7 +57,7 @@ const ENDPOINTS = [
     icon: "bx-bar-chart-alt-2",
     color: "#6366f1",
     titulo: "Resumen del periodo",
-    desc: "Ventas, facturación, ganancia, conversaciones y porcentaje de confirmación. Separado por canal.",
+    desc: "Los mismos KPIs del dashboard de la conexión: ventas y pedidos netos (sin cancelados), facturación, ganancia, tasa de entrega, conversaciones, porcentaje de confirmación y carritos abandonados. Separado por canal.",
     rango: true,
   },
   {
@@ -569,6 +569,14 @@ console.log(data.conversaciones.pct_confirmacion); // 63.9`}
                   Guarda los resultados unos minutos de tu lado. Consultar cada
                   5–15 minutos es suficiente; no hace falta pedir datos en cada
                   pantalla que abra un usuario.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <i className="bx bx-git-compare text-slate-400 text-base mt-[2px]" />
+                <span>
+                  Los números salen del <b>mismo cálculo</b> que ves en el
+                  dashboard de la conexión, con una caché de 5 minutos
+                  compartida: si comparas ambos lados, cuadran.
                 </span>
               </li>
               <li className="flex gap-2">
