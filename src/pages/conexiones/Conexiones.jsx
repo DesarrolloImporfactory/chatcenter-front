@@ -1410,6 +1410,11 @@ const Conexiones = () => {
               <div className="grid grid-cols-[repeat(auto-fill,minmax(min(330px,100%),1fr))] gap-4 auto-rows-fr">
                 {listaFiltrada.map((config, idx) => {
                   const conectado = isConectado(config);
+                  // Estuvo vinculada alguna vez (aunque hoy esté desconectada
+                  // o suspendida): el back lo resuelve con wa_status + los ids
+                  // de Meta. Fallback por si la respuesta aún no lo trae.
+                  const yaVinculado =
+                    Number(config?.ya_vinculado) === 1 || conectado;
                   const pagoActivo = Number(config.metodo_pago) === 1;
                   const msgConectado = isMessengerConectado(config);
                   const igConectado = isInstagramConectado(config);
@@ -1520,10 +1525,13 @@ const Conexiones = () => {
                                 <i className="bx bx-copy text-base text-slate-500" />
                                 Copiar número
                               </button>
-                              {/* Editar: solo si la conexión NO está
+                              {/* Editar: solo si la conexión NUNCA estuvo
                                   vinculada a WhatsApp (para corregir un
-                                  número mal escrito antes de conectar). */}
-                              {!conectado && (
+                                  número mal escrito antes de conectar). Un
+                                  número desconectado o suspendido sigue
+                                  bloqueado: cambiarlo partiría el historial
+                                  entre el número viejo y el nuevo. */}
+                              {!yaVinculado && (
                                 <button
                                   type="button"
                                   role="menuitem"
