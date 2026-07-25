@@ -515,13 +515,45 @@ const ProductosView = () => {
                               )}
                             </div>
                             <div className="min-w-0">
-                              <div className="font-semibold text-slate-800 text-sm truncate max-w-[240px]">
-                                {p.nombre}
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-slate-800 text-sm truncate max-w-[240px]">
+                                  {p.nombre}
+                                </span>
+                                {/* Se vende en varias opciones: importa verlo
+                                    de un vistazo, porque el bot preguntará la
+                                    variedad y el pedido viaja con su ID. */}
+                                {Number(p.es_variable) === 1 && (
+                                  <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
+                                    <i className="bx bx-palette text-[11px]" />
+                                    {p.variaciones?.length || ""} variedades
+                                  </span>
+                                )}
                               </div>
-                              {p.descripcion && (
-                                <div className="text-xs text-slate-400 line-clamp-1 max-w-[280px] mt-0.5">
-                                  {p.descripcion}
+
+                              {Number(p.es_variable) === 1 &&
+                              p.variaciones?.length ? (
+                                <div className="flex flex-wrap items-center gap-1 mt-1 max-w-[280px]">
+                                  {p.variaciones.slice(0, 4).map((v) => (
+                                    <span
+                                      key={v.id}
+                                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600"
+                                      title={`${v.atributo}: ${v.valor}`}
+                                    >
+                                      {v.valor}
+                                    </span>
+                                  ))}
+                                  {p.variaciones.length > 4 && (
+                                    <span className="text-[10px] text-slate-400">
+                                      +{p.variaciones.length - 4}
+                                    </span>
+                                  )}
                                 </div>
+                              ) : (
+                                p.descripcion && (
+                                  <div className="text-xs text-slate-400 line-clamp-1 max-w-[280px] mt-0.5">
+                                    {p.descripcion}
+                                  </div>
+                                )
                               )}
                             </div>
                           </div>

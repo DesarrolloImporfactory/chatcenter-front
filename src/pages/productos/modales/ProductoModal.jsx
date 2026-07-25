@@ -94,6 +94,10 @@ const SecHead = ({ icon, title }) => (
 );
 
 /* dropzone */
+/* El área de carga ocupaba casi toda la columna y dejaba la vista previa
+   pequeña abajo. Ahora es al revés: un botón chico para subir a la izquierda
+   y el contenido grande al lado, que es lo que interesa mirar. Se puede
+   seguir arrastrando el archivo sobre todo el bloque. */
 const DropZone = ({
   dropRef,
   onDrop,
@@ -106,47 +110,51 @@ const DropZone = ({
   preview,
   onRemove,
 }) => (
-  <div>
-    <div
-      ref={dropRef}
-      onDrop={onDrop}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      className="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer
+  <div
+    ref={dropRef}
+    onDrop={onDrop}
+    onDragOver={onDragOver}
+    onDragLeave={onDragLeave}
+    className="flex items-stretch gap-3"
+  >
+    <label
+      className="w-[72px] shrink-0 flex flex-col items-center justify-center gap-1 rounded-xl
+        border-2 border-dashed border-slate-200 cursor-pointer py-3
         hover:border-indigo-300 hover:bg-slate-50 transition-colors"
+      title={hint}
     >
-      <div className="flex flex-col items-center gap-2">
-        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
-          <i className={`bx ${icon} text-2xl`} />
+      <i className={`bx ${icon} text-xl text-slate-400`} />
+      <span className="text-[10px] font-semibold text-indigo-600">Subir</span>
+      <input
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => onPick(e.target.files?.[0])}
+      />
+    </label>
+
+    <div className="flex-1 min-w-0">
+      {preview ? (
+        <div className="relative">
+          {preview}
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute top-2 right-2 bg-white/90 hover:bg-white border border-slate-200
+              text-slate-600 text-xs px-2.5 py-1 rounded-lg shadow-sm transition-colors"
+          >
+            Quitar
+          </button>
         </div>
-        <p className="text-sm text-slate-600">
-          Arrastra aquí o{" "}
-          <label className="text-indigo-600 font-semibold cursor-pointer hover:underline">
-            selecciona{" "}
-            <input
-              type="file"
-              accept={accept}
-              className="hidden"
-              onChange={(e) => onPick(e.target.files?.[0])}
-            />
-          </label>
-        </p>
-        <p className="text-xs text-slate-400">{hint}</p>
-      </div>
+      ) : (
+        <div className="h-full min-h-[76px] rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center px-3 text-center">
+          <p className="text-[11px] text-slate-400">
+            o arrastra el archivo aquí
+          </p>
+          <p className="text-[10px] text-slate-300 mt-0.5">{hint}</p>
+        </div>
+      )}
     </div>
-    {preview && (
-      <div className="relative mt-2">
-        {preview}
-        <button
-          type="button"
-          onClick={onRemove}
-          className="absolute top-2 right-2 bg-white/90 hover:bg-white border border-slate-200
-            text-slate-600 text-xs px-2.5 py-1 rounded-lg shadow-sm transition-colors"
-        >
-          Quitar
-        </button>
-      </div>
-    )}
   </div>
 );
 
@@ -174,6 +182,98 @@ const ProductoModal = ({
 
   const [videoRemoved, setVideoRemoved] = useState(false);
   const [upsellRemoved, setUpsellRemoved] = useState(false);
+
+  /* ── Variedades (talla / color) ──
+     Si el producto se vende en varias opciones, el bot debe preguntar cuál
+     quiere el cliente antes de cerrar, y el pedido necesita el id de la
+     variante para que Dropi lo acepte (si no, lo rechaza por "no es simple"). */
+  const [esVariable, setEsVariable] = useState(false);
+  const [variaciones, setVariaciones] = useState([]);
+
+  /* Una prenda puede combinar dos cosas (talla Y color). Dropi entrega un id
+     por combinación —"camiseta negra S" es un id distinto de "camiseta verde
+     S"—, así que cada fila es una combinación con su propio id.
+     En la base se guarda como un par: atributo "Talla / Color" y valor
+     "S / Negro", sin necesidad de columnas nuevas. */
+  const SEP = " / ";
+  const [atributosSel, setAtributosSel] = useState(["Color"]);
+
+  const partesValor = (v) => {
+    const p = String(v?.valor || "").split(SEP);
+    while (p.length < atributosSel.length) p.push("");
+    return p;
+  };
+
+  const alternarAtributo = (a) => {
+    const yaEsta = atributosSel.includes(a);
+    let next = yaEsta
+      ? atributosSel.filter((x) => x !== a)
+      : atributosSel.length >= 2
+        ? [atributosSel[1], a] // máximo dos: entra el nuevo, sale el más viejo
+        : [...atributosSel, a];
+    if (!next.length) next = [a]; // nunca sin atributo
+    setAtributosSel(next);
+    // Lo escrito deja de tener sentido al cambiar de atributo ("Negro" no es
+    // una talla), así que se limpia en vez de quedar bajo el rótulo errado.
+    setVariaciones((lista) =>
+      lista.map((v) => ({ ...v, atributo: next.join(SEP), valor: "" })),
+    );
+  };
+
+  const agregarVariacion = () =>
+    setVariaciones((v) => [
+      ...v,
+      {
+        dropi_variation_id: "",
+        atributo: atributosSel.join(SEP),
+        valor: "",
+        stock: 0,
+        precio_proveedor: "",
+        precio_sugerido: "",
+      },
+    ]);
+  const cambiarVariacion = (i, campo, valor) =>
+    setVariaciones((lista) =>
+      lista.map((v, idx) => (idx === i ? { ...v, [campo]: valor } : v)),
+    );
+  const cambiarParteValor = (i, idx, val) =>
+    setVariaciones((lista) =>
+      lista.map((v, k) => {
+        if (k !== i) return v;
+        const p = String(v.valor || "").split(SEP);
+        while (p.length < atributosSel.length) p.push("");
+        p[idx] = val;
+        return { ...v, valor: p.slice(0, atributosSel.length).join(SEP) };
+      }),
+    );
+  const quitarVariacion = (i) =>
+    setVariaciones((lista) => lista.filter((_, idx) => idx !== i));
+
+  // Una fila cuenta si tiene algo escrito en todos sus atributos.
+  const variacionCompleta = (v) =>
+    partesValor(v)
+      .slice(0, atributosSel.length)
+      .every((x) => String(x || "").trim());
+
+  /* Tipo (producto/servicio): se hereda de lo que el cliente eligió al
+     activar el bot en Asistentes, en vez de preguntarlo otra vez acá. */
+  const [tipoCuenta, setTipoCuenta] = useState("producto");
+  useEffect(() => {
+    if (!open) return;
+    const idc = parseInt(localStorage.getItem("id_configuracion"));
+    if (!idc) return;
+    chatApi
+      .post(
+        "openai_assistants/info_asistentes",
+        { id_configuracion: idc },
+        { silentError: true },
+      )
+      .then(({ data }) => {
+        const ofrece = data?.data?.ventas?.ofrecer;
+        setTipoCuenta(ofrece === "servicios" ? "servicio" : "producto");
+      })
+      .catch(() => setTipoCuenta("producto"));
+  }, [open]);
 
   /* ── Populate on open ── */
   useEffect(() => {
@@ -221,6 +321,27 @@ const ProductoModal = ({
       setPreviewVideo(p.video_url || null);
       setPreviewUpsell(p.imagen_upsell_url || null);
 
+      // Variedades: vienen adjuntas al listado de productos.
+      setEsVariable(Number(p.es_variable) === 1);
+      setAtributosSel(
+        String(p.variaciones?.[0]?.atributo || "Color")
+          .split(" / ")
+          .filter(Boolean)
+          .slice(0, 2) || ["Color"],
+      );
+      setVariaciones(
+        Array.isArray(p.variaciones) && p.variaciones.length
+          ? p.variaciones.map((v) => ({
+              dropi_variation_id: v.dropi_variation_id ?? "",
+              atributo: v.atributo ?? "Color",
+              valor: v.valor ?? "",
+              stock: v.stock ?? 0,
+              precio_proveedor: v.precio_proveedor ?? "",
+              precio_sugerido: v.precio_sugerido ?? "",
+            }))
+          : [],
+      );
+
       /* abrir acordeón catálogo si ya tiene datos */
       if (privVal !== "" || p.material || p.landing_url) setCatalogOpen(true);
     } else {
@@ -229,6 +350,9 @@ const ProductoModal = ({
       setPreviewVideo(null);
       setPreviewUpsell(null);
       setCatalogOpen(false);
+      setEsVariable(false);
+      setVariaciones([]);
+      setAtributosSel(["Color"]);
     }
     setCombosOpen(false);
   }, [open, editingProduct]);
@@ -309,12 +433,16 @@ const ProductoModal = ({
       Swal.fire({ icon: "warning", title: "Ingresa el nombre del producto" });
       return;
     }
-    if (!form.tipo) {
-      Swal.fire({ icon: "warning", title: "Selecciona el tipo" });
-      return;
-    }
     if (!form.precio) {
       Swal.fire({ icon: "warning", title: "Ingresa el precio" });
+      return;
+    }
+    if (esVariable && !variaciones.some(variacionCompleta)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Falta la variedad",
+        text: `Marcaste que se vende en varias opciones: completa al menos una (${atributosSel.join(" y ")}).`,
+      });
       return;
     }
 
@@ -333,7 +461,11 @@ const ProductoModal = ({
       ];
 
       Object.entries(form).forEach(([k, v]) => {
-        if (k === "combos_producto") {
+        if (k === "tipo") {
+          // Heredado de Asistentes; en productos ya guardados se respeta el
+          // suyo para no cambiarle el tipo a nadie sin querer.
+          data.append("tipo", v || tipoCuenta);
+        } else if (k === "combos_producto") {
           data.append(k, JSON.stringify(v));
         } else if (v === null || v === undefined) {
           // archivos no seleccionados → no enviar
@@ -343,6 +475,19 @@ const ProductoModal = ({
           data.append(k, v); // envía incluso "" para los borrables
         }
       });
+
+      // Variedades: el back las reemplaza en bloque y limpia si se desmarca.
+      data.append("es_variable", esVariable ? "1" : "0");
+      if (esVariable) {
+        data.append(
+          "variaciones",
+          JSON.stringify(
+            variaciones
+              .filter(variacionCompleta)
+              .map((v) => ({ ...v, atributo: atributosSel.join(SEP) })),
+          ),
+        );
+      }
 
       if (videoRemoved && !form.video) {
         data.append("remove_video", "1");
@@ -466,8 +611,10 @@ const ProductoModal = ({
 
                   <div>
                     <Lbl>Descripción</Lbl>
+                    {/* Más alto: con 4 filas tocaba arrastrar la esquina para
+                        leer lo escrito, y casi nadie sabe que se puede. */}
                     <textarea
-                      rows={4}
+                      rows={8}
                       placeholder="Detalle del producto o servicio…"
                       value={form.descripcion}
                       onChange={(e) => {
@@ -483,18 +630,11 @@ const ProductoModal = ({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Lbl required>Tipo</Lbl>
-                      <Sel
-                        value={form.tipo}
-                        onChange={(e) => setF("tipo", e.target.value)}
-                      >
-                        <option value="">Selecciona</option>
-                        <option value="producto">Producto</option>
-                        <option value="servicio">Servicio</option>
-                      </Sel>
-                    </div>
+                  {/* El tipo ya no se pregunta: sale de lo que se eligió al
+                      activar el bot (Productos o Servicios en Asistentes).
+                      Precio y categoría comparten fila: el precio no necesita
+                      todo el ancho y así se ahorra un salto de línea. */}
+                  <div className="grid grid-cols-[130px_1fr] gap-3">
                     <div>
                       <Lbl required>Precio</Lbl>
                       <div className="relative">
@@ -512,9 +652,24 @@ const ProductoModal = ({
                         />
                       </div>
                     </div>
+                    <div>
+                      <Lbl required>Categoría</Lbl>
+                      <Sel
+                        value={form.id_categoria}
+                        onChange={(e) => setF("id_categoria", e.target.value)}
+                      >
+                        <option value="">Selecciona categoría</option>
+                        {categorias.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </Sel>
+                    </div>
                   </div>
 
-                  {form.tipo === "servicio" && (
+                  {/* La duración solo aplica a servicios; el tipo se hereda. */}
+                  {(form.tipo || tipoCuenta) === "servicio" && (
                     <div>
                       <Lbl>Duración (horas)</Lbl>
                       <Sel
@@ -530,21 +685,6 @@ const ProductoModal = ({
                       </Sel>
                     </div>
                   )}
-
-                  <div>
-                    <Lbl required>Categoría</Lbl>
-                    <Sel
-                      value={form.id_categoria}
-                      onChange={(e) => setF("id_categoria", e.target.value)}
-                    >
-                      <option value="">Selecciona categoría</option>
-                      {categorias.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre}
-                        </option>
-                      ))}
-                    </Sel>
-                  </div>
                 </div>
               </div>
 
@@ -891,8 +1031,149 @@ const ProductoModal = ({
                 />
               </div>
 
-              {/* Upsell */}
+              {/* ═══ Variedades (talla / color) ═══
+                  Tabla seca: el atributo arriba y una fila por opción con su
+                  código de Dropi. Sin stock (ese lo manda Dropi en vivo) y sin
+                  párrafos: una línea basta para decir para qué sirve. */}
               <div>
+                <SecHead icon="bx-palette" title="Variedades" />
+                <p className="text-[12px] text-slate-500 -mt-1 mb-2.5">
+                  Llena esto solo si tu producto se vende en varias opciones,
+                  como tallas o colores.
+                </p>
+
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={esVariable}
+                    onChange={(e) => {
+                      setEsVariable(e.target.checked);
+                      if (e.target.checked && variaciones.length === 0)
+                        agregarVariacion();
+                    }}
+                    className="w-4 h-4 rounded accent-indigo-600"
+                  />
+                  <span className="text-sm text-slate-700">
+                    Se vende en varias opciones
+                  </span>
+                </label>
+
+                {esVariable && (
+                  <div className="mt-3">
+                    {/* Se pueden combinar hasta dos (ej. Talla + Color) */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {["Color", "Talla", "Sabor", "Modelo"].map((a) => {
+                        const activo = atributosSel.includes(a);
+                        return (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() => alternarAtributo(a)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                              activo
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                            }`}
+                          >
+                            {activo && (
+                              <i className="bx bx-check align-middle mr-0.5" />
+                            )}
+                            {a}
+                          </button>
+                        );
+                      })}
+                      <span className="self-center text-[11px] text-slate-400 ml-1">
+                        puedes elegir hasta 2
+                      </span>
+                    </div>
+
+                    <div className="mt-3 rounded-xl border border-slate-200 overflow-hidden">
+                      <div
+                        className="grid gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200"
+                        style={{
+                          gridTemplateColumns: `repeat(${atributosSel.length}, 1fr) 130px 36px`,
+                        }}
+                      >
+                        {atributosSel.map((a) => (
+                          <span
+                            key={a}
+                            className="text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                          >
+                            {a}
+                          </span>
+                        ))}
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          ID Dropi
+                        </span>
+                        <span />
+                      </div>
+
+                      {variaciones.map((v, i) => (
+                        <div
+                          key={i}
+                          className="grid gap-2 px-3 py-2 items-center border-b border-slate-100 last:border-b-0"
+                          style={{
+                            gridTemplateColumns: `repeat(${atributosSel.length}, 1fr) 130px 36px`,
+                          }}
+                        >
+                          {atributosSel.map((a, idx) => (
+                            <Inp
+                              key={a}
+                              placeholder={
+                                a === "Talla"
+                                  ? "M"
+                                  : a === "Sabor"
+                                    ? "Fresa"
+                                    : a === "Modelo"
+                                      ? "Pro"
+                                      : "Negro"
+                              }
+                              value={partesValor(v)[idx] || ""}
+                              onChange={(e) =>
+                                cambiarParteValor(i, idx, e.target.value)
+                              }
+                            />
+                          ))}
+                          <Inp
+                            placeholder="51400"
+                            value={v.dropi_variation_id}
+                            onChange={(e) =>
+                              cambiarVariacion(
+                                i,
+                                "dropi_variation_id",
+                                e.target.value,
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => quitarVariacion(i)}
+                            title="Quitar"
+                            className="w-8 h-8 grid place-items-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition"
+                          >
+                            <i className="bx bx-x text-xl" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={agregarVariacion}
+                      className="w-full mt-2 py-2 rounded-xl border border-dashed border-indigo-300 text-indigo-600 text-sm font-semibold hover:bg-indigo-50 transition"
+                    >
+                      <i className="bx bx-plus align-middle" /> Agregar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Upsell — OCULTO. Ningún prompt lo pide (la única mención en
+                  las plantillas es la regla de formato de la imagen) y el
+                  bloque que lo inyectaba solo corría con
+                  tipo_configuracion='ventas', que ya no existe. Se conserva el
+                  marcado y el envío para no perder lo ya cargado. */}
+              <div className="hidden">
                 <SecHead icon="bx-trending-up" title="Upsell" />
                 <div className="space-y-4">
                   <div>

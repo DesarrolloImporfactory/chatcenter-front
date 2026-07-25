@@ -347,6 +347,10 @@ const KanbanConfig = () => {
         setColumnaActiva(null);
         setAcciones([]);
         setFormCol(null);
+        // El tablero ya no existe: hay que releer la versión, si no el aviso
+        // de "actualización disponible" se queda pegado del estado anterior.
+        setTableroVersion(null);
+        cargarVersionTablero();
       }
     } catch {
       Toast.fire({ icon: "error", title: "Error al reiniciar" });
@@ -846,8 +850,11 @@ const KanbanConfig = () => {
         }
       />
 
-      {/* ───── Aviso GLOBAL de actualización del tablero ───── */}
-      {tableroVersion?.usa_plantilla_global &&
+      {/* ───── Aviso GLOBAL de actualización del tablero ─────
+           Solo si hay tablero que actualizar: sin columnas no hay nada que
+           resincronizar y el aviso confundía justo después de borrarlo. */}
+      {columnas.length > 0 &&
+        tableroVersion?.usa_plantilla_global &&
         tableroVersion?.desactualizada && (
           <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
@@ -884,7 +891,13 @@ const KanbanConfig = () => {
         <EmptyHeroKanban
           onCrearColumna={() => setShowModalNueva(true)}
           idConfiguracion={id_configuracion}
-          onPlantillaAplicada={cargarColumnas}
+          // Al instalar una plantilla cambia la versión aplicada, así que hay
+          // que releerla junto con las columnas: si no, el aviso de
+          // "actualización disponible" seguía mostrando el estado anterior.
+          onPlantillaAplicada={async () => {
+            await cargarColumnas();
+            await cargarVersionTablero();
+          }}
         />
       ) : (
         <div

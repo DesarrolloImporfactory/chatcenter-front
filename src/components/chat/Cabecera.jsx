@@ -993,9 +993,9 @@ const Cabecera = ({
                     }`}
                   ></i>
 
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 whitespace-nowrap">
                     Calendario
-                    <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200">
+                    <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-gray-200 shrink-0">
                       {isCalendarBlocked ? "Bloqueado" : "Beta"}
                     </span>
                   </span>
@@ -1030,7 +1030,10 @@ const Cabecera = ({
                       className={`bx text-xl ${"bx-bot text-gray-600 group-hover:text-blue-600"}`}
                     ></i>
 
-                    <span className="flex items-center gap-2">
+                    {/* whitespace-nowrap: mismo caso que en MainLayout, el
+                        sangrado del submenú dejaba el texto al filo y saltaba
+                        de línea al abrir el menú. */}
+                    <span className="flex items-center gap-2 whitespace-nowrap">
                       Configurar agentes
                     </span>
                   </a>
