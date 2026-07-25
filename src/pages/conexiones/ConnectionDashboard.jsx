@@ -158,7 +158,12 @@ const DATE_PRESETS = [
 ];
 
 const CHANNELS = [
-  { key: "todos", label: "Todos", icon: "bx-layer" },
+  /* Pestaña "Todos" desactivada: mezclar los dos caminos de venta confundía
+     a los clientes (el % de confirmación solo aplica a la tienda y los
+     pedidos de WhatsApp llegan ya confirmados). Se deja el código vivo —la
+     tabla y el hero siguen soportando canal "todos"— para poder reactivarla
+     descomentando esta línea.
+  { key: "todos", label: "Todos", icon: "bx-layer" }, */
   { key: "wa", label: "WhatsApp", icon: "bxl-whatsapp" },
   { key: "shopify", label: "Shopify", icon: "bxl-shopify" },
 ];
@@ -352,7 +357,7 @@ function buildHeroKpis(canal, data, view) {
       {
         key: "pctConfirmacion",
         label: "Confirmación",
-        tip: "De todos tus pedidos Shopify que llegaron a Dropi, cuántos ya se confirmaron (superaron «pendiente confirmación»). El resto se reparte entre los que faltan por confirmar y los que el cliente canceló.",
+        tip: "De los pedidos que llegaron a Dropi, cuántos superaron «pendiente confirmación». Los que se cancelan después cuentan como cancelados.",
         formula: "confirmados ÷ pedidos Shopify en Dropi × 100",
         sub: `${fmtNum(view.confirmadas)} de ${fmtNum(view.pedidos)}`,
         icon: "bx-check-shield",
@@ -365,10 +370,17 @@ function buildHeroKpis(canal, data, view) {
         breakdown: [
           {
             label: "por confirmar",
-            value: Math.max(0, (view.pedidosNeto || 0) - (view.confirmadas || 0)),
+            value: Math.max(
+              0,
+              (view.pedidosNeto || 0) - (view.confirmadas || 0),
+            ),
             color: "#fbbf24",
           },
-          { label: "cancelados", value: view.canceladas || 0, color: "#fb7185" },
+          {
+            label: "cancelados",
+            value: view.canceladas || 0,
+            color: "#fb7185",
+          },
         ],
       },
       cardTasaEntregaReal(view),
@@ -465,9 +477,7 @@ function buildHeroKpis(canal, data, view) {
       icon: "bx-check-double",
       color: "#22d3ee",
       bg: "rgba(34,211,238,0.1)",
-      value: fmtPct(
-        netoTodos > 0 ? (view.entregadas / netoTodos) * 100 : null,
-      ),
+      value: fmtPct(netoTodos > 0 ? (view.entregadas / netoTodos) * 100 : null),
     },
   ];
 }
@@ -907,22 +917,23 @@ const AVISOS_CANAL = {
 function AvisoCanal({ tipo, desde, dias }) {
   const st = AVISOS_CANAL[tipo];
   if (!st) return null;
-  const B = ({ children }) => (
-    <b className={st.strong}>{children}</b>
-  );
+  const B = ({ children }) => <b className={st.strong}>{children}</b>;
   return (
     <div
       className={`mb-4 rounded-xl border px-3.5 py-2.5 flex items-start gap-2.5 ${st.box}`}
     >
-      <i className={`bx ${st.icon} text-base mt-[1px] shrink-0 ${st.iconColor}`} />
+      <i
+        className={`bx ${st.icon} text-base mt-[1px] shrink-0 ${st.iconColor}`}
+      />
       <p className={`text-[11px] leading-relaxed ${st.text}`}>
         {tipo === "sin_datos" && (
           <>
-            Tu tienda está vinculada, pero <B>todavía no nos ha llegado ningún
-            pedido desde Shopify</B>. Hasta que llegue el primero no hay con qué
-            cruzar, así que <B>todos</B> los pedidos aparecen como WhatsApp
-            aunque salgan de la tienda. Suele resolverse solo con la primera
-            venta; si ya vendiste y sigue así, revisa la integración de Shopify.
+            Tu tienda está vinculada, pero{" "}
+            <B>todavía no nos ha llegado ningún pedido desde Shopify</B>. Hasta
+            que llegue el primero no hay con qué cruzar, así que <B>todos</B>{" "}
+            los pedidos aparecen como WhatsApp aunque salgan de la tienda. Suele
+            resolverse solo con la primera venta; si ya vendiste y sigue así,
+            revisa la integración de Shopify.
           </>
         )}
         {tipo === "rango_previo" && (
@@ -1068,19 +1079,16 @@ function ResumenView({
     data?.shopifyConectado === true ||
     (data?.canales?.shopify?.pedidos || 0) > 0;
 
-  /* Pestaña por defecto según cómo vende la tienda: con Shopify enlazado
-     entra en "Todos" (antes caía en WhatsApp y la tabla se veía casi vacía
-     porque casi todo se vende por la tienda); sin Shopify, "WhatsApp". Se
-     resuelve aquí y no en el useState porque al montar todavía no sabemos
-     si vende por Shopify: esa respuesta llega con el resumen. En cuanto el
-     usuario toca una pestaña, su elección manda. */
-  const canal = canalSel ?? (vendeShopify ? "todos" : "wa");
+  /* Siempre se entra por WhatsApp, venda o no por la tienda: es el canal que
+     todos entienden y el que la mayoría usa a diario. Quien vende por Shopify
+     cambia de pestaña cuando quiere ver ese lado. En cuanto el usuario toca
+     una pestaña, su elección manda. */
+  const canal = canalSel ?? "wa";
 
   const view = useMemo(() => channelView(data, canal), [data, canal]);
 
   const availableChannels = useMemo(
-    () =>
-      vendeShopify ? CHANNELS : CHANNELS.filter((c) => c.key === "wa"),
+    () => (vendeShopify ? CHANNELS : CHANNELS.filter((c) => c.key === "wa")),
     [vendeShopify],
   );
 
@@ -1094,7 +1102,8 @@ function ResumenView({
   const splitDesde = data?.shopifySplitDesde || null;
   const diasDesdeSplit = splitDesde
     ? Math.floor(
-        (new Date(`${todayStr}T00:00:00`) - new Date(`${splitDesde}T00:00:00`)) /
+        (new Date(`${todayStr}T00:00:00`) -
+          new Date(`${splitDesde}T00:00:00`)) /
           86400000,
       )
     : null;
@@ -1107,8 +1116,8 @@ function ResumenView({
     if (dateRange.from < splitDesde) return "rango_previo";
     return null;
   }, [vendeShopify, loading, data, splitDesde, dateRange.from]);
-  // Si el usuario había elegido Shopify/Todos y cambia a una conexión que
-  // solo vende por WhatsApp, su elección deja de existir → vuelve a "wa".
+  // Si el usuario había elegido Shopify y cambia a una conexión que solo
+  // vende por WhatsApp, esa pestaña deja de existir → vuelve a "wa".
   useEffect(() => {
     if (data && !vendeShopify && canalSel && canalSel !== "wa")
       setCanalSel("wa");
@@ -1151,6 +1160,9 @@ function ResumenView({
           name: p.name,
           sku: p.sku,
           image: p.image,
+          // Producto que solo recibió chats por anuncio: no vendió nada, así
+          // que sus columnas de pedidos no existen (se pintan "—").
+          sinVentas: p.sinVentas === true,
           confirmadas: (esTodos ? s.confirmadas : c.confirmadas) ?? 0,
           ordenes,
           canceladas,
@@ -1169,10 +1181,18 @@ function ResumenView({
           tasaEntrega: c.tasaEntrega ?? null,
           // Lo calcula el back con la fórmula de cada canal (la misma del
           // resumen de arriba), en vez de repetirla acá.
-          pctConfirmacion: (esTodos ? s.pctConfirmacion : c.pctConfirmacion) ?? null,
+          pctConfirmacion:
+            (esTodos ? s.pctConfirmacion : c.pctConfirmacion) ?? null,
         };
       })
-      .filter((r) => r.ordenes > 0 || r.canceladas > 0);
+      // Los "sin ventas" solo tienen sentido donde se ve la conversación:
+      // en la pestaña Shopify no hay nada que mostrar de ellos.
+      .filter(
+        (r) =>
+          r.ordenes > 0 ||
+          r.canceladas > 0 ||
+          (r.sinVentas && canal !== "shopify"),
+      );
     const { key, dir } = prodSort;
     return rows.sort((a, b) => {
       const va = a[key] == null ? -Infinity : a[key];
@@ -1199,6 +1219,8 @@ function ResumenView({
       return s;
     });
   }, [canal]);
+
+  const hayProductosSinVentas = sortedProducts.some((p) => p.sinVentas);
 
   const handleProdSort = (key) =>
     setProdSort((s) =>
@@ -1229,9 +1251,14 @@ function ResumenView({
   // pueden compartir el mismo anuncio y se contarían dos veces).
   const convCuadre = data?.conversacionesProducto || null;
   const canalMeta = CHANNELS.find((c) => c.key === canal) || CHANNELS[0];
+  /* Los tres grupos son excluyentes y suman el total: confirmados + por
+     confirmar + cancelados. Un pedido que se confirmó y luego se canceló
+     cuenta como cancelado, no como confirmado; se dice explícitamente
+     porque al contarlo a mano sale distinto. */
   const col2Tip = esTodosTab
-    ? "Pedidos de la TIENDA que superaron «pendiente confirmación». Los de WhatsApp no entran: el bot los sube a Dropi ya confirmados, así que no tienen esa etapa."
-    : "Pedidos de este producto que el bot ya confirmó (dejaron de estar en «pendiente confirmación»).";
+    ? "Pedidos de la tienda que superaron «pendiente confirmación». Los de WhatsApp llegan ya confirmados, así que no entran."
+    : "Pedidos que superaron «pendiente confirmación». Si después se cancelan, pasan a contar como cancelados.";
+  const col2Formula = "pedidos tienda − por confirmar − cancelados";
   /* Embudo del canal en píldoras: mismos colores e iconos que las columnas
      de la tabla, para leerlo de un vistazo en vez de en un párrafo. */
   const PILL = {
@@ -1265,22 +1292,23 @@ function ResumenView({
           { label: "Entregas", icon: "bx-check-double", cls: PILL.entrega },
         ];
   const convTip =
-    "Chats distintos que entraron preguntando por este producto (por anuncio) o que terminaron comprándolo por WhatsApp. Si varias presentaciones salen del mismo anuncio comparten las conversaciones, así que no sumes la columna.";
+    "Chats distintos que entraron preguntando por este producto. Varias presentaciones de un mismo anuncio comparten sus conversaciones, por eso la columna no se suma.";
   const pedidosTip = esWa
-    ? "Pedidos de este producto que llegaron a Dropi por WhatsApp, sin contar los cancelados."
-    : `Pedidos de este producto que entraron por la tienda${esTodosTab ? " Shopify" : ""} y llegaron a Dropi, incluidos los cancelados. Es la base del % de confirmación.`;
+    ? "Pedidos del producto que llegaron a Dropi por WhatsApp, sin los cancelados."
+    : "Pedidos del producto que llegaron a Dropi desde la tienda, incluidos los cancelados.";
+  const pedidosFormula = esWa
+    ? null
+    : "confirmados + por confirmar + cancelados";
   const pedidosWaTip =
-    "Pedidos de este producto que cerró el bot por WhatsApp y llegaron a Dropi, sin contar los cancelados. No pasan por «pendiente confirmación», por eso van aparte.";
+    "Pedidos que cerró el bot por WhatsApp, sin los cancelados. No pasan por «pendiente confirmación», por eso van aparte.";
   const confTip = esWa
-    ? "De las conversaciones que entraron por este producto, cuántas terminaron en pedido por WhatsApp. Es el mismo embudo de la card «Confirmación» de arriba."
-    : `De los pedidos de la tienda que llegaron a Dropi, cuántos ya se confirmaron (superaron «pendiente confirmación»).${
-        esTodosTab
-          ? " Mide solo el camino de la tienda: los pedidos de WhatsApp llegan ya confirmados y contarlos aquí inflaba el porcentaje."
-          : " Mismo cálculo que la card «Confirmación» de arriba."
-      }`;
+    ? "De los chats que entraron por este producto, cuántos terminaron en pedido."
+    : esTodosTab
+      ? "De los pedidos de la tienda, cuántos superaron «pendiente confirmación». Los de WhatsApp llegan ya confirmados y no entran."
+      : "De los pedidos que llegaron a Dropi, cuántos superaron «pendiente confirmación». Los que se cancelan después cuentan como cancelados.";
   const confFormula = esWa
     ? "pedidos Dropi ÷ conversaciones × 100"
-    : "confirmados tienda ÷ pedidos tienda × 100";
+    : "confirmados ÷ pedidos tienda × 100";
   // En Shopify el % es una meta clara (confirmar el pedido) y se semaforiza.
   // En WhatsApp es una conversión chat → pedido: un 5% puede ser sano según
   // el rubro, así que se muestra neutro en vez de pintarlo en rojo.
@@ -1677,6 +1705,18 @@ function ResumenView({
                     <i className="bx bx-info-circle align-middle text-slate-300" />{" "}
                     de una columna para ver su fórmula.
                   </p>
+                  {/* Las filas "solo anuncios" no tienen pedidos, así que sus
+                      columnas van en "—". Sin esta nota parecen un error. */}
+                  {hayProductosSinVentas && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mt-2 inline-flex items-start gap-1.5">
+                      <i className="bx bx-bullhorn text-[13px] mt-[1px] shrink-0" />
+                      <span>
+                        Las filas marcadas como <b>solo anuncios</b> son
+                        productos que atrajeron conversaciones pero todavía no
+                        vendieron.
+                      </span>
+                    </p>
+                  )}
                 </div>
                 {data.productos?.length > 0 && (
                   <span className="shrink-0 text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">
@@ -1696,9 +1736,10 @@ function ResumenView({
                       <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-200">
                         <th className="px-3 py-3 w-8">#</th>
                         <th className="px-3 py-3">Producto</th>
-                        {/* WhatsApp: el embudo arranca en el chat, así que
-                            la conversación va ANTES del pedido. */}
-                        {esWa && (
+                        {/* El embudo del chat arranca en la conversación, así
+                            que va ANTES del pedido. En Shopify no aplica: ahí
+                            la venta no nace de un chat. */}
+                        {canal !== "shopify" && (
                           <SortTh
                             label="Conversaciones"
                             k="conversaciones"
@@ -1713,6 +1754,7 @@ function ResumenView({
                           sort={prodSort}
                           onSort={handleProdSort}
                           tip={pedidosTip}
+                          formula={pedidosFormula}
                         />
                         {/* "Todos" muestra los dos caminos por separado: la
                             tienda y lo que cerró el bot por WhatsApp. */}
@@ -1735,6 +1777,7 @@ function ResumenView({
                             sort={prodSort}
                             onSort={handleProdSort}
                             tip={col2Tip}
+                            formula={col2Formula}
                           />
                         )}
                         {/* El % va pegado al par que lo produce, para que se
@@ -1752,28 +1795,28 @@ function ResumenView({
                           k="canceladas"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Pedidos de este producto que se cancelaron."
+                          tip="Pedidos que se cancelaron, sin importar en qué etapa."
                         />
                         <SortTh
                           label="Entregadas"
                           k="entregadas"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Pedidos de este producto que ya llegaron a manos del cliente."
+                          tip="Pedidos que ya llegaron a manos del cliente."
                         />
                         <SortTh
                           label="Devoluciones"
                           k="devoluciones"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="Pedidos que el cliente no recibió y regresaron. El envío se paga igual, así que restan ganancia."
+                          tip="Pedidos que el cliente no recibió y regresaron. El envío se paga igual."
                         />
                         <SortTh
                           label="% Entrega"
                           k="tasaEntrega"
                           sort={prodSort}
                           onSort={handleProdSort}
-                          tip="De los pedidos que salieron en camino al cliente (sin contar cancelados), qué porcentaje se entregó."
+                          tip="De los pedidos que salieron en camino, cuántos se entregaron."
                           formula="entregados ÷ enviados × 100"
                         />
                       </tr>
@@ -1815,10 +1858,17 @@ function ResumenView({
                                   <div className="font-semibold text-slate-800 max-w-[200px] truncate">
                                     {p.name}
                                   </div>
-                                  {p.sku && (
-                                    <div className="text-[10px] text-slate-400 font-mono">
-                                      {p.sku}
-                                    </div>
+                                  {p.sinVentas ? (
+                                    <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-[1px] rounded">
+                                      <i className="bx bx-bullhorn text-[11px]" />
+                                      solo anuncios · sin ventas
+                                    </span>
+                                  ) : (
+                                    p.sku && (
+                                      <div className="text-[10px] text-slate-400 font-mono">
+                                        {p.sku}
+                                      </div>
+                                    )
                                   )}
                                 </div>
                               </div>
@@ -1847,23 +1897,35 @@ function ResumenView({
                             </td>
                             {esTodosTab && (
                               <td className="px-3 py-2.5 text-center">
-                                <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-xs font-bold">
-                                  <i className="bx bxl-whatsapp text-[13px]" />
-                                  {fmtNum(p.pedidosWa)}
-                                </span>
+                                {p.sinVentas ? (
+                                  <Guion />
+                                ) : (
+                                  <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-xs font-bold">
+                                    <i className="bx bxl-whatsapp text-[13px]" />
+                                    {fmtNum(p.pedidosWa)}
+                                  </span>
+                                )}
                               </td>
                             )}
                             {!esWa && (
                               <td className="px-3 py-2.5 text-center tabular-nums">
-                                <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold">
-                                  <i className="bx bx-check text-[13px]" />
-                                  {fmtNum(p.confirmadas)}
-                                </span>
+                                {p.sinVentas ? (
+                                  <Guion />
+                                ) : (
+                                  <span className="inline-flex items-center justify-center gap-1 min-w-[28px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold">
+                                    <i className="bx bx-check text-[13px]" />
+                                    {fmtNum(p.confirmadas)}
+                                  </span>
+                                )}
                               </td>
                             )}
                             <td className="px-3 py-2.5 text-center">
-                              {p.pctConfirmacion == null ? (
-                                <span className="text-slate-300">—</span>
+                              {/* En WhatsApp el 0% es un dato real (entraron
+                                  chats y ninguno acabó en pedido). En los
+                                  otros canales no hay denominador: "—". */}
+                              {(p.sinVentas && !esWa) ||
+                              p.pctConfirmacion == null ? (
+                                <Guion />
                               ) : (
                                 <span
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${confColor(
@@ -1875,7 +1937,9 @@ function ResumenView({
                               )}
                             </td>
                             <td className="px-3 py-2.5 text-center tabular-nums">
-                              {p.canceladas > 0 ? (
+                              {p.sinVentas ? (
+                                <Guion />
+                              ) : p.canceladas > 0 ? (
                                 <span className="text-rose-500 font-medium">
                                   {fmtNum(p.canceladas)}
                                 </span>
@@ -1884,14 +1948,14 @@ function ResumenView({
                               )}
                             </td>
                             <td className="px-3 py-2.5 text-center tabular-nums text-emerald-600 font-medium">
-                              {p.entregadas}
+                              {p.sinVentas ? <Guion /> : p.entregadas}
                             </td>
                             <td className="px-3 py-2.5 text-center tabular-nums text-rose-500 font-medium">
-                              {p.devoluciones}
+                              {p.sinVentas ? <Guion /> : p.devoluciones}
                             </td>
                             <td className="px-3 py-2.5 text-center">
-                              {p.tasaEntrega == null ? (
-                                <span className="text-slate-300">—</span>
+                              {p.sinVentas || p.tasaEntrega == null ? (
+                                <Guion />
                               ) : (
                                 <span
                                   className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
@@ -1962,8 +2026,8 @@ function ResumenView({
                         por artículos que <b>no registraron ninguna venta</b> en
                         el rango. Como esta tabla se arma desde los pedidos de
                         Dropi, un producto que recibió chats pero no vendió
-                        todavía no tiene fila aquí. También cuentan los chats que
-                        no llegaron desde un anuncio. Por eso la columna{" "}
+                        todavía no tiene fila aquí. También cuentan los chats
+                        que no llegaron desde un anuncio. Por eso la columna{" "}
                         <b>Conversaciones</b> no suma el total: varias
                         presentaciones pueden compartir un mismo anuncio.
                       </p>
@@ -1971,10 +2035,11 @@ function ResumenView({
                       <p className="text-[11px] text-slate-500 leading-relaxed mt-2">
                         En este rango no hay anuncios que digan por qué producto
                         entró cada chat, así que las{" "}
-                        <b>{fmtNum(convCuadre.sinProducto)}</b> conversaciones no
-                        se pueden repartir producto por producto. Con anuncios de
-                        clic a WhatsApp activos, cada chat queda ligado al
-                        artículo por el que preguntó y esta columna se llena.
+                        <b>{fmtNum(convCuadre.sinProducto)}</b> conversaciones
+                        no se pueden repartir producto por producto. Con
+                        anuncios de clic a WhatsApp activos, cada chat queda
+                        ligado al artículo por el que preguntó y esta columna se
+                        llena.
                       </p>
                     ))}
                 </div>
@@ -2032,17 +2097,59 @@ function ResumenView({
                         barCategoryGap="22%"
                       >
                         <defs>
-                          <linearGradient id="gGuias" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#10B981" stopOpacity={0.95} />
-                            <stop offset="100%" stopColor="#10B981" stopOpacity={0.5} />
+                          <linearGradient
+                            id="gGuias"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor="#10B981"
+                              stopOpacity={0.95}
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#10B981"
+                              stopOpacity={0.5}
+                            />
                           </linearGradient>
-                          <linearGradient id="gEntregas" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#F97316" stopOpacity={0.95} />
-                            <stop offset="100%" stopColor="#F97316" stopOpacity={0.5} />
+                          <linearGradient
+                            id="gEntregas"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor="#F97316"
+                              stopOpacity={0.95}
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#F97316"
+                              stopOpacity={0.5}
+                            />
                           </linearGradient>
-                          <linearGradient id="gConv" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.22} />
-                            <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
+                          <linearGradient
+                            id="gConv"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor="#3B82F6"
+                              stopOpacity={0.22}
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#3B82F6"
+                              stopOpacity={0}
+                            />
                           </linearGradient>
                         </defs>
                         <CartesianGrid
@@ -2368,6 +2475,19 @@ function ResumenView({
 /* Anuncios ganadores en formato podio (TOP 1/2/3).
    Sin thumbnail (se ve pixelado): solo la info clave y el enlace
    directo al anuncio cuando existe post_id. La card completa es clic. */
+
+/* Celda sin dato: el producto aún no tiene pedidos, así que la métrica no
+   existe. Se distingue del 0, que sí es un número real. */
+function Guion() {
+  return (
+    <span
+      className="text-slate-300"
+      title="Este producto todavía no registra pedidos, así que este dato no existe (no es un error de conteo)."
+    >
+      —
+    </span>
+  );
+}
 
 const PODIUM_STYLES = [
   {
