@@ -190,33 +190,18 @@ const ProductoModal = ({
   const [esVariable, setEsVariable] = useState(false);
   const [variaciones, setVariaciones] = useState([]);
 
-  /* Una prenda puede combinar dos cosas (talla Y color). Dropi entrega un id
-     por combinación —"camiseta negra S" es un id distinto de "camiseta verde
-     S"—, así que cada fila es una combinación con su propio id.
-     En la base se guarda como un par: atributo "Talla / Color" y valor
-     "S / Negro", sin necesidad de columnas nuevas. */
-  const SEP = " / ";
-  const [atributosSel, setAtributosSel] = useState(["Color"]);
+  /* Un solo tipo de variedad por producto: o es por color, o por talla, o por
+     sabor. Combinar dos se prestaba a confusión y terminaba mezclando valores
+     bajo el rótulo equivocado. */
+  const ATRIBUTOS = ["Color", "Talla", "Sabor", "Modelo"];
+  const [atributo, setAtributo] = useState("Color");
 
-  const partesValor = (v) => {
-    const p = String(v?.valor || "").split(SEP);
-    while (p.length < atributosSel.length) p.push("");
-    return p;
-  };
-
-  const alternarAtributo = (a) => {
-    const yaEsta = atributosSel.includes(a);
-    let next = yaEsta
-      ? atributosSel.filter((x) => x !== a)
-      : atributosSel.length >= 2
-        ? [atributosSel[1], a] // máximo dos: entra el nuevo, sale el más viejo
-        : [...atributosSel, a];
-    if (!next.length) next = [a]; // nunca sin atributo
-    setAtributosSel(next);
-    // Lo escrito deja de tener sentido al cambiar de atributo ("Negro" no es
-    // una talla), así que se limpia en vez de quedar bajo el rótulo errado.
+  const cambiarAtributo = (a) => {
+    setAtributo(a);
+    // Lo escrito deja de tener sentido al cambiar de tipo ("Negro" no es una
+    // talla), así que se limpia en vez de quedar bajo el rótulo errado.
     setVariaciones((lista) =>
-      lista.map((v) => ({ ...v, atributo: next.join(SEP), valor: "" })),
+      lista.map((v) => ({ ...v, atributo: a, valor: "" })),
     );
   };
 
@@ -225,7 +210,7 @@ const ProductoModal = ({
       ...v,
       {
         dropi_variation_id: "",
-        atributo: atributosSel.join(SEP),
+        atributo,
         valor: "",
         stock: 0,
         precio_proveedor: "",
@@ -236,24 +221,10 @@ const ProductoModal = ({
     setVariaciones((lista) =>
       lista.map((v, idx) => (idx === i ? { ...v, [campo]: valor } : v)),
     );
-  const cambiarParteValor = (i, idx, val) =>
-    setVariaciones((lista) =>
-      lista.map((v, k) => {
-        if (k !== i) return v;
-        const p = String(v.valor || "").split(SEP);
-        while (p.length < atributosSel.length) p.push("");
-        p[idx] = val;
-        return { ...v, valor: p.slice(0, atributosSel.length).join(SEP) };
-      }),
-    );
   const quitarVariacion = (i) =>
     setVariaciones((lista) => lista.filter((_, idx) => idx !== i));
 
-  // Una fila cuenta si tiene algo escrito en todos sus atributos.
-  const variacionCompleta = (v) =>
-    partesValor(v)
-      .slice(0, atributosSel.length)
-      .every((x) => String(x || "").trim());
+  const variacionCompleta = (v) => Boolean(String(v?.valor || "").trim());
 
   /* Tipo (producto/servicio): se hereda de lo que el cliente eligió al
      activar el bot en Asistentes, en vez de preguntarlo otra vez acá. */
@@ -323,12 +294,13 @@ const ProductoModal = ({
 
       // Variedades: vienen adjuntas al listado de productos.
       setEsVariable(Number(p.es_variable) === 1);
-      setAtributosSel(
-        String(p.variaciones?.[0]?.atributo || "Color")
-          .split(" / ")
-          .filter(Boolean)
-          .slice(0, 2) || ["Color"],
-      );
+      /* Si lo importado trae un rótulo que no está en la lista (Dropi a veces
+         no manda el nombre del atributo), se cae a "Color" en vez de dejar
+         ninguno marcado, que era lo que confundía. */
+      const attrGuardado = String(p.variaciones?.[0]?.atributo || "").split(
+        " / ",
+      )[0];
+      setAtributo(ATRIBUTOS.includes(attrGuardado) ? attrGuardado : "Color");
       setVariaciones(
         Array.isArray(p.variaciones) && p.variaciones.length
           ? p.variaciones.map((v) => ({
@@ -441,7 +413,7 @@ const ProductoModal = ({
       Swal.fire({
         icon: "warning",
         title: "Falta la variedad",
-        text: `Marcaste que se vende en varias opciones: completa al menos una (${atributosSel.join(" y ")}).`,
+        text: `Marcaste que se vende en varias opciones: agrega al menos un ${atributo.toLowerCase()}.`,
       });
       return;
     }
@@ -484,7 +456,7 @@ const ProductoModal = ({
           JSON.stringify(
             variaciones
               .filter(variacionCompleta)
-              .map((v) => ({ ...v, atributo: atributosSel.join(SEP) })),
+              .map((v) => ({ ...v, atributo })),
           ),
         );
       }
@@ -1060,48 +1032,29 @@ const ProductoModal = ({
 
                 {esVariable && (
                   <div className="mt-3">
-                    {/* Se pueden combinar hasta dos (ej. Talla + Color) */}
+                    {/* Un solo tipo por producto: o color, o talla, o sabor. */}
                     <div className="flex flex-wrap gap-1.5">
-                      {["Color", "Talla", "Sabor", "Modelo"].map((a) => {
-                        const activo = atributosSel.includes(a);
-                        return (
-                          <button
-                            key={a}
-                            type="button"
-                            onClick={() => alternarAtributo(a)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-                              activo
-                                ? "bg-indigo-600 text-white border-indigo-600"
-                                : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
-                            }`}
-                          >
-                            {activo && (
-                              <i className="bx bx-check align-middle mr-0.5" />
-                            )}
-                            {a}
-                          </button>
-                        );
-                      })}
-                      <span className="self-center text-[11px] text-slate-400 ml-1">
-                        puedes elegir hasta 2
-                      </span>
+                      {ATRIBUTOS.map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() => cambiarAtributo(a)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                            atributo === a
+                              ? "bg-indigo-600 text-white border-indigo-600"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                          }`}
+                        >
+                          {a}
+                        </button>
+                      ))}
                     </div>
 
                     <div className="mt-3 rounded-xl border border-slate-200 overflow-hidden">
-                      <div
-                        className="grid gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200"
-                        style={{
-                          gridTemplateColumns: `repeat(${atributosSel.length}, 1fr) 130px 36px`,
-                        }}
-                      >
-                        {atributosSel.map((a) => (
-                          <span
-                            key={a}
-                            className="text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                          >
-                            {a}
-                          </span>
-                        ))}
+                      <div className="grid grid-cols-[1fr_130px_36px] gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {atributo}
+                        </span>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                           ID Dropi
                         </span>
@@ -1111,29 +1064,23 @@ const ProductoModal = ({
                       {variaciones.map((v, i) => (
                         <div
                           key={i}
-                          className="grid gap-2 px-3 py-2 items-center border-b border-slate-100 last:border-b-0"
-                          style={{
-                            gridTemplateColumns: `repeat(${atributosSel.length}, 1fr) 130px 36px`,
-                          }}
+                          className="grid grid-cols-[1fr_130px_36px] gap-2 px-3 py-2 items-center border-b border-slate-100 last:border-b-0"
                         >
-                          {atributosSel.map((a, idx) => (
-                            <Inp
-                              key={a}
-                              placeholder={
-                                a === "Talla"
-                                  ? "M"
-                                  : a === "Sabor"
-                                    ? "Fresa"
-                                    : a === "Modelo"
-                                      ? "Pro"
-                                      : "Negro"
-                              }
-                              value={partesValor(v)[idx] || ""}
-                              onChange={(e) =>
-                                cambiarParteValor(i, idx, e.target.value)
-                              }
-                            />
-                          ))}
+                          <Inp
+                            placeholder={
+                              atributo === "Talla"
+                                ? "M"
+                                : atributo === "Sabor"
+                                  ? "Fresa"
+                                  : atributo === "Modelo"
+                                    ? "Pro"
+                                    : "Negro"
+                            }
+                            value={v.valor}
+                            onChange={(e) =>
+                              cambiarVariacion(i, "valor", e.target.value)
+                            }
+                          />
                           <Inp
                             placeholder="51400"
                             value={v.dropi_variation_id}
