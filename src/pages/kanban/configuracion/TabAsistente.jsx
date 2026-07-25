@@ -167,6 +167,43 @@ const TabAsistente = ({
       .catch(() => {});
   }, [columnaId]);
 
+  // ── Respuestas divididas en varios mensajes ──────────────
+  // Es una opción de la CONEXIÓN, no de la columna: aplica a todas.
+  const [splitMensajes, setSplitMensajes] = useState(true);
+  const [splitLoading, setSplitLoading] = useState(false);
+
+  useEffect(() => {
+    if (!idConfiguracion) return;
+    chatApi
+      .post("/configuraciones/obtener_ia_split_mensajes", {
+        id_configuracion: idConfiguracion,
+      })
+      .then(({ data }) => setSplitMensajes(!!data?.activo))
+      .catch(() => {});
+  }, [idConfiguracion]);
+
+  const toggleSplitMensajes = async () => {
+    const activar = !splitMensajes;
+    setSplitLoading(true);
+    try {
+      await chatApi.post("/configuraciones/actualizar_ia_split_mensajes", {
+        id_configuracion: idConfiguracion,
+        activo: activar,
+      });
+      setSplitMensajes(activar);
+      Toast.fire({
+        icon: "success",
+        title: activar
+          ? "La IA responderá en varios mensajes"
+          : "La IA responderá en un solo mensaje",
+      });
+    } catch (err) {
+      Toast.fire({ icon: "error", title: "No se pudo actualizar" });
+    } finally {
+      setSplitLoading(false);
+    }
+  };
+
   // ── Actualización de orden al confirmar (columna Pendiente Confirmación) ──
   const [autoActualizar, setAutoActualizar] = useState(false);
   const [autoActualizarLoading, setAutoActualizarLoading] = useState(false);
@@ -1399,6 +1436,105 @@ const TabAsistente = ({
                 {showChat ? "Cerrar chat" : "Probar asistente"}
               </button>
             </div>
+          </div>
+
+          {/* ═══ Respuestas divididas en varios mensajes (toda la conexión) ═══ */}
+          <div
+            style={{
+              borderRadius: 14,
+              border: splitMensajes
+                ? "1px solid rgba(16,185,129,.35)"
+                : "1px solid rgba(99,102,241,.2)",
+              background: splitMensajes
+                ? "linear-gradient(135deg, rgba(99,102,241,.06), rgba(16,185,129,.05))"
+                : "#fafafa",
+              padding: "14px 18px",
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: splitMensajes
+                      ? "rgba(16,185,129,.12)"
+                      : "#f1f5f9",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <i
+                    className="bx bx-message-rounded-dots"
+                    style={{
+                      fontSize: "1.4rem",
+                      color: splitMensajes ? "#10b981" : "#94a3b8",
+                    }}
+                  />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      fontSize: "0.95rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    Responder en varios mensajes
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                    {splitMensajes
+                      ? "La IA divide respuestas largas en 2 o 3 mensajes, como escribiría un asesor"
+                      : "La IA envía toda la respuesta en un solo mensaje"}
+                  </div>
+                </div>
+              </div>
+              {splitLoading ? (
+                <i
+                  className="bx bx-loader-alt bx-spin"
+                  style={{ color: "#6366f1", fontSize: "1.3rem" }}
+                />
+              ) : (
+                <Toggle
+                  checked={splitMensajes}
+                  onChange={toggleSplitMensajes}
+                />
+              )}
+            </div>
+
+            {splitMensajes && (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: ".72rem",
+                  color: "#94a3b8",
+                  lineHeight: 1.5,
+                  paddingTop: 10,
+                  borderTop: "1px dashed rgba(0,0,0,.07)",
+                }}
+              >
+                <i className="bx bx-info-circle" style={{ marginRight: 4 }} />
+                Se cortan solo respuestas largas y por párrafos completos: las
+                listas y los resúmenes de pedido nunca se parten. Máximo 3
+                mensajes, con una pausa breve entre cada uno. Si el cliente
+                escribe mientras tanto, los mensajes pendientes se cancelan.
+                Esta opción aplica a <strong>todas las columnas</strong> de la
+                conexión.
+              </div>
+            )}
           </div>
 
           {/* ═══ Auto-creación de órdenes Dropi (solo en la columna que cierra la venta) ═══ */}
