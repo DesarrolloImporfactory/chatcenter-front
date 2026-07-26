@@ -111,6 +111,25 @@ class AuthService {
     return timeUntilExpiry < APP_CONFIG.auth.refreshThreshold;
   }
 
+  /**
+   * Milisegundos que le quedan al token.
+   *  - `null` si no hay token o no se puede leer (caso "sin sesión")
+   *  - negativo si ya venció
+   * Lo usa `useSessionGuard` para decidir entre renovar o expulsar.
+   */
+  msUntilExpiry() {
+    const token = this.getToken();
+    if (!token) return null;
+
+    try {
+      const { exp } = jwtDecode(token);
+      if (!exp) return null;
+      return exp * 1000 - Date.now();
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Verificar permisos
   hasPermission(permission) {
     const user = this.getCurrentUser();

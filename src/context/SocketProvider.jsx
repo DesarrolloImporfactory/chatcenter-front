@@ -9,6 +9,7 @@ import {
 } from "react";
 import { io } from "socket.io-client";
 import { Outlet } from "react-router-dom";
+import { handleSessionExpired } from "../auth/sessionExpired";
 
 const SocketContext = createContext(null);
 
@@ -38,12 +39,27 @@ export default function SocketProvider({ token, children }) {
     const onConnect = () => setIsConnected(true);
     const onDisconnect = () => setIsConnected(false);
 
+    // El namespace /presence sí valida el JWT (sockets/middlewares/socketAuth.js).
+    // Si el token está muerto rechazaba el handshake y socket.io reintentaba
+    // infinitamente con el mismo token. Ahora cortamos y avisamos una sola vez.
+    const onConnectError = (err) => {
+      const motivo = err?.message;
+      if (motivo === "INVALID_TOKEN" || motivo === "NO_TOKEN") {
+        s.close(); // corta la reconexión infinita
+        handleSessionExpired({
+          code: motivo === "NO_TOKEN" ? "TOKEN_MISSING" : "TOKEN_EXPIRED",
+        });
+      }
+    };
+
     s.on("connect", onConnect);
     s.on("disconnect", onDisconnect);
+    s.on("connect_error", onConnectError);
 
     return () => {
       s.off("connect", onConnect);
       s.off("disconnect", onDisconnect);
+      s.off("connect_error", onConnectError);
       s.disconnect();
       socketRef.current = null;
       setSocket(null);

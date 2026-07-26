@@ -2,11 +2,16 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import authService from "../../auth/AuthService";
 import { logger } from "../../utils/notifications";
+import useSessionGuard from "../../hooks/useSessionGuard";
 
 const ProtectedRoutes = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(null); // null = loading
   const [user, setUser] = useState(null);
   const location = useLocation();
+
+  // Vigila la expiración con el tiempo y renueva el token antes de que venza.
+  // Este componente envuelve TODAS las rutas privadas, así que basta montarlo aquí.
+  useSessionGuard();
 
   useEffect(() => {
     const checkAuth = () => {

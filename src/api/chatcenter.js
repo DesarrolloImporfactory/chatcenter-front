@@ -2,6 +2,10 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { APP_CONFIG } from "../config";
 import authService from "../auth/AuthService";
+import {
+  handleSessionExpired,
+  isSessionExpiredHandled,
+} from "../auth/sessionExpired";
 import { toast } from "react-hot-toast";
 import { jwtDecode } from "jwt-decode";
 
@@ -28,6 +32,28 @@ const PLAN_BLOCK_CODES = new Set([
   "TOOL_ACCESS_DENIED",
 ]);
 
+// ═══════════════════════════════════════════════════════
+// Códigos que emite auth.middleware.protect cuando la sesión
+// ya no sirve. OJO: nos guiamos por el `code`, NO por el status 401,
+// porque hay 401 que no son de sesión y no deben expulsar al usuario
+// (contraseña actual incorrecta, token de Shopify inválido, permisos
+// sobre una configuración, etc.).
+// ═══════════════════════════════════════════════════════
+const SESSION_DEAD_CODES = new Set([
+  "TOKEN_EXPIRED",
+  "TOKEN_INVALID",
+  "TOKEN_MISSING",
+  "USER_NOT_FOUND",
+  "TOKEN_REVOKED",
+]);
+
+// Rutas donde un 401 es parte del flujo normal (credenciales incorrectas,
+// recuperación de contraseña, callback de TikTok) y NO significa sesión muerta.
+const isRutaLoginPublica = (url = "") =>
+  ["/auth/login", "/auth/newLogin", "/auth/password-reset", "/auth/tiktok"].some(
+    (p) => url.includes(p),
+  );
+
 chatApi.interceptors.request.use(
   (config) => {
     const token = authService.getToken();
@@ -36,7 +62,7 @@ chatApi.interceptors.request.use(
     }
     config.headers["X-Timestamp"] = Date.now();
 
-    if (import.meta.env.NODE_ENV === "development") {
+    if (import.meta.env.DEV) {
       console.log(
         `🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`,
         { headers: config.headers, data: config.data },
@@ -53,7 +79,7 @@ chatApi.interceptors.request.use(
 
 chatApi.interceptors.response.use(
   (response) => {
-    if (import.meta.env.NODE_ENV === "development") {
+    if (import.meta.env.DEV) {
       console.log(
         ` API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`,
         { status: response.status, data: response.data },
@@ -74,6 +100,38 @@ chatApi.interceptors.response.use(
     const silent = Boolean(originalRequest?.silentError);
 
     const responseCode = error.response?.data?.code;
+    const status = error.response?.status;
+    const url = originalRequest?.url || "";
+
+    // ═══════════════════════════════════════════════════════
+    // Ya estamos redirigiendo por sesión caducada: no mostramos
+    // más modales ni toasts por las peticiones que quedaron en vuelo.
+    // ═══════════════════════════════════════════════════════
+    if (isSessionExpiredHandled()) {
+      return Promise.reject(error);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // SESIÓN MUERTA → avisar, limpiar y redirigir.
+    // Va ANTES del early-return de `silentError`: si no, las pantallas que
+    // hacen polling silencioso (dashboards, chat) nunca detectaban la
+    // expiración y el usuario se quedaba con todo fallando en pantalla.
+    // ═══════════════════════════════════════════════════════
+    if (status === 401 && !isRutaLoginPublica(url)) {
+      // Con `code` es una decisión segura del backend.
+      if (responseCode && SESSION_DEAD_CODES.has(responseCode)) {
+        handleSessionExpired({ code: responseCode });
+        error._handledByInterceptor = true;
+        return Promise.reject(error);
+      }
+
+      // Fallback para 401 legacy sin `code`: sólo si el token local ya venció.
+      if (!responseCode && !authService.isAuthenticated()) {
+        handleSessionExpired({ code: "TOKEN_EXPIRED" });
+        error._handledByInterceptor = true;
+        return Promise.reject(error);
+      }
+    }
 
     // ═══════════════════════════════════════════════════════
     // Plan block: capturar TODOS los códigos del middleware
@@ -198,24 +256,7 @@ chatApi.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const isAuthRequest = originalRequest?.url?.includes("/auth/");
-
-    // Single sign-out: token revocado por logout global desde otra app
-    if (
-      error.response?.status === 401 &&
-      error.response?.data?.code === "TOKEN_REVOKED" &&
-      !window.__tokenRevokedHandled
-    ) {
-      window.__tokenRevokedHandled = true;
-      try {
-        authService.logout();
-      } catch (_) {
-        localStorage.clear();
-      }
-      toast.error("Sesión cerrada desde otra aplicación.");
-      window.location.href = "/login";
-      return Promise.reject(error);
-    }
+    const isAuthRequest = url.includes("/auth/");
 
     switch (error.response?.status) {
       case 401:
@@ -223,31 +264,14 @@ chatApi.interceptors.response.use(
         if (isAuthRequest) {
           break;
         }
-        if (!originalRequest._retry) {
-          originalRequest._retry = true;
-
-          // Si ya estamos en login, no hacer nada (evita loop infinito)
-          if (
-            window.location.pathname === "/login" ||
-            window.location.pathname === "/register"
-          ) {
-            break;
-          }
-
-          const isStillAuthenticated = authService.isAuthenticated();
-          if (!isStillAuthenticated) {
-            authService.logout();
-            window.location.href = "/login";
-            toast.error(
-              "Sesión expirada. Por favor, inicia sesión nuevamente.",
-            );
-          } else {
-            const errorMsg =
-              error.response?.data?.message ||
-              error.response?.data?.error ||
-              "Error de autorización en el servicio externo";
-            toast.error(errorMsg);
-          }
+        // Llegar aquí significa que NO es sesión muerta (eso ya se manejó
+        // arriba): es un 401 de permisos o de un servicio externo.
+        {
+          const errorMsg =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            "Error de autorización en el servicio externo";
+          toast.error(errorMsg);
         }
         break;
 
