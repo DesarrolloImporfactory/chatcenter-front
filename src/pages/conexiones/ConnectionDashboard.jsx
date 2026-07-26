@@ -1987,9 +1987,9 @@ function ResumenView({
                 </div>
               )}
 
-              {/* Cuadre de conversaciones: la tabla nace de los pedidos de
-                  Dropi, así que un producto que recibió chats pero no vendió
-                  nada no tiene fila. Sin esta nota el número "desaparecía". */}
+              {/* Cuadre de conversaciones: "en esta tabla" incluye también
+                  las filas "solo anuncios"; lo que queda fuera son chats
+                  sin señal de producto (no entraron por un anuncio). */}
               {esWa && convCuadre && (
                 <div className="border-t border-slate-100 bg-slate-50/70 px-4 sm:px-5 py-3.5">
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -2022,14 +2022,15 @@ function ResumenView({
                     (data.ctwaActivo ? (
                       <p className="text-[11px] text-slate-500 leading-relaxed mt-2">
                         Esas <b>{fmtNum(convCuadre.sinProducto)}</b>{" "}
-                        conversaciones no faltan: la mayoría entró preguntando
-                        por artículos que <b>no registraron ninguna venta</b> en
-                        el rango. Como esta tabla se arma desde los pedidos de
-                        Dropi, un producto que recibió chats pero no vendió
-                        todavía no tiene fila aquí. También cuentan los chats
-                        que no llegaron desde un anuncio. Por eso la columna{" "}
-                        <b>Conversaciones</b> no suma el total: varias
-                        presentaciones pueden compartir un mismo anuncio.
+                        conversaciones no faltan: son chats que{" "}
+                        <b>no llegaron desde un anuncio</b> (escribieron
+                        directo, por referidos, etc.), así que no hay forma de
+                        saber por qué producto entraron y no se pueden asignar
+                        a ninguna fila. Los productos que atrajeron chats sin
+                        vender sí aparecen, marcados como <b>solo anuncios</b>.
+                        La columna <b>Conversaciones</b> puede no sumar igual
+                        que el total: varias presentaciones comparten un mismo
+                        anuncio y cada chat se cuenta una sola vez.
                       </p>
                     ) : (
                       <p className="text-[11px] text-slate-500 leading-relaxed mt-2">
