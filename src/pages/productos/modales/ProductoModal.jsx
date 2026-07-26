@@ -20,9 +20,9 @@ const EMPTY_FORM = {
   precio_upsell: "",
   imagen_upsell: null,
   combos_producto: [
-    { cantidad: "", precio: "" },
-    { cantidad: "", precio: "" },
-    { cantidad: "", precio: "" },
+    { cantidad: "", precio: "", id_dropi: "" },
+    { cantidad: "", precio: "", id_dropi: "" },
+    { cantidad: "", precio: "", id_dropi: "" },
   ],
   /* campos catálogo — agrupados al final */
   es_privado: "", // "" | "0" | "1"   — FIX: nombre correcto del campo en BD
@@ -51,7 +51,8 @@ const normalizeCombos = (v) => {
   }
   if (!Array.isArray(arr)) return EMPTY_FORM.combos_producto;
   const filled = [...arr];
-  while (filled.length < 3) filled.push({ cantidad: "", precio: "" });
+  while (filled.length < 3)
+    filled.push({ cantidad: "", precio: "", id_dropi: "" });
   return filled;
 };
 
@@ -189,6 +190,10 @@ const ProductoModal = ({
      variante para que Dropi lo acepte (si no, lo rechaza por "no es simple"). */
   const [esVariable, setEsVariable] = useState(false);
   const [variaciones, setVariaciones] = useState([]);
+
+  /* Solo productos importados de Dropi pueden apuntar un combo a otro
+     producto del proveedor (ej. "Melaxin x2" con su propio ID). */
+  const esDropi = editingProduct?.external_source === "DROPI";
 
   /* Un solo tipo de variedad por producto: o es por color, o por talla, o por
      sabor. Combinar dos se prestaba a confusión y terminaba mezclando valores
@@ -579,6 +584,12 @@ const ProductoModal = ({
                       value={form.nombre}
                       onChange={(e) => setF("nombre", e.target.value)}
                     />
+                    <p className="text-xs text-slate-400 mt-1">
+                      <i className="bx bx-bulb text-amber-400 align-middle mr-0.5" />
+                      Recuerda colocar en tu anuncio el mismo título del
+                      producto tal como lo guardas aquí, para que el bot lo
+                      reconozca y responda correctamente a tus clientes.
+                    </p>
                   </div>
 
                   <div>
@@ -586,7 +597,7 @@ const ProductoModal = ({
                     {/* Más alto: con 4 filas tocaba arrastrar la esquina para
                         leer lo escrito, y casi nadie sabe que se puede. */}
                     <textarea
-                      rows={8}
+                      rows={11}
                       placeholder="Detalle del producto o servicio…"
                       value={form.descripcion}
                       onChange={(e) => {
@@ -682,87 +693,100 @@ const ProductoModal = ({
                 </button>
 
                 {combosOpen && (
-                  <div className="border-t border-slate-100 p-4 grid grid-cols-3 gap-3">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="border border-slate-100 rounded-xl p-3 space-y-2"
-                      >
-                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                          Combo {i + 1}
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-500 mb-1">
-                            Cantidad
+                  <div className="border-t border-slate-100 p-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="border border-slate-100 rounded-xl p-3 space-y-2"
+                        >
+                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                            Combo {i + 1}
                           </div>
-                          <Inp
-                            type="number"
-                            min="1"
-                            placeholder="Ej. 2"
-                            value={form.combos_producto?.[i]?.cantidad || ""}
-                            onChange={(e) => {
-                              const u = [...form.combos_producto];
-                              u[i] = { ...u[i], cantidad: e.target.value };
-                              setF("combos_producto", u);
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-500 mb-1">
-                            Precio
-                          </div>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-                              $
-                            </span>
+                          <div>
+                            <div className="text-xs text-slate-500 mb-1">
+                              Cantidad
+                            </div>
                             <Inp
                               type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0.00"
-                              className="pl-6"
-                              value={form.combos_producto?.[i]?.precio || ""}
+                              min="1"
+                              placeholder="Ej. 2"
+                              value={form.combos_producto?.[i]?.cantidad || ""}
                               onChange={(e) => {
                                 const u = [...form.combos_producto];
-                                u[i] = { ...u[i], precio: e.target.value };
+                                u[i] = { ...u[i], cantidad: e.target.value };
                                 setF("combos_producto", u);
                               }}
                             />
                           </div>
+                          <div>
+                            <div className="text-xs text-slate-500 mb-1">
+                              Precio
+                            </div>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+                                $
+                              </span>
+                              <Inp
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                className="pl-6"
+                                value={form.combos_producto?.[i]?.precio || ""}
+                                onChange={(e) => {
+                                  const u = [...form.combos_producto];
+                                  u[i] = { ...u[i], precio: e.target.value };
+                                  setF("combos_producto", u);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ID Dropi por combo: el aviso va UNA sola vez y abajo
+                        la fila de IDs, alineada con cada combo. */}
+                    {esDropi && (
+                      <div className="mt-4">
+                        <p className="text-xs text-slate-500 mb-2">
+                          <i className="bx bx-bulb text-amber-400 align-middle mr-0.5" />
+                          ¿Tu proveedor vende alguno de estos combos como
+                          producto aparte en Dropi? Pega su ID abajo y el pedido
+                          se creará con ese producto cuando el cliente solicite
+                          algún combo.
+                        </p>
+                        <br />
+                        <div className="grid grid-cols-3 gap-3">
+                          {[0, 1, 2].map((i) => (
+                            <div key={i}>
+                              <div className="text-xs text-slate-500 mb-1">
+                                ID Dropi combo {i + 1}{" "}
+                                <span className="text-slate-400">
+                                  (opcional)
+                                </span>
+                              </div>
+                              <Inp
+                                type="number"
+                                min="1"
+                                placeholder="Ej. 133245"
+                                value={
+                                  form.combos_producto?.[i]?.id_dropi || ""
+                                }
+                                onChange={(e) => {
+                                  const u = [...form.combos_producto];
+                                  u[i] = { ...u[i], id_dropi: e.target.value };
+                                  setF("combos_producto", u);
+                                }}
+                              />
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
-              </div>
-
-              {/* Imagen */}
-              <div>
-                <SecHead icon="bx-image-alt" title="Imagen del producto" />
-                <DropZone
-                  dropRef={dropRef}
-                  onDrop={dropImage}
-                  {...imgHandlers}
-                  onPick={pickImage}
-                  accept="image/*"
-                  icon="bx-image-add"
-                  hint="PNG, JPG, WEBP — máx. 5 MB"
-                  preview={
-                    previewUrl ? (
-                      <img
-                        src={previewUrl}
-                        alt="Preview"
-                        className="w-full max-h-44 object-cover rounded-xl ring-1 ring-slate-200"
-                      />
-                    ) : null
-                  }
-                  onRemove={() => {
-                    if (previewUrl?.startsWith("blob:"))
-                      URL.revokeObjectURL(previewUrl);
-                    setPreviewUrl(null);
-                    setF("imagen", null);
-                  }}
-                />
               </div>
 
               {/* ═══ ACORDEÓN LÓGICA CATÁLOGOS ═══ */}
@@ -973,6 +997,35 @@ const ProductoModal = ({
 
             {/* ─── COLUMNA DERECHA ─── */}
             <div className="p-6 space-y-6">
+              {/* Imagen */}
+              <div>
+                <SecHead icon="bx-image-alt" title="Imagen del producto" />
+                <DropZone
+                  dropRef={dropRef}
+                  onDrop={dropImage}
+                  {...imgHandlers}
+                  onPick={pickImage}
+                  accept="image/*"
+                  icon="bx-image-add"
+                  hint="PNG, JPG, WEBP — máx. 5 MB"
+                  preview={
+                    previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="w-full max-h-44 object-cover rounded-xl ring-1 ring-slate-200"
+                      />
+                    ) : null
+                  }
+                  onRemove={() => {
+                    if (previewUrl?.startsWith("blob:"))
+                      URL.revokeObjectURL(previewUrl);
+                    setPreviewUrl(null);
+                    setF("imagen", null);
+                  }}
+                />
+              </div>
+
               {/* Video */}
               <div>
                 <SecHead icon="bx-video" title="Video del producto" />
