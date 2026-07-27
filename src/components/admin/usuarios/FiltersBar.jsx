@@ -14,6 +14,8 @@ export default function FiltersBar({ state, set, meta }) {
     conWhatsapp,
     sinPlan,
     conSeguimientos,
+    cancelacionProgramada,
+    sinWhatsappPersonal,
     fechaRegDesde,
     fechaRegHasta,
     fechaRenDesde,
@@ -34,6 +36,8 @@ export default function FiltersBar({ state, set, meta }) {
     setConWhatsapp,
     setSinPlan,
     setConSeguimientos,
+    setCancelacionProgramada,
+    setSinWhatsappPersonal,
     setFechaRegDesde,
     setFechaRegHasta,
     setFechaRenDesde,
@@ -141,12 +145,29 @@ export default function FiltersBar({ state, set, meta }) {
             label="Permanentes"
             color="amber"
           />
+          {/* La lista de trabajo de retención: pidieron irse pero TODAVÍA no
+              se van. Distinto del toggle de abajo, que incluye a los que ya
+              se fueron y por tanto ya no se pueden salvar. */}
+          <ToggleChip
+            active={cancelacionProgramada}
+            onClick={() => setCancelacionProgramada(!cancelacionProgramada)}
+            icon="bx-time-five"
+            label="Por cancelar (salvable)"
+            color="rose"
+          />
           <ToggleChip
             active={cancelPeriodEnd}
             onClick={() => setCancelPeriodEnd(!cancelPeriodEnd)}
             icon="bx-x-circle"
             label="Cancel. programada"
             color="rose"
+          />
+          <ToggleChip
+            active={sinWhatsappPersonal}
+            onClick={() => setSinWhatsappPersonal(!sinWhatsappPersonal)}
+            icon="bxl-whatsapp"
+            label="Sin WhatsApp personal"
+            color="slate"
           />
           <ToggleChip
             active={sinPlan}

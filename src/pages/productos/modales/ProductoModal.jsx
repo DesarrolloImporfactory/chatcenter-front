@@ -329,7 +329,10 @@ const ProductoModal = ({
       setCatalogOpen(false);
       setEsVariable(false);
       setVariaciones([]);
-      setAtributosSel(["Color"]);
+      // El estado es `atributo` (string), no el `atributosSel` (array) que
+      // existía antes. La rama de editar sí se actualizó al renombrarlo; esta
+      // no, y por eso "Agregar" reventaba con ReferenceError.
+      setAtributo("Color");
     }
     setCombosOpen(false);
   }, [open, editingProduct]);

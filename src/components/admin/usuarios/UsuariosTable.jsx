@@ -7,6 +7,7 @@ import {
   fmtMoney,
   fmtNumber,
   relativo,
+  waValido,
 } from "./helpers";
 
 export default function UsuariosTable({
@@ -236,6 +237,45 @@ function Row({ r, onClick }) {
               <CopyBtn text={r.email} label="Email copiado" />
             </div>
           )}
+          {/* WhatsApp PERSONAL del dueño (el del registro). Es el que sirve
+              para llamarlo; el de abajo es el número de la conexión. */}
+          {r.whatsapp_personal_e164 ? (
+            <div className="text-[11px] flex items-center gap-1 mt-0.5 min-w-0">
+              <i
+                className={`bx bxl-whatsapp text-sm flex-shrink-0 ${
+                  waValido(r.whatsapp_personal_e164)
+                    ? "text-emerald-600"
+                    : "text-amber-500"
+                }`}
+              />
+              <a
+                href={`https://wa.me/${r.whatsapp_personal_e164.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="truncate flex-1 text-slate-700 font-medium hover:underline"
+                title="Abrir chat de WhatsApp"
+              >
+                {r.whatsapp_personal_e164}
+              </a>
+              {!waValido(r.whatsapp_personal_e164) && (
+                <span
+                  className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-100 text-amber-700 flex-shrink-0"
+                  title="El número no tiene una longitud válida para su país. Verifícalo antes de llamar."
+                >
+                  revisar
+                </span>
+              )}
+              <CopyBtn
+                text={r.whatsapp_personal_e164}
+                label="WhatsApp copiado"
+              />
+            </div>
+          ) : (
+            <div className="text-[11px] text-slate-300 mt-0.5 flex items-center gap-1">
+              <i className="bx bxl-whatsapp text-sm" />
+              Sin WhatsApp personal
+            </div>
+          )}
           {r.telefono_principal && (
             <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 min-w-0">
               <i className="bx bx-phone text-xs flex-shrink-0" />
@@ -254,11 +294,27 @@ function Row({ r, onClick }) {
         </span>
         {r.cancel_at_period_end === 1 && (
           <div
-            className="text-[10px] text-rose-600 font-semibold mt-0.5 flex items-center gap-0.5 truncate"
-            title="Cancelación programada"
+            className={`text-[10px] font-semibold mt-0.5 flex items-center gap-0.5 truncate ${
+              r.dias_para_cancelar != null && r.dias_para_cancelar <= 7
+                ? "text-rose-700"
+                : "text-rose-500"
+            }`}
+            title={
+              r.dias_para_cancelar != null
+                ? `Cancela en ${r.dias_para_cancelar} día(s). Todavía se puede retener.`
+                : "Cancelación programada"
+            }
           >
             <i className="bx bx-x-circle flex-shrink-0" />
-            <span className="truncate">Cancel. programada</span>
+            {/* Los días son la señal accionable: sin ellos el asesor no sabe
+                a quién llamar primero. */}
+            <span className="truncate">
+              {r.dias_para_cancelar != null
+                ? r.dias_para_cancelar >= 0
+                  ? `Cancela en ${r.dias_para_cancelar}d`
+                  : "Ya canceló"
+                : "Cancel. programada"}
+            </span>
           </div>
         )}
       </td>

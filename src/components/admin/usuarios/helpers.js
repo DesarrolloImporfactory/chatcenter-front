@@ -88,3 +88,26 @@ export const estadoBadge = {
   trial_usage: "bg-cyan-50 text-cyan-700 ring-cyan-200",
   promo_usage: "bg-violet-50 text-violet-700 ring-violet-200",
 };
+
+/**
+ * ¿El WhatsApp personal tiene una longitud plausible para su país?
+ *
+ * No pretende validar de verdad (eso lo hace libphonenumber en el backend):
+ * solo marca en la tabla los que claramente están mal para que el asesor no
+ * pierda el tiempo llamando a un número imposible. De 451 registrados, 18
+ * caen aquí: fijos, números de 8 dígitos, prefijos duplicados.
+ *
+ * Recibe el formato E164 que arma el backend (whatsapp_personal_e164).
+ */
+export const waValido = (e164) => {
+  if (!e164) return false;
+  const d = String(e164).replace(/\D/g, "");
+  // Rango genérico internacional: código de país (1-3) + nacional (7-11).
+  if (d.length < 10 || d.length > 15) return false;
+  // Ecuador (+593): celular nacional son 9 dígitos y empieza en 9.
+  if (d.startsWith("593")) {
+    const nac = d.slice(3);
+    return nac.length === 9 && nac.startsWith("9");
+  }
+  return true;
+};

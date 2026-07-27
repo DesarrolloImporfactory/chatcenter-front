@@ -9,6 +9,7 @@ import KpisRow from "./KpisRow";
 import FiltersBar from "./FiltersBar";
 import UsuariosTable from "./UsuariosTable";
 import DrawerDetalle from "./DrawerDetalle";
+import GestionCharts from "./GestionCharts";
 
 export default function AdminUsuarios() {
   const navigate = useNavigate();
@@ -41,6 +42,10 @@ export default function AdminUsuarios() {
   const [conWhatsapp, setConWhatsapp] = useState(false);
   const [sinPlan, setSinPlan] = useState(false);
   const [conSeguimientos, setConSeguimientos] = useState(false); // 👈 NUEVO
+  // Cancelación programada AÚN SALVABLE (pidió irse pero sigue activo) y los
+  // que no tienen WhatsApp personal cargado.
+  const [cancelacionProgramada, setCancelacionProgramada] = useState(false);
+  const [sinWhatsappPersonal, setSinWhatsappPersonal] = useState(false);
   const [porVencer7d, setPorVencer7d] = useState(false);
   const [estadoTrialOPromo, setEstadoTrialOPromo] = useState(false);
   const [nuevos30d, setNuevos30d] = useState(false);
@@ -82,6 +87,8 @@ export default function AdminUsuarios() {
       con_whatsapp_activo: conWhatsapp ? 1 : undefined,
       sin_plan: sinPlan ? 1 : undefined,
       con_seguimientos: conSeguimientos ? 1 : undefined,
+      cancelacion_programada: cancelacionProgramada ? 1 : undefined,
+      sin_whatsapp_personal: sinWhatsappPersonal ? 1 : undefined,
       por_vencer_7d: porVencer7d ? 1 : undefined,
       estado_trial_o_promo: estadoTrialOPromo ? 1 : undefined,
       nuevos_30d: nuevos30d ? 1 : undefined,
@@ -103,6 +110,8 @@ export default function AdminUsuarios() {
       conWhatsapp,
       sinPlan,
       conSeguimientos,
+      cancelacionProgramada,
+      sinWhatsappPersonal,
       porVencer7d,
       estadoTrialOPromo,
       nuevos30d,
@@ -192,6 +201,16 @@ export default function AdminUsuarios() {
         label: "Con seguimientos",
         clear: () => setConSeguimientos(false),
       });
+    if (cancelacionProgramada)
+      chips.push({
+        label: "Por cancelar (salvable)",
+        clear: () => setCancelacionProgramada(false),
+      });
+    if (sinWhatsappPersonal)
+      chips.push({
+        label: "Sin WhatsApp personal",
+        clear: () => setSinWhatsappPersonal(false),
+      });
     if (porVencer7d)
       chips.push({
         label: "Por vencer 7d",
@@ -237,6 +256,8 @@ export default function AdminUsuarios() {
     conWhatsapp,
     sinPlan,
     conSeguimientos,
+    cancelacionProgramada,
+    sinWhatsappPersonal,
     porVencer7d,
     estadoTrialOPromo,
     nuevos30d,
@@ -365,6 +386,8 @@ export default function AdminUsuarios() {
     setConWhatsapp(false);
     setSinPlan(false);
     setConSeguimientos(false);
+    setCancelacionProgramada(false);
+    setSinWhatsappPersonal(false);
     setPorVencer7d(false);
     setEstadoTrialOPromo(false);
     setNuevos30d(false);
@@ -470,6 +493,8 @@ export default function AdminUsuarios() {
         <KpisRow kpis={kpis} onKpiClick={onKpiClick} activeKpi={activeKpi} />
       )}
 
+      <GestionCharts />
+
       <FiltersBar
         state={{
           search,
@@ -484,6 +509,8 @@ export default function AdminUsuarios() {
           conWhatsapp,
           sinPlan,
           conSeguimientos,
+          cancelacionProgramada,
+          sinWhatsappPersonal,
           fechaRegDesde,
           fechaRegHasta,
           fechaRenDesde,
@@ -503,6 +530,8 @@ export default function AdminUsuarios() {
           setConWhatsapp,
           setSinPlan,
           setConSeguimientos,
+          setCancelacionProgramada,
+          setSinWhatsappPersonal,
           setFechaRegDesde,
           setFechaRegHasta,
           setFechaRenDesde,
