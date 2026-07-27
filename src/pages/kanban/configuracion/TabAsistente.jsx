@@ -87,8 +87,8 @@ const TabAsistente = ({
   });
   // En la columna principal de Dropi el tag generar_guia ACTUALIZA la orden (no
   // crea), así que ahí va el switch de "actualizar", no el de "crear".
-  const esColumnaDropiPrincipal =
-    !!columnas?.find((c) => c.id === columnaId)?.es_dropi_principal;
+  const esColumnaDropiPrincipal = !!columnas?.find((c) => c.id === columnaId)
+    ?.es_dropi_principal;
   const disparaGenerarGuia = tieneAccionGenerarGuia && !esColumnaDropiPrincipal;
   // ── Chat de pruebas ──────────────────────────────────────
   const [showChat, setShowChat] = useState(false);
@@ -472,7 +472,7 @@ const TabAsistente = ({
             Vamos a aplicar la <strong>última versión del prompt</strong> que tenemos publicada.
           </div>
           <div style="margin-bottom:10px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px">
-            ✅ <strong>Tu personalización se mantiene:</strong> nombre de tienda, asistente, política de envío, tono e instrucciones — todo se preserva.
+             <strong>Tu personalización se mantiene:</strong> nombre de tienda, asistente, política de envío, tono e instrucciones — todo se preserva.
           </div>
           <div style="font-size:.78rem;color:#64748b">
             Esto actualiza el prompt en TODAS tus columnas IA y sus asistentes en OpenAI.
@@ -1539,100 +1539,102 @@ const TabAsistente = ({
 
           {/* ═══ Auto-creación de órdenes Dropi (solo en la columna que cierra la venta) ═══ */}
           {disparaGenerarGuia && (
-          <div
-            style={{
-              borderRadius: 14,
-              border: autoOrden
-                ? "1px solid rgba(16,185,129,.35)"
-                : "1px solid rgba(99,102,241,.2)",
-              background: autoOrden
-                ? "linear-gradient(135deg, rgba(99,102,241,.06), rgba(16,185,129,.05))"
-                : "#fafafa",
-              padding: "14px 18px",
-              marginBottom: 20,
-            }}
-          >
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
+                borderRadius: 14,
+                border: autoOrden
+                  ? "1px solid rgba(16,185,129,.35)"
+                  : "1px solid rgba(99,102,241,.2)",
+                background: autoOrden
+                  ? "linear-gradient(135deg, rgba(99,102,241,.06), rgba(16,185,129,.05))"
+                  : "#fafafa",
+                padding: "14px 18px",
+                marginBottom: 20,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      background: autoOrden
+                        ? "rgba(16,185,129,.12)"
+                        : "#f1f5f9",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <i
+                      className="bx bx-package"
+                      style={{
+                        fontSize: "1.4rem",
+                        color: autoOrden ? "#10b981" : "#94a3b8",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        fontSize: "0.95rem",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      Creación de órdenes automáticas en Dropi
+                    </div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                      {autoOrden
+                        ? "Cuando la IA confirma la venta, crea la orden lista para tu revisión"
+                        : "Activa esta opción para que la IA cree la orden en Dropi al confirmar la venta"}
+                    </div>
+                  </div>
+                </div>
+                {autoOrdenLoading ? (
+                  <i
+                    className="bx bx-loader-alt bx-spin"
+                    style={{ color: "#6366f1", fontSize: "1.3rem" }}
+                  />
+                ) : (
+                  <Toggle checked={autoOrden} onChange={toggleAutoOrden} />
+                )}
+              </div>
+
+              {autoOrden && (
                 <div
                   style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 12,
-                    background: autoOrden ? "rgba(16,185,129,.12)" : "#f1f5f9",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    marginTop: 10,
+                    fontSize: ".72rem",
+                    color: "#94a3b8",
+                    lineHeight: 1.5,
+                    paddingTop: 10,
+                    borderTop: "1px dashed rgba(0,0,0,.07)",
                   }}
                 >
                   <i
-                    className="bx bx-package"
-                    style={{
-                      fontSize: "1.4rem",
-                      color: autoOrden ? "#10b981" : "#94a3b8",
-                    }}
+                    className="bx bx-shield-quarter"
+                    style={{ marginRight: 4 }}
                   />
+                  Las órdenes se crean en estado{" "}
+                  <strong>Pendiente confirmación</strong> con los datos
+                  extraídos de la conversación. Verifica producto, dirección y
+                  valor a recaudar antes de confirmar cada despacho,la revisión
+                  y aprobación final es responsabilidad de tu equipo.
                 </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#0f172a",
-                      fontSize: "0.95rem",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    Creación de órdenes automáticas en Dropi
-                  </div>
-                  <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
-                    {autoOrden
-                      ? "Cuando la IA confirma la venta, crea la orden lista para tu revisión"
-                      : "Activa esta opción para que la IA cree la orden en Dropi al confirmar la venta"}
-                  </div>
-                </div>
-              </div>
-              {autoOrdenLoading ? (
-                <i
-                  className="bx bx-loader-alt bx-spin"
-                  style={{ color: "#6366f1", fontSize: "1.3rem" }}
-                />
-              ) : (
-                <Toggle checked={autoOrden} onChange={toggleAutoOrden} />
               )}
             </div>
-
-            {autoOrden && (
-              <div
-                style={{
-                  marginTop: 10,
-                  fontSize: ".72rem",
-                  color: "#94a3b8",
-                  lineHeight: 1.5,
-                  paddingTop: 10,
-                  borderTop: "1px dashed rgba(0,0,0,.07)",
-                }}
-              >
-                <i
-                  className="bx bx-shield-quarter"
-                  style={{ marginRight: 4 }}
-                />
-                Las órdenes se crean en estado{" "}
-                <strong>Pendiente confirmación</strong> con los datos extraídos
-                de la conversación. Verifica producto, dirección y valor a
-                recaudar antes de confirmar cada despacho,la revisión y
-                aprobación final es responsabilidad de tu equipo.
-              </div>
-            )}
-          </div>
           )}
 
           {/* ═══ Actualizar orden al confirmar — solo columna principal Dropi ═══ */}
@@ -1658,9 +1660,7 @@ const TabAsistente = ({
                   gap: 12,
                 }}
               >
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: 12 }}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div
                     style={{
                       width: 42,
@@ -1723,10 +1723,7 @@ const TabAsistente = ({
                     borderTop: "1px dashed rgba(0,0,0,.07)",
                   }}
                 >
-                  <i
-                    className="bx bx-info-circle"
-                    style={{ marginRight: 4 }}
-                  />
+                  <i className="bx bx-info-circle" style={{ marginRight: 4 }} />
                   Solo actualiza órdenes que YA existen en Dropi. Si el cliente
                   corrige un dato (dirección, teléfono), el cambio se sube junto
                   con la confirmación. Si la orden no existe, se queda en

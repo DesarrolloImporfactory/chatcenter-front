@@ -37,11 +37,12 @@ const ESTADO_ICONS = {
   DEVOLUCION: { icon: "bx bx-undo", color: "#6b7280" },
 };
 
-// Para qué sirve cada estado (cuándo se dispara el mensaje). Aclara que
-// PENDIENTE CONFIRMACION también entra por el webhook de Shopify, no solo Dropi.
+// Para qué sirve cada estado (cuándo se dispara el mensaje). PENDIENTE
+// CONFIRMACION entra por Dropi, por el webhook de Shopify y por las ventas
+// que cierra el bot en WhatsApp (estas últimas con su propio check).
 const ESTADO_DESC = {
   "PENDIENTE CONFIRMACION":
-    "Pedido nuevo que entra desde Dropi o desde tu webhook de Shopify. El cliente confirma por WhatsApp antes de despachar.",
+    "Pedido nuevo que entra desde Dropi, desde tu webhook de Shopify o de una venta que cerró el bot. El cliente confirma por WhatsApp antes de despachar.",
   CANCELADO: "El pedido se canceló en Dropi.",
   PENDIENTE: "El cliente confirmó: el pedido queda listo para generar la guía.",
   "GUIA GENERADA": "Ya se creó la guía de envío del pedido.",
@@ -779,6 +780,11 @@ const DropisPlantillas = ({ id_configuracion }) => {
             : null,
         body_text: soloMover ? null : cfg.body_text || null,
         columna_destino: cfg.columna_destino || null,
+        // Solo lo manda el estado que lo usa; en el resto el backend conserva
+        // el valor guardado.
+        ...(SIEMPRE_TEMPLATE.has(estado)
+          ? { enviar_en_orden_bot: cfg.enviar_en_orden_bot === 0 ? 0 : 1 }
+          : {}),
       });
       Toast.fire({ icon: "success", title: "Guardado" });
       setTotalActivos(Object.values(config).filter((v) => v.activo).length);
@@ -958,11 +964,16 @@ const DropisPlantillas = ({ id_configuracion }) => {
         .dp-solomover { display:flex;align-items:center;gap:8px;padding:9px 11px;margin-bottom:10px;border-radius:10px;border:1.5px solid #fed7aa;background:#fff7ed;cursor:pointer;user-select:none; }
         .dp-solomover input { width:16px;height:16px;accent-color:#ea580c;cursor:pointer;flex-shrink:0;margin:0; }
         .dp-solomover span { font-size:.78rem;font-weight:600;color:#9a3412;line-height:1.35; }
+        .dp-botcheck { display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:10px;border-radius:10px;border:1.5px solid #c7d2fe;background:#eef2ff;cursor:pointer;user-select:none; }
+        .dp-botcheck input { width:16px;height:16px;accent-color:#4f46e5;cursor:pointer;flex-shrink:0;margin:1px 0 0; }
+        .dp-botcheck span { display:flex;flex-direction:column;gap:3px; }
+        .dp-botcheck strong { font-size:.78rem;font-weight:700;color:#3730a3;line-height:1.35; }
+        .dp-botcheck em { font-style:normal;font-size:.7rem;color:#4c51bf;opacity:.85;line-height:1.45; }
       `}</style>
 
       <button className="dp-trigger-btn" type="button" onClick={handleAbrir}>
         <i className="bx bx-package" style={{ fontSize: 15 }} />
-        Plantillas Dropi
+        Plantillas de seguimiento
         {totalActivos > 0 && (
           <span
             style={{
@@ -1035,7 +1046,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
                         lineHeight: 1.2,
                       }}
                     >
-                      Plantillas por estado Dropi
+                      Plantillas de seguimiento del pedido
                     </h2>
                   </div>
                 </div>
@@ -1056,7 +1067,8 @@ const DropisPlantillas = ({ id_configuracion }) => {
                 }}
               >
                 Configura plantillas y respuestas rápidas que se enviarán
-                automáticamente al cambiar el estado de un pedido Dropi.
+                automáticamente según el estado del pedido, venga de Dropi, de
+                Shopify o de una venta cerrada por el bot en WhatsApp.
               </p>
             </div>
 
@@ -1223,6 +1235,19 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                     : ""}
                                 </div>
                               )}
+                              {isActivo &&
+                                esSiempreTemplate &&
+                                cfg.enviar_en_orden_bot === 0 && (
+                                  <div
+                                    style={{
+                                      fontSize: ".7rem",
+                                      color: "#64748b",
+                                      marginTop: 1,
+                                    }}
+                                  >
+                                    No se envía en ventas cerradas por el bot
+                                  </div>
+                                )}
                               {isActivo && !cfg.nombre_template && !soloMover && (
                                 <div
                                   style={{
@@ -1268,6 +1293,40 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                 <span>
                                   No enviar ninguna plantilla — solo mover de
                                   columna
+                                </span>
+                              </label>
+                            )}
+
+                            {/* Ventas cerradas por el bot en WhatsApp: el
+                                cliente decide si además se le manda esta
+                                plantilla de confirmación. */}
+                            {esSiempreTemplate && (
+                              <label className="dp-botcheck">
+                                <input
+                                  type="checkbox"
+                                  checked={cfg.enviar_en_orden_bot !== 0}
+                                  onChange={(e) =>
+                                    updateConfig(
+                                      estado,
+                                      "enviar_en_orden_bot",
+                                      e.target.checked ? 1 : 0,
+                                    )
+                                  }
+                                />
+                                <span>
+                                  <strong>
+                                    Enviar también cuando el bot cierra la venta
+                                    por WhatsApp
+                                  </strong>
+                                  <em>
+                                    Al crear la orden, el pedido entra en
+                                    Pendiente Confirmación y se manda esta
+                                    plantilla. El cliente se queda en{" "}
+                                    <b>Generar guía</b>, no retrocede de
+                                    columna. Si el bot ya cerró la venta en el
+                                    chat y no quieres pedir una segunda
+                                    confirmación, desactívalo.
+                                  </em>
                                 </span>
                               </label>
                             )}
