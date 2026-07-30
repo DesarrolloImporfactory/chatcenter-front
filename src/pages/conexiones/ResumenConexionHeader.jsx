@@ -13,9 +13,17 @@ import chatApi from "../../api/chatcenter";
 const fmtNum = (n) => (Number(n) || 0).toLocaleString("es-EC");
 const fmt$ = (n) =>
   "$" + (Number(n) || 0).toLocaleString("es-EC", { maximumFractionDigits: 0 });
-const fmtPct = (n) => (n == null ? "—" : `${Number(n).toFixed(0)}%`);
+// 1 decimal, igual que el dashboard: con % chicos (1.3%) redondear a entero
+// mostraba "1%" acá y "1.3%" allá para el mismo dato.
+const fmtPct = (n) => (n == null ? "—" : `${Number(n).toFixed(1)}%`);
 
-const toYMD = (d) => d.toISOString().slice(0, 10);
+/* Fecha LOCAL, no UTC: con toISOString(), desde las 19:00 en Ecuador (-05) el
+   día ya rueda al siguiente y este header pedía un rango corrido un día
+   respecto al dashboard. Mismo helper que ConnectionDashboard. */
+const toYMD = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
 const daysAgo = (n) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -101,7 +109,9 @@ export default function ResumenConexionHeader({ conexiones = [], onVerDashboard 
   );
 
   const [selId, setSelId] = useState(null);
-  const [dias, setDias] = useState(30);
+  // 7 días = el mismo rango con el que abre /conexion-dashboard. Con 30 acá y
+  // 7 allá, el mismo dato se veía distinto (1.3% vs 1.4%) solo por la ventana.
+  const [dias, setDias] = useState(7);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const cache = useRef({});
@@ -187,6 +197,12 @@ export default function ResumenConexionHeader({ conexiones = [], onVerDashboard 
       label: "Confirmación",
       color: "#fbbf24",
       value: fmtPct(data?.pctConfirmacion),
+      // Mismo par que el dashboard: pedidos por chat ÷ conversaciones.
+      sub: data?.pctConfirmacionTope
+        ? "más pedidos que conversaciones"
+        : `${fmtNum(data?.canales?.wa?.pedidosNeto)} de ${fmtNum(
+            data?.totalConversaciones,
+          )}`,
     },
     {
       icon: "bx-check-double",

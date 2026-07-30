@@ -345,7 +345,10 @@ function buildHeroKpis(canal, data, view) {
       {
         key: "pedidosShopify",
         label: "Pedidos",
-        tip: "Pedidos que hicieron tus clientes en la tienda Shopify.",
+        // El cliente compara este número con lo que ve en Shopify y no cuadra:
+        // acá contamos lo que avisó el webhook al CREARSE el pedido, así que
+        // los que él canceló o borró después siguen contando.
+        tip: "Pedidos creados en tu tienda Shopify durante el periodo, según el aviso que manda la tienda al momento de la compra. Incluye los que después se cancelaron o borraron, por eso puede ser mayor que lo que ves hoy en Shopify.",
         formula: "checkouts Shopify + órdenes tipo Shopify",
         sub: "checkouts de la tienda",
         icon: "bx-cart",
@@ -405,9 +408,6 @@ function buildHeroKpis(canal, data, view) {
       {
         key: "pctConfirmacion",
         label: "Confirmación",
-        // Mismo par que se ve en pantalla: pedidos ÷ conversaciones. Antes
-        // usábamos compradores globales (incluían ventas Shopify) y no
-        // cuadraba con los pedidos WhatsApp de al lado.
         tip: data.totalConversaciones
           ? "De las conversaciones que entraron, qué porcentaje terminó en pedido por WhatsApp."
           : "Aún no se puede medir: en este periodo nadie escribió al chat.",
@@ -416,11 +416,7 @@ function buildHeroKpis(canal, data, view) {
         icon: "bx-check-shield",
         color: "#fbbf24",
         bg: "rgba(251,191,36,0.1)",
-        value: fmtPct(
-          data.totalConversaciones
-            ? (view.pedidosNeto / data.totalConversaciones) * 100
-            : null,
-        ),
+        value: fmtPct(view.pctConfirmacion),
       },
       cardTasaEntregaReal(view),
     ];
@@ -456,17 +452,24 @@ function buildHeroKpis(canal, data, view) {
     {
       key: "pctConfirmacion",
       label: "Confirmación",
-      tip: view.conversaciones
-        ? "De las conversaciones que entraron, qué porcentaje terminó en pedido (todos los canales)."
-        : "Aún no se puede medir: en este periodo nadie escribió al chat.",
-      formula: "pedidos ÷ conversaciones × 100",
-      sub: `${fmtNum(netoTodos)} de ${fmtNum(view.conversaciones)}`,
+      /* Solo los pedidos de WhatsApp: los de la tienda no salieron de una
+         conversación y metiéndolos el % pasaba de 100%. */
+      tip: !view.conversaciones
+        ? "Aún no se puede medir: en este periodo nadie escribió al chat."
+        : data.pctConfirmacionTope
+          ? "Esta conexión tiene más pedidos que conversaciones: la mayoría se cargó en Dropi sin pasar por el chat, así que este número no es una conversión real."
+          : "De las conversaciones que entraron, qué porcentaje terminó en pedido. Los pedidos que el cliente hizo solo en la tienda no cuentan: no salieron de un chat.",
+      formula: "pedidos por chat ÷ conversaciones × 100",
+      sub: data.pctConfirmacionTope
+        ? "más pedidos que conversaciones"
+        : `${fmtNum(data.canales?.wa?.pedidosNeto)} de ${fmtNum(
+            view.conversaciones,
+          )}`,
       icon: "bx-check-shield",
       color: "#fbbf24",
       bg: "rgba(251,191,36,0.1)",
-      value: fmtPct(
-        view.conversaciones ? (netoTodos / view.conversaciones) * 100 : null,
-      ),
+      // Mismo valor que devuelve el back (y que pinta el header de /conexiones).
+      value: fmtPct(data.pctConfirmacion),
     },
     {
       key: "tasaEntrega",
@@ -1222,6 +1225,46 @@ function ResumenView({
 
   const hayProductosSinVentas = sortedProducts.some((p) => p.sinVentas);
 
+  /* Fila de totales: el cliente suma la columna a mano y no le cuadra con el
+     resumen de arriba (30+8+6 = 44 vs "43 pedidos"). La diferencia son los
+     cancelados —que la columna incluye y el resumen descuenta— y las órdenes
+     con más de un producto, que aparecen en la fila de cada uno. Mostrarlo
+     sumado + la nota de abajo evita la pregunta. Conversaciones NO se suma:
+     varias presentaciones comparten el mismo anuncio. */
+  const totalesProductos = useMemo(() => {
+    const t = {
+      pedidos: 0,
+      pedidosWa: 0,
+      confirmadas: 0,
+      canceladas: 0,
+      entregadas: 0,
+      devoluciones: 0,
+    };
+    for (const p of sortedProducts) {
+      if (p.sinVentas) continue;
+      t.pedidos += canal === "wa" ? p.ordenes || 0 : p.pedidosTienda || 0;
+      t.pedidosWa += p.pedidosWa || 0;
+      t.confirmadas += p.confirmadas || 0;
+      t.canceladas += p.canceladas || 0;
+      t.entregadas += p.entregadas || 0;
+      t.devoluciones += p.devoluciones || 0;
+    }
+    return t;
+  }, [sortedProducts, canal]);
+
+  /* Abre /pedidos ya filtrado por ese producto y con el mismo rango: es la
+     respuesta a "¿por qué tengo 30 pedidos de tienda si hoy entraron menos?"
+     — ahí se ve orden por orden con su fecha. */
+  const verPedidosDelProducto = (nombre) => {
+    const qs = new URLSearchParams({
+      producto: nombre,
+      from: dateRange.from,
+      until: dateRange.to,
+    });
+    if (canal === "shopify") qs.set("origen", "shopify");
+    navigate(`/pedidos?${qs.toString()}`);
+  };
+
   const handleProdSort = (key) =>
     setProdSort((s) =>
       s.key === key
@@ -1250,6 +1293,8 @@ function ResumenView({
   // de chats por producto, no sumando la columna: varias presentaciones
   // pueden compartir el mismo anuncio y se contarían dos veces).
   const convCuadre = data?.conversacionesProducto || null;
+  // Cuántos pedidos Dropi del rango vienen de compras anteriores al rango.
+  const desfaseShopify = data?.shopifyDesfase || null;
   const canalMeta = CHANNELS.find((c) => c.key === canal) || CHANNELS[0];
   /* Los tres grupos son excluyentes y suman el total: confirmados + por
      confirmar + cancelados. Un pedido que se confirmó y luego se canceló
@@ -1525,6 +1570,50 @@ function ResumenView({
                   );
                 })}
               </div>
+
+              {/* Las dos cards de arriba cuentan sobre fechas distintas:
+                  "Pedidos" es cuándo COMPRÓ el cliente en la tienda y
+                  "Pedidos Dropi" cuándo se SUBIÓ la orden a Dropi. Como la
+                  tienda sube lo del día anterior, un día puede tener 22
+                  checkouts y 44 órdenes sin que nada esté mal. */}
+              {canal === "shopify" &&
+                (desfaseShopify?.compraPrevia > 0 ||
+                  desfaseShopify?.checkoutsSinOrden > 0) && (
+                  <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3.5 py-2.5">
+                    <i className="bx bx-time-five text-amber-300/90 text-base shrink-0 mt-[1px]" />
+                    <p className="text-[11px] leading-relaxed text-white/60">
+                      Las dos cifras no cuentan lo mismo:{" "}
+                      <b className="text-white/80">Pedidos</b> es cuándo compró
+                      el cliente en la tienda y{" "}
+                      <b className="text-white/80">Pedidos Dropi</b> cuándo
+                      llegó esa orden a Dropi, y entre una cosa y la otra pasan
+                      horas.
+                      {desfaseShopify.compraPrevia > 0 && (
+                        <>
+                          {" "}
+                          <b className="text-amber-200/90">
+                            {fmtNum(desfaseShopify.compraPrevia)}
+                          </b>{" "}
+                          de los {fmtNum(view.pedidos)} pedidos Dropi son de
+                          compras hechas <b className="text-white/80">antes</b>{" "}
+                          del rango.
+                        </>
+                      )}
+                      {desfaseShopify.checkoutsSinOrden > 0 && (
+                        <>
+                          {" "}
+                          Y{" "}
+                          <b className="text-amber-200/90">
+                            {fmtNum(desfaseShopify.checkoutsSinOrden)}
+                          </b>{" "}
+                          compras de este rango{" "}
+                          <b className="text-white/80">todavía no llegan</b> a
+                          Dropi.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                )}
             </>
           ) : null}
         </div>
@@ -1855,9 +1944,25 @@ function ResumenView({
                                   <i className="bx bx-image text-slate-300 text-lg" />
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="font-semibold text-slate-800 max-w-[200px] truncate">
-                                    {p.name}
-                                  </div>
+                                  {p.sinVentas ? (
+                                    <div className="font-semibold text-slate-800 max-w-[200px] truncate">
+                                      {p.name}
+                                    </div>
+                                  ) : (
+                                    // Lleva a /pedidos filtrado por este
+                                    // producto: ahí se ve orden por orden.
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        verPedidosDelProducto(p.name)
+                                      }
+                                      title={`Ver los pedidos de "${p.name}"`}
+                                      className="group flex items-center gap-1 font-semibold text-slate-800 max-w-[210px] hover:text-indigo-600 transition"
+                                    >
+                                      <span className="truncate">{p.name}</span>
+                                      <i className="bx bx-link-external text-[13px] text-slate-300 group-hover:text-indigo-500 shrink-0" />
+                                    </button>
+                                  )}
                                   {p.sinVentas ? (
                                     <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-[1px] rounded">
                                       <i className="bx bx-bullhorn text-[11px]" />
@@ -1974,6 +2079,50 @@ function ResumenView({
                         );
                       })}
                     </tbody>
+                    {/* Totales: para que sumar la columna a mano dé lo mismo
+                        que dice la tabla. Los % no se suman (cada fila tiene
+                        su propio denominador) y Conversaciones tampoco. */}
+                    {sortedProducts.some((p) => !p.sinVentas) && (
+                      <tfoot className="bg-slate-50 border-t-2 border-slate-200">
+                        <tr className="text-[12px] font-bold text-slate-700">
+                          <td className="px-3 py-2.5" />
+                          <td className="px-3 py-2.5">Total</td>
+                          {esWa && (
+                            <td className="px-3 py-2.5 text-center">
+                              <Guion />
+                            </td>
+                          )}
+                          <td className="px-3 py-2.5 text-center tabular-nums">
+                            {fmtNum(totalesProductos.pedidos)}
+                          </td>
+                          {esTodosTab && (
+                            <td className="px-3 py-2.5 text-center tabular-nums">
+                              {fmtNum(totalesProductos.pedidosWa)}
+                            </td>
+                          )}
+                          {!esWa && (
+                            <td className="px-3 py-2.5 text-center tabular-nums">
+                              {fmtNum(totalesProductos.confirmadas)}
+                            </td>
+                          )}
+                          <td className="px-3 py-2.5 text-center">
+                            <Guion />
+                          </td>
+                          <td className="px-3 py-2.5 text-center tabular-nums text-rose-500">
+                            {fmtNum(totalesProductos.canceladas)}
+                          </td>
+                          <td className="px-3 py-2.5 text-center tabular-nums text-emerald-600">
+                            {fmtNum(totalesProductos.entregadas)}
+                          </td>
+                          <td className="px-3 py-2.5 text-center tabular-nums text-rose-500">
+                            {fmtNum(totalesProductos.devoluciones)}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <Guion />
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               ) : (
@@ -2025,8 +2174,8 @@ function ResumenView({
                         conversaciones no faltan: son chats que{" "}
                         <b>no llegaron desde un anuncio</b> (escribieron
                         directo, por referidos, etc.), así que no hay forma de
-                        saber por qué producto entraron y no se pueden asignar
-                        a ninguna fila. Los productos que atrajeron chats sin
+                        saber por qué producto entraron y no se pueden asignar a
+                        ninguna fila. Los productos que atrajeron chats sin
                         vender sí aparecen, marcados como <b>solo anuncios</b>.
                         La columna <b>Conversaciones</b> puede no sumar igual
                         que el total: varias presentaciones comparten un mismo
@@ -2043,6 +2192,40 @@ function ResumenView({
                         llena.
                       </p>
                     ))}
+                </div>
+              )}
+
+              {/* Cuadre de pedidos: la pregunta recurrente es por qué sumar la
+                  columna no da el mismo número que las cards de arriba. */}
+              {!esWa && sortedProducts.some((p) => !p.sinVentas) && (
+                <div className="border-t border-slate-100 bg-slate-50/70 px-4 sm:px-5 py-3.5 space-y-2">
+                  {/* Misma explicación del hero, acá abajo: es donde el
+                      cliente compara producto por producto contra lo que ve
+                      en su tienda. */}
+                  {(desfaseShopify?.compraPrevia > 0 ||
+                    desfaseShopify?.checkoutsSinOrden > 0) && (
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      <i className="bx bx-time-five text-amber-500 mr-1" />
+                      Estos pedidos están contados por la fecha en que{" "}
+                      <b>llegaron a Dropi</b>, no por cuándo compró el cliente.
+                      {desfaseShopify.compraPrevia > 0 && (
+                        <>
+                          {" "}
+                          <b>{fmtNum(desfaseShopify.compraPrevia)}</b> vienen de
+                          compras hechas <b>antes</b> del rango
+                        </>
+                      )}
+                      {desfaseShopify.checkoutsSinOrden > 0 && (
+                        <>
+                          {desfaseShopify.compraPrevia > 0 ? " y " : " "}
+                          <b>{fmtNum(desfaseShopify.checkoutsSinOrden)}</b>{" "}
+                          compras del rango todavía no llegan a Dropi
+                        </>
+                      )}
+                      . Por eso el número de un producto puede no coincidir con
+                      lo que se vendió ese día en la tienda.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

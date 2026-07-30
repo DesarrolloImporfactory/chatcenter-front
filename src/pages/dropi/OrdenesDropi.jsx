@@ -169,34 +169,58 @@ const ORIGEN_OPTIONS = [
   { id: "otros", name: "Otros sistemas" },
 ];
 
-const StatusDropdown = ({ value, onChange }) => {
+/* Desplegable de filtro. Un <select> nativo se ve seco y no deja mostrar el
+   conteo de cada opción ni buscar cuando la lista es larga. Lo usan Producto
+   (con buscador, decenas de opciones y nombres largos) y Origen. Panel
+   redondeado, scroll propio, animación de apertura y "×" para quitar el
+   filtro sin abrir el panel. */
+const FilterDropdown = ({
+  label,
+  icon = "bx-filter-alt",
+  value,
+  options, // [{ value, label, count? }]
+  onChange,
+  placeholder = "Todos",
+  searchable = false,
+  searchPlaceholder = "Buscar…",
+  pie = null, // texto opcional al pie del panel
+}) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef(null);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return STATUS_OPTIONS;
-    const s = search.toLowerCase();
-    return STATUS_OPTIONS.filter(
-      (o) => o.name.toLowerCase().includes(s) || o.id.toLowerCase().includes(s),
-    );
-  }, [search]);
+    const s = search.trim().toLowerCase();
+    if (!s) return options;
+    return options.filter((o) => o.label.toLowerCase().includes(s));
+  }, [options, search]);
 
-  const selected = STATUS_OPTIONS.find((o) => o.id === value);
+  // El valor puede venir por URL y no estar en la lista del rango actual:
+  // igual hay que mostrarlo en el botón.
+  const selected = options.find((o) => o.value === value);
 
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
+    const onEsc = (e) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onEsc);
+    };
   }, []);
+
+  const pick = (val) => {
+    onChange(val);
+    setOpen(false);
+    setSearch("");
+  };
 
   return (
     <div className="flex flex-col h-full" ref={ref}>
-      <label className="text-sm font-semibold text-gray-700">
-        Estado del envío
-      </label>
+      <label className="text-[13px] font-semibold text-gray-700">{label}</label>
 
       <button
         type="button"
@@ -204,69 +228,132 @@ const StatusDropdown = ({ value, onChange }) => {
           setOpen((o) => !o);
           setSearch("");
         }}
-        className="mt-1 w-full px-4 py-2 border rounded-xl bg-white text-left text-sm focus:outline-none focus:ring-2 focus:ring-[#171931] flex items-center justify-between gap-2"
+        className={`mt-1 w-full pl-3 pr-2.5 py-[7px] border rounded-xl bg-white text-left text-[13px] flex items-center gap-2 transition focus:outline-none ${
+          open
+            ? "border-[#171931] ring-2 ring-[#171931]/10"
+            : "border-gray-200 hover:border-gray-300"
+        }`}
       >
-        <span className={value ? "text-gray-900" : "text-gray-400"}>
-          {selected?.name || "Todos"}
-        </span>
-        <svg
-          className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
-          viewBox="0 0 20 20"
-          fill="currentColor"
+        <i
+          className={`bx ${icon} text-[15px] shrink-0 ${
+            value ? "text-[#171931]" : "text-gray-300"
+          }`}
+        />
+        <span
+          className={`flex-1 truncate ${
+            value ? "text-gray-900 font-medium" : "text-gray-400"
+          }`}
         >
-          <path
-            fillRule="evenodd"
-            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-            clipRule="evenodd"
-          />
-        </svg>
+          {selected?.label || value || placeholder}
+        </span>
+        {value ? (
+          <span
+            role="button"
+            tabIndex={0}
+            title="Quitar filtro"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+                onChange("");
+              }
+            }}
+            className="shrink-0 grid place-items-center w-5 h-5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+          >
+            <i className="bx bx-x text-[15px]" />
+          </span>
+        ) : (
+          <svg
+            className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 shrink-0 ${
+              open ? "rotate-180" : ""
+            }`}
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+              clipRule="evenodd"
+            />
+          </svg>
+        )}
       </button>
 
-      <div className="mt-1 text-xs opacity-0 select-none">.</div>
+      <div className="mt-1 text-[11px] opacity-0 select-none">.</div>
 
       {open && (
         <div className="relative z-50">
-          <div className="absolute top-0 left-0 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-            <div className="p-2 border-b border-gray-100">
-              <input
-                type="text"
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar estado..."
-                className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-[#171931] transition"
-              />
-            </div>
+          <div className="absolute top-0 left-0 w-full min-w-[240px] bg-white border border-gray-200 rounded-2xl shadow-xl shadow-slate-900/[0.08] overflow-hidden origin-top animate-drop-in">
+            {searchable && (
+              <div className="p-2 border-b border-gray-100">
+                <div className="relative">
+                  <i className="bx bx-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300 text-[15px]" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="w-full pl-8 pr-3 py-1.5 text-[13px] border border-gray-200 rounded-lg outline-none focus:border-[#171931] transition"
+                  />
+                </div>
+              </div>
+            )}
 
-            <div className="max-h-48 overflow-y-auto">
+            <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
               {filtered.length === 0 ? (
-                <div className="px-4 py-3 text-xs text-gray-400 text-center">
-                  Sin resultados
+                <div className="px-3 py-6 text-center">
+                  <i className={`bx ${icon} text-2xl text-gray-200`} />
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Sin resultados
+                  </p>
                 </div>
               ) : (
-                filtered.map((o, idx) => {
-                  const isActive = o.id === value;
+                filtered.map((o) => {
+                  const activo = o.value === value;
                   return (
                     <button
-                      key={`${o.id}-${idx}`}
+                      key={o.value || "__todos"}
                       type="button"
-                      onClick={() => {
-                        onChange(o.id);
-                        setOpen(false);
-                        setSearch("");
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm transition ${
-                        isActive
+                      onClick={() => pick(o.value)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-left text-[13px] rounded-lg transition ${
+                        activo
                           ? "bg-[#171931] text-white"
-                          : "text-gray-700 hover:bg-gray-50"
+                          : "text-gray-700 hover:bg-gray-50 active:bg-gray-100"
                       }`}
                     >
-                      {o.name}
+                      <i
+                        className={`bx ${o.value ? icon : "bx-layer"} text-[15px] shrink-0 ${
+                          activo ? "text-white/70" : "text-gray-300"
+                        }`}
+                      />
+                      <span className="flex-1 truncate">{o.label}</span>
+                      {o.count != null && (
+                        <span
+                          className={`shrink-0 text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-md ${
+                            activo
+                              ? "bg-white/15 text-white"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {o.count}
+                        </span>
+                      )}
+                      {activo && <i className="bx bx-check text-[15px] shrink-0" />}
                     </button>
                   );
                 })
               )}
             </div>
+
+            {pie && (
+              <div className="px-3 py-2 border-t border-gray-100 bg-gray-50/70">
+                <p className="text-[11px] text-gray-400">{pie}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -411,6 +498,10 @@ const OrdenesDropi = () => {
   const [dateUntil, setDateUntil] = useState("");
   const [status, setStatus] = useState("");
   const [origen, setOrigen] = useState("");
+  // Producto: nombre exacto tal como llega de Dropi. Lo llena el desplegable
+  // o el enlace del dashboard (/pedidos?producto=...).
+  const [producto, setProducto] = useState("");
+  const [productosDisponibles, setProductosDisponibles] = useState([]);
 
   // =========================
   // HELPERS FECHA (YYYY-MM-DD)
@@ -450,10 +541,20 @@ const OrdenesDropi = () => {
     if (idc) setId_configuracion(parseInt(idc, 10));
   }, []);
 
+  /* Rango + filtros iniciales. El dashboard enlaza acá con
+     /pedidos?producto=X&from=…&until=…&origen=shopify para responder
+     "¿qué pedidos son esos 30 de la tabla?", así que la URL manda. */
   useEffect(() => {
-    const { from, until } = getDefaultRange();
-    setDateFrom(from);
-    setDateUntil(until);
+    const qs = new URLSearchParams(window.location.search);
+    const qProducto = qs.get("producto");
+    const qFrom = qs.get("from");
+    const qUntil = qs.get("until");
+    const qOrigen = qs.get("origen");
+    const def = getDefaultRange();
+    setDateFrom(qFrom || def.from);
+    setDateUntil(qUntil || def.until);
+    if (qProducto) setProducto(qProducto);
+    if (qOrigen) setOrigen(qOrigen);
   }, [getDefaultRange]);
 
   // =========================
@@ -481,6 +582,7 @@ const OrdenesDropi = () => {
       until: dateFrom && dateUntil ? dateUntil : undefined,
       status: String(status || "").trim() || undefined,
       origen: String(origen || "").trim() || undefined,
+      producto: String(producto || "").trim() || undefined,
       textToSearch: String(debouncedSearch || "").trim() || undefined,
     };
   }, [
@@ -491,6 +593,7 @@ const OrdenesDropi = () => {
     dateUntil,
     status,
     origen,
+    producto,
     debouncedSearch,
   ]);
 
@@ -514,6 +617,10 @@ const OrdenesDropi = () => {
       setTotalPages(Number(data.total_pages || 1));
       setSyncInfo(data.sync || null);
       setSinIntegracion(data.sin_integracion === true);
+      // Opciones del desplegable: el back las manda sin aplicar el filtro de
+      // producto, así que no se vacía al elegir uno.
+      if (Array.isArray(data.productos_disponibles))
+        setProductosDisponibles(data.productos_disponibles);
     } catch (error) {
       const msg =
         error?.response?.data?.message ||
@@ -578,9 +685,14 @@ const OrdenesDropi = () => {
     setTextToSearch("");
     setStatus("");
     setOrigen("");
+    setProducto("");
     setDateFrom(from);
     setDateUntil(until);
     setPage(1);
+    // Si se llegó desde el dashboard, la URL trae los filtros: limpiarla
+    // también, o al recargar volverían a aplicarse.
+    if (window.location.search)
+      window.history.replaceState({}, "", window.location.pathname);
   };
 
   // Abrir chat en pestaña NUEVA con el id del cliente en la URL
@@ -818,21 +930,21 @@ const OrdenesDropi = () => {
               Filtros de búsqueda
             </h3>
             <p className="text-[11px] text-gray-400">
-              Filtra por cliente, fecha, estado u origen del pedido
+              Filtra por cliente, fecha, estado, origen o producto del pedido
             </p>
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-7 gap-3 items-start">
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-4 xl:grid-cols-8 gap-3 items-start">
           {/* Buscar cliente */}
           <div className="flex flex-col h-full">
-            <label className="text-sm font-semibold text-gray-700">
+            <label className="text-[13px] font-semibold text-gray-700">
               Buscar
             </label>
             <input
               type="text"
               placeholder="Cliente, teléfono, guía, producto…"
-              className="mt-1 w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
+              className="mt-1 w-full px-3 py-[7px] text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10 transition"
               value={textToSearch}
               onChange={(e) => {
                 setPage(1);
@@ -846,37 +958,46 @@ const OrdenesDropi = () => {
 
           {/* Desde */}
           <div className="flex flex-col h-full">
-            <label className="text-sm font-semibold text-gray-700">Desde</label>
+            <label className="text-[13px] font-semibold text-gray-700">Desde</label>
             <input
               type="date"
-              className="mt-1 w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
+              className="mt-1 w-full px-3 py-[7px] text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10 transition"
               value={dateFrom}
               onChange={(e) => {
                 setPage(1);
                 setDateFrom(e.target.value);
               }}
             />
-            <div className="mt-1 text-xs opacity-0 select-none">.</div>
+            <div className="mt-1 text-[11px] opacity-0 select-none">.</div>
           </div>
 
           {/* Hasta */}
           <div className="flex flex-col h-full">
-            <label className="text-sm font-semibold text-gray-700">Hasta</label>
+            <label className="text-[13px] font-semibold text-gray-700">Hasta</label>
             <input
               type="date"
-              className="mt-1 w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171931]"
+              className="mt-1 w-full px-3 py-[7px] text-[13px] border border-gray-200 rounded-xl focus:outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10 transition"
               value={dateUntil}
               onChange={(e) => {
                 setPage(1);
                 setDateUntil(e.target.value);
               }}
             />
-            <div className="mt-1 text-xs opacity-0 select-none">.</div>
+            <div className="mt-1 text-[11px] opacity-0 select-none">.</div>
           </div>
 
           {/* Estado del envío */}
-          <StatusDropdown
+          <FilterDropdown
+            label="Estado del envío"
+            icon="bx-truck"
             value={status}
+            placeholder="Todos"
+            searchable
+            searchPlaceholder="Buscar estado…"
+            options={STATUS_OPTIONS.map((o) => ({
+              value: o.id,
+              label: o.name,
+            }))}
             onChange={(val) => {
               setPage(1);
               setStatus(val);
@@ -884,55 +1005,81 @@ const OrdenesDropi = () => {
           />
 
           {/* Origen */}
-          <div className="flex flex-col h-full">
-            <label className="text-sm font-semibold text-gray-700">
-              Origen
-            </label>
-            <select
-              className="mt-1 w-full px-4 py-2 border rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#171931]"
-              value={origen}
-              onChange={(e) => {
-                setPage(1);
-                setOrigen(e.target.value);
-              }}
-            >
-              {ORIGEN_OPTIONS.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-            <div className="mt-1 text-xs opacity-0 select-none">.</div>
-          </div>
+          <FilterDropdown
+            label="Origen"
+            icon="bx-store"
+            value={origen}
+            placeholder="Todos"
+            options={ORIGEN_OPTIONS.map((o) => ({
+              value: o.id,
+              label: o.name,
+            }))}
+            onChange={(val) => {
+              setPage(1);
+              setOrigen(val);
+            }}
+          />
+
+          {/* Producto: las opciones son los productos que quedan con los
+              filtros actuales (incluido Origen), con cuántos pedidos tiene
+              cada uno — así el número del desplegable es el que se ve al
+              elegirlo. */}
+          <FilterDropdown
+            label="Producto"
+            icon="bx-package"
+            value={producto}
+            placeholder="Todos los productos"
+            searchable
+            searchPlaceholder="Buscar producto…"
+            options={[
+              { value: "", label: "Todos los productos" },
+              ...productosDisponibles.map((p) => ({
+                value: p.nombre,
+                label: p.nombre,
+                count: p.pedidos,
+              })),
+            ]}
+            pie={
+              productosDisponibles.length
+                ? `${productosDisponibles.length} producto${
+                    productosDisponibles.length === 1 ? "" : "s"
+                  } con los filtros actuales`
+                : null
+            }
+            onChange={(val) => {
+              setPage(1);
+              setProducto(val);
+            }}
+          />
 
           {/* Botón Buscar */}
           <div className="flex flex-col h-full">
-            <label className="text-sm font-semibold text-gray-700 opacity-0 select-none">
+            <label className="text-[13px] font-semibold text-gray-700 opacity-0 select-none">
               Buscar
             </label>
             <button
               onClick={handleSearchClick}
-              className="mt-1 bg-[#171931] text-white hover:opacity-95 transition px-4 py-2 rounded-xl text-sm font-semibold shadow w-full"
+              className="mt-1 bg-[#171931] text-white hover:opacity-95 transition px-3 py-[7px] rounded-xl text-[13px] font-semibold shadow-sm w-full"
               disabled={ordersLoading}
             >
               {ordersLoading ? "Cargando..." : "Buscar"}
             </button>
-            <div className="mt-1 text-xs opacity-0 select-none">.</div>
+            <div className="mt-1 text-[11px] opacity-0 select-none">.</div>
           </div>
 
           {/* Botón Limpiar */}
           <div className="flex flex-col h-full">
-            <label className="text-sm font-semibold text-gray-700 opacity-0 select-none">
+            <label className="text-[13px] font-semibold text-gray-700 opacity-0 select-none">
               Limpiar
             </label>
             <button
               onClick={handleClear}
-              className="mt-1 bg-gray-200 text-gray-800 hover:bg-gray-300 transition px-4 py-2 rounded-xl text-sm font-semibold shadow w-full"
+              className="mt-1 bg-gray-200 text-gray-800 hover:bg-gray-300 transition px-3 py-[7px] rounded-xl text-[13px] font-semibold shadow-sm w-full"
               disabled={ordersLoading}
             >
               Limpiar
             </button>
-            <div className="mt-1 text-xs opacity-0 select-none">.</div>
+            <div className="mt-1 text-[11px] opacity-0 select-none">.</div>
           </div>
         </div>
 
@@ -954,24 +1101,24 @@ const OrdenesDropi = () => {
 
         {/* TABLA */}
         <div className="mt-6 overflow-auto rounded-xl border border-gray-100">
-          <table className="min-w-[1100px] w-full text-sm">
+          <table className="min-w-[1100px] w-full text-[13px]">
             <thead className="bg-gray-50 text-gray-700">
               <tr>
-                <th className="text-left px-4 py-3 font-semibold"># Orden</th>
-                <th className="text-left px-4 py-3 font-semibold">Cliente</th>
-                <th className="text-left px-4 py-3 font-semibold">
+                <th className="text-left px-3 py-2.5 font-semibold"># Orden</th>
+                <th className="text-left px-3 py-2.5 font-semibold">Cliente</th>
+                <th className="text-left px-3 py-2.5 font-semibold">
                   Estado del contacto
                 </th>
-                <th className="text-left px-4 py-3 font-semibold">Agente</th>
-                <th className="text-left px-4 py-3 font-semibold">Producto</th>
-                <th className="text-left px-4 py-3 font-semibold">
+                <th className="text-left px-3 py-2.5 font-semibold">Agente</th>
+                <th className="text-left px-3 py-2.5 font-semibold">Producto</th>
+                <th className="text-left px-3 py-2.5 font-semibold">
                   Estado del pedido
                 </th>
-                <th className="text-left px-4 py-3 font-semibold">
+                <th className="text-left px-3 py-2.5 font-semibold">
                   Estado del envío
                 </th>
-                <th className="text-left px-4 py-3 font-semibold">Origen</th>
-                <th className="px-4 py-3 font-semibold text-center">Chat</th>
+                <th className="text-left px-3 py-2.5 font-semibold">Origen</th>
+                <th className="px-3 py-2.5 font-semibold text-center">Chat</th>
               </tr>
             </thead>
 
@@ -981,7 +1128,7 @@ const OrdenesDropi = () => {
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={`sk-${i}`} className="animate-pulse">
                     {Array.from({ length: 9 }).map((__, j) => (
-                      <td key={j} className="px-4 py-4">
+                      <td key={j} className="px-3 py-3">
                         <div className="h-3 rounded bg-gray-100 w-full max-w-[140px]" />
                         {j === 1 && (
                           <div className="h-2 mt-2 rounded bg-gray-100 w-24" />
@@ -1013,12 +1160,12 @@ const OrdenesDropi = () => {
 
                   return (
                     <tr key={o.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-semibold text-gray-900">
+                      <td className="px-3 py-2.5 font-semibold text-gray-900">
                         #{o.id}
                       </td>
 
                       {/* Cliente + fecha (columna compacta) */}
-                      <td className="px-4 py-3 text-gray-700">
+                      <td className="px-3 py-2.5 text-gray-700">
                         <div className="font-semibold text-gray-900">
                           {fullName}
                         </div>
@@ -1072,7 +1219,7 @@ const OrdenesDropi = () => {
                       </td>
 
                       {/* Estado del contacto */}
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         {contacto ? (
                           <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                             <i className="bx bx-columns text-sm" />
@@ -1088,7 +1235,7 @@ const OrdenesDropi = () => {
                       {/* Agente (sin asignar + hay chat → Bot).
                           max-w + break-words: el nombre largo hace salto de
                           línea en vez de estirar la columna. */}
-                      <td className="px-4 py-3 text-gray-700">
+                      <td className="px-3 py-2.5 text-gray-700">
                         {hasAgent ? (
                           <span className="inline-flex items-start gap-1.5 max-w-[120px]">
                             <i className="bx bx-user-circle text-base text-gray-400 shrink-0 mt-0.5" />
@@ -1107,7 +1254,7 @@ const OrdenesDropi = () => {
                       </td>
 
                       {/* Producto con imagen */}
-                      <td className="px-4 py-3 text-gray-700">
+                      <td className="px-3 py-2.5 text-gray-700">
                         <div className="flex items-center gap-2.5">
                           {img ? (
                             <img
@@ -1138,7 +1285,7 @@ const OrdenesDropi = () => {
                       </td>
 
                       {/* Estado del pedido */}
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <EstadoPedidoBadge
                           estado={o?.estado_pedido}
                           porBot={!!o?.creado_por_bot}
@@ -1148,7 +1295,7 @@ const OrdenesDropi = () => {
                       </td>
 
                       {/* Estado del envío */}
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <span
                           className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(
                             o?.status,
@@ -1160,7 +1307,7 @@ const OrdenesDropi = () => {
                       </td>
 
                       {/* Origen */}
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <OrigenBadge
                           shopType={o?.shop_type}
                           shopName={o?.shop_name}
@@ -1168,7 +1315,7 @@ const OrdenesDropi = () => {
                         />
                       </td>
 
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 py-2.5 text-center">
                         <ChatButton
                           disabled={!o?.has_chat || !o?.chat_id_cliente}
                           onClick={() => openChatById(o)}
