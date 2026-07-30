@@ -28,6 +28,7 @@ import CatalogosView from "./pages/productos/CatalogosView";
 import CatalogoPublicoView from "./pages/productos/CatalogoPublicoView";
 import EncuestaPublica from "./pages/encuestas/EncuestaPublica";
 import Categorias from "./pages/categorias/CategoriasView";
+import Establecimientos from "./pages/establecimientos/EstablecimientosView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import AdminUsuarios from "./components/admin/usuarios/AdminUsuarios";
 import AdminDashboard from "./components/admin/dashboard/AdminDashboard";
@@ -602,6 +603,15 @@ function App() {
                   element={
                     <MainLayout>
                       <Categorias />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/establecimientos"
+                  element={
+                    <MainLayout>
+                      <Establecimientos />
                     </MainLayout>
                   }
                 />

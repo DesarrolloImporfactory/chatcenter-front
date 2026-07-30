@@ -9,7 +9,7 @@ import ChatRightPanel from "./ChatRightPanel";
 import EditarContactoDrawer from "./modales/EditarContactoDrawer";
 import "./css/DataUsuarioCss.css";
 
-const PLANES_CALENDARIO = [1, 3, 4];
+import { puedeAccederCalendario } from "../../utils/accesoCalendario";
 
 const DatosUsuarioModerno = ({
   opciones,
@@ -51,9 +51,7 @@ const DatosUsuarioModerno = ({
     try {
       if (!token) return setCanAccessCalendar(false);
       const payload = JSON.parse(atob(token.split(".")[1]));
-      setCanAccessCalendar(
-        PLANES_CALENDARIO.includes(Number(payload?.id_plan)),
-      );
+      setCanAccessCalendar(puedeAccederCalendario(payload?.id_plan));
     } catch {
       setCanAccessCalendar(false);
     }

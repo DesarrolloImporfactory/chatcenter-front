@@ -110,7 +110,15 @@ const ChatPruebaModal = ({
       if (data?.success) {
         setMensajes((prev) => [
           ...prev,
-          { rol: "assistant", texto: data.respuesta, ts: new Date() },
+          {
+            rol: "assistant",
+            texto: data.respuesta,
+            ts: new Date(),
+            // Qué haría el tablero con esta respuesta: sin esto la prueba se ve
+            // bien aunque el asistente jamás escriba el tag que mueve la tarjeta.
+            acciones: data.acciones_detectadas || [],
+            triggers: data.triggers_disponibles || [],
+          },
         ]);
         setPreviousResponseId(data.response_id);
       }
@@ -236,6 +244,32 @@ const ChatPruebaModal = ({
           border-radius: 14px 14px 14px 3px;
           padding: 8px 12px 5px;
           max-width: 78%;
+        }
+        /* Franja bajo la respuesta: qué haría el tablero con ella. Va fuera de
+           la burbuja porque no es algo que el cliente vea, es diagnóstico. */
+        .cpm-acciones {
+          align-self: flex-start;
+          margin: 2px 0 8px 34px;
+          max-width: 78%;
+          display: flex;
+          gap: 6px;
+          align-items: flex-start;
+          font-size: .72rem;
+          line-height: 1.4;
+          padding: 6px 10px;
+          border-radius: 8px;
+          border: 1px solid;
+        }
+        .cpm-acciones i { font-size: .9rem; flex-shrink: 0; margin-top: 1px; }
+        .cpm-acciones code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: .7rem;
+        }
+        .cpm-acciones--ok {
+          background: #f0fdf4; border-color: #bbf7d0; color: #15803d;
+        }
+        .cpm-acciones--nada {
+          background: #f8fafc; border-color: #e2e8f0; color: #64748b;
         }
         .cpm-texto {
           font-size: .86rem;
@@ -562,7 +596,9 @@ const ChatPruebaModal = ({
               // assistant
 
               const partes = parsearMensaje(msg.texto);
-              return partes.map((parte, pi) => (
+              return (
+                <React.Fragment key={`m-${i}`}>
+                  {partes.map((parte, pi) => (
                 <div
                   key={`${i}-${pi}`}
                   style={{
@@ -725,8 +761,44 @@ const ChatPruebaModal = ({
                       )}
                     </div>
                   )}
-                </div>
-              ));
+                    </div>
+                  ))}
+
+                  {/* Qué hizo el tablero con esta respuesta. Es el dato que
+                      faltaba para probar de verdad: la conversación puede ir
+                      perfecta y la tarjeta no moverse porque el asistente
+                      nunca escribió el tag. */}
+                  {msg.acciones?.length > 0 && (
+                    <div className="cpm-acciones cpm-acciones--ok">
+                      <i className="bx bx-check-circle" />
+                      <div>
+                        {msg.acciones.map((a, ai) => (
+                          <div key={ai}>
+                            <code>{a.trigger}</code>{" "}
+                            {a.tipo_accion === "cambiar_estado" &&
+                            a.estado_destino
+                              ? `— mueve la tarjeta a "${a.estado_destino}"`
+                              : a.tipo_accion === "agendar_cita"
+                                ? "— crea la cita en la agenda"
+                                : `— ejecuta ${a.tipo_accion}`}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {msg.acciones?.length === 0 && msg.triggers?.length > 0 && (
+                    <div className="cpm-acciones cpm-acciones--nada">
+                      <i className="bx bx-minus-circle" />
+                      <div>
+                        Sin tag: la tarjeta se queda en esta columna. Esta
+                        columna reconoce {msg.triggers.map((t) => t).join(", ")}
+                        .
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
             })}
 
             {/* Typing indicator */}

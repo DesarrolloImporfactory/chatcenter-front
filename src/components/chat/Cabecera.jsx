@@ -9,7 +9,7 @@ import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 import RemarketingSwitch from "./RemarketingSwitch";
 
-const PLANES_CALENDARIO = [1, 3, 4];
+import { puedeAccederCalendario } from "../../utils/accesoCalendario";
 
 const Cabecera = ({
   userData,
@@ -143,8 +143,7 @@ const Cabecera = ({
 
   useEffect(() => {
     if (userData) {
-      const permitido = PLANES_CALENDARIO.includes(Number(userData.id_plan));
-      setCanAccessCalendar(permitido);
+      setCanAccessCalendar(puedeAccederCalendario(userData.id_plan));
     }
   }, [userData]);
 
@@ -1000,10 +999,38 @@ const Cabecera = ({
                     </span>
                   </span>
                 </a>
-              </div>
 
-              {tipo_configuracion === "kanban" && (
-                <div className="ml-10 flex flex-col py-2">
+                {/* Sedes: junto al Calendario, que es con lo que trabaja. */}
+                <a
+                  href="/establecimientos"
+                  onClick={(e) => {
+                    if (
+                      e.metaKey ||
+                      e.ctrlKey ||
+                      e.shiftKey ||
+                      e.altKey ||
+                      e.button === 1
+                    ) {
+                      setSliderOpen(false);
+                      return;
+                    }
+                    e.preventDefault();
+                    navigate("/establecimientos");
+                    setSliderOpen(false);
+                  }}
+                  className={`group flex items-center gap-3 text-left px-4 py-2 cursor-pointer hover:text-blue-600 ${
+                    location.pathname === "/establecimientos"
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
+                >
+                  <i className="bx bx-buildings text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span className="whitespace-nowrap">Sedes y sucursales</span>
+                </a>
+
+                {/* Un solo contenedor para todo el submenú: dos divs con py-2
+                    dejaban un hueco visible entre los ítems. */}
+                {tipo_configuracion === "kanban" && (
                   <a
                     href="/kanban_config"
                     onClick={(e) => {
@@ -1037,8 +1064,8 @@ const Cabecera = ({
                       Configurar agentes
                     </span>
                   </a>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 

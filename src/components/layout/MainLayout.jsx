@@ -14,7 +14,7 @@ import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 
-const PLANES_CALENDARIO = [1, 3, 4];
+import { puedeAccederCalendario } from "../../utils/accesoCalendario";
 
 function MainLayout({ children }) {
   usePresenceRegister();
@@ -258,8 +258,7 @@ function MainLayout({ children }) {
   // =========================================================
   useEffect(() => {
     if (userData) {
-      const permitido = PLANES_CALENDARIO.includes(Number(userData.id_plan));
-      setCanAccessCalendar(permitido);
+      setCanAccessCalendar(puedeAccederCalendario(userData.id_plan));
     }
   }, [userData]);
 
@@ -295,7 +294,9 @@ function MainLayout({ children }) {
       location.pathname.startsWith("/shopify/abandonados")
     ) {
       setOpenMenu("ventas");
-    } else if (["/calendario"].includes(location.pathname)) {
+    } else if (
+      ["/calendario", "/establecimientos"].includes(location.pathname)
+    ) {
       setOpenMenu("agentes");
     } else if (
       ["/canal-conexiones", "/dropi", "/asistentes", "/shopify"].some((p) =>
@@ -794,10 +795,28 @@ function MainLayout({ children }) {
                       </span>
                     </span>
                   </a>
-                </div>
 
-                {tipo_configuracion === "kanban" && (
-                  <div className="ml-10 flex flex-col py-2">
+                  {/* Sedes: va junto al Calendario y no bajo Productos porque
+                      es lo que define la cobertura y en qué agenda cae la cita,
+                      no un atributo del catálogo. */}
+                  <a
+                    href="/establecimientos"
+                    onClick={(e) => handleNavClick(e, "/establecimientos")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname === "/establecimientos"
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-buildings text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span className="whitespace-nowrap">Sedes y sucursales</span>
+                  </a>
+
+                  {/* Todo el submenú va en UN solo contenedor: antes "Configurar
+                      agentes" vivía en su propio div con py-2, y los dos
+                      paddings juntos abrían un hueco que se veía como un salto
+                      en la lista. */}
+                  {tipo_configuracion === "kanban" && (
                     <a
                       href="/kanban_config"
                       onClick={(e) => {
@@ -831,8 +850,8 @@ function MainLayout({ children }) {
                         Configurar agentes
                       </span>
                     </a>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 

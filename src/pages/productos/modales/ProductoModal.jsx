@@ -12,6 +12,7 @@ const EMPTY_FORM = {
   tipo: "",
   precio: "",
   duracion: "",
+  stock: "",
   id_categoria: "",
   imagen: null,
   video: null,
@@ -159,6 +160,19 @@ const DropZone = ({
   </div>
 );
 
+/* Duraciones frecuentes. Son atajos, no la lista cerrada: cada negocio tiene
+   las suyas (una consulta de 20 min, un tinte de 210) y por eso siempre queda
+   disponible la opción de escribirla a mano. */
+const DURACIONES_FRECUENTES = [15, 30, 45, 60, 90, 120, 150, 180];
+
+const fmtDuracion = (min) => {
+  const m = Number(min) || 0;
+  if (!m) return "";
+  if (m < 60) return `${m} minutos`;
+  if (m % 60 === 0) return `${m / 60} hora${m > 60 ? "s" : ""}`;
+  return `${Math.floor(m / 60)} h ${m % 60} min`;
+};
+
 /* ─────────────────────────────────────────────────────────────
    MAIN
 ───────────────────────────────────────────────────────────── */
@@ -167,6 +181,7 @@ const ProductoModal = ({
   onClose,
   editingProduct,
   categorias,
+  productosExistentes = [],
   onSaved,
 }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM });
@@ -183,6 +198,12 @@ const ProductoModal = ({
 
   const [videoRemoved, setVideoRemoved] = useState(false);
   const [upsellRemoved, setUpsellRemoved] = useState(false);
+  // Quitar la imagen principal tiene que viajar como una orden explícita: el
+  // backend solo toca imagen_url si le llega un archivo nuevo, así que sin esta
+  // marca la imagen se veía borrada en pantalla pero seguía guardada.
+  const [imagenRemoved, setImagenRemoved] = useState(false);
+  // Duración escrita a mano en vez de elegida de la lista.
+  const [duracionLibre, setDuracionLibre] = useState(false);
 
   /* ── Variedades (talla / color) ──
      Si el producto se vende en varias opciones, el bot debe preguntar cuál
@@ -232,12 +253,35 @@ const ProductoModal = ({
   const variacionCompleta = (v) => Boolean(String(v?.valor || "").trim());
 
   /* Tipo (producto/servicio): se hereda de lo que el cliente eligió al
-     activar el bot en Asistentes, en vez de preguntarlo otra vez acá. */
+     activar el bot en Asistentes, en vez de preguntarlo otra vez acá.
+
+     Si esa configuración no existe todavía (conexión nueva, o cuenta que usa
+     tablero kanban y nunca pasó por Asistentes), NO se asume "producto": se
+     deduce del catálogo que ya tiene. Asumir mal aquí no es cosmético — el
+     sincronizador de catálogo ignora TODOS los servicios en cuanto existe un
+     solo producto, así que un ítem con el tipo equivocado deja al bot de un
+     centro de estética sin catálogo. */
+  const tipoSegunCatalogo = () => {
+    const tipos = (productosExistentes || [])
+      .map((p) => String(p?.tipo || "").toLowerCase())
+      .filter(Boolean);
+    if (!tipos.length) return null;
+    return tipos.every((t) => t.startsWith("ser")) ? "servicio" : "producto";
+  };
+
+  /* Producto traído de Dropi: es el mismo criterio que usa el cron
+     (external_source = 'dropi' + external_id). Su stock lo maneja la
+     sincronización, no el usuario. */
+  const esDeDropi =
+    String(editingProduct?.external_source || "").toLowerCase() === "dropi" &&
+    editingProduct?.external_id != null;
+
   const [tipoCuenta, setTipoCuenta] = useState("producto");
   useEffect(() => {
     if (!open) return;
     const idc = parseInt(localStorage.getItem("id_configuracion"));
     if (!idc) return;
+    const respaldo = () => setTipoCuenta(tipoSegunCatalogo() || "producto");
     chatApi
       .post(
         "openai_assistants/info_asistentes",
@@ -246,10 +290,13 @@ const ProductoModal = ({
       )
       .then(({ data }) => {
         const ofrece = data?.data?.ventas?.ofrecer;
-        setTipoCuenta(ofrece === "servicios" ? "servicio" : "producto");
+        if (ofrece === "servicios") setTipoCuenta("servicio");
+        else if (ofrece === "productos") setTipoCuenta("producto");
+        else respaldo();
       })
-      .catch(() => setTipoCuenta("producto"));
-  }, [open]);
+      .catch(respaldo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, productosExistentes]);
 
   /* ── Populate on open ── */
   useEffect(() => {
@@ -279,6 +326,7 @@ const ProductoModal = ({
         tipo: normalizaTipo(p.tipo),
         precio: p.precio ?? "",
         duracion: p.duracion ?? "",
+        stock: p.stock ?? "",
         id_categoria: p.id_categoria ?? "",
         imagen: null,
         video: null,
@@ -296,6 +344,15 @@ const ProductoModal = ({
       setPreviewUrl(p.imagen_url || null);
       setPreviewVideo(p.video_url || null);
       setPreviewUpsell(p.imagen_upsell_url || null);
+      // Abrir otro producto no puede arrastrar el "quitar imagen" del anterior.
+      setImagenRemoved(false);
+      // Si la duración guardada no está entre las frecuentes, el campo se abre
+      // directo en modo libre: si no, el select la mostraría vacía y guardar
+      // sin tocarla la borraría.
+      setDuracionLibre(
+        Number(p.duracion) > 0 &&
+          !DURACIONES_FRECUENTES.includes(Number(p.duracion)),
+      );
 
       // Variedades: vienen adjuntas al listado de productos.
       setEsVariable(Number(p.es_variable) === 1);
@@ -326,6 +383,8 @@ const ProductoModal = ({
       setPreviewUrl(null);
       setPreviewVideo(null);
       setPreviewUpsell(null);
+      setImagenRemoved(false);
+      setDuracionLibre(false);
       setCatalogOpen(false);
       setEsVariable(false);
       setVariaciones([]);
@@ -355,6 +414,8 @@ const ProductoModal = ({
     if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
     setF("imagen", file);
+    // Quitó una y subió otra: manda el archivo nuevo, no la orden de borrar.
+    setImagenRemoved(false);
   };
   const dropImage = (e) => {
     e.preventDefault();
@@ -442,9 +503,20 @@ const ProductoModal = ({
 
       Object.entries(form).forEach(([k, v]) => {
         if (k === "tipo") {
-          // Heredado de Asistentes; en productos ya guardados se respeta el
-          // suyo para no cambiarle el tipo a nadie sin querer.
+          // Lo elige el usuario en el modal. El tipo de la cuenta solo actúa de
+          // valor por defecto cuando todavía no tocó el selector.
           data.append("tipo", v || tipoCuenta);
+        } else if (k === "stock") {
+          // No se manda para productos de Dropi: ese stock lo escribe la
+          // sincronización y mandarlo desde aquí sería pisarlo con un número
+          // viejo hasta la próxima corrida del cron.
+          if (esDeDropi) return;
+          // Un servicio no tiene unidades: se manda 0 para no dejar un stock
+          // viejo colgando si el ítem pasó de producto a servicio.
+          data.append(
+            "stock",
+            (form.tipo || tipoCuenta) === "producto" ? v || 0 : 0,
+          );
         } else if (k === "combos_producto") {
           data.append(k, JSON.stringify(v));
         } else if (v === null || v === undefined) {
@@ -467,6 +539,10 @@ const ProductoModal = ({
               .map((v) => ({ ...v, atributo })),
           ),
         );
+      }
+
+      if (imagenRemoved && !form.imagen) {
+        data.append("remove_imagen", "1");
       }
 
       if (videoRemoved && !form.video) {
@@ -639,36 +715,199 @@ const ProductoModal = ({
                       </div>
                     </div>
                     <div>
-                      <Lbl required>Categoría</Lbl>
+                      {/* La categoría NO es obligatoria: el backend solo exige
+                          nombre, tipo y precio. El label decía lo contrario y
+                          dejaba a la gente creyendo que primero tenía que ir a
+                          crear categorías para poder guardar. */}
+                      <Lbl>Categoría</Lbl>
                       <Sel
                         value={form.id_categoria}
                         onChange={(e) => setF("id_categoria", e.target.value)}
                       >
-                        <option value="">Selecciona categoría</option>
+                        <option value="">Sin categoría</option>
                         {categorias.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.nombre}
                           </option>
                         ))}
                       </Sel>
+                      {!categorias.length && (
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Puedes guardar sin categoría y organizarlas después
+                          desde Productos → Categorías.
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* La duración solo aplica a servicios; el tipo se hereda. */}
+                  {/* Tipo por ítem. Antes se heredaba invisible de lo elegido
+                      en Asistentes y no había forma de cambiarlo: una estética
+                      que además vende una plancha no podía cargarla como
+                      producto. Ahora se elige aquí, y el formulario cambia
+                      según lo que sea — un servicio tiene duración, un producto
+                      tiene unidades. */}
+                  <div>
+                    <Lbl>¿Qué estás cargando?</Lbl>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      {[
+                        {
+                          v: "servicio",
+                          icon: "bx-calendar-check",
+                          t: "Servicio",
+                          d: "Se agenda una cita",
+                        },
+                        {
+                          v: "producto",
+                          icon: "bx-package",
+                          t: "Producto",
+                          d: "Se vende y se entrega",
+                        },
+                      ].map((o) => {
+                        const activo = (form.tipo || tipoCuenta) === o.v;
+                        return (
+                          <button
+                            key={o.v}
+                            type="button"
+                            onClick={() => setF("tipo", o.v)}
+                            className={`flex items-start gap-2 rounded-xl border p-3 text-left transition ${
+                              activo
+                                ? "border-indigo-400 bg-indigo-50/60 ring-2 ring-indigo-100"
+                                : "border-slate-200 hover:border-slate-300"
+                            }`}
+                          >
+                            <i
+                              className={`bx ${o.icon} text-lg ${
+                                activo ? "text-indigo-600" : "text-slate-400"
+                              }`}
+                            />
+                            <span className="min-w-0">
+                              <span
+                                className={`block text-sm font-semibold ${
+                                  activo ? "text-indigo-700" : "text-slate-700"
+                                }`}
+                              >
+                                {o.t}
+                              </span>
+                              <span className="block text-[11px] text-slate-500">
+                                {o.d}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Unidades: solo para productos. Un servicio no se agota.
+                      Y si el producto vino de Dropi, el stock NO se edita a
+                      mano: lo pisa la sincronización diaria y el dropshipper
+                      terminaría peleando contra el cron sin entender por qué su
+                      número vuelve a cambiar solo. */}
+                  {(form.tipo || tipoCuenta) === "producto" &&
+                    (esDeDropi ? (
+                      <div>
+                        <Lbl>Unidades disponibles</Lbl>
+                        <div className="mt-1 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+                          <i className="bx bx-sync text-lg text-slate-400" />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-slate-700">
+                              {Number(form.stock) || 0} unidades
+                              <span className="ml-2 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">
+                                Dropi
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500">
+                              Este producto viene de Dropi: el stock lo toma de
+                              sus bodegas y se actualiza solo. Actívalo o
+                              desactívalo con el switch{" "}
+                              <strong>Stock</strong> de la pantalla de productos.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <Lbl>Unidades disponibles</Lbl>
+                        <Inp
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="0"
+                          value={form.stock}
+                          onChange={(e) =>
+                            setF("stock", e.target.value.replace(/\D/g, ""))
+                          }
+                        />
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          El asistente lo usa como referencia para no ofrecer
+                          algo agotado. Déjalo en 0 si no llevas control de
+                          inventario.
+                        </p>
+                      </div>
+                    ))}
+
+                  {/* La duración solo aplica a servicios.
+                      Va en MINUTOS y no en horas: en estética, consultorios o
+                      barberías la mayoría de los servicios dura 30 o 45 min, y
+                      un selector de horas enteras los dejaba fuera. Es lo que
+                      usa el asistente para calcular a qué hora termina la cita.
+                      No es obligatoria: si no se define, la cita se agenda con
+                      una hora por defecto. */}
                   {(form.tipo || tipoCuenta) === "servicio" && (
                     <div>
-                      <Lbl>Duración (horas)</Lbl>
-                      <Sel
-                        value={form.duracion}
-                        onChange={(e) => setF("duracion", e.target.value)}
-                      >
-                        <option value="0">Selecciona duración</option>
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <option key={n} value={n}>
-                            {n} hora{n > 1 ? "s" : ""}
-                          </option>
-                        ))}
-                      </Sel>
+                      <div className="flex items-center justify-between">
+                        <Lbl>Duración</Lbl>
+                        <button
+                          type="button"
+                          onClick={() => setDuracionLibre((v) => !v)}
+                          className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 mb-1"
+                        >
+                          {duracionLibre ? "Elegir de la lista" : "Otra duración"}
+                        </button>
+                      </div>
+
+                      {duracionLibre ? (
+                        <>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="5"
+                              step="5"
+                              inputMode="numeric"
+                              placeholder="Ej: 20"
+                              value={form.duracion || ""}
+                              onChange={(e) =>
+                                setF("duracion", e.target.value.replace(/\D/g, ""))
+                              }
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-20 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                            />
+                            <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                              minutos
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {Number(form.duracion) > 0
+                              ? `Equivale a ${fmtDuracion(form.duracion)}.`
+                              : "Déjalo vacío y la cita se agenda con 1 hora."}
+                          </p>
+                        </>
+                      ) : (
+                        <Sel
+                          value={
+                            DURACIONES_FRECUENTES.includes(Number(form.duracion))
+                              ? form.duracion
+                              : "0"
+                          }
+                          onChange={(e) => setF("duracion", e.target.value)}
+                        >
+                          <option value="0">Sin definir (1 hora)</option>
+                          {DURACIONES_FRECUENTES.map((m) => (
+                            <option key={m} value={m}>
+                              {fmtDuracion(m)}
+                            </option>
+                          ))}
+                        </Sel>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1025,6 +1264,7 @@ const ProductoModal = ({
                       URL.revokeObjectURL(previewUrl);
                     setPreviewUrl(null);
                     setF("imagen", null);
+                    setImagenRemoved(true);
                   }}
                 />
               </div>
