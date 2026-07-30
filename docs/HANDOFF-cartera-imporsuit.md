@@ -87,8 +87,8 @@ cookies** (`withCredentials:false`). No se tocó.
 | `src/api/imporsuit.js` | axios con baseURL `VITE_IMPORSUIT_URL` + Bearer fijo |
 | `src/services/imporsuit/uploader.js` | sube archivos a S3 (uploader.imporfactory.app) |
 | `src/services/imporsuit/cartera.service.js` | buscar/deudas/generar/agregar/pagar/eliminar |
-| `src/services/imporsuit/usuarios.service.js` | cursos + crear cliente |
-| `src/services/imporsuit/constants.js` | roles, paquetes, medios, **ASESORES**, **CARTERA_CONFIGS_HABILITADAS** |
+| `src/services/imporsuit/usuarios.service.js` | cursos + **asesores** + crear cliente |
+| `src/services/imporsuit/constants.js` | roles, paquetes, medios, **CARTERA_CONFIGS_HABILITADAS** |
 | `src/services/imporsuit/index.js` | barrel |
 | `src/services/imporsuit/README.md` | doc del centralizado |
 | `src/components/imporsuit/CarteraImporsuitSection.jsx` | **botón en el panel + gate por id_configuracion + abre el modal** |
@@ -135,9 +135,13 @@ Cada sección hace `return null` si su `id_configuracion` no está en su array. 
 habilitar en otra cuenta, agregá el id al array correspondiente.
 
 ### Asesores (selector en "Agregar deuda")
-`ASESORES` en `constants.js` — el `id` es `id_users` de Imporsuit y se manda como
-`id_asesor` (FK a `users.id_users`). Actual:
-`9884 Sin Asesor · 5753 Kathy Mallitaxi · 9262 Diego · 5752 Adrián Velez`.
+Ya no es una lista fija: `getAsesores()` (`usuarios.service.js`) pide
+`GET /Carterachat/asesores`, que devuelve los usuarios de Imporsuit con
+`id_rol = 6` (misma fuente que el select "Asignar a" de
+`Views/Asesor/usuarios.php`). `AgregarDeudaForm.jsx` la carga al montar y le
+antepone manualmente `9884 Sin Asesor` (usuario ficticio en Imporsuit, usado
+como FK cuando no se elige asesor — `id_asesor` no acepta 0). El `id_users`
+devuelto se manda como `id_asesor` (FK a `users.id_users`).
 
 ---
 

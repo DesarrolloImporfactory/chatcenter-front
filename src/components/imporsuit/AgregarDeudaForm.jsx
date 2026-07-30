@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
-import { agregarDeuda, TIPOS_VENTA, ASESORES } from "../../services/imporsuit";
+import { agregarDeuda, TIPOS_VENTA, getAsesores } from "../../services/imporsuit";
 import { Overlay, Field, inputCls, btnPrimary, btnGhost } from "./CrearUsuarioForm";
+
+/** Usuario ficticio en Imporsuit (id_users) usado como FK cuando no hay asesor. */
+const SIN_ASESOR = { id_users: 9884, nombre_users: "Sin Asesor" };
 
 /**
  * Agrega una deuda a una cartera.
@@ -18,6 +21,20 @@ export function AgregarDeudaForm({ idCarteraUuid, onClose, onSaved }) {
     asesor: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [asesores, setAsesores] = useState([SIN_ASESOR]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getAsesores({ signal: controller.signal })
+      .then((lista) => {
+        const resto = lista.filter((a) => Number(a.id_users) !== SIN_ASESOR.id_users);
+        setAsesores([SIN_ASESOR, ...resto]);
+      })
+      .catch(() => {
+        // Deja solo "Sin Asesor" si falla la carga; no bloquea el formulario.
+      });
+    return () => controller.abort();
+  }, []);
 
   const set = (name) => (e) =>
     setForm((p) => ({ ...p, [name]: e.target.value }));
@@ -81,8 +98,8 @@ export function AgregarDeudaForm({ idCarteraUuid, onClose, onSaved }) {
           <Field label="Asesor">
             <select className={inputCls} value={form.asesor} onChange={set("asesor")} disabled={submitting}>
               <option value="">Selecciona el asesor</option>
-              {ASESORES.map((a) => (
-                <option key={a.id} value={a.id}>{a.nombre}</option>
+              {asesores.map((a) => (
+                <option key={a.id_users} value={a.id_users}>{a.nombre_users}</option>
               ))}
             </select>
           </Field>

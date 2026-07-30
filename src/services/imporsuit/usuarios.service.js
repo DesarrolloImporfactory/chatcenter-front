@@ -4,6 +4,7 @@ import imporsuitApi from "../../api/imporsuit";
  * Servicio de USUARIOS/cliente de Imporsuit consumido desde chatcenter.
  * Endpoints "libres" del controlador `Carterachat` (token compartido):
  *   - GET  /Carterachat/cursos
+ *   - GET  /Carterachat/asesores
  *   - POST /Carterachat/crear_cliente
  */
 
@@ -23,6 +24,16 @@ function unwrap(data) {
 /** Lista de cursos activos: [{ id_curso, nombre }]. */
 export async function getCursosDisponibles({ signal } = {}) {
   const { data } = await imporsuitApi.get("/Carterachat/cursos", { signal });
+  unwrap(data);
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
+/**
+ * Lista de asesores/vendedores (id_rol = 6 en Imporsuit) para el selector de
+ * "Agregar deuda": [{ id_users, nombre_users }].
+ */
+export async function getAsesores({ signal } = {}) {
+  const { data } = await imporsuitApi.get("/Carterachat/asesores", { signal });
   unwrap(data);
   return Array.isArray(data?.data) ? data.data : [];
 }

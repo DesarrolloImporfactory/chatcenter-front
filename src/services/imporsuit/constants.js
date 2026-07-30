@@ -47,15 +47,6 @@ export const TIPOS_VENTA = [
   { value: "caliente", label: "Caliente" },
 ];
 
-/** Asesores a los que se puede atribuir una deuda (id_users en Imporsuit). */
-export const ASESORES = [
-  { id: 9884, nombre: "Sin Asesor" },
-  { id: 5753, nombre: "Kathy Mallitaxi" },
-  { id: 9262, nombre: "Diego" },
-  { id: 5752, nombre: "Adrián Velez" },
-  { id: 10026, nombre: "Jorge Sharupi" },
-];
-
 /**
  * id_configuracion (de chatcenter) donde se habilita la CARTERA.
  * Agregá más ids a este array para habilitarla en otras configuraciones.

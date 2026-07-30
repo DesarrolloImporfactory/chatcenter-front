@@ -21,7 +21,7 @@ export {
   LAUNCH_ID_DEFAULT,
 } from "./cartera.service";
 
-export { getCursosDisponibles, crearUsuarioFull } from "./usuarios.service";
+export { getCursosDisponibles, getAsesores, crearUsuarioFull } from "./usuarios.service";
 
 export {
   getChecklistUsuario,
@@ -39,7 +39,6 @@ export {
   MEDIOS_PAGO,
   MONEDAS,
   TIPOS_VENTA,
-  ASESORES,
   CARTERA_CONFIGS_HABILITADAS,
   CHECKLIST_CONFIGS_HABILITADAS,
   ESTADO_DEUDA,
