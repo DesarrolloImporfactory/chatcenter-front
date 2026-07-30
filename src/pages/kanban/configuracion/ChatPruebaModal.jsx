@@ -67,6 +67,10 @@ const ChatPruebaModal = ({
   const [input, setInput] = useState("");
   const [loading, setCargando] = useState(false);
   const [previousResponseId, setPreviousResponseId] = useState(null);
+  /* Qué columna está atendiendo ahora mismo. Empieza en la que abrió el modal y
+     va cambiando cuando un tag mueve la tarjeta, como en producción.
+     null = la conversación llegó a una columna sin IA (contesta una persona). */
+  const [columnaActiva, setColumnaActiva] = useState(columnaId);
   const chatBodyRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -75,6 +79,7 @@ const ChatPruebaModal = ({
     if (open) {
       setMensajes([]);
       setPreviousResponseId(null);
+      setColumnaActiva(columnaId);
       setInput("");
       setTimeout(() => inputRef.current?.focus(), 300);
     }
@@ -99,7 +104,9 @@ const ChatPruebaModal = ({
       const { data } = await chatApi.post(
         "/kanban_columnas/chat_prueba",
         {
-          id: columnaId,
+          // La conversación puede haber pasado a otra columna: se le pregunta a
+          // la que está atendiendo ahora, no siempre a la que abrió el modal.
+          id: columnaActiva,
           mensaje: texto,
           previous_response_id: previousResponseId,
         },
@@ -118,9 +125,25 @@ const ChatPruebaModal = ({
             // bien aunque el asistente jamás escriba el tag que mueve la tarjeta.
             acciones: data.acciones_detectadas || [],
             triggers: data.triggers_disponibles || [],
+            siguiente: data.siguiente_columna || null,
           },
         ]);
+
+        /* El tag movió la tarjeta: de aquí en adelante contesta el asistente de
+           la columna destino, igual que en producción. Sin esto la prueba
+           seguía con el mismo y daba una idea equivocada de lo que hace cada
+           etapa — Contacto Inicial "agendando" citas, por ejemplo.
+
+           El hilo NO se reinicia: en producción el previous_response_id se
+           guarda por CLIENTE, no por columna, así que el asistente nuevo llega
+           con todo lo conversado. Cortarlo aquí haría que la prueba pareciera
+           amnésica cuando en realidad no lo es. */
+        const sig = data.siguiente_columna;
         setPreviousResponseId(data.response_id);
+        if (sig?.id) {
+          // Sin IA contesta una persona: no hay a quién seguir escribiéndole.
+          setColumnaActiva(sig.activa_ia ? sig.id : null);
+        }
       }
     } catch (err) {
       const msg =
@@ -138,6 +161,7 @@ const ChatPruebaModal = ({
   const reiniciar = () => {
     setMensajes([]);
     setPreviousResponseId(null);
+    setColumnaActiva(columnaId);
     setInput("");
     setTimeout(() => inputRef.current?.focus(), 100);
   };
@@ -268,8 +292,27 @@ const ChatPruebaModal = ({
         .cpm-acciones--ok {
           background: #f0fdf4; border-color: #bbf7d0; color: #15803d;
         }
-        .cpm-acciones--nada {
-          background: #f8fafc; border-color: #e2e8f0; color: #64748b;
+        /* Separador de traspaso entre columnas: marca dónde deja de contestar
+           un asistente y empieza otro, que es lo que pasa en producción. */
+        .cpm-traspaso {
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          align-items: center;
+          gap: 8px;
+          margin: 10px 0 12px;
+        }
+        .cpm-traspaso > span:first-child,
+        .cpm-traspaso > span:last-child {
+          height: 1px; background: #e2e8f0;
+        }
+        .cpm-traspaso-txt {
+          font-size: .68rem;
+          color: #64748b;
+          background: #fff;
+          border: 1px solid #e2e8f0;
+          border-radius: 999px;
+          padding: 3px 10px;
+          white-space: nowrap;
         }
         .cpm-texto {
           font-size: .86rem;
@@ -787,14 +830,20 @@ const ChatPruebaModal = ({
                     </div>
                   )}
 
-                  {msg.acciones?.length === 0 && msg.triggers?.length > 0 && (
-                    <div className="cpm-acciones cpm-acciones--nada">
-                      <i className="bx bx-minus-circle" />
-                      <div>
-                        Sin tag: la tarjeta se queda en esta columna. Esta
-                        columna reconoce {msg.triggers.map((t) => t).join(", ")}
-                        .
-                      </div>
+                  {/* Antes había aquí un aviso de "sin tag" en cada respuesta.
+                      Como la mayoría de los mensajes de una conversación no
+                      mueven la tarjeta, salía en casi todos y tapaba el chat sin
+                      aportar: lo que interesa ver es cuándo SÍ pasa algo. */}
+
+                  {msg.siguiente && (
+                    <div className="cpm-traspaso">
+                      <span />
+                      <span className="cpm-traspaso-txt">
+                        {msg.siguiente.activa_ia
+                          ? `A partir de aquí responde "${msg.siguiente.nombre}"`
+                          : `Pasa a "${msg.siguiente.nombre}" — sin IA, contesta una persona`}
+                      </span>
+                      <span />
                     </div>
                   )}
                 </React.Fragment>
@@ -845,7 +894,12 @@ const ChatPruebaModal = ({
               ref={inputRef}
               className="cpm-input"
               rows={1}
-              placeholder="Escribe un mensaje..."
+              disabled={!columnaActiva}
+              placeholder={
+                columnaActiva
+                  ? "Escribe un mensaje..."
+                  : "La conversación pasó a una columna sin IA — reinicia para probar de nuevo"
+              }
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
@@ -863,11 +917,11 @@ const ChatPruebaModal = ({
             />
             <button
               onClick={enviar}
-              disabled={loading || !input.trim()}
+              disabled={loading || !input.trim() || !columnaActiva}
               className="cpm-send"
               style={{
                 background:
-                  loading || !input.trim()
+                  loading || !input.trim() || !columnaActiva
                     ? "#cbd5e1"
                     : "linear-gradient(135deg, #6366f1, #4f46e5)",
                 boxShadow:
