@@ -165,6 +165,25 @@ const templateHasVars = (template) => {
   });
 };
 
+/* Cuántas variables distintas tiene el BODY. Se cuentan por número y no por
+   apariciones: {{1}} repetido sigue siendo una sola variable, y Meta exige
+   tantos parámetros como números distintos haya. */
+const contarVarsBody = (template) => {
+  const body = template?.components?.find((c) => c.type === "BODY");
+  const nums = new Set(
+    [...String(body?.text || "").matchAll(/\{\{(\d+)\}\}/g)].map((m) => m[1]),
+  );
+  return nums.size;
+};
+
+/* Un HEADER de texto con {{N}} se llena por otra vía (header_parameters) que el
+   seguimiento automático NO rellena, así que ahí no sirve. */
+const tieneVarsEnHeader = (template) => {
+  const h = template?.components?.find((c) => c.type === "HEADER");
+  if (!h || String(h.format || "").toUpperCase() !== "TEXT") return false;
+  return /\{\{\d+\}\}/.test(String(h.text || ""));
+};
+
 const WA_BG_PATTERN = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%23d1c7b7' fill-opacity='0.25'><circle cx='10' cy='10' r='1.2'/><circle cx='40' cy='25' r='1'/><circle cx='60' cy='55' r='1.2'/><circle cx='20' cy='65' r='1'/><circle cx='70' cy='15' r='1'/></g></svg>")`;
 
 const horaActual = () => {
@@ -235,7 +254,69 @@ function VideoHeader({ url }) {
   );
 }
 
-function TemplatePreviewMini({ template }) {
+/* Qué dato pone el sistema en cada {{N}}, en orden. Se muestra debajo de la
+   previa: sin esto, el usuario ve un mensaje con datos de ejemplo y no tiene
+   forma de saber que los rellena el sistema ni con qué. */
+function MapeoVariables({ lista }) {
+  if (!Array.isArray(lista) || !lista.length) return null;
+
+  return (
+    <div
+      style={{
+        marginTop: 6,
+        border: "1px solid #d1fae5",
+        background: "#f0fdf4",
+        borderRadius: 10,
+        padding: "8px 10px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: ".68rem",
+          fontWeight: 700,
+          color: "#15803d",
+          textTransform: "uppercase",
+          letterSpacing: ".05em",
+          marginBottom: 5,
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+        }}
+      >
+        <i className="bx bx-magic-wand" style={{ fontSize: 12 }} />
+        Variables que completa el sistema
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        {lista.map((etiqueta, i) => (
+          <div
+            key={i}
+            style={{
+              fontSize: ".72rem",
+              color: "#166534",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <code
+              style={{
+                background: "#dcfce7",
+                color: "#15803d",
+                padding: "0 4px",
+                borderRadius: 3,
+                fontWeight: 700,
+                fontSize: ".7rem",
+              }}
+            >{`{{${i + 1}}}`}</code>
+            <span>{etiqueta}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplatePreviewMini({ template, notaEjemplos }) {
   if (!template?.components) return null;
 
   const header = template.components.find((c) => c.type === "HEADER");
@@ -243,7 +324,19 @@ function TemplatePreviewMini({ template }) {
   const footer = template.components.find((c) => c.type === "FOOTER");
   const buttonsComp = template.components.find((c) => c.type === "BUTTONS");
 
-  const bodyText = body?.text || "";
+  /* Se sustituyen los {{N}} por los valores de ejemplo que Meta guarda en la
+     propia plantilla, para que la previa se lea como el mensaje que le va a
+     llegar al cliente y no como una plantilla con huecos. Si un hueco no tiene
+     ejemplo se deja tal cual: mejor ver el {{N}} que un espacio vacío que
+     engañe sobre cómo va a quedar. */
+  const ejemplos =
+    (Array.isArray(body?.example?.body_text) && body.example.body_text[0]) ||
+    [];
+  const bodyText = (body?.text || "").replace(/\{\{(\d+)\}\}/g, (m, n) => {
+    const v = ejemplos[Number(n) - 1];
+    return v != null && v !== "" ? v : m;
+  });
+  const tieneEjemplos = ejemplos.length > 0;
   const headerFmt = (header?.format || "").toUpperCase();
 
   const headerExampleUrl =
@@ -279,6 +372,19 @@ function TemplatePreviewMini({ template }) {
       >
         <i className="bx bxl-whatsapp" style={{ fontSize: 12 }} />
         Vista previa — Plantilla Meta (fuera de 24h)
+        {tieneEjemplos && (
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: ".55rem",
+              opacity: 0.9,
+              textTransform: "none",
+              letterSpacing: 0,
+            }}
+          >
+            {notaEjemplos || "datos de ejemplo"}
+          </span>
+        )}
       </div>
 
       <div
@@ -950,17 +1056,38 @@ const RemarketingColumna = ({
 
   const [secuencias, setSecuencias] = useState([SECUENCIA_VACIA()]);
 
+  /* Al cambiar de columna se RESETEA y se vuelve a preguntar.
+     Antes este efecto solo encendía el indicador (setConfigActiva(true)) y no lo
+     apagaba nunca, así que al pasar de una columna con remarketing a una sin él
+     seguía diciendo "configurado" hasta abrir el modal — información inventada.
+     Las secuencias también se limpian: son de la columna anterior y el modal las
+     mostraría un instante (o se quedarían ahí si la consulta falla).
+     `vigente` descarta la respuesta que llega tarde cuando se cambia de columna
+     rápido, que si no puede pisar el estado de la columna nueva. */
   useEffect(() => {
-    if (!id_configuracion || !estado_db) return;
+    let vigente = true;
+
+    setConfigActiva(false);
+    setSecuencias([SECUENCIA_VACIA()]);
+
+    if (!id_configuracion || !estado_db) return undefined;
+
     chatApi
       .post("openai_assistants/obtener_remarketing", {
         id_configuracion,
         estado_contacto: estado_db,
       })
       .then((res) => {
-        if (res.data?.data?.length) setConfigActiva(true);
+        if (!vigente) return;
+        setConfigActiva(!!res.data?.data?.length);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (vigente) setConfigActiva(false);
+      });
+
+    return () => {
+      vigente = false;
+    };
   }, [id_configuracion, estado_db]);
 
   const fetchPlantillas = async () => {
@@ -1217,12 +1344,17 @@ const RemarketingColumna = ({
         return;
       }
 
-      // Validar que la plantilla NO tenga variables
+      // Validar que la plantilla NO tenga variables, salvo en las columnas
+      // donde el backend sí las resuelve con los datos del pedido.
       const tpl = plantillas.find((p) => p.name === s.nombre_template);
-      if (tpl && templateHasVars(tpl)) {
+      if (tpl && templateHasVars(tpl) && !plantillaCompatible(tpl)) {
         Toast.fire({
           icon: "warning",
-          title: `Seguimiento ${i + 1}: usa una plantilla sin {{N}}`,
+          title: !soportaVariables
+            ? `Seguimiento ${i + 1}: usa una plantilla sin {{N}}`
+            : tieneVarsEnHeader(tpl)
+              ? `Seguimiento ${i + 1}: el sistema no rellena variables del encabezado`
+              : `Seguimiento ${i + 1}: la plantilla tiene ${contarVarsBody(tpl)} variables y el sistema rellena ${variablesAuto.length}`,
         });
         return;
       }
@@ -1267,7 +1399,13 @@ const RemarketingColumna = ({
         tiempo_espera_horas: Number(s.tiempo_espera_minutos) / 60,
         nombre_template: s.nombre_template,
         language_code: "es",
-        estado_destino: s.estado_destino || null,
+        /* "No mover" se manda como la columna actual y NO como null: en el
+           backend (configurar_remarketing) el último paso con estado_destino
+           vacío cae al default 'remarketing', así que un null convertía el
+           "queda en la columna actual" que eligió el usuario en "muévelo a
+           Remarketing" sin avisar. En Retiro en Agencia eso saca el contacto de
+           la columna después del tercer recordatorio y corta el seguimiento. */
+        estado_destino: s.estado_destino || estado_db,
         header_format: hFormat || null,
         header_media_url: hUrl || null,
         header_media_name: null,
@@ -1314,8 +1452,45 @@ const RemarketingColumna = ({
   const nombreColumnaActual =
     columnas.find((c) => c.estado_db === estado_db)?.nombre || estado_db;
 
-  // Plantillas filtradas: solo las que NO tienen variables
-  const plantillasSinVars = plantillas.filter((tpl) => !templateHasVars(tpl));
+  /* Columnas donde el sistema SÍ sabe rellenar las variables de la plantilla, y
+     con QUÉ las rellena, en orden. El backend resuelve esos datos del pedido al
+     agendar el seguimiento y los guarda en
+     remarketing_pendientes.template_parameters; el cron los manda con el envío.
+
+     El orden y la cantidad importan: son exactamente los valores que arma
+     construirParamsRetiroAgencia() en services/dropi_notifier.service.js, y las
+     columnas listadas aquí deben coincidir con COLUMNAS_CON_SEGUIMIENTO del
+     mismo archivo.
+
+     En el resto de columnas nadie rellena esas variables. Y no es un descuido:
+     en contacto_inicial, por ejemplo, todavía no existe un pedido — no hay
+     nombre de agencia ni número de guía que poner. Una plantilla con {{N}}
+     saldría incompleta y Meta la rechazaría (error 132000), así que ahí se
+     siguen ocultando. */
+  const VARIABLES_AUTO_POR_COLUMNA = {
+    retiro_agencia: [
+      "Nombre del cliente",
+      "Agencia o ciudad de retiro",
+      "Número de guía",
+      "Plazo de retiro (días)",
+    ],
+  };
+  const variablesAuto = VARIABLES_AUTO_POR_COLUMNA[estado_db] || null;
+  const soportaVariables = !!variablesAuto;
+
+  /* Con variables automáticas, la plantilla sirve solo si sus {{N}} del body son
+     tantos como valores sabemos rellenar y no tiene variables en el header. */
+  const plantillaCompatible = (tpl) => {
+    if (!tpl) return true;
+    if (!templateHasVars(tpl)) return true;
+    if (!soportaVariables) return false;
+    if (tieneVarsEnHeader(tpl)) return false;
+    return contarVarsBody(tpl) === variablesAuto.length;
+  };
+
+  const plantillasSinVars = soportaVariables
+    ? plantillas.filter(plantillaCompatible)
+    : plantillas.filter((tpl) => !templateHasVars(tpl));
   const plantillasConVarsCount = plantillas.length - plantillasSinVars.length;
 
   const totalMinutos = calcTotalMinutos(secuencias);
@@ -1328,7 +1503,10 @@ const RemarketingColumna = ({
     if (!Number(s.tiempo_espera_minutos)) return false;
     if (requiereTemplate(s) && !s.nombre_template) return false;
     const tpl = plantillas.find((p) => p.name === s.nombre_template);
-    if (tpl && templateHasVars(tpl)) return false;
+    // En las columnas con variables automáticas la plantilla con {{N}} es la
+    // normal, no un error: lo que se rechaza es la incompatible (variables en el
+    // header, o una cantidad que no cuadra con los datos que sabemos rellenar).
+    if (tpl && !plantillaCompatible(tpl)) return false;
     if (s.metodo_dentro_24h === "respuesta_rapida" && !s.id_template_rapido)
       return false;
     if (s.metodo_dentro_24h === "ia" && !String(s.prompt_ia || "").trim())
@@ -1781,9 +1959,15 @@ const RemarketingColumna = ({
                                         ? "Selecciona una plantilla..."
                                         : "Sin plantilla (solo dentro de 24h)"}
                                     </option>
+                                    {/* La plantilla ya guardada que hoy no se
+                                        puede elegir: se agrega suelta para que
+                                        el select no aparezca vacío y se vea POR
+                                        QUÉ no sirve. Si es compatible ya viene
+                                        en la lista de abajo — agregarla aquí la
+                                        duplicaría. */}
                                     {sec.nombre_template &&
                                       tplObj &&
-                                      tplTieneVars && (
+                                      !plantillaCompatible(tplObj) && (
                                         <option value={sec.nombre_template}>
                                           {sec.nombre_template} ⚠ (con
                                           variables)
@@ -1805,66 +1989,115 @@ const RemarketingColumna = ({
                                         marginTop: 1,
                                       }}
                                     />
-                                    <span>
-                                      Solo se permiten plantillas{" "}
-                                      <strong>sin variables</strong>{" "}
-                                      <code
-                                        style={{
-                                          background: "#e0e7ff",
-                                          color: "#4338ca",
-                                          padding: "0 4px",
-                                          borderRadius: 3,
-                                          fontWeight: 700,
-                                          fontSize: ".7rem",
-                                        }}
-                                      >
-                                        {`{{N}}`}
-                                      </code>
-                                      .
-                                      {plantillasConVarsCount > 0 && (
-                                        <>
-                                          {" "}
-                                          {plantillasConVarsCount} plantilla
-                                          {plantillasConVarsCount > 1
-                                            ? "s están"
-                                            : " está"}{" "}
-                                          oculta
-                                          {plantillasConVarsCount > 1
-                                            ? "s"
-                                            : ""}{" "}
-                                          por tener variables.
-                                        </>
-                                      )}
-                                    </span>
-                                  </div>
-
-                                  {sec.nombre_template && tplTieneVars && (
-                                    <div className="rm2-warning-box">
-                                      <i
-                                        className="bx bx-error"
-                                        style={{
-                                          fontSize: 14,
-                                          marginTop: 1,
-                                          flexShrink: 0,
-                                        }}
-                                      />
+                                    {soportaVariables ? (
                                       <span>
-                                        Esta plantilla tiene variables y ya no
-                                        se puede usar. Selecciona otra sin{" "}
+                                        En esta columna sí puedes usar
+                                        plantillas con variables{" "}
                                         <code
                                           style={{
-                                            background: "#fef3c7",
-                                            padding: "0 3px",
+                                            background: "#dcfce7",
+                                            color: "#15803d",
+                                            padding: "0 4px",
                                             borderRadius: 3,
                                             fontWeight: 700,
+                                            fontSize: ".7rem",
+                                          }}
+                                        >
+                                          {`{{N}}`}
+                                        </code>
+                                        : el sistema las completa solo con los
+                                        datos del pedido (nombre, agencia,
+                                        número de guía y plazo de retiro).
+                                      </span>
+                                    ) : (
+                                      <span>
+                                        Solo se permiten plantillas{" "}
+                                        <strong>sin variables</strong>{" "}
+                                        <code
+                                          style={{
+                                            background: "#e0e7ff",
+                                            color: "#4338ca",
+                                            padding: "0 4px",
+                                            borderRadius: 3,
+                                            fontWeight: 700,
+                                            fontSize: ".7rem",
                                           }}
                                         >
                                           {`{{N}}`}
                                         </code>
                                         .
+                                        {plantillasConVarsCount > 0 && (
+                                          <>
+                                            {" "}
+                                            {plantillasConVarsCount} plantilla
+                                            {plantillasConVarsCount > 1
+                                              ? "s están"
+                                              : " está"}{" "}
+                                            oculta
+                                            {plantillasConVarsCount > 1
+                                              ? "s"
+                                              : ""}{" "}
+                                            por tener variables.
+                                          </>
+                                        )}
                                       </span>
-                                    </div>
-                                  )}
+                                    )}
+                                  </div>
+
+                                  {sec.nombre_template &&
+                                    tplObj &&
+                                    tplTieneVars &&
+                                    !plantillaCompatible(tplObj) && (
+                                      <div className="rm2-warning-box">
+                                        <i
+                                          className="bx bx-error"
+                                          style={{
+                                            fontSize: 14,
+                                            marginTop: 1,
+                                            flexShrink: 0,
+                                          }}
+                                        />
+                                        {!soportaVariables ? (
+                                          <span>
+                                            Esta plantilla tiene variables y ya
+                                            no se puede usar. Selecciona otra
+                                            sin{" "}
+                                            <code
+                                              style={{
+                                                background: "#fef3c7",
+                                                padding: "0 3px",
+                                                borderRadius: 3,
+                                                fontWeight: 700,
+                                              }}
+                                            >
+                                              {`{{N}}`}
+                                            </code>
+                                            .
+                                          </span>
+                                        ) : tieneVarsEnHeader(tplObj) ? (
+                                          <span>
+                                            Esta plantilla tiene variables en el{" "}
+                                            <strong>encabezado</strong> y el
+                                            sistema no sabe con qué rellenarlas.
+                                            Elige una que solo las tenga en el
+                                            cuerpo del mensaje.
+                                          </span>
+                                        ) : (
+                                          <span>
+                                            Esta plantilla tiene{" "}
+                                            <strong>
+                                              {contarVarsBody(tplObj)} variables
+                                            </strong>{" "}
+                                            y el sistema rellena{" "}
+                                            <strong>
+                                              {variablesAuto.length}
+                                            </strong>
+                                            . Meta rechazaría el envío, elige
+                                            una que coincida.
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
 
                                   {sec.nombre_template && (
                                     <div
@@ -1905,11 +2138,33 @@ const RemarketingColumna = ({
                                     </div>
                                   )}
 
-                                  {sec.nombre_template &&
-                                    tplObj &&
-                                    !tplTieneVars && (
-                                      <TemplatePreviewMini template={tplObj} />
-                                    )}
+                                  {/* La previa se muestra SIEMPRE que haya
+                                      plantilla, con variables o sin ellas: los
+                                      {{N}} se rellenan con los ejemplos que Meta
+                                      guarda en la propia plantilla, así que se
+                                      lee como el mensaje que va a recibir el
+                                      cliente. Antes se ocultaba en cuanto tenía
+                                      variables, que es justo cuando más falta
+                                      hace verla. */}
+                                  {sec.nombre_template && tplObj && (
+                                    <>
+                                      <TemplatePreviewMini
+                                        template={tplObj}
+                                        notaEjemplos={
+                                          soportaVariables && tplTieneVars
+                                            ? "ejemplo — se reemplaza con los datos del pedido"
+                                            : undefined
+                                        }
+                                      />
+                                      {soportaVariables &&
+                                        tplTieneVars &&
+                                        plantillaCompatible(tplObj) && (
+                                          <MapeoVariables
+                                            lista={variablesAuto}
+                                          />
+                                        )}
+                                    </>
+                                  )}
                                 </>
                               )}
                             </div>

@@ -125,6 +125,9 @@ const KanbanConfig = () => {
   const [acciones, setAcciones] = useState([]);
   const [loadingAcc, setLoadingAcc] = useState(false);
   const [guardandoAcc, setGuardandoAcc] = useState(false);
+  // Columna cuyas acciones están en pantalla. Sirve para descartar respuestas
+  // que llegan tarde después de cambiar de columna.
+  const columnaAccionesRef = useRef(null);
 
   const [showModalNueva, setShowModalNueva] = useState(false);
   const [formNueva, setFormNueva] = useState({
@@ -219,7 +222,78 @@ const KanbanConfig = () => {
     cargarVersionTablero();
   }, [cargarVersionTablero]);
 
-  const actualizarTablero = async () => {
+  /* Antes de actualizar se le explica al cliente qué va a pasar y, si hay
+     diferencias entre su configuración y el catálogo, se le muestran para que
+     ELIJA cuáles aplicar. Nunca se sobreescribe algo suyo sin que lo marque:
+     una diferencia puede ser una mejora nuestra o un ajuste deliberado suyo, y
+     desde el backend no hay forma de distinguirlo. */
+  const confirmarActualizacion = async () => {
+    let mejoras = [];
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_plantillas/mejoras_disponibles",
+        { id_configuracion },
+      );
+      mejoras = data?.data?.mejoras || [];
+    } catch {
+      // Si el diff falla no se bloquea la actualización: solo se pierde la
+      // lista de opcionales.
+    }
+
+    const listaMejoras = mejoras.length
+      ? `<div style="margin-top:14px;padding-top:12px;border-top:1px dashed #e5e7eb;text-align:left">
+           <div style="font-size:.78rem;font-weight:700;color:#0f172a;margin-bottom:2px">Mejoras opcionales</div>
+           <div style="font-size:.72rem;color:#64748b;margin-bottom:8px">Estos estados ya los tienes configurados. Marca los que quieras reemplazar por la versión nueva.</div>
+           ${mejoras
+             .map(
+               (m) => `
+             <label style="display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;cursor:pointer">
+               <input type="checkbox" class="mejora-chk" value="${m.estado_dropi}" style="margin-top:2px">
+               <span style="flex:1">
+                 <span style="font-size:.76rem;font-weight:700;color:#0f172a">${m.estado_dropi}</span>
+                 ${m.cambios
+                   .map(
+                     (c) => `
+                   <span style="display:block;font-size:.7rem;color:#64748b;margin-top:2px">
+                     ${c.etiqueta}: <s style="color:#94a3b8">${c.actual}</s> → <b style="color:#059669">${c.sugerido}</b>
+                   </span>`,
+                   )
+                   .join("")}
+               </span>
+             </label>`,
+             )
+             .join("")}
+         </div>`
+      : "";
+
+    const res = await Swal.fire({
+      icon: "question",
+      title: "Actualizar tablero",
+      html: `
+        <div style="text-align:left;font-size:.82rem;color:#475569;line-height:1.6">
+          <div style="margin-bottom:10px">Trae las mejoras nuevas <b>sin perder lo tuyo</b>:</div>
+          <div style="color:#059669">✓ Se actualiza la base de tus asistentes — tu nombre de tienda, tono e instrucciones se conservan</div>
+          <div style="color:#059669">✓ Se agregan columnas, plantillas y automatizaciones que te falten</div>
+          <div style="color:#059669">✓ <b>No se toca nada que ya tengas configurado</b></div>
+        </div>
+        ${listaMejoras}`,
+      showCancelButton: true,
+      confirmButtonText: "Actualizar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#6366f1",
+      width: mejoras.length ? 560 : 460,
+      preConfirm: () =>
+        Array.from(
+          document.querySelectorAll(".mejora-chk:checked"),
+          (el) => el.value,
+        ),
+    });
+
+    if (!res.isConfirmed) return;
+    await actualizarTablero(res.value || []);
+  };
+
+  const actualizarTablero = async (mejorasElegidas = []) => {
     setActualizandoTablero(true);
     Swal.fire({
       title: "Actualizando tu tablero...",
@@ -245,10 +319,28 @@ const KanbanConfig = () => {
           .join(", ");
         extra = `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:.82rem;color:#059669">✓ ${nuevas.length} columna(s) nueva(s) y ${activadas.length} activada(s): <strong>${nombres}</strong></div>`;
       }
+      // Las mejoras que el cliente marcó van DESPUÉS de la resincronización:
+      // son la única vía que sobreescribe configuración suya, y solo la que
+      // eligió explícitamente.
+      let extraMejoras = "";
+      if (mejorasElegidas.length) {
+        try {
+          const { data: dm } = await chatApi.post(
+            "/kanban_plantillas/aplicar_mejoras",
+            { id_configuracion, estados: mejorasElegidas },
+          );
+          const n = dm?.data?.aplicados?.length || 0;
+          if (n)
+            extraMejoras = `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:.82rem;color:#059669">✓ ${n} mejora(s) aplicada(s): <strong>${dm.data.aplicados.join(", ")}</strong></div>`;
+        } catch (e) {
+          extraMejoras = `<div style="margin-top:8px;font-size:.8rem;color:#dc2626">No se pudieron aplicar las mejoras seleccionadas: ${e?.response?.data?.message || e.message}</div>`;
+        }
+      }
+
       await Swal.fire({
         icon: data?.success ? "success" : "warning",
         title: data?.success ? "¡Tablero actualizado!" : "Actualización parcial",
-        html: `<div style="font-size:.85rem;color:#475569">${data?.message || ""}</div>${extra}`,
+        html: `<div style="font-size:.85rem;color:#475569">${data?.message || ""}</div>${extra}${extraMejoras}`,
         confirmButtonColor: "#6366f1",
       });
       await cargarColumnas();
@@ -279,6 +371,16 @@ const KanbanConfig = () => {
       activo: col.activo ?? 1,
       es_estado_final: col.es_estado_final ?? 0,
     });
+    /* Al cambiar de columna se vacían las acciones ANTES de pedir las nuevas:
+       si no, el contador de la pestaña y la lista siguen mostrando las de la
+       columna anterior hasta que responde el backend. Solo se vacía cuando de
+       verdad cambió la columna — este efecto también corre al recargar
+       `columnas` (tras guardar, por ejemplo) y ahí un vaciado dejaría el badge
+       en 0 un instante sin motivo. */
+    if (columnaAccionesRef.current !== col.id) {
+      setAcciones([]);
+      columnaAccionesRef.current = col.id;
+    }
     cargarAcciones(col.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columnaActiva, columnas]);
@@ -289,10 +391,13 @@ const KanbanConfig = () => {
       const { data } = await chatApi.post("/kanban_acciones/listar", {
         id_kanban_columna,
       });
+      // Respuesta tardía de una columna que ya no es la visible: se descarta,
+      // si no pintaría las acciones de otra columna.
+      if (columnaAccionesRef.current !== id_kanban_columna) return;
       if (data?.success) setAcciones(data.data || []);
       else setAcciones([]);
     } catch {
-      setAcciones([]);
+      if (columnaAccionesRef.current === id_kanban_columna) setAcciones([]);
     } finally {
       setLoadingAcc(false);
     }
@@ -872,7 +977,7 @@ const KanbanConfig = () => {
               </div>
             </div>
             <button
-              onClick={actualizarTablero}
+              onClick={confirmarActualizacion}
               disabled={actualizandoTablero}
               className="h-9 inline-flex items-center gap-1.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs shadow transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
             >
