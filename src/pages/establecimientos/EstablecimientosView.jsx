@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import Header from "../Header/pageHeader";
+import RecordatoriosPanel, { variablesDePlantilla } from "./RecordatoriosPanel";
 
 /* ─────────────────────────────────────────────────────────────
    Sedes / establecimientos
@@ -57,6 +58,18 @@ const EstablecimientosView = () => {
   const [form, setForm] = useState({ ...FORM_VACIO });
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
+  // Horas de anticipación de los recordatorios de cita
+  const [recordatorios, setRecordatorios] = useState([1]);
+  const [opcionesRec, setOpcionesRec] = useState([48, 24, 12, 4, 2, 1]);
+  const [guardandoRec, setGuardandoRec] = useState(false);
+  /* Cada recordatorio guarda su plantilla y qué dato va en cada variable:
+     { hora: { plantilla, body: [claves], buttons: [{index, variable}] } } */
+  const [plantillasRec, setPlantillasRec] = useState({});
+  const [variablesRec, setVariablesRec] = useState([]);
+  const [plantillasWa, setPlantillasWa] = useState([]);
+  const [panelRec, setPanelRec] = useState(false);
+  const [creandoPlantillas, setCreandoPlantillas] = useState(false);
+  const [preconfigurado, setPreconfigurado] = useState(null);
 
   const idConfiguracion = parseInt(localStorage.getItem("id_configuracion"));
 
@@ -179,12 +192,203 @@ const EstablecimientosView = () => {
     }
   };
 
+  const fetchRecordatorios = async () => {
+    if (!idConfiguracion) return;
+    try {
+      const res = await chatApi.post("/establecimientos/recordatorios", {
+        id_configuracion: idConfiguracion,
+      });
+      const d = res.data?.data;
+      if (d?.horas?.length) setRecordatorios(d.horas);
+      if (d?.opciones?.length) setOpcionesRec(d.opciones);
+      setPlantillasRec(d?.plantillas || {});
+      setVariablesRec(d?.variables || []);
+      return d;
+    } catch {
+      /* queda el valor por defecto */
+    }
+  };
+
+  /* Plantillas aprobadas de la cuenta. Solo sirven las APROBADAS: Meta rechaza
+     cualquier otra y el recordatorio no saldría. */
+  const fetchPlantillasWa = async () => {
+    if (!idConfiguracion) return;
+    try {
+      const res = await chatApi.post(
+        "whatsapp_managment/obtenerTemplatesWhatsapp",
+        { id_configuracion: idConfiguracion, limit: 100 },
+        { silentError: true },
+      );
+      const lista = (res.data?.data || []).filter(
+        (t) => String(t.status).toUpperCase() === "APPROVED",
+      );
+      setPlantillasWa(lista);
+      return lista;
+    } catch {
+      setPlantillasWa([]);
+      return [];
+    }
+  };
+
+  /* Tres plantillas listas para enviar a aprobación: víspera, mismo día y
+     última hora. Sin plantillas aprobadas no sale ningún recordatorio, y
+     redactarlas desde cero en el administrador de Meta es donde se atasca
+     cualquiera que monta la cuenta por primera vez. */
+  const crearPlantillasRecomendadas = async () => {
+    setCreandoPlantillas(true);
+    try {
+      const res = await chatApi.post(
+        "whatsapp_managment/crearPlantillasRecordatorio",
+        { id_configuracion: idConfiguracion },
+      );
+      const r = res.data?.resultados || [];
+      const creadas = r.filter((x) => x.status === "creada").length;
+      const existian = r.filter((x) => x.status === "ya_existe").length;
+      const fallidas = r.filter((x) => x.status === "error");
+
+      await fetchPlantillasWa();
+
+      Swal.fire({
+        icon: fallidas.length ? "warning" : "success",
+        title: creadas
+          ? `${creadas} plantilla${creadas > 1 ? "s" : ""} enviada${creadas > 1 ? "s" : ""} a Meta`
+          : "No hubo nada que crear",
+        html: [
+          creadas
+            ? "Aparecerán en la lista apenas Meta las apruebe (suele tardar unos minutos)."
+            : "",
+          existian ? `${existian} ya existían en la cuenta.` : "",
+          fallidas.length
+            ? `No se pudo crear: ${fallidas.map((f) => `${f.nombre} (${f.error})`).join("; ")}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("<br>"),
+      });
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "No se pudieron crear",
+        text: e?.response?.data?.error || "Intenta de nuevo",
+      });
+    } finally {
+      setCreandoPlantillas(false);
+    }
+  };
+
+  /* Cada anticipación guarda su propia plantilla y su propio mapeo: el aviso de
+     la víspera y el de la última hora no dicen lo mismo ni usan los mismos
+     datos. */
+  const guardarAviso = async (hora, aviso) => {
+    const antes = plantillasRec;
+    const nuevas = { ...plantillasRec, [hora]: aviso };
+    setPlantillasRec(nuevas);
+    setGuardandoRec(true);
+    try {
+      await chatApi.post("/establecimientos/recordatorios/guardar", {
+        id_configuracion: idConfiguracion,
+        plantillas: nuevas,
+      });
+    } catch (e) {
+      setPlantillasRec(antes);
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo guardar",
+        text: e?.response?.data?.message || "Intenta de nuevo",
+      });
+    } finally {
+      setGuardandoRec(false);
+    }
+  };
+
+  const toggleRecordatorio = async (h) => {
+    const nuevas = recordatorios.includes(h)
+      ? recordatorios.filter((x) => x !== h)
+      : [...recordatorios, h];
+
+    if (!nuevas.length) {
+      Swal.fire({
+        icon: "info",
+        title: "Deja al menos uno",
+        text: "Sin ningún recordatorio, nadie recibe aviso de su cita y la inasistencia sube.",
+      });
+      return;
+    }
+
+    const antes = recordatorios;
+    setRecordatorios(nuevas.sort((a, b) => b - a));
+    setGuardandoRec(true);
+    try {
+      await chatApi.post("/establecimientos/recordatorios/guardar", {
+        id_configuracion: idConfiguracion,
+        horas: nuevas,
+      });
+    } catch (e) {
+      setRecordatorios(antes);
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo guardar",
+        text: e?.response?.data?.message || "Intenta de nuevo",
+      });
+    } finally {
+      setGuardandoRec(false);
+    }
+  };
+
   useEffect(() => {
     fetchSedes();
     fetchCalendarios();
     fetchProfesionales();
+    prepararRecordatorios();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* Una cuenta recién montada llega sin recordatorios y, hasta que alguien
+     entre acá, sus clientes no reciben ningún aviso. Si nunca se configuró
+     nada y hay una plantilla nuestra aprobada, se deja andando el aviso de una
+     hora antes —el que más ausencias evita— y se avisa en el panel. */
+  const PREFERIDAS = [
+    "recordatorio_cita_ahora",
+    "recordatorio_cita_hoy",
+    "recordatorio_cita",
+  ];
+
+  const prepararRecordatorios = async () => {
+    const [datos, plantillas] = await Promise.all([
+      fetchRecordatorios(),
+      fetchPlantillasWa(),
+    ]);
+    if (!datos || datos.configurado) return;
+    if (datos.plantillas?.[1]?.plantilla) return;
+
+    const elegida = PREFERIDAS.map((n) =>
+      (plantillas || []).find((t) => t.name === n),
+    ).find(Boolean);
+    if (!elegida) return;
+
+    const cuantas = variablesDePlantilla(elegida);
+    const aviso = {
+      plantilla: elegida.name,
+      body: Array.from(
+        { length: cuantas },
+        (_, i) => ["nombre", "servicio", "hora", "ubicacion"][i] || "nombre",
+      ),
+      buttons: [],
+    };
+
+    try {
+      await chatApi.post("/establecimientos/recordatorios/guardar", {
+        id_configuracion: idConfiguracion,
+        horas: [1],
+        plantillas: { 1: aviso },
+      });
+      setRecordatorios([1]);
+      setPlantillasRec({ 1: aviso });
+      setPreconfigurado(elegida.name);
+    } catch {
+      /* si no se pudo guardar, el panel queda como estaba */
+    }
+  };
 
   /* Se muestra en el header: es el dato que responde de un vistazo "¿a quién
      puede atender el bot?", que es para lo que sirve esta pantalla. */
@@ -198,6 +402,30 @@ const EstablecimientosView = () => {
     ],
     [sedes],
   );
+
+  /* Resumen de una línea. Tiene que decir si algo NO va a salir: un aviso con
+     la hora marcada pero sin plantilla no envía nada, y esa es justo la falla
+     que nadie descubría hasta que un cliente no llegaba a su cita. */
+  const resumenRec = useMemo(() => {
+    const orden = [...recordatorios].sort((a, b) => b - a);
+    const texto = (h) =>
+      h >= 24
+        ? `${h / 24} día${h >= 48 ? "s" : ""}`
+        : `${h} hora${h > 1 ? "s" : ""}`;
+    const sinPlantilla = orden.filter(
+      (h) => !plantillasRec[h]?.plantilla,
+    ).length;
+
+    if (!orden.length) return "Ningún aviso activo: nadie recibe recordatorio.";
+
+    const base = `${orden.length} aviso${orden.length > 1 ? "s" : ""} · ${orden
+      .map(texto)
+      .join(" y ")} antes`;
+
+    return sinPlantilla
+      ? `${base} — ${sinPlantilla} sin mensaje asignado, no se enviará`
+      : base;
+  }, [recordatorios, plantillasRec]);
 
   const filtradas = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -365,6 +593,47 @@ const EstablecimientosView = () => {
             envío a domicilio, no necesitas configurar nada aquí.
           </p>
         </div>
+
+        {/* Recordatorios: es configuración de la agenda, no de una sede. Se
+            resume en una línea y el detalle vive en un cajón lateral: es algo
+            que se toca una vez y no puede robarle la pantalla al listado. */}
+        <div className="mx-5 mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 ring-1 ring-amber-100">
+            <i className="bx bx-alarm text-lg text-amber-600" />
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-bold text-gray-900">
+              Recordatorios de cita
+            </h3>
+            <p className="mt-0.5 truncate text-xs text-gray-500">{resumenRec}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setPanelRec(true)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-slate-50"
+          >
+            <i className="bx bx-slider-alt text-base" />
+            Configurar
+          </button>
+        </div>
+
+        <RecordatoriosPanel
+          abierto={panelRec}
+          onCerrar={() => setPanelRec(false)}
+          opciones={opcionesRec}
+          horas={recordatorios}
+          plantillas={plantillasRec}
+          variables={variablesRec}
+          plantillasWa={plantillasWa}
+          guardando={guardandoRec}
+          creandoPlantillas={creandoPlantillas}
+          preconfigurado={preconfigurado}
+          onToggleHora={toggleRecordatorio}
+          onCambiarAviso={guardarAviso}
+          onCrearPlantillas={crearPlantillasRecomendadas}
+        />
 
         <div className="px-5 py-3.5 border-b border-slate-100">
           <div className="relative max-w-sm">
