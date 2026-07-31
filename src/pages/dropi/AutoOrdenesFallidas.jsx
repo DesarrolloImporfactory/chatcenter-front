@@ -99,6 +99,9 @@ const FIELD_DEFS = [
   { key: "ciudad", label: "Ciudad", icon: "bx-map-pin", col: 1 },
   { key: "direccion", label: "Dirección", icon: "bx-home", col: 2 },
   { key: "producto", label: "Producto", icon: "bx-package", col: 1 },
+  // Aparece sola cuando el producto elegido tiene variedades. Es el motivo de
+  // fallo más repetido: la orden no sube porque nadie eligió el color o la talla.
+  { key: "variedad", label: "Variedad", icon: "bx-palette", col: 1 },
   { key: "precio", label: "Precio total", icon: "bx-dollar", col: 1 },
   { key: "cantidad", label: "Cantidad", icon: "bx-hash", col: 1 },
 ];
@@ -112,6 +115,7 @@ const formFromItem = (it) => ({
   direccion: it.datos?.direccion ?? "",
   producto: it.datos?.producto ?? "",
   producto_id: it.datos?.producto_id ?? "",
+  variedad: it.datos?.variedad ?? "",
   precio: it.datos?.precio ?? "",
   cantidad: it.datos?.cantidad ?? "1",
 });
@@ -726,6 +730,9 @@ export default function AutoOrdenesFallidas({
                                         ...f,
                                         producto_id: p.id,
                                         producto: p.nombre,
+                                        // Cambiar de producto invalida la variedad
+                                        // elegida: las opciones son otras.
+                                        variedad: "",
                                         precio:
                                           f.precio ||
                                           (p.precio != null
@@ -734,6 +741,181 @@ export default function AutoOrdenesFallidas({
                                       }))
                                     }
                                   />
+                                );
+                              }
+
+                              /* Variedad: solo tiene sentido si el producto
+                                 elegido tiene opciones. Se muestran las del
+                                 catálogo en vez de un campo libre — escribir
+                                 "negro" con otra grafía hacía fallar el match
+                                 contra Dropi y la orden volvía a caer. */
+                              if (fd.key === "variedad") {
+                                const prodSel = productos.find(
+                                  (p) =>
+                                    String(p.id) === String(form.producto_id),
+                                );
+                                const opciones = prodSel?.variaciones || [];
+                                if (!opciones.length) return null;
+
+                                /* Se guarda como texto con la cantidad de cada
+                                   una ("Negro x2, Cafe x1"), que es lo que sabe
+                                   leer el motor. Para saber qué hay marcado se
+                                   busca cada opción del catálogo dentro del
+                                   texto —el mismo criterio del backend— en vez
+                                   de partir la cadena: una variedad llamada
+                                   "Blanco y Negro" quedaría partida en dos. */
+                                const texto = String(form.variedad || "");
+                                const bajo = texto.toLowerCase();
+                                const elegidas = opciones
+                                  .map((o) => o.valor)
+                                  .filter((v) =>
+                                    bajo.includes(String(v).toLowerCase()),
+                                  )
+                                  .map((v) => {
+                                    const esc = v.replace(
+                                      /[.*+?^${}()|[\]\\]/g,
+                                      "\\$&",
+                                    );
+                                    const m = bajo.match(
+                                      new RegExp(`${esc.toLowerCase()}\\s*x\\s*(\\d+)`),
+                                    );
+                                    return { valor: v, qty: m ? Number(m[1]) : 1 };
+                                  });
+
+                                const escribir = (lista) =>
+                                  setForm((f) => ({
+                                    ...f,
+                                    variedad: lista
+                                      .map((e) => `${e.valor} x${e.qty}`)
+                                      .join(", "),
+                                  }));
+
+                                const toggle = (valor) => {
+                                  const ya = elegidas.some(
+                                    (e) =>
+                                      e.valor.toLowerCase() ===
+                                      valor.toLowerCase(),
+                                  );
+                                  escribir(
+                                    ya
+                                      ? elegidas.filter(
+                                          (e) =>
+                                            e.valor.toLowerCase() !==
+                                            valor.toLowerCase(),
+                                        )
+                                      : [...elegidas, { valor, qty: 1 }],
+                                  );
+                                };
+
+                                const setQty = (valor, qty) =>
+                                  escribir(
+                                    elegidas.map((e) =>
+                                      e.valor.toLowerCase() ===
+                                      valor.toLowerCase()
+                                        ? { ...e, qty: Math.max(1, qty || 1) }
+                                        : e,
+                                    ),
+                                  );
+
+                                const cant = Number(form.cantidad) || 0;
+                                const suma = elegidas.reduce(
+                                  (a, e) => a + e.qty,
+                                  0,
+                                );
+                                // El motor exige que el reparto sume exactamente
+                                // las unidades del pedido.
+                                const noCuadra = elegidas.length > 0 && suma !== cant;
+
+                                return (
+                                  <div key="variedad" className="col-span-2">
+                                    <label className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1">
+                                      <i className="bx bx-palette" />
+                                      {opciones[0]?.atributo || "Variedad"}
+                                      <span className="text-rose-500">•</span>
+                                      <span className="font-normal text-gray-400">
+                                        — puedes marcar varias
+                                      </span>
+                                    </label>
+
+                                    <div className="flex flex-wrap gap-2">
+                                      {opciones.map((o) => {
+                                        const sel = elegidas.find(
+                                          (e) =>
+                                            e.valor.toLowerCase() ===
+                                            o.valor.toLowerCase(),
+                                        );
+                                        return (
+                                          <div
+                                            key={o.valor}
+                                            className={`inline-flex items-center gap-1 rounded-lg border transition ${
+                                              sel
+                                                ? "border-indigo-400 bg-indigo-50"
+                                                : "border-gray-200 bg-white hover:border-gray-300"
+                                            }`}
+                                          >
+                                            <button
+                                              type="button"
+                                              onClick={() => toggle(o.valor)}
+                                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium ${
+                                                sel
+                                                  ? "text-indigo-700"
+                                                  : "text-gray-700"
+                                              }`}
+                                            >
+                                              <i
+                                                className={`bx ${
+                                                  sel
+                                                    ? "bx-check-circle"
+                                                    : "bx-circle"
+                                                } text-base`}
+                                              />
+                                              {o.valor}
+                                            </button>
+
+                                            {/* Cuántas unidades de esta variedad.
+                                                Solo aparece si está marcada. */}
+                                            {sel && (
+                                              <input
+                                                type="number"
+                                                min="1"
+                                                value={sel.qty}
+                                                onChange={(e) =>
+                                                  setQty(
+                                                    o.valor,
+                                                    Number(e.target.value),
+                                                  )
+                                                }
+                                                className="w-12 mr-1 px-1.5 py-1 text-sm text-center text-gray-900 bg-white border border-indigo-200 rounded-md outline-none focus:border-indigo-400"
+                                                aria-label={`Unidades de ${o.valor}`}
+                                              />
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {!elegidas.length ? (
+                                      <p className="mt-1.5 text-[11px] text-rose-600">
+                                        Sin esto la orden no sube: elige la que
+                                        pidió el cliente.
+                                      </p>
+                                    ) : noCuadra ? (
+                                      <p className="mt-1.5 text-[11px] text-amber-700">
+                                        El reparto suma {suma} y el pedido es de{" "}
+                                        {cant} unidad(es). Ajusta las cantidades
+                                        de cada variedad o cambia la cantidad
+                                        total.
+                                      </p>
+                                    ) : (
+                                      <p className="mt-1.5 text-[11px] text-gray-500">
+                                        Se despacha{" "}
+                                        {elegidas
+                                          .map((e) => `${e.qty} ${e.valor}`)
+                                          .join(" + ")}
+                                        .
+                                      </p>
+                                    )}
+                                  </div>
                                 );
                               }
 

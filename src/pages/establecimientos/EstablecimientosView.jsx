@@ -379,223 +379,228 @@ const EstablecimientosView = () => {
         </div>
 
         <div className="p-5">
-
-        {loading ? (
-          <div className="py-16 text-center text-slate-500">Cargando…</div>
-        ) : !filtradas.length ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-14 text-center">
-            <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white ring-1 ring-gray-200 mx-auto">
-              <i className="bx bx-buildings text-3xl text-gray-400" />
-            </span>
-            <p className="mt-3 font-bold text-gray-800">
-              {sedes.length ? "Sin resultados" : "Todavía no hay sedes"}
-            </p>
-            <p className="mx-auto mt-1.5 max-w-md text-sm text-gray-500">
-              {sedes.length
-                ? "Prueba con otra búsqueda."
-                : "Mientras no cargues al menos una, el asistente no sabe en qué ciudades atienden: no puede filtrar a los clientes que están fuera de alcance ni decirles dónde queda el local."}
-            </p>
-            {!sedes.length && (
-              <button
-                onClick={abrirNueva}
-                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#1d4ed8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#1e40af]"
-              >
-                <i className="bx bx-plus text-lg" />
-                Agregar la primera sede
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filtradas.map((s) => (
-              <div
-                key={s.id}
-                className={`group rounded-2xl border bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:border-indigo-200 ${
-                  Number(s.activo)
-                    ? "border-gray-200"
-                    : "border-gray-200 bg-gray-50/60"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <span
-                    className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${
-                      Number(s.activo)
-                        ? "bg-indigo-50 ring-indigo-100"
-                        : "bg-gray-100 ring-gray-200"
-                    }`}
-                  >
-                    <i
-                      className={`bx bx-buildings text-2xl ${
-                        Number(s.activo) ? "text-indigo-600" : "text-gray-400"
+          {loading ? (
+            <div className="py-16 text-center text-slate-500">Cargando…</div>
+          ) : !filtradas.length ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-14 text-center">
+              <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white ring-1 ring-gray-200 mx-auto">
+                <i className="bx bx-buildings text-3xl text-gray-400" />
+              </span>
+              <p className="mt-3 font-bold text-gray-800">
+                {sedes.length ? "Sin resultados" : "Todavía no hay sedes"}
+              </p>
+              <p className="mx-auto mt-1.5 max-w-md text-sm text-gray-500">
+                {sedes.length
+                  ? "Prueba con otra búsqueda."
+                  : "Mientras no cargues al menos una, el asistente no sabe en qué ciudades atienden: no puede filtrar a los clientes que están fuera de alcance ni decirles dónde queda el local."}
+              </p>
+              {!sedes.length && (
+                <button
+                  onClick={abrirNueva}
+                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#1d4ed8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#1e40af]"
+                >
+                  <i className="bx bx-plus text-lg" />
+                  Agregar la primera sede
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filtradas.map((s) => (
+                <div
+                  key={s.id}
+                  className={`group rounded-2xl border bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:border-indigo-200 ${
+                    Number(s.activo)
+                      ? "border-gray-200"
+                      : "border-gray-200 bg-gray-50/60"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${
+                        Number(s.activo)
+                          ? "bg-indigo-50 ring-indigo-100"
+                          : "bg-gray-100 ring-gray-200"
                       }`}
-                    />
-                  </span>
+                    >
+                      <i
+                        className={`bx bx-buildings text-2xl ${
+                          Number(s.activo) ? "text-indigo-600" : "text-gray-400"
+                        }`}
+                      />
+                    </span>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="truncate font-bold text-gray-900">
-                        {s.nombre}
-                      </h3>
-                      {!Number(s.activo) && (
-                        <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                          Inactiva
-                        </span>
-                      )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="truncate font-bold text-gray-900">
+                          {s.nombre}
+                        </h3>
+                        {!Number(s.activo) && (
+                          <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                            Inactiva
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-600">
+                        <i className="bx bx-map-pin text-gray-400" />
+                        {s.ciudad}
+                        {s.provincia ? `, ${s.provincia}` : ""}
+                      </p>
                     </div>
-                    <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-600">
-                      <i className="bx bx-map-pin text-gray-400" />
-                      {s.ciudad}
-                      {s.provincia ? `, ${s.provincia}` : ""}
+                  </div>
+
+                  <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-[13px] text-gray-600">
+                    <p className="flex gap-2">
+                      <i className="bx bx-map text-gray-400 mt-0.5 shrink-0" />
+                      <span>
+                        {s.direccion || (
+                          <span className="text-gray-400">Sin dirección</span>
+                        )}
+                      </span>
+                    </p>
+                    <p className="flex gap-2">
+                      <i className="bx bx-map-alt text-gray-400 mt-0.5 shrink-0" />
+                      <span>
+                        {s.google_maps_url ? (
+                          <a
+                            href={s.google_maps_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#1d4ed8] hover:underline"
+                          >
+                            Ver ubicación en Maps
+                          </a>
+                        ) : (
+                          <span className="text-amber-600">
+                            Sin enlace de Maps — el bot enviará una búsqueda por
+                            dirección
+                          </span>
+                        )}
+                      </span>
+                    </p>
+                    <p className="flex gap-2">
+                      <i className="bx bx-time-five text-gray-400 mt-0.5 shrink-0" />
+                      <span>
+                        {s.horario || (
+                          <span className="text-amber-600">
+                            Sin horario — el bot no sabrá qué horas ofrecer
+                          </span>
+                        )}
+                      </span>
+                    </p>
+                    <p className="flex gap-2">
+                      <i className="bx bx-phone text-gray-400 mt-0.5 shrink-0" />
+                      <span>
+                        {s.telefono || (
+                          <span className="text-gray-400">Sin teléfono</span>
+                        )}
+                      </span>
+                    </p>
+                    <p className="flex gap-2">
+                      <i className="bx bx-calendar text-gray-400 mt-0.5 shrink-0" />
+                      <span>
+                        {s.id_calendario ? (
+                          nombreCalendario(s.id_calendario) ||
+                          `Agenda #${s.id_calendario}`
+                        ) : (
+                          <span className="text-gray-400">
+                            Agenda principal
+                          </span>
+                        )}
+                      </span>
                     </p>
                   </div>
-                </div>
 
-                <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-[13px] text-gray-600">
-                  <p className="flex gap-2">
-                    <i className="bx bx-map text-gray-400 mt-0.5 shrink-0" />
-                    <span>
-                      {s.direccion || (
-                        <span className="text-gray-400">Sin dirección</span>
-                      )}
-                    </span>
-                  </p>
-                  <p className="flex gap-2">
-                    <i className="bx bx-map-alt text-gray-400 mt-0.5 shrink-0" />
-                    <span>
-                      {s.google_maps_url ? (
-                        <a
-                          href={s.google_maps_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#1d4ed8] hover:underline"
-                        >
-                          Ver ubicación en Maps
-                        </a>
-                      ) : (
-                        <span className="text-amber-600">
-                          Sin enlace de Maps — el bot enviará una búsqueda por
-                          dirección
-                        </span>
-                      )}
-                    </span>
-                  </p>
-                  <p className="flex gap-2">
-                    <i className="bx bx-time-five text-gray-400 mt-0.5 shrink-0" />
-                    <span>
-                      {s.horario || (
-                        <span className="text-amber-600">
-                          Sin horario — el bot no sabrá qué horas ofrecer
-                        </span>
-                      )}
-                    </span>
-                  </p>
-                  <p className="flex gap-2">
-                    <i className="bx bx-phone text-gray-400 mt-0.5 shrink-0" />
-                    <span>
-                      {s.telefono || (
-                        <span className="text-gray-400">Sin teléfono</span>
-                      )}
-                    </span>
-                  </p>
-                  <p className="flex gap-2">
-                    <i className="bx bx-calendar text-gray-400 mt-0.5 shrink-0" />
-                    <span>
-                      {s.id_calendario ? (
-                        nombreCalendario(s.id_calendario) ||
-                        `Agenda #${s.id_calendario}`
-                      ) : (
-                        <span className="text-gray-400">Agenda principal</span>
-                      )}
-                    </span>
-                  </p>
-                </div>
-
-                {/* Quién atiende. Define cuántas citas caben a la misma hora:
+                  {/* Quién atiende. Define cuántas citas caben a la misma hora:
                     con tres cargadas el bot agenda tres simultáneas. Si al
                     negocio no le importan los nombres puede poner "Cabina 1/2/3"
                     y funciona igual como cupo. */}
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-gray-700">
-                      ¿Quién atiende aquí?
-                    </span>
-                    <span className="text-[11px] text-gray-400">
-                      {(profesionales[s.id]?.length || 0) === 0
-                        ? "1 cita a la vez"
-                        : `${profesionales[s.id].length} citas a la vez`}
-                    </span>
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-semibold text-gray-700">
+                        ¿Quién atiende aquí?
+                      </span>
+                      <span className="text-[11px] text-gray-400">
+                        {(profesionales[s.id]?.length || 0) === 0
+                          ? "1 cita a la vez"
+                          : `${profesionales[s.id].length} citas a la vez`}
+                      </span>
+                    </div>
+
+                    {(profesionales[s.id]?.length || 0) > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {profesionales[s.id].map((p) => (
+                          <span
+                            key={p.id}
+                            className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-1 pl-2.5 pr-1 text-[12px] text-gray-700"
+                          >
+                            {p.nombre}
+                            <button
+                              onClick={() => quitarProfesional(p)}
+                              title={`Quitar a ${p.nombre}`}
+                              className="rounded-full p-0.5 text-gray-400 transition-colors hover:bg-rose-100 hover:text-rose-600"
+                            >
+                              <i className="bx bx-x text-sm" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[13px] text-gray-800 placeholder-gray-400 transition-all focus:border-[#1d4ed8] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25"
+                        placeholder="Nombre o cabina"
+                        value={nuevoProf[s.id] || ""}
+                        onChange={(e) =>
+                          setNuevoProf((p) => ({
+                            ...p,
+                            [s.id]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter") return;
+                          agregarProfesional(s.id, nuevoProf[s.id]);
+                          setNuevoProf((p) => ({ ...p, [s.id]: "" }));
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          agregarProfesional(s.id, nuevoProf[s.id]);
+                          setNuevoProf((p) => ({ ...p, [s.id]: "" }));
+                        }}
+                        disabled={!String(nuevoProf[s.id] || "").trim()}
+                        className="shrink-0 rounded-lg border border-gray-300 px-3 text-sm text-gray-600 transition-all hover:border-[#1d4ed8] hover:text-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <i className="bx bx-plus" />
+                      </button>
+                    </div>
+
+                    {(profesionales[s.id]?.length || 0) === 0 && (
+                      <p className="mt-1.5 text-[11px] text-gray-400">
+                        Sin nadie cargado, el bot agenda una sola cita por
+                        horario.
+                      </p>
+                    )}
                   </div>
 
-                  {(profesionales[s.id]?.length || 0) > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {profesionales[s.id].map((p) => (
-                        <span
-                          key={p.id}
-                          className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-1 pl-2.5 pr-1 text-[12px] text-gray-700"
-                        >
-                          {p.nombre}
-                          <button
-                            onClick={() => quitarProfesional(p)}
-                            title={`Quitar a ${p.nombre}`}
-                            className="rounded-full p-0.5 text-gray-400 transition-colors hover:bg-rose-100 hover:text-rose-600"
-                          >
-                            <i className="bx bx-x text-sm" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[13px] text-gray-800 placeholder-gray-400 transition-all focus:border-[#1d4ed8] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25"
-                      placeholder="Nombre o cabina"
-                      value={nuevoProf[s.id] || ""}
-                      onChange={(e) =>
-                        setNuevoProf((p) => ({ ...p, [s.id]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key !== "Enter") return;
-                        agregarProfesional(s.id, nuevoProf[s.id]);
-                        setNuevoProf((p) => ({ ...p, [s.id]: "" }));
-                      }}
-                    />
+                  <div className="mt-4 flex justify-end gap-2">
                     <button
-                      onClick={() => {
-                        agregarProfesional(s.id, nuevoProf[s.id]);
-                        setNuevoProf((p) => ({ ...p, [s.id]: "" }));
-                      }}
-                      disabled={!String(nuevoProf[s.id] || "").trim()}
-                      className="shrink-0 rounded-lg border border-gray-300 px-3 text-sm text-gray-600 transition-all hover:border-[#1d4ed8] hover:text-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => abrirEditar(s)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-all hover:bg-gray-100 hover:border-gray-400"
                     >
-                      <i className="bx bx-plus" />
+                      <i className="bx bx-edit-alt" />
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => eliminar(s)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-600 transition-all hover:bg-rose-50"
+                    >
+                      <i className="bx bx-trash" />
+                      Eliminar
                     </button>
                   </div>
-
-                  {(profesionales[s.id]?.length || 0) === 0 && (
-                    <p className="mt-1.5 text-[11px] text-gray-400">
-                      Sin nadie cargado, el bot agenda una sola cita por horario.
-                    </p>
-                  )}
                 </div>
-
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    onClick={() => abrirEditar(s)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-all hover:bg-gray-100 hover:border-gray-400"
-                  >
-                    <i className="bx bx-edit-alt" />
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => eliminar(s)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-600 transition-all hover:bg-rose-50"
-                  >
-                    <i className="bx bx-trash" />
-                    Eliminar
-                  </button>
-                </div>
-              </div>
               ))}
             </div>
           )}
