@@ -671,3 +671,68 @@
 .fc-meet-link:hover {
   transform: scale(1.05);
 }
+
+/* ── Densidad de la vista de horarios ──────────────────────────────────
+   La grilla va de 06:00 a 24:00 dentro del alto de la pantalla, así que cada
+   franja de 30 min quedaba en ~19px: una cita normal no alcanzaba a mostrar ni
+   el título completo. Se le da altura real a la franja y la grilla scrollea
+   (arranca en scrollTime), que es como se comportan Google Calendar y Calendly.
+   Con esto una cita de 30 min tiene ~44px y entran las tres líneas: hora,
+   título y quién atiende. */
+.fc .fc-timegrid-slot {
+  height: 2.75rem;
+}
+
+/* Texto del evento: compacto pero legible. El default trae interlineado de
+   párrafo, que dentro de un bloque de 40px se come una línea entera. */
+.fc-timegrid-event .fc-event-main {
+  padding: 2px 4px;
+}
+.fc-timegrid-event .fc-event-time {
+  font-size: 0.68rem;
+  line-height: 1.15;
+  opacity: 0.9;
+  font-weight: 600;
+}
+.fc-timegrid-event .fc-event-title {
+  font-size: 0.76rem;
+  line-height: 1.2;
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* En una cita corta (15 min) no hay sitio para todo: la hora ya está en la
+   columna de la izquierda y en el tooltip, así que cede el lugar al título. */
+.fc-timegrid-event-short .fc-event-time {
+  display: none;
+}
+.fc-timegrid-event-short .fc-event-title {
+  -webkit-line-clamp: 1;
+}
+.fc-timegrid-event-short .fc-prof-tag {
+  display: none;
+}
+
+/* Quién atiende, debajo del título del evento. Va tenue y en una línea: el
+   bloque de la cita es angosto y el dato es de apoyo, no el titular. */
+.fc-prof-tag {
+  display: block;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fc-prof-tag::before {
+  content: "👤 ";
+}
+
+/* En vista de mes cada día lista varias citas en una fila: ahí el nombre de
+   quien atiende no cabe y se ve en el tooltip o al abrir la cita. */
+.fc-daygrid-event .fc-prof-tag {
+  display: none;
+}

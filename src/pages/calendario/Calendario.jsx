@@ -103,6 +103,7 @@ export default function Calendario() {
 
   // Usuarios reales para asignar/filtrar
   const [usuarios, setUsuarios] = useState([]); // { id, nombre, color, checked }
+  const [profesionales, setProfesionales] = useState([]); // quién atiende en la sede
   const selectedUserIds = useMemo(
     () => usuarios.filter((u) => u.checked).map((u) => u.id),
     [usuarios],
@@ -339,6 +340,30 @@ export default function Calendario() {
     loadUsers();
   }, [ownerUserId]);
 
+  /* Quién atiende, del lado del local. Es distinto del miembro del equipo: ese
+     gestiona la cita en el sistema, el profesional es la persona cuya hora se
+     está ocupando de verdad, y es lo que el dueño necesita ver en el tablero
+     para saber si su sede está llena. */
+  useEffect(() => {
+    if (!accountId) return;
+    const cargar = async () => {
+      try {
+        const { data } = await chatApi.post(
+          "/profesionales/listar",
+          { id_configuracion: accountId },
+          { silentError: true },
+        );
+        setProfesionales(Array.isArray(data?.data) ? data.data : []);
+      } catch {
+        setProfesionales([]);
+      }
+    };
+    cargar();
+  }, [accountId]);
+
+  const nombreProfesional = (id) =>
+    profesionales.find((p) => Number(p.id) === Number(id))?.nombre || null;
+
   function colorForUser(userId) {
     const u = usuarios.find((x) => x.id === userId);
     return u?.color || "#3b82f6";
@@ -370,6 +395,7 @@ export default function Calendario() {
           ? new Date(initial.end).toTimeString().slice(0, 5)
           : "09:30"),
       assigned_user_id: initial?.assigned_user_id ?? "",
+      id_profesional: initial?.id_profesional ?? "",
       location_text: initial?.location_text || "",
       meeting_url: initial?.meeting_url || "",
       description: initial?.description || "",
@@ -440,6 +466,27 @@ export default function Calendario() {
                  value="${i.location_text.replaceAll('"', "&quot;")}" />
         </div>
       </div>
+
+      ${
+        /* Solo aparece si el negocio cargó profesionales: en una cuenta sin
+           sedes este campo no significa nada y sobra en el formulario. */
+        profesionales.length
+          ? `<div class="swal-row">
+          <label>Atiende (personal de la sede)</label>
+          <select id="f-profesional" class="swal2-input">
+            <option value="">(Sin asignar)</option>
+            ${profesionales
+              .map(
+                (p) =>
+                  `<option value="${p.id}" ${
+                    Number(i.id_profesional) === Number(p.id) ? "selected" : ""
+                  }>${p.nombre}</option>`,
+              )
+              .join("")}
+          </select>
+        </div>`
+          : ""
+      }
 
       <div class="swal-row">
         <div class="section-header">
@@ -616,6 +663,8 @@ export default function Calendario() {
         const endStr = get("f-end");
         const status = get("f-status") || "Agendado";
         const assigned = get("f-assigned");
+        // El select solo existe si la cuenta tiene profesionales cargados.
+        const profesional = get("f-profesional");
         const location = get("f-location") || null;
         const meetRaw = get("f-meet") || null;
         const desc = get("f-desc") || null;
@@ -733,6 +782,7 @@ export default function Calendario() {
           title,
           status,
           assigned_user_id: assigned ? Number(assigned) : null,
+          id_profesional: profesional ? Number(profesional) : null,
           location_text: location,
           meeting_url: autogen ? null : meet,
           description: desc,
@@ -962,6 +1012,7 @@ export default function Calendario() {
         startTime: ev.start?.toTimeString().slice(0, 5),
         endTime: (ev.end || ev.start)?.toTimeString().slice(0, 5),
         assigned_user_id: props.assigned_user_id ?? ev.assigned_user_id ?? "",
+        id_profesional: props.id_profesional ?? "",
         location_text: props.location_text || "",
         meeting_url: props.meeting_url || "",
         description: props.description || "",
@@ -1001,6 +1052,17 @@ export default function Calendario() {
       if (form.status) ev.setExtendedProp("status", form.status);
       if (form.assigned_user_id !== undefined) {
         ev.setExtendedProp("assigned_user_id", form.assigned_user_id);
+      }
+      // Sin esto el nombre de quien atiende seguiría mostrando el anterior
+      // hasta recargar la pantalla.
+      if (form.id_profesional !== undefined) {
+        ev.setExtendedProp("id_profesional", form.id_profesional);
+        ev.setExtendedProp(
+          "profesional",
+          form.id_profesional
+            ? { id: form.id_profesional, nombre: nombreProfesional(form.id_profesional) }
+            : null,
+        );
       }
 
       // refrescos
@@ -1160,6 +1222,12 @@ export default function Calendario() {
             Number(e.extendedProps?.assigned_user_id ?? e.assigned_user_id) ||
             null,
           calendar_name: e.extendedProps?.calendar?.name || "—",
+          /* Quién de la sucursal atiende. Es distinto del sub-usuario asignado
+             —ese es quien lleva la tarjeta en el sistema— y es el dato que el
+             dueño necesita para saber a quién le está ocupando la hora. */
+          profesional: e.extendedProps?.profesional?.nombre || null,
+          id_profesional: e.extendedProps?.id_profesional ?? null,
+          sede: e.extendedProps?.sede?.nombre || null,
           created_at:
             e.extendedProps?.created_at || e.created_at || e.createdAt || null,
         }));
@@ -1538,6 +1606,53 @@ export default function Calendario() {
                       // no insertamos nada en vistas tipo lista
                       if (info.view.type.startsWith("list")) return;
 
+                      /* Quién atiende, dentro del bloque del calendario. Antes
+                         solo se veía entrando a la pestaña de lista, así que
+                         mirando la semana no había forma de saber a quién de la
+                         sede se le estaba llenando la agenda. */
+                      const props = info.event.extendedProps;
+                      const prof =
+                        props.profesional?.nombre ||
+                        nombreProfesional(props.id_profesional);
+
+                      const cuerpo = info.el.querySelector(".fc-event-title");
+                      if (
+                        prof &&
+                        cuerpo &&
+                        !info.el.querySelector(".fc-prof-tag")
+                      ) {
+                        const tag = document.createElement("span");
+                        tag.className = "fc-prof-tag";
+                        tag.textContent = prof;
+                        cuerpo.after(tag);
+                      }
+
+                      /* Una cita de 15 minutos nunca va a mostrarlo todo por
+                         mucho que se apriete el texto. El tooltip del sistema
+                         resuelve eso sin ocupar espacio: se pasa el mouse y
+                         está la ficha completa. */
+                      const hora = (d) =>
+                        d
+                          ? d.toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: false,
+                            })
+                          : "";
+                      const invitado = props.invitees?.[0];
+                      info.el.title = [
+                        `${hora(info.event.start)}${info.event.end ? ` – ${hora(info.event.end)}` : ""}  ${info.event.title}`,
+                        prof ? `Atiende: ${prof}` : null,
+                        props.sede?.nombre ? `Sede: ${props.sede.nombre}` : null,
+                        invitado?.name ? `Cliente: ${invitado.name}` : null,
+                        invitado?.phone && !/no registra/i.test(invitado.phone)
+                          ? `Tel: ${invitado.phone}`
+                          : null,
+                        props.status ? `Estado: ${props.status}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join("\n");
+
                       const href = normalizeMeetingHref(
                         info.event.extendedProps.meeting_url,
                       );
@@ -1779,7 +1894,7 @@ export default function Calendario() {
                     <th className="px-4 py-2 text-left">Invitados</th>
                     <th className="px-4 py-2 text-left">Estado</th>
                     <th className="px-4 py-2 text-left">Hora de la cita</th>
-                    <th className="px-4 py-2 text-left">Calendario</th>
+                    <th className="px-4 py-2 text-left">Sede / atiende</th>
                     <th className="px-4 py-2 text-left">
                       Propietario de la cita
                     </th>
@@ -1925,7 +2040,14 @@ export default function Calendario() {
                             <td className="px-4 py-2 whitespace-nowrap">
                               {fmtDateTime(r.start)}
                             </td>
-                            <td className="px-4 py-2">{r.calendar_name}</td>
+                            <td className="px-4 py-2">
+                              {r.sede || r.calendar_name}
+                              {r.profesional && (
+                                <span className="block text-[11px] text-gray-500">
+                                  atiende {r.profesional}
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-2">{owner}</td>
                             <td className="px-4 py-2 text-right">
                               <button
@@ -1953,6 +2075,9 @@ export default function Calendario() {
                                         : "00:00",
                                       assigned_user_id:
                                         r.assigned_user_id ?? "",
+                                      // Sin esto, guardar desde la lista
+                                      // dejaba la cita sin quien la atienda.
+                                      id_profesional: r.id_profesional ?? "",
                                       location_text: "",
                                       meeting_url: r.meeting_url || "",
                                       description: "",
