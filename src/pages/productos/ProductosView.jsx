@@ -805,6 +805,7 @@ const ProductosView = () => {
         }}
         editingProduct={editingProduct}
         categorias={categorias}
+        onCategoriasChange={setCategorias}
         /* Respaldo para deducir si la cuenta es de productos o de servicios
            cuando el asistente de ventas todavía no lo tiene definido. */
         productosExistentes={productos}

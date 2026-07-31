@@ -110,15 +110,25 @@ const CategoriasView = () => {
           text: "Se ha actualizado exitosamente",
         });
       } else {
-        await chatApi.post("/categorias/agregarCategoria", {
+        const res = await chatApi.post("/categorias/agregarCategoria", {
           id_configuracion: idc,
           ...payload,
         });
-        Swal.fire({
-          icon: "success",
-          title: "Categoría agregada",
-          text: "Se ha guardado correctamente",
-        });
+        // El back devuelve la existente en vez de duplicar: hay que decirlo,
+        // si no parece que se creó una nueva y la lista no cambia.
+        Swal.fire(
+          res?.data?.yaExistia
+            ? {
+                icon: "info",
+                title: "Esa categoría ya existe",
+                text: "Se mantuvo la que ya tenías, no se creó una repetida.",
+              }
+            : {
+                icon: "success",
+                title: "Categoría agregada",
+                text: "Se ha guardado correctamente",
+              },
+        );
       }
       setModalOpen(false);
       setForm({ nombre: "", descripcion: "" });

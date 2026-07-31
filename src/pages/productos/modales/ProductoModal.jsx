@@ -67,13 +67,16 @@ const Lbl = ({ children, required }) => (
   </label>
 );
 
-const Inp = ({ className = "", ...props }) => (
+// forwardRef: el campo de "nueva categoría" necesita el ref para enfocarse solo.
+const Inp = React.forwardRef(({ className = "", ...props }, ref) => (
   <input
+    ref={ref}
     {...props}
     className={`w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none
       transition focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white ${className}`}
   />
-);
+));
+Inp.displayName = "Inp";
 
 const Sel = ({ children, className = "", ...props }) => (
   <select
@@ -84,6 +87,337 @@ const Sel = ({ children, className = "", ...props }) => (
     {children}
   </select>
 );
+
+/* ─────────────────────────────────────────────────────────────
+   CategoriaField
+   Select de categoría + crear una nueva SIN salir del modal. Antes había que
+   irse a /categorias, crearla y volver a empezar la carga del producto; y como
+   la categoría alimenta el catálogo del asistente, la gente terminaba
+   guardando todo sin categoría. Usa los mismos endpoints de esa vista
+   (agregarCategoria + listarCategorias).
+───────────────────────────────────────────────────────────── */
+/* Fila del desplegable. Fuera del render para no redefinirla en cada pasada. */
+const Opcion = ({ activo, onPick, children }) => (
+  <button
+    type="button"
+    onClick={onPick}
+    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm rounded-xl transition ${
+      activo
+        ? "bg-[#171931] text-white"
+        : "text-slate-700 hover:bg-slate-50 active:bg-slate-100"
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const CategoriaField = ({ value, categorias, onChange, onCategoriasChange }) => {
+  const [abierto, setAbierto] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [creando, setCreando] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef(null);
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (creando) inputRef.current?.focus();
+  }, [creando]);
+
+  // Cerrar al hacer clic fuera o con Escape (si no se está creando).
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) {
+        setAbierto(false);
+        setCreando(false);
+      }
+    };
+    const esc = (e) => {
+      if (e.key === "Escape" && !creando) setAbierto(false);
+    };
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", fuera);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [abierto, creando]);
+
+  const abrir = () => {
+    setNombre("");
+    setError("");
+    setCreando(true);
+  };
+  const cancelar = () => {
+    setCreando(false);
+    setNombre("");
+    setError("");
+  };
+
+  const guardar = async () => {
+    const limpio = nombre.trim();
+    if (!limpio) return setError("Escribe un nombre");
+
+    // Ya existe (sin distinguir mayúsculas/acentos): la seleccionamos en vez
+    // de crear una duplicada que después ensucia el catálogo del asistente.
+    const norm = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .trim();
+    const yaExiste = categorias.find((c) => norm(c.nombre) === norm(limpio));
+    if (yaExiste) {
+      onChange(String(yaExiste.id));
+      cancelar();
+      setAbierto(false);
+      return;
+    }
+
+    const idc = localStorage.getItem("id_configuracion");
+    if (!idc) return setError("Falta la conexión seleccionada");
+
+    setGuardando(true);
+    setError("");
+    try {
+      const res = await chatApi.post("/categorias/agregarCategoria", {
+        id_configuracion: parseInt(idc, 10),
+        nombre: limpio,
+        descripcion: "",
+      });
+      const creada = res?.data?.data || null;
+      // Refrescamos desde el back para que la lista quede igual que en
+      // /categorias, y dejamos seleccionada la recién creada.
+      const lista = await chatApi.post("/categorias/listarCategorias", {
+        id_configuracion: parseInt(idc, 10),
+      });
+      const nuevas = lista?.data?.data || [];
+      onCategoriasChange?.(nuevas);
+      const elegida =
+        creada?.id ??
+        nuevas.find((c) => norm(c.nombre) === norm(limpio))?.id ??
+        "";
+      if (elegida !== "") onChange(String(elegida));
+      cancelar();
+      setAbierto(false); // ya quedó seleccionada: no hace falta seguir eligiendo
+    } catch (e) {
+      setError(
+        e?.response?.data?.message || "No se pudo crear la categoría",
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const seleccionada = categorias.find((c) => String(c.id) === String(value));
+  const filtradas = busqueda.trim()
+    ? categorias.filter((c) =>
+        String(c.nombre || "")
+          .toLowerCase()
+          .includes(busqueda.trim().toLowerCase()),
+      )
+    : categorias;
+
+  return (
+    <div ref={boxRef}>
+      {/* La categoría NO es obligatoria: el backend solo exige nombre, tipo
+          y precio. */}
+      <Lbl>Categoría</Lbl>
+
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => {
+            setAbierto((o) => !o);
+            setBusqueda("");
+            setCreando(false);
+          }}
+          className={`w-full flex items-center gap-2 border rounded-xl px-3.5 py-2.5 text-sm bg-white text-left transition outline-none ${
+            abierto
+              ? "border-indigo-400 ring-2 ring-indigo-200"
+              : "border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          <i
+            className={`bx bx-purchase-tag text-base shrink-0 ${
+              seleccionada ? "text-indigo-500" : "text-slate-300"
+            }`}
+          />
+          <span
+            className={`flex-1 truncate ${
+              seleccionada ? "text-slate-800 font-medium" : "text-slate-400"
+            }`}
+          >
+            {seleccionada ? seleccionada.nombre : "Sin categoría"}
+          </span>
+          {seleccionada && (
+            <span
+              role="button"
+              tabIndex={0}
+              title="Quitar categoría"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  onChange("");
+                }
+              }}
+              className="shrink-0 grid place-items-center w-5 h-5 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            >
+              <i className="bx bx-x text-base" />
+            </span>
+          )}
+          <i
+            className={`bx bx-chevron-down text-lg text-slate-400 shrink-0 transition-transform duration-200 ${
+              abierto ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {abierto && (
+          <div className="absolute left-0 right-0 top-full mt-1.5 z-30 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-900/[0.10] overflow-hidden origin-top animate-drop-in">
+            {/* Buscador solo cuando hay suficientes para que valga la pena */}
+            {categorias.length > 6 && !creando && (
+              <div className="p-2 border-b border-slate-100">
+                <div className="relative">
+                  <i className="bx bx-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-base" />
+                  <input
+                    autoFocus
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    placeholder="Buscar categoría…"
+                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-indigo-400 transition"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Alto tope + scroll propio: con muchas categorías el desplegable
+                nativo se salía de la pantalla por arriba. */}
+            {!creando && (
+              <div className="max-h-[220px] overflow-y-auto p-1.5 space-y-0.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
+                <Opcion
+                  activo={!value}
+                  onPick={() => {
+                    onChange("");
+                    setAbierto(false);
+                  }}
+                >
+                  <i className="bx bx-minus-circle text-base shrink-0 text-slate-300" />
+                  <span className="flex-1 truncate text-slate-500">
+                    Sin categoría
+                  </span>
+                </Opcion>
+
+                {filtradas.map((c) => (
+                  <Opcion
+                    key={c.id}
+                    activo={String(c.id) === String(value)}
+                    onPick={() => {
+                      onChange(String(c.id));
+                      setAbierto(false);
+                      setBusqueda("");
+                    }}
+                  >
+                    <i
+                      className={`bx bx-purchase-tag text-base shrink-0 ${
+                        String(c.id) === String(value)
+                          ? "text-white/70"
+                          : "text-slate-300"
+                      }`}
+                    />
+                    <span className="flex-1 truncate">{c.nombre}</span>
+                    {String(c.id) === String(value) && (
+                      <i className="bx bx-check text-base shrink-0" />
+                    )}
+                  </Opcion>
+                ))}
+
+                {!filtradas.length && (
+                  <div className="px-3 py-6 text-center">
+                    <i className="bx bx-purchase-tag text-2xl text-slate-200" />
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {categorias.length
+                        ? "Ninguna coincide"
+                        : "Aún no tienes categorías"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Crear sin salir del modal */}
+            {creando ? (
+              <div className="p-2.5 border-t border-slate-100 bg-slate-50/70">
+                <div className="flex gap-2">
+                  <Inp
+                    ref={inputRef}
+                    value={nombre}
+                    maxLength={100}
+                    placeholder="Nombre de la categoría"
+                    className="py-2"
+                    onChange={(e) => {
+                      setNombre(e.target.value);
+                      if (error) setError("");
+                    }}
+                    // Enter guarda y Escape cancela, sin enviar el formulario.
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        guardar();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelar();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={guardar}
+                    disabled={guardando}
+                    className="shrink-0 px-3.5 rounded-xl bg-[#171931] text-white text-sm font-semibold hover:opacity-95 transition disabled:opacity-50"
+                  >
+                    {guardando ? (
+                      <i className="bx bx-loader-alt bx-spin text-base" />
+                    ) : (
+                      "Crear"
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelar}
+                    disabled={guardando}
+                    title="Cancelar"
+                    className="shrink-0 w-9 rounded-xl border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition disabled:opacity-50"
+                  >
+                    <i className="bx bx-x text-lg" />
+                  </button>
+                </div>
+                {error && (
+                  <p className="mt-1.5 text-[11px] text-red-500">{error}</p>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={abrir}
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 border-t border-slate-100 bg-slate-50/70 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition"
+              >
+                <i className="bx bx-plus-circle text-base" />
+                Crear categoría nueva
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 /* section heading */
 const SecHead = ({ icon, title }) => (
@@ -181,6 +515,9 @@ const ProductoModal = ({
   onClose,
   editingProduct,
   categorias,
+  // Avisa a la vista cuando se crea una categoría desde aquí, para que su
+  // lista quede al día sin recargar todo el modal.
+  onCategoriasChange,
   productosExistentes = [],
   onSaved,
 }) => {
@@ -714,30 +1051,12 @@ const ProductoModal = ({
                         />
                       </div>
                     </div>
-                    <div>
-                      {/* La categoría NO es obligatoria: el backend solo exige
-                          nombre, tipo y precio. El label decía lo contrario y
-                          dejaba a la gente creyendo que primero tenía que ir a
-                          crear categorías para poder guardar. */}
-                      <Lbl>Categoría</Lbl>
-                      <Sel
-                        value={form.id_categoria}
-                        onChange={(e) => setF("id_categoria", e.target.value)}
-                      >
-                        <option value="">Sin categoría</option>
-                        {categorias.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre}
-                          </option>
-                        ))}
-                      </Sel>
-                      {!categorias.length && (
-                        <p className="mt-1 text-[11px] text-slate-500">
-                          Puedes guardar sin categoría y organizarlas después
-                          desde Productos → Categorías.
-                        </p>
-                      )}
-                    </div>
+                    <CategoriaField
+                      value={form.id_categoria}
+                      categorias={categorias}
+                      onChange={(v) => setF("id_categoria", v)}
+                      onCategoriasChange={onCategoriasChange}
+                    />
                   </div>
 
                   {/* Tipo por ítem. Antes se heredaba invisible de lo elegido
