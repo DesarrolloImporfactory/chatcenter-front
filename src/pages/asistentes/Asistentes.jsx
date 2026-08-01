@@ -667,6 +667,7 @@ const Asistentes = () => {
                 </div>
               </div>
             </div>
+
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 flex items-center gap-3">
               <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
                 <i className="bx bx-bot text-lg" />

@@ -12,6 +12,8 @@ const EMPTY_FORM = {
   tipo: "",
   precio: "",
   duracion: "",
+  sesiones_min: "",
+  sesiones_max: "",
   stock: "",
   id_categoria: "",
   imagen: null,
@@ -111,7 +113,12 @@ const Opcion = ({ activo, onPick, children }) => (
   </button>
 );
 
-const CategoriaField = ({ value, categorias, onChange, onCategoriasChange }) => {
+const CategoriaField = ({
+  value,
+  categorias,
+  onChange,
+  onCategoriasChange,
+}) => {
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [creando, setCreando] = useState(false);
@@ -203,9 +210,7 @@ const CategoriaField = ({ value, categorias, onChange, onCategoriasChange }) => 
       cancelar();
       setAbierto(false); // ya quedó seleccionada: no hace falta seguir eligiendo
     } catch (e) {
-      setError(
-        e?.response?.data?.message || "No se pudo crear la categoría",
-      );
+      setError(e?.response?.data?.message || "No se pudo crear la categoría");
     } finally {
       setGuardando(false);
     }
@@ -663,6 +668,8 @@ const ProductoModal = ({
         tipo: normalizaTipo(p.tipo),
         precio: p.precio ?? "",
         duracion: p.duracion ?? "",
+        sesiones_min: p.sesiones_min ?? "",
+        sesiones_max: p.sesiones_max ?? "",
         stock: p.stock ?? "",
         id_categoria: p.id_categoria ?? "",
         imagen: null,
@@ -829,6 +836,11 @@ const ProductoModal = ({
       const idc = parseInt(localStorage.getItem("id_configuracion"));
       const data = new FormData();
 
+      /* Campos que SÍ se mandan aunque vayan vacíos, porque vaciarlos es una
+         decisión del usuario y no "no lo tocó".
+         Las sesiones entran acá: pasar un servicio de plan a sesión única deja
+         los dos campos en blanco, y al no enviarlos el backend los daba por
+         intactos. Se guardaba "correctamente" y el plan viejo seguía ahí. */
       const CAMPOS_BORRABLES = [
         "nombre_upsell",
         "descripcion_upsell",
@@ -836,6 +848,8 @@ const ProductoModal = ({
         "material",
         "landing_url",
         "precio_proveedor",
+        "sesiones_min",
+        "sesiones_max",
       ];
 
       Object.entries(form).forEach(([k, v]) => {
@@ -1138,8 +1152,8 @@ const ProductoModal = ({
                             <p className="text-[11px] text-slate-500">
                               Este producto viene de Dropi: el stock lo toma de
                               sus bodegas y se actualiza solo. Actívalo o
-                              desactívalo con el switch{" "}
-                              <strong>Stock</strong> de la pantalla de productos.
+                              desactívalo con el switch <strong>Stock</strong>{" "}
+                              de la pantalla de productos.
                             </p>
                           </div>
                         </div>
@@ -1181,7 +1195,9 @@ const ProductoModal = ({
                           onClick={() => setDuracionLibre((v) => !v)}
                           className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 mb-1"
                         >
-                          {duracionLibre ? "Elegir de la lista" : "Otra duración"}
+                          {duracionLibre
+                            ? "Elegir de la lista"
+                            : "Otra duración"}
                         </button>
                       </div>
 
@@ -1196,7 +1212,10 @@ const ProductoModal = ({
                               placeholder="Ej: 20"
                               value={form.duracion || ""}
                               onChange={(e) =>
-                                setF("duracion", e.target.value.replace(/\D/g, ""))
+                                setF(
+                                  "duracion",
+                                  e.target.value.replace(/\D/g, ""),
+                                )
                               }
                               className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-20 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
                             />
@@ -1213,7 +1232,9 @@ const ProductoModal = ({
                       ) : (
                         <Sel
                           value={
-                            DURACIONES_FRECUENTES.includes(Number(form.duracion))
+                            DURACIONES_FRECUENTES.includes(
+                              Number(form.duracion),
+                            )
                               ? form.duracion
                               : "0"
                           }
@@ -1230,6 +1251,85 @@ const ProductoModal = ({
                     </div>
                   )}
                 </div>
+
+                {/* Plan de sesiones. Antes esto vivía suelto en la descripción
+                    ("entre 6 y 8 sesiones") y el bot tenía que interpretarlo:
+                    perseguía con "tu próxima sesión" a quien vino por algo de
+                    una sola vez, y con planes variables —borrado de tatuajes,
+                    que termina en 3 o en 8— insistía con un número inventado. */}
+                {(form.tipo || tipoCuenta) === "servicio" && (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                    <Lbl>¿Cuántas sesiones lleva este servicio?</Lbl>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-2 text-[13px] text-slate-700">
+                        <input
+                          type="radio"
+                          checked={Number(form.sesiones_max || 1) <= 1}
+                          onChange={() => {
+                            setF("sesiones_min", "");
+                            setF("sesiones_max", "");
+                          }}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500/30"
+                        />
+                        Una sola sesión
+                      </label>
+
+                      <label className="flex items-center gap-2 text-[13px] text-slate-700">
+                        <input
+                          type="radio"
+                          checked={Number(form.sesiones_max || 1) > 1}
+                          onChange={() => {
+                            setF("sesiones_min", form.sesiones_min || 6);
+                            setF("sesiones_max", form.sesiones_max || 8);
+                          }}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500/30"
+                        />
+                        Es un plan de varias
+                      </label>
+                    </div>
+
+                    {Number(form.sesiones_max || 1) > 1 && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[13px] text-slate-700">
+                        <span>De</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={form.sesiones_min || ""}
+                          onChange={(e) =>
+                            setF(
+                              "sesiones_min",
+                              e.target.value.replace(/\D/g, ""),
+                            )
+                          }
+                          className="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-center focus:border-indigo-500 focus:outline-none"
+                        />
+                        <span>a</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={form.sesiones_max || ""}
+                          onChange={(e) =>
+                            setF(
+                              "sesiones_max",
+                              e.target.value.replace(/\D/g, ""),
+                            )
+                          }
+                          className="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-center focus:border-indigo-500 focus:outline-none"
+                        />
+                        <span>sesiones</span>
+                      </div>
+                    )}
+
+                    <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                      {Number(form.sesiones_max || 1) > 1
+                        ? Number(form.sesiones_min) ===
+                          Number(form.sesiones_max)
+                          ? "Plan fijo: el asistente irá ofreciendo la siguiente hasta completarlo."
+                          : "Plan variable: cuando la clienta pase del mínimo, el asistente le preguntará si quiere agendar la siguiente cita en vez de asumir que le faltan más."
+                        : "El asistente no le hablará de próximas sesiones, ni enviará mensajes de remarketing para agendar la siguiente cita."}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Combos acordeón */}

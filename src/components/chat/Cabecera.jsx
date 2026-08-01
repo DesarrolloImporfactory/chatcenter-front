@@ -8,6 +8,7 @@ import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 import RemarketingSwitch from "./RemarketingSwitch";
+import ReiniciarIAModal from "./ReiniciarIAModal";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
 
@@ -357,22 +358,10 @@ const Cabecera = ({
      herramienta aparte porque probar el bot con un chat real era lo que obligaba
      a mandar peticiones a mano. */
   const [reiniciandoIA, setReiniciandoIA] = useState(false);
+  const [confirmarReinicio, setConfirmarReinicio] = useState(false);
 
   const handleReiniciarIA = async () => {
     if (!selectedChat?.id) return;
-
-    const { isConfirmed } = await Swal.fire({
-      icon: "question",
-      title: "¿Empezar de cero con este contacto?",
-      html:
-        "La IA olvida todo lo hablado y el contacto vuelve al estado inicial.<br><br>" +
-        "<b>Los mensajes del chat NO se borran</b>: solo se reinicia lo que la IA recuerda.",
-      showCancelButton: true,
-      confirmButtonText: "Sí, empezar de cero",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#4f46e5",
-    });
-    if (!isConfirmed) return;
 
     setReiniciandoIA(true);
     try {
@@ -382,18 +371,40 @@ const Cabecera = ({
 
       setOpcionesMenuOpen(false);
 
-      // Que la cabecera muestre la columna nueva sin recargar la pantalla.
+      /* La cabecera y la lista de la izquierda no leen `estado_contacto`, leen
+         el NOMBRE y el color de la columna. Actualizando solo el estado_db, el
+         chip seguía mostrando la etapa vieja hasta recargar. */
+      const columna = estadosKanban.find(
+        (c) => c.estado_db === data?.estado_contacto,
+      );
+
       if (data?.estado_contacto) {
-        setSelectedChat((prev) =>
-          prev ? { ...prev, estado_contacto: data.estado_contacto } : prev,
+        const cambios = {
+          estado_contacto: data.estado_contacto,
+          ...(columna
+            ? {
+                nombre_estado: columna.nombre,
+                color_fondo_estado:
+                  columna.color_texto || columna.color || null,
+              }
+            : {}),
+        };
+
+        setSelectedChat((prev) => (prev ? { ...prev, ...cambios } : prev));
+        setMensajesAcumulados((prev) =>
+          prev.map((c) =>
+            String(c.id) === String(selectedChat.id)
+              ? { ...c, ...cambios }
+              : c,
+          ),
         );
       }
 
       Swal.fire({
         icon: "success",
-        title: "Listo, la IA empieza de cero",
-        text: data?.estado_contacto
-          ? `El contacto volvió a "${data.estado_contacto}".`
+        title: "Conversación reiniciada",
+        text: columna?.nombre
+          ? `El contacto volvió a "${columna.nombre}".`
           : undefined,
         timer: 2200,
         showConfirmButton: false,
@@ -406,6 +417,7 @@ const Cabecera = ({
       });
     } finally {
       setReiniciandoIA(false);
+      setConfirmarReinicio(false);
     }
   };
 
@@ -1664,7 +1676,10 @@ const Cabecera = ({
                           que es donde hay espacio. */}
                       <button
                         role="menuitem"
-                        onClick={handleReiniciarIA}
+                        onClick={() => {
+                          setOpcionesMenuOpen(false);
+                          setConfirmarReinicio(true);
+                        }}
                         disabled={reiniciandoIA}
                         className={`${ITEM_MENU} items-start disabled:opacity-60`}
                       >
@@ -1677,7 +1692,7 @@ const Cabecera = ({
                         />
                         <span className="flex-1 min-w-0">
                           <span className="block leading-snug">
-                            Empezar conversación de cero
+                            Empezar conversación desde 0
                           </span>
                           <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
                             La IA olvida el historial y el contacto vuelve al
@@ -1850,6 +1865,13 @@ const Cabecera = ({
       )}
 
       {/* <FloatingSupportChat position={selectedChat ? "left" : "right"} /> */}
+
+      <ReiniciarIAModal
+        abierto={confirmarReinicio}
+        cargando={reiniciandoIA}
+        onCancelar={() => setConfirmarReinicio(false)}
+        onAceptar={handleReiniciarIA}
+      />
     </>
   );
 };
