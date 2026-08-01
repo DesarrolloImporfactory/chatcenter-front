@@ -4,6 +4,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import Header from "../Header/pageHeader";
 import RecordatoriosPanel, { variablesDePlantilla } from "./RecordatoriosPanel";
+import HorarioSede, { HORARIO_VACIO } from "./HorarioSede";
 
 /* ─────────────────────────────────────────────────────────────
    Sedes / establecimientos
@@ -23,8 +24,22 @@ const FORM_VACIO = {
   google_maps_url: "",
   telefono: "",
   horario: "",
+  horario_json: HORARIO_VACIO,
   id_calendario: "",
   activo: 1,
+};
+
+/* El horario llega de la BD como texto JSON. Si está roto o vacío se abre el
+   editor limpio: mejor elegirlo de nuevo que arrastrar algo a medias. */
+const leerHorarioJson = (valor) => {
+  if (!valor) return HORARIO_VACIO;
+  if (typeof valor === "object") return valor;
+  try {
+    const o = JSON.parse(valor);
+    return o && typeof o === "object" ? o : HORARIO_VACIO;
+  } catch {
+    return HORARIO_VACIO;
+  }
 };
 
 /* Mismo lenguaje visual que el modal de conexiones: campo con label semibold,
@@ -453,6 +468,10 @@ const EstablecimientosView = () => {
       google_maps_url: s.google_maps_url || "",
       telefono: s.telefono || "",
       horario: s.horario || "",
+      /* Las sedes creadas antes solo tienen el texto libre. Se abren con el
+         horario vacío para que se elija bien una vez, en vez de arrastrar una
+         interpretación dudosa del texto viejo. */
+      horario_json: leerHorarioJson(s.horario_json),
       id_calendario: s.id_calendario || "",
       activo: Number(s.activo) === 0 ? 0 : 1,
     });
@@ -1023,13 +1042,11 @@ const EstablecimientosView = () => {
 
               <Campo
                 label="Horario de atención"
-                hint="El asistente no agenda fuera de este horario. Escríbelo como se lo dirías a un cliente."
+                hint="El asistente no ofrece ni agenda fuera de este horario. Los días sin marcar quedan cerrados."
               >
-                <input
-                  className={inputCls}
-                  value={form.horario}
-                  onChange={(e) => setF("horario", e.target.value)}
-                  placeholder="Lunes a viernes 09:00-19:00 · Sábados 09:00-14:00"
+                <HorarioSede
+                  valor={form.horario_json}
+                  onChange={(h) => setF("horario_json", h)}
                 />
               </Campo>
 

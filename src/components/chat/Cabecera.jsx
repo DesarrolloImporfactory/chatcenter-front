@@ -11,6 +11,12 @@ import RemarketingSwitch from "./RemarketingSwitch";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
 
+/* Un solo estilo para los ítems del menú. Antes cada uno repetía sus clases y
+   traía un cuadrito de color de 32px: cuatro opciones ocupaban casi media
+   pantalla y el menú parecía un formulario. */
+const ITEM_MENU =
+  "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
+
 const Cabecera = ({
   userData,
   id_configuracion,
@@ -344,6 +350,64 @@ const Cabecera = ({
 
     return () => clearInterval(interval);
   }, [dataPlanes?.fecha_suscripcion]);
+
+  /* Deja este chat como si el cliente escribiera por primera vez: borra el hilo
+     que la IA tiene en OpenAI, devuelve el contacto a la columna de entrada y
+     cancela los seguimientos que quedaran programados. Está acá y no en una
+     herramienta aparte porque probar el bot con un chat real era lo que obligaba
+     a mandar peticiones a mano. */
+  const [reiniciandoIA, setReiniciandoIA] = useState(false);
+
+  const handleReiniciarIA = async () => {
+    if (!selectedChat?.id) return;
+
+    const { isConfirmed } = await Swal.fire({
+      icon: "question",
+      title: "¿Empezar de cero con este contacto?",
+      html:
+        "La IA olvida todo lo hablado y el contacto vuelve al estado inicial.<br><br>" +
+        "<b>Los mensajes del chat NO se borran</b>: solo se reinicia lo que la IA recuerda.",
+      showCancelButton: true,
+      confirmButtonText: "Sí, empezar de cero",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#4f46e5",
+    });
+    if (!isConfirmed) return;
+
+    setReiniciandoIA(true);
+    try {
+      const { data } = await chatApi.post("/openai_assistants/eliminar_thread", {
+        id_cliente_chat_center: selectedChat.id,
+      });
+
+      setOpcionesMenuOpen(false);
+
+      // Que la cabecera muestre la columna nueva sin recargar la pantalla.
+      if (data?.estado_contacto) {
+        setSelectedChat((prev) =>
+          prev ? { ...prev, estado_contacto: data.estado_contacto } : prev,
+        );
+      }
+
+      Swal.fire({
+        icon: "success",
+        title: "Listo, la IA empieza de cero",
+        text: data?.estado_contacto
+          ? `El contacto volvió a "${data.estado_contacto}".`
+          : undefined,
+        timer: 2200,
+        showConfirmButton: false,
+      });
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo reiniciar",
+        text: e?.response?.data?.message || "Intenta de nuevo",
+      });
+    } finally {
+      setReiniciandoIA(false);
+    }
+  };
 
   const handleChangeChatStatus = async (newStatus) => {
     try {
@@ -1555,66 +1619,26 @@ const Cabecera = ({
                         </div>
                       </div>
 
-                      <hr className="sm:hidden my-2 border-slate-200/70" />
+                      <hr className="sm:hidden my-1.5 border-slate-200/70" />
 
-                      <button
-                        role="menuitem"
-                        onClick={() =>
-                          handleChangeChatStatus(
-                            selectedChat.chat_cerrado === 0 ? 1 : 0,
-                          )
-                        }
-                        className={`flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                          selectedChat.chat_cerrado === 0
-                            ? "text-red-700 hover:bg-red-50"
-                            : "text-emerald-700 hover:bg-emerald-50"
-                        }`}
-                      >
-                        <span
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
-                            selectedChat.chat_cerrado === 0
-                              ? "bg-red-100"
-                              : "bg-emerald-100"
-                          }`}
-                        >
-                          <i
-                            className={`bx bx-power-off text-base ${
-                              selectedChat.chat_cerrado === 0
-                                ? "text-red-700"
-                                : "text-emerald-700"
-                            }`}
-                          />
-                        </span>
-                        <span className="flex-1 truncate">
-                          {selectedChat.chat_cerrado === 0
-                            ? "Cerrar chat"
-                            : "Abrir chat"}
-                        </span>
-                      </button>
-
-                      <hr className="my-2 border-slate-200/70" />
-
+                      {/* Acciones del chat. Antes cada una traía su cuadrito de
+                          color de 32px y un separador: cuatro opciones ocupaban
+                          casi media pantalla. El ícono suelto alcanza. */}
                       <button
                         role="menuitem"
                         onClick={toggleTransferirChatModal}
-                        className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        className={ITEM_MENU}
                       >
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
-                          <i className="bx bx-transfer-alt text-base text-slate-700" />
-                        </span>
+                        <i className="bx bx-transfer-alt text-[17px] text-slate-500" />
                         <span className="flex-1 truncate">Transferir chat</span>
                       </button>
-
-                      <hr className="my-2 border-slate-200/70" />
 
                       <button
                         role="menuitem"
                         onClick={toggleAsignarEtiquetaModal}
-                        className="flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        className={ITEM_MENU}
                       >
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
-                          <i className="bx bxs-purchase-tag text-base text-slate-700" />
-                        </span>
+                        <i className="bx bxs-purchase-tag text-[17px] text-slate-500" />
                         <span className="flex-1 truncate">
                           Asignar etiquetas
                         </span>
@@ -1623,12 +1647,72 @@ const Cabecera = ({
                       <button
                         role="menuitem"
                         onClick={toggleCrearEtiquetaModal}
-                        className="mt-1 flex items-center w-full gap-3 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        className={ITEM_MENU}
                       >
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
-                          <i className="bx bx-plus text-base text-slate-700" />
-                        </span>
+                        <i className="bx bx-plus text-[17px] text-slate-500" />
                         <span className="flex-1 truncate">Crear etiqueta</span>
+                      </button>
+
+                      <hr className="my-1.5 border-slate-200/70" />
+
+                      {/* Sirve para probar el bot con este mismo chat sin tener
+                          que mandar peticiones a mano. Va con subtítulo porque
+                          "reiniciar" solo no dice qué se pierde. */}
+                      {/* Lleva subtítulo porque "empezar de cero" solo no dice
+                          qué se pierde. El texto se parte en varias líneas en
+                          vez de ensanchar el menú: la fila crece hacia abajo,
+                          que es donde hay espacio. */}
+                      <button
+                        role="menuitem"
+                        onClick={handleReiniciarIA}
+                        disabled={reiniciandoIA}
+                        className={`${ITEM_MENU} items-start disabled:opacity-60`}
+                      >
+                        <i
+                          className={`bx ${
+                            reiniciandoIA
+                              ? "bx-loader-alt animate-spin"
+                              : "bx-refresh"
+                          } mt-[2px] text-[17px] text-indigo-500`}
+                        />
+                        <span className="flex-1 min-w-0">
+                          <span className="block leading-snug">
+                            Empezar conversación de cero
+                          </span>
+                          <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
+                            La IA olvida el historial y el contacto vuelve al
+                            estado inicial
+                          </span>
+                        </span>
+                      </button>
+
+                      <hr className="my-1.5 border-slate-200/70" />
+
+                      <button
+                        role="menuitem"
+                        onClick={() =>
+                          handleChangeChatStatus(
+                            selectedChat.chat_cerrado === 0 ? 1 : 0,
+                          )
+                        }
+                        className={`${ITEM_MENU} ${
+                          selectedChat.chat_cerrado === 0
+                            ? "text-red-700 hover:bg-red-50"
+                            : "text-emerald-700 hover:bg-emerald-50"
+                        }`}
+                      >
+                        <i
+                          className={`bx bx-power-off text-[17px] ${
+                            selectedChat.chat_cerrado === 0
+                              ? "text-red-500"
+                              : "text-emerald-600"
+                          }`}
+                        />
+                        <span className="flex-1 truncate">
+                          {selectedChat.chat_cerrado === 0
+                            ? "Cerrar chat"
+                            : "Abrir chat"}
+                        </span>
                       </button>
                     </div>
                   )}
