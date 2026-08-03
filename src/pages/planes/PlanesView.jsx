@@ -9,19 +9,38 @@ import ModalSeleccionConexiones from "./modales/ModalSeleccionConexiones";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
+// ⚠️ Estos valores YA NO se deciden aquí.
+//
+// Antes este archivo tenía quemados los IDs de plan, qué planes se muestran, en
+// qué orden y con qué trial. Cambiar el catálogo obligaba a tocar código y
+// redesplegar el SPA, y la elegibilidad quedaba del lado del cliente (editable
+// por cualquiera desde el navegador).
+//
+// Ahora `GET planes/listarPlanes` devuelve, por plan, `visible` / `tipo_ui` /
+// `trial_dias` / `promo_aplicable` / `sort_order`, más un bloque `config` con
+// las constantes. Lo de abajo es solo el respaldo por si el backend todavía no
+// tiene el cambio desplegado: son los valores que regían hasta hoy.
+const PLAN_CONFIG_FALLBACK = {
+  plan_imporchat_id: 2,
+  plan_insta_landing_id: 6,
+  plan_comunidad_id: 22,
+  plan_method_id: 21,
+  trial_dias: 7,
+  trial_dias_comunidad: 5,
+  il_trial_imagenes: 10,
+  promo_primer_mes_precio: 5,
+};
+
+// Respaldo de visibilidad/orden mientras `visible_publico` no exista en la BD.
 const PLANES_VISIBLES = new Set([6, 2, 3, 4]);
 const HIDDEN_PLANS = new Set([22]);
 const SORT_ORDER = { 6: 1, 2: 2, 22: 2.5, 3: 3, 4: 4 };
-const TRIAL_DAYS_PLAN_ID = 2;
-const TRIAL_DAYS = 7;
-const TRIAL_DAYS_COMUNIDAD = 5;
-const TRIAL_USAGE_PLAN_ID = 6;
-const TRIAL_USAGE_LIMIT = 10;
-const PROMO_FIRST_MONTH = 5;
 const PROMO_PLANS = new Set([6, 2, 3, 4, 22]);
-const PLAN_COMUNIDAD_ID = 22;
 
 const detectPlanType = (plan) => {
+  // El backend ya resuelve el tipo (config/planes.config.js → tipoPlanUI).
+  if (plan?.tipo_ui) return plan.tipo_ui;
+
   const nombre = (plan?.nombre_plan || "").toLowerCase();
   if (nombre.includes("comunidad")) return "comunidad";
   const id = Number(plan?.id_plan || 0);
@@ -93,6 +112,17 @@ const PLAN_THEMES = {
     gradient: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
     badge: "EXCLUSIVO ESTUDIANTES",
     tagline: "ECOSISTEMA COMPLETO — COMUNIDAD",
+  },
+  // Plan Method Ecommerce: nunca se ofrecía en el catálogo, pero ahora el
+  // backend lo devuelve visible a quien ya lo tiene (es_plan_actual). Sin tema
+  // propio, PLAN_THEMES[tipo] quedaba undefined y la tarjeta reventaba.
+  method_ecommerce: {
+    accent: "#F59E0B",
+    accentLight: "rgba(245,158,11,0.06)",
+    accentBorder: "rgba(245,158,11,0.18)",
+    gradient: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+    badge: "BENEFICIO EXCLUSIVO CURSOS",
+    tagline: "COMUNIDAD IMPORFACTORY",
   },
   pro: {
     accent: "#6366F1",
@@ -387,6 +417,17 @@ const PlanesView = () => {
   const [unlockedPlans, setUnlockedPlans] = useState([]);
   const [pendingPlanId, setPendingPlanId] = useState(null);
   const [pendingChange, setPendingChange] = useState(null);
+  const [planConfig, setPlanConfig] = useState(PLAN_CONFIG_FALLBACK);
+
+  // Alias con los nombres de siempre para no reescribir las ~20 referencias de
+  // más abajo. La única diferencia es de dónde salen los números.
+  const TRIAL_DAYS_PLAN_ID = planConfig.plan_imporchat_id;
+  const TRIAL_USAGE_PLAN_ID = planConfig.plan_insta_landing_id;
+  const PLAN_COMUNIDAD_ID = planConfig.plan_comunidad_id;
+  const TRIAL_DAYS = planConfig.trial_dias;
+  const TRIAL_DAYS_COMUNIDAD = planConfig.trial_dias_comunidad;
+  const TRIAL_USAGE_LIMIT = planConfig.il_trial_imagenes;
+  const PROMO_FIRST_MONTH = planConfig.promo_primer_mes_precio;
   const [pendingEffectiveAt, setPendingEffectiveAt] = useState(null);
   const [addonConexiones, setAddonConexiones] = useState(0);
   const [addonSubusuarios, setAddonSubusuarios] = useState(0);
@@ -515,6 +556,10 @@ const PlanesView = () => {
       try {
         const resPlanes = await chatApi.get("planes/listarPlanes");
         setPlanes(resPlanes.data?.data || []);
+        // El backend viejo no manda `config`; ahí se queda el fallback.
+        if (resPlanes.data?.config) {
+          setPlanConfig({ ...PLAN_CONFIG_FALLBACK, ...resPlanes.data.config });
+        }
         const token = localStorage.getItem("token");
         if (!token) return;
         await refreshPlanActual();
@@ -857,11 +902,26 @@ const PlanesView = () => {
   };
 
   const visiblePlans = useMemo(() => {
+    const lista = planes || [];
+
+    // El backend ya resolvió visibilidad y orden (visible_publico +
+    // unlocked_plans + plan actual). Se confía en eso.
+    const backendDecide = lista.some((p) => p.visible !== undefined);
+
+    if (backendDecide) {
+      return lista
+        .filter((p) => p.visible)
+        .sort(
+          (a, b) => Number(a.sort_order ?? 99) - Number(b.sort_order ?? 99),
+        );
+    }
+
+    // Respaldo: backend sin desplegar → se decide como antes.
     const baseVisible = new Set(PLANES_VISIBLES);
     unlockedPlans.forEach((id) => baseVisible.add(Number(id)));
     if (currentPlanId && HIDDEN_PLANS.has(Number(currentPlanId)))
       baseVisible.add(Number(currentPlanId));
-    return (planes || [])
+    return lista
       .filter((p) => baseVisible.has(Number(p.id_plan)))
       .sort(
         (a, b) =>
@@ -1049,7 +1109,9 @@ const PlanesView = () => {
           {visiblePlans.map((plan) => {
             const planId = Number(plan.id_plan);
             const tipo = detectPlanType(plan);
-            const theme = PLAN_THEMES[tipo];
+            // Un tipo nuevo del backend sin tema definido no puede tumbar la
+            // vista: se cae a "pro", que es el tema neutro.
+            const theme = PLAN_THEMES[tipo] || PLAN_THEMES.pro;
             const isBoth =
               tipo === "pro" || tipo === "avanzado" || tipo === "comunidad";
             const isCurrent = Number(currentPlanId) === planId;
@@ -1070,7 +1132,13 @@ const PlanesView = () => {
             const promoEligible =
               promoPlan2Eligible &&
               (!hasActivePlan || isTrialUsageActive || isPromoUsageActive);
-            const showPromo = PROMO_PLANS.has(planId) && promoEligible;
+            // `promo_aplicable` lo calcula el backend (cupón configurado +
+            // promo_plan2_used). Si no viene, se usa el Set de respaldo.
+            const planAceptaPromo =
+              plan.promo_aplicable !== undefined
+                ? !!plan.promo_aplicable
+                : PROMO_PLANS.has(planId);
+            const showPromo = planAceptaPromo && promoEligible;
             const precioNormal = Number(plan?.precio_plan || 0).toFixed(2);
             const precioEntero = Number(plan?.precio_plan || 0).toFixed(0);
             const features = buildFeatures(plan);
