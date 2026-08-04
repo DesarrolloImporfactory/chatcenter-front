@@ -27,6 +27,12 @@ const BG_DARK = "rgb(23, 25, 49)";
 
 const LIMITE_24H_MIN = 24 * 60; // 1440
 
+/* Los días que la agencia guarda el paquete de verdad. Es el default y el
+   máximo razonable: prometer más de lo que la transportadora sostiene termina
+   en un cliente que llega tarde y encuentra el paquete devuelto. */
+const DIAS_RETIRO_DEFAULT = 7;
+const COLUMNA_CON_PLAZO = "retiro_agencia";
+
 const calcTotalMinutos = (secs) =>
   secs.reduce((acc, s) => acc + Number(s.tiempo_espera_minutos || 0), 0);
 
@@ -1056,6 +1062,13 @@ const RemarketingColumna = ({
 
   const [secuencias, setSecuencias] = useState([SECUENCIA_VACIA()]);
 
+  /* Plazo que se le comunica al cliente para retirar en agencia. Es UNO por
+     cuenta y no uno por paso: alimenta el mismo {{4}} en las tres plantillas y
+     el número que usan los prompts, así que tenerlo por paso solo servía para
+     que los tres recordatorios se contradijeran. 7 es lo que guarda la agencia
+     de verdad; varias tiendas comunican menos para apurar el retiro. */
+  const [diasRetiro, setDiasRetiro] = useState(DIAS_RETIRO_DEFAULT);
+
   /* Al cambiar de columna se RESETEA y se vuelve a preguntar.
      Antes este efecto solo encendía el indicador (setConfigActiva(true)) y no lo
      apagaba nunca, así que al pasar de una columna con remarketing a una sin él
@@ -1247,6 +1260,7 @@ const RemarketingColumna = ({
         id_configuracion,
         estado_contacto: estado_db,
       });
+      setDiasRetiro(Number(res.data?.dias_retiro_agencia) || DIAS_RETIRO_DEFAULT);
       const rows = res.data?.data;
       if (rows?.length) {
         setSecuencias(
@@ -1430,6 +1444,11 @@ const RemarketingColumna = ({
         id_configuracion,
         estado_contacto: estado_db,
         remarketings,
+        // Solo lo manda la columna que lo usa: en el resto no significa nada y
+        // enviarlo igual pisaría el valor de la cuenta desde cualquier modal.
+        ...(estado_db === COLUMNA_CON_PLAZO
+          ? { dias_retiro_agencia: Number(diasRetiro) || DIAS_RETIRO_DEFAULT }
+          : {}),
       });
       Toast.fire({
         icon: "success",
@@ -1472,7 +1491,9 @@ const RemarketingColumna = ({
       "Nombre del cliente",
       "Agencia o ciudad de retiro",
       "Número de guía",
-      "Plazo de retiro (días)",
+      // Con el valor a la vista: es el único de los cuatro que el usuario
+      // decide, y verlo aquí cierra el círculo con el campo de arriba.
+      `Plazo de retiro (${Number(diasRetiro) || DIAS_RETIRO_DEFAULT} días)`,
     ],
   };
   const variablesAuto = VARIABLES_AUTO_POR_COLUMNA[estado_db] || null;
@@ -1737,6 +1758,134 @@ const RemarketingColumna = ({
                 </div>
               ) : (
                 <>
+                  {/* Plazo de retiro — va ARRIBA de las secuencias a propósito:
+                      es un dato de los tres pasos a la vez (el {{4}} de las tres
+                      plantillas y el número que usan los prompts), no de uno.
+                      Ponerlo dentro de un paso sugeriría que cada recordatorio
+                      puede decir un plazo distinto, que es justo lo que no debe
+                      pasar. */}
+                  {estado_db === COLUMNA_CON_PLAZO && (
+                    <div
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        marginBottom: 14,
+                        background: "#fffbeb",
+                        border: "1px solid #fde68a",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <i
+                          className="bx bx-calendar-exclamation"
+                          style={{ fontSize: 18, color: "#b45309" }}
+                        />
+                        <div style={{ flex: 1, minWidth: 180 }}>
+                          <div
+                            style={{
+                              fontSize: ".78rem",
+                              fontWeight: 700,
+                              color: "#92400e",
+                            }}
+                          >
+                            Plazo de retiro que le comunicas al cliente
+                          </div>
+                          <div
+                            style={{
+                              fontSize: ".7rem",
+                              color: "#a16207",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            Se usa en los {secuencias.length} recordatorios y en
+                            los prompts, para que todos digan lo mismo.
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <input
+                            type="number"
+                            min={1}
+                            max={30}
+                            value={diasRetiro}
+                            onChange={(e) => setDiasRetiro(e.target.value)}
+                            onBlur={() => {
+                              const n = Math.round(Number(diasRetiro));
+                              setDiasRetiro(
+                                Number.isFinite(n) && n >= 1 && n <= 30
+                                  ? n
+                                  : DIAS_RETIRO_DEFAULT,
+                              );
+                            }}
+                            style={{
+                              width: 62,
+                              padding: "7px 9px",
+                              borderRadius: 9,
+                              border: "1.5px solid #fcd34d",
+                              background: "#fff",
+                              fontSize: ".9rem",
+                              fontWeight: 700,
+                              color: "#92400e",
+                              textAlign: "center",
+                              outline: "none",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: ".78rem",
+                              fontWeight: 600,
+                              color: "#92400e",
+                            }}
+                          >
+                            días
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* El aviso solo aparece al bajar del plazo real: decir
+                          menos de 7 es una decisión comercial válida (apura el
+                          retiro), pero el cliente que llega el día 5 creyendo
+                          que se le vencía encuentra su paquete ahí — y el que
+                          confía en un plazo mayor al real se lo encuentra
+                          devuelto. */}
+                      {Number(diasRetiro) < DIAS_RETIRO_DEFAULT && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: ".7rem",
+                            color: "#92400e",
+                            lineHeight: 1.4,
+                            display: "flex",
+                            gap: 5,
+                          }}
+                        >
+                          <i
+                            className="bx bx-info-circle"
+                            style={{ fontSize: 13, flexShrink: 0 }}
+                          />
+                          <span>
+                            La agencia guarda los envíos{" "}
+                            <strong>{DIAS_RETIRO_DEFAULT} días</strong>. Con{" "}
+                            {diasRetiro} apuras el retiro, pero el mensaje deja
+                            de coincidir con lo que le dirán en el mostrador.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {(igConectado || msConectado) && (
                     <div
                       style={{

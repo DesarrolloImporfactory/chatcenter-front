@@ -32,10 +32,30 @@ const PLAN_CONFIG_FALLBACK = {
 };
 
 // Respaldo de visibilidad/orden mientras `visible_publico` no exista en la BD.
-const PLANES_VISIBLES = new Set([6, 2, 3, 4]);
+// Insta Landing (6) NO está: la herramienta se retiró, y este respaldo era el
+// que la seguía mostrando cuando el backend todavía no respondía `visible`.
+const PLANES_VISIBLES = new Set([2, 3, 4]);
 const HIDDEN_PLANS = new Set([22]);
-const SORT_ORDER = { 6: 1, 2: 2, 22: 2.5, 3: 3, 4: 4 };
-const PROMO_PLANS = new Set([6, 2, 3, 4, 22]);
+const SORT_ORDER = { 2: 2, 22: 2.5, 3: 3, 4: 4 };
+const PROMO_PLANS = new Set([2, 3, 4, 22]);
+
+// El grid tiene que armar TANTAS columnas como planes haya. Antes estaba fijo
+// en 4: al quedar 3 planes visibles, las tarjetas se apretaban en tres cuartos
+// del ancho y sobraba una columna vacía a la derecha.
+// Clases completas y estáticas porque Tailwind no compila nombres construidos
+// en runtime.
+// Los topes son altos a propósito. Con `max-w-[1320px]` la página dejaba de
+// crecer al hacer zoom out (Ctrl -): el viewport se ensancha en píxeles CSS,
+// el grid se quedaba clavado y aparecían dos franjas vacías a los lados. Con
+// estos valores el contenido acompaña la pantalla y solo frena en monitores
+// muy anchos, donde estirar más volvería las tarjetas incómodas de leer.
+const GRID_POR_CANTIDAD = {
+  1: "max-w-md",
+  2: "sm:grid-cols-2 max-w-4xl",
+  3: "sm:grid-cols-2 lg:grid-cols-3 max-w-[1700px]",
+  4: "sm:grid-cols-2 xl:grid-cols-4 max-w-[2000px]",
+  5: "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 max-w-[2200px]",
+};
 
 const detectPlanType = (plan) => {
   // El backend ya resuelve el tipo (config/planes.config.js → tipoPlanUI).
@@ -74,290 +94,211 @@ const detectPlanType = (plan) => {
 };
 
 // ✅ Fuente de verdad alineada al backend:
-//   - Nº de agentes (tarjetas) -> limiteConexiones.middleware.js usa (n_conexiones ?? max_conexiones)
-//   - Subusuarios              -> limiteSub_usuarios.middleware.js usa max_subusuarios
+//   - Nº de conexiones -> limiteConexiones.middleware.js usa (n_conexiones ?? max_conexiones)
+//   - Subusuarios      -> limiteSub_usuarios.middleware.js usa max_subusuarios
 // (max_agentes_whatsapp y max_subcuentas NO se usan para estos límites)
-// Cada "agente de venta IA" = una tarjeta que conecta WhatsApp + catálogo + Dropi al ecosistema.
-const getAgentes = (plan) =>
+const getConexiones = (plan) =>
   Number((plan?.n_conexiones ?? plan?.max_conexiones) || 0);
-
-const labelAgentes = (plan) => {
-  const n = getAgentes(plan);
-  return `${n} agente${n === 1 ? "" : "s"} de venta IA`;
-};
 
 const getSubusuarios = (plan) => Number(plan?.max_subusuarios || 0);
 
+// UN COLOR PROPIO POR PLAN, no una escala de un solo tono.
+//
+// Se probaron las dos escalas monocromas (azul y verde) y ninguna funcionó: el
+// azul se fundía con el header y el menú, y el verde parecido entre tarjetas
+// hacía ver la página como consultorio. Con identidad propia cada plan se
+// reconoce de lejos y el nivel se lee por la profundidad del tono, no por
+// buscar diferencias entre grises del mismo color.
+//
+// El título va aparte, en fuego (ámbar → rojo): es el gancho comercial y no
+// compite con ninguna tarjeta porque ningún plan usa ese degradado.
+const ICONOS_PLAN = {
+  // Rayo: energía, respuesta instantánea. El robot se leía apagado y además
+  // ponía el foco en la máquina; el rayo lo pone en lo que hace.
+  rayo: ["M13.6 2 4.4 13.6h6.2L9.4 22l9.2-11.6h-6.2L13.6 2Z"],
+  // Flecha al alza: escalar.
+  crecer: ["M3 17.5 9.5 11l4 4L21 7.5", "M15.5 7.5H21v5.5"],
+  // Edificios: varias marcas o sedes.
+  agencia: [
+    "M3 21h18",
+    "M5 21V7.5L11 4v17",
+    "M11 10h8v11",
+    "M14.5 14h.01",
+    "M14.5 17.5h.01",
+  ],
+  // Birrete: beneficio de los cursos.
+  cursos: [
+    "M12 3.5 2.5 8 12 12.5 21.5 8 12 3.5Z",
+    "M6 10.2V16c0 1.4 2.7 2.6 6 2.6s6-1.2 6-2.6v-5.8",
+  ],
+  // Plan retirado.
+  archivado: [
+    "M3 7h18v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z",
+    "M2 3.5h20V7H2z",
+    "M10 11h4",
+  ],
+};
+
 const PLAN_THEMES = {
+  // Insta Landing ya no se ofrece. El tema se conserva solo para que la tarjeta
+  // no reviente en las cuentas que todavía lo tienen asignado y lo ven como
+  // "tu plan actual". Va en gris: es un plan muerto, no debe atraer.
   insta_landing: {
-    accent: "#00BFFF",
-    accentLight: "rgba(0,191,255,0.06)",
-    accentBorder: "rgba(0,191,255,0.18)",
-    gradient: "linear-gradient(135deg, #00BFFF 0%, #0090cc 100%)",
+    accent: "#94A3B8",
+    accentLight: "rgba(148,163,184,0.08)",
+    accentBorder: "rgba(148,163,184,0.22)",
+    gradient: "linear-gradient(135deg, #94A3B8 0%, #64748B 100%)",
     badge: null,
-    tagline: "HERRAMIENTA INDIVIDUAL",
+    tagline: "PLAN DESCONTINUADO",
+    icono: ICONOS_PLAN.archivado,
   },
   imporchat: {
-    accent: "#10B981",
-    accentLight: "rgba(16,185,129,0.06)",
-    accentBorder: "rgba(16,185,129,0.18)",
-    gradient: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+    accent: "#0891B2",
+    accentLight: "rgba(8,145,178,0.07)",
+    accentBorder: "rgba(8,145,178,0.22)",
+    gradient: "linear-gradient(135deg, #22D3EE 0%, #0E7490 100%)",
     badge: null,
-    tagline: "HERRAMIENTA INDIVIDUAL",
+    tagline: "PARA EMPEZAR",
+    icono: ICONOS_PLAN.rayo,
   },
   comunidad: {
-    accent: "#F59E0B",
-    accentLight: "rgba(245,158,11,0.06)",
-    accentBorder: "rgba(245,158,11,0.18)",
-    gradient: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+    accent: "#B45309",
+    accentLight: "rgba(180,83,9,0.07)",
+    accentBorder: "rgba(180,83,9,0.22)",
+    gradient: "linear-gradient(135deg, #F59E0B 0%, #B45309 100%)",
     badge: "EXCLUSIVO ESTUDIANTES",
-    tagline: "ECOSISTEMA COMPLETO — COMUNIDAD",
+    tagline: "COMUNIDAD",
+    icono: ICONOS_PLAN.cursos,
   },
   // Plan Method Ecommerce: nunca se ofrecía en el catálogo, pero ahora el
   // backend lo devuelve visible a quien ya lo tiene (es_plan_actual). Sin tema
   // propio, PLAN_THEMES[tipo] quedaba undefined y la tarjeta reventaba.
   method_ecommerce: {
-    accent: "#F59E0B",
-    accentLight: "rgba(245,158,11,0.06)",
-    accentBorder: "rgba(245,158,11,0.18)",
-    gradient: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+    accent: "#B45309",
+    accentLight: "rgba(180,83,9,0.07)",
+    accentBorder: "rgba(180,83,9,0.22)",
+    gradient: "linear-gradient(135deg, #F59E0B 0%, #B45309 100%)",
     badge: "BENEFICIO EXCLUSIVO CURSOS",
     tagline: "COMUNIDAD IMPORFACTORY",
+    icono: ICONOS_PLAN.cursos,
   },
   pro: {
-    accent: "#6366F1",
-    accentLight: "rgba(99,102,241,0.06)",
-    accentBorder: "rgba(99,102,241,0.18)",
-    gradient: "linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)",
-    badge: "MÁS POPULAR",
-    tagline: "LAS 2 HERRAMIENTAS CONECTADAS",
+    accent: "#7C3AED",
+    accentLight: "rgba(124,58,237,0.07)",
+    accentBorder: "rgba(124,58,237,0.22)",
+    gradient: "linear-gradient(135deg, #A78BFA 0%, #6D28D9 100%)",
+    badge: "MÁS ELEGIDO",
+    tagline: "PARA ESCALAR",
+    icono: ICONOS_PLAN.crecer,
   },
   avanzado: {
-    accent: "#F59E0B",
-    accentLight: "rgba(245,158,11,0.06)",
-    accentBorder: "rgba(245,158,11,0.18)",
-    gradient: "linear-gradient(135deg, #0B1426 0%, #1e293b 100%)",
-    badge: "MÁXIMA POTENCIA",
-    tagline: "ECOSISTEMA COMPLETO + AGENCIA",
+    accent: "#0F172A",
+    accentLight: "rgba(15,23,42,0.05)",
+    accentBorder: "rgba(15,23,42,0.18)",
+    gradient: "linear-gradient(135deg, #334155 0%, #020617 100%)",
+    badge: "MÁXIMA CAPACIDAD",
+    tagline: "PARA AGENCIAS",
+    icono: ICONOS_PLAN.agencia,
   },
 };
 
-const buildFeatures = (plan) => {
-  const tipo = detectPlanType(plan);
-
-  if (tipo === "comunidad") {
-    return [
-      {
-        label: `${plan.max_banners_mes || 200} banners/mes`,
-        enabled: true,
-        section: "il",
-      },
-      {
-        label: `${plan.max_angulos_ia || 100} ángulos AI`,
-        enabled: true,
-        section: "il",
-      },
-      {
-        label: `${plan.max_secciones_landing || 5} secciones landing`,
-        enabled: true,
-        section: "il",
-      },
-      {
-        label: `${plan.max_estilos_visuales || 3} estilos visuales`,
-        enabled: true,
-        section: "il",
-      },
-      {
-        label: `Dropi (${plan.max_productos_dropi > 0 ? plan.max_productos_dropi : 20} productos)`,
-        enabled: true,
-        section: "il",
-      },
-
-      // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
-      {
-        label: labelAgentes(plan),
-        enabled: true,
-        section: "ic",
-      },
-      { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
-      { label: "Respuestas auto 24/7", enabled: true, section: "ic" },
-      {
-        label: "Dashboard centralizado (3 en 1)",
-        enabled: true,
-        section: "db",
-      },
-      { label: "Cruce real Ads ↔ Dropi ↔ Chat", enabled: true, section: "db" },
-      { label: "Precio exclusivo comunidad", enabled: true, section: "extra" },
-    ];
-  }
-
-  if (tipo === "insta_landing") {
-    return [
-      {
-        label: `${plan.max_banners_mes || plan.max_imagenes_ia || 120} banners/mes`,
-        enabled: true,
-      },
-      {
-        label: `${plan.max_angulos_ia || 30} ángulos de venta AI`,
-        enabled: true,
-      },
-      {
-        label: `${plan.max_secciones_landing || 5} secciones landing`,
-        enabled: true,
-      },
-      {
-        label: `${plan.max_estilos_visuales || 3} estilos visuales`,
-        enabled: true,
-      },
-      {
-        label: `Dropi (${plan.max_productos_dropi > 0 ? plan.max_productos_dropi : 20} productos)`,
-        enabled: true,
-      },
-
-      { label: "+280 templates", enabled: true },
-      { label: "Editor textos AI", enabled: true },
-      { label: "Sin ImporChat", enabled: false },
-      { label: "Sin Dashboard centralizado", enabled: false },
-    ];
-  }
-
-  if (tipo === "imporchat") {
-    return [
-      // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
-      { label: labelAgentes(plan), enabled: true },
-      { label: "Conversaciones ILIMITADAS", enabled: true },
-      { label: "Respuestas auto 24/7", enabled: true },
-      { label: "Manejo objeciones AI", enabled: true },
-      { label: "Seguimiento automático", enabled: true },
-      // ✅ Subusuarios reales (max_subusuarios)
-      { label: `${getSubusuarios(plan)} subusuarios`, enabled: true },
-      { label: "Dashboard básico", enabled: true },
-      { label: "Sin Insta Landing", enabled: false },
-      { label: "Sin Dashboard centralizado", enabled: false },
-    ];
-  }
-
-  if (tipo === "pro") {
-    return [
-      {
-        label: `${plan.max_banners_mes || 300} banners/mes`,
-        enabled: true,
-        section: "il",
-      },
-      {
-        label: `${plan.max_angulos_ia || 75} ángulos AI`,
-        enabled: true,
-        section: "il",
-      },
-      {
-        label: `${plan.max_secciones_landing || 10} secciones completas`,
-        enabled: true,
-        section: "il",
-      },
-      {
-        label: `${plan.max_estilos_visuales || 5} estilos visuales`,
-        enabled: true,
-        section: "il",
-      },
-      { label: "Dropi ILIMITADO + sync", enabled: true, section: "il" },
-
-      { label: "A/B Testing visual", enabled: true, section: "il" },
-      // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
-      { label: labelAgentes(plan), enabled: true, section: "ic" },
-      { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
-      {
-        label: "Dashboard centralizado (3 en 1)",
-        enabled: true,
-        section: "db",
-      },
-      { label: "Cruce real Ads ↔ Dropi ↔ Chat", enabled: true, section: "db" },
-      {
-        label: "Landing → WhatsApp auto-link",
-        enabled: true,
-        section: "extra",
-      },
-      { label: "Analytics unificado", enabled: true, section: "extra" },
-      // ✅ Equipo real (max_subusuarios)
-      {
-        label: `Equipo: ${getSubusuarios(plan)} subusuarios`,
-        enabled: true,
-        section: "extra",
-      },
-    ];
-  }
-
+// Lo ÚNICO que el backend limita de verdad por plan es la capacidad:
+//   - conexiones  -> limiteConexiones.middleware.js  (n_conexiones ?? max_conexiones)
+//   - subusuarios -> limiteSub_usuarios.middleware.js (max_subusuarios)
+// Las demás columnas del catálogo (bot_entrenado, multi_numero_whatsapp,
+// analytics_nivel, soporte_nivel, bulk_gen_productos, max_productos_dropi) solo
+// aparecen en el SELECT de getPlanById: NINGÚN middleware las verifica. Anunciar
+// features por tier basadas en ellas era prometer un límite que no existe.
+//
+// Por eso la tarjeta muestra capacidad + lo que incluye, y nada más.
+//
+// QUÉ ES UNA CONEXIÓN (no confundir con un canal)
+// Una tarjeta de conexión = una fila en `configuraciones`, y esa fila amarra
+// UNA cuenta publicitaria + WhatsApp + Messenger + Instagram. O sea: un negocio
+// completo, con su bot y su lógica propia. Con una sola tarjeta el cliente hace
+// TODO para ese negocio. Sube de plan (o compra una conexión adicional) cuando
+// necesita OTRA tienda/marca con otra lógica, no cuando necesita otro canal.
+// Decir "1 canal de venta" hacía creer que el plan de entrada solo servía para
+// WhatsApp; es justo al revés.
+const buildCapacidad = (plan) => {
+  const negocios = getConexiones(plan);
+  const equipo = getSubusuarios(plan);
   return [
     {
-      label: `${plan.max_banners_mes || 500} banners/mes`,
-      enabled: true,
-      section: "il",
+      valor: negocios,
+      label: negocios === 1 ? "negocio conectado" : "negocios conectados",
+      ayuda: "WhatsApp, Messenger, Instagram y Ads",
     },
     {
-      label: `${plan.max_angulos_ia || 125} ángulos AI`,
-      enabled: true,
-      section: "il",
+      valor: equipo,
+      label: equipo === 1 ? "usuario del equipo" : "usuarios del equipo",
+      ayuda: "Cada uno con su propio acceso",
     },
-    {
-      label: `${plan.max_secciones_landing || 10} secciones + custom`,
-      enabled: true,
-      section: "il",
-    },
-    {
-      label: `${plan.max_estilos_visuales || 5} estilos + personalizados`,
-      enabled: true,
-      section: "il",
-    },
-    { label: "Multi-tienda Dropi + API", enabled: true, section: "il" },
-
-    {
-      label: `Bulk gen (${plan.bulk_gen_productos || 30} productos)`,
-      enabled: true,
-      section: "il",
-    },
-    // ✅ Agentes reales = tarjetas de conexión (n_conexiones ?? max_conexiones)
-    { label: labelAgentes(plan), enabled: true, section: "ic" },
-    { label: "Conversaciones ILIMITADAS", enabled: true, section: "ic" },
-    { label: "Dashboard centralizado (3 en 1)", enabled: true, section: "db" },
-    {
-      label: "Cruce real Ads ↔ Dropi ↔ Chat + ROI",
-      enabled: true,
-      section: "db",
-    },
-    { label: "Analytics + heatmaps", enabled: true, section: "extra" },
-    // ✅ Equipo real (max_subusuarios) — antes usaba max_subcuentas (campo muerto)
-    {
-      label: `Equipo: ${getSubusuarios(plan)} subusuarios`,
-      enabled: true,
-      section: "extra",
-    },
-    { label: "Soporte VIP + onboarding", enabled: true, section: "extra" },
   ];
 };
 
-const IconCheck = ({ color = "#10B981" }) => (
-  <svg className="w-[15px] h-[15px] shrink-0" viewBox="0 0 20 20" fill="none">
-    <circle cx="10" cy="10" r="10" fill={color} opacity="0.12" />
-    <path
-      d="M6.5 10.5l2.5 2.5 5-5"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-    />
+// Iconos de línea, sin emojis: el emoji cambia de forma según el sistema y
+// abarata la tarjeta.
+const IconoTrazo = ({ d, color, className = "w-[17px] h-[17px]" }) => (
+  <svg
+    className={`${className} shrink-0`}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.9"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {d.map((p) => (
+      <path key={p} d={p} />
+    ))}
   </svg>
 );
-const IconX = () => (
-  <svg className="w-[15px] h-[15px] shrink-0" viewBox="0 0 20 20" fill="none">
-    <circle cx="10" cy="10" r="10" fill="#e2e8f0" opacity="0.5" />
-    <path
-      d="M7.5 7.5l5 5M12.5 7.5l-5 5"
-      stroke="#94a3b8"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    />
-  </svg>
-);
+
+// Idéntico en todos los planes a propósito: lo que se compra es capacidad, no
+// funciones. Verlo repetido en cada tarjeta refuerza justamente eso.
+const INCLUYE = [
+  {
+    label: "Bot IA propio, con la lógica de ese negocio",
+    d: [
+      "M12 2v3",
+      "M5.5 8h13a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z",
+      "M9 13v1",
+      "M15 13v1",
+    ],
+  },
+  {
+    label: "Responde, cotiza y cierra 24/7",
+    d: [
+      "M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 20.5l1.5-4.2A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4Z",
+    ],
+  },
+  {
+    label: "Agenda citas, sucursales y servicios",
+    d: [
+      "M7 3v3",
+      "M17 3v3",
+      "M4 8h16",
+      "M4 5.5h16a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1Z",
+      "M9 13h2",
+      "M9 17h6",
+    ],
+  },
+  {
+    label: "Catálogo, pedidos y Dropi sincronizado",
+    d: [
+      "M3 7.5 12 3l9 4.5-9 4.5-9-4.5Z",
+      "M3 12l9 4.5 9-4.5",
+      "M3 16.5 12 21l9-4.5",
+    ],
+  },
+  {
+    label: "Embudo de ventas visual y métricas",
+    d: ["M4 4h5v16H4z", "M10.5 4h5v10h-5z", "M17 4h3v6h-3z"],
+  },
+];
+
 const IconSpinner = () => (
   <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
     <circle
@@ -384,19 +325,6 @@ const PlanBadge = ({ text, gradient }) => (
     {text}
   </div>
 );
-const SectionLabel = ({ label, color }) => (
-  <div className="flex items-center gap-1.5 mt-3 mb-1.5">
-    <div className="h-[1px] flex-1" style={{ background: `${color}22` }} />
-    <span
-      className="text-[9px] font-bold uppercase tracking-wider"
-      style={{ color }}
-    >
-      {label}
-    </span>
-    <div className="h-[1px] flex-1" style={{ background: `${color}22` }} />
-  </div>
-);
-
 const PlanesView = () => {
   const navigate = useNavigate();
   const [planes, setPlanes] = useState([]);
@@ -786,7 +714,7 @@ const PlanesView = () => {
       if (esDowngrade) {
         // Límite de conexiones del plan destino (plan + addon)
         const limiteConexiones =
-          getAgentes(planDestino) + Number(addonConexiones || 0);
+          getConexiones(planDestino) + Number(addonConexiones || 0);
         // Límite de subusuarios elegibles (max + addon − 1; el admin principal siempre se queda)
         const limiteSubusuarios = Math.max(
           0,
@@ -930,6 +858,10 @@ const PlanesView = () => {
       );
   }, [planes, unlockedPlans, currentPlanId]);
 
+  const gridCols =
+    GRID_POR_CANTIDAD[Math.min(visiblePlans.length || 1, 5)] ||
+    GRID_POR_CANTIDAD[4];
+
   const fmtFecha = (d) =>
     d
       ? new Date(d).toLocaleDateString("es-EC", {
@@ -949,61 +881,111 @@ const PlanesView = () => {
   );
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="relative px-4 sm:px-6 pt-3 pb-6">
-        {hasPlan && (
-          <div className="absolute left-4 sm:left-6 top-3">
-            <button
-              onClick={() => navigate("/plan")}
-              className="group inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-transparent hover:bg-slate-100/70 text-[#0B1426] transition"
-            >
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0B1426] text-white">
-                <svg
-                  className="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
+    <div className="min-h-screen bg-slate-50/70">
+      {/* Animaciones locales de la vista. Van inline y no como plugin de Tailwind
+          para no tocar la config global por una sola pantalla.
+          `prefers-reduced-motion` las apaga: el contenido debe quedar visible
+          igual, por eso el estado final es opacity:1 y no al revés. */}
+      <style>{`
+        @keyframes ccRise {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes ccShimmer {
+          0%   { background-position: -160% 0; }
+          100% { background-position: 260% 0; }
+        }
+        @keyframes ccPulse {
+          0%, 100% { box-shadow: 0 0 0 0 var(--cc-glow); }
+          50%      { box-shadow: 0 0 0 7px transparent; }
+        }
+        .cc-rise {
+          opacity: 0;
+          animation: ccRise .5s cubic-bezier(.22,1,.36,1) forwards;
+        }
+        .cc-shimmer {
+          background-image: linear-gradient(
+            100deg,
+            transparent 20%,
+            rgba(255,255,255,.75) 50%,
+            transparent 80%
+          );
+          background-size: 200% 100%;
+          animation: ccShimmer 2.8s ease-in-out infinite;
+        }
+        .cc-pulse { animation: ccPulse 2.4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .cc-rise, .cc-shimmer, .cc-pulse {
+            animation: none !important;
+            opacity: 1 !important;
+          }
+        }
+      `}</style>
+      {/* El botón "Mi plan" se retiró: la navegación ya la encapsula el menú
+          lateral del layout. */}
+      <div className="px-6 sm:px-10 lg:px-14 pt-3 pb-6">
+        {/* Switch, título y promo comparten UNA sola fila en pantallas anchas.
+            Antes cada uno ocupaba su propia línea y entre las tres se iban
+            ~110px de alto, que es lo que empujaba las características del plan
+            fuera de la pantalla.
+            Las columnas laterales son `minmax(0,1fr)` iguales: así el título
+            queda centrado respecto a la página, no respecto al espacio que
+            sobra. Debajo de `lg` todo se apila y el título vuelve al centro. */}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <div className="flex justify-center lg:justify-start">
+            <div className="inline-flex p-1 rounded-xl bg-slate-100/80 border border-slate-200/70">
+              <span className="px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold bg-white text-[#0B1426] shadow-sm">
+                Elegir plan
               </span>
-              Mi plan
+              <button
+                onClick={() => navigate("/plan")}
+                className="px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-slate-500 hover:text-[#0B1426] transition-colors"
+              >
+                Mi plan y facturación
+              </button>
+            </div>
+          </div>
+
+          <div className="text-center">
+            {/* El degradado cae solo sobre "crecer tu negocio": es el
+                beneficio, y resaltar la frase completa anularía el énfasis.
+                `leading-[1.28]` + `pb-1`: con el interlineado apretado el
+                `bg-clip-text` recorta las descendentes (la "g" de "negocio"). */}
+            <h2 className="font-extrabold text-[#0B1426] tracking-[-0.035em] leading-[1.28] pb-1 text-[clamp(1.5rem,3vw,2.4rem)] text-balance">
+              Elige el plan que hará{" "}
+              <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 bg-clip-text text-transparent">
+                crecer tu negocio
+              </span>
+            </h2>
+
+            {/* Ancho acotado a ~65 caracteres: a todo lo ancho la bajada se lee
+                como banner y el ojo la salta. */}
+            <p className="mt-2 mx-auto max-w-2xl text-[14.5px] sm:text-[15.5px] text-slate-500 leading-relaxed text-balance">
+              Vende más, automatiza tu atención y responde 24/7 con IA desde una
+              sola plataforma.
+            </p>
+          </div>
+
+          <div className="flex justify-center lg:justify-end">
+            <button
+              onClick={() => setShowPromoModal(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-orange-600 hover:bg-orange-50/60 transition-all duration-200"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+                <line x1="7" y1="7" x2="7.01" y2="7" />
+              </svg>
+              Código promo
             </button>
           </div>
-        )}
-
-        <div className="absolute right-4 sm:right-6 top-3">
-          <button
-            onClick={() => setShowPromoModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-semibold text-slate-500 hover:text-amber-600 hover:bg-amber-50/60 transition-all duration-200"
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
-              <line x1="7" y1="7" x2="7.01" y2="7" />
-            </svg>
-            Código promo
-          </button>
-        </div>
-
-        <div className="text-center pb-6 px-4">
-          <h2 className="mt-5 text-3xl sm:text-4xl lg:text-[42px] font-extrabold text-[#0B1426] tracking-[-0.03em] leading-[1.15] mx-auto">
-            Elija el plan ideal para{" "}
-            <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
-              escalar sus ventas
-            </span>{" "}
-            con inteligencia artificial
-          </h2>
         </div>
 
         {isTrialUsageActive && (
@@ -1017,10 +999,10 @@ const PlanesView = () => {
           >
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-slate-700">
-                Estás en la prueba gratuita de Insta Landing
+                Estás en una prueba gratuita
               </p>
               <p className="text-[10px] text-slate-500">
-                Suscríbete para desbloquear todas las imágenes.
+                Elige un plan para activar tu agente de ventas IA.
               </p>
             </div>
             <span
@@ -1094,26 +1076,24 @@ const PlanesView = () => {
         )}
       </div>
 
-      <div className="px-3 sm:px-4 pb-16">
+      <div className="px-6 sm:px-10 lg:px-14 pb-10">
         <div
-          className={`grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch ${visiblePlans.length <= 4 ? "xl:grid-cols-4" : "xl:grid-cols-5"}`}
+          className={`grid grid-cols-1 gap-5 items-stretch mx-auto ${gridCols}`}
         >
           {planes.length === 0 &&
             Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-2xl bg-slate-50 border border-slate-200/60 animate-pulse h-[580px]"
+                className="rounded-2xl bg-slate-50 border border-slate-200/60 animate-pulse h-[520px]"
               />
             ))}
 
-          {visiblePlans.map((plan) => {
+          {visiblePlans.map((plan, planIdx) => {
             const planId = Number(plan.id_plan);
             const tipo = detectPlanType(plan);
             // Un tipo nuevo del backend sin tema definido no puede tumbar la
             // vista: se cae a "pro", que es el tema neutro.
             const theme = PLAN_THEMES[tipo] || PLAN_THEMES.pro;
-            const isBoth =
-              tipo === "pro" || tipo === "avanzado" || tipo === "comunidad";
             const isCurrent = Number(currentPlanId) === planId;
             const isCurrentVencido = isCurrent && !isPlanActualActivo;
             const isAction = Number(actionPlanId) === planId;
@@ -1141,16 +1121,12 @@ const PlanesView = () => {
             const showPromo = planAceptaPromo && promoEligible;
             const precioNormal = Number(plan?.precio_plan || 0).toFixed(2);
             const precioEntero = Number(plan?.precio_plan || 0).toFixed(0);
-            const features = buildFeatures(plan);
+            const capacidad = buildCapacidad(plan);
             const isDisabled =
               loading ||
               (isCurrent && isPlanActualActivo && !isCurrentFreeUsage) ||
               isDowngradeTarget ||
               !!actionPlanId;
-            const ilLabel =
-              tipo === "avanzado" ? "INSTA LANDING MAX" : "INSTA LANDING";
-            const icLabel = tipo === "avanzado" ? "IMPORCHAT PRO" : "IMPORCHAT";
-
             const getCTAText = () => {
               if (isDowngradeTarget)
                 return `Se activa el ${fmtFecha(pendingEffectiveAt)}`;
@@ -1188,24 +1164,39 @@ const PlanesView = () => {
             };
 
             return (
-              <div key={plan.id_plan} className="relative group">
+              <div
+                key={plan.id_plan}
+                className="cc-rise relative group"
+                style={{ animationDelay: `${planIdx * 90}ms` }}
+              >
                 {theme.badge && (
                   <PlanBadge text={theme.badge} gradient={theme.gradient} />
                 )}
                 <div
-                  className={`relative rounded-2xl bg-white overflow-hidden h-full flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${theme.badge ? "shadow-md" : "shadow-sm"}`}
+                  className={`relative rounded-2xl bg-white overflow-hidden h-full flex flex-col transition-all duration-300 hover:-translate-y-1 ${
+                    theme.badge
+                      ? "shadow-xl shadow-slate-300/40 cc-pulse hover:shadow-2xl"
+                      : "shadow-sm hover:shadow-lg"
+                  }`}
                   style={{
                     border: theme.badge
                       ? `2px solid ${theme.accent}`
                       : "1px solid #e2e8f0",
+                    "--cc-glow": theme.accentBorder,
                   }}
                 >
+                  {/* Barra superior. En el plan destacado le pasa un brillo para
+                      que el ojo caiga ahí primero. */}
                   <div
-                    className="h-1 w-full"
+                    className="relative h-1 w-full overflow-hidden"
                     style={{ background: theme.gradient }}
-                  />
-                  <div className="p-5 flex flex-col h-full">
-                    <div className="text-center mb-4">
+                  >
+                    {theme.badge && (
+                      <span className="cc-shimmer absolute inset-0 block" />
+                    )}
+                  </div>
+                  <div className="p-4 sm:p-5 flex flex-col h-full">
+                    <div className="text-center mb-2">
                       <span
                         className="inline-block text-[9px] font-bold uppercase tracking-[0.1em] px-2.5 py-1 rounded"
                         style={{
@@ -1216,8 +1207,27 @@ const PlanesView = () => {
                         {theme.tagline}
                       </span>
                     </div>
+
+                    {/* Icono sobre el nombre: da un ancla visual a cada plan y
+                        se entiende de un vistazo qué es cada uno sin leer. */}
+                    <div className="flex justify-center mb-2">
+                      <span
+                        className="inline-flex items-center justify-center w-11 h-11 rounded-2xl"
+                        style={{
+                          background: theme.accentLight,
+                          border: `1px solid ${theme.accentBorder}`,
+                        }}
+                      >
+                        <IconoTrazo
+                          d={theme.icono}
+                          color={theme.accent}
+                          className="w-[26px] h-[26px]"
+                        />
+                      </span>
+                    </div>
+
                     <div className="text-center mb-1">
-                      <h3 className="text-xl font-extrabold text-[#0B1426] tracking-tight">
+                      <h3 className="text-[19px] font-extrabold text-[#0B1426] tracking-tight">
                         {plan.nombre_plan}
                       </h3>
                       <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
@@ -1228,7 +1238,7 @@ const PlanesView = () => {
                       {!showPromo ? (
                         <div className="inline-flex items-baseline gap-0.5">
                           <span className="text-sm text-slate-400">$</span>
-                          <span className="text-[42px] font-extrabold text-[#0B1426] leading-none tracking-tight">
+                          <span className="text-[40px] font-extrabold text-[#0B1426] leading-none tracking-tight">
                             {precioEntero}
                           </span>
                           <span className="text-sm text-slate-400 ml-0.5">
@@ -1248,7 +1258,7 @@ const PlanesView = () => {
                               $
                             </span>
                             <span
-                              className="text-[42px] font-extrabold leading-none tracking-tight"
+                              className="text-[40px] font-extrabold leading-none tracking-tight"
                               style={{ color: theme.accent }}
                             >
                               {PROMO_FIRST_MONTH}
@@ -1404,43 +1414,51 @@ const PlanesView = () => {
                     </button>
 
                     <div className="flex-1">
-                      {features.map((f, idx) => {
-                        const prevSection =
-                          idx > 0 ? features[idx - 1]?.section : null;
-                        const showHeader =
-                          isBoth && f.section && f.section !== prevSection;
-                        return (
-                          <React.Fragment key={idx}>
-                            {showHeader && f.section === "il" && (
-                              <SectionLabel label={ilLabel} color="#00BFFF" />
-                            )}
-                            {showHeader && f.section === "ic" && (
-                              <SectionLabel label={icLabel} color="#10B981" />
-                            )}
-                            {showHeader && f.section === "db" && (
-                              <SectionLabel label="DASHBOARD" color="#6366F1" />
-                            )}
-                            {showHeader && f.section === "extra" && (
-                              <SectionLabel
-                                label="Extras"
-                                color={theme.accent}
-                              />
-                            )}
+                      {/* Capacidad: lo único que realmente cambia entre planes */}
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        {capacidad.map((c, i) => (
+                          <div
+                            key={c.label}
+                            className="cc-rise rounded-xl px-2 py-1.5 text-center"
+                            style={{
+                              background: theme.accentLight,
+                              border: `1px solid ${theme.accentBorder}`,
+                              animationDelay: `${120 + i * 90}ms`,
+                            }}
+                          >
                             <div
-                              className={`flex items-start gap-2 py-[3px] text-[11.5px] leading-relaxed ${f.enabled ? "text-slate-700" : "text-slate-300"}`}
+                              className="text-[22px] font-extrabold leading-none tracking-tight tabular-nums"
+                              style={{ color: theme.accent }}
                             >
-                              <span className="mt-[1px]">
-                                {f.enabled ? (
-                                  <IconCheck color={theme.accent} />
-                                ) : (
-                                  <IconX />
-                                )}
-                              </span>
-                              <span>{f.label}</span>
+                              {c.valor}
                             </div>
-                          </React.Fragment>
-                        );
-                      })}
+                            <div className="mt-1 text-[10px] font-bold text-slate-700 leading-tight">
+                              {c.label}
+                            </div>
+                            <div className="text-[8.5px] text-slate-400 leading-tight mt-0.5">
+                              {c.ayuda}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div
+                        className="cc-rise text-[8.5px] font-bold uppercase tracking-[0.12em] text-slate-400 mb-1.5"
+                        style={{ animationDelay: "280ms" }}
+                      >
+                        Incluye
+                      </div>
+
+                      {INCLUYE.map((f, idx) => (
+                        <div
+                          key={f.label}
+                          className="cc-rise flex items-start gap-2 py-[2.5px] text-[11px] leading-snug text-slate-600"
+                          style={{ animationDelay: `${320 + idx * 70}ms` }}
+                        >
+                          <IconoTrazo d={f.d} color={theme.accent} />
+                          <span>{f.label}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>

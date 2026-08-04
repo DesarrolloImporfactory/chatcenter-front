@@ -7,10 +7,14 @@ import Swal from "sweetalert2";
 import ModalPlanBlock from "./modales/ModalPlanBlock";
 import FloatingSupportChat from "./FloatingSupportChat";
 import { globalLogout } from "../../utils/globalLogout";
+import chatApi from "../../api/chatcenter";
+
+// Rutas que siguen disponibles aunque el plan no esté activo: sin ellas el
+// usuario quedaría encerrado, sin forma de pagar ni de pedir ayuda.
+const RUTAS_SIN_PLAN = new Set(["/planes", "/plan", "/tutoriales"]);
 
 function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
-  const [openMenu, setOpenMenu] = useState(null);
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
   const [userData, setUserData] = useState(null);
@@ -110,43 +114,85 @@ function MainLayout({ children }) {
   const isGestorClientes = role === "gestor_clientes";
   const puedePanelUsuarios = isSuperAdmin || isGestorClientes;
 
+  // ═══ Estado del plan: apaga el menú cuando no hay nada activo ═══
+  //
+  // El backend ya bloquea esas rutas (checkPlanActivo → 402 → modal), pero
+  // dejar los botones vivos hacía que el usuario cayera una y otra vez en el
+  // mismo modal. Apagarlos vuelve obvio que primero hay que elegir plan.
+  //
+  // Arranca en `true`: mientras no se sepa, se deja pasar. Un fallo de red no
+  // puede dejar el menú muerto, y el backend sigue siendo el que manda.
+  const [planActivo, setPlanActivo] = useState(true);
+
+  useEffect(() => {
+    // Los roles administrativos no tienen plan propio; no se les gatea nada.
+    if (!userData || isSuperAdmin || isGestorClientes) return;
+
+    let cancelado = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const id_usuario = userData.id_usuario || userData.id_users;
+        if (!id_usuario) return;
+
+        const { data } = await chatApi.post(
+          "stripe_plan/obtenerSuscripcionActiva",
+          { id_usuario },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        const plan = data?.plan || null;
+        const estado = (plan?.estado || "").toLowerCase();
+        // Mismo criterio que usa PlanesView para `hasActivePlan`.
+        const activo =
+          Boolean(plan?.id_plan) &&
+          (estado.includes("activo") ||
+            estado.includes("trial") ||
+            estado === "promo_usage");
+
+        if (!cancelado) setPlanActivo(activo);
+      } catch (e) {
+        // Se deja el menú abierto a propósito.
+        console.warn("[layout] no se pudo leer el plan:", e?.message);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [userData, isSuperAdmin, isGestorClientes]);
+
   const conexionPath = isSuperAdmin
     ? "/administrador-conexiones"
     : "/conexiones";
-  const instaLandingPath = isSuperAdmin
-    ? "/insta_landing_admin"
-    : "/insta_landing";
-  const instaLandingLabel = isSuperAdmin
-    ? "Insta Landing Admin"
-    : "Insta Landing";
   const isActive = (path) => location.pathname === path;
-  const toggleMenu = (key) => {
-    setOpenMenu((prev) => (prev === key ? null : key));
-  };
-
-  useEffect(() => {
-    if (location.pathname.startsWith("/insta_landing"))
-      setOpenMenu("instaLanding");
-  }, [location.pathname]);
-
-  // ─────────────────────────────────────────────────────────────
-  const handleNavLink = (e, path) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) {
-      return;
-    }
-    e.preventDefault();
-    navigate(path);
-  };
 
   // NavBtn ahora es un <a href> real => habilita click derecho "abrir en
   // pestaña nueva".
   // - newTab=true (default): renderiza href={path} y respeta los modificadores.
   // - newTab=false: sin href (ej. Conexiones, que limpia el localStorage y
   //   NO debe abrirse en otra pestaña). Solo corre su onClick en click normal.
-  const NavBtn = ({ path, icon, label, onClick, newTab = true }) => {
-    const active = isActive(path);
+  // `activeWhen` permite que un ítem se marque activo en varias rutas: Planes y
+  // facturación es una sola entrada que cubre /planes y /plan.
+  const NavBtn = ({
+    path,
+    icon,
+    label,
+    onClick,
+    newTab = true,
+    activeWhen,
+  }) => {
+    const rutas = activeWhen || [path];
+    const active = rutas.some((r) => isActive(r));
+    const bloqueado = !planActivo && !rutas.some((r) => RUTAS_SIN_PLAN.has(r));
 
     const handleClick = (e) => {
+      if (bloqueado) {
+        e.preventDefault();
+        navigate("/planes");
+        return;
+      }
       if (
         newTab &&
         (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1)
@@ -157,6 +203,23 @@ function MainLayout({ children }) {
       if (onClick) onClick();
       else navigate(path);
     };
+
+    if (bloqueado) {
+      return (
+        <button
+          type="button"
+          onClick={handleClick}
+          title="Elige un plan para desbloquear esta sección"
+          className="group flex items-center justify-between w-full px-5 py-4 text-left rounded cursor-not-allowed"
+        >
+          <span className="flex items-center min-w-0">
+            <i className={`bx ${icon} text-2xl mr-3 text-gray-300`} />
+            <span className="text-lg text-gray-300 truncate">{label}</span>
+          </span>
+          <i className="bx bx-lock-alt text-lg text-gray-300 shrink-0" />
+        </button>
+      );
+    }
 
     return (
       <a
@@ -216,81 +279,17 @@ function MainLayout({ children }) {
               />
             )}
 
-            {/* InstaLanding */}
-            {!isGestorClientes && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => toggleMenu("instaLanding")}
-                  className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${location.pathname.startsWith("/insta_landing") ? "bg-gray-200 font-semibold" : ""}`}
-                >
-                  <span className="flex items-center">
-                    <i
-                      className={`bx bx-image-add text-2xl mr-3 transition-colors ${location.pathname.startsWith("/insta_landing") ? "text-blue-600" : "text-gray-600 group-hover:text-blue-600"}`}
-                    />
-                    <span
-                      className={`text-lg transition-colors group-hover:text-blue-600 ${location.pathname.startsWith("/insta_landing") ? "text-blue-600" : "text-gray-700"}`}
-                    >
-                      {instaLandingLabel}
-                    </span>
-                  </span>
-                  <i
-                    className={`bx bx-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${openMenu === "instaLanding" ? "rotate-180" : ""}`}
-                  />
-                </button>
-                <div
-                  className="overflow-hidden transition-all duration-[600ms] ease-out"
-                  style={{
-                    maxHeight: openMenu === "instaLanding" ? "220px" : "0px",
-                  }}
-                >
-                  <div className="ml-10 flex flex-col py-2">
-                    <a
-                      href={instaLandingPath}
-                      onClick={(e) => handleNavLink(e, instaLandingPath)}
-                      className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive(instaLandingPath) ? "font-semibold text-blue-600" : ""}`}
-                    >
-                      <i className="bx bx-palette text-xl text-gray-600 group-hover:text-blue-600" />
-                      <span>Generador</span>
-                    </a>
-                    <a
-                      href="/insta_landing_historial"
-                      onClick={(e) =>
-                        handleNavLink(e, "/insta_landing_historial")
-                      }
-                      className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/insta_landing_historial") ? "font-semibold text-blue-600" : ""}`}
-                    >
-                      <i className="bx bx-history text-xl text-gray-600 group-hover:text-blue-600" />
-                      <span>Historial</span>
-                    </a>
-                    <a
-                      href="/insta_landing_productos"
-                      onClick={(e) =>
-                        handleNavLink(e, "/insta_landing_productos")
-                      }
-                      className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/insta_landing_productos") ? "font-semibold text-blue-600" : ""}`}
-                    >
-                      <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600" />
-                      <span>Productos</span>
-                    </a>
-                    {isSuperAdmin && (
-                      <>
-                        <div className="h-px bg-slate-200 my-1.5 mx-2" />
-                        <a
-                          href="/codigos_promocionales_admin"
-                          onClick={(e) =>
-                            handleNavLink(e, "/codigos_promocionales_admin")
-                          }
-                          className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${isActive("/codigos_promocionales") ? "font-semibold text-blue-600" : ""}`}
-                        >
-                          <i className="bx bx-purchase-tag text-xl text-gray-600 group-hover:text-blue-600" />
-                          <span>Códigos Promo</span>
-                        </a>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+            {/* El submenú de Insta Landing se retiró: la herramienta ya no se
+                ofrece. "Códigos Promo" colgaba de ahí y sí sigue en uso (es lo
+                que desbloquea el Plan Comunidad), así que subió a primer nivel.
+                Las rutas /insta_landing* siguen existiendo; solo se quitó el
+                acceso desde el menú. */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/codigos_promocionales_admin"
+                icon="bx-purchase-tag"
+                label="Códigos Promo"
+              />
             )}
 
             {/* Tutoriales: visible para todos los usuarios */}
@@ -352,12 +351,16 @@ function MainLayout({ children }) {
               />
             )}
 
-            {/* Planes*/}
+            {/* UNA sola entrada para /planes y /plan: son la misma cosa vista
+                desde dos lados, y dos ítems para lo mismo confundía. Entra por
+                /planes —que además es a donde Stripe devuelve tras pagar— y
+                desde ahí se alterna con las pestañas de la propia vista. */}
             {!isSuperAdmin && !isGestorClientes && (
               <NavBtn
-                path="/plan"
+                path="/planes"
                 icon="bxs-credit-card"
-                label="Planes y Facturación"
+                label="Planes y facturación"
+                activeWhen={["/planes", "/plan"]}
               />
             )}
 

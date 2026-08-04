@@ -507,6 +507,23 @@ const MiPlan = () => {
         </div>
       )}
 
+      {/* Espejo de las pestañas de PlanesView: el menú lateral tiene UNA sola
+          entrada para planes y facturación, y la alternancia entre las dos
+          rutas vive aquí. */}
+      <div className="pt-5 px-3 md:px-6 flex justify-start">
+        <div className="inline-flex p-1 rounded-xl bg-slate-100/80 border border-slate-200/70">
+          <button
+            onClick={() => navigate("/planes")}
+            className="px-4 py-1.5 rounded-lg text-[12.5px] font-semibold text-slate-500 hover:text-[#0B1426] transition-colors"
+          >
+            Elegir plan
+          </button>
+          <span className="px-4 py-1.5 rounded-lg text-[12.5px] font-semibold bg-white text-[#0B1426] shadow-sm">
+            Mi plan y facturación
+          </span>
+        </div>
+      </div>
+
       {/* Contenedor tipo "Departamentos" */}
       <div className="mx-auto w-[100%] m-3 md:m-6 bg-white rounded-2xl shadow-xl ring-1 ring-slate-200/70 flex flex-col min-h-[82vh] overflow-hidden">
         {/* Header — mismo estilo que Conexiones */}

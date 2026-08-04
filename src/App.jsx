@@ -536,13 +536,16 @@ function App() {
                   }
                 />
 
-                {/* PlanesView */}
+                {/* PlanesView — va dentro del layout de conexiones para que la
+                    navegación quede encapsulada en el menú lateral. Sin plan
+                    activo el menú deshabilita el resto de opciones, pero
+                    /planes y Tutoriales siguen accesibles. */}
                 <Route
                   path="/planes"
                   element={
-                    <MainLayoutPlanes>
+                    <MainLayout_conexiones>
                       <PlanesView />
-                    </MainLayoutPlanes>
+                    </MainLayout_conexiones>
                   }
                 />
                 <Route
