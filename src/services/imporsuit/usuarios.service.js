@@ -5,7 +5,11 @@ import imporsuitApi from "../../api/imporsuit";
  * Endpoints "libres" del controlador `Carterachat` (token compartido):
  *   - GET  /Carterachat/cursos
  *   - GET  /Carterachat/asesores
+ *   - GET  /Carterachat/plantillas_correo
  *   - POST /Carterachat/crear_cliente
+ *
+ * Nota: los equivalentes de `Asesor/*` NO sirven acá — exigen JWT de usuario
+ * con rol 1/6/20 y chatcenter se autentica con el token de integración.
  */
 
 function unwrap(data) {
@@ -39,13 +43,35 @@ export async function getAsesores({ signal } = {}) {
 }
 
 /**
+ * Plantillas de correo ACTIVAS para el selector de bienvenida:
+ * [{ id_plantilla, nombre, asunto, paquete }].
+ *
+ * Devuelve [] si la tabla `email_plantillas` todavía no existe — el formulario
+ * simplemente no ofrece correo en ese caso.
+ */
+export async function getPlantillasCorreo({ signal } = {}) {
+  const { data } = await imporsuitApi.get("/Carterachat/plantillas_correo", {
+    signal,
+  });
+  unwrap(data);
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
+/**
  * Crea un CLIENTE con paquetes y cursos. Si el correo YA existe, el back
  * actualiza paquetes y asigna cursos (y devuelve title "Usuario existente").
  *
  * ⚠️ Para clientes existentes los flags de paquete se SOBRESCRIBEN con lo que
  * mandes — pre-cargá los flags actuales (buscarPorCorreo) antes de llamar.
  *
- * @returns {Promise<{status, title, message, id_users?, cursosAsignados?}>}
+ * Al crear, el back dispara además:
+ *   - `whatsapp` — bienvenida por WhatsApp según el paquete más prioritario.
+ *   - `correo`   — plantilla de bienvenida (`id_plantilla`; 0 = no enviar,
+ *                  omitido = la sugerida por los paquetes marcados). No se
+ *                  manda a usuarios existentes: la plantilla trae credenciales.
+ *
+ * @returns {Promise<{status, title, message, id_users?, cursosAsignados?,
+ *   whatsapp?: {enviado, plantilla, motivo}, correo?: {enviado, nombre_plantilla, motivo}}>}
  *   `id_users` solo viene cuando se CREA uno nuevo (no cuando ya existía).
  */
 export async function crearUsuarioFull(payload, { signal } = {}) {
@@ -76,6 +102,12 @@ export async function crearUsuarioFull(payload, { signal } = {}) {
   flags.forEach((f) => {
     body[f] = payload[f] ? 1 : 0;
   });
+
+  // Solo se manda si el agente tomó una decisión explícita: omitirlo deja que
+  // el back elija la plantilla sugerida por los paquetes marcados.
+  if (payload.id_plantilla != null && payload.id_plantilla !== "") {
+    body.id_plantilla = Number(payload.id_plantilla);
+  }
 
   const { data } = await imporsuitApi.post(
     "/Carterachat/crear_cliente",
