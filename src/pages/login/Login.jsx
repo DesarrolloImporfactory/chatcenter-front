@@ -285,15 +285,15 @@ export default function Login() {
               <h1 className="text-2xl lg:text-[32px] font-extrabold text-white leading-tight tracking-[-0.02em]">
                 <TypeWriter
                   texts={[
-                    "Venda por WhatsApp con IA",
-                    "Cree landings en segundos",
-                    "Automatice su negocio",
+                    "Venda más por WhatsApp con IA",
+                    "Responda, cotice y agende 24/7",
+                    "Convierta cada chat en una venta",
                   ]}
                 />
               </h1>
               <p className="mt-4 text-sm text-slate-400 leading-relaxed">
-                Dos herramientas conectadas por inteligencia artificial para
-                generar ventas 24/7.
+                Un vendedor con inteligencia artificial que atiende, cotiza y
+                agenda por usted. Todos los días, a toda hora.
               </p>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
@@ -319,9 +319,9 @@ export default function Login() {
                       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                     </svg>
                   </div>
-                  <p className="text-sm font-bold text-white">ImporChat</p>
+                  <p className="text-sm font-bold text-white">Vende solo</p>
                   <p className="text-[10px] text-cyan-300/60 mt-0.5">
-                    Agente AI WhatsApp
+                    Responde, cotiza y cierra
                   </p>
                   <div className="mt-2 flex gap-1">
                     {["24/7", "3 canales", "Meta Partner"].map((t, i) => (
@@ -338,49 +338,54 @@ export default function Login() {
                     ))}
                   </div>
                 </motion.div>
+
+                {/* Antes esta tarjeta era Insta Landing. Se reemplazó por la
+                    segunda mitad de lo que hace el bot —agendar— en vez de
+                    borrarla: la retícula de dos columnas ya estaba equilibrada
+                    y el mensaje queda más completo que con una sola. */}
                 <motion.div
                   whileHover={{ scale: 1.03 }}
                   className="rounded-xl p-3.5 cursor-default"
                   style={{
-                    background: "rgba(16,185,129,0.06)",
-                    border: "1px solid rgba(16,185,129,0.12)",
+                    background: "rgba(245,158,11,0.06)",
+                    border: "1px solid rgba(245,158,11,0.12)",
                   }}
                 >
                   <div
                     className="w-9 h-9 rounded-xl grid place-items-center mb-2"
-                    style={{ background: "rgba(16,185,129,0.12)" }}
+                    style={{ background: "rgba(245,158,11,0.12)" }}
                   >
                     <svg
                       className="w-[18px] h-[18px]"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="#10B981"
+                      stroke="#F59E0B"
                       strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
-                      <rect x="3" y="3" width="18" height="18" rx="3" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <path d="M21 15l-5-5L5 21" />
+                      <path d="M7 3v3M17 3v3M4 8h16" />
+                      <rect x="3" y="5.5" width="18" height="15.5" rx="1.5" />
+                      <path d="M9 13h2M9 17h6" />
                     </svg>
                   </div>
-                  <p className="text-sm font-bold text-white">Insta Landing</p>
-                  <p className="text-[10px] text-emerald-300/60 mt-0.5">
-                    Generador AI contenido
+                  <p className="text-sm font-bold text-white">Agenda sola</p>
+                  <p className="text-[10px] text-amber-300/60 mt-0.5">
+                    Citas, sedes y recordatorios
                   </p>
                   <div className="mt-2 flex gap-1">
-                    {["Designer Pro", "120+/mes", "10 secciones"].map(
-                      (t, i) => (
-                        <span
-                          key={i}
-                          className="text-[7px] px-1.5 py-0.5 rounded-full font-semibold"
-                          style={{
-                            color: "#10B981",
-                            background: "rgba(16,185,129,0.08)",
-                          }}
-                        >
-                          {t}
-                        </span>
-                      ),
-                    )}
+                    {["Citas", "Sucursales", "Servicios"].map((t, i) => (
+                      <span
+                        key={i}
+                        className="text-[7px] px-1.5 py-0.5 rounded-full font-semibold"
+                        style={{
+                          color: "#F59E0B",
+                          background: "rgba(245,158,11,0.08)",
+                        }}
+                      >
+                        {t}
+                      </span>
+                    ))}
                   </div>
                 </motion.div>
               </div>
@@ -396,7 +401,8 @@ export default function Login() {
                   { v: "24/7", l: "Activo", c: "#00BFFF" },
                   { v: "0%", l: "Riesgo ban", c: "#10B981" },
                   { v: "$5", l: "Primer mes", c: "#F59E0B" },
-                  { v: "10", l: "Secciones", c: "#8B5CF6" },
+                  // Antes: "10 Secciones", que era de Insta Landing.
+                  { v: "∞", l: "Conversaciones", c: "#8B5CF6" },
                 ].map((s, i) => (
                   <div key={i} className="text-center">
                     <p

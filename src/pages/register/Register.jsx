@@ -611,9 +611,6 @@ export default function Register() {
                   ecosistema completo
                 </span>
               </h1>
-              <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-                Solo necesita su nombre, email y contraseña. Nada más.
-              </p>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <motion.div
@@ -640,11 +637,11 @@ export default function Register() {
                       </svg>
                     </div>
                     <span className="text-xs font-bold text-white">
-                      ImporChat
+                      Vende solo
                     </span>
                   </div>
                   <p className="text-[9px] text-slate-400">
-                    Agente AI de ventas por WhatsApp
+                    Responde, cotiza y cierra por WhatsApp
                   </p>
                   <span
                     className="inline-block mt-2 text-[8px] px-2 py-0.5 rounded-full font-bold"
@@ -660,42 +657,43 @@ export default function Register() {
                   whileHover={{ scale: 1.03 }}
                   className="rounded-xl p-3.5 cursor-default"
                   style={{
-                    background: "rgba(16,185,129,0.06)",
-                    border: "1px solid rgba(16,185,129,0.12)",
+                    background: "rgba(245,158,11,0.06)",
+                    border: "1px solid rgba(245,158,11,0.12)",
                   }}
                 >
                   <div className="flex items-center gap-2 mb-1.5">
                     <div
                       className="w-7 h-7 rounded-lg grid place-items-center"
-                      style={{ background: "rgba(16,185,129,0.12)" }}
+                      style={{ background: "rgba(245,158,11,0.12)" }}
                     >
                       <svg
                         className="w-3.5 h-3.5"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="#10B981"
+                        stroke="#F59E0B"
                         strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        <rect x="3" y="3" width="18" height="18" rx="3" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <path d="M21 15l-5-5L5 21" />
+                        <path d="M7 3v3M17 3v3M4 8h16" />
+                        <rect x="3" y="5.5" width="18" height="15.5" rx="1.5" />
                       </svg>
                     </div>
                     <span className="text-xs font-bold text-white">
-                      Insta Landing
+                      Agenda sola
                     </span>
                   </div>
                   <p className="text-[9px] text-slate-400">
-                    Banners y landings en segundos
+                    Citas, sucursales y recordatorios
                   </p>
                   <span
                     className="inline-block mt-2 text-[8px] px-2 py-0.5 rounded-full font-bold"
                     style={{
-                      color: "#10B981",
-                      background: "rgba(16,185,129,0.08)",
+                      color: "#F59E0B",
+                      background: "rgba(245,158,11,0.08)",
                     }}
                   >
-                    10 imagenes gratis
+                    Incluido
                   </span>
                 </motion.div>
               </div>
@@ -751,13 +749,10 @@ export default function Register() {
                   label="Activo"
                   color="#00BFFF"
                 />
-                <Counter
-                  target="120"
-                  suffix="+"
-                  label="Banners/mes"
-                  color="#10B981"
-                />
-                <Counter target="10" label="Secciones" color="#8B5CF6" />
+                {/* Antes: "120+ Banners/mes" y "10 Secciones", ambos de Insta
+                    Landing. Ahora son cifras del bot que sí se cumplen. */}
+                <Counter target="3" label="Canales" color="#10B981" />
+                <Counter target="7" label="Dias gratis" color="#8B5CF6" />
                 <Counter
                   target="5"
                   suffix="$"

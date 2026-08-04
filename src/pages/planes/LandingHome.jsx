@@ -1,53 +1,49 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import TabImporChat from "./TabImporchat";
-import TabInstaLanding from "./TabInstaLanding";
 
-/* ── Comparison Table ── */
+/* ── Tabla comparativa ──
+ *
+ * Insta Landing salió del catálogo, así que ya no hay columna ni filas suyas
+ * (banners, ángulos, secciones landing, A/B testing, landing → WhatsApp).
+ *
+ * Las filas están alineadas con lo que el backend aplica de verdad: los únicos
+ * límites reales son las conexiones (limiteConexiones) y los subusuarios
+ * (limiteSub_usuarios). Todo lo demás va incluido en los tres planes, y la
+ * tabla lo dice en vez de inventar una escalera de features que no existe.
+ */
 const COLS = [
-  { k: "il", n: "Insta Landing", p: "$29", c: "#10B981" },
-  { k: "ic", n: "ImporChat", p: "$29", c: "#00BFFF" },
-  { k: "pro", n: "Pro Ecosistema", p: "$49", c: "#6366F1" }, // antes decía $59
-  { k: "av", n: "Avanzado", p: "$99", c: "#F59E0B" },
+  { k: "ic", n: "ImporChat", p: "$39", c: "#0891B2" },
+  { k: "pro", n: "Pro Ecosistema", p: "$49", c: "#7C3AED" },
+  { k: "av", n: "Avanzado", p: "$99", c: "#B45309" },
 ];
 
 const ROWS = [
-  { f: "Insta Landing", il: "SI", ic: "—", pro: "SI", av: "SI" },
-  { f: "ImporChat", il: "—", ic: "SI", pro: "SI", av: "SI" },
-  { f: "Agentes IA", il: "—", ic: "1", pro: "2", av: "5" },
-  { f: "Subusuarios", il: "1", ic: "2", pro: "5", av: "10" },
+  { grupo: "Capacidad" },
+  { f: "Negocios conectados", ic: "1", pro: "2", av: "5" },
+  { f: "Usuarios del equipo", ic: "2", pro: "5", av: "10" },
   {
     f: "Conversaciones",
-    il: "—",
     ic: "Ilimitadas",
     pro: "Ilimitadas",
     av: "Ilimitadas",
   },
-  { f: "Banners IA/mes", il: "120", ic: "—", pro: "300", av: "500" },
-  { f: "Ángulos IA", il: "30", ic: "—", pro: "100", av: "125" },
-  { f: "Secciones landing", il: "5", ic: "—", pro: "10", av: "10 + custom" },
-  {
-    f: "Productos Dropi",
-    il: "Ilimitado",
-    ic: "—",
-    pro: "Ilimitado",
-    av: "Multi-tienda",
-  },
-  { f: "Landing → WhatsApp", il: "—", ic: "—", pro: "SI", av: "SI" },
-  { f: "A/B Testing", il: "—", ic: "—", pro: "SI", av: "SI" },
-  {
-    f: "Analytics",
-    il: "Básico",
-    ic: "Básico",
-    pro: "Completo",
-    av: "Avanzado",
-  },
-  { f: "Soporte", il: "Chat 24h", ic: "Chat 24h", pro: "VIP", av: "VIP" },
+
+  { grupo: "Incluido en los tres planes" },
+  { f: "Bot IA propio en cada negocio", ic: "SI", pro: "SI", av: "SI" },
+  { f: "WhatsApp, Messenger e Instagram", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Respuestas y seguimiento 24/7", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Agenda de citas y recordatorios", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Sucursales, servicios y profesionales", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Catálogo, pedidos y cotizaciones", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Catálogo Dropi sincronizado", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Embudo de ventas (Kanban)", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Encuestas de satisfacción", ic: "SI", pro: "SI", av: "SI" },
+  { f: "Departamentos y asignación de chats", ic: "SI", pro: "SI", av: "SI" },
 ];
 
 const LandingHome = () => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("imporchat");
 
   const handleLogin = () => {
     const token = localStorage.getItem("token");
@@ -110,20 +106,16 @@ const LandingHome = () => {
 
         {/* Hero — compact */}
         <div className="relative text-center px-5 sm:px-8 pt-4 pb-8 sm:pt-6 sm:pb-10">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-[-0.03em] leading-[1.15] max-w-3xl mx-auto">
-            Cree contenido que{" "}
-            <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-              convierte
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-[-0.03em] leading-[1.15] max-w-3xl mx-auto text-balance">
+            Un vendedor con IA que{" "}
+            <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-red-400 bg-clip-text text-transparent">
+              atiende, agenda y cierra
             </span>{" "}
-            y venda por{" "}
-            <span className="bg-gradient-to-r from-cyan-400 to-blue-300 bg-clip-text text-transparent">
-              WhatsApp
-            </span>{" "}
-            con IA
+            por WhatsApp
           </h1>
-          <p className="mt-2 text-sm text-slate-400 max-w-xl mx-auto">
-            Dos herramientas conectadas por inteligencia artificial para generar
-            ventas 24/7.
+          <p className="mt-2.5 text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
+            Responde al instante, toma pedidos, agenda citas y ordena tu CRM.
+            Las 24 horas del día, sin sumar una persona más a la nómina.
           </p>
           <div className="mt-4 flex items-center justify-center gap-3">
             <button
@@ -142,59 +134,11 @@ const LandingHome = () => {
         </div>
       </header>
 
-      {/* ═══ TAB SWITCHER ═══ */}
-      <div className="sticky top-0 z-40 bg-white border-b border-slate-200/60 shadow-sm">
-        <div className="w-full px-5 sm:px-8 flex items-center justify-center py-2">
-          <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200/60">
-            <button
-              onClick={() => setTab("imporchat")}
-              className={`px-5 py-2.5 rounded-lg text-[12px] font-bold transition-all ${tab === "imporchat" ? "bg-white text-[#0B1426] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-            >
-              <span className="flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={tab === "imporchat" ? "#00BFFF" : "#94a3b8"}
-                  strokeWidth="1.8"
-                >
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                </svg>
-                ImporChat{" "}
-                <span className="hidden sm:inline text-[10px] font-medium text-slate-400">
-                  Agente AI
-                </span>
-              </span>
-            </button>
-            <button
-              onClick={() => setTab("instalanding")}
-              className={`px-5 py-2.5 rounded-lg text-[12px] font-bold transition-all ${tab === "instalanding" ? "bg-white text-[#0B1426] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-            >
-              <span className="flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={tab === "instalanding" ? "#10B981" : "#94a3b8"}
-                  strokeWidth="1.8"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="3" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <path d="M21 15l-5-5L5 21" />
-                </svg>
-                Insta Landing{" "}
-                <span className="hidden sm:inline text-[10px] font-medium text-slate-400">
-                  Generador AI
-                </span>
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ TAB CONTENT ═══ */}
-      {tab === "imporchat" && <TabImporChat onLogin={handleLogin} />}
-      {tab === "instalanding" && <TabInstaLanding onLogin={handleLogin} />}
+      {/* ═══ CONTENIDO ═══
+          El switch de pestañas se retiró junto con Insta Landing: con un solo
+          producto no hay nada que alternar, y una pestaña única solo ocupaba
+          espacio y hacía dudar de si faltaba algo. */}
+      <TabImporChat onLogin={handleLogin} />
 
       {/* ═══ COMPARISON TABLE ═══ */}
       <section className="pt-8 pb-14 sm:pt-10 sm:pb-20 border-t border-slate-100">
@@ -204,7 +148,8 @@ const LandingHome = () => {
               Cada plan en detalle
             </h3>
             <p className="mt-2 text-sm text-slate-500">
-              Todos incluyen promo de $5 el primer mes.
+              Los tres traen el ecosistema completo. Solo cambia cuántos
+              negocios conectas y cuánto equipo entra.
             </p>
           </div>
           <div className="max-w-6xl mx-auto overflow-x-auto rounded-2xl border border-slate-200/60 shadow-sm">
@@ -230,30 +175,44 @@ const LandingHome = () => {
                 </tr>
               </thead>
               <tbody>
-                {ROWS.map((r, i) => (
-                  <tr
-                    key={i}
-                    className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}
-                  >
-                    <td className="px-5 py-3 text-xs font-semibold text-slate-700 whitespace-nowrap">
-                      {r.f}
-                    </td>
-                    {COLS.map((c) => (
+                {ROWS.map((r, i) =>
+                  r.grupo ? (
+                    // Separador: divide lo que cambia entre planes de lo que
+                    // viene en todos. Sin él, once filas seguidas de "SI" se
+                    // leen como relleno en vez de como argumento de venta.
+                    <tr key={i} className="bg-slate-100/70">
                       <td
-                        key={c.k}
-                        className="px-4 py-3 text-center text-xs whitespace-nowrap"
+                        colSpan={COLS.length + 1}
+                        className="px-5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500"
                       >
-                        {r[c.k] !== "—" ? (
-                          <span className="font-bold" style={{ color: c.c }}>
-                            {r[c.k]}
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">—</span>
-                        )}
+                        {r.grupo}
                       </td>
-                    ))}
-                  </tr>
-                ))}
+                    </tr>
+                  ) : (
+                    <tr
+                      key={i}
+                      className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}
+                    >
+                      <td className="px-5 py-3 text-xs font-semibold text-slate-700 whitespace-nowrap">
+                        {r.f}
+                      </td>
+                      {COLS.map((c) => (
+                        <td
+                          key={c.k}
+                          className="px-4 py-3 text-center text-xs whitespace-nowrap"
+                        >
+                          {r[c.k] !== "—" ? (
+                            <span className="font-bold" style={{ color: c.c }}>
+                              {r[c.k]}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>
@@ -270,10 +229,10 @@ const LandingHome = () => {
       >
         <div className="w-full px-5 sm:px-8 text-center">
           <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Empiece desde <span className="text-cyan-400">$5/mes</span>
+            Su primer mes cuesta <span className="text-amber-400">$5</span>
           </h3>
           <p className="mt-2 text-sm text-slate-400 max-w-lg mx-auto">
-            10 imagenes gratis en Insta Landing + 7 dias gratis en ImporChat.
+            7 días gratis para probarlo. Después $39/mes. Cancele cuando quiera.
           </p>
           <div className="mt-5 flex items-center justify-center gap-3">
             <button

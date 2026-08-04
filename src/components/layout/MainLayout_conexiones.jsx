@@ -282,8 +282,8 @@ function MainLayout({ children }) {
             {/* El submenú de Insta Landing se retiró: la herramienta ya no se
                 ofrece. "Códigos Promo" colgaba de ahí y sí sigue en uso (es lo
                 que desbloquea el Plan Comunidad), así que subió a primer nivel.
-                Las rutas /insta_landing* siguen existiendo; solo se quitó el
-                acceso desde el menú. */}
+                Las rutas /insta_landing* también quedaron comentadas en
+                App.jsx, así que ya no se llega ni por URL directa. */}
             {isSuperAdmin && (
               <NavBtn
                 path="/codigos_promocionales_admin"

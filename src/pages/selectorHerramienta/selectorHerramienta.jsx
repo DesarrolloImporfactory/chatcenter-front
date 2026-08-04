@@ -297,9 +297,11 @@ export default function SelectorHerramienta() {
   }, [navigate]);
 
   const canImporChat = toolsAccess === "imporchat" || toolsAccess === "both";
-  const canDropiboard = toolsAccess === "both";
-  const canInstaLanding =
-    toolsAccess === "insta_landing" || toolsAccess === "both";
+  // Alineado con checkToolAccess del backend: el Dropiboard acompaña al chat
+  // desde que Insta Landing se retiró y "both" dejó de distinguir nada. Si el
+  // front siguiera exigiendo "both", el plan de $39 vería la tarjeta bloqueada
+  // aunque el backend ya le deja pasar.
+  const canDropiboard = toolsAccess === "imporchat" || toolsAccess === "both";
 
   if (loading) {
     return (
@@ -416,7 +418,7 @@ export default function SelectorHerramienta() {
       </motion.div>
 
       {/* ── Cards ── */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-[1140px]">
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-[780px]">
         <ToolCard
           title="ImporChat"
           tagline="Agente AI de Ventas por WhatsApp"
@@ -480,37 +482,9 @@ export default function SelectorHerramienta() {
           }
         />
 
-        <ToolCard
-          title="Insta Landing"
-          tagline="Banners & Landing Pages con AI"
-          description="Genera banners profesionales y landing pages optimizadas en segundos. Crea contenido visual que vende, potenciado por inteligencia artificial generativa con enfoque en ecommerce."
-          badges={["Generador AI", "120+ / mes", "10 secciones", "Dropi"]}
-          stats={[
-            { value: "120+", label: "Banners" },
-            { value: "10", label: "Secciones" },
-            { value: "AI", label: "Designer Pro" },
-          ]}
-          accent="#10B981"
-          locked={!canInstaLanding}
-          lockedLabel="Disponible en Pro Ecosistema"
-          delay={0.2}
-          onClick={() =>
-            navigate(canInstaLanding ? "/insta_landing" : "/planes")
-          }
-          icon={
-            <svg
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#10B981"
-              strokeWidth="1.6"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="3" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
-            </svg>
-          }
-        />
+        {/* La tarjeta de Insta Landing se retiró junto con la herramienta. Era
+            el último acceso vivo a /insta_landing, que ahora es una ruta
+            comentada y caería en la página de ruta no encontrada. */}
       </div>
 
       {/* ── Footer ── */}

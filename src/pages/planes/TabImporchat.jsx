@@ -906,7 +906,7 @@ const TabImporChat = ({ onLogin }) => (
             style={{ background: "rgba(255,255,255,0.08)" }}
           />
           <div className="text-center">
-            <span className="text-3xl font-extrabold text-white">$29</span>
+            <span className="text-3xl font-extrabold text-white">$39</span>
             <p className="text-[10px] text-slate-400 mt-0.5">luego/mes</p>
           </div>
         </div>

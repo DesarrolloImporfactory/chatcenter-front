@@ -53,11 +53,15 @@ import ApiPublica from "./pages/conexiones/ApiPublica";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
 import Calendario from "./pages/calendario/Calendario";
-import LandingAi from "./pages/landingai/LandingAi";
-import InstaLandingHistorial from "./pages/landingai/HistorialPage";
-import InstaLandingProductos from "./pages/landingai/ProductsPage";
-import ProductDetallePage from "./pages/landingai/ProductDetallePage";
-import LandingAiAdmin from "./pages/landingai/LandingAiAdmin";
+// Insta Landing retirado: sus rutas están comentadas más abajo, así que estos
+// imports también. Comentados —y no borrados— para que reactivar la
+// herramienta sea descomentar, no reescribir. Además así sus componentes ya no
+// entran al bundle.
+// import LandingAi from "./pages/landingai/LandingAi";
+// import InstaLandingHistorial from "./pages/landingai/HistorialPage";
+// import InstaLandingProductos from "./pages/landingai/ProductsPage";
+// import ProductDetallePage from "./pages/landingai/ProductDetallePage";
+// import LandingAiAdmin from "./pages/landingai/LandingAiAdmin";
 import CodigosPromocionalesAdmin from "./pages/landingai/CodigosPromocionalesAdmin";
 
 // Páginas de acceso y registro
@@ -96,6 +100,7 @@ import Dropiboard from "./pages/dropi/Dropiboard";
 import SelectorHerramienta from "./pages/selectorHerramienta/selectorHerramienta";
 import ForgotPassword from "./pages/login/ForgotPassword";
 import SsoLanding from "./pages/sso/SsoLanding";
+import RutaNoEncontrada from "./pages/shared/RutaNoEncontrada";
 import EncuestasView from "./pages/encuestas/EncuestasView";
 import Adsboard from "./components/metaAsd/Adsboard";
 import PlantillasGlobalesAdmin from "./pages/kanbanAdmin/PlantillasGlobalesAdmin";
@@ -223,7 +228,17 @@ function App() {
                   }
                 />
 
-                {/*generador de imagenes*/}
+                {/* ─────────────────────────────────────────────────────────
+                    INSTA LANDING — RUTAS RETIRADAS
+                    La herramienta se dio de baja. Se quitó del menú, pero las
+                    rutas seguían respondiendo por URL directa, así que quedan
+                    comentadas: ahora caen en el catch-all y ven la página de
+                    "ruta no encontrada".
+                    Se comentan en vez de borrarse porque los componentes de
+                    /pages/landingai siguen en el repo; cuando se eliminen esos
+                    archivos, este bloque y sus imports se van con ellos.
+                    ───────────────────────────────────────────────────────── */}
+                {/*
                 <Route
                   path="/insta_landing"
                   element={
@@ -232,7 +247,6 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
-                {/*generador de imagenes - administrador*/}
                 <Route
                   path="/insta_landing_admin"
                   element={
@@ -241,16 +255,6 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
-
-                <Route
-                  path="/codigos_promocionales_admin"
-                  element={
-                    <MainLayout_conexiones>
-                      <CodigosPromocionalesAdmin />
-                    </MainLayout_conexiones>
-                  }
-                />
-
                 <Route
                   path="/insta_landing_historial"
                   element={
@@ -267,12 +271,24 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
-
                 <Route
                   path="/insta_landing_productos/:id"
                   element={
                     <MainLayout_conexiones>
                       <ProductDetallePage />
+                    </MainLayout_conexiones>
+                  }
+                />
+                */}
+
+                {/* Códigos promocionales SÍ sigue vivo: es lo que desbloquea
+                    el Plan Comunidad. Colgaba del submenú de Insta Landing y
+                    ahora es un ítem de primer nivel en el menú lateral. */}
+                <Route
+                  path="/codigos_promocionales_admin"
+                  element={
+                    <MainLayout_conexiones>
+                      <CodigosPromocionalesAdmin />
                     </MainLayout_conexiones>
                   }
                 />
@@ -635,7 +651,7 @@ function App() {
           {/* 
           /administrador-whatsapp, sin envolver MainLayout 
         */}
-          <Route path="*" element={<h1>Esta ruta no existe</h1>} />
+          <Route path="*" element={<RutaNoEncontrada />} />
         </Routes>
       </div>
     </DropiProvider>

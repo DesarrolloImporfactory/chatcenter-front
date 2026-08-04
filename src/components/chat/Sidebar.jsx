@@ -906,6 +906,44 @@ function MessageItem({
   const estadoColorVivo = estadoColorRaw;
   const showEstado = estadoNombre && estadoColorRaw;
 
+  /* ── ¿Este contacto ya es cliente de ImporChat? ──
+   *
+   * El backend solo manda `cliente_imporchat` en la configuración de
+   * lanzamientos (leads_imporchat.service.js). En el resto de cuentas llega
+   * undefined y nada de esto se pinta.
+   *
+   * Verde = está usando ImporChat (prueba o pagando). Rojo = no tiene cuenta,
+   * o la tiene sin tarjeta ni plan vigente.
+   *
+   * Va en el BORDE IZQUIERDO y no en el fondo para no pelearse con el ámbar de
+   * las transferencias: esa alerta es puntual y urgente, y debe seguir ganando
+   * el fondo. Así el agente lee las dos cosas a la vez.
+   */
+  const infoCliente = mensaje?.cliente_imporchat || null;
+  const esClienteActivo = infoCliente?.estado === "activo";
+
+  const bordeCliente = !infoCliente
+    ? ""
+    : esClienteActivo
+      ? "border-l-4 border-emerald-500"
+      : "border-l-4 border-rose-400";
+
+  // El tinte de fondo solo aplica si no hay notificación pendiente.
+  const fondoCliente =
+    !infoCliente || esNotificacion
+      ? ""
+      : esClienteActivo
+        ? "bg-emerald-50/60 hover:bg-emerald-50"
+        : "bg-rose-50/40 hover:bg-rose-50/70";
+
+  const tituloCliente = !infoCliente
+    ? undefined
+    : esClienteActivo
+      ? `Cliente activo${infoCliente.plan ? ` — ${infoCliente.plan}` : ""}`
+      : infoCliente.estado === "sin_cuenta"
+        ? "Sin cuenta en ImporChat"
+        : "Tiene cuenta, pero no ha ingresado su tarjeta, ni tiene plan vigente";
+
   return (
     <li
       ref={liRef}
@@ -916,7 +954,9 @@ function MessageItem({
           ? "bg-slate-50 cursor-default"
           : esNotificacion
             ? "bg-amber-100/70 hover:bg-amber-50 border-l-4 border-amber-300"
-            : "hover:bg-slate-50 hover:shadow-xs",
+            : [fondoCliente || "hover:bg-slate-50 hover:shadow-xs"].join(" "),
+        // El borde va aparte para que sobreviva al fondo ámbar
+        !esNotificacion ? bordeCliente : "",
       ].join(" ")}
       onClick={() => {
         if (!seleccionado && typeof onClick === "function") onClick();
@@ -966,6 +1006,20 @@ function MessageItem({
         {/* ── Fila 1: nombre + estado ── */}
         <div className="col-[2] row-[1] min-w-0 flex flex-col gap-0.5 leading-[1.15]">
           <div className="min-w-0 flex items-center gap-1.5">
+            {/* Punto de estado comercial: el borde se ve de reojo, pero el
+                detalle (plan, motivo) solo cabe en un tooltip. */}
+            {infoCliente && (
+              <span
+                title={tituloCliente}
+                aria-label={tituloCliente}
+                className={[
+                  "shrink-0 h-2 w-2 rounded-full ring-2",
+                  esClienteActivo
+                    ? "bg-emerald-500 ring-emerald-100"
+                    : "bg-rose-400 ring-rose-100",
+                ].join(" ")}
+              />
+            )}
             <span className="truncate text-[11.5px] font-semibold text-slate-900">
               {nombre}
             </span>
