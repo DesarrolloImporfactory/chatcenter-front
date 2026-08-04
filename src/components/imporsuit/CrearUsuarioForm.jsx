@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import {
   crearUsuarioFull,
   getCursosDisponibles,
+  getPlantillasCorreo,
   ROLES_ASIGNABLES,
   PAQUETES,
 } from "../../services/imporsuit";
@@ -76,12 +77,30 @@ export function CrearUsuarioForm({
   const [loadingCursos, setLoadingCursos] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Correo de bienvenida (plantillas del constructor de Imporsuit) ──
+  const [plantillas, setPlantillas] = useState([]);
+  // "" = usar la sugerida por los paquetes; "0" = no enviar; "<id>" = elegida.
+  const [correoElegido, setCorreoElegido] = useState(false);
+  const [idPlantillaCorreo, setIdPlantillaCorreo] = useState("");
+
   useEffect(() => {
     let alive = true;
     getCursosDisponibles()
       .then((rows) => alive && setCursos(rows))
       .catch(() => alive && setCursos([]))
       .finally(() => alive && setLoadingCursos(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Si `email_plantillas` no existe todavía, el back devuelve [] y el bloque
+  // de correo simplemente no se ofrece.
+  useEffect(() => {
+    let alive = true;
+    getPlantillasCorreo()
+      .then((rows) => alive && setPlantillas(rows))
+      .catch(() => alive && setPlantillas([]));
     return () => {
       alive = false;
     };
@@ -102,6 +121,29 @@ export function CrearUsuarioForm({
   const resumen = useMemo(
     () => PAQUETES.filter((p) => form[p.key]).map((p) => p.label),
     [form],
+  );
+
+  // Plantilla sugerida por el paquete marcado — misma regla que el panel de
+  // asesor (CrearUsuarioModal) y que CorreoPlantilla::sugerirPorPaquetes().
+  // Rige hasta que el agente elija a mano en el select.
+  const idPlantillaSugerida = useMemo(() => {
+    const marcados = PAQUETES.filter((p) => form[p.key]).map((p) => p.key);
+    const sugerida = plantillas.find(
+      (pl) => pl.paquete && marcados.includes(pl.paquete),
+    );
+    return sugerida ? String(sugerida.id_plantilla) : "";
+  }, [form, plantillas]);
+
+  // "0" = no enviar. Es también el fallback cuando ningún paquete marcado
+  // sugiere plantilla, para que el select nunca quede sin opción seleccionada.
+  const idPlantillaActiva = correoElegido
+    ? idPlantillaCorreo
+    : idPlantillaSugerida || "0";
+
+  const plantillaSeleccionada = useMemo(
+    () =>
+      plantillas.find((p) => String(p.id_plantilla) === idPlantillaActiva) ?? null,
+    [plantillas, idPlantillaActiva],
   );
 
   const submit = async (e) => {
@@ -132,6 +174,8 @@ export function CrearUsuarioForm({
         kit_importador: form.kit_importador,
         motor_ventas: form.motor_ventas,
         cursos: Array.from(cursosSel),
+        // Siempre explícito: "0" = no enviar, "<id>" = esa plantilla.
+        id_plantilla: idPlantillaActiva,
       });
 
       const existia =
@@ -143,6 +187,56 @@ export function CrearUsuarioForm({
           ? "Paquetes y cursos actualizados"
           : "Usuario creado (clave: Import.1)",
       );
+
+      // El WhatsApp y el correo son best-effort en el back: si alguno falló, el
+      // alta igual quedó guardada y hay que decirlo sin alarmar.
+      //
+      // OJO: "Meta lo aceptó" y "quedó en el hilo de ImporChat" son dos cosas
+      // distintas que fallan por separado. Un `enviado: true` con
+      // `registrado_en_chat: false` NO se puede reportar como éxito a secas: es
+      // justo el caso en que el agente no ve el mensaje en el chat y cree que
+      // nunca salió.
+      const wa = resultado?.whatsapp;
+      const mail = resultado?.correo;
+
+      if (wa?.enviado && wa?.registrado_en_chat) {
+        toast.success(`WhatsApp enviado (${wa.plantilla})`);
+      } else if (wa?.enviado) {
+        Swal.fire({
+          icon: "warning",
+          title: "WhatsApp enviado, pero no quedó en ImporChat",
+          html:
+            `Meta aceptó la plantilla <code>${wa.plantilla}</code> para ` +
+            `<strong>${wa.telefono ?? "—"}</strong>, pero no se pudo guardar en el hilo del chat.` +
+            (wa.wamid
+              ? `<br/><br/>ID del mensaje:<br/><code>${wa.wamid}</code>`
+              : "") +
+            (wa.motivo ? `<br/><br/><small>${wa.motivo}</small>` : ""),
+        });
+      } else if (wa?.motivo) {
+        // "Ningún paquete tiene plantilla" es un caso esperado (Infoaduana,
+        // Membresía, 50 Tiendas… no disparan WhatsApp): basta un aviso suave.
+        // Cualquier otro motivo es una falla real y el agente tiene que verla,
+        // porque cree que el cliente ya fue contactado y no lo fue.
+        const esperado = /ningún paquete/i.test(wa.motivo);
+        if (esperado) {
+          toast(`Sin WhatsApp: ${wa.motivo}`, { icon: "📵", duration: 5000 });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "El WhatsApp de bienvenida NO se envió",
+            html:
+              `El usuario quedó guardado, pero <strong>nadie lo contactó</strong>.<br/><br/>` +
+              `<small>${wa.motivo}</small>`,
+          });
+        }
+      }
+
+      if (mail?.enviado)
+        toast.success(`Correo enviado: ${mail.nombre_plantilla}`);
+      else if (mail?.motivo)
+        toast(`Sin correo: ${mail.motivo}`, { icon: "✉️", duration: 6000 });
+
       onSaved?.(resultado);
       onClose?.();
     } catch (err) {
@@ -253,6 +347,72 @@ export function CrearUsuarioForm({
               </div>
             )}
           </section>
+
+          {/* Bienvenida: WhatsApp automático + correo elegible.
+              Solo al CREAR: a un usuario existente no se le manda el correo
+              porque las plantillas incluyen credenciales y su clave no cambió. */}
+          {plantillas.length > 0 && (
+            <section className="rounded-xl border border-gray-200 p-3">
+              <p className="mb-2 text-sm font-semibold text-gray-700">
+                Mensajes de bienvenida
+              </p>
+
+              <p className="mb-3 flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+                <span>💬</span>
+                <span>
+                  El <strong>WhatsApp de bienvenida</strong> se envía automáticamente
+                  según el paquete más prioritario que marques (sale desde Soporte
+                  Importaciones Expertos y queda en el chat).
+                </span>
+              </p>
+
+              {yaExiste ? (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                  El usuario ya existe: <strong>no se envía correo</strong> de
+                  bienvenida, porque incluye las credenciales de acceso y su
+                  contraseña no cambia.
+                </p>
+              ) : (
+                <>
+                  <Field label="Correo de bienvenida">
+                    <select
+                      className={inputCls}
+                      value={idPlantillaActiva}
+                      onChange={(e) => {
+                        setCorreoElegido(true);
+                        setIdPlantillaCorreo(e.target.value);
+                      }}
+                      disabled={submitting}
+                    >
+                      <option value="0">No enviar correo</option>
+                      {plantillas.map((p) => (
+                        <option key={p.id_plantilla} value={String(p.id_plantilla)}>
+                          {p.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  {plantillaSeleccionada ? (
+                    <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
+                      <strong>Asunto:</strong> {plantillaSeleccionada.asunto}
+                      {!correoElegido && idPlantillaSugerida && (
+                        <span className="block text-blue-500">
+                          Sugerida por los paquetes marcados. Puedes cambiarla.
+                        </span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-[11px] text-gray-400">
+                      {idPlantillaActiva === "0"
+                        ? "No se enviará ningún correo."
+                        : "Ningún paquete marcado sugiere plantilla: elige una o deja «No enviar»."}
+                    </p>
+                  )}
+                </>
+              )}
+            </section>
+          )}
 
           {resumen.length > 0 && (
             <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">

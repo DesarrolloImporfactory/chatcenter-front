@@ -21,7 +21,12 @@ export {
   LAUNCH_ID_DEFAULT,
 } from "./cartera.service";
 
-export { getCursosDisponibles, getAsesores, crearUsuarioFull } from "./usuarios.service";
+export {
+  getCursosDisponibles,
+  getAsesores,
+  crearUsuarioFull,
+  getPlantillasCorreo,
+} from "./usuarios.service";
 
 export {
   getChecklistUsuario,
