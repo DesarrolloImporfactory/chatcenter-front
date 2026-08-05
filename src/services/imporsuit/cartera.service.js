@@ -165,6 +165,9 @@ export async function agregarPago(
     imagenesUrls = [],
     numeroCuota = "",
     moneda = "USD",
+    // Fecha que consta en el comprobante bancario. El back la EXIGE cuando se
+    // adjunta uno: sin esto el pago con comprobante se rechaza siempre.
+    fechaTransaccion = "",
   },
   { signal } = {},
 ) {
@@ -179,6 +182,7 @@ export async function agregarPago(
       imagenes_urls: Array.isArray(imagenesUrls) ? imagenesUrls : [],
       numero_cuota: String(numeroCuota ?? ""),
       moneda: String(moneda ?? "USD"),
+      fecha_transaccion: fechaTransaccion || null,
     },
     { signal },
   );

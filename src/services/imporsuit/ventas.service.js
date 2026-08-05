@@ -56,6 +56,12 @@ export async function getCatalogosVenta({ signal } = {}) {
       email: String(c.email_users ?? ""),
     })),
     pasarelas: Array.isArray(data?.pasarelas) ? data.pasarelas : [],
+    // Etiquetas de ImporChat (asesor / ciclo), ya deduplicadas entre las dos
+    // configuraciones por el back.
+    etiquetas: {
+      asesores: Array.isArray(data?.etiquetas?.asesores) ? data.etiquetas.asesores : [],
+      ciclos: Array.isArray(data?.etiquetas?.ciclos) ? data.etiquetas.ciclos : [],
+    },
     closerPorDefecto: Number(data?.closer_por_defecto ?? 0),
   };
 }
@@ -91,6 +97,9 @@ export async function registrarVenta(payload, { signal } = {}) {
     rol: Number(payload.rol ?? 16),
     tipo_venta: payload.tipoVenta ?? "caliente",
     enviar_whatsapp: payload.enviarWhatsapp !== false,
+    // Por nombre: la misma etiqueta tiene otro id en cada configuración.
+    etiqueta_asesor: payload.etiquetaAsesor || "",
+    etiqueta_ciclo: payload.etiquetaCiclo || "",
   };
 
   const { data } = await imporsuitApi.post(

@@ -86,6 +86,10 @@ const INITIAL_VENTA = {
   // igual que en RegistrarPagoForm: al back solo viajan las URLs.
   imagenesUrls: [],
   enviarWhatsapp: true,
+  // Etiquetas de ImporChat. Se aplican en las dos líneas (Ventas y Soporte
+  // Importaciones), creándolas si el nombre todavía no existe.
+  etiquetaAsesor: "",
+  etiquetaCiclo: "",
 };
 
 /** Estado, catálogos y validación del bloque de venta. */
@@ -95,6 +99,7 @@ export function useVentaForm(activo) {
     productos: [],
     closers: [],
     pasarelas: [],
+    etiquetas: { asesores: [], ciclos: [] },
     closerPorDefecto: 0,
   });
   const [cargando, setCargando] = useState(false);
@@ -368,6 +373,52 @@ export function VentaFields({ form, disabled }) {
             placeholder="N° de transacción"
             disabled={disabled}
           />
+        </Field>
+      </div>
+
+      {/* Etiquetas de ImporChat. Se aplican en las DOS líneas (Ventas y
+          Soporte Importaciones): la misma etiqueta tiene un id distinto en
+          cada una, por eso viajan por nombre. `list` deja elegir una existente
+          o tipear una nueva sin salir del formulario. */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Asesor (etiqueta de ImporChat)">
+          <input
+            type="text"
+            list="cc-venta-asesores"
+            className={inputCls}
+            value={venta.etiquetaAsesor}
+            onChange={(e) => setCampo("etiquetaAsesor", e.target.value)}
+            placeholder="Ej: Adrian Imporfactory"
+            disabled={disabled}
+          />
+          <datalist id="cc-venta-asesores">
+            {(catalogos.etiquetas?.asesores ?? []).map((a) => (
+              <option key={a} value={a} />
+            ))}
+          </datalist>
+          <span className="mt-1 block text-[11px] text-gray-500">
+            Opcional. Se crea si no existe.
+          </span>
+        </Field>
+
+        <Field label="Ciclo">
+          <input
+            type="text"
+            list="cc-venta-ciclos"
+            className={inputCls}
+            value={venta.etiquetaCiclo}
+            onChange={(e) => setCampo("etiquetaCiclo", e.target.value)}
+            placeholder="Ej: IMPORT AGOSTO26"
+            disabled={disabled}
+          />
+          <datalist id="cc-venta-ciclos">
+            {(catalogos.etiquetas?.ciclos ?? []).map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+          <span className="mt-1 block text-[11px] text-gray-500">
+            Opcional. Se crea si no existe.
+          </span>
         </Field>
       </div>
 

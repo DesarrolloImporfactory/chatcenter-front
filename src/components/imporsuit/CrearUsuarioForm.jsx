@@ -184,6 +184,8 @@ export function CrearUsuarioForm({
       imagenesUrls: ventaForm.venta.imagenesUrls,
       rol: form.rol ? Number(form.rol) : 16,
       enviarWhatsapp: ventaForm.venta.enviarWhatsapp,
+      etiquetaAsesor: ventaForm.venta.etiquetaAsesor,
+      etiquetaCiclo: ventaForm.venta.etiquetaCiclo,
     });
 
     const d = res?.data ?? {};

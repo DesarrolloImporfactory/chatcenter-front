@@ -24,6 +24,10 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
     moneda: "USD",
     referencia: "",
     numeroCuota: "",
+    // Fecha que consta en el comprobante. Arranca igual que la del pago
+    // porque suele coincidir; el agente la corrige si el depósito es de otro
+    // día. El back la exige cuando hay comprobante adjunto.
+    fechaTransaccion: todayIso(),
   });
   const [imagenesUrls, setImagenesUrls] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +45,8 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
     if (monto > pendiente)
       return toast.error(`No puede superar ${MONEY.format(pendiente)}`);
     if (!form.fechaPago) return toast.error("Selecciona la fecha");
+    if (imagenesUrls.length > 0 && !form.fechaTransaccion)
+      return toast.error("Indica la fecha de la transacción del comprobante");
 
     if (imagenesUrls.length === 0) {
       const c = await Swal.fire({
@@ -65,6 +71,7 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
         imagenesUrls,
         numeroCuota: form.numeroCuota,
         moneda: form.moneda,
+        fechaTransaccion: form.fechaTransaccion,
       });
       toast.success("Pago registrado");
       onSaved?.(resultado);
@@ -99,6 +106,21 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
               <input type="date" className={inputCls} value={form.fechaPago} onChange={set("fechaPago")} disabled={submitting} />
             </Field>
           </div>
+
+          {/* Solo con comprobante: es el dato con el que se concilia contra el
+              banco, y el back lo exige en ese caso. Sin adjunto sería ruido. */}
+          {imagenesUrls.length > 0 && (
+            <Field label="Fecha de la transacción (del comprobante)">
+              <input
+                type="date"
+                className={inputCls}
+                value={form.fechaTransaccion}
+                max={todayIso()}
+                onChange={set("fechaTransaccion")}
+                disabled={submitting}
+              />
+            </Field>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Medio de pago">
