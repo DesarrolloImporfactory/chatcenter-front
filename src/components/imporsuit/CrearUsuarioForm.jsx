@@ -515,9 +515,8 @@ export function CrearUsuarioForm({
             )}
           </section>
 
-          {/* Bienvenida: WhatsApp automático + correo elegible.
-              Solo al CREAR: a un usuario existente no se le manda el correo
-              porque las plantillas incluyen credenciales y su clave no cambió. */}
+          {/* Bienvenida: el correo automático solo se sugiere para altas nuevas,
+              pero el asesor puede elegir y reenviar una plantilla manualmente. */}
           {plantillas.length > 0 && (
             <section className="rounded-xl border border-gray-200 p-3">
               <p className="mb-2 text-sm font-semibold text-gray-700">
@@ -533,14 +532,13 @@ export function CrearUsuarioForm({
                 </span>
               </p>
 
-              {yaExiste ? (
-                <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-                  El usuario ya existe: <strong>no se envía correo</strong> de
-                  bienvenida, porque incluye las credenciales de acceso y su
-                  contraseña no cambia.
-                </p>
-              ) : (
-                <>
+              <>
+                {yaExiste && (
+                  <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                    El usuario ya existe. Elige una plantilla solo si deseas
+                    reenviar el correo de bienvenida de forma manual.
+                  </p>
+                )}
                   <Field label="Correo de bienvenida">
                     <select
                       className={inputCls}
@@ -576,8 +574,7 @@ export function CrearUsuarioForm({
                         : "Ningún paquete marcado sugiere plantilla: elige una o deja «No enviar»."}
                     </p>
                   )}
-                </>
-              )}
+              </>
             </section>
           )}
 
