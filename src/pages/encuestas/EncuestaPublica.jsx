@@ -40,11 +40,46 @@ const EMOJIS = [
   },
 ];
 
+/**
+ * Los textos cambian según el tipo de encuesta.
+ *
+ * `satisfaccion` se responde DESPUÉS de una conversación, así que habla en
+ * pasado ("fuiste atendido", "tu calificación"). `webhook_lead` se responde
+ * ANTES del primer contacto — el cliente acaba de comprar y todavía no lo
+ * atiende nadie, así que esos textos no aplican y sonaban absurdos.
+ */
+const COPY = {
+  satisfaccion: {
+    submit: "Enviar mi respuesta",
+    graciasTitulo: "¡Gracias por tu calificación!",
+    graciasTexto:
+      "Tu opinión nos ayuda a mejorar cada día. Agradecemos mucho tu tiempo.",
+    yaTitulo: "¡Gracias",
+    yaTexto:
+      "Ya registramos tu calificación. Agradecemos mucho tu tiempo y tu opinión.",
+  },
+  lead: {
+    submit: "Enviar mis respuestas",
+    graciasTitulo: "¡Listo! Ya te tenemos registrado",
+    graciasTexto:
+      "Recibimos tus respuestas. Tu asesor las va a revisar y se pondrá en contacto contigo por WhatsApp muy pronto.",
+    yaTitulo: "¡Todo listo",
+    yaTexto:
+      "Ya recibimos tus respuestas. Tu asesor se pondrá en contacto contigo por WhatsApp muy pronto.",
+  },
+};
+
+/**
+ * Se muestra sobre el fondo oscuro, FUERA de la tarjeta: el ancho de la
+ * tarjeta depende del tipo de encuesta, que no se conoce hasta que responde
+ * el servidor. Si se renderizara antes, la tarjeta aparecería con un ancho y
+ * se reajustaría al llegar el dato — se veía como un bug.
+ */
 function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center py-20">
-      <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-4" />
-      <p className="text-gray-400 text-sm">Cargando encuesta...</p>
+      <div className="w-8 h-8 border-2 border-white/10 border-t-blue-400 rounded-full animate-spin mb-4" />
+      <p className="text-white/40 text-sm">Cargando encuesta...</p>
     </div>
   );
 }
@@ -61,33 +96,33 @@ function ErrorState({ message }) {
   );
 }
 
-function AlreadyAnswered({ cliente }) {
+function AlreadyAnswered({ cliente, copy }) {
   return (
     <div className="text-center py-16">
       <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-emerald-50 mb-5">
         <i className="bx bx-check-circle text-4xl text-emerald-500" />
       </div>
       <h2 className="text-xl font-bold text-gray-800 mb-2">
-        ¡Gracias{cliente?.nombre ? `, ${cliente.nombre.split(" ")[0]}` : ""}!
+        {copy.yaTitulo}
+        {cliente?.nombre ? `, ${cliente.nombre.split(" ")[0]}` : ""}!
       </h2>
-      <p className="text-sm text-gray-400 max-w-xs mx-auto leading-relaxed">
-        Ya registramos tu calificación. Agradecemos mucho tu tiempo y tu
-        opinión.
+      <p className="text-sm text-gray-400 max-w-sm mx-auto leading-relaxed">
+        {copy.yaTexto}
       </p>
     </div>
   );
 }
 
-function ThankYouState({ score }) {
+function ThankYouState({ score, copy }) {
   const emoji = EMOJIS.find((e) => e.score === score);
   return (
     <div className="text-center py-16">
-      <div className="text-6xl mb-5">{emoji?.emoji || "🙏"}</div>
+      <div className="text-6xl mb-5">{emoji?.emoji || "🎉"}</div>
       <h2 className="text-xl font-bold text-gray-800 mb-2">
-        ¡Gracias por tu calificación!
+        {copy.graciasTitulo}
       </h2>
-      <p className="text-sm text-gray-400 max-w-xs mx-auto leading-relaxed">
-        Tu opinión nos ayuda a mejorar cada día. Agradecemos mucho tu tiempo.
+      <p className="text-sm text-gray-400 max-w-sm mx-auto leading-relaxed">
+        {copy.graciasTexto}
       </p>
       <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-200">
         <i className="bx bx-check text-emerald-500" />
@@ -122,8 +157,33 @@ export default function EncuestaPublica() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedScore, setSelectedScore] = useState(null);
   const [respuestas, setRespuestas] = useState({});
+  const [errores, setErrores] = useState({});
 
   const isPreview = cid === "preview";
+
+  const esSatisfaccion = data?.encuesta?.tipo === "satisfaccion";
+  const copy = esSatisfaccion ? COPY.satisfaccion : COPY.lead;
+
+  // En satisfacción el score global ya cubre la escala 1-5, así que una
+  // pregunta rating_1_5 propia sería redundante y se omite.
+  const preguntas = (data?.encuesta?.preguntas || []).filter(
+    (p) => !(esSatisfaccion && p.type === "rating_1_5"),
+  );
+
+  const estaVacia = (valor) =>
+    valor === undefined ||
+    valor === null ||
+    (typeof valor === "string" && !valor.trim()) ||
+    (Array.isArray(valor) && valor.length === 0);
+
+  // Progreso sobre las obligatorias: es lo que realmente bloquea el envío.
+  const requeridas = preguntas.filter((p) => p.required);
+  const respondidas = requeridas.filter(
+    (p) => !estaVacia(respuestas[p.key]),
+  ).length;
+  const progreso = requeridas.length
+    ? Math.round((respondidas / requeridas.length) * 100)
+    : 0;
 
   const fetchEncuesta = useCallback(async () => {
     try {
@@ -150,7 +210,24 @@ export default function EncuestaPublica() {
 
   const handleSubmit = async () => {
     if (submitting) return;
-    if (data?.encuesta?.tipo === "satisfaccion" && !selectedScore) return;
+    if (esSatisfaccion && !selectedScore) return;
+
+    // Validar las obligatorias antes de enviar
+    const faltantes = {};
+    preguntas.forEach((p) => {
+      if (p.required && estaVacia(respuestas[p.key])) faltantes[p.key] = true;
+    });
+
+    if (Object.keys(faltantes).length > 0) {
+      setErrores(faltantes);
+      const primera = preguntas.find((p) => faltantes[p.key]);
+      document
+        .getElementById(`pregunta-${primera.key}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setErrores({});
+
     if (isPreview) {
       setSubmitted(true);
       return;
@@ -176,6 +253,24 @@ export default function EncuestaPublica() {
 
   const updateRespuesta = (key, value) => {
     setRespuestas((prev) => ({ ...prev, [key]: value }));
+    // Limpiar el error en cuanto empieza a responder
+    setErrores((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  /** Marca/desmarca una opción en preguntas de opción múltiple. */
+  const toggleOpcion = (key, opcion) => {
+    const actual = Array.isArray(respuestas[key]) ? respuestas[key] : [];
+    updateRespuesta(
+      key,
+      actual.includes(opcion)
+        ? actual.filter((o) => o !== opcion)
+        : [...actual, opcion],
+    );
   };
 
   const inputCls =
@@ -186,21 +281,38 @@ export default function EncuestaPublica() {
       {/* Background glows */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-blue-600/[0.07] blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-indigo-600/[0.05] blur-[100px] pointer-events-none" />
-      <div className="w-full max-w-md">
+      {/* Hasta que no llega `data` no se sabe el tipo, y el tipo decide el
+          ancho. Se muestra solo el spinner: así la tarjeta nace ya con su
+          ancho definitivo y nunca se reajusta a la vista. */}
+      {loading && <LoadingState />}
+
+      {/* Satisfacción es una sola pregunta con emojis y se ve mejor angosta.
+          Las de tipo lead traen varias preguntas: necesitan respirar. */}
+      <div
+        className={`w-full ${loading ? "hidden" : ""} ${
+          esSatisfaccion || !data ? "max-w-md" : "max-w-2xl"
+        }`}
+      >
         <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl shadow-black/40 border border-white/10 overflow-hidden ring-1 ring-white/5">
           {/* Header */}
           <div className="relative px-4 sm:px-6 pt-5 sm:pt-7 pb-4 sm:pb-5 bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900">
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE4YzAtOS45NC04LjA2LTE4LTE4LTE4IDAgOS45NCA4LjA2IDE4IDE4IDE4em0wIDBjOS45NCAwIDE4IDguMDYgMTggMTgtOS45NCAwLTE4LTguMDYtMTgtMTh6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-50" />
             <div className="relative flex items-center gap-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center shrink-0">
-                <i className="bx bx-message-rounded-dots text-white text-xl sm:text-2xl" />
+                <i
+                  className={`text-white text-xl sm:text-2xl ${
+                    esSatisfaccion
+                      ? "bx bx-message-rounded-dots"
+                      : "bx bx-clipboard"
+                  }`}
+                />
               </div>
               <div className="min-w-0">
                 <h1 className="text-white font-bold text-base sm:text-lg truncate">
                   {data?.encuesta?.nombre || "Encuesta"}
                 </h1>
                 {data?.encuesta?.descripcion && (
-                  <p className="text-white/50 text-[11px] sm:text-xs mt-0.5 truncate">
+                  <p className="text-white/50 text-[11px] sm:text-xs mt-0.5 leading-snug">
                     {data.encuesta.descripcion}
                   </p>
                 )}
@@ -208,13 +320,39 @@ export default function EncuestaPublica() {
             </div>
           </div>
 
+          {/* Progreso: solo donde hay varias preguntas obligatorias */}
+          {!esSatisfaccion &&
+            !loading &&
+            !error &&
+            !submitted &&
+            !data?.ya_respondida &&
+            requeridas.length > 1 && (
+              <div className="px-4 sm:px-6 pt-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                    {respondidas} de {requeridas.length} respondidas
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500">
+                    {progreso}%
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300"
+                    style={{ width: `${progreso}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
           {isPreview && !submitted && <PreviewBanner />}
 
           {/* Content */}
           <div className="px-4 sm:px-6 pb-5 sm:pb-7 pt-4 sm:pt-5">
-            {loading && <LoadingState />}
             {error && <ErrorState message={error} />}
-            {data?.ya_respondida && <AlreadyAnswered cliente={data.cliente} />}
+            {data?.ya_respondida && (
+              <AlreadyAnswered cliente={data.cliente} copy={copy} />
+            )}
 
             {!loading &&
               !error &&
@@ -229,19 +367,53 @@ export default function EncuestaPublica() {
                         <span className="font-bold text-gray-800">
                           {data.cliente.nombre?.split(" ")[0] || ""}
                         </span>
-                        {data.encargado?.nombre && (
+                        {esSatisfaccion ? (
+                          data.encargado?.nombre && (
+                            <>
+                              , fuiste atendido por{" "}
+                              <span className="font-bold text-blue-600">
+                                {data.encargado.nombre}
+                              </span>
+                            </>
+                          )
+                        ) : (
                           <>
-                            , fuiste atendido por{" "}
-                            <span className="font-bold text-blue-600">
-                              {data.encargado.nombre}
-                            </span>
+                            , cuéntanos un poco de ti para poder acompañarte
+                            mejor. Te toma menos de un minuto.
                           </>
                         )}
                       </p>
+
+                      {/* El asesor de un lead todavía no lo atendió: se anuncia
+                          como asignación futura, no como algo ya ocurrido.
+                          Puede no haber ninguno: con el round robin apagado,
+                          un comprador nuevo entra sin encargado y solo lo
+                          hereda si ya existía en la base. En ese caso se
+                          promete el contacto sin nombrar a nadie. */}
+                      {!esSatisfaccion &&
+                        (data.encargado?.nombre ? (
+                          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100">
+                            <i className="bx bx-user-check text-blue-500 text-sm" />
+                            <span className="text-[11px] text-blue-700">
+                              Tu asesor asignado es{" "}
+                              <span className="font-bold">
+                                {data.encargado.nombre}
+                              </span>
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200">
+                            <i className="bx bx-time-five text-gray-400 text-sm" />
+                            <span className="text-[11px] text-gray-600">
+                              Al terminar, un asesor se pondrá en contacto
+                              contigo por WhatsApp
+                            </span>
+                          </div>
+                        ))}
                     </div>
                   )}
 
-                  {data.encuesta?.tipo === "satisfaccion" && (
+                  {esSatisfaccion && (
                     <div className="mb-6 sm:mb-7">
                       <p className="text-sm font-semibold text-gray-700 mb-3 sm:mb-4 text-center">
                         ¿Cómo calificarías tu experiencia?
@@ -278,53 +450,117 @@ export default function EncuestaPublica() {
                     </div>
                   )}
 
-                  {data.encuesta?.preguntas?.length > 0 && (
-                    <div className="space-y-4 mb-5">
-                      {data.encuesta.preguntas
-                        .filter((p) => p.type !== "rating_1_5")
-                        .map((pregunta, idx) => (
-                          <div key={pregunta.key || idx}>
-                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                              {pregunta.label}
+                  {preguntas.length > 0 && (
+                    <div
+                      className={
+                        esSatisfaccion ? "space-y-5 mb-5" : "space-y-3 mb-5"
+                      }
+                    >
+                      {preguntas.map((pregunta, idx) => {
+                        const valor = respuestas[pregunta.key];
+                        const conError = !!errores[pregunta.key];
+                        const errCls = conError
+                          ? "border-red-300 bg-red-50/40 focus:border-red-400 focus:ring-red-100"
+                          : "";
+
+                        // Con el contenedor ancho, las listas largas se leen
+                        // mejor en dos columnas que en una tira vertical.
+                        const opcionesCls =
+                          !esSatisfaccion && pregunta.options?.length >= 4
+                            ? "grid sm:grid-cols-2 gap-1.5"
+                            : "space-y-1.5";
+
+                        return (
+                          <div
+                            key={pregunta.key || idx}
+                            id={`pregunta-${pregunta.key}`}
+                            className={
+                              esSatisfaccion
+                                ? ""
+                                : `rounded-2xl border p-4 transition-colors ${
+                                    conError
+                                      ? "border-red-200 bg-red-50/30"
+                                      : "border-gray-100 bg-gray-50/40"
+                                  }`
+                            }
+                          >
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                              {!esSatisfaccion && (
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-900 text-white text-[10px] font-bold mr-2 align-middle">
+                                  {idx + 1}
+                                </span>
+                              )}
+                              <span className="align-middle text-[13px]">
+                                {pregunta.label}
+                              </span>
+                              {pregunta.required && (
+                                <span className="text-red-400 ml-0.5">*</span>
+                              )}
                             </label>
+
+                            {pregunta.hint && (
+                              <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
+                                {pregunta.hint}
+                              </p>
+                            )}
+
+                            {/* Texto largo */}
                             {(pregunta.type === "textarea" ||
                               !pregunta.type) && (
                               <textarea
-                                value={respuestas[pregunta.key] || ""}
+                                value={valor || ""}
                                 onChange={(e) =>
                                   updateRespuesta(pregunta.key, e.target.value)
                                 }
                                 rows={3}
-                                className={inputCls}
+                                className={`${inputCls} ${errCls}`}
                                 placeholder={
                                   pregunta.placeholder || "Tu respuesta..."
                                 }
                               />
                             )}
+
+                            {/* Texto corto */}
                             {pregunta.type === "text" && (
                               <input
                                 type="text"
-                                value={respuestas[pregunta.key] || ""}
+                                value={valor || ""}
                                 onChange={(e) =>
                                   updateRespuesta(pregunta.key, e.target.value)
                                 }
-                                className={inputCls}
+                                className={`${inputCls} ${errCls}`}
                                 placeholder={
                                   pregunta.placeholder || "Tu respuesta..."
                                 }
                               />
                             )}
+
+                            {/* Numérico */}
+                            {pregunta.type === "number" && (
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                value={valor ?? ""}
+                                onChange={(e) =>
+                                  updateRespuesta(pregunta.key, e.target.value)
+                                }
+                                className={`${inputCls} ${errCls}`}
+                                placeholder={pregunta.placeholder || "0"}
+                              />
+                            )}
+
+                            {/* Lista desplegable */}
                             {pregunta.type === "select" &&
                               pregunta.options?.length > 0 && (
                                 <select
-                                  value={respuestas[pregunta.key] || ""}
+                                  value={valor || ""}
                                   onChange={(e) =>
                                     updateRespuesta(
                                       pregunta.key,
                                       e.target.value,
                                     )
                                   }
-                                  className={inputCls}
+                                  className={`${inputCls} ${errCls}`}
                                 >
                                   <option value="">Selecciona...</option>
                                   {pregunta.options.map((opt, i) => (
@@ -334,13 +570,162 @@ export default function EncuestaPublica() {
                                   ))}
                                 </select>
                               )}
+
+                            {/* Opción única */}
+                            {pregunta.type === "radio" &&
+                              pregunta.options?.length > 0 && (
+                                <div
+                                  className={`${opcionesCls} ${
+                                    conError && esSatisfaccion
+                                      ? "rounded-xl ring-2 ring-red-100 p-1"
+                                      : ""
+                                  }`}
+                                >
+                                  {pregunta.options.map((opt, i) => {
+                                    const activa = valor === opt;
+                                    return (
+                                      <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() =>
+                                          updateRespuesta(pregunta.key, opt)
+                                        }
+                                        className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border-2 text-left transition-all ${
+                                          activa
+                                            ? "border-blue-400 bg-blue-50/70 shadow-sm"
+                                            : "border-gray-100 bg-gray-50/60 hover:border-gray-200 hover:bg-gray-50"
+                                        }`}
+                                      >
+                                        <span
+                                          className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                                            activa
+                                              ? "border-blue-500"
+                                              : "border-gray-300"
+                                          }`}
+                                        >
+                                          {activa && (
+                                            <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                          )}
+                                        </span>
+                                        <span
+                                          className={`text-sm ${
+                                            activa
+                                              ? "text-gray-900 font-semibold"
+                                              : "text-gray-600"
+                                          }`}
+                                        >
+                                          {opt}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                            {/* Opción múltiple */}
+                            {pregunta.type === "checkbox" &&
+                              pregunta.options?.length > 0 && (
+                                <div
+                                  className={`${opcionesCls} ${
+                                    conError && esSatisfaccion
+                                      ? "rounded-xl ring-2 ring-red-100 p-1"
+                                      : ""
+                                  }`}
+                                >
+                                  {pregunta.options.map((opt, i) => {
+                                    const marcada =
+                                      Array.isArray(valor) &&
+                                      valor.includes(opt);
+                                    return (
+                                      <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() =>
+                                          toggleOpcion(pregunta.key, opt)
+                                        }
+                                        className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border-2 text-left transition-all ${
+                                          marcada
+                                            ? "border-blue-400 bg-blue-50/70 shadow-sm"
+                                            : "border-gray-100 bg-gray-50/60 hover:border-gray-200 hover:bg-gray-50"
+                                        }`}
+                                      >
+                                        <span
+                                          className={`w-4 h-4 rounded-md border-2 shrink-0 flex items-center justify-center transition-all ${
+                                            marcada
+                                              ? "border-blue-500 bg-blue-500"
+                                              : "border-gray-300"
+                                          }`}
+                                        >
+                                          {marcada && (
+                                            <i className="bx bx-check text-white text-xs" />
+                                          )}
+                                        </span>
+                                        <span
+                                          className={`text-sm ${
+                                            marcada
+                                              ? "text-gray-900 font-semibold"
+                                              : "text-gray-600"
+                                          }`}
+                                        >
+                                          {opt}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                            {/* Escala 1-5 propia */}
+                            {pregunta.type === "rating_1_5" && (
+                              <div className="flex justify-center gap-1.5 sm:gap-2.5">
+                                {EMOJIS.map((item) => {
+                                  const activa = valor === item.score;
+                                  return (
+                                    <button
+                                      key={item.score}
+                                      type="button"
+                                      onClick={() =>
+                                        updateRespuesta(
+                                          pregunta.key,
+                                          item.score,
+                                        )
+                                      }
+                                      className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all flex-1 max-w-[68px] ${
+                                        activa
+                                          ? `${item.active} ring-2 scale-105 shadow-lg`
+                                          : "border-gray-100 hover:border-gray-200 hover:bg-gray-50/50"
+                                      }`}
+                                    >
+                                      <span className="text-xl">
+                                        {item.emoji}
+                                      </span>
+                                      <span
+                                        className={`text-[8px] font-bold leading-tight text-center ${
+                                          activa ? item.text : "text-gray-300"
+                                        }`}
+                                      >
+                                        {item.label}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {conError && (
+                              <p className="text-[10px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                                <i className="bx bx-error-circle" />
+                                Esta pregunta es obligatoria
+                              </p>
+                            )}
                           </div>
-                        ))}
+                        );
+                      })}
                     </div>
                   )}
 
-                  {data.encuesta?.tipo === "satisfaccion" &&
-                    !data.encuesta.preguntas?.some(
+                  {esSatisfaccion &&
+                    !preguntas.some(
                       (p) => p.type === "textarea" && p.key === "comentario",
                     ) && (
                       <div className="mb-5 sm:mb-6">
@@ -366,12 +751,10 @@ export default function EncuestaPublica() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={
-                      submitting ||
-                      (data.encuesta?.tipo === "satisfaccion" && !selectedScore)
+                      submitting || (esSatisfaccion && !selectedScore)
                     }
                     className={`w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-sm font-bold transition-all duration-200 ${
-                      submitting ||
-                      (data.encuesta?.tipo === "satisfaccion" && !selectedScore)
+                      submitting || (esSatisfaccion && !selectedScore)
                         ? "bg-gray-100 text-gray-300 cursor-not-allowed"
                         : "bg-slate-900 text-white shadow-lg shadow-slate-300/30 hover:shadow-xl hover:shadow-slate-400/30 hover:bg-slate-800 active:scale-[0.98]"
                     }`}
@@ -381,11 +764,11 @@ export default function EncuestaPublica() {
                         <i className="bx bx-loader-alt bx-spin" /> Enviando...
                       </span>
                     ) : (
-                      "Enviar mi respuesta"
+                      copy.submit
                     )}
                   </button>
 
-                  {data.encuesta?.tipo === "satisfaccion" && !selectedScore && (
+                  {esSatisfaccion && !selectedScore && (
                     <p className="text-center text-[10px] text-gray-300 mt-2">
                       Selecciona una calificación para continuar
                     </p>
@@ -393,7 +776,9 @@ export default function EncuestaPublica() {
                 </>
               )}
 
-            {submitted && <ThankYouState score={selectedScore} />}
+            {submitted && (
+              <ThankYouState score={selectedScore} copy={copy} />
+            )}
           </div>
         </div>
 

@@ -3,11 +3,17 @@ import chatApi from "../../../api/chatcenter";
 import Swal from "sweetalert2";
 import { TIPO_CONFIG } from "../utils/encuestasConstants";
 import ConfigMensajeEnvio from "../components/ConfigMensajeEnvio";
+import EditorPreguntas from "../components/EditorPreguntas";
+import {
+  serializarPreguntas,
+  validarPreguntas,
+} from "../utils/preguntasConstants";
 
 export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
   const [tipo, setTipo] = useState("webhook_lead");
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [preguntas, setPreguntas] = useState([]);
   const [saving, setSaving] = useState(false);
 
   // Config de auto-respuesta (solo para webhook_lead)
@@ -24,6 +30,16 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
   const handleCreate = async () => {
     if (!nombre.trim())
       return Swal.fire({ icon: "warning", title: "Ingresa un nombre" });
+
+    const erroresPreguntas = validarPreguntas(preguntas);
+    if (erroresPreguntas.length > 0) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Revisa las preguntas",
+        html: erroresPreguntas.map((e) => `<p>${e}</p>`).join(""),
+      });
+    }
+
     setSaving(true);
     try {
       const payloadCrear = {
@@ -31,7 +47,7 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
         tipo,
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || null,
-        preguntas: [],
+        preguntas: serializarPreguntas(preguntas),
         auto_enviar_al_cerrar: tipo === "satisfaccion",
       };
 
@@ -121,7 +137,7 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ═══ Vista post-creación: mostrar datos de conexión ═══ */}
@@ -203,6 +219,46 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
                     respuestas.
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* 🆕 Link de la encuesta (cualquier tipo con preguntas) */}
+            {created.id_encuesta && preguntas.length > 0 && (
+              <div className="mb-5 rounded-xl border border-violet-200 bg-violet-50/50 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <i className="bx bx-link text-violet-600" />
+                  <h4 className="text-xs font-bold text-violet-800">
+                    Link de la encuesta
+                  </h4>
+                </div>
+                <p className="text-[10px] text-violet-700/90 leading-relaxed mb-2">
+                  Cada cliente recibe su propio link. Para enviarlo dentro de
+                  una plantilla de WhatsApp, mapea la variable{" "}
+                  <code className="bg-white px-1 py-0.5 rounded font-bold">
+                    {"{{N}}"}
+                  </code>{" "}
+                  al placeholder{" "}
+                  <code className="bg-white px-1 py-0.5 rounded font-bold">
+                    {"{link_encuesta}"}
+                  </code>{" "}
+                  en la configuración de auto-respuesta.
+                </p>
+                <code className="block bg-white border border-violet-200 rounded-lg px-3 py-2 text-[10px] text-gray-600 font-mono break-all select-all">
+                  {`${window.location.origin}/encuesta-publica/${created.id_encuesta}?cid={id_cliente}`}
+                </code>
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      `${window.location.origin}/encuesta-publica/${created.id_encuesta}?cid=preview`,
+                      "_blank",
+                    )
+                  }
+                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold transition-colors"
+                >
+                  <i className="bx bx-show text-xs" />
+                  Ver cómo queda
+                </button>
               </div>
             )}
 
@@ -335,6 +391,19 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
                   rows={2}
                   placeholder="Descripción breve de para qué sirve esta encuesta..."
                 />
+              </div>
+
+              {/* 🆕 Preguntas de la encuesta */}
+              <div className="pt-4 border-t border-gray-100">
+                <EditorPreguntas value={preguntas} onChange={setPreguntas} />
+                {preguntas.length === 0 && (
+                  <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                    <i className="bx bx-info-circle mr-1" />
+                    {tipo === "satisfaccion"
+                      ? "Sin preguntas propias, el cliente solo verá la calificación del 1 al 5 y un comentario libre."
+                      : "Sin preguntas propias, la encuesta solo guardará lo que llegue por el webhook."}
+                  </p>
+                )}
               </div>
 
               {/* 🆕 Auto-respuesta (solo webhook_lead) */}

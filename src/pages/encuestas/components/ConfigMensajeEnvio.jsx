@@ -6,6 +6,7 @@ const PLACEHOLDERS = [
   { key: "{apellido}", label: "Apellido", icon: "bx-user" },
   { key: "{email}", label: "Email", icon: "bx-envelope" },
   { key: "{telefono}", label: "Teléfono", icon: "bx-phone" },
+  { key: "{link_encuesta}", label: "Link de la encuesta", icon: "bx-link" },
 ];
 
 const PLACEHOLDER_KEYS = PLACEHOLDERS.map((p) => p.key);
@@ -17,9 +18,23 @@ const DATOS_PREVIEW = {
   telefono: "593999888777",
 };
 
-function resolverPreview(str) {
+/**
+ * Preview del link real: el backend genera
+ * {FRONTEND_URL}/encuesta-publica/{id_encuesta}?cid={id_cliente}
+ * (ver resolverPlaceholders en webhoook_contactos.controller.js).
+ */
+function linkPreview(idEncuesta) {
+  const base = window.location.origin;
+  return idEncuesta
+    ? `${base}/encuesta-publica/${idEncuesta}?cid=188243`
+    : `${base}/encuesta-publica/…?cid=…`;
+}
+
+function resolverPreview(str, idEncuesta) {
   if (!str) return "";
   return String(str)
+    .replace(/\{link_encuesta\}/gi, linkPreview(idEncuesta))
+    .replace(/\{link\}/gi, linkPreview(idEncuesta))
     .replace(/\{nombre\}/gi, DATOS_PREVIEW.nombre)
     .replace(/\{apellido\}/gi, DATOS_PREVIEW.apellido)
     .replace(/\{email\}/gi, DATOS_PREVIEW.email)
@@ -36,6 +51,14 @@ function contarVariables(text) {
   const numeros = matches.map((m) => parseInt(m.replace(/\D/g, ""), 10));
   return Math.max(...numeros);
 }
+
+/**
+ * Estados de Meta que se pueden elegir en el selector.
+ * APPROVED envía; PENDING se puede dejar preconfigurada y empieza a enviar
+ * sola en cuanto Meta la apruebe (el backend resuelve la plantilla por nombre
+ * en cada envío, no guarda una copia).
+ */
+const SELECCIONABLES = ["APPROVED", "PENDING"];
 
 function parseTemplate(tpl) {
   const body = tpl.components?.find((c) => c.type === "BODY");
@@ -72,10 +95,16 @@ function detectarTipo(valor) {
  *
  * Props:
  *   idConfig    — id_configuracion (requerido)
+ *   idEncuesta  — id de la encuesta, para construir el preview del link
  *   value       — { mensaje_dentro_24h, template_fuera_24h, template_parameters }
  *   onChange    — (next) => void
  */
-export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
+export default function ConfigMensajeEnvio({
+  idConfig,
+  idEncuesta,
+  value,
+  onChange,
+}) {
   const [templates, setTemplates] = useState([]);
   const [loadingTpl, setLoadingTpl] = useState(false);
   const [errorTpl, setErrorTpl] = useState(null);
@@ -140,12 +169,20 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
           return;
         }
 
-        const approved = allTemplates
-          .filter((t) => t.status === "APPROVED")
+        // Se listan también las PENDING: se pueden dejar preseleccionadas
+        // mientras Meta las revisa, pero NO se envían hasta que aprueben.
+        // Las aprobadas van primero.
+        const seleccionables = allTemplates
+          .filter((t) => SELECCIONABLES.includes(t.status))
           .map(parseTemplate)
-          .sort((a, b) => a.name.localeCompare(b.name));
+          .sort(
+            (a, b) =>
+              Number(b.status === "APPROVED") -
+                Number(a.status === "APPROVED") ||
+              a.name.localeCompare(b.name),
+          );
 
-        setTemplates(approved);
+        setTemplates(seleccionables);
       } catch (err) {
         if (cancelled) return;
         setErrorTpl(
@@ -261,16 +298,16 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
     }
   };
 
-  const previewMensaje = resolverPreview(mensaje);
+  const previewMensaje = resolverPreview(mensaje, idEncuesta);
   const previewTemplate = useMemo(() => {
     if (!selectedTpl) return "";
     let text = selectedTpl.body_text;
     params.forEach((p, i) => {
-      const resuelto = resolverPreview(p);
+      const resuelto = resolverPreview(p, idEncuesta);
       text = text.replace(`{{${i + 1}}}`, resuelto || `[vacío]`);
     });
     return text;
-  }, [selectedTpl, params]);
+  }, [selectedTpl, params, idEncuesta]);
 
   const inputCls =
     "w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:bg-white outline-none transition-all";
@@ -380,15 +417,28 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
               <option value="">— Ninguno —</option>
               {templates.map((t) => (
                 <option key={`${t.name}_${t.language}`} value={t.name}>
+                  {t.status !== "APPROVED" ? "⏳ " : ""}
                   {t.name} ({t.language})
                   {t.variables_count > 0 ? ` · ${t.variables_count} var` : ""}
+                  {t.status !== "APPROVED" ? " · pendiente en Meta" : ""}
                 </option>
               ))}
             </select>
             {templates.length === 0 && (
               <p className="text-[10px] text-gray-400 mt-1">
-                No hay templates aprobados en Meta para esta cuenta
+                No hay templates disponibles en Meta para esta cuenta
               </p>
+            )}
+            {selectedTpl && selectedTpl.status !== "APPROVED" && (
+              <div className="mt-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
+                <i className="bx bx-time-five mr-1" />
+                Esta plantilla está <strong>
+                  {selectedTpl.status}
+                </strong> en Meta. Puedes dejarla guardada, pero{" "}
+                <strong>los envíos fuera de 24h fallarán</strong> hasta que Meta
+                la apruebe. En cuanto la aprueben empieza a enviarse sola, sin
+                tocar nada aquí.
+              </div>
             )}
           </>
         )}
@@ -421,6 +471,16 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
               del template a un dato del lead que llega por el webhook (
               <strong>nombre</strong>, <strong>correo</strong>,{" "}
               <strong>teléfono</strong>) o usa un texto fijo.
+            </p>
+            <p className="text-[11px] text-orange-800 leading-relaxed mt-1.5 pt-1.5 border-t border-orange-200/60">
+              <i className="bx bx-link mr-1" />
+              Elige{" "}
+              <strong>
+                <code className="font-mono">Link de la encuesta</code>
+              </strong>{" "}
+              para que esa variable se reemplace por el link único de cada
+              cliente. Así el contacto abre el formulario ya identificado y sus
+              respuestas se guardan en su ficha.
             </p>
           </div>
 
@@ -469,10 +529,10 @@ export default function ConfigMensajeEnvio({ idConfig, value, onChange }) {
 
                   {/* Mini preview del valor que tomará */}
                   {tipo && tipo !== "custom" && (
-                    <div className="text-[10px] text-gray-500 ml-2">
+                    <div className="text-[10px] text-gray-500 ml-2 break-all">
                       Ejemplo:{" "}
                       <span className="font-semibold text-gray-700">
-                        {resolverPreview(tipo)}
+                        {resolverPreview(tipo, idEncuesta)}
                       </span>
                     </div>
                   )}

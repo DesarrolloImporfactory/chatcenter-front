@@ -2,6 +2,12 @@ import React, { useState, useMemo } from "react";
 import chatApi from "../../../api/chatcenter";
 import Swal from "sweetalert2";
 import ConfigMensajeEnvio from "./ConfigMensajeEnvio";
+import EditorPreguntas from "./EditorPreguntas";
+import {
+  parsePreguntas,
+  serializarPreguntas,
+  validarPreguntas,
+} from "../utils/preguntasConstants";
 
 const DEFAULT_MENSAJE =
   "¡Hola {nombre}! 🙏\n\nGracias por comunicarte con nosotros. Nos encantaría saber cómo fue tu experiencia:\n\n👉 {link}\n\n¡Solo toma 10 segundos!";
@@ -14,6 +20,12 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
   const [mensaje, setMensaje] = useState(enc.mensaje_envio || DEFAULT_MENSAJE);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(null);
+
+  // Preguntas configurables (aplican a cualquier tipo de encuesta)
+  const [preguntas, setPreguntas] = useState(() =>
+    parsePreguntas(enc.preguntas),
+  );
+  const [savingPreguntas, setSavingPreguntas] = useState(false);
 
   // Estado de auto-respuesta webhook
   const [mensajeEnvio, setMensajeEnvio] = useState(() => {
@@ -102,11 +114,47 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
     }
   };
 
+  const handleSavePreguntas = async () => {
+    const errores = validarPreguntas(preguntas);
+    if (errores.length > 0) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Revisa las preguntas",
+        html: errores.map((e) => `<p>${e}</p>`).join(""),
+      });
+    }
+
+    setSavingPreguntas(true);
+    try {
+      await chatApi.put(`encuestas/${enc.id}`, {
+        id_configuracion: idConfig,
+        preguntas: serializarPreguntas(preguntas),
+      });
+      Swal.fire({
+        icon: "success",
+        title: "Preguntas guardadas",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+      onUpdated?.();
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al guardar",
+        text: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setSavingPreguntas(false);
+    }
+  };
+
   const copyToClipboard = (text, key) => {
     navigator.clipboard?.writeText(text);
     setCopied(key);
     setTimeout(() => setCopied(null), 2000);
   };
+
+  const linkPublico = `${window.location.origin}/encuesta-publica/${enc.id}`;
 
   const webhookUrl =
     "https://chat.imporfactory.app/api/v1/webhook_contactos/inbound";
@@ -147,6 +195,77 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
 
   return (
     <div className="space-y-5">
+      {/* ═══ 🆕 Preguntas de la encuesta (todos los tipos) ═══ */}
+      <div className={`${cardCls} overflow-hidden`}>
+        <div className="px-6 pt-5 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+              <i className="bx bx-list-ul text-amber-600 text-base" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-800">
+                Preguntas de la encuesta
+              </h4>
+              <p className="text-[10px] text-gray-400">
+                Arma el formulario que verá el cliente al abrir su link
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-5">
+          <EditorPreguntas value={preguntas} onChange={setPreguntas} />
+
+          {/* Link público */}
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <label className={labelCls}>Link que recibe cada cliente</label>
+            <div className="flex gap-1.5">
+              <code className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-[11px] text-gray-600 font-mono break-all select-all">
+                {`${linkPublico}?cid={id_cliente}`}
+              </code>
+              <CopyButton
+                textToCopy={`${linkPublico}?cid=`}
+                copyKey="link_encuesta"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() =>
+                  window.open(`${linkPublico}?cid=preview`, "_blank")
+                }
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold transition-all shadow-sm"
+              >
+                <i className="bx bx-show text-xs" />
+                Ver cómo la recibe el cliente
+              </button>
+              <span className="text-[10px] text-gray-400">
+                En plantillas de WhatsApp usa{" "}
+                <code className="bg-gray-100 px-1 py-0.5 rounded font-semibold text-gray-600">
+                  {"{link_encuesta}"}
+                </code>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-end">
+          <button
+            onClick={handleSavePreguntas}
+            disabled={savingPreguntas}
+            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {savingPreguntas ? (
+              <span className="flex items-center gap-2">
+                <i className="bx bx-loader-alt bx-spin" /> Guardando...
+              </span>
+            ) : (
+              "Guardar preguntas"
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* ═══ Webhook Lead ═══ */}
       {enc.tipo === "webhook_lead" && (
         <div className={`${cardCls} p-6`}>
@@ -246,6 +365,7 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
           <div className="px-6 py-5">
             <ConfigMensajeEnvio
               idConfig={idConfig}
+              idEncuesta={enc.id}
               value={mensajeEnvio}
               onChange={setMensajeEnvio}
             />

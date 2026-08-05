@@ -223,7 +223,9 @@ export default function EncuestasCliente({ clienteId, id_configuracion }) {
                                 {pregunta}
                               </p>
                               <p className="text-[10px] text-white/85 leading-tight mt-0.5">
-                                {String(respuesta)}
+                                {Array.isArray(respuesta)
+                                  ? respuesta.join(", ")
+                                  : String(respuesta)}
                               </p>
                             </div>
                           ))}
