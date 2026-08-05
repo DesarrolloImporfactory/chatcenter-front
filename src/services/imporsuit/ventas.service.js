@@ -1,4 +1,5 @@
 import imporsuitApi from "../../api/imporsuit";
+import chatApi from "../../api/chatcenter";
 
 /**
  * Servicio de REGISTRO EN MODO VENTAS (el alumno ya pagó).
@@ -108,4 +109,19 @@ export async function registrarVenta(payload, { signal } = {}) {
     { signal },
   );
   return unwrap(data);
+}
+
+/** Asigna desde el API de ChatCenter una vez creados los chats de la venta. */
+export async function asignarEtiquetasVenta({ correo, telefono, asesor, ciclo }, { signal } = {}) {
+  const { data } = await chatApi.post(
+    "/etiquetas_custom_chat_center/asignar-contacto",
+    {
+      correo: String(correo ?? "").trim(),
+      telefono: String(telefono ?? "").trim(),
+      asesor: String(asesor ?? "").trim(),
+      ciclo: String(ciclo ?? "").trim(),
+    },
+    { signal },
+  );
+  return data;
 }

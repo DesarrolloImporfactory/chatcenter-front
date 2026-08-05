@@ -6,6 +6,7 @@ import {
   getCursosDisponibles,
   getPlantillasCorreo,
   registrarVenta,
+  asignarEtiquetasVenta,
   ROLES_ASIGNABLES,
   PAQUETES,
 } from "../../services/imporsuit";
@@ -189,6 +190,20 @@ export function CrearUsuarioForm({
     });
 
     const d = res?.data ?? {};
+    // Este API es el dueño de las filas de chat. Corre después del webhook,
+    // cuando ya existen tanto el chat creado por plantilla como el de encuesta.
+    if (ventaForm.venta.etiquetaAsesor || ventaForm.venta.etiquetaCiclo) {
+      try {
+        await asignarEtiquetasVenta({
+          correo: form.correo,
+          telefono: form.telefono,
+          asesor: ventaForm.venta.etiquetaAsesor,
+          ciclo: ventaForm.venta.etiquetaCiclo,
+        });
+      } catch (error) {
+        console.error("No se pudieron asignar las etiquetas de ImporChat:", error);
+      }
+    }
     toast.success(
       d.ya_existia ? "Venta sumada a su cartera" : "Venta registrada (clave: Import.1)",
     );
