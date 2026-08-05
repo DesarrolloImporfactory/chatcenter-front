@@ -5,9 +5,12 @@ import {
   crearUsuarioFull,
   getCursosDisponibles,
   getPlantillasCorreo,
+  registrarVenta,
   ROLES_ASIGNABLES,
   PAQUETES,
 } from "../../services/imporsuit";
+import { VentaFields, useVentaForm } from "./VentaFields";
+import { Field, Overlay, inputCls, btnPrimary, btnGhost } from "./ui";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -45,6 +48,20 @@ export function CrearUsuarioForm({
   onSaved,
 }) {
   const yaExiste = Boolean(clienteExistente?.id_users);
+
+  /**
+   * Dos modos:
+   *   · paquetes — el de siempre: asignar paquetes y cursos a mano, sin cobro.
+   *   · ventas   — el cliente YA PAGÓ: además crea cartera, deuda con sus
+   *     cuotas y el pago de la primera, y avisa al webhook de Make.
+   *
+   * En modo ventas los paquetes NO se eligen: los define el producto vendido,
+   * para no poder cobrar una cosa y entregar otra. Sirve igual para un cliente
+   * existente (recompra): la venta se suma a su cartera.
+   */
+  const [modo, setModo] = useState("paquetes");
+  const esVenta = modo === "ventas";
+  const ventaForm = useVentaForm(esVenta);
 
   const [form, setForm] = useState(() => ({
     nombre: clienteExistente?.nombre_users ?? nombreInicial ?? "",
@@ -146,6 +163,73 @@ export function CrearUsuarioForm({
     [plantillas, idPlantillaActiva],
   );
 
+  /**
+   * Alta con cobro. Una sola llamada: el back encadena
+   * usuario → cartera → deuda → pago, manda el WhatsApp y dispara el webhook.
+   */
+  const submitVenta = async () => {
+    const res = await registrarVenta({
+      nombre: form.nombre.trim(),
+      correo: form.correo.trim(),
+      telefono: form.telefono.trim(),
+      pais: ventaForm.venta.pais,
+      idProducto: ventaForm.venta.idProducto,
+      montoTotal: ventaForm.venta.montoTotal,
+      montoPagado: ventaForm.venta.montoPagado || 0,
+      cuotas: ventaForm.venta.cuotas,
+      fechaCompra: ventaForm.venta.fechaCompra,
+      idCloser: ventaForm.venta.idCloser,
+      pasarela: ventaForm.venta.pasarela,
+      referencia: ventaForm.venta.referencia,
+      imagenesUrls: ventaForm.venta.imagenesUrls,
+      rol: form.rol ? Number(form.rol) : 16,
+      enviarWhatsapp: ventaForm.venta.enviarWhatsapp,
+    });
+
+    const d = res?.data ?? {};
+    toast.success(
+      d.ya_existia ? "Venta sumada a su cartera" : "Venta registrada (clave: Import.1)",
+    );
+
+    // El pago, el WhatsApp y el webhook son best-effort en el back: la venta ya
+    // quedó guardada, así que un fallo se avisa sin alarmar de más — pero se
+    // avisa, porque el agente cree que quedó todo hecho.
+    const avisos = [];
+    if (!d.pago_registrado && Number(ventaForm.venta.montoPagado) > 0) {
+      avisos.push(`El pago NO se registró: ${d.pago_error ?? "error desconocido"}`);
+    }
+    if (res?.webhook && !res.webhook.enviado) {
+      avisos.push(`El webhook no se envió: ${res.webhook.error ?? "error desconocido"}`);
+    }
+
+    const wa = d.whatsapp;
+    if (wa?.enviado && wa?.registrado_en_chat) {
+      toast.success(`WhatsApp enviado (${wa.plantilla})`);
+    } else if (wa?.enviado) {
+      // "Meta lo aceptó" y "quedó en el hilo" fallan por separado: si el
+      // segundo falla, el agente no ve el mensaje y cree que nunca salió.
+      avisos.push(
+        `WhatsApp aceptado por Meta pero NO quedó en el hilo de ImporChat` +
+          (wa.wamid ? ` (id ${wa.wamid})` : ""),
+      );
+    } else if (ventaForm.venta.enviarWhatsapp && wa?.motivo) {
+      const esperado = /ningún paquete/i.test(wa.motivo);
+      if (esperado) toast(`Sin WhatsApp: ${wa.motivo}`, { icon: "📵", duration: 5000 });
+      else avisos.push(`WhatsApp no enviado: ${wa.motivo}`);
+    }
+
+    if (avisos.length) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Venta registrada, con avisos",
+        html: avisos.map((a) => `<small>${a}</small>`).join("<br/><br/>"),
+      });
+    }
+
+    onSaved?.(res);
+    onClose?.();
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (submitting) return;
@@ -154,10 +238,19 @@ export function CrearUsuarioForm({
     if (!EMAIL_RE.test(form.correo.trim()))
       return toast.error("Correo inválido");
     if (!form.telefono.trim()) return toast.error("Ingresa el teléfono");
-    if (!form.rol) return toast.error("Selecciona un rol");
+    if (!esVenta && !form.rol) return toast.error("Selecciona un rol");
+
+    if (esVenta) {
+      const errorVenta = ventaForm.validar();
+      if (errorVenta) return toast.error(errorVenta);
+    }
 
     setSubmitting(true);
     try {
+      if (esVenta) {
+        await submitVenta();
+        return;
+      }
       const resultado = await crearUsuarioFull({
         nombre: form.nombre.trim(),
         correo: form.correo.trim(),
@@ -242,7 +335,7 @@ export function CrearUsuarioForm({
     } catch (err) {
       Swal.fire({
         icon: "error",
-        title: "No se pudo guardar",
+        title: esVenta ? "No se pudo registrar la venta" : "No se pudo guardar",
         text: err?.message ?? "Inténtalo de nuevo.",
       });
     } finally {
@@ -255,7 +348,11 @@ export function CrearUsuarioForm({
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
         <header className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
           <h3 className="text-base font-bold text-gray-800">
-            {yaExiste ? "Asignar paquetes / cursos" : "Nuevo usuario"}
+            {esVenta
+              ? "Registrar venta"
+              : yaExiste
+                ? "Asignar paquetes / cursos"
+                : "Nuevo usuario"}
           </h3>
           <button
             onClick={onClose}
@@ -265,6 +362,37 @@ export function CrearUsuarioForm({
             ✕
           </button>
         </header>
+
+        {/* Pestañas de modo. "Venta" también sirve para un cliente existente:
+            una recompra se suma a la cartera que ya tiene. */}
+        <div className="flex gap-1 border-b border-gray-100 px-5 pt-3">
+          {[
+            {
+              key: "paquetes",
+              label: yaExiste ? "Paquetes / cursos" : "Registro normal",
+            },
+            { key: "ventas", label: "Venta (ya pagó)" },
+          ].map((t) => {
+            const active = modo === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setModo(t.key)}
+                disabled={submitting}
+                className={`-mb-px rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold transition disabled:opacity-60 ${
+                  active
+                    ? t.key === "ventas"
+                      ? "border-emerald-600 text-emerald-700"
+                      : "border-blue-600 text-blue-700"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
 
         <form onSubmit={submit} className="max-h-[80vh] space-y-4 overflow-y-auto px-5 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -283,9 +411,11 @@ export function CrearUsuarioForm({
             <Field label="Teléfono / WhatsApp">
               <input className={inputCls} value={form.telefono} onChange={set("telefono")} disabled={submitting} placeholder="+593999999999" />
             </Field>
-            <Field label="Rol">
+            <Field label={esVenta ? "Rol (por defecto Estudiantes)" : "Rol"}>
               <select className={inputCls} value={form.rol} onChange={set("rol")} disabled={submitting}>
-                <option value="">Seleccionar rol</option>
+                <option value="">
+                  {esVenta ? "Estudiantes (por defecto)" : "Seleccionar rol"}
+                </option>
                 {ROLES_ASIGNABLES.map((r) => (
                   <option key={r.id} value={r.id}>{r.label}</option>
                 ))}
@@ -293,7 +423,11 @@ export function CrearUsuarioForm({
             </Field>
           </div>
 
-          <section className="rounded-xl border border-gray-200 p-3">
+          {esVenta && <VentaFields form={ventaForm} disabled={submitting} />}
+
+          {/* Paquetes y cursos solo en el modo normal: en una venta los define
+              el producto vendido. */}
+          <section className={`rounded-xl border border-gray-200 p-3 ${esVenta ? "hidden" : ""}`}>
             <p className="mb-2 text-sm font-semibold text-gray-700">Paquetes / membresías</p>
             {yaExiste && (
               <p className="mb-2 text-[11px] text-amber-600">
@@ -311,7 +445,7 @@ export function CrearUsuarioForm({
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-200 p-3">
+          <section className={`rounded-xl border border-gray-200 p-3 ${esVenta ? "hidden" : ""}`}>
             <p className="mb-2 text-sm font-semibold text-gray-700">Cursos opcionales</p>
             {yaExiste && (
               <p className="mb-2 text-[11px] text-amber-600">
@@ -414,7 +548,7 @@ export function CrearUsuarioForm({
             </section>
           )}
 
-          {resumen.length > 0 && (
+          {!esVenta && resumen.length > 0 && (
             <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
               <strong>Paquetes:</strong> {resumen.join(" · ")}
             </p>
@@ -422,8 +556,24 @@ export function CrearUsuarioForm({
 
           <footer className="flex justify-end gap-2 border-t border-gray-100 pt-3">
             <button type="button" onClick={onClose} disabled={submitting} className={btnGhost}>Cancelar</button>
-            <button type="submit" disabled={submitting} className={btnPrimary}>
-              {submitting ? "Guardando…" : yaExiste ? "Guardar cambios" : "Crear usuario"}
+            <button
+              type="submit"
+              disabled={submitting}
+              className={
+                esVenta
+                  ? "rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  : btnPrimary
+              }
+            >
+              {submitting
+                ? esVenta
+                  ? "Registrando venta…"
+                  : "Guardando…"
+                : esVenta
+                  ? "Registrar venta"
+                  : yaExiste
+                    ? "Guardar cambios"
+                    : "Crear usuario"}
             </button>
           </footer>
         </form>
@@ -432,32 +582,8 @@ export function CrearUsuarioForm({
   );
 }
 
-/* ── helpers de UI compartidos ─────────────────────────────────────── */
-const inputCls =
-  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500";
-const btnPrimary =
-  "rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60";
-const btnGhost =
-  "rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-60";
-
-export function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-semibold text-gray-600">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-export function Overlay({ children, onClose }) {
-  return (
-    <>
-      <div className="fixed inset-0 z-[90] bg-black/40" onClick={onClose} role="presentation" />
-      <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center">
-        {children}
-      </div>
-    </>
-  );
-}
-
-export { inputCls, btnPrimary, btnGhost };
+/* Helpers de UI: viven en `ui.jsx` desde que `VentaFields` los necesita
+   (importarlos de acá creaba un ciclo). Se re-exportan para no tocar a
+   `AgregarDeudaForm` ni a `RegistrarPagoForm`, que ya los traen de este
+   archivo. */
+export { Field, Overlay, inputCls, btnPrimary, btnGhost } from "./ui";

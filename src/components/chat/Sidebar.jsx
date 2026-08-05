@@ -7,6 +7,7 @@ import ImageWithModal from "./modales/ImageWithModal";
 import chatApi from "../../api/chatcenter";
 import useDeudasChats, { correoKey } from "../imporsuit/useDeudasChats";
 import useMembresiasVencidasChats from "../imporsuit/useMembresiasVencidasChats";
+import useFiltroProducto from "../imporsuit/useFiltroProducto";
 import {
   estadoDeuda,
   hayAlertaDeuda,
@@ -1488,11 +1489,24 @@ export const Sidebar = ({
 
   const matchesFilter = (c, key) => getChannelKey(c?.source) === key;
 
+  /* Filtro por PROGRAMA comprado (Club de Importadores, Ecommerce Method…).
+     Se aplica ANTES de ordenar y paginar, sobre el conjunto completo de
+     correos que tienen el producto: resolverlo con el batch de la página
+     visible daría un filtro parcial. */
+  const filtroProducto = useFiltroProducto(id_configuracion);
+
   // Deudas de cartera de los chats visibles: 1 llamada batch + caché (hook)
+  const chatsFiltradosPorProducto = useMemo(
+    () => filtroProducto.filtrarChats(filteredChats || []),
+    [filtroProducto, filteredChats],
+  );
+
   const chatsVisibles = useMemo(
     () =>
-      [...(filteredChats || [])].sort(compareChats).slice(0, mensajesVisibles),
-    [filteredChats, mensajesVisibles],
+      [...chatsFiltradosPorProducto]
+        .sort(compareChats)
+        .slice(0, mensajesVisibles),
+    [chatsFiltradosPorProducto, mensajesVisibles],
   );
   const deudasPorCorreo = useDeudasChats(chatsVisibles, id_configuracion);
   const membresiasVencidasPorCorreo = useMembresiasVencidasChats(
@@ -1575,6 +1589,7 @@ export const Sidebar = ({
     selectedNovedad,
     selectedTransportadora,
     selectedEstado,
+    filtroProducto.productoSel,
   ];
 
   const numFiltros = useMemo(
@@ -1586,7 +1601,8 @@ export const Sidebar = ({
       (selectedProductoAd ? 1 : 0) +
       (selectedNovedad ? 1 : 0) +
       (selectedTransportadora ? 1 : 0) +
-      (selectedEstado?.value ? 1 : 0),
+      (selectedEstado?.value ? 1 : 0) +
+      (filtroProducto.productoSel ? 1 : 0),
     filtrosState,
   );
 
@@ -1601,6 +1617,7 @@ export const Sidebar = ({
     setSelectedNovedad(null);
     setSelectedTransportadora(null);
     setSelectedEstado([]);
+    filtroProducto.setProductoSel(null);
   };
 
   return (
@@ -1811,6 +1828,33 @@ export const Sidebar = ({
                   />
                 )}
               </FilterPill>
+
+              {/* Programa comprado — solo en las configuraciones con cartera
+                  habilitada y si el catálogo de productos respondió. */}
+              {filtroProducto.habilitado && (
+                <FilterPill
+                  icon="bx bx-package"
+                  label="Programa"
+                  value={filtroProducto.productoSel?.label}
+                  onClear={() => filtroProducto.setProductoSel(null)}
+                >
+                  {({ close }) => (
+                    <Select
+                      {...popoutProps}
+                      isLoading={filtroProducto.cargando}
+                      options={filtroProducto.productos.map((p) => ({
+                        value: p.id,
+                        label: p.nombre,
+                      }))}
+                      value={filtroProducto.productoSel}
+                      onChange={(opt) => {
+                        filtroProducto.setProductoSel(opt);
+                        close();
+                      }}
+                    />
+                  )}
+                </FilterPill>
+              )}
 
               {/* Lectura */}
               <FilterPill
@@ -2084,13 +2128,22 @@ export const Sidebar = ({
                 </div>
               );
             }
-            if (filteredChats.length === 0) {
+            // Se mira la lista YA filtrada por programa: si no, filtrar por un
+            // producto sin coincidencias dejaba la lista en blanco sin decir
+            // por qué.
+            if (chatsFiltradosPorProducto.length === 0) {
               return (
-                <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-500">
+                <div className="flex h-64 flex-col items-center justify-center gap-2 px-6 text-center text-slate-500">
                   <i className="bx bx-chat text-4xl" />
                   <p className="text-[12px]">
                     No se encontraron chats con esos filtros.
                   </p>
+                  {filtroProducto.productoSel && (
+                    <p className="text-[11px] text-slate-400">
+                      Ningún chat de esta lista corresponde a clientes de{" "}
+                      <b>{filtroProducto.productoSel.label}</b>.
+                    </p>
+                  )}
                 </div>
               );
             }

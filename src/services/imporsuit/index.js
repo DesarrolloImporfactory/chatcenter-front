@@ -28,6 +28,8 @@ export {
   getPlantillasCorreo,
 } from "./usuarios.service";
 
+export { getCatalogosVenta, registrarVenta } from "./ventas.service";
+
 export {
   getChecklistUsuario,
   marcarChecklistItem,
