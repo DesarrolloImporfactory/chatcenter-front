@@ -261,6 +261,10 @@ export default function FilterBar({
   opcionesEstadoContacto,
   // producto ad (MULTI select)
   productosAdFiltro, // array de strings
+  // Programas de Imporsuit (ids de productos_venta) + su catálogo
+  programasFiltro = [],
+  setProgramasFiltro = () => {},
+  opcionesProgramas = [],
   setProductosAdFiltro,
   opcionesProductoAd, // array de strings
   // orden
@@ -385,6 +389,22 @@ export default function FilterBar({
             placeholder="Estado contacto"
             colorBadge="#94a3b8"
           />
+
+          {/* Programa de Imporsuit (MULTI). Solo aparece si el catálogo
+              respondió: sin productos no hay nada que filtrar. */}
+          {opcionesProgramas.length > 0 && (
+            <MultiLabelSelect
+              options={opcionesProgramas.map((p) => ({
+                id: String(p.id),
+                nombre: p.nombre,
+                color: "#0891b2",
+              }))}
+              value={programasFiltro}
+              onChange={setProgramasFiltro}
+              placeholder="Programa"
+              colorBadge="#0891b2"
+            />
+          )}
 
           {/* Último producto Ad (MULTI) */}
           <MultiLabelSelect

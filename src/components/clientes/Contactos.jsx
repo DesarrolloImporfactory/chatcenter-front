@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
+import useCatalogoProductos from "../imporsuit/useCatalogoProductos";
 import Swal from "sweetalert2";
 import io from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
@@ -175,6 +176,11 @@ function mapRow(row) {
 
     ultimo_producto_ad: row.ultimo_producto_ad || null,
     ultimo_producto_ad_at: row.ultimo_producto_ad_at || null,
+
+    // Programas de Imporsuit comprados: ids de `productos_venta` separados por
+    // coma, denormalizados en clientes_chat_center por el registro modo ventas.
+    // OJO: distinto de `ultimo_producto_ad`, que es el producto del anuncio.
+    productos_imporsuit: row.productos_imporsuit || null,
 
     estado: row.estado_cliente,
     id_etiqueta: row.id_etiqueta ?? null,
@@ -602,6 +608,10 @@ export default function Contactos() {
 
   // ── Filtro: Último producto Ad ──
   const [productosAdFiltro, setProductosAdFiltro] = useState([]);
+  // Filtro por PROGRAMA de Imporsuit: ids de `productos_venta`. Se resuelve
+  // server-side con FIND_IN_SET sobre `productos_imporsuit`.
+  const [programasFiltro, setProgramasFiltro] = useState([]);
+  const opcionesProgramas = useCatalogoProductos();
   const [opcionesProductoAd, setOpcionesProductoAd] = useState([]);
 
   const closeRowMenu = (ev) => {
@@ -2067,6 +2077,9 @@ export default function Contactos() {
         ultimo_producto_ad: productosAdFiltro.length
           ? productosAdFiltro.join(",")
           : undefined,
+        productos_imporsuit: programasFiltro.length
+          ? programasFiltro.join(",")
+          : undefined,
         fecha_tipo: filtroFecha?.tipo || undefined,
         fecha_desde: filtroFecha?.desde || undefined,
         fecha_hasta: filtroFecha?.hasta || undefined,
@@ -2333,6 +2346,7 @@ export default function Contactos() {
     idsCicloFiltro,
     idsEstadoContactoFiltro,
     productosAdFiltro,
+    programasFiltro,
     filtroFecha,
   ]);
 
@@ -2403,6 +2417,9 @@ export default function Contactos() {
             : undefined,
           ultimo_producto_ad: productosAdFiltro.length
             ? productosAdFiltro.join(",")
+            : undefined,
+          productos_imporsuit: programasFiltro.length
+            ? programasFiltro.join(",")
             : undefined,
           fecha_tipo: filtroFecha?.tipo || undefined,
           fecha_desde: filtroFecha?.desde || undefined,
@@ -2924,6 +2941,9 @@ export default function Contactos() {
             setIdsEstadoContactoFiltro={setIdsEstadoContactoFiltro}
             opcionesEstadoContacto={opcionesEstadoContacto}
             productosAdFiltro={productosAdFiltro}
+            programasFiltro={programasFiltro}
+            setProgramasFiltro={setProgramasFiltro}
+            opcionesProgramas={opcionesProgramas}
             setProductosAdFiltro={setProductosAdFiltro}
             opcionesProductoAd={opcionesProductoAd}
             orden={orden}
@@ -2942,6 +2962,7 @@ export default function Contactos() {
               setIdsCicloFiltro([]);
               setIdsEstadoContactoFiltro([]);
               setProductosAdFiltro([]);
+              setProgramasFiltro([]);
               setSelected([]);
               setFiltroFecha(null);
             }}

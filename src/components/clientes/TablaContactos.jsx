@@ -1,6 +1,9 @@
 import ClientForm from "../clientes/modales/ClientForm";
 import { useState } from "react";
 import chatApi from "../../api/chatcenter";
+import useCatalogoProductos, {
+  programasDeContacto,
+} from "../imporsuit/useCatalogoProductos";
 
 const TablaContactos = ({
   items,
@@ -41,6 +44,10 @@ const TablaContactos = ({
   // Función para manejar la edición de cliente
   const [editing, setEditing] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Catálogo de programas de Imporsuit: traduce a nombre los ids que trae cada
+  // contacto en `productos_imporsuit`. Una sola petición por sesión.
+  const catalogoProductos = useCatalogoProductos();
 
   const handleEditClient = (client) => {
     setEditing(client); // Establecer el cliente que se va a editar
@@ -238,6 +245,12 @@ const TablaContactos = ({
               Ciclo
             </th>
 
+            {/* Programas de Imporsuit comprados (registro modo ventas). Va
+                antes del producto de anuncio para no confundirlos. */}
+            <th className="w-48 text-left text-[11px] font-semibold tracking-wide text-slate-600">
+              Programa
+            </th>
+
             <th className="w-48 text-left text-[11px] font-semibold tracking-wide text-slate-600">
               Último producto ad
             </th>
@@ -408,6 +421,32 @@ const TablaContactos = ({
                   ) : (
                     <span className="text-slate-400">—</span>
                   )}
+                </td>
+
+                {/* CELDA PROGRAMA (Imporsuit) */}
+                <td className="py-2 text-xs text-left">
+                  {(() => {
+                    const progs = programasDeContacto(
+                      c.productos_imporsuit,
+                      catalogoProductos,
+                    );
+                    if (!progs.length)
+                      return <span className="text-slate-400">—</span>;
+                    return (
+                      <div className="flex max-w-[180px] flex-wrap gap-1">
+                        {progs.map((p) => (
+                          <span
+                            key={p.id}
+                            className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-cyan-500/10 px-2 py-0.5 text-[11px] font-medium text-cyan-700"
+                            title={p.nombre}
+                          >
+                            <i className="bx bx-package flex-shrink-0 text-xs" />
+                            <span className="truncate">{p.nombre}</span>
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </td>
 
                 {/* CELDA ÚLTIMO PRODUCTO AD — NUEVO */}
