@@ -171,6 +171,12 @@ export async function agregarPago(
   },
   { signal } = {},
 ) {
+  const comprobantes = Array.isArray(imagenesUrls) ? imagenesUrls : [];
+  // Aunque el control visual ya la pide, usamos la fecha del pago como
+  // respaldo. Así un comprobante recién cargado nunca llega al backend sin
+  // `fecha_transaccion` por un estado desfasado del formulario.
+  const fechaDelComprobante = fechaTransaccion || (comprobantes.length ? fechaPago : null);
+
   const { data } = await imporsuitApi.post(
     "/Carterachat/agregar_pago",
     {
@@ -179,10 +185,10 @@ export async function agregarPago(
       fecha_pago: fechaPago,
       medio_pago: medioPago,
       referencia: String(referencia ?? ""),
-      imagenes_urls: Array.isArray(imagenesUrls) ? imagenesUrls : [],
+      imagenes_urls: comprobantes,
       numero_cuota: String(numeroCuota ?? ""),
       moneda: String(moneda ?? "USD"),
-      fecha_transaccion: fechaTransaccion || null,
+      fecha_transaccion: fechaDelComprobante,
     },
     { signal },
   );
