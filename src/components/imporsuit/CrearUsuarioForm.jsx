@@ -187,6 +187,7 @@ export function CrearUsuarioForm({
       enviarWhatsapp: ventaForm.venta.enviarWhatsapp,
       etiquetaAsesor: ventaForm.venta.etiquetaAsesor,
       etiquetaCiclo: ventaForm.venta.etiquetaCiclo,
+      idPlantilla: idPlantillaActiva,
     });
 
     const d = res?.data ?? {};
@@ -233,6 +234,13 @@ export function CrearUsuarioForm({
       avisos.push(
         `La encuesta de satisfacción no se envió: ${res.encuesta.error ?? "error desconocido"}`,
       );
+    }
+
+    const mail = res?.correo;
+    if (mail?.enviado) {
+      toast.success(`Correo enviado: ${mail.nombre_plantilla}`);
+    } else if (idPlantillaActiva !== "0" && mail?.motivo) {
+      avisos.push(`Correo no enviado: ${mail.motivo}`);
     }
 
     const wa = d.whatsapp;

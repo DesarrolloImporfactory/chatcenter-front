@@ -101,6 +101,13 @@ export async function registrarVenta(payload, { signal } = {}) {
     // Por nombre: la misma etiqueta tiene otro id en cada configuración.
     etiqueta_asesor: payload.etiquetaAsesor || "",
     etiqueta_ciclo: payload.etiquetaCiclo || "",
+    // La plantilla se elige en el mismo formulario de venta. "0" deja el
+    // correo desactivado explícitamente; un id positivo se envía desde el API
+    // de Imporsuit tras registrar la venta.
+    id_plantilla:
+      payload.idPlantilla != null && payload.idPlantilla !== ""
+        ? Number(payload.idPlantilla)
+        : 0,
   };
 
   const { data } = await imporsuitApi.post(
