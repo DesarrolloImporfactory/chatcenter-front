@@ -210,6 +210,13 @@ export function CrearUsuarioForm({
     if (res?.webhook && !res.webhook.enviado) {
       avisos.push(`El webhook no se envió: ${res.webhook.error ?? "error desconocido"}`);
     }
+    // La encuesta de satisfacción también es best-effort: si no salió, el
+    // cliente no la va a recibir y conviene saberlo.
+    if (res?.encuesta && !res.encuesta.enviado) {
+      avisos.push(
+        `La encuesta de satisfacción no se envió: ${res.encuesta.error ?? "error desconocido"}`,
+      );
+    }
 
     const wa = d.whatsapp;
     if (wa?.enviado && wa?.registrado_en_chat) {

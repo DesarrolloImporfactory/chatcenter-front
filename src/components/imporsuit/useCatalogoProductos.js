@@ -53,11 +53,25 @@ export default function useCatalogoProductos(habilitado = true) {
 
 /**
  * Nombres de los programas de un contacto.
- * @param {string|null} raw  "1,2,7"
+ *
+ * Prefiere `productos_imporsuit_txt` (los nombres, que el back ya trae) y solo
+ * traduce los ids con el catálogo si esa columna no vino — así la tabla pinta
+ * bien incluso antes de que el catálogo termine de cargar.
+ *
+ * @param {string|null} raw   ids: "1,2,7"
  * @param {{id:number, nombre:string}[]} catalogo
- * @returns {{id:number, nombre:string}[]}
+ * @param {string|null} texto nombres: "Club de Importadores · Kit"
+ * @returns {{id:number|string, nombre:string}[]}
  */
-export function programasDeContacto(raw, catalogo) {
+export function programasDeContacto(raw, catalogo, texto = null) {
+  if (texto) {
+    return String(texto)
+      .split("·")
+      .map((n) => n.trim())
+      .filter(Boolean)
+      .map((nombre, i) => ({ id: nombre || i, nombre }));
+  }
+
   if (!raw) return [];
   return String(raw)
     .split(",")

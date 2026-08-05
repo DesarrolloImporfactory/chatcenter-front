@@ -181,6 +181,7 @@ function mapRow(row) {
     // coma, denormalizados en clientes_chat_center por el registro modo ventas.
     // OJO: distinto de `ultimo_producto_ad`, que es el producto del anuncio.
     productos_imporsuit: row.productos_imporsuit || null,
+    productos_imporsuit_txt: row.productos_imporsuit_txt || null,
 
     estado: row.estado_cliente,
     id_etiqueta: row.id_etiqueta ?? null,

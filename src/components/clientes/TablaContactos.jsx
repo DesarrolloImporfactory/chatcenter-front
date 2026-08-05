@@ -429,6 +429,7 @@ const TablaContactos = ({
                     const progs = programasDeContacto(
                       c.productos_imporsuit,
                       catalogoProductos,
+                      c.productos_imporsuit_txt,
                     );
                     if (!progs.length)
                       return <span className="text-slate-400">—</span>;
