@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCatalogosVenta } from "../../services/imporsuit";
+import chatApi from "../../api/chatcenter";
 import { Field, inputCls } from "./ui";
 import { ComprobantesUploader } from "./ComprobantesUploader";
 
@@ -103,6 +104,35 @@ function SelectorEtiqueta({ label, opciones, value, onChange, placeholder, disab
  * `Class/RegistroImportacionesWhatsApp.php`.
  */
 const PAQUETES_CON_PLANTILLA = ["ecommerce", "importacion", "kit", "dropsystem"];
+const CONFIGURACIONES_ETIQUETAS = [242, 265];
+
+/**
+ * Misma fuente que el bloque "Etiquetas adicionales" del chat. Estas son las
+ * etiquetas tipadas de asesor/ciclo que usan las columnas id_etiqueta_asesor
+ * e id_etiqueta_ciclo; no son las etiquetas genéricas del chat.
+ */
+async function cargarEtiquetasDelChatCenter() {
+  const respuestas = await Promise.all(
+    CONFIGURACIONES_ETIQUETAS.flatMap((idConfiguracion) => [
+      chatApi.get(
+        `/etiquetas_custom_chat_center/listar?tipo=asesor&id_configuracion=${idConfiguracion}`,
+      ),
+      chatApi.get(
+        `/etiquetas_custom_chat_center/listar?tipo=ciclo&id_configuracion=${idConfiguracion}`,
+      ),
+    ]),
+  );
+
+  const nombres = (indice) =>
+    [...new Set(
+      [respuestas[indice], respuestas[indice + 2]]
+        .flatMap((respuesta) => respuesta.data?.data ?? [])
+        .map((etiqueta) => String(etiqueta.nombre ?? "").trim())
+        .filter(Boolean),
+    )].sort((a, b) => a.localeCompare(b, "es"));
+
+  return { asesores: nombres(0), ciclos: nombres(1) };
+}
 
 export function hoyISO() {
   const d = new Date();
@@ -169,10 +199,15 @@ export function useVentaForm(activo) {
     setCargando(true);
     setErrorCatalogos(null);
 
-    getCatalogosVenta()
-      .then((data) => {
+    Promise.all([
+      getCatalogosVenta(),
+      cargarEtiquetasDelChatCenter().catch(() => null),
+    ])
+      .then(([data, etiquetasDirectas]) => {
         if (!alive) return;
-        setCatalogos(data);
+        // El endpoint de Imporsuit conserva los catálogos de venta; asesor y
+        // ciclo se leen directo del mismo API de ChatCenter que pinta el panel.
+        setCatalogos({ ...data, etiquetas: etiquetasDirectas ?? data.etiquetas });
         // Sin usuario de Imporsuit detrás, el closer se precarga con el asesor
         // de integración; el agente lo cambia por quien cerró de verdad.
         setVenta((prev) =>
