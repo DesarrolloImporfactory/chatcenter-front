@@ -194,6 +194,15 @@ export function CrearUsuarioForm({
     // El pago, el WhatsApp y el webhook son best-effort en el back: la venta ya
     // quedó guardada, así que un fallo se avisa sin alarmar de más — pero se
     // avisa, porque el agente cree que quedó todo hecho.
+    // El back corre el vencimiento del saldo un mes para que no figure vencido
+    // mañana; conviene que el agente sepa cuánto quedó debiendo.
+    if (Number(d.saldo_cuota1) > 0) {
+      toast(
+        `Quedaron ${Number(d.saldo_cuota1).toFixed(2)} de la cuota 1: su vencimiento pasó al mes siguiente`,
+        { icon: "📅", duration: 7000 },
+      );
+    }
+
     const avisos = [];
     if (!d.pago_registrado && Number(ventaForm.venta.montoPagado) > 0) {
       avisos.push(`El pago NO se registró: ${d.pago_error ?? "error desconocido"}`);

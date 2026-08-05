@@ -144,12 +144,32 @@ export function useVentaForm(activo) {
     if (total <= 0) return [];
 
     const base = Math.floor((total / n) * 100) / 100;
-    return Array.from({ length: n }, (_, i) => ({
-      numero: i + 1,
-      monto: i === n - 1 ? Math.round((total - base * (n - 1)) * 100) / 100 : base,
-      vence: sumarMeses(venta.fechaCompra, i),
-    }));
-  }, [venta.montoTotal, venta.cuotas, venta.fechaCompra]);
+    const pagado = Number(venta.montoPagado) || 0;
+
+    return Array.from({ length: n }, (_, i) => {
+      const monto =
+        i === n - 1 ? Math.round((total - base * (n - 1)) * 100) / 100 : base;
+
+      if (i > 0) {
+        return { numero: i + 1, monto, vence: sumarMeses(venta.fechaCompra, i) };
+      }
+
+      // Cuota 1: la que se cobra en el acto. Si el abono no la cubre, el saldo
+      // queda debiendo y el back le corre el vencimiento un mes — si no,
+      // mañana figura vencida y el sistema le bloquea el acceso.
+      const abonado = Math.min(pagado, monto);
+      const saldo = Math.round((monto - abonado) * 100) / 100;
+
+      return {
+        numero: 1,
+        monto,
+        abonado,
+        saldo,
+        vence: sumarMeses(venta.fechaCompra, saldo > 0.009 ? 1 : 0),
+        reprogramada: saldo > 0.009,
+      };
+    });
+  }, [venta.montoTotal, venta.cuotas, venta.fechaCompra, venta.montoPagado]);
 
   /** Devuelve el mensaje de error, o null si está todo bien. */
   const validar = () => {
@@ -174,6 +194,13 @@ export function useVentaForm(activo) {
     if (pagado > total) return "Lo pagado no puede superar al total";
     if (n === 1 && pagado > 0 && Math.abs(pagado - total) > 0.009)
       return "De contado, lo pagado debe ser igual al total (o divide en cuotas)";
+    // El abono se aplica SOBRE LA CUOTA 1 y el back rechaza pagar más que su
+    // pendiente. Si adelantó dos cuotas, la segunda se registra aparte.
+    if (n > 1) {
+      const cuota1 = Math.floor((total / n) * 100) / 100;
+      if (pagado > cuota1 + 0.009)
+        return `Lo pagado no puede superar la cuota 1 (${cuota1.toFixed(2)}); el resto se registra como otro pago`;
+    }
 
     return null;
   };
@@ -407,9 +434,18 @@ export function VentaFields({ form, disabled }) {
               >
                 <span>
                   Cuota {c.numero}
-                  {idx === 0 && (
+                  {idx === 0 && c.abonado > 0 && (
                     <span className="ml-1.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
-                      se paga ahora
+                      {c.saldo > 0.009
+                        ? `abona ${c.abonado.toFixed(2)}`
+                        : "se paga ahora"}
+                    </span>
+                  )}
+                  {/* Un abono parcial deja saldo. El back le corre el
+                      vencimiento un mes para que no figure vencida mañana. */}
+                  {idx === 0 && c.saldo > 0.009 && (
+                    <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
+                      faltan {c.saldo.toFixed(2)} → pasa al mes siguiente
                     </span>
                   )}
                 </span>
@@ -419,6 +455,14 @@ export function VentaFields({ form, disabled }) {
               </li>
             ))}
           </ul>
+
+          {plan[0]?.reprogramada && (
+            <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
+              La cuota 1 queda con {plan[0].saldo.toFixed(2)} pendiente y vence
+              el {plan[0].vence}, junto con la cuota 2. Así no aparece vencida
+              mañana ni se le bloquea el acceso.
+            </p>
+          )}
         </div>
       )}
     </section>
