@@ -39,6 +39,64 @@ const ETIQUETA_PASARELA = {
   otro: "Otro",
 };
 
+const CREAR_NUEVA_ETIQUETA = "__crear_nueva__";
+
+/**
+ * El nombre viaja a Imporsuit, que crea o reutiliza la etiqueta en Ventas
+ * (242) y Soporte Importaciones (265) antes de asignarla al contacto.
+ */
+function SelectorEtiqueta({ label, opciones, value, onChange, placeholder, disabled }) {
+  const [creando, setCreando] = useState(false);
+
+  const seleccionar = (event) => {
+    const seleccion = event.target.value;
+    if (seleccion === CREAR_NUEVA_ETIQUETA) {
+      setCreando(true);
+      onChange("");
+      return;
+    }
+
+    setCreando(false);
+    onChange(seleccion);
+  };
+
+  return (
+    <Field label={label}>
+      <select
+        className={inputCls}
+        value={creando ? CREAR_NUEVA_ETIQUETA : value}
+        onChange={seleccionar}
+        disabled={disabled}
+      >
+        <option value="">Sin asignar</option>
+        {opciones.map((opcion) => (
+          <option key={opcion} value={opcion}>
+            {opcion}
+          </option>
+        ))}
+        <option value={CREAR_NUEVA_ETIQUETA}>+ Crear nueva</option>
+      </select>
+
+      {creando && (
+        <input
+          type="text"
+          className={`${inputCls} mt-2`}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          maxLength={120}
+          autoFocus
+          disabled={disabled}
+        />
+      )}
+
+      <span className="mt-1 block text-[11px] text-gray-500">
+        Opcional. Se crea si no existe.
+      </span>
+    </Field>
+  );
+}
+
 /**
  * Paquetes con plantilla de WhatsApp aprobada en Meta. Espejo de
  * `PLANTILLA_POR_PRODUCTO` / `PRIORIDAD_PAQUETES` en
@@ -378,48 +436,25 @@ export function VentaFields({ form, disabled }) {
 
       {/* Etiquetas de ImporChat. Se aplican en las DOS líneas (Ventas y
           Soporte Importaciones): la misma etiqueta tiene un id distinto en
-          cada una, por eso viajan por nombre. `list` deja elegir una existente
-          o tipear una nueva sin salir del formulario. */}
+          cada una, por eso viajan por nombre. */}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Asesor (etiqueta de ImporChat)">
-          <input
-            type="text"
-            list="cc-venta-asesores"
-            className={inputCls}
-            value={venta.etiquetaAsesor}
-            onChange={(e) => setCampo("etiquetaAsesor", e.target.value)}
-            placeholder="Ej: Adrian Imporfactory"
-            disabled={disabled}
-          />
-          <datalist id="cc-venta-asesores">
-            {(catalogos.etiquetas?.asesores ?? []).map((a) => (
-              <option key={a} value={a} />
-            ))}
-          </datalist>
-          <span className="mt-1 block text-[11px] text-gray-500">
-            Opcional. Se crea si no existe.
-          </span>
-        </Field>
+        <SelectorEtiqueta
+          label="Asesor (etiqueta de ImporChat)"
+          opciones={catalogos.etiquetas?.asesores ?? []}
+          value={venta.etiquetaAsesor}
+          onChange={(valor) => setCampo("etiquetaAsesor", valor)}
+          placeholder="Ej: Adrian Imporfactory"
+          disabled={disabled}
+        />
 
-        <Field label="Ciclo">
-          <input
-            type="text"
-            list="cc-venta-ciclos"
-            className={inputCls}
-            value={venta.etiquetaCiclo}
-            onChange={(e) => setCampo("etiquetaCiclo", e.target.value)}
-            placeholder="Ej: IMPORT AGOSTO26"
-            disabled={disabled}
-          />
-          <datalist id="cc-venta-ciclos">
-            {(catalogos.etiquetas?.ciclos ?? []).map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
-          <span className="mt-1 block text-[11px] text-gray-500">
-            Opcional. Se crea si no existe.
-          </span>
-        </Field>
+        <SelectorEtiqueta
+          label="Ciclo"
+          opciones={catalogos.etiquetas?.ciclos ?? []}
+          value={venta.etiquetaCiclo}
+          onChange={(valor) => setCampo("etiquetaCiclo", valor)}
+          placeholder="Ej: IMPORT AGOSTO26"
+          disabled={disabled}
+        />
       </div>
 
       {/* Comprobante del pago. Mismo bucket que los pagos de cartera y queda
