@@ -63,6 +63,8 @@ import Calendario from "./pages/calendario/Calendario";
 // import ProductDetallePage from "./pages/landingai/ProductDetallePage";
 // import LandingAiAdmin from "./pages/landingai/LandingAiAdmin";
 import CodigosPromocionalesAdmin from "./pages/landingai/CodigosPromocionalesAdmin";
+import ReferidosView from "./pages/referidos/ReferidosView";
+import ReferidosAdminView from "./pages/referidos/ReferidosAdminView";
 
 // Páginas de acceso y registro
 import Access from "./pages/landing/AccessGuided";
@@ -289,6 +291,28 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <CodigosPromocionalesAdmin />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                {/* Referidos: cuelga del layout de conexiones, junto a Planes
+                    y facturación, porque es dinero de la cuenta. */}
+                <Route
+                  path="/referidos"
+                  element={
+                    <MainLayout_conexiones>
+                      <ReferidosView />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                {/* Bandeja del super admin: las transferencias que piden los
+                    referidores. El gate real está en el backend. */}
+                <Route
+                  path="/referidos_admin"
+                  element={
+                    <MainLayout_conexiones>
+                      <ReferidosAdminView />
                     </MainLayout_conexiones>
                   }
                 />

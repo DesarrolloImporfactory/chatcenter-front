@@ -2,10 +2,11 @@ import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { registerThunk } from "../../store/slices/user.slice";
 import { fetchComunidadesThunk } from "../../store/slices/comunidad.slice";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
+import chatApi from "../../api/chatcenter";
 
 /* ============================================================
    Países LATAM + ES
@@ -495,6 +496,97 @@ const PaisSelect = ({ value, onChange }) => {
 };
 
 /* ============================================================
+   REFERIDOS — captura del enlace ?ref=CODIGO
+   ============================================================
+
+   El código se guarda en localStorage por 90 días y no solo en el estado del
+   formulario: casi nadie se registra en la misma visita en la que hace clic en
+   el enlace. Se van a mirar precios, cierran, vuelven al día siguiente por
+   /register a secas — y sin persistencia el referidor se queda sin su comisión
+   justo en el caso más común.
+
+   Es first-touch: el primer código gana. Si la persona llega después con otro
+   enlace, NO se pisa el anterior. Evita la pelea entre dos referidores por el
+   mismo cliente, que es el problema clásico de estos programas.
+
+   El backend igual revalida el código y corta el autoreferido: esto es
+   comodidad de UI, no un control de seguridad.
+   ============================================================ */
+const REF_KEY = "referido_codigo";
+const REF_TS_KEY = "referido_ts";
+const REF_DIAS = 90;
+
+const leerReferidoGuardado = () => {
+  try {
+    const codigo = localStorage.getItem(REF_KEY);
+    if (!codigo) return null;
+    const ts = Number(localStorage.getItem(REF_TS_KEY) || 0);
+    const vencido = ts && Date.now() - ts > REF_DIAS * 24 * 60 * 60 * 1000;
+    if (vencido) {
+      localStorage.removeItem(REF_KEY);
+      localStorage.removeItem(REF_TS_KEY);
+      return null;
+    }
+    return codigo;
+  } catch {
+    return null;
+  }
+};
+
+const guardarReferido = (codigo) => {
+  try {
+    if (localStorage.getItem(REF_KEY)) return; // first-touch: no se pisa
+    localStorage.setItem(REF_KEY, codigo);
+    localStorage.setItem(REF_TS_KEY, String(Date.now()));
+  } catch {
+    /* modo incógnito o storage lleno: seguimos con el código en memoria */
+  }
+};
+
+const useReferido = () => {
+  const [searchParams] = useSearchParams();
+  const [referido, setReferido] = useState(null); // { codigo, nombre }
+
+  useEffect(() => {
+    const deUrl = (searchParams.get("ref") || "").trim().toUpperCase();
+    if (deUrl) guardarReferido(deUrl);
+
+    const codigo = deUrl || leerReferidoGuardado();
+    if (!codigo) return;
+
+    let cancelado = false;
+    (async () => {
+      try {
+        const { data } = await chatApi.get(
+          `referidos/validar/${encodeURIComponent(codigo)}`,
+        );
+        if (cancelado) return;
+        if (data?.valido && data?.data) {
+          setReferido({ codigo, nombre: data.data.nombre });
+        } else {
+          // Código muerto: se limpia para no arrastrarlo 90 días.
+          try {
+            localStorage.removeItem(REF_KEY);
+            localStorage.removeItem(REF_TS_KEY);
+          } catch {
+            /* noop */
+          }
+        }
+      } catch {
+        // Sin red no se bloquea nada: se manda igual y el backend decide.
+        if (!cancelado) setReferido({ codigo, nombre: null });
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [searchParams]);
+
+  return referido;
+};
+
+/* ============================================================
    COMPONENTE PRINCIPAL
    ============================================================ */
 export default function Register() {
@@ -504,6 +596,7 @@ export default function Register() {
 
   const [comunidad, setComunidad] = useState(null);
   const [waPais, setWaPais] = useState("+593");
+  const referido = useReferido();
 
   const {
     register,
@@ -526,6 +619,7 @@ export default function Register() {
       ...(comunidad?.id_comunidad && {
         id_comunidad: comunidad.id_comunidad,
       }),
+      ...(referido?.codigo && { codigo_referido: referido.codigo }),
     };
 
     dispatch(registerThunk(payload))
@@ -533,6 +627,14 @@ export default function Register() {
       .then(() => {
         reset();
         setComunidad(null);
+        // El código ya cumplió: se limpia para que la siguiente persona que
+        // use este navegador no quede atribuida al mismo referidor.
+        try {
+          localStorage.removeItem(REF_KEY);
+          localStorage.removeItem(REF_TS_KEY);
+        } catch {
+          /* noop */
+        }
         navigate("/login");
       });
   };
@@ -1005,18 +1107,44 @@ export default function Register() {
               )}
             </div>
 
-            {/* Comunidad — opcional */}
-            <div className="mb-3">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                  ¿Vienes de alguna comunidad?
-                </label>
-                <span className="text-[9px] text-slate-400 italic">
-                  Opcional
-                </span>
+            {/* Referido — solo si llegó por enlace.
+                Cuando hay referido se oculta el combobox de comunidad: son dos
+                formas de responder la misma pregunta ("¿quién te trajo?") y el
+                enlace ya la respondió con un dato verificado, mientras que el
+                combobox es autodeclarado. Dejar los dos invita a que la
+                atribución del pago y la del marketing digan cosas distintas. */}
+            {referido ? (
+              /* El texto NO promete nada que dependa del enlace. El cupón de
+                 primer mes a $5 lo tienen todos los planes: el enlace no aplica
+                 ninguno, solo sella a quién le corresponde la comisión.
+                 Anunciarlo como un beneficio del enlace sería una promesa que
+                 el sistema no cumple, y el invitado la descubre en el checkout. */
+              <div className="mb-3 rounded-xl border-2 border-emerald-200 bg-emerald-50/70 px-3.5 py-2.5 flex items-center gap-2.5">
+                <span className="text-lg leading-none">🎁</span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold text-emerald-800 leading-tight">
+                    {referido.nombre
+                      ? `Te invitó ${referido.nombre}`
+                      : "Vienes por una invitación"}
+                  </p>
+                  <p className="text-[10px] text-emerald-700/80 leading-tight">
+                    Empieza tu primer mes por $5
+                  </p>
+                </div>
               </div>
-              <ComunidadCombobox value={comunidad} onChange={setComunidad} />
-            </div>
+            ) : (
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    ¿Vienes de alguna comunidad?
+                  </label>
+                  <span className="text-[9px] text-slate-400 italic">
+                    Opcional
+                  </span>
+                </div>
+                <ComunidadCombobox value={comunidad} onChange={setComunidad} />
+              </div>
+            )}
 
             {/* Terms */}
             <div className="mb-5">

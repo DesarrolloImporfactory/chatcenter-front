@@ -11,7 +11,14 @@ import chatApi from "../../api/chatcenter";
 
 // Rutas que siguen disponibles aunque el plan no esté activo: sin ellas el
 // usuario quedaría encerrado, sin forma de pagar ni de pedir ayuda.
-const RUTAS_SIN_PLAN = new Set(["/planes", "/plan", "/tutoriales"]);
+// `/referidos` entra aquí a propósito: ahí vive dinero que el usuario YA ganó.
+// Bloquearle el acceso por tener el plan vencido sería quedarse con su saldo.
+const RUTAS_SIN_PLAN = new Set([
+  "/planes",
+  "/plan",
+  "/tutoriales",
+  "/referidos",
+]);
 
 function MainLayout({ children }) {
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -333,6 +340,16 @@ function MainLayout({ children }) {
               <NavBtn path="/usuarios" icon="bx-user" label="Usuarios" />
             )}
 
+            {/* Solicitudes de referidos: solo super_administrador. Es la otra
+                cara de /referidos — ahí se pide el dinero, aquí se paga. */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/referidos_admin"
+                icon="bx-money-withdraw"
+                label="Cobros de Referidos"
+              />
+            )}
+
             {/* Plantillas Kanban Globales: solo super_administrador */}
             {isSuperAdmin && (
               <NavBtn
@@ -362,6 +379,12 @@ function MainLayout({ children }) {
                 label="Planes y facturación"
                 activeWhen={["/planes", "/plan"]}
               />
+            )}
+
+            {/* Referidos — va pegado a facturación porque es lo mismo visto
+                desde el otro lado: ahí se paga, aquí se cobra. */}
+            {!isSuperAdmin && !isGestorClientes && (
+              <NavBtn path="/referidos" icon="bx-gift" label="Referidos" />
             )}
 
             <button
