@@ -73,6 +73,10 @@ const Modales = ({
   const [bodyPlaceholders, setBodyPlaceholders] = useState([]); // [{ key:'body_1', n:'1' }, ...]
   const [urlButtons, setUrlButtons] = useState([]); // [{ index:'0', ph:'1', key:'url_0_1', label:'...' }, ...]
 
+  // Si la plantilla pertenece a una encuesta, el back devuelve los valores ya
+  // resueltos (nombre, y el link con el ?cid= del destinatario) para prellenar.
+  const [encuestaTpl, setEncuestaTpl] = useState(null);
+
   // Estado para el modal "Añadir número"
   const [isAddNumberModalOpen, setIsAddNumberModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState("nuevo");
@@ -140,6 +144,7 @@ const Modales = ({
     setUrlButtons([]);
     setSelectedTemplateOption(null);
     setSelectedLanguage("es");
+    setEncuestaTpl(null);
 
     // Búsqueda / contexto
     setSearchQuery("");
@@ -1318,6 +1323,7 @@ const Modales = ({
       setPlaceholderValues({});
       setHeaderDefaultAsset(null);
       setUseDefaultHeaderAsset(false);
+      setEncuestaTpl(null);
 
       // =========================
       // 0) HEADER
@@ -1472,6 +1478,74 @@ const Modales = ({
       setSelectedLanguage(templateLanguage);
     }
   };
+
+  /**
+   * Autocompletar variables cuando la plantilla es de una encuesta.
+   * El link se arma con el id del cliente del chat abierto (o del número
+   * seleccionado) para que la respuesta quede asociada al cliente correcto.
+   */
+  useEffect(() => {
+    if (!numeroModal || !templateName || !id_configuracion) {
+      setEncuestaTpl(null);
+      return;
+    }
+    if (!selectedPhoneNumber && !selectedChat?.id) return;
+
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const { data } = await chatApi.get("encuestas/template_params", {
+          params: {
+            id_configuracion,
+            nombre_template: templateName,
+            telefono: selectedPhoneNumber || "",
+            id_cliente_chat_center: selectedChat?.id || "",
+          },
+        });
+
+        if (cancelado) return;
+
+        const info = data?.data || null;
+        setEncuestaTpl(info);
+
+        if (!info?.parametros?.length) return;
+
+        setPlaceholderValues((prev) => {
+          const next = { ...prev };
+          info.parametros.forEach((p) => {
+            const key = `body_${p.posicion}`;
+            // el link siempre se impone; el resto solo si está vacío
+            if (p.es_link || !String(next[key] || "").trim()) {
+              next[key] = p.valor;
+            }
+          });
+          return next;
+        });
+      } catch (err) {
+        if (!cancelado) setEncuestaTpl(null);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    numeroModal,
+    templateName,
+    selectedPhoneNumber,
+    selectedChat?.id,
+    id_configuracion,
+  ]);
+
+  // Variables del body que corresponden al link de la encuesta (no editables)
+  const encuestaLinkKeys = useMemo(() => {
+    const keys = new Set();
+    (encuestaTpl?.parametros || []).forEach((p) => {
+      if (p.es_link) keys.add(`body_${p.posicion}`);
+    });
+    return keys;
+  }, [encuestaTpl]);
 
   // Función para manejar cambios en el textarea
   const handleTextareaChange = (event) => {
@@ -2853,22 +2927,56 @@ const Modales = ({
                         Información del mensaje
                       </p>
 
-                      {bodyPlaceholders.map((p) => (
-                        <div key={p.key}>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">
-                            {`Valor para {{${p.n}}}`}
-                          </label>
-                          <input
-                            type="text"
-                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
-                  focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                            value={placeholderValues[p.key] || ""}
-                            onChange={(e) =>
-                              handlePlaceholderChange(p.key, e.target.value)
-                            }
-                          />
+                      {encuestaTpl && (
+                        <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 p-2.5">
+                          <i className="fas fa-link mt-0.5 text-blue-600" />
+                          <p className="text-[11px] leading-4 text-blue-900">
+                            Esta plantilla pertenece a la encuesta{" "}
+                            <b>{encuestaTpl.nombre_encuesta}</b>. El enlace se
+                            genera con el identificador de este cliente
+                            (#{encuestaTpl.cliente?.id}), así la respuesta queda
+                            asociada correctamente.
+                          </p>
                         </div>
-                      ))}
+                      )}
+
+                      {bodyPlaceholders.map((p) => {
+                        const esLink = encuestaLinkKeys.has(p.key);
+
+                        return (
+                          <div key={p.key}>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                              {esLink
+                                ? `Enlace de la encuesta {{${p.n}}}`
+                                : `Valor para {{${p.n}}}`}
+                            </label>
+                            <input
+                              type="text"
+                              readOnly={esLink}
+                              title={
+                                esLink
+                                  ? "Se completa automáticamente con el enlace único de este cliente"
+                                  : undefined
+                              }
+                              className={`w-full rounded-xl border p-2.5 text-sm outline-none
+                  focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ${
+                    esLink
+                      ? "border-blue-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                      : "border-slate-300 bg-white text-slate-800"
+                  }`}
+                              value={placeholderValues[p.key] || ""}
+                              onChange={(e) =>
+                                esLink
+                                  ? undefined
+                                  : handlePlaceholderChange(
+                                      p.key,
+                                      e.target.value,
+                                    )
+                              }
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
