@@ -97,7 +97,9 @@ export async function registrarVenta(payload, { signal } = {}) {
     imagenes_urls: Array.isArray(payload.imagenesUrls) ? payload.imagenesUrls : [],
     rol: Number(payload.rol ?? 16),
     tipo_venta: payload.tipoVenta ?? "caliente",
-    enviar_whatsapp: payload.enviarWhatsapp !== false,
+    // Después del pago solo debe salir el webhook de encuesta. La plantilla
+    // automática asociada al producto no se envía desde ChatCenter.
+    enviar_whatsapp: false,
     // Por nombre: la misma etiqueta tiene otro id en cada configuración.
     etiqueta_asesor: payload.etiquetaAsesor || "",
     etiqueta_ciclo: payload.etiquetaCiclo || "",

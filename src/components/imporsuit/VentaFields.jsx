@@ -98,12 +98,6 @@ function SelectorEtiqueta({ label, opciones, value, onChange, placeholder, disab
   );
 }
 
-/**
- * Paquetes con plantilla de WhatsApp aprobada en Meta. Espejo de
- * `PLANTILLA_POR_PRODUCTO` / `PRIORIDAD_PAQUETES` en
- * `Class/RegistroImportacionesWhatsApp.php`.
- */
-const PAQUETES_CON_PLANTILLA = ["ecommerce", "importacion", "kit", "dropsystem"];
 const CONFIGURACIONES_ETIQUETAS = [242, 265];
 
 /**
@@ -173,7 +167,6 @@ const INITIAL_VENTA = {
   // URLs de los comprobantes ya subidos a S3 (uploader.imporfactory.app),
   // igual que en RegistrarPagoForm: al back solo viajan las URLs.
   imagenesUrls: [],
-  enviarWhatsapp: true,
   // Etiquetas de ImporChat. Se aplican en las dos líneas (Ventas y Soporte
   // Importaciones), creándolas si el nombre todavía no existe.
   etiquetaAsesor: "",
@@ -314,9 +307,6 @@ export function VentaFields({ form, disabled }) {
   );
   const cuotas = Number(venta.cuotas) || 1;
   const pendiente = (Number(venta.montoTotal) || 0) - (Number(venta.montoPagado) || 0);
-  const sinPlantilla =
-    productoSel && !PAQUETES_CON_PLANTILLA.includes(productoSel.flagPaquete);
-
   return (
     <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -507,31 +497,6 @@ export function VentaFields({ form, disabled }) {
           disabled={disabled}
         />
       </div>
-
-      <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-emerald-200 bg-white px-3 py-2.5">
-        <input
-          type="checkbox"
-          checked={venta.enviarWhatsapp}
-          onChange={(e) => setCampo("enviarWhatsapp", e.target.checked)}
-          disabled={disabled}
-          className="mt-0.5 h-4 w-4 cursor-pointer accent-emerald-600"
-        />
-        <span>
-          <span className="block text-sm font-semibold text-gray-800">
-            Enviar bienvenida por WhatsApp
-          </span>
-          <span className="mt-0.5 block text-[11px] text-gray-500">
-            Manda la plantilla del producto desde Soporte Importaciones y abre el
-            chat en ImporChat.
-            {sinPlantilla && (
-              <span className="text-amber-700">
-                {" "}
-                Este producto no tiene plantilla aprobada: no se enviará nada.
-              </span>
-            )}
-          </span>
-        </span>
-      </label>
 
       {/* Plan de cuotas: lo que el agente le va a decir al cliente. Se calcula
           igual que en el back, así que es lo que realmente va a quedar. */}

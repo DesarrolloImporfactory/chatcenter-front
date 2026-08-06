@@ -184,7 +184,6 @@ export function CrearUsuarioForm({
       referencia: ventaForm.venta.referencia,
       imagenesUrls: ventaForm.venta.imagenesUrls,
       rol: form.rol ? Number(form.rol) : 16,
-      enviarWhatsapp: ventaForm.venta.enviarWhatsapp,
       etiquetaAsesor: ventaForm.venta.etiquetaAsesor,
       etiquetaCiclo: ventaForm.venta.etiquetaCiclo,
       idPlantilla: idPlantillaActiva,
@@ -241,22 +240,6 @@ export function CrearUsuarioForm({
       toast.success(`Correo enviado: ${mail.nombre_plantilla}`);
     } else if (idPlantillaActiva !== "0" && mail?.motivo) {
       avisos.push(`Correo no enviado: ${mail.motivo}`);
-    }
-
-    const wa = d.whatsapp;
-    if (wa?.enviado && wa?.registrado_en_chat) {
-      toast.success(`WhatsApp enviado (${wa.plantilla})`);
-    } else if (wa?.enviado) {
-      // "Meta lo aceptó" y "quedó en el hilo" fallan por separado: si el
-      // segundo falla, el agente no ve el mensaje y cree que nunca salió.
-      avisos.push(
-        `WhatsApp aceptado por Meta pero NO quedó en el hilo de ImporChat` +
-          (wa.wamid ? ` (id ${wa.wamid})` : ""),
-      );
-    } else if (ventaForm.venta.enviarWhatsapp && wa?.motivo) {
-      const esperado = /ningún paquete/i.test(wa.motivo);
-      if (esperado) toast(`Sin WhatsApp: ${wa.motivo}`, { icon: "📵", duration: 5000 });
-      else avisos.push(`WhatsApp no enviado: ${wa.motivo}`);
     }
 
     if (avisos.length) {
