@@ -228,18 +228,37 @@ export function useVentaForm(activo) {
     });
   };
 
-  /** Mismo reparto que el back: iguales a 2 decimales, residuo en la última. */
+  /**
+   * Mismo reparto que el back. Si el pago supera la cuota uniforme, pasa a
+   * ser la cuota 1 y el saldo se distribuye entre las restantes.
+   */
   const plan = useMemo(() => {
     const total = Number(venta.montoTotal) || 0;
     const n = Math.max(1, Math.min(12, Number(venta.cuotas) || 1));
     if (total <= 0) return [];
 
-    const base = Math.floor((total / n) * 100) / 100;
     const pagado = Number(venta.montoPagado) || 0;
+    const baseNormal = Math.floor((total / n) * 100) / 100;
+    const primeraPersonalizada = n > 1 && pagado > baseNormal + 0.009;
+    const restante = Math.max(0, Math.round((total - pagado) * 100) / 100);
+    const baseRestante =
+      primeraPersonalizada && n > 1
+        ? Math.floor((restante / (n - 1)) * 100) / 100
+        : baseNormal;
 
     return Array.from({ length: n }, (_, i) => {
-      const monto =
-        i === n - 1 ? Math.round((total - base * (n - 1)) * 100) / 100 : base;
+      let monto;
+      if (primeraPersonalizada) {
+        if (i === 0) monto = pagado;
+        else if (i === n - 1)
+          monto = Math.round((restante - baseRestante * (n - 2)) * 100) / 100;
+        else monto = baseRestante;
+      } else {
+        monto =
+          i === n - 1
+            ? Math.round((total - baseNormal * (n - 1)) * 100) / 100
+            : baseNormal;
+      }
 
       if (i > 0) {
         return { numero: i + 1, monto, vence: sumarMeses(venta.fechaCompra, i) };
@@ -285,13 +304,8 @@ export function useVentaForm(activo) {
     if (pagado > total) return "Lo pagado no puede superar al total";
     if (n === 1 && pagado > 0 && Math.abs(pagado - total) > 0.009)
       return "De contado, lo pagado debe ser igual al total (o divide en cuotas)";
-    // El abono se aplica SOBRE LA CUOTA 1 y el back rechaza pagar más que su
-    // pendiente. Si adelantó dos cuotas, la segunda se registra aparte.
-    if (n > 1) {
-      const cuota1 = Math.floor((total / n) * 100) / 100;
-      if (pagado > cuota1 + 0.009)
-        return `Lo pagado no puede superar la cuota 1 (${cuota1.toFixed(2)}); el resto se registra como otro pago`;
-    }
+    if (n > 1 && total > 0 && Math.abs(pagado - total) <= 0.009)
+      return "Si ya pagó el total, selecciona 1 cuota (de contado)";
 
     return null;
   };
@@ -428,7 +442,9 @@ export function VentaFields({ form, disabled }) {
             disabled={disabled || cuotas === 1}
           />
           <span className="mt-1 block text-[11px] text-gray-500">
-            {cuotas === 1 ? "De contado se iguala al total" : "Normalmente la cuota 1"}
+            {cuotas === 1
+              ? "De contado se iguala al total"
+              : "Si supera la cuota normal, este valor será la cuota 1 y el saldo se repartirá"}
           </span>
         </Field>
 
