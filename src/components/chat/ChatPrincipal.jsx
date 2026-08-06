@@ -630,10 +630,22 @@ const ChatPrincipal = ({
       ...String(texto_mensaje || "").matchAll(/{{(.*?)}}/g),
     ].map((m) => String(m[1]));
 
-    const parametrosBody = placeholdersBody.map((clave) => ({
-      type: "text",
-      text: String(datos[clave] ?? ""), // aquí espera {"1":"asd","2":"42"}
-    }));
+    // El historial tiene tres formatos según quién envió la plantilla:
+    // - webhook/cron: { body_parameters: ["Nancy", "https://..."] }
+    // - PHP nuevo:    { placeholders: { "1": "Nancy", "2": "https://..." } }
+    // - legado:       { "1": "Nancy", "2": "https://..." }
+    const valoresBody =
+      datos?.placeholders && typeof datos.placeholders === "object"
+        ? datos.placeholders
+        : datos;
+    const parametrosBody = placeholdersBody.map((clave) => {
+      const indice = Math.max(0, Number(clave) - 1);
+      const valor = Array.isArray(datos?.body_parameters)
+        ? datos.body_parameters[indice]
+        : valoresBody?.[clave];
+
+      return { type: "text", text: String(valor ?? "") };
+    });
 
     // -------------------------
     // 2) BUTTON URL parameters
@@ -694,7 +706,7 @@ const ChatPrincipal = ({
       type: "template",
       template: {
         name: template_name,
-        language: { code: language_code },
+        language: { code: language_code || datos?.language || "es" },
         components,
       },
     };
