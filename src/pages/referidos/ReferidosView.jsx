@@ -840,7 +840,8 @@ export default function ReferidosView() {
               </h1>
               <p className="mt-1 text-white/55 text-[13px] leading-snug max-w-3xl">
                 Comparte tu enlace. Cada persona que se registre y permanezca te
-                genera comisión mensual a partir de su tercer mes pagado.
+                genera comisión mensual a partir de su tercer mes pagado, y la
+                sigues cobrando mientras siga siendo cliente.
               </p>
 
               <div className="mt-4 flex flex-col sm:flex-row gap-2">
@@ -921,7 +922,7 @@ export default function ReferidosView() {
                   n: 3,
                   titulo: "Desde su tercer mes",
                   texto:
-                    "Recibes el 25% de cada mensualidad que pague. A partir del mes 13, el 10% de forma permanente.",
+                    "Recibes el 25% de cada mensualidad que pague, sin límite de tiempo: mientras siga siendo cliente, sigues cobrando.",
                 },
                 {
                   n: 4,
