@@ -8,6 +8,8 @@ import chatApi from "../../api/chatcenter";
 import useDeudasChats, { correoKey } from "../imporsuit/useDeudasChats";
 import useMembresiasVencidasChats from "../imporsuit/useMembresiasVencidasChats";
 import useFiltroProducto from "../imporsuit/useFiltroProducto";
+import useProgramadosChats from "./useProgramadosChats";
+import { formatFechaProgramada } from "../../services/programados.service";
 import {
   estadoDeuda,
   hayAlertaDeuda,
@@ -830,6 +832,7 @@ function MessageItem({
   selectedChat,
   deudaCartera,
   membresiaVencida,
+  programado,
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const liRef = useRef(null);
@@ -1063,6 +1066,23 @@ function MessageItem({
                   </span>
                 );
               })()}
+            {/* Plantilla ya programada: el asesor tiene que verlo ANTES de
+                abrir el chat, o programa otra encima sin saberlo. */}
+            {Number(programado?.pendientes) > 0 && (
+              <span
+                className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-violet-300 bg-violet-50 px-1.5 py-[1px] text-[8.5px] font-bold leading-none text-violet-700"
+                title={
+                  `${programado.pendientes} plantilla(s) programada(s) para este contacto. ` +
+                  `Próxima: ${programado.proximo_template || "—"} el ${formatFechaProgramada(programado.proxima_fecha)}`
+                }
+              >
+                <i className="bx bx-alarm text-[9px]" />
+                {formatFechaProgramada(programado.proxima_fecha)}
+                {programado.pendientes > 1 && (
+                  <span className="opacity-80">·{programado.pendientes}</span>
+                )}
+              </span>
+            )}
             {Number(membresiaVencida?.vencida) === 1 && (
               <span
                 className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-rose-300 bg-rose-50 px-1.5 py-[1px] text-[8.5px] font-bold leading-none text-rose-700"
@@ -1510,6 +1530,14 @@ export const Sidebar = ({
   );
   const deudasPorCorreo = useDeudasChats(chatsVisibles, id_configuracion);
   const membresiasVencidasPorCorreo = useMembresiasVencidasChats(
+    chatsVisibles,
+    id_configuracion,
+  );
+
+  /* Plantillas ya programadas de los chats a la vista: 1 batch por página.
+     Sin esto el asesor no sabe que a ese contacto ya le va a salir una
+     plantilla y termina mandando otra encima. */
+  const programadosPorChat = useProgramadosChats(
     chatsVisibles,
     id_configuracion,
   );
@@ -2181,6 +2209,7 @@ export const Sidebar = ({
                       correoKey(mensaje?.email_cliente)
                     ]
                   }
+                  programado={programadosPorChat[mensaje.id]}
                 />
               );
             });

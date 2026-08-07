@@ -4,6 +4,8 @@ import ImageWithModal from "./modales/ImageWithModal";
 import EmojiPicker from "emoji-picker-react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import useProgramadosChat from "./useProgramadosChat";
+import { formatFechaProgramada } from "../../services/programados.service";
 
 /* === Player estilo WhatsApp (sin autoplay) + velocidades 1x / 1.5x / 2x === */
 function WaAudioPlayer({ src }) {
@@ -263,9 +265,16 @@ const ChatPrincipal = ({
   loadingTemplates,
   handleMetaTemplateSlashSelect,
   handleCloseMetaSlashMenu,
+  id_configuracion,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
+
+  /* Plantillas ya programadas para ESTE contacto (solo el chat abierto). */
+  const programados = useProgramadosChat(
+    id_configuracion || selectedChat?.id_configuracion,
+    selectedChat?.id,
+  );
 
   // fuera del render (o en un utils):
   const ERROR_MAP = {
@@ -2737,6 +2746,49 @@ const ChatPrincipal = ({
               {/* Botón de scroll al final */}
               <ScrollToBottomButton containerRef={chatContainerRef} />
             </div>
+
+            {/* Plantillas ya programadas para este contacto.
+                Va pegado al input, encima del aviso de 24h: es justo ahí donde
+                el asesor decide mandar la plantilla, y sin este aviso termina
+                duplicándola o programando otra a la misma hora. */}
+            {selectedChat && programados.total > 0 && (
+              <div className="w-full shrink-0 border-t border-violet-300 bg-violet-50 px-4 py-2.5 z-10">
+                <div className="flex items-start gap-2">
+                  <i className="bx bx-alarm mt-[2px] text-[16px] text-violet-600" />
+                  <div className="min-w-0 flex-1 text-[13px] text-violet-900">
+                    <p>
+                      <b>Ya hay un envío programado.</b>{" "}
+                      {programados.resumenTexto}
+                    </p>
+
+                    {programados.total > 1 && (
+                      <ul className="mt-1 space-y-0.5 text-[12px] text-violet-800">
+                        {programados.items.slice(0, 4).map((p, i) => (
+                          <li
+                            key={p.id ?? `${p.uuid_lote}-${i}`}
+                            className="truncate"
+                          >
+                            • {formatFechaProgramada(p.fecha_programada)} —{" "}
+                            <b>{p.nombre_template || "—"}</b>
+                            {p.estado === "procesando" && " (enviándose)"}
+                          </li>
+                        ))}
+                        {programados.items.length > 4 && (
+                          <li className="opacity-70">
+                            y {programados.items.length - 4} más…
+                          </li>
+                        )}
+                      </ul>
+                    )}
+
+                    <p className="mt-1 text-[11.5px] text-violet-700/90">
+                      Revísalo en <b>Contactos → Programados</b> antes de enviar
+                      otra plantilla.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Ventana de 24 horas (UI informativa por canal) */}
             {selectedChat &&

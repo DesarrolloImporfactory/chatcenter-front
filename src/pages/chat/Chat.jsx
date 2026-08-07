@@ -21,6 +21,7 @@ import SwitchBot from "../../components/chat/SwitchBot";
 
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import { aplicarEventoProgramado } from "../../components/chat/programadosChatStore";
 import { useMemo } from "react";
 
 const Chat = () => {
@@ -2575,6 +2576,36 @@ const Chat = () => {
   }, [isSocketConnected, selectedChat, mensajesAcumulados]);
   /* sistema de notificacion cuando se asigne correctamente */
 
+  /* ── Plantillas programadas del chat abierto (tiempo real) ──────────────
+     Se entra al room SOLO del chat que el asesor tiene abierto: escuchar
+     toda la cuenta traería el ruido de los lotes masivos completos. El
+     backend emite PROGRAMADO_ESTADO al crear, cancelar, reprogramar y cuando
+     el cron finalmente envía, así el aviso se limpia solo. */
+  useEffect(() => {
+    const socket = socketRef.current;
+    const idCliente = Number(selectedChat?.id) || null;
+
+    if (!socket || !isSocketConnected || !id_configuracion || !idCliente) {
+      return undefined;
+    }
+
+    const onProgramadoEstado = (evento) => aplicarEventoProgramado(evento);
+
+    socket.emit("JOIN_PROGRAMADOS_CHAT", {
+      id_configuracion,
+      id_cliente_chat_center: idCliente,
+    });
+    socket.on("PROGRAMADO_ESTADO", onProgramadoEstado);
+
+    return () => {
+      socket.off("PROGRAMADO_ESTADO", onProgramadoEstado);
+      socket.emit("LEAVE_PROGRAMADOS_CHAT", {
+        id_configuracion,
+        id_cliente_chat_center: idCliente,
+      });
+    };
+  }, [isSocketConnected, id_configuracion, selectedChat?.id]);
+
   const scrollRef = useRef(null);
   const [cargandoChats, setCargandoChats] = useState(false);
 
@@ -3420,6 +3451,7 @@ const Chat = () => {
         loadingTemplates={loadingTemplates}
         handleMetaTemplateSlashSelect={handleMetaTemplateSlashSelect}
         handleCloseMetaSlashMenu={handleCloseMetaSlashMenu}
+        id_configuracion={id_configuracion}
       />
       <DatosUsuarioModerno
         opciones={opciones}

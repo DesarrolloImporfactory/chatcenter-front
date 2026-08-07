@@ -80,6 +80,14 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   });
   const [tplSearch, setTplSearch] = useState("");
 
+  /* Búsqueda aplicada (con debounce) y si la resolvió Meta.
+     Antes el buscador solo filtraba la página visible: una plantilla que
+     existía pero caía en la página 2 salía como "no encontrada". Ahora la
+     búsqueda va al backend y recorre TODO el portafolio. */
+  const [tplQuery, setTplQuery] = useState("");
+  const [busquedaServidor, setBusquedaServidor] = useState(false);
+  const primeraBusqueda = useRef(true);
+
   const socketRef = useRef(null);
   const numbersCache = useRef({ data: null, portfolio: null, ts: 0 });
   const templatesCache = useRef({
@@ -87,6 +95,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     cursors: null,
     ts: 0,
     limit: null,
+    q: "",
   });
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutos — Meta rate limit dura ~15-20 min, 5 min es seguro
 
@@ -411,6 +420,14 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
 
   const plantillasFiltradas = useMemo(() => {
     if (!tplSearch.trim()) return plantillas;
+
+    /* Si Meta ya devolvió el resultado de esta misma búsqueda, no se vuelve a
+       filtrar acá: el criterio del servidor (nombre o contenido) es más amplio
+       que este matcher y filtrar encima escondería resultados válidos.
+       Mientras el usuario escribe (antes del debounce) sí se filtra local,
+       para que la lista responda al instante. */
+    if (busquedaServidor && tplQuery === tplSearch.trim()) return plantillas;
+
     const q = tplSearch.toLowerCase();
 
     const matchComp = (comp) => {
@@ -434,7 +451,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         comps.some(matchComp)
       );
     });
-  }, [tplSearch, plantillas]);
+  }, [tplSearch, plantillas, busquedaServidor, tplQuery]);
 
   // Carga una página de plantillas con cursores y límite
 
@@ -442,9 +459,12 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     after = null,
     before = null,
     limit = pageLimit,
+    q = tplQuery,
     forceRefresh = false,
   } = {}) => {
     if (!userData || id_configuracion === null) return;
+
+    const busqueda = String(q || "").trim();
 
     // ── Cache hit (solo si no hay paginación ni force) ──
     const now = Date.now();
@@ -454,7 +474,8 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       !isPaginating &&
       templatesCache.current.ts &&
       now - templatesCache.current.ts < CACHE_TTL &&
-      templatesCache.current.limit === limit
+      templatesCache.current.limit === limit &&
+      (templatesCache.current.q || "") === busqueda
     ) {
       setPlantillas(templatesCache.current.data || []);
       setPageCursors(
@@ -488,7 +509,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       setTplLoading(true);
       const resp = await chatApi.post(
         "/whatsapp_managment/obtenerTemplatesWhatsapp",
-        { id_configuracion, after, before, limit },
+        { id_configuracion, after, before, limit, q: busqueda || undefined },
       );
 
       // ── Detectar rate limit ──
@@ -523,6 +544,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
 
       setPlantillas(data);
       setPageCursors(newCursors);
+      setBusquedaServidor(Boolean(resp?.data?.meta?.busqueda_en_servidor));
 
       // ── Guardar en cache ──
       templatesCache.current = {
@@ -530,6 +552,7 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         cursors: newCursors,
         ts: Date.now(),
         limit,
+        q: busqueda,
       };
     } catch (error) {
       console.error("Error al cargar las plantillas:", error);
@@ -574,6 +597,33 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       return () => clearTimeout(timer);
     }
   }, [statusMessage]);
+
+  /* Debounce del buscador: 450ms para no gastar cuota de Meta en cada tecla
+     (el rate limit 80008 de esta pantalla dura 15-20 min). */
+  useEffect(() => {
+    const timer = setTimeout(() => setTplQuery(tplSearch.trim()), 450);
+    return () => clearTimeout(timer);
+  }, [tplSearch]);
+
+  /* La búsqueda la resuelve Meta, así que cada cambio recarga desde la
+     primera página. Se salta el primer render para no duplicar la carga
+     inicial que ya hace el efecto de la pestaña. */
+  useEffect(() => {
+    if (primeraBusqueda.current) {
+      primeraBusqueda.current = false;
+      return;
+    }
+    if (currentTab !== "templates") return;
+
+    fetchPlantillas({
+      after: null,
+      before: null,
+      limit: pageLimit,
+      q: tplQuery,
+      forceRefresh: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tplQuery]);
 
   const handleNextTemplates = () => {
     if (pageCursors.hasNext && pageCursors.after) {
@@ -1066,15 +1116,32 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         subtitle="Crea, revisa el estado de aprobación y consulta el contenido de las plantillas asociadas a tu portafolio de Business Manager"
         right={
           <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-            {/* Buscador local */}
+            {/* Buscador: consulta todo el portafolio, no solo esta página */}
             <div className="flex items-center gap-2 border rounded-xl px-3 py-2 bg-white">
-              <i className="bx bx-search text-gray-500"></i>
+              <i
+                className={`bx text-gray-500 ${
+                  tplLoading && tplQuery
+                    ? "bx-loader-alt animate-spin"
+                    : "bx-search"
+                }`}
+              ></i>
               <input
                 value={tplSearch}
                 onChange={(e) => setTplSearch(e.target.value)}
-                placeholder="Buscar por nombre, idioma, categoría o texto…"
+                placeholder="Buscar en todas las plantillas…"
+                title="Busca por nombre o contenido en todo el portafolio, no solo en la página visible"
                 className="outline-none text-sm min-w-[220px]"
               />
+              {tplSearch && (
+                <button
+                  type="button"
+                  onClick={() => setTplSearch("")}
+                  className="text-gray-400 hover:text-gray-600"
+                  title="Limpiar búsqueda"
+                >
+                  <i className="bx bx-x text-lg" />
+                </button>
+              )}
             </div>
 
             {/* Límite */}
@@ -1314,12 +1381,21 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
               </tr>
             ))}
 
+            {/* Con búsqueda en servidor, "sin resultados" llega como lista
+                vacía: no se puede condicionar a que haya plantillas cargadas
+                o la tabla quedaría en blanco sin explicar nada. */}
             {!tplLoading &&
-              plantillas.length > 0 &&
-              plantillasFiltradas.length === 0 && (
+              tplSearch.trim() !== "" &&
+              plantillasFiltradas.length === 0 &&
+              !rateLimited && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-gray-500">
                     No se encontraron resultados para "{tplSearch}".
+                    <div className="mt-1 text-xs text-gray-400">
+                      {busquedaServidor
+                        ? "Se buscó por nombre y contenido en todo el portafolio."
+                        : "Búsqueda limitada a esta página; usa Siguiente para ver más."}
+                    </div>
                   </td>
                 </tr>
               )}
@@ -1355,7 +1431,9 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         <div className="text-sm text-gray-600">
           {tplLoading
             ? "Cargando…"
-            : `Mostrando ${plantillasFiltradas.length} de ${plantillas.length} en esta página`}
+            : busquedaServidor && tplQuery
+              ? `${plantillasFiltradas.length} resultado(s) para "${tplQuery}" en todo el portafolio`
+              : `Mostrando ${plantillasFiltradas.length} de ${plantillas.length} en esta página`}
         </div>
         <div className="flex items-center gap-2">
           <button

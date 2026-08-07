@@ -2,6 +2,10 @@ import { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import Select, { components } from "react-select";
+import useProgramadosChat from "./useProgramadosChat";
+import { ensureProgramados } from "./programadosChatStore";
+import { invalidarResumenProgramados } from "./useProgramadosChats";
+import { formatFechaProgramada } from "../../services/programados.service";
 
 const Modales = ({
   numeroModal,
@@ -1594,6 +1598,76 @@ const Modales = ({
 
   const [isSendingTemplate, setIsSendingTemplate] = useState(false);
 
+  /* ── Aviso de plantillas ya programadas ──────────────────────────────────
+     Solo aplica cuando el destinatario del modal ES el chat abierto: es ahí
+     donde sabemos su id_cliente_chat_center sin consultar nada extra. Si el
+     asesor escribió otro número, no hay a quién consultarle y no se avisa. */
+  const soloDigitos = (v) => String(v || "").replace(/\D/g, "");
+
+  const idClienteParaAviso = useMemo(() => {
+    if (!selectedChat?.id) return null;
+    const destino = soloDigitos(selectedPhoneNumber);
+    const delChat = soloDigitos(selectedChat?.celular_cliente);
+    if (!destino || !delChat) return null;
+    // Comparación por sufijo: el número del chat puede venir con o sin código.
+    const iguales =
+      destino.endsWith(delChat.slice(-9)) ||
+      delChat.endsWith(destino.slice(-9));
+    return iguales ? selectedChat.id : null;
+  }, [selectedChat?.id, selectedChat?.celular_cliente, selectedPhoneNumber]);
+
+  const programados = useProgramadosChat(id_configuracion, idClienteParaAviso);
+
+  /**
+   * Confirmación explícita cuando el contacto ya tiene plantillas programadas.
+   * @returns {Promise<boolean>} true si se debe continuar.
+   */
+  const confirmarSiHayProgramados = async (accion) => {
+    if (!programados.total) return true;
+
+    const lista = programados.items
+      .slice(0, 5)
+      .map(
+        (p) =>
+          `<li>${formatFechaProgramada(p.fecha_programada)} — <b>${
+            p.nombre_template || "—"
+          }</b>${p.estado === "procesando" ? " (enviándose)" : ""}</li>`,
+      )
+      .join("");
+
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning",
+      title: "Este contacto ya tiene envíos programados",
+      html: `
+        <div style="text-align:left;font-size:13px;line-height:1.5">
+          <p>Si continúas, recibirá <b>otra plantilla además</b> de:</p>
+          <ul style="margin:6px 0 0 16px">${lista}</ul>
+          ${
+            programados.items.length > 5
+              ? `<p style="opacity:.7;margin-top:4px">y ${programados.items.length - 5} más…</p>`
+              : ""
+          }
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText:
+        accion === "programar" ? "Programar igual" : "Enviar igual",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#7c3aed",
+      reverseButtons: true,
+    });
+
+    return isConfirmed;
+  };
+
+  /* Tras programar desde el chat, refrescar el aviso sin esperar al TTL ni al
+     socket: el asesor suele programar dos seguidas y debe ver la primera. */
+  const refrescarProgramadosTrasProgramar = (idCliente) => {
+    if (!id_configuracion || !idCliente) return;
+    invalidarResumenProgramados(id_configuracion, idCliente);
+    ensureProgramados(id_configuracion, idCliente, { force: true });
+  };
+
   // Función para enviar el template a WhatsApp
   const enviarTemplate = async () => {
     if (isSendingTemplate) return;
@@ -1617,6 +1691,8 @@ const Modales = ({
       });
       return;
     }
+
+    if (!(await confirmarSiHayProgramados("enviar"))) return;
 
     // Si el header es media, ahora se exige archivo (ya NO URL)
     const headerIsMedia =
@@ -2157,6 +2233,8 @@ const Modales = ({
         return;
       }
 
+      if (!(await confirmarSiHayProgramados("programar"))) return;
+
       // (Opcional) aviso si está en pasado
       if (testDate.getTime() < Date.now() - 30 * 1000) {
         const confirmPast = await Swal.fire({
@@ -2308,6 +2386,7 @@ const Modales = ({
           confirmButtonText: "OK",
         });
 
+        refrescarProgramadosTrasProgramar(idClienteChatCenter);
         resetNumeroModalState();
         handleNumeroModal();
         return;
@@ -2406,6 +2485,7 @@ const Modales = ({
         confirmButtonText: "OK",
       });
 
+      refrescarProgramadosTrasProgramar(idClienteChatCenter);
       resetNumeroModalState();
       handleNumeroModal();
     } catch (error) {
@@ -3096,6 +3176,45 @@ const Modales = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Aviso de programados vigentes del destinatario: se ve
+                      antes de tocar el botón, no después de haber enviado. */}
+                  {programados.total > 0 && (
+                    <div className="mb-3 rounded-xl border border-violet-300 bg-violet-50 p-3">
+                      <div className="flex items-start gap-2">
+                        <i className="bx bx-alarm mt-[2px] text-[16px] text-violet-600" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-semibold text-violet-900">
+                            Este contacto ya tiene{" "}
+                            {programados.total === 1
+                              ? "una plantilla programada"
+                              : `${programados.total} plantillas programadas`}
+                          </p>
+                          <ul className="mt-1 space-y-0.5 text-[12px] text-violet-800">
+                            {programados.items.slice(0, 4).map((p, i) => (
+                              <li
+                                key={p.id ?? `${p.uuid_lote}-${i}`}
+                                className="truncate"
+                              >
+                                • {formatFechaProgramada(p.fecha_programada)} —{" "}
+                                <b>{p.nombre_template || "—"}</b>
+                                {p.estado === "procesando" && " (enviándose)"}
+                              </li>
+                            ))}
+                            {programados.items.length > 4 && (
+                              <li className="opacity-70">
+                                y {programados.items.length - 4} más…
+                              </li>
+                            )}
+                          </ul>
+                          <p className="mt-1 text-[11.5px] text-violet-700/90">
+                            Si continúas, recibirá esta plantilla <b>además</b>{" "}
+                            de las de arriba.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-center">
                     {!templateReady ? (
