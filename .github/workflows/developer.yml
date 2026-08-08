@@ -1,25 +1,48 @@
-name: Deploy React developer
+name: Deploy staging
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
 
 jobs:
   deploy:
-    name: 🎉 Deploy React App
+    name: Deploy staging bundle
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
 
     steps:
-      - name: 🚚 Get latest code
-        uses: actions/checkout@v3
+      - name: Checkout validated revision
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 2
-      - name: 📝 Copy .gitignore
-        run: cp .gitignore $HOME/.gitignore
-      - name: 📂 Sync folders and files to the server
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build application
+        run: npm run build
+
+      - name: Publish bundle to staging
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
+          local-dir: dist/

@@ -149,7 +149,7 @@ devuelto se manda como `id_asesor` (FK a `users.id_users`).
 
 ### `d:\imporsutipro\.env`
 ```dotenv
-CHATCENTER_API_TOKEN=131e6297e92c8d57bdf00ae82c9ad1db0e3d1394c3941a893da6ca3941ca8f45
+CHATCENTER_API_TOKEN=replace_with_a_rotated_server_side_token
 CHATCENTER_ASESOR_ID=0
 ```
 `CHATCENTER_ASESOR_ID` es solo fallback; las deudas usan el asesor del selector.
@@ -157,7 +157,7 @@ CHATCENTER_ASESOR_ID=0
 ### `d:\chatcenter-front\.env`
 ```dotenv
 VITE_IMPORSUIT_URL=https://new.imporsuitpro.com
-VITE_IMPORSUIT_CHATCENTER_TOKEN=131e6297e92c8d57bdf00ae82c9ad1db0e3d1394c3941a893da6ca3941ca8f45
+VITE_IMPORSUIT_CHATCENTER_TOKEN=do_not_put_server_secrets_in_vite
 ```
 > El token debe ser **idéntico** en ambos. Tras editar el `.env` del front,
 > **reiniciar `npm run dev`** (Vite solo lee env al arrancar).
