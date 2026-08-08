@@ -1,10 +1,13 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import CustomAudioPlayer from "./CustomAudioPlayer";
 import ImageWithModal from "./modales/ImageWithModal";
 import EmojiPicker from "emoji-picker-react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import useProgramadosChat from "./useProgramadosChat";
+import useDefinicionesTemplates from "./useDefinicionesTemplates";
+import TemplateBody from "./TemplateBody";
+import { renderTextoWhatsapp, aplicarVariables } from "../../utils/waFormat";
 import { formatFechaProgramada } from "../../services/programados.service";
 
 /* === Player estilo WhatsApp (sin autoplay) + velocidades 1x / 1.5x / 2x === */
@@ -270,11 +273,10 @@ const ChatPrincipal = ({
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
 
+  const cfgId = id_configuracion || selectedChat?.id_configuracion;
+
   /* Plantillas ya programadas para ESTE contacto (solo el chat abierto). */
-  const programados = useProgramadosChat(
-    id_configuracion || selectedChat?.id_configuracion,
-    selectedChat?.id,
-  );
+  const programados = useProgramadosChat(cfgId, selectedChat?.id);
 
   // fuera del render (o en un utils):
   const ERROR_MAP = {
@@ -1146,6 +1148,19 @@ const ChatPrincipal = ({
 
     const format = String(header.format || "").toUpperCase();
 
+    /* Header de texto: antes se devolvía null y la plantilla perdía su
+       primera línea, que suele ser el título del mensaje. */
+    if (format === "TEXT") {
+      const titulo = String(header.text ?? header.value ?? "").trim();
+      if (!titulo) return null;
+
+      return (
+        <p className="mb-1 font-semibold leading-snug">
+          {renderTextoWhatsapp(titulo)}
+        </p>
+      );
+    }
+
     // Normaliza URL (si guardan relativas, aquí queda listo)
     const normalizeUrl = (u) =>
       !u
@@ -1518,6 +1533,58 @@ const ChatPrincipal = ({
     } catch {
       return {};
     }
+  };
+
+  /* Nombres de plantilla presentes en la conversación (enviadas + programadas).
+     Se resuelven en un solo lote: footer y botones no se guardan con el
+     mensaje, hay que traerlos de la definición del WABA. */
+  const nombresTemplates = useMemo(() => {
+    const out = new Set();
+
+    /* El nombre sale de la columna `template_name` del mensaje, que está
+       poblada en el 100% de los envíos. Dentro de `ruta_archivo` solo viene
+       en algunos (los del cron programado, por ejemplo, no lo guardan ahí),
+       así que la columna es la fuente principal y el JSON el respaldo. */
+    for (const m of Array.isArray(mensajesOrdenados) ? mensajesOrdenados : []) {
+      if (m?.tipo_mensaje !== "template") continue;
+      const info = parseRutaArchivo(m.ruta_archivo);
+      const nombre = m?.template_name || info?.template_name;
+      if (nombre) out.add(String(nombre));
+    }
+
+    for (const p of programados.items) {
+      if (p?.nombre_template) out.add(String(p.nombre_template));
+    }
+
+    return [...out];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mensajesOrdenados, programados.items]);
+
+  const definicionesTpl = useDefinicionesTemplates(cfgId, nombresTemplates);
+
+  /**
+   * Parámetros con los que salieron los botones de un template, sacados del
+   * payload que se le mandó a Meta (`json_mensaje`).
+   *
+   * Es la única fuente que deja reconstruir el enlace EXACTO que le llegó al
+   * cliente: la definición de la plantilla solo trae `.../t/{{1}}` y el valor
+   * (número de guía, ruta del PDF) es de ese envío puntual.
+   *
+   * @returns {Object|null} { "0": "189221610", "1": "..." } por índice de botón
+   */
+  const getButtonParams = (mensaje) => {
+    const payload = safeParseJSON(mensaje?.json_mensaje);
+    const comps = payload?.template?.components;
+    if (!Array.isArray(comps)) return null;
+
+    const out = {};
+    for (const c of comps) {
+      if (String(c?.type).toLowerCase() !== "button") continue;
+      const texto = c?.parameters?.[0]?.text;
+      if (texto == null) continue;
+      out[String(c.index ?? 0)] = String(texto);
+    }
+    return Object.keys(out).length ? out : null;
   };
 
   const getUrlFullItems = (valores) => {
@@ -2213,7 +2280,7 @@ const ChatPrincipal = ({
                             //  Si es edit: solo texto plano
                             mensaje.tipo_mensaje === "edit" ? (
                               <p>
-                                {linkify(
+                                {renderTextoWhatsapp(
                                   (mensaje.texto_mensaje || "").replace(
                                     /^\*[^*]+\*\s*🎤:\s*\r?\n/,
                                     "",
@@ -2224,18 +2291,21 @@ const ChatPrincipal = ({
                             (mensaje.texto_mensaje || "").includes("{{") &&
                               mensaje.ruta_archivo ? (
                               <p>
-                                {(mensaje.texto_mensaje || "").replace(
-                                  /\{\{(.*?)\}\}/g,
-                                  (match, key) => {
-                                    const valores =
-                                      safeParseJSON(mensaje.ruta_archivo) || {};
-                                    return valores[key.trim()] || match;
-                                  },
+                                {renderTextoWhatsapp(
+                                  (mensaje.texto_mensaje || "").replace(
+                                    /\{\{(.*?)\}\}/g,
+                                    (match, key) => {
+                                      const valores =
+                                        safeParseJSON(mensaje.ruta_archivo) ||
+                                        {};
+                                      return valores[key.trim()] || match;
+                                    },
+                                  ),
                                 )}
                               </p>
                             ) : (
                               <p>
-                                {linkify(
+                                {renderTextoWhatsapp(
                                   (mensaje.texto_mensaje || "").replace(
                                     /^\*[^*]+\*\s*🎤:\s*\r?\n/,
                                     "",
@@ -2290,8 +2360,20 @@ const ChatPrincipal = ({
                               const placeholders =
                                 getTemplatePlaceholders(valoresRaw);
 
-                              // Detecta header
-                              const header = valoresRaw?.header;
+                              /* Footer y botones no viajan con el mensaje: se
+                                 toman de la definición del WABA. Si no está
+                                 resuelta, se pinta igual que antes. */
+                              const def =
+                                definicionesTpl[
+                                  mensaje?.template_name ||
+                                    valoresRaw?.template_name
+                                ] || null;
+
+                              // Detecta header. Si el envío no guardó ninguno,
+                              // se cae al de la plantilla (Meta manda el suyo).
+                              const header =
+                                valoresRaw?.header ||
+                                (def?.header?.format ? def.header : null);
 
                               //si hay header, lo muestra arriba
                               const headerNode = renderTemplateHeader(header);
@@ -2314,44 +2396,14 @@ const ChatPrincipal = ({
                               });
 
                               return (
-                                <div className="space-y-2">
-                                  {/* ✅ HEADER (imagen/video/document/location) */}
-                                  {headerNode}
-
-                                  {/* ✅ BODY */}
-                                  {textoRender ? <p>{textoRender}</p> : null}
-
-                                  {/* ✅ LINKS FULL */}
-                                  {urlFullItems.length > 0 && (
-                                    <div className="mt-2 flex flex-col gap-2">
-                                      {urlFullItems.map((it) => (
-                                        <a
-                                          key={it.key}
-                                          href={it.url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="
-                                              inline-flex items-center justify-between gap-3
-                                              rounded-xl border border-slate-200 bg-white/70
-                                              px-3 py-2 text-sm
-                                              hover:bg-slate-50 transition
-                                              shadow-sm
-                                            "
-                                        >
-                                          <span className="inline-flex items-center gap-2 text-slate-700 font-semibold">
-                                            <i className="bx bx-link-external text-lg text-blue-600" />
-                                            {it.label}
-                                          </span>
-
-                                          <span className="text-xs text-blue-600 font-semibold">
-                                            Ver
-                                            <i className="bx bx-chevron-right text-base align-middle ml-1" />
-                                          </span>
-                                        </a>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                <TemplateBody
+                                  headerNode={headerNode}
+                                  texto={textoRender}
+                                  footer={def?.footer}
+                                  buttons={def?.buttons}
+                                  urlFullItems={urlFullItems}
+                                  buttonParams={getButtonParams(mensaje)}
+                                />
                               );
                             })()
                           ) : mensaje.tipo_mensaje === "audio" ? (
@@ -2743,6 +2795,92 @@ const ChatPrincipal = ({
                 return items;
               })()}
 
+              {/* ── Plantillas programadas: se pintan como el mensaje que van
+                  a ser, al final de la conversación y en el lado del asesor.
+                  Van punteadas y con el reloj para que no se confundan con un
+                  mensaje ya enviado. ── */}
+              {programados.items.map((p, idx) => {
+                const def = definicionesTpl[p.nombre_template] || null;
+
+                // El body real sale de la definición; las variables, de lo que
+                // se guardó al programar.
+                const cuerpo = aplicarVariables(
+                  def?.text || "",
+                  p.template_parameters_json,
+                );
+
+                /* Header: manda el que se cargó al programar; si no se cargó
+                   ninguno, la plantilla igual sale con el suyo por defecto,
+                   así que se usa el de la definición. */
+                const headerInfo = p.header_format
+                  ? {
+                      format: p.header_format,
+                      media_url: p.header_media_url,
+                      media_name: p.header_media_name,
+                      value: aplicarVariables(
+                        def?.header?.text || "",
+                        p.header_parameters_json,
+                      ),
+                    }
+                  : def?.header?.format
+                    ? {
+                        format: def.header.format,
+                        media_url: def.header.media_url,
+                        value: aplicarVariables(
+                          def.header.text || "",
+                          p.header_parameters_json,
+                        ),
+                      }
+                    : null;
+
+                const headerNode = renderTemplateHeader(headerInfo);
+
+                return (
+                  <div
+                    key={`prog-${p.id ?? `${p.uuid_lote}-${idx}`}`}
+                    className="mb-3 flex justify-end px-2"
+                  >
+                    <div className="max-w-[80%] md:max-w-[70%]">
+                      <div className="mb-1 flex items-center justify-end gap-1.5 text-[11px] font-semibold text-violet-700">
+                        <i className="bx bx-alarm text-[13px]" />
+                        {p.estado === "procesando"
+                          ? "Enviándose ahora…"
+                          : `Se enviará el ${formatFechaProgramada(p.fecha_programada)}`}
+                      </div>
+
+                      <div className="relative rounded-2xl border-2 border-dashed border-violet-300 bg-violet-50/70 px-4 py-3 text-slate-700 shadow-sm">
+                        {def ? (
+                          <TemplateBody
+                            headerNode={headerNode}
+                            texto={cuerpo}
+                            footer={def.footer}
+                            buttons={def.buttons}
+                            compacto
+                          />
+                        ) : (
+                          /* Definición no resuelta (caché fría o sin permisos):
+                             se muestra al menos qué plantilla va a salir. */
+                          <p className="text-[13px] italic text-slate-500">
+                            Plantilla <b>{p.nombre_template}</b> — no se pudo
+                            cargar la vista previa.
+                          </p>
+                        )}
+
+                        <div className="mt-2 flex items-center gap-1.5 border-t border-violet-200 pt-1.5 text-[10.5px] text-violet-700/80">
+                          <i className="bx bx-purchase-tag text-[12px]" />
+                          <span className="truncate">{p.nombre_template}</span>
+                          {p.timezone && (
+                            <span className="ml-auto shrink-0 opacity-70">
+                              {p.timezone}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
               {/* Botón de scroll al final */}
               <ScrollToBottomButton containerRef={chatContainerRef} />
             </div>
@@ -2752,41 +2890,22 @@ const ChatPrincipal = ({
                 el asesor decide mandar la plantilla, y sin este aviso termina
                 duplicándola o programando otra a la misma hora. */}
             {selectedChat && programados.total > 0 && (
-              <div className="w-full shrink-0 border-t border-violet-300 bg-violet-50 px-4 py-2.5 z-10">
-                <div className="flex items-start gap-2">
-                  <i className="bx bx-alarm mt-[2px] text-[16px] text-violet-600" />
-                  <div className="min-w-0 flex-1 text-[13px] text-violet-900">
-                    <p>
-                      <b>Ya hay un envío programado.</b>{" "}
-                      {programados.resumenTexto}
-                    </p>
-
-                    {programados.total > 1 && (
-                      <ul className="mt-1 space-y-0.5 text-[12px] text-violet-800">
-                        {programados.items.slice(0, 4).map((p, i) => (
-                          <li
-                            key={p.id ?? `${p.uuid_lote}-${i}`}
-                            className="truncate"
-                          >
-                            • {formatFechaProgramada(p.fecha_programada)} —{" "}
-                            <b>{p.nombre_template || "—"}</b>
-                            {p.estado === "procesando" && " (enviándose)"}
-                          </li>
-                        ))}
-                        {programados.items.length > 4 && (
-                          <li className="opacity-70">
-                            y {programados.items.length - 4} más…
-                          </li>
-                        )}
-                      </ul>
+              <div className="z-10 flex w-full shrink-0 items-center gap-2 border-t border-violet-300 bg-violet-50 px-4 py-2 text-[12.5px] text-violet-900">
+                <i className="bx bx-alarm text-[15px] text-violet-600" />
+                <span className="min-w-0 flex-1 truncate">
+                  {programados.total === 1
+                    ? "1 plantilla programada"
+                    : `${programados.total} plantillas programadas`}{" "}
+                  · próxima{" "}
+                  <b>
+                    {formatFechaProgramada(
+                      programados.proximo?.fecha_programada,
                     )}
-
-                    <p className="mt-1 text-[11.5px] text-violet-700/90">
-                      Revísalo en <b>Contactos → Programados</b> antes de enviar
-                      otra plantilla.
-                    </p>
-                  </div>
-                </div>
+                  </b>
+                </span>
+                <span className="shrink-0 text-[11px] text-violet-700/80">
+                  se ven al final del chat ↓
+                </span>
               </div>
             )}
 

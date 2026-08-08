@@ -509,7 +509,17 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
       setTplLoading(true);
       const resp = await chatApi.post(
         "/whatsapp_managment/obtenerTemplatesWhatsapp",
-        { id_configuracion, after, before, limit, q: busqueda || undefined },
+        {
+          id_configuracion,
+          after,
+          before,
+          limit,
+          q: busqueda || undefined,
+          /* Avisa al backend que tire su caché de plantillas de este WABA.
+             Se manda justo cuando el cliente acabó de crear o eliminar una,
+             para que el chat y el cron no sigan viendo la lista vieja. */
+          refrescar: forceRefresh || undefined,
+        },
       );
 
       // ── Detectar rate limit ──

@@ -10,6 +10,7 @@ import useMembresiasVencidasChats from "../imporsuit/useMembresiasVencidasChats"
 import useFiltroProducto from "../imporsuit/useFiltroProducto";
 import useProgramadosChats from "./useProgramadosChats";
 import { formatFechaProgramada } from "../../services/programados.service";
+import { limpiarFormatoWhatsapp } from "../../utils/waFormat";
 import {
   estadoDeuda,
   hayAlertaDeuda,
@@ -114,6 +115,9 @@ function expandirTemplate(texto = "", ruta_archivo, limite = 90) {
       /* ignore */
     }
   }
+  /* El preview es de una línea y no admite nodos, pero tampoco debe mostrar
+     los marcadores crudos de WhatsApp (*negrita*, _cursiva_). */
+  out = limpiarFormatoWhatsapp(out);
   return out.length > limite ? `${out.substring(0, limite)}…` : out;
 }
 
