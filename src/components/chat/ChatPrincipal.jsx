@@ -5,6 +5,8 @@ import EmojiPicker from "emoji-picker-react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import useProgramadosChat from "./useProgramadosChat";
+import { ensureProgramados } from "./programadosChatStore";
+import { invalidarResumenProgramados } from "./useProgramadosChats";
 import useDefinicionesTemplates from "./useDefinicionesTemplates";
 import TemplateBody from "./TemplateBody";
 import { renderTextoWhatsapp, aplicarVariables } from "../../utils/waFormat";
@@ -269,6 +271,7 @@ const ChatPrincipal = ({
   handleMetaTemplateSlashSelect,
   handleCloseMetaSlashMenu,
   id_configuracion,
+  id_sub_usuario,
 }) => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
@@ -277,6 +280,73 @@ const ChatPrincipal = ({
 
   /* Plantillas ya programadas para ESTE contacto (solo el chat abierto). */
   const programados = useProgramadosChat(cfgId, selectedChat?.id);
+
+  const [cancelandoProgramado, setCancelandoProgramado] = useState(null);
+
+  /**
+   * Cancela UN envío programado, solo para este contacto.
+   *
+   * Cancelar el lote entero no sirve acá: el asesor está mirando un chat y el
+   * lote puede tener cientos de destinatarios que sí deben recibirlo.
+   */
+  const cancelarProgramado = async (p) => {
+    if (!p?.id || !cfgId || cancelandoProgramado) return;
+
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning",
+      title: "¿Cancelar este envío?",
+      html: `
+        <div style="text-align:left;font-size:13px;line-height:1.5">
+          <p>No se le enviará <b>${p.nombre_template || "—"}</b> a este contacto
+          el ${formatFechaProgramada(p.fecha_programada)}.</p>
+          <p style="margin-top:6px;opacity:.75">
+            El resto del lote no se toca: los demás destinatarios lo siguen
+            recibiendo.
+          </p>
+        </div>`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, cancelar este",
+      cancelButtonText: "Volver",
+      confirmButtonColor: "#dc2626",
+      reverseButtons: true,
+    });
+
+    if (!isConfirmed) return;
+
+    setCancelandoProgramado(p.id);
+    try {
+      const { data } = await chatApi.post(
+        "/whatsapp_managment/programados_cancelar_item",
+        {
+          id: p.id,
+          id_configuracion: cfgId,
+          origen: "chat",
+          id_sub_usuario: id_sub_usuario || null,
+        },
+      );
+
+      if (!data?.ok) {
+        // Caso típico: el cron lo tomó justo antes (ya está 'procesando').
+        await Swal.fire({
+          icon: "info",
+          title: "No se pudo cancelar",
+          text: data?.msg || "El mensaje ya cambió de estado.",
+        });
+      }
+
+      // Se refresca igual, haya salido bien o no: el estado real cambió.
+      await ensureProgramados(cfgId, selectedChat?.id, { force: true });
+      invalidarResumenProgramados(cfgId, selectedChat?.id);
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al cancelar",
+        text: err?.response?.data?.msg || err?.message || "Intenta de nuevo.",
+      });
+    } finally {
+      setCancelandoProgramado(null);
+    }
+  };
 
   // fuera del render (o en un utils):
   const ERROR_MAP = {
@@ -2875,6 +2945,29 @@ const ChatPrincipal = ({
                             </span>
                           )}
                         </div>
+
+                        {/* Cancelar SOLO este envío. Mientras el cron ya lo
+                            tomó ('procesando') no se puede: el mensaje está
+                            saliendo. */}
+                        {p.estado === "pendiente" && p.id && (
+                          <button
+                            type="button"
+                            onClick={() => cancelarProgramado(p)}
+                            disabled={cancelandoProgramado === p.id}
+                            className="mt-1.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-white/70 px-2 py-1.5 text-[12px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <i
+                              className={`bx text-[14px] ${
+                                cancelandoProgramado === p.id
+                                  ? "bx-loader-alt animate-spin"
+                                  : "bx-x-circle"
+                              }`}
+                            />
+                            {cancelandoProgramado === p.id
+                              ? "Cancelando…"
+                              : "Cancelar este envío"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

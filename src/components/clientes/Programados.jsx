@@ -146,6 +146,36 @@ const Programados = () => {
     return new Date(date).toLocaleString();
   };
 
+  /**
+   * Datos de la cancelación individual, si la hubo.
+   *
+   * El backend los deja en `meta_json.cancelado` cuando se cancela UN envío
+   * (típicamente desde el chat, sobre el contacto abierto). Sirve para
+   * distinguirlo de un lote cancelado entero: en el lote se ve que a ese
+   * cliente lo sacaron a mano y desde dónde.
+   */
+  const infoCancelacion = (item) => {
+    if (item?.estado !== "cancelado") return null;
+
+    let meta = item?.meta_json;
+    if (typeof meta === "string") {
+      try {
+        meta = JSON.parse(meta);
+      } catch {
+        return null;
+      }
+    }
+
+    const c = meta?.cancelado;
+    if (!c) return null;
+
+    return {
+      origen: c.origen || "manual",
+      at: c.at || null,
+      id_sub_usuario: c.id_sub_usuario ?? null,
+    };
+  };
+
   const getResumenLote = (lote) => {
     const total = lote.items.length;
     const enviados = lote.items.filter((i) => i.estado === "enviado").length;
@@ -846,6 +876,27 @@ const Programados = () => {
                             </div>
                           )}
                         </div>
+                        {/* Cancelado uno a uno (no el lote entero): se marca
+                            de dónde salió para que no parezca que el lote se
+                            canceló completo. */}
+                        {(() => {
+                          const c = infoCancelacion(item);
+                          if (!c) return null;
+                          return (
+                            <div className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[10.5px] font-medium text-slate-600">
+                              <i className="bx bx-x-circle text-[12px]" />
+                              {c.origen === "chat"
+                                ? "Cancelado desde el chat"
+                                : `Cancelado (${c.origen})`}
+                              {c.at && (
+                                <span className="opacity-70">
+                                  · {formatDate(c.at)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                         {item.estado === "error" && item.error_message && (
                           <details className="mt-1">
                             <summary className="text-[11px] text-red-500 cursor-pointer hover:underline">

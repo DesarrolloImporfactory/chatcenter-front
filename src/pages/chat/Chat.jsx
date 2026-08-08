@@ -3452,6 +3452,7 @@ const Chat = () => {
         handleMetaTemplateSlashSelect={handleMetaTemplateSlashSelect}
         handleCloseMetaSlashMenu={handleCloseMetaSlashMenu}
         id_configuracion={id_configuracion}
+        id_sub_usuario={id_sub_usuario_global}
       />
       <DatosUsuarioModerno
         opciones={opciones}
