@@ -1,10 +1,9 @@
-name: Deploy staging
+name: Deploy development
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  push:
+    branches: [develop]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,17 +14,14 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy staging bundle
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    name: Build and deploy development
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: staging
+    environment: development
 
     steps:
-      - name: Checkout validated revision
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -36,13 +32,23 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Build application
+      - name: Build development application
+        env:
+          VITE_socket: https://developer.imporfactory.app
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY_TEST: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY_TEST }}
+          VITE_IMPORSUIT_URL: ${{ secrets.VITE_IMPORSUIT_URL }}
+          VITE_IMPORSUIT_CHATCENTER_TOKEN: ${{ secrets.VITE_IMPORSUIT_CHATCENTER_TOKEN }}
         run: npm run build
 
-      - name: Publish bundle to staging
+      - name: Publish bundle to development
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
           local-dir: dist/
+          server-dir: dist/
+
+      - name: Verify development site
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://dev.imporfactory.app/ > /dev/null
