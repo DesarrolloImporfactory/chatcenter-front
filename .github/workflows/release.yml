@@ -40,7 +40,7 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" "chatcenter-front-${GITHUB_REF_NAME}.tar.gz" --generate-notes --verify-tag
 
       - name: Publish bundle to production
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
