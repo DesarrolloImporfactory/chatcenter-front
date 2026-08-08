@@ -23,24 +23,47 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Detect development command
+        id: development-command
+        shell: bash
+        run: |
+          message="$(git log -1 --pretty=%B)"
+          mode=deploy
+
+          if grep --quiet --ignore-case '\[dev:off\]' <<< "$message"; then
+            mode=off
+          elif grep --quiet --ignore-case '\[dev:on\]' <<< "$message"; then
+            mode=on
+          elif grep --quiet --ignore-case '\[dev:skip\]' <<< "$message"; then
+            mode=skip
+          fi
+
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Development command: $mode"
+
       - name: Set up Node.js
+        if: steps.development-command.outputs.mode == 'deploy' || steps.development-command.outputs.mode == 'on'
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Install locked dependencies
+        if: steps.development-command.outputs.mode == 'deploy' || steps.development-command.outputs.mode == 'on'
         run: npm ci --no-audit --no-fund
 
       - name: Create development environment file
+        if: steps.development-command.outputs.mode == 'deploy' || steps.development-command.outputs.mode == 'on'
         env:
           DEV_FRONT_ENV: ${{ secrets.DEV_FRONT_ENV }}
         run: printf '%s\n' "$DEV_FRONT_ENV" > .env
 
       - name: Build development application
+        if: steps.development-command.outputs.mode == 'deploy' || steps.development-command.outputs.mode == 'on'
         run: npm run build
 
       - name: Configure development SSH key
+        if: steps.development-command.outputs.mode != 'skip'
         env:
           DEV_SSH_PRIVATE_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
         run: |
@@ -50,7 +73,17 @@ jobs:
           printf '%s\n' '98.91.50.83 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIqqEOVvNtSMXGB74E/IAHp50rZSfIaZ9DEBvP7TPfnv' > ~/.ssh/known_hosts
 
       - name: Publish bundle to development
+        if: steps.development-command.outputs.mode == 'deploy' || steps.development-command.outputs.mode == 'on'
         run: rsync --archive --compress --delete --delay-updates dist/ deployfront@98.91.50.83:/var/www/devfront/dist/
 
+      - name: Start development socket
+        if: steps.development-command.outputs.mode == 'on'
+        run: ssh deployfront@98.91.50.83 sudo /usr/local/sbin/reload-devsocket
+
+      - name: Stop development socket
+        if: steps.development-command.outputs.mode == 'off'
+        run: ssh deployfront@98.91.50.83 sudo /usr/local/sbin/stop-devsocket
+
       - name: Verify development site
+        if: steps.development-command.outputs.mode == 'deploy' || steps.development-command.outputs.mode == 'on'
         run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://dev.imporfactory.app/ > /dev/null
