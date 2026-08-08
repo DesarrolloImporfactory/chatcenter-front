@@ -32,23 +32,25 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Build development application
+      - name: Create development environment file
         env:
-          VITE_socket: https://developer.imporfactory.app
-          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
-          VITE_STRIPE_PUBLISHABLE_KEY_TEST: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY_TEST }}
-          VITE_IMPORSUIT_URL: ${{ secrets.VITE_IMPORSUIT_URL }}
-          VITE_IMPORSUIT_CHATCENTER_TOKEN: ${{ secrets.VITE_IMPORSUIT_CHATCENTER_TOKEN }}
+          DEV_FRONT_ENV: ${{ secrets.DEV_FRONT_ENV }}
+        run: printf '%s\n' "$DEV_FRONT_ENV" > .env
+
+      - name: Build development application
         run: npm run build
 
+      - name: Configure development SSH key
+        env:
+          DEV_SSH_PRIVATE_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEV_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' '98.91.50.83 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIqqEOVvNtSMXGB74E/IAHp50rZSfIaZ9DEBvP7TPfnv' > ~/.ssh/known_hosts
+
       - name: Publish bundle to development
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          local-dir: dist/
-          server-dir: dist/
+        run: rsync --archive --compress --delete --delay-updates dist/ deployfront@98.91.50.83:/var/www/devfront/dist/
 
       - name: Verify development site
         run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://dev.imporfactory.app/ > /dev/null
