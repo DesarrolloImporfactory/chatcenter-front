@@ -28,6 +28,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Create production environment file
+        env:
+          PROD_FRONT_ENV: ${{ secrets.PROD_FRONT_ENV }}
+        run: printf '%s\n' "$PROD_FRONT_ENV" > .env
+
       - name: Build application
         run: npm run build
 
@@ -39,10 +44,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" "chatcenter-front-${GITHUB_REF_NAME}.tar.gz" --generate-notes --verify-tag
 
+      - name: Configure production SSH key
+        env:
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' '98.91.50.83 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIqqEOVvNtSMXGB74E/IAHp50rZSfIaZ9DEBvP7TPfnv' > ~/.ssh/known_hosts
+
       - name: Publish bundle to production
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: dist/
+        run: |
+          rsync --archive --compress --delete --delay-updates --backup \
+            --backup-dir="/var/www/chatcenter-front/releases/${GITHUB_REF_NAME}" \
+            dist/ deploychatcenter@98.91.50.83:/var/www/chatcenter-front/dist/
+
+      - name: Verify production site
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://chatcenter.imporfactory.app/ > /dev/null
