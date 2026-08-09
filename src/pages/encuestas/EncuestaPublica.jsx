@@ -543,11 +543,11 @@ export default function EncuestaPublica() {
                             WhatsApp
                             <span className="text-red-400 ml-0.5">*</span>
                           </label>
-                          <div className="flex gap-2">
+                          <div className="grid grid-cols-[124px_minmax(0,1fr)] gap-2">
                             <select
                               value={codigoPais}
                               onChange={(e) => setCodigoPais(e.target.value)}
-                              className={`${inputCls} w-[124px] shrink-0 pr-2`}
+                              className={`${inputCls} !w-[124px] pr-2`}
                               aria-label="Código de país"
                             >
                               {PAISES.map((p) => (
@@ -564,7 +564,7 @@ export default function EncuestaPublica() {
                                 setTelefono(e.target.value);
                                 if (errorTelefono) setErrorTelefono(null);
                               }}
-                              className={`${inputCls} ${
+                              className={`${inputCls} min-w-0 ${
                                 errorTelefono
                                   ? "border-red-300 bg-red-50/40 focus:border-red-400 focus:ring-red-100"
                                   : ""
