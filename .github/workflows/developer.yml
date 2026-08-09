@@ -43,7 +43,7 @@ jobs:
 
       - name: Set up Node.js
         if: steps.development-command.outputs.mode == 'deploy' || steps.development-command.outputs.mode == 'on'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
