@@ -569,7 +569,7 @@ export default function EncuestaPublica() {
                                   ? "border-red-300 bg-red-50/40 focus:border-red-400 focus:ring-red-100"
                                   : ""
                               }`}
-                              placeholder="0987654321"
+                              placeholder="987654321"
                               autoComplete="tel"
                             />
                           </div>
@@ -930,9 +930,7 @@ export default function EncuestaPublica() {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={
-                      submitting || (esSatisfaccion && !selectedScore)
-                    }
+                    disabled={submitting || (esSatisfaccion && !selectedScore)}
                     className={`w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-sm font-bold transition-all duration-200 ${
                       submitting || (esSatisfaccion && !selectedScore)
                         ? "bg-gray-100 text-gray-300 cursor-not-allowed"
@@ -956,9 +954,7 @@ export default function EncuestaPublica() {
                 </>
               )}
 
-            {submitted && (
-              <ThankYouState score={selectedScore} copy={copy} />
-            )}
+            {submitted && <ThankYouState score={selectedScore} copy={copy} />}
           </div>
         </div>
 
