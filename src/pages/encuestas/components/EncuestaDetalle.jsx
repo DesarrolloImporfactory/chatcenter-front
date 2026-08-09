@@ -14,6 +14,14 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
   const [tab, setTab] = useState("respuestas");
   const [activa, setActiva] = useState(enc.activa);
 
+  // Nombre y descripción se editan desde Configuración. Se guardan aquí para
+  // que la cabecera se actualice al guardar, sin esperar a que la lista de
+  // encuestas se vuelva a cargar al salir.
+  const [datos, setDatos] = useState({
+    nombre: enc.nombre,
+    descripcion: enc.descripcion,
+  });
+
   // Filtros server-side
   const [filtroEstado, setFiltroEstado] = useState(null);
   const [busqueda, setBusqueda] = useState("");
@@ -160,11 +168,11 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="font-bold text-gray-800 text-xl">{enc.nombre}</h2>
+            <h2 className="font-bold text-gray-800 text-xl">{datos.nombre}</h2>
             <TipoBadge tipo={enc.tipo} />
           </div>
-          {enc.descripcion && (
-            <p className="text-xs text-gray-400 mt-0.5">{enc.descripcion}</p>
+          {datos.descripcion && (
+            <p className="text-xs text-gray-400 mt-0.5">{datos.descripcion}</p>
           )}
         </div>
         <button
@@ -442,7 +450,12 @@ export default function EncuestaDetalle({ enc, idConfig, onBack }) {
       )}
 
       {tab === "config" && (
-        <ConfigPanel enc={enc} idConfig={idConfig} onUpdated={fetchStats} />
+        <ConfigPanel
+          enc={enc}
+          idConfig={idConfig}
+          onUpdated={fetchStats}
+          onDatosGuardados={setDatos}
+        />
       )}
     </div>
   );

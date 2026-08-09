@@ -41,6 +41,28 @@ const EMOJIS = [
 ];
 
 /**
+ * Códigos de país para el link público. Misma lista que el registro
+ * (`pages/register/Register.jsx`): son los países donde hay clientes.
+ */
+const PAISES = [
+  { code: "+593", flag: "🇪🇨", name: "Ecuador" },
+  { code: "+57", flag: "🇨🇴", name: "Colombia" },
+  { code: "+51", flag: "🇵🇪", name: "Perú" },
+  { code: "+52", flag: "🇲🇽", name: "México" },
+  { code: "+56", flag: "🇨🇱", name: "Chile" },
+  { code: "+54", flag: "🇦🇷", name: "Argentina" },
+  { code: "+55", flag: "🇧🇷", name: "Brasil" },
+  { code: "+58", flag: "🇻🇪", name: "Venezuela" },
+  { code: "+591", flag: "🇧🇴", name: "Bolivia" },
+  { code: "+595", flag: "🇵🇾", name: "Paraguay" },
+  { code: "+598", flag: "🇺🇾", name: "Uruguay" },
+  { code: "+507", flag: "🇵🇦", name: "Panamá" },
+  { code: "+506", flag: "🇨🇷", name: "Costa Rica" },
+  { code: "+34", flag: "🇪🇸", name: "España" },
+  { code: "+1", flag: "🇺🇸", name: "USA" },
+];
+
+/**
  * Los textos cambian según el tipo de encuesta.
  *
  * `satisfaccion` se responde DESPUÉS de una conversación, así que habla en
@@ -159,7 +181,17 @@ export default function EncuestaPublica() {
   const [respuestas, setRespuestas] = useState({});
   const [errores, setErrores] = useState({});
 
+  // Link público (sin ?cid=): nadie sabe quién está respondiendo. El teléfono
+  // es lo único que permite asociar estas respuestas con el chat del cliente,
+  // así que ahí sí es obligatorio.
+  const [codigoPais, setCodigoPais] = useState("+593");
+  const [telefono, setTelefono] = useState("");
+  const [nombreContacto, setNombreContacto] = useState("");
+  const [errorTelefono, setErrorTelefono] = useState(null);
+  const [errorEnvio, setErrorEnvio] = useState(null);
+
   const isPreview = cid === "preview";
+  const requiereTelefono = data?.requiere_telefono === true;
 
   const esSatisfaccion = data?.encuesta?.tipo === "satisfaccion";
   const copy = esSatisfaccion ? COPY.satisfaccion : COPY.lead;
@@ -208,9 +240,25 @@ export default function EncuestaPublica() {
     fetchEncuesta();
   }, [fetchEncuesta]);
 
+  /** Dígitos del número local, sin el 0 de marcación nacional. */
+  const telefonoDigitos = telefono.replace(/\D/g, "").replace(/^0+/, "");
+
   const handleSubmit = async () => {
     if (submitting) return;
     if (esSatisfaccion && !selectedScore) return;
+
+    // El teléfono se valida primero: sin él la respuesta no se puede asociar
+    // a ningún chat, así que no tiene sentido dejar avanzar el envío.
+    if (requiereTelefono && telefonoDigitos.length < 6) {
+      setErrorTelefono(
+        "Escribe tu número de WhatsApp para poder registrar tu respuesta",
+      );
+      document
+        .getElementById("bloque-contacto")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setErrorTelefono(null);
 
     // Validar las obligatorias antes de enviar
     const faltantes = {};
@@ -234,18 +282,50 @@ export default function EncuestaPublica() {
     }
 
     setSubmitting(true);
+    setErrorEnvio(null);
     try {
-      await chatApi.post(`encuestas_publico/publica/${idEncuesta}/responder`, {
-        cid: cid || null,
-        score: selectedScore,
-        respuestas: {
-          ...respuestas,
-          ...(selectedScore ? { score: selectedScore } : {}),
+      const res = await chatApi.post(
+        `encuestas_publico/publica/${idEncuesta}/responder`,
+        {
+          cid: cid || null,
+          score: selectedScore,
+          respuestas: {
+            ...respuestas,
+            ...(selectedScore ? { score: selectedScore } : {}),
+          },
+          // Solo el link público manda contacto: con cid el backend ya sabe
+          // de quién es la respuesta.
+          ...(requiereTelefono
+            ? {
+                telefono: telefonoDigitos,
+                codigo_pais: codigoPais,
+                nombre: nombreContacto.trim() || null,
+              }
+            : {}),
         },
-      });
+      );
+
+      // El cooldown de la encuesta solo se puede comprobar al enviar cuando el
+      // cliente se identifica con el teléfono: ya respondió hace poco.
+      if (res.data?.ya_respondida) {
+        setData((prev) => ({ ...prev, ya_respondida: true }));
+        return;
+      }
+
       setSubmitted(true);
     } catch (err) {
       console.error(err);
+      const payload = err.response?.data;
+      if (payload?.campo === "telefono") {
+        setErrorTelefono(payload.error);
+        document
+          .getElementById("bloque-contacto")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        setErrorEnvio(
+          payload?.error || "No pudimos enviar tu respuesta, intenta de nuevo",
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -410,6 +490,97 @@ export default function EncuestaPublica() {
                             </span>
                           </div>
                         ))}
+                    </div>
+                  )}
+
+                  {/* Contacto: solo en el link público. Sin teléfono no hay
+                      forma de unir la respuesta con el chat del cliente, por
+                      eso es obligatorio y va antes que las preguntas. */}
+                  {requiereTelefono && (
+                    <div
+                      id="bloque-contacto"
+                      className={`mb-5 sm:mb-6 rounded-2xl border p-4 ${
+                        errorTelefono
+                          ? "border-red-200 bg-red-50/40"
+                          : "border-gray-100 bg-gray-50/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                          <i className="bx bxl-whatsapp text-emerald-600 text-base" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold text-gray-700 leading-tight">
+                            ¿Cómo te contactamos?
+                          </p>
+                          <p className="text-[10px] text-gray-400 leading-snug">
+                            Necesitamos tu WhatsApp para registrar tu respuesta
+                            y darte seguimiento.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                            Tu nombre{" "}
+                            <span className="text-gray-300 font-normal">
+                              (opcional)
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            value={nombreContacto}
+                            onChange={(e) => setNombreContacto(e.target.value)}
+                            className={inputCls}
+                            placeholder="Nombre y apellido"
+                            autoComplete="name"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                            WhatsApp
+                            <span className="text-red-400 ml-0.5">*</span>
+                          </label>
+                          <div className="flex gap-2">
+                            <select
+                              value={codigoPais}
+                              onChange={(e) => setCodigoPais(e.target.value)}
+                              className={`${inputCls} w-[124px] shrink-0 pr-2`}
+                              aria-label="Código de país"
+                            >
+                              {PAISES.map((p) => (
+                                <option key={p.code} value={p.code}>
+                                  {p.flag} {p.code}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="tel"
+                              inputMode="numeric"
+                              value={telefono}
+                              onChange={(e) => {
+                                setTelefono(e.target.value);
+                                if (errorTelefono) setErrorTelefono(null);
+                              }}
+                              className={`${inputCls} ${
+                                errorTelefono
+                                  ? "border-red-300 bg-red-50/40 focus:border-red-400 focus:ring-red-100"
+                                  : ""
+                              }`}
+                              placeholder="0987654321"
+                              autoComplete="tel"
+                            />
+                          </div>
+                          {errorTelefono && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                              <i className="bx bx-error-circle" />
+                              {errorTelefono}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -746,6 +917,15 @@ export default function EncuestaPublica() {
                         />
                       </div>
                     )}
+
+                  {errorEnvio && (
+                    <div className="mb-3 px-3.5 py-2.5 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2">
+                      <i className="bx bx-error-circle text-red-400 text-sm mt-0.5" />
+                      <span className="text-[11px] text-red-600 leading-snug">
+                        {errorEnvio}
+                      </span>
+                    </div>
+                  )}
 
                   <button
                     type="button"

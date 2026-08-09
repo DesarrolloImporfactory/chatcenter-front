@@ -246,6 +246,17 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
                 <code className="block bg-white border border-violet-200 rounded-lg px-3 py-2 text-[10px] text-gray-600 font-mono break-all select-all">
                   {`${window.location.origin}/encuesta-publica/${created.id_encuesta}?cid={id_cliente}`}
                 </code>
+
+                {/* Mismo formulario sin ?cid=: para compartir en redes, QR o
+                    grupos. Ahí la encuesta le pide el WhatsApp al cliente. */}
+                <p className="text-[10px] text-violet-700/90 leading-relaxed mt-3 mb-1">
+                  Y este es el <strong>link público</strong>, para compartirlo
+                  con quien sea. Le pide el WhatsApp al cliente para poder
+                  asociar sus respuestas a su chat:
+                </p>
+                <code className="block bg-white border border-violet-200 rounded-lg px-3 py-2 text-[10px] text-gray-600 font-mono break-all select-all">
+                  {`${window.location.origin}/encuesta-publica/${created.id_encuesta}`}
+                </code>
                 <button
                   type="button"
                   onClick={() =>

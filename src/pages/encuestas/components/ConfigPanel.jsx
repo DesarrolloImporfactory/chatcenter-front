@@ -12,7 +12,17 @@ import {
 const DEFAULT_MENSAJE =
   "¡Hola {nombre}! 🙏\n\nGracias por comunicarte con nosotros. Nos encantaría saber cómo fue tu experiencia:\n\n👉 {link}\n\n¡Solo toma 10 segundos!";
 
-export default function ConfigPanel({ enc, idConfig, onUpdated }) {
+export default function ConfigPanel({
+  enc,
+  idConfig,
+  onUpdated,
+  onDatosGuardados,
+}) {
+  // Nombre y descripción: hasta ahora solo se podían cambiar en la BD.
+  const [nombre, setNombre] = useState(enc.nombre || "");
+  const [descripcion, setDescripcion] = useState(enc.descripcion || "");
+  const [savingDatos, setSavingDatos] = useState(false);
+
   const [cooldown, setCooldown] = useState(enc.cooldown_horas);
   const [delay, setDelay] = useState(enc.delay_envio_minutos);
   const [autoEnviar, setAutoEnviar] = useState(enc.auto_enviar_al_cerrar === 1);
@@ -54,6 +64,44 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
     () => enc.tipo !== "satisfaccion" || mensaje.includes("{link}"),
     [mensaje, enc.tipo],
   );
+
+  const handleSaveDatos = async () => {
+    const limpio = nombre.trim();
+    if (!limpio) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Ponle un nombre",
+        text: "La encuesta necesita un nombre para identificarla.",
+      });
+    }
+
+    setSavingDatos(true);
+    try {
+      await chatApi.put(`encuestas/${enc.id}`, {
+        id_configuracion: idConfig,
+        nombre: limpio,
+        descripcion: descripcion.trim(),
+      });
+      // La cabecera del detalle vive en el componente padre: se le avisa para
+      // que muestre el nombre nuevo sin recargar toda la lista.
+      onDatosGuardados?.({ nombre: limpio, descripcion: descripcion.trim() });
+      Swal.fire({
+        icon: "success",
+        title: "Datos guardados",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+      onUpdated?.();
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al guardar",
+        text: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setSavingDatos(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!mensajeTieneLink) return;
@@ -195,6 +243,70 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
 
   return (
     <div className="space-y-5">
+      {/* ═══ Datos de la encuesta ═══ */}
+      <div className={`${cardCls} overflow-hidden`}>
+        <div className="px-6 pt-5 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+              <i className="bx bx-edit text-slate-600 text-base" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-800">
+                Datos de la encuesta
+              </h4>
+              <p className="text-[10px] text-gray-400">
+                El nombre y la descripción los ve el cliente en la cabecera del
+                formulario
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-5 space-y-3">
+          <div>
+            <label className={labelCls}>Nombre</label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              className={inputCls}
+              placeholder="Club de Importadores"
+              maxLength={120}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Descripción</label>
+            <textarea
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              rows={2}
+              className={`${inputCls} resize-none`}
+              placeholder="Cuéntanos un poco de ti para poder acompañarte mejor"
+              maxLength={300}
+            />
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              Déjala vacía si no quieres que aparezca nada bajo el título.
+            </p>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-end">
+          <button
+            onClick={handleSaveDatos}
+            disabled={savingDatos}
+            className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all shadow-sm hover:shadow disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {savingDatos ? (
+              <span className="flex items-center gap-2">
+                <i className="bx bx-loader-alt bx-spin" /> Guardando...
+              </span>
+            ) : (
+              "Guardar datos"
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* ═══ 🆕 Preguntas de la encuesta (todos los tipos) ═══ */}
       <div className={`${cardCls} overflow-hidden`}>
         <div className="px-6 pt-5 pb-4 border-b border-gray-100">
@@ -244,6 +356,36 @@ export default function ConfigPanel({ enc, idConfig, onUpdated }) {
                 <code className="bg-gray-100 px-1 py-0.5 rounded font-semibold text-gray-600">
                   {"{link_encuesta}"}
                 </code>
+              </span>
+            </div>
+          </div>
+
+          {/* Link público: el mismo formulario, pero sin ?cid=. Como no hay
+              cliente al que asociarlo, la encuesta le pide el WhatsApp y con
+              ese número se busca o se crea el contacto. */}
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <label className={labelCls}>
+              Link público para compartir con quien sea
+            </label>
+            <div className="flex gap-1.5">
+              <code className="flex-1 bg-emerald-50/60 border border-emerald-200 rounded-xl px-3.5 py-2.5 text-[11px] text-emerald-800 font-mono break-all select-all">
+                {linkPublico}
+              </code>
+              <CopyButton textToCopy={linkPublico} copyKey="link_publico" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => window.open(linkPublico, "_blank")}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition-all shadow-sm"
+              >
+                <i className="bx bx-share-alt text-xs" />
+                Abrir el link público
+              </button>
+              <span className="text-[10px] text-gray-400 leading-snug">
+                Sirve para redes, bio, QR o grupos. Al no venir de un chat, le
+                pide el WhatsApp con código de país al cliente y con ese número
+                la respuesta se asocia a su contacto.
               </span>
             </div>
           </div>
