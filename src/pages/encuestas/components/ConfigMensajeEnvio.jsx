@@ -90,13 +90,273 @@ function detectarTipo(valor) {
   return "custom";
 }
 
+const inputCls =
+  "w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:bg-white outline-none transition-all";
+const labelCls =
+  "block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5";
+
+/**
+ * Mapeo de las variables {{N}} de UNA plantilla.
+ *
+ * Vive aparte porque lo usan los dos bloques: la plantilla del envío
+ * automático y cada una de las plantillas adicionales que llevan el link.
+ * El estado de "custom" es local a propósito — es solo para saber si mostrar
+ * el input de texto libre mientras el valor sigue vacío.
+ */
+function MapeoVariables({ variablesCount, params, onChangeParams, idEncuesta }) {
+  const [customManual, setCustomManual] = useState({});
+
+  const updateParam = (idx, val) => {
+    const next = [...params];
+    next[idx] = val;
+    onChangeParams(next);
+  };
+
+  /**
+   * Cambia el tipo de la variable {{N}}:
+   *  - placeholder fijo ({nombre}, etc.)  → guarda esa key, desmarca custom
+   *  - "custom"                            → marca custom manualmente, valor vacío
+   *  - "" (vacío)                          → desmarca custom, valor vacío
+   */
+  const cambiarTipoParam = (idx, tipo) => {
+    if (tipo === "custom") {
+      setCustomManual((prev) => ({ ...prev, [idx]: true }));
+      if (PLACEHOLDER_KEYS.includes(params[idx])) {
+        updateParam(idx, "");
+      }
+    } else if (tipo === "") {
+      setCustomManual((prev) => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+      updateParam(idx, "");
+    } else {
+      setCustomManual((prev) => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+      updateParam(idx, tipo);
+    }
+  };
+
+  /**
+   * Tipo efectivo a mostrar en el dropdown:
+   *  - Si el valor es un placeholder → ese placeholder
+   *  - Si tiene texto libre (no placeholder) → "custom"
+   *  - Si está vacío pero el usuario eligió custom manualmente → "custom"
+   *  - Si está vacío y no eligió nada → ""
+   */
+  const tipoEfectivo = (idx) => {
+    const valor = params[idx];
+    const detectado = detectarTipo(valor);
+    if (detectado) return detectado;
+    if (customManual[idx]) return "custom";
+    return "";
+  };
+
+  if (!variablesCount) return null;
+
+  return (
+    <div className="space-y-2.5">
+      {Array.from({ length: variablesCount }, (_, idx) => {
+        const p = params[idx] || "";
+        const tipo = tipoEfectivo(idx);
+        const esCustom = tipo === "custom";
+        return (
+          <div
+            key={idx}
+            className="bg-white border border-gray-200 rounded-xl p-3 hover:border-orange-200 transition-colors"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 text-[11px] font-mono font-bold">
+                {`{{${idx + 1}}}`}
+              </span>
+              <span className="text-[10px] text-gray-400">→</span>
+              <select
+                value={tipo}
+                onChange={(e) => cambiarTipoParam(idx, e.target.value)}
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none"
+              >
+                <option value="">— Seleccionar —</option>
+                <optgroup label="Datos del lead (webhook)">
+                  {PLACEHOLDERS.map((ph) => (
+                    <option key={ph.key} value={ph.key}>
+                      {ph.label} ({ph.key})
+                    </option>
+                  ))}
+                </optgroup>
+                <option value="custom">Texto fijo personalizado</option>
+              </select>
+            </div>
+
+            {/* Si es custom, mostrar input para escribir */}
+            {esCustom && (
+              <input
+                type="text"
+                value={p}
+                onChange={(e) => updateParam(idx, e.target.value)}
+                placeholder="Escribe el texto fijo..."
+                className={`${inputCls} text-xs py-1.5`}
+                autoFocus
+              />
+            )}
+
+            {/* Mini preview del valor que tomará */}
+            {tipo && tipo !== "custom" && (
+              <div className="text-[10px] text-gray-500 ml-2 break-all">
+                Ejemplo:{" "}
+                <span className="font-semibold text-gray-700">
+                  {resolverPreview(tipo, idEncuesta)}
+                </span>
+              </div>
+            )}
+            {esCustom && p && (
+              <div className="text-[10px] text-gray-500 ml-2 mt-1">
+                Se enviará tal cual:{" "}
+                <span className="font-semibold text-gray-700">"{p}"</span>
+              </div>
+            )}
+            {esCustom && !p && (
+              <div className="text-[10px] text-amber-600 ml-2 mt-1 flex items-center gap-1">
+                <i className="bx bx-error-circle" />
+                Escribe el texto que reemplazará{" "}
+                <code className="font-mono font-bold">{`{{${idx + 1}}}`}</code>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Una plantilla adicional que también reparte el link de la encuesta.
+ *
+ * No se envía sola: sirve para que, cuando un asesor la elija en el modal de
+ * plantillas del chat, el link salga ya resuelto con el ?cid= del cliente
+ * —igual que pasa con la plantilla del envío automático—.
+ */
+function PlantillaLinkCard({
+  entry,
+  templates,
+  usados,
+  idEncuesta,
+  onChange,
+  onRemove,
+}) {
+  const tpl = useMemo(
+    () => templates.find((t) => t.name === entry.nombre_template) || null,
+    [templates, entry.nombre_template],
+  );
+
+  const params = Array.isArray(entry.template_parameters)
+    ? entry.template_parameters
+    : [];
+
+  // Al cambiar de plantilla, los parámetros se ajustan a SUS variables:
+  // arrastrar los de la anterior mandaría valores en posiciones que ya no
+  // significan lo mismo.
+  const cambiarTemplate = (name) => {
+    const nuevo = templates.find((t) => t.name === name) || null;
+    const needed = nuevo?.variables_count || 0;
+    onChange({
+      nombre_template: name,
+      template_parameters: Array.from(
+        { length: needed },
+        (_, i) => params[i] || "",
+      ),
+    });
+  };
+
+  const disponibles = templates.filter(
+    (t) => t.name === entry.nombre_template || !usados.has(t.name),
+  );
+
+  const preview = useMemo(() => {
+    if (!tpl) return "";
+    let text = tpl.body_text;
+    params.forEach((p, i) => {
+      text = text.replace(`{{${i + 1}}}`, resolverPreview(p, idEncuesta) || "[vacío]");
+    });
+    return text;
+  }, [tpl, params, idEncuesta]);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-3 space-y-2.5">
+      <div className="flex items-center gap-2">
+        <select
+          value={entry.nombre_template}
+          onChange={(e) => cambiarTemplate(e.target.value)}
+          className={`${inputCls} bg-white text-xs py-1.5`}
+        >
+          <option value="">— Elegir plantilla —</option>
+          {disponibles.map((t) => (
+            <option key={`${t.name}_${t.language}`} value={t.name}>
+              {t.status !== "APPROVED" ? "⏳ " : ""}
+              {t.name} ({t.language})
+              {t.variables_count > 0 ? ` · ${t.variables_count} var` : ""}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={onRemove}
+          title="Quitar esta plantilla"
+          className="shrink-0 px-2 py-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+        >
+          <i className="bx bx-trash text-base" />
+        </button>
+      </div>
+
+      {tpl && (
+        <p className="text-[11px] text-gray-600 whitespace-pre-wrap font-mono bg-gray-50 border border-gray-200 rounded-lg p-2">
+          {tpl.body_text}
+        </p>
+      )}
+
+      {tpl && tpl.variables_count > 0 && (
+        <MapeoVariables
+          variablesCount={tpl.variables_count}
+          params={params}
+          onChangeParams={(next) =>
+            onChange({ ...entry, template_parameters: next })
+          }
+          idEncuesta={idEncuesta}
+        />
+      )}
+
+      {tpl && tpl.variables_count === 0 && (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+          <i className="bx bx-error-circle mr-1" />
+          Esta plantilla no tiene variables, así que no hay dónde poner el link.
+        </p>
+      )}
+
+      {preview && (
+        <div className="bg-violet-50 border border-violet-100 rounded-lg p-2.5">
+          <p className="text-[10px] font-bold text-violet-700 uppercase tracking-widest mb-1">
+            Preview
+          </p>
+          <p className="text-[11px] text-gray-800 whitespace-pre-wrap">
+            {preview}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Configuración de envío automático para encuestas webhook_lead.
  *
  * Props:
  *   idConfig    — id_configuracion (requerido)
  *   idEncuesta  — id de la encuesta, para construir el preview del link
- *   value       — { mensaje_dentro_24h, template_fuera_24h, template_parameters }
+ *   value       — { mensaje_dentro_24h, template_fuera_24h, template_parameters,
+ *                   plantillas_link }
  *   onChange    — (next) => void
  */
 export default function ConfigMensajeEnvio({
@@ -111,17 +371,13 @@ export default function ConfigMensajeEnvio({
   const [stateMeta, setStateMeta] = useState(null);
   const [focusedTextarea, setFocusedTextarea] = useState(false);
 
-  /**
-   * 🆕 Estado local: por cada índice de variable, marca si el usuario eligió
-   * "custom" aunque el valor esté vacío. Así el input de texto libre se
-   * mantiene visible mientras escribe, y no colapsa al dropdown vacío.
-   */
-  const [customManual, setCustomManual] = useState({});
-
   const mensaje = value?.mensaje_dentro_24h || "";
   const templateName = value?.template_fuera_24h || "";
   const params = Array.isArray(value?.template_parameters)
     ? value.template_parameters
+    : [];
+  const plantillasLink = Array.isArray(value?.plantillas_link)
+    ? value.plantillas_link
     : [];
 
   // ── Cargar templates ──
@@ -220,7 +476,6 @@ export default function ConfigMensajeEnvio({
       if (params.length > 0) {
         onChange({ ...value, template_parameters: [] });
       }
-      setCustomManual({});
       return;
     }
 
@@ -239,57 +494,19 @@ export default function ConfigMensajeEnvio({
 
   const update = (patch) => onChange({ ...value, ...patch });
 
-  const updateParam = (idx, val) => {
-    const next = [...params];
-    next[idx] = val;
-    update({ template_parameters: next });
-  };
+  // Nombres ya ocupados: la principal y las adicionales ya elegidas. Repetir
+  // una plantilla dejaría dos mapeos distintos para el mismo nombre y el
+  // backend se quedaría con el primero que encuentre.
+  const usados = useMemo(() => {
+    const set = new Set(plantillasLink.map((p) => p.nombre_template));
+    if (templateName) set.add(templateName);
+    return set;
+  }, [plantillasLink, templateName]);
 
-  /**
-   * Cambia el tipo de la variable {{N}}:
-   *  - placeholder fijo ({nombre}, etc.)  → guarda esa key, desmarca custom
-   *  - "custom"                            → marca custom manualmente, valor vacío
-   *  - "" (vacío)                          → desmarca custom, valor vacío
-   */
-  const cambiarTipoParam = (idx, tipo) => {
-    if (tipo === "custom") {
-      // Marcar custom manualmente; conservar valor existente si ya era texto libre
-      setCustomManual((prev) => ({ ...prev, [idx]: true }));
-      // Si el valor actual era un placeholder, limpiarlo para empezar texto libre
-      if (PLACEHOLDER_KEYS.includes(params[idx])) {
-        updateParam(idx, "");
-      }
-    } else if (tipo === "") {
-      setCustomManual((prev) => {
-        const next = { ...prev };
-        delete next[idx];
-        return next;
-      });
-      updateParam(idx, "");
-    } else {
-      // placeholder fijo
-      setCustomManual((prev) => {
-        const next = { ...prev };
-        delete next[idx];
-        return next;
-      });
-      updateParam(idx, tipo);
-    }
-  };
-
-  /**
-   * Tipo efectivo a mostrar en el dropdown:
-   *  - Si el valor es un placeholder → ese placeholder
-   *  - Si tiene texto libre (no placeholder) → "custom"
-   *  - Si está vacío pero el usuario eligió custom manualmente → "custom"
-   *  - Si está vacío y no eligió nada → ""
-   */
-  const tipoEfectivo = (idx) => {
-    const valor = params[idx];
-    const detectado = detectarTipo(valor);
-    if (detectado) return detectado;
-    if (customManual[idx]) return "custom";
-    return "";
+  const updatePlantillaLink = (idx, next) => {
+    const lista = [...plantillasLink];
+    lista[idx] = next;
+    update({ plantillas_link: lista });
   };
 
   const insertPlaceholderEnTextarea = (placeholder) => {
@@ -308,11 +525,6 @@ export default function ConfigMensajeEnvio({
     });
     return text;
   }, [selectedTpl, params, idEncuesta]);
-
-  const inputCls =
-    "w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:bg-white outline-none transition-all";
-  const labelCls =
-    "block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5";
 
   return (
     <div className="space-y-5">
@@ -484,75 +696,12 @@ export default function ConfigMensajeEnvio({
             </p>
           </div>
 
-          <div className="space-y-2.5">
-            {params.map((p, idx) => {
-              const tipo = tipoEfectivo(idx);
-              const esCustom = tipo === "custom";
-              return (
-                <div
-                  key={idx}
-                  className="bg-white border border-gray-200 rounded-xl p-3 hover:border-orange-200 transition-colors"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 text-[11px] font-mono font-bold">
-                      {`{{${idx + 1}}}`}
-                    </span>
-                    <span className="text-[10px] text-gray-400">→</span>
-                    <select
-                      value={tipo}
-                      onChange={(e) => cambiarTipoParam(idx, e.target.value)}
-                      className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none"
-                    >
-                      <option value="">— Seleccionar —</option>
-                      <optgroup label="Datos del lead (webhook)">
-                        {PLACEHOLDERS.map((ph) => (
-                          <option key={ph.key} value={ph.key}>
-                            {ph.label} ({ph.key})
-                          </option>
-                        ))}
-                      </optgroup>
-                      <option value="custom">Texto fijo personalizado</option>
-                    </select>
-                  </div>
-
-                  {/* Si es custom, mostrar input para escribir */}
-                  {esCustom && (
-                    <input
-                      type="text"
-                      value={p}
-                      onChange={(e) => updateParam(idx, e.target.value)}
-                      placeholder="Escribe el texto fijo..."
-                      className={`${inputCls} text-xs py-1.5`}
-                      autoFocus
-                    />
-                  )}
-
-                  {/* Mini preview del valor que tomará */}
-                  {tipo && tipo !== "custom" && (
-                    <div className="text-[10px] text-gray-500 ml-2 break-all">
-                      Ejemplo:{" "}
-                      <span className="font-semibold text-gray-700">
-                        {resolverPreview(tipo, idEncuesta)}
-                      </span>
-                    </div>
-                  )}
-                  {esCustom && p && (
-                    <div className="text-[10px] text-gray-500 ml-2 mt-1">
-                      Se enviará tal cual:{" "}
-                      <span className="font-semibold text-gray-700">"{p}"</span>
-                    </div>
-                  )}
-                  {esCustom && !p && (
-                    <div className="text-[10px] text-amber-600 ml-2 mt-1 flex items-center gap-1">
-                      <i className="bx bx-error-circle" />
-                      Escribe el texto que reemplazará{" "}
-                      <code className="font-mono font-bold">{`{{${idx + 1}}}`}</code>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <MapeoVariables
+            variablesCount={selectedTpl.variables_count}
+            params={params}
+            onChangeParams={(next) => update({ template_parameters: next })}
+            idEncuesta={idEncuesta}
+          />
 
           {previewTemplate && (
             <div className="mt-3 bg-violet-50 border border-violet-100 rounded-xl p-3">
@@ -564,6 +713,61 @@ export default function ConfigMensajeEnvio({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ════════ Otras plantillas que reparten el link ════════ */}
+      {templates.length > 0 && (
+        <div>
+          <label className={labelCls}>
+            <i className="bx bx-copy text-blue-500 mr-1" />
+            Otras plantillas que llevan el link ({plantillasLink.length})
+          </label>
+
+          <div className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 mb-3">
+            <p className="text-[11px] text-blue-800 leading-relaxed">
+              <i className="bx bx-info-circle mr-1" />
+              Estas <strong>no se envían solas</strong>: son las plantillas que
+              un asesor manda a mano desde el chat. Al elegirlas en el modal de
+              plantillas, la variable del link se rellena automáticamente con la
+              URL de esta encuesta y el <code className="font-mono">?cid=</code>{" "}
+              del cliente, igual que la plantilla de aquí arriba.
+            </p>
+          </div>
+
+          <div className="space-y-2.5">
+            {plantillasLink.map((entry, idx) => (
+              <PlantillaLinkCard
+                key={idx}
+                entry={entry}
+                templates={templates}
+                usados={usados}
+                idEncuesta={idEncuesta}
+                onChange={(next) => updatePlantillaLink(idx, next)}
+                onRemove={() =>
+                  update({
+                    plantillas_link: plantillasLink.filter((_, i) => i !== idx),
+                  })
+                }
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              update({
+                plantillas_link: [
+                  ...plantillasLink,
+                  { nombre_template: "", template_parameters: [] },
+                ],
+              })
+            }
+            className="mt-2.5 w-full py-2 rounded-xl border border-dashed border-blue-300 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+          >
+            <i className="bx bx-plus mr-1" />
+            Agregar plantilla
+          </button>
         </div>
       )}
 

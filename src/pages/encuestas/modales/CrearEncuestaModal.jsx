@@ -21,6 +21,7 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
     mensaje_dentro_24h: "",
     template_fuera_24h: "",
     template_parameters: [],
+    plantillas_link: [],
   });
 
   // Estado post-creación
@@ -54,10 +55,16 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
       const res = await chatApi.post("encuestas/crear", payloadCrear);
 
       //  Si es webhook_lead y configuró auto-respuesta, guardarla con PUT
+      const extrasLink = (mensajeEnvio.plantillas_link || []).filter(
+        (p) => p.nombre_template,
+      );
+
       if (
         tipo === "webhook_lead" &&
         res.data?.id_encuesta &&
-        (mensajeEnvio.mensaje_dentro_24h || mensajeEnvio.template_fuera_24h)
+        (mensajeEnvio.mensaje_dentro_24h ||
+          mensajeEnvio.template_fuera_24h ||
+          extrasLink.length > 0)
       ) {
         try {
           await chatApi.put(`encuestas/${res.data.id_encuesta}`, {
@@ -68,6 +75,7 @@ export default function CrearEncuestaModal({ idConfig, onCreated, onClose }) {
               mensajeEnvio.template_parameters?.length > 0
                 ? mensajeEnvio.template_parameters
                 : null,
+            plantillas_link: extrasLink,
           });
         } catch (updErr) {
           console.warn(

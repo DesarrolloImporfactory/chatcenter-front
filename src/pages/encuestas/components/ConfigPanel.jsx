@@ -52,10 +52,30 @@ export default function ConfigPanel({
         params = [];
       }
     }
+    // Plantillas adicionales que reparten el link (solo envío manual)
+    let extras = [];
+    if (enc.plantillas_link) {
+      try {
+        const parsed =
+          typeof enc.plantillas_link === "string"
+            ? JSON.parse(enc.plantillas_link)
+            : enc.plantillas_link;
+        extras = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        extras = [];
+      }
+    }
+
     return {
       mensaje_dentro_24h: enc.mensaje_dentro_24h || "",
       template_fuera_24h: enc.template_fuera_24h || "",
       template_parameters: Array.isArray(params) ? params : [],
+      plantillas_link: extras.map((p) => ({
+        nombre_template: p?.nombre_template || "",
+        template_parameters: Array.isArray(p?.template_parameters)
+          ? p.template_parameters
+          : [],
+      })),
     };
   });
   const [savingEnvio, setSavingEnvio] = useState(false);
@@ -143,6 +163,11 @@ export default function ConfigPanel({
           mensajeEnvio.template_parameters?.length > 0
             ? mensajeEnvio.template_parameters
             : null,
+        // Las que quedaron sin plantilla elegida no se mandan: el backend
+        // las descarta igual, pero así el payload dice lo que se guardó.
+        plantillas_link: (mensajeEnvio.plantillas_link || []).filter(
+          (p) => p.nombre_template,
+        ),
       });
       Swal.fire({
         icon: "success",
