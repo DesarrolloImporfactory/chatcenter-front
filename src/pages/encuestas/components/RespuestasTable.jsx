@@ -6,6 +6,21 @@ import Swal from "sweetalert2";
 
 const CHAT_ROUTE = "/chat";
 
+/**
+ * ¿La respuesta llegó bastante después de que se creó la fila?
+ *
+ * Pasa cuando un lead entra por el webhook (fila 'recibida') y llena el
+ * formulario más tarde: la respuesta se fusiona en esa misma fila, así que la
+ * fecha de la columna es la de entrada, no la de la respuesta. El margen de 5
+ * minutos evita anunciar "Respondió" en el caso normal, donde el cliente
+ * contesta al toque y los dos timestamps son prácticamente el mismo.
+ */
+const respondioDespues = (r) => {
+  if (r.estado !== "respondida" || !r.updated_at || !r.created_at) return false;
+  const diff = new Date(r.updated_at) - new Date(r.created_at);
+  return diff > 5 * 60 * 1000;
+};
+
 export default function RespuestasTable({
   enc,
   respuestas,
@@ -284,6 +299,19 @@ export default function RespuestasTable({
                           minute: "2-digit",
                         })}
                       </span>
+                      {/* Un lead que entró por el webhook y llenó el formulario
+                          días después conserva su fecha de entrada: sin esto,
+                          la fila aparece arriba con una fecha vieja y no se
+                          entiende por qué. */}
+                      {respondioDespues(r) && (
+                        <span className="block mt-1 text-[10px] text-emerald-600 font-semibold">
+                          Respondió{" "}
+                          {new Date(r.updated_at).toLocaleDateString("es-EC", {
+                            day: "2-digit",
+                            month: "short",
+                          })}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
